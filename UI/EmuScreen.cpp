@@ -284,33 +284,9 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!bootAllowStorage(filename))
 		return;
 
-	// We don't want to boot with the wrong game specific config, so wait until info is ready.
-	// TODO: Actually, we read this info again during bootup, so this is not really necessary.
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, GameInfoFlags::PARAM_SFO);
-	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-		return;
-	}
-
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
-	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
-		// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
-		// TODO: Better would be to check that it was loaded successfully.
-		if (!File::Exists(filename / INDEX_FILENAME)) {
-			g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
-		} else {
-			INFO_LOG(Log::Loader, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
-		}
-	}
-
-	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
-	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 	SetAssertCancelCallback(&AssertCancelCallback, this);
 
-	if (!info->id.empty()) {
-		g_Discord.SetPresenceGame(info->GetTitle());
-	} else {
-		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
-	}
+	currentMIPS = &mipsr4k;
 
 	CoreParameter coreParam{};
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
@@ -374,6 +350,24 @@ void EmuScreen::bootGame(const Path &filename) {
 
 // Only call this on successful boot.
 void EmuScreen::bootComplete() {
+	// We don't want to boot with the wrong game specific config, so wait until info is ready.
+	// TODO: Actually, we read this info again during bootup, so this is not really necessary.
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+
+	if (g_paramSFO.IsValid()) {
+		g_Discord.SetPresenceGame(SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::NoLineBreaksOrSpecials));
+	} else {
+		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
+	}
+
+	if (g_paramSFO.IsValid()) {
+		std::string gameTitle = SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::NoLineBreaksOrSpecials, 0, 32);
+		std::string id = g_paramSFO.GetValueString("DISC_ID");
+		extraAssertInfoStr_ = id + " " + gameTitle;
+		SetExtraAssertInfo(extraAssertInfoStr_.c_str());
+	}
+
 	UpdateUIState(UISTATE_INGAME);
 	System_Notify(SystemNotification::BOOT_DONE);
 	System_Notify(SystemNotification::DISASSEMBLY);
@@ -383,9 +377,6 @@ void EmuScreen::bootComplete() {
 		// Don't auto-load savestates in hardcore mode.
 		autoLoad();
 	}
-
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
-	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {

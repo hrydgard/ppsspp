@@ -254,6 +254,8 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 	}
 }
 
+extern const std::string INDEX_FILENAME;
+
 // NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
 static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::string *errorString) {
 	// Default memory settings
@@ -280,6 +282,16 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		}
 		if (LoadParamSFOFromDisc()) {
 			InitMemorySizeForGame();
+		}
+		if (type == IdentifiedFileType::PSP_DISC_DIRECTORY) {
+			// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
+			// TODO: Better would be to check that it was loaded successfully.
+			if (!File::Exists(g_CoreParameter.fileToStart / INDEX_FILENAME)) {
+				auto sc = GetI18NCategory(I18NCat::SCREEN);
+				g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), g_CoreParameter.fileToStart.ToVisualString(), 7.0f);
+			} else {
+				INFO_LOG(Log::Loader, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
+			}
 		}
 		break;
 	case IdentifiedFileType::PSP_PBP:
@@ -319,11 +331,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		gameTitle = SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::NoLineBreaksOrSpecials);
 	}
 
-	std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), gameTitle.c_str());
-	INFO_LOG(Log::Loader, "%s", title.c_str());
-	System_SetWindowTitle(title);
+	const std::string id = g_paramSFO.GetValueString("DISC_ID");
+	const std::string windowTitle = id.empty() ? gameTitle : id + " : " + gameTitle;
+	INFO_LOG(Log::Loader, "%s", windowTitle.c_str());
+	System_SetWindowTitle(windowTitle);
 
-	currentMIPS = &mipsr4k;
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	g_symbolMap = new SymbolMap();
 
