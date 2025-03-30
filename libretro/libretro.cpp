@@ -1474,8 +1474,8 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 
    std::string error_string;
-   if (!PSP_InitStart(coreParam, &error_string))
-   {
+   if (!PSP_InitStart(coreParam)) {
+      // Can't really fail, the errors happen later during InitUpdate
       ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       return false;
    }
