@@ -168,10 +168,12 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 }
 
 void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
-	VkBufferImageCopy copy_region{};
+	VkBufferImageCopy &copy_region = copyBatch->copies.push_uninitialized();
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
 	copy_region.bufferImageHeight = 0;  // 2D
+	copy_region.imageOffset.x = 0;
+	copy_region.imageOffset.y = 0;
 	copy_region.imageOffset.z = depthLayer;
 	copy_region.imageExtent.width = mipWidth;
 	copy_region.imageExtent.height = mipHeight;
@@ -190,7 +192,6 @@ void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *
 		FinishCopyBatch(cmd, copyBatch);
 		copyBatch->buffer = buffer;
 	}
-	copyBatch->copies.push_back(copy_region);
 }
 
 void VulkanTexture::FinishCopyBatch(VkCommandBuffer cmd, TextureCopyBatch *copyBatch) {
