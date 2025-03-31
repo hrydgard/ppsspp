@@ -150,6 +150,7 @@ enum class BackgroundAnimation {
 	RECENT_GAMES = 2,
 	WAVE = 3,
 	MOVING_BACKGROUND = 4,
+	BOUNCING_ICON = 5,
 };
 
 // iOS only
