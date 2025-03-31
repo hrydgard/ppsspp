@@ -92,9 +92,7 @@ struct NativeFPL
 };
 
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
-struct FPL : public KernelObject
-{
-	FPL() : blocks(NULL), nextBlock(0) {}
+struct FPL : public KernelObject {
 	~FPL() {
 		delete [] blocks;
 	}
@@ -148,11 +146,11 @@ struct FPL : public KernelObject
 		Do(p, pausedWaits);
 	}
 
-	NativeFPL nf;
-	bool *blocks;
-	u32 address;
-	int alignedSize;
-	int nextBlock;
+	NativeFPL nf{};
+	bool *blocks = nullptr;
+	u32 address = 0;
+	int alignedSize = 0;
+	int nextBlock = 0;
 	std::vector<FplWaitingThread> waitingThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
 	std::map<SceUID, FplWaitingThread> pausedWaits;
@@ -379,8 +377,7 @@ struct SceKernelVplHeader {
 	}
 };
 
-struct VPL : public KernelObject
-{
+struct VPL : public KernelObject {
 	const char *GetName() override { return nv.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "VPL"; }
@@ -410,8 +407,8 @@ struct VPL : public KernelObject
 		}
 	}
 
-	SceKernelVplInfo nv;
-	u32 address;
+	SceKernelVplInfo nv{};
+	u32 address = 0;
 	std::vector<VplWaitingThread> waitingThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
 	std::map<SceUID, VplWaitingThread> pausedWaits;

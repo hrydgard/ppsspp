@@ -86,7 +86,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_USB,             "USB" },
 };
 
-const char *getWaitTypeName(WaitType type) {
+const char *WaitTypeToString(WaitType type) {
 	for (WaitTypeNames info : waitTypeNames) {
 		if (info.type == type)
 			return info.name;

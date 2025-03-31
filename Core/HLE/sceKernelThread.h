@@ -115,7 +115,7 @@ enum WaitType : int
 	NUM_WAITTYPES
 };
 
-const char *getWaitTypeName(WaitType type);
+const char *WaitTypeToString(WaitType type);
 
 // Suspend wait and timeout while a thread enters a callback.
 typedef void (* WaitBeginCallbackFunc)(SceUID threadID, SceUID prevCallbackId);

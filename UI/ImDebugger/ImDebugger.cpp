@@ -411,7 +411,7 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(ThreadStatusToString(thread.status));
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(getWaitTypeName(thread.waitType));
+			ImGui::TextUnformatted(WaitTypeToString(thread.waitType));
 			ImGui::TableNextColumn();
 			char temp[64];
 			WaitIDToString(thread.waitType, thread.waitID, temp, sizeof(temp));
