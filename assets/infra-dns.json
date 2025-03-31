@@ -17,14 +17,15 @@
 				"group": "MOHH Revival",
 				"url": "https://mohh-revival.pages.dev/"
 			},
-			"dns": "86.223.243.173",
+			"dns": "ablondel.ddns.net",
 			"dyn_dns": "ablondel.ddns.net",
 			"domains": {
-				"pspmoh07.ea.com": "86.223.243.173",
-				"tos.ea.com": "86.223.243.173"
+				"pspmoh07.ea.com": "ablondel.ddns.net",
+				"tos.ea.com": "ablondel.ddns.net"
 			},
 			"score": 5,
 			"known_working_ids": [
+				"ULUS10141",
 				"ULES00557",
 				"ULES00558",
 				"ULES00559",
@@ -34,14 +35,12 @@
 			],
 			"not_working_ids": [],
 			"other_ids": [
-				"ULUS10141",
 				"ULJM05213",
-				"ULUS10141",
 				"NPJH50306"
 			]
 		},
 		{
-			"name": "Medal of Honor 2",
+			"name": "Medal of Honor: Heroes 2",
 			"comment": {
 				"en_US": "Only the menu works!"
 			},
@@ -49,11 +48,11 @@
 				"group": "MOHH Revival",
 				"url": "https://mohh-revival.pages.dev/"
 			},
-			"dns": "86.223.243.173",
+			"dns": "ablondel.ddns.net",
 			"dyn_dns": "ablondel.ddns.net",
 			"domains": {
-				"pspmoh08.ea.com": "86.223.243.173",
-				"tos.ea.com": "86.223.243.173"
+				"pspmoh08.ea.com": "ablondel.ddns.net",
+				"tos.ea.com": "ablondel.ddns.net"
 			},
 			"score": 1,
 			"known_working_ids": [
