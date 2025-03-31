@@ -66,6 +66,7 @@ typedef struct HWND__ *HWND;
 class SymbolMap {
 public:
 	SymbolMap() {}
+
 	void Clear();
 	void SortSymbols();
 

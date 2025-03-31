@@ -86,7 +86,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_USB,             "USB" },
 };
 
-const char *getWaitTypeName(WaitType type) {
+const char *WaitTypeToString(WaitType type) {
 	for (WaitTypeNames info : waitTypeNames) {
 		if (info.type == type)
 			return info.name;
@@ -104,23 +104,6 @@ enum ThreadEventType {
 };
 
 bool __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type);
-
-enum {
-	PSP_THREAD_ATTR_KERNEL       = 0x00001000,
-	PSP_THREAD_ATTR_VFPU         = 0x00004000,
-	PSP_THREAD_ATTR_SCRATCH_SRAM = 0x00008000, // Save/restore scratch as part of context???
-	PSP_THREAD_ATTR_NO_FILLSTACK = 0x00100000, // No filling of 0xff.
-	PSP_THREAD_ATTR_CLEAR_STACK  = 0x00200000, // Clear thread stack when deleted.
-	PSP_THREAD_ATTR_LOW_STACK    = 0x00400000, // Allocate stack from bottom not top.
-	PSP_THREAD_ATTR_USER         = 0x80000000,
-	PSP_THREAD_ATTR_USBWLAN      = 0xa0000000,
-	PSP_THREAD_ATTR_VSH          = 0xc0000000,
-
-	// TODO: Support more, not even sure what all of these mean.
-	PSP_THREAD_ATTR_USER_MASK    = 0xf8f060ff,
-	PSP_THREAD_ATTR_USER_ERASE   = 0x78800000,
-	PSP_THREAD_ATTR_SUPPORTED    = (PSP_THREAD_ATTR_KERNEL | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK | PSP_THREAD_ATTR_CLEAR_STACK | PSP_THREAD_ATTR_LOW_STACK | PSP_THREAD_ATTR_USER)
-};
 
 struct NativeCallback
 {
@@ -171,58 +154,6 @@ public:
 	}
 
 	NativeCallback nc;
-};
-
-#if COMMON_LITTLE_ENDIAN
-typedef WaitType WaitType_le;
-#else
-typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
-#endif
-
-// Real PSP struct, don't change the fields.
-struct SceKernelThreadRunStatus
-{
-	SceSize_le size;
-	u32_le status;
-	s32_le currentPriority;
-	WaitType_le waitType;
-	SceUID_le waitID;
-	s32_le wakeupCount;
-	SceKernelSysClock runForClocks;
-	s32_le numInterruptPreempts;
-	s32_le numThreadPreempts;
-	s32_le numReleases;
-};
-
-// Real PSP struct, don't change the fields.
-struct NativeThread
-{
-	u32_le nativeSize;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-
-	// Threading stuff
-	u32_le attr;
-	u32_le status;
-	u32_le entrypoint;
-	u32_le initialStack;
-	u32_le stackSize;
-	u32_le gpreg;
-
-	s32_le initialPriority;
-	s32_le currentPriority;
-	WaitType_le waitType;
-	SceUID_le waitID;
-	s32_le wakeupCount;
-	s32_le exitStatus;
-	SceKernelSysClock runForClocks;
-	s32_le numInterruptPreempts;
-	s32_le numThreadPreempts;
-	s32_le numReleases;
-};
-
-struct ThreadWaitInfo {
-	u32 waitValue;
-	u32 timeoutPtr;
 };
 
 // Owns outstanding MIPS calls and provides a way to get them by ID.
@@ -344,8 +275,7 @@ public:
 	PSPAction *chainedAction;
 };
 
-class ActionAfterCallback : public PSPAction
-{
+class ActionAfterCallback : public PSPAction {
 public:
 	ActionAfterCallback() {}
 	void run(MipsCall &call) override;
@@ -354,13 +284,11 @@ public:
 		return new ActionAfterCallback;
 	}
 
-	void setCallback(SceUID cbId_)
-	{
+	void setCallback(SceUID cbId_) {
 		cbId = cbId_;
 	}
 
-	void DoState(PointerWrap &p) override
-	{
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("ActionAfterCallback", 1);
 		if (!s)
 			return;
@@ -371,233 +299,172 @@ public:
 	SceUID cbId;
 };
 
-class PSPThread : public KernelObject {
-public:
-	PSPThread() : debug(context) {}
+u32 PSPThread::GetMissingErrorCode() {
+	return SCE_KERNEL_ERROR_UNKNOWN_THID;
+}
 
-	const char *GetName() override { return nt.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "Thread"; }
-	void GetQuickInfo(char *ptr, int size) override {
-		snprintf(ptr, size, "pc= %08x sp= %08x %s %s %s %s %s %s (wt=%i wid=%i wv= %08x )",
-			context.pc, context.r[MIPS_REG_SP],
-			(nt.status & THREADSTATUS_RUNNING) ? "RUN" : "",
-			(nt.status & THREADSTATUS_READY) ? "READY" : "",
-			(nt.status & THREADSTATUS_WAIT) ? "WAIT" : "",
-			(nt.status & THREADSTATUS_SUSPEND) ? "SUSPEND" : "",
-			(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
-			(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
-			(int)nt.waitType,
-			nt.waitID,
-			waitInfo.waitValue);
+void PSPThread::GetQuickInfo(char *ptr, int size) {
+	snprintf(ptr, size, "pc= %08x sp= %08x %s %s %s %s %s %s (wt=%i wid=%i wv= %08x )",
+		context.pc, context.r[MIPS_REG_SP],
+		(nt.status & THREADSTATUS_RUNNING) ? "RUN" : "",
+		(nt.status & THREADSTATUS_READY) ? "READY" : "",
+		(nt.status & THREADSTATUS_WAIT) ? "WAIT" : "",
+		(nt.status & THREADSTATUS_SUSPEND) ? "SUSPEND" : "",
+		(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
+		(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
+		(int)nt.waitType,
+		nt.waitID,
+		waitInfo.waitValue);
+}
+
+BlockAllocator &PSPThread::StackAllocator() {
+	if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
+		return kernelMemory;
 	}
+	return userMemory;
+}
 
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_THID; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
+bool PSPThread::AllocateStack(u32 &stackSize) {
+	_assert_msg_(stackSize >= 0x200, "thread stack should be 256 bytes or larger");
 
-	bool AllocateStack(u32 &stackSize) {
-		_assert_msg_(stackSize >= 0x200, "thread stack should be 256 bytes or larger");
+	FreeStack();
 
-		FreeStack();
-
-		bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
-		currentStack.start = StackAllocator().Alloc(stackSize, fromTop, StringFromFormat("stack/%s", nt.name).c_str());
-		if (currentStack.start == (u32)-1)
-		{
-			currentStack.start = 0;
-			nt.initialStack = 0;
-			ERROR_LOG(Log::sceKernel, "Failed to allocate stack for thread");
-			return false;
-		}
-
-		nt.initialStack = currentStack.start;
-		nt.stackSize = stackSize;
-		return true;
-	}
-
-	bool FillStack() {
-		// Fill the stack.
-		if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
-			Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadFillStack");
-		}
-		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
-		currentStack.end = context.r[MIPS_REG_SP];
-		// The k0 section is 256 bytes at the top of the stack.
-		context.r[MIPS_REG_SP] -= 256;
-		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
-		u32 k0 = context.r[MIPS_REG_K0];
-		Memory::Memset(k0, 0, 0x100, "ThreadK0");
-		Memory::Write_U32(GetUID(),        k0 + 0xc0);
-		Memory::Write_U32(nt.initialStack, k0 + 0xc8);
-		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
-		Memory::Write_U32(0xffffffff,      k0 + 0xfc);
-		// After k0 comes the arguments, which is done by sceKernelStartThread().
-
-		Memory::Write_U32(GetUID(), nt.initialStack);
-		return true;
-	}
-
-	void FreeStack() {
-		if (currentStack.start != 0) {
-			DEBUG_LOG(Log::sceKernel, "Freeing thread stack %s", nt.name);
-
-			if ((nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) != 0 && nt.initialStack != 0) {
-				Memory::Memset(nt.initialStack, 0, nt.stackSize, "ThreadFreeStack");
-			}
-
-			StackAllocator().Free(currentStack.start);
-			currentStack.start = 0;
-		}
-	}
-
-	bool PushExtendedStack(u32 size)
+	bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
+	currentStack.start = StackAllocator().Alloc(stackSize, fromTop, StringFromFormat("stack/%s", nt.name).c_str());
+	if (currentStack.start == (u32)-1)
 	{
-		u32 stack = userMemory.Alloc(size, true, StringFromFormat("extended/%s", nt.name).c_str());
-		if (stack == (u32)-1)
-			return false;
-
-		pushedStacks.push_back(currentStack);
-		currentStack.start = stack;
-		currentStack.end = stack + size;
-		nt.initialStack = currentStack.start;
-		nt.stackSize = currentStack.end - currentStack.start;
-
-		// We still drop the threadID at the bottom and fill it, but there's no k0.
-		Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadExtendStack");
-		Memory::Write_U32(GetUID(), nt.initialStack);
-		return true;
+		currentStack.start = 0;
+		nt.initialStack = 0;
+		ERROR_LOG(Log::sceKernel, "Failed to allocate stack for thread");
+		return false;
 	}
 
-	bool PopExtendedStack()
-	{
-		if (pushedStacks.size() == 0)
-			return false;
+	nt.initialStack = currentStack.start;
+	nt.stackSize = stackSize;
+	return true;
+}
 
-		userMemory.Free(currentStack.start);
-		currentStack = pushedStacks.back();
-		pushedStacks.pop_back();
-		nt.initialStack = currentStack.start;
-		nt.stackSize = currentStack.end - currentStack.start;
-		return true;
+bool PSPThread::FillStack() {
+	// Fill the stack.
+	if ((nt.attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0) {
+		Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadFillStack");
+	}
+	context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
+	currentStack.end = context.r[MIPS_REG_SP];
+	// The k0 section is 256 bytes at the top of the stack.
+	context.r[MIPS_REG_SP] -= 256;
+	context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
+	u32 k0 = context.r[MIPS_REG_K0];
+	Memory::Memset(k0, 0, 0x100, "ThreadK0");
+	Memory::Write_U32(GetUID(), k0 + 0xc0);
+	Memory::Write_U32(nt.initialStack, k0 + 0xc8);
+	Memory::Write_U32(0xffffffff, k0 + 0xf8);
+	Memory::Write_U32(0xffffffff, k0 + 0xfc);
+	// After k0 comes the arguments, which is done by sceKernelStartThread().
+
+	Memory::Write_U32(GetUID(), nt.initialStack);
+	return true;
+}
+
+void PSPThread::FreeStack() {
+	if (currentStack.start != 0) {
+		DEBUG_LOG(Log::sceKernel, "Freeing thread stack %s", nt.name);
+
+		if ((nt.attr & PSP_THREAD_ATTR_CLEAR_STACK) != 0 && nt.initialStack != 0) {
+			Memory::Memset(nt.initialStack, 0, nt.stackSize, "ThreadFreeStack");
+		}
+
+		StackAllocator().Free(currentStack.start);
+		currentStack.start = 0;
+	}
+}
+
+bool PSPThread::PushExtendedStack(u32 size) {
+	u32 stack = userMemory.Alloc(size, true, StringFromFormat("extended/%s", nt.name).c_str());
+	if (stack == (u32)-1)
+		return false;
+
+	pushedStacks.push_back(currentStack);
+	currentStack.start = stack;
+	currentStack.end = stack + size;
+	nt.initialStack = currentStack.start;
+	nt.stackSize = currentStack.end - currentStack.start;
+
+	// We still drop the threadID at the bottom and fill it, but there's no k0.
+	Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadExtendStack");
+	Memory::Write_U32(GetUID(), nt.initialStack);
+	return true;
+}
+
+bool PSPThread::PopExtendedStack() {
+	if (pushedStacks.size() == 0)
+		return false;
+
+	userMemory.Free(currentStack.start);
+	currentStack = pushedStacks.back();
+	pushedStacks.pop_back();
+	nt.initialStack = currentStack.start;
+	nt.stackSize = currentStack.end - currentStack.start;
+	return true;
+}
+
+void PSPThread::Cleanup() {
+	// Callbacks are automatically deleted when their owning thread is deleted.
+	for (auto it = callbacks.begin(), end = callbacks.end(); it != end; ++it)
+		kernelObjects.Destroy<PSPCallback>(*it);
+
+	if (pushedStacks.size() != 0) {
+		WARN_LOG_REPORT(Log::sceKernel, "Thread ended within an extended stack");
+		for (size_t i = 0; i < pushedStacks.size(); ++i)
+			userMemory.Free(pushedStacks[i].start);
+	}
+	FreeStack();
+}
+
+void PSPThread::DoState(PointerWrap &p) {
+	auto s = p.Section("Thread", 1, 5);
+	if (!s)
+		return;
+
+	Do(p, nt);
+	Do(p, waitInfo);
+	Do(p, moduleId);
+	Do(p, isProcessingCallbacks);
+	Do(p, currentMipscallId);
+	Do(p, currentCallbackId);
+
+	// TODO: If we want to "version" a DoState method here, we can just use minVer = 0.
+	Do(p, context);
+
+	if (s <= 3) {
+		// We must have been loading an old state if we're here.
+		// Reorder VFPU data to new order.
+		float temp[128];
+		memcpy(temp, context.v, 128 * sizeof(float));
+		for (int i = 0; i < 128; i++) {
+			context.v[voffset[i]] = temp[i];
+		}
 	}
 
-	// Can't use a destructor since savestates will call that too.
-	void Cleanup()
-	{
-		// Callbacks are automatically deleted when their owning thread is deleted.
-		for (auto it = callbacks.begin(), end = callbacks.end(); it != end; ++it)
-			kernelObjects.Destroy<PSPCallback>(*it);
-
-		if (pushedStacks.size() != 0)
-		{
-			WARN_LOG_REPORT(Log::sceKernel, "Thread ended within an extended stack");
-			for (size_t i = 0; i < pushedStacks.size(); ++i)
-				userMemory.Free(pushedStacks[i].start);
-		}
-		FreeStack();
+	if (s <= 2) {
+		context.other[4] = context.other[5];
+		context.other[3] = context.other[4];
 	}
+	if (s <= 4)
+		std::swap(context.hi, context.lo);
 
-	BlockAllocator &StackAllocator() {
-		if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
-			return kernelMemory;
-		}
-		return userMemory;
+	Do(p, callbacks);
+
+	Do(p, pendingMipsCalls);
+	Do(p, pushedStacks);
+	Do(p, currentStack);
+
+	if (s >= 2) {
+		Do(p, waitingThreads);
+		Do(p, pausedWaits);
 	}
+}
 
-	void setReturnValue(u32 retval);
-	void setReturnValue(u64 retval);
-	void resumeFromWait();
-	bool isWaitingFor(WaitType type, int id) const;
-	int getWaitID(WaitType type) const;
-	ThreadWaitInfo getWaitInfo() const;
-
-	// Utils
-	inline bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
-	inline bool isStopped() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
-	inline bool isReady() const { return (nt.status & THREADSTATUS_READY) != 0; }
-	inline bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
-	inline bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Thread", 1, 5);
-		if (!s)
-			return;
-
-		Do(p, nt);
-		Do(p, waitInfo);
-		Do(p, moduleId);
-		Do(p, isProcessingCallbacks);
-		Do(p, currentMipscallId);
-		Do(p, currentCallbackId);
-
-		// TODO: If we want to "version" a DoState method here, we can just use minVer = 0.
-		Do(p, context);
-
-		if (s <= 3)
-		{
-			// We must have been loading an old state if we're here.
-			// Reorder VFPU data to new order.
-			float temp[128];
-			memcpy(temp, context.v, 128 * sizeof(float));
-			for (int i = 0; i < 128; i++) {
-				context.v[voffset[i]] = temp[i];
-			}
-		}
-
-		if (s <= 2)
-		{
-			context.other[4] = context.other[5];
-			context.other[3] = context.other[4];
-		}
-		if (s <= 4)
-			std::swap(context.hi, context.lo);
-
-		Do(p, callbacks);
-
-		Do(p, pendingMipsCalls);
-		Do(p, pushedStacks);
-		Do(p, currentStack);
-
-		if (s >= 2)
-		{
-			Do(p, waitingThreads);
-			Do(p, pausedWaits);
-		}
-	}
-
-	NativeThread nt{};
-
-	ThreadWaitInfo waitInfo{};
-	SceUID moduleId = -1;
-
-	bool isProcessingCallbacks = false;
-	u32 currentMipscallId = -1;
-	SceUID currentCallbackId = -1;
-
-	PSPThreadContext context{};
-	KernelThreadDebugInterface debug;
-
-	std::vector<SceUID> callbacks;
-
-	std::list<u32> pendingMipsCalls;
-
-	struct StackInfo {
-		u32 start;
-		u32 end;
-	};
-	// This is a stack of... stacks, since sceKernelExtendThreadStack() can recurse.
-	// These are stacks that aren't "active" right now, but will pop off once the func returns.
-	std::vector<StackInfo> pushedStacks;
-
-	StackInfo currentStack{};
-
-	// For thread end.
-	std::vector<SceUID> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, u64> pausedWaits;
-};
 
 struct WaitTypeFuncs
 {
@@ -3104,7 +2971,20 @@ void __KernelChangeThreadState(PSPThread *thread, ThreadStatus newStatus) {
 	}
 }
 
-
+const char *ThreadStatusToString(ThreadStatus status) {
+	switch (status) {
+	case THREADSTATUS_RUNNING: return "Running";
+	case THREADSTATUS_READY: return "Ready";
+	case THREADSTATUS_WAIT: return "Wait";
+	case THREADSTATUS_SUSPEND: return "Suspended";
+	case THREADSTATUS_DORMANT: return "Dormant";
+	case THREADSTATUS_DEAD: return "Dead";
+	case THREADSTATUS_WAITSUSPEND: return "WaitSuspended";
+	default:
+		break;
+	}
+	return "(unk)";
+}
 
 static bool __CanExecuteCallbackNow(PSPThread *thread) {
 	return currentCallbackThreadID == 0 && g_inCbCount == 0;
@@ -3540,7 +3420,7 @@ std::vector<DebugThreadInfo> GetThreadsInfo() {
 		info.id = uid;
 		strncpy(info.name,t->GetName(),KERNELOBJECT_MAX_NAME_LENGTH);
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
-		info.status = t->nt.status;
+		info.status = (ThreadStatus)t->nt.status;
 		info.entrypoint = t->nt.entrypoint;
 		info.initialStack = t->nt.initialStack;
 		info.stackSize = (u32)t->nt.stackSize;

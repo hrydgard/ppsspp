@@ -22,6 +22,7 @@
 #include <mutex>
 
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Common/Math/expression_parser.h"
 
 enum BreakAction : u32 {
 	BREAK_ACTION_IGNORE = 0x00,

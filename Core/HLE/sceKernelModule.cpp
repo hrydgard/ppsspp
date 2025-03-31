@@ -74,11 +74,6 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
-enum {
-	PSP_THREAD_ATTR_KERNEL = 0x00001000,
-	PSP_THREAD_ATTR_USER = 0x80000000,
-};
-
 enum : u32 {
 	// Function exports.
 	NID_MODULE_START = 0xD632ACDB,
@@ -134,92 +129,26 @@ static const char * const blacklistedModules[] = {
 	"sceMemab",
 };
 
-struct WriteVarSymbolState;
-
-struct VarSymbolImport {
-	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	u32 nid;
-	u32 stubAddr;
-	u8 type;
-};
-
-struct VarSymbolExport {
-	bool Matches(const VarSymbolImport &other) const {
-		return nid == other.nid && !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
+const char *NativeModuleStatusToString(NativeModuleStatus status) {
+	switch (status) {
+	case MODULE_STATUS_STARTING: return "STARTING";
+	case MODULE_STATUS_STARTED: return "STARTED";
+	case MODULE_STATUS_STOPPING: return "STOPPING";
+	case MODULE_STATUS_STOPPED: return "STOPPED";
+	case MODULE_STATUS_UNLOADING: return "UNLOADING";
+	default: return "(err)";
 	}
+}
 
-	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	u32 nid;
-	u32 symAddr;
-};
+static void ImportVarSymbol(WriteVarSymbolState &state, const VarSymbolImport &var);
+static void ExportVarSymbol(const VarSymbolExport &var);
+static void UnexportVarSymbol(const VarSymbolExport &var);
 
-struct FuncSymbolImport {
-	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	u32 stubAddr;
-	u32 nid;
-};
+static void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule);
+static void ExportFuncSymbol(const FuncSymbolExport &func);
+static void UnexportFuncSymbol(const FuncSymbolExport &func);
 
-struct FuncSymbolExport {
-	bool Matches(const FuncSymbolImport &other) const {
-		return nid == other.nid && !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
-	}
-
-	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	u32 symAddr;
-	u32 nid;
-};
-
-void ImportVarSymbol(WriteVarSymbolState &state, const VarSymbolImport &var);
-void ExportVarSymbol(const VarSymbolExport &var);
-void UnexportVarSymbol(const VarSymbolExport &var);
-
-void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule);
-void ExportFuncSymbol(const FuncSymbolExport &func);
-void UnexportFuncSymbol(const FuncSymbolExport &func);
-
-class PSPModule;
 static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr, bool reimporting = false);
-
-struct NativeModule {
-	u32_le next;
-	u16_le attribute;
-	u8 version[2];
-	char name[28];
-	u32_le status;
-	u32_le unk1;
-	u32_le modid; // 0x2C
-	u32_le usermod_thid;
-	u32_le memid;
-	u32_le mpidtext;
-	u32_le mpiddata;
-	u32_le ent_top;
-	u32_le ent_size;
-	u32_le stub_top;
-	u32_le stub_size;
-	u32_le module_start_func;
-	u32_le module_stop_func;
-	u32_le module_bootstart_func;
-	u32_le module_reboot_before_func;
-	u32_le module_reboot_phase_func;
-	u32_le entry_addr;
-	u32_le gp_value;
-	u32_le text_addr;
-	u32_le text_size;
-	u32_le data_size;
-	u32_le bss_size;
-	u32_le nsegment;
-	u32_le segmentaddr[4];
-	u32_le segmentsize[4];
-	u32_le module_start_thread_priority;
-	u32_le module_start_thread_stacksize;
-	u32_le module_start_thread_attr;
-	u32_le module_stop_thread_priority;
-	u32_le module_stop_thread_stacksize;
-	u32_le module_stop_thread_attr;
-	u32_le module_reboot_before_thread_priority;
-	u32_le module_reboot_before_thread_stacksize;
-	u32_le module_reboot_before_thread_attr;
-};
 
 // by QueryModuleInfo
 struct ModuleInfo {
@@ -238,246 +167,171 @@ struct ModuleInfo {
 	char name[28];
 };
 
-struct ModuleWaitingThread {
-	SceUID threadID;
-	u32 statusPtr;
-};
-
-enum NativeModuleStatus {
-	MODULE_STATUS_STARTING = 4,
-	MODULE_STATUS_STARTED = 5,
-	MODULE_STATUS_STOPPING = 6,
-	MODULE_STATUS_STOPPED = 7,
-	MODULE_STATUS_UNLOADING = 8,
-};
-
-class PSPModule : public KernelObject {
-public:
-	PSPModule() {
-		modulePtr.ptr = 0;
-	}
-
-	~PSPModule() {
-		if (memoryBlockAddr) {
-			// If it's either below user memory, or using a high kernel bit, it's in kernel.
-			if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
-				kernelMemory.Free(memoryBlockAddr);
-			} else {
-				userMemory.Free(memoryBlockAddr);
-			}
-			g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
-		}
-
-		if (modulePtr.ptr) {
-			//Only alloc at kernel memory.
-			kernelMemory.Free(modulePtr.ptr);
-		}
-	}
-	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "Module"; }
-	void GetQuickInfo(char *ptr, int size) override {
-		snprintf(ptr, size, "%d.%d %sname=%s gp=%08x entry=%08x",
-			nm.version[1], nm.version[0],
-			isFake ? "(faked) " : "",
-			nm.name,
-			nm.gp_value,
-			nm.entry_addr);
-	}
-	void GetLongInfo(char *ptr, int bufSize) const override;
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
-	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Module; }
-	int GetIDType() const override { return PPSSPP_KERNEL_TMID_Module; }
-
-	u32 GetDataAddr() const {
-		return nm.text_addr + nm.text_size;
-	}
-	u32 GetBSSAddr() const {
-		return nm.text_addr + nm.text_size + nm.data_size;
-	}
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Module", 1, 6);
-		if (!s)
-			return;
-
-		if (s >= 5) {
-			Do(p, nm);
+PSPModule::~PSPModule() {
+	if (memoryBlockAddr) {
+		// If it's either below user memory, or using a high kernel bit, it's in kernel.
+		if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
+			kernelMemory.Free(memoryBlockAddr);
 		} else {
-			char temp[192];
-			NativeModule *pnm = &nm;
-			char *ptemp = temp;
-			DoArray(p, ptemp, 0xC0);
-			memcpy(pnm, ptemp, 0x2C);
-			pnm->modid = GetUID();
-			memcpy(((uint8_t *)pnm) + 0x30, ((uint8_t *)ptemp) + 0x2C, 0xC0 - 0x2C);
+			userMemory.Free(memoryBlockAddr);
 		}
+		g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
+	}
 
-		if (s >= 6)
-			Do(p, crc);
+	if (modulePtr.ptr) {
+		//Only alloc at kernel memory.
+		kernelMemory.Free(modulePtr.ptr);
+	}
+}
 
-		Do(p, memoryBlockAddr);
-		Do(p, memoryBlockSize);
-		Do(p, isFake);
+u32 PSPModule::GetMissingErrorCode() {
+	return SCE_KERNEL_ERROR_UNKNOWN_MODULE;
+}
 
-		if (s < 2) {
-			bool isStarted = false;
-			Do(p, isStarted);
-			if (isStarted)
-				nm.status = MODULE_STATUS_STARTED;
-			else
-				nm.status = MODULE_STATUS_STOPPED;
-		}
+void PSPModule::DoState(PointerWrap &p) {
+	auto s = p.Section("Module", 1, 6);
+	if (!s)
+		return;
 
-		if (s >= 3) {
-			Do(p, textStart);
-			Do(p, textEnd);
-		}
-		if (s >= 4) {
-			Do(p, libstub);
-			Do(p, libstubend);
-		}
+	if (s >= 5) {
+		Do(p, nm);
+	} else {
+		char temp[192];
+		NativeModule *pnm = &nm;
+		char *ptemp = temp;
+		DoArray(p, ptemp, 0xC0);
+		memcpy(pnm, ptemp, 0x2C);
+		pnm->modid = GetUID();
+		memcpy(((uint8_t *)pnm) + 0x30, ((uint8_t *)ptemp) + 0x2C, 0xC0 - 0x2C);
+	}
 
-		if (s >= 5) {
-			Do(p, modulePtr.ptr);
-		}
+	if (s >= 6)
+		Do(p, crc);
 
-		ModuleWaitingThread mwt = {0};
-		Do(p, waitingThreads, mwt);
-		FuncSymbolExport fsx = {{0}};
-		Do(p, exportedFuncs, fsx);
-		FuncSymbolImport fsi = {{0}};
-		Do(p, importedFuncs, fsi);
-		VarSymbolExport vsx = {{0}};
-		Do(p, exportedVars, vsx);
-		VarSymbolImport vsi = {{0}};
-		Do(p, importedVars, vsi);
+	Do(p, memoryBlockAddr);
+	Do(p, memoryBlockSize);
+	Do(p, isFake);
 
-		if (p.mode == p.MODE_READ) {
-			// On load state, we re-examine in case our syscall ids changed.
-			if (libstub != 0) {
-				importedFuncs.clear();
-				// Imports reloaded in KernelModuleDoState.
-			} else {
-				// Older save state.  Let's still reload, but this may not pick up new flags, etc.
-				bool foundBroken = false;
-				auto importedFuncsState = importedFuncs;
-				importedFuncs.clear();
-				for (const auto &func : importedFuncsState) {
-					if (func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] != '\0' || !Memory::IsValidAddress(func.stubAddr)) {
-						foundBroken = true;
-					} else {
-						ImportFunc(func, true);
-					}
-				}
+	if (s < 2) {
+		bool isStarted = false;
+		Do(p, isStarted);
+		if (isStarted)
+			nm.status = MODULE_STATUS_STARTED;
+		else
+			nm.status = MODULE_STATUS_STOPPED;
+	}
 
-				if (foundBroken) {
-					ERROR_LOG(Log::Loader, "Broken stub import data while loading state");
+	if (s >= 3) {
+		Do(p, textStart);
+		Do(p, textEnd);
+	}
+	if (s >= 4) {
+		Do(p, libstub);
+		Do(p, libstubend);
+	}
+
+	if (s >= 5) {
+		Do(p, modulePtr.ptr);
+	}
+
+	ModuleWaitingThread mwt = { 0 };
+	Do(p, waitingThreads, mwt);
+	FuncSymbolExport fsx = { {0} };
+	Do(p, exportedFuncs, fsx);
+	FuncSymbolImport fsi = { {0} };
+	Do(p, importedFuncs, fsi);
+	VarSymbolExport vsx = { {0} };
+	Do(p, exportedVars, vsx);
+	VarSymbolImport vsi = { {0} };
+	Do(p, importedVars, vsi);
+
+	if (p.mode == p.MODE_READ) {
+		// On load state, we re-examine in case our syscall ids changed.
+		if (libstub != 0) {
+			importedFuncs.clear();
+			// Imports reloaded in KernelModuleDoState.
+		} else {
+			// Older save state.  Let's still reload, but this may not pick up new flags, etc.
+			bool foundBroken = false;
+			auto importedFuncsState = importedFuncs;
+			importedFuncs.clear();
+			for (const auto &func : importedFuncsState) {
+				if (func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] != '\0' || !Memory::IsValidAddress(func.stubAddr)) {
+					foundBroken = true;
+				} else {
+					ImportFunc(func, true);
 				}
 			}
 
-			char moduleName[29] = {0};
-			truncate_cpy(moduleName, nm.name);
-			if (memoryBlockAddr != 0) {
-				g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+			if (foundBroken) {
+				ERROR_LOG(Log::Loader, "Broken stub import data while loading state");
 			}
 		}
 
-		HLEPlugins::DoState(p);
-
-		RebuildImpExpModuleNames();
-	}
-
-	// We don't do this in the destructor to avoid annoying messages on game shutdown.
-	void Cleanup();
-
-	void ImportFunc(const FuncSymbolImport &func, bool reimporting) {
-		if (!Memory::IsValidAddress(func.stubAddr)) {
-			WARN_LOG_REPORT(Log::Loader, "Invalid address for syscall stub %s %08x", func.moduleName, func.nid);
-			return;
-		}
-
-		DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
-
-		// Add the symbol to the symbol map for debugging.
-		char temp[256];
-		snprintf(temp, sizeof(temp), "zz_%s", GetFuncName(func.moduleName, func.nid));
-		g_symbolMap->AddFunction(temp,func.stubAddr,8);
-
-		// Keep track and actually hook it up if possible.
-		importedFuncs.push_back(func);
-		impExpModuleNames.insert(func.moduleName);
-		ImportFuncSymbol(func, reimporting, GetName());
-	}
-
-	void ImportVar(WriteVarSymbolState &state, const VarSymbolImport &var) {
-		// Keep track and actually hook it up if possible.
-		importedVars.push_back(var);
-		impExpModuleNames.insert(var.moduleName);
-		ImportVarSymbol(state, var);
-	}
-
-	void ExportFunc(const FuncSymbolExport &func) {
-		if (isFake) {
-			return;
-		}
-		exportedFuncs.push_back(func);
-		impExpModuleNames.insert(func.moduleName);
-		ExportFuncSymbol(func);
-	}
-
-	void ExportVar(const VarSymbolExport &var) {
-		if (isFake) {
-			return;
-		}
-		exportedVars.push_back(var);
-		impExpModuleNames.insert(var.moduleName);
-		ExportVarSymbol(var);
-	}
-
-	template <typename T>
-	void RebuildImpExpList(const std::vector<T> &list) {
-		for (size_t i = 0; i < list.size(); ++i) {
-			impExpModuleNames.insert(list[i].moduleName);
+		char moduleName[29] = { 0 };
+		truncate_cpy(moduleName, nm.name);
+		if (memoryBlockAddr != 0) {
+			g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
 		}
 	}
 
-	void RebuildImpExpModuleNames() {
-		impExpModuleNames.clear();
-		RebuildImpExpList(exportedFuncs);
-		RebuildImpExpList(importedFuncs);
-		RebuildImpExpList(exportedVars);
-		RebuildImpExpList(importedVars);
+	HLEPlugins::DoState(p);
+
+	RebuildImpExpModuleNames();
+}
+
+void PSPModule::ImportFunc(const FuncSymbolImport &func, bool reimporting) {
+	if (!Memory::IsValidAddress(func.stubAddr)) {
+		WARN_LOG_REPORT(Log::Loader, "Invalid address for syscall stub %s %08x", func.moduleName, func.nid);
+		return;
 	}
 
-	bool ImportsOrExportsModuleName(const std::string &moduleName) {
-		return impExpModuleNames.find(moduleName) != impExpModuleNames.end();
+	DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
+
+	// Add the symbol to the symbol map for debugging.
+	char temp[256];
+	snprintf(temp, sizeof(temp), "zz_%s", GetFuncName(func.moduleName, func.nid));
+	g_symbolMap->AddFunction(temp, func.stubAddr, 8);
+
+	// Keep track and actually hook it up if possible.
+	importedFuncs.push_back(func);
+	impExpModuleNames.insert(func.moduleName);
+	ImportFuncSymbol(func, reimporting, GetName());
+}
+
+void PSPModule::ImportVar(WriteVarSymbolState &state, const VarSymbolImport &var) {
+	// Keep track and actually hook it up if possible.
+	importedVars.push_back(var);
+	impExpModuleNames.insert(var.moduleName);
+	ImportVarSymbol(state, var);
+}
+
+void PSPModule::ExportFunc(const FuncSymbolExport &func) {
+	if (isFake) {
+		return;
 	}
+	exportedFuncs.push_back(func);
+	impExpModuleNames.insert(func.moduleName);
+	ExportFuncSymbol(func);
+}
 
-	NativeModule nm{};
-	std::vector<ModuleWaitingThread> waitingThreads;
+void PSPModule::ExportVar(const VarSymbolExport &var) {
+	if (isFake) {
+		return;
+	}
+	exportedVars.push_back(var);
+	impExpModuleNames.insert(var.moduleName);
+	ExportVarSymbol(var);
+}
 
-	std::vector<FuncSymbolExport> exportedFuncs;
-	std::vector<FuncSymbolImport> importedFuncs;
-	std::vector<VarSymbolExport> exportedVars;
-	std::vector<VarSymbolImport> importedVars;
-	std::set<std::string> impExpModuleNames;
-	// Keep track of the code region so we can throw out analysis results
-	// when unloaded.
-	u32 textStart = 0;
-	u32 textEnd = 0;
-
-	// Keep track of the libstub pointers so we can recheck on load state.
-	u32 libstub = 0;
-	u32 libstubend = 0;
-
-	u32 memoryBlockAddr = 0;
-	u32 memoryBlockSize = 0;
-	u32 crc = 0;
-	PSPPointer<NativeModule> modulePtr;
-	bool isFake = false;
-};
+void PSPModule::GetQuickInfo(char *ptr, int size) {
+	snprintf(ptr, size, "%d.%d %sname=%s gp=%08x entry=%08x",
+		nm.version[1], nm.version[0],
+		isFake ? "(faked) " : "",
+		nm.name,
+		nm.gp_value,
+		nm.entry_addr);
+}
 
 void PSPModule::GetLongInfo(char *ptr, int bufSize) const {
 	StringWriter w(ptr, bufSize);

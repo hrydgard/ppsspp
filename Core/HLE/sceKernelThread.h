@@ -19,15 +19,20 @@
 
 #include <string>
 #include <vector>
+#include <map>
+#include <list>
 
 #include "Common/CommonTypes.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/PSPThreadContext.h"
+#include "Core/HLE/KernelThreadDebugInterface.h"
 
 // There's a good description of the thread scheduling rules in:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java
 
 class PSPThread;
 class DebugInterface;
+class BlockAllocator;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
@@ -82,8 +87,7 @@ struct SceKernelSysClock {
 
 // TODO: Map these to PSP wait types.  Most of these are wrong.
 // remember to update the waitTypeNames array in sceKernelThread.cpp when changing these
-enum WaitType : int
-{
+enum WaitType : int {
 	WAITTYPE_NONE         = 0,
 	WAITTYPE_SLEEP        = 1,
 	WAITTYPE_DELAY        = 2,
@@ -115,7 +119,7 @@ enum WaitType : int
 	NUM_WAITTYPES
 };
 
-const char *getWaitTypeName(WaitType type);
+const char *WaitTypeToString(WaitType type);
 
 // Suspend wait and timeout while a thread enters a callback.
 typedef void (* WaitBeginCallbackFunc)(SceUID threadID, SceUID prevCallbackId);
@@ -124,34 +128,156 @@ typedef void (* WaitEndCallbackFunc)(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc);
 
-struct PSPThreadContext {
-	void reset();
+#if COMMON_LITTLE_ENDIAN
+typedef WaitType WaitType_le;
+#else
+typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
+#endif
 
-	// r must be followed by f.
-	u32 r[32];
-	union {
-		float f[32];
-		u32 fi[32];
-		int fs[32];
+// Real PSP struct, don't change the fields.
+struct SceKernelThreadRunStatus {
+	SceSize_le size;
+	u32_le status;
+	s32_le currentPriority;
+	WaitType_le waitType;
+	SceUID_le waitID;
+	s32_le wakeupCount;
+	SceKernelSysClock runForClocks;
+	s32_le numInterruptPreempts;
+	s32_le numThreadPreempts;
+	s32_le numReleases;
+};
+
+// Real PSP struct, don't change the fields.
+struct NativeThread {
+	u32_le nativeSize;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+
+	// Threading stuff
+	u32_le attr;
+	u32_le status;
+	u32_le entrypoint;
+	u32_le initialStack;
+	u32_le stackSize;
+	u32_le gpreg;
+
+	s32_le initialPriority;
+	s32_le currentPriority;
+	WaitType_le waitType;
+	SceUID_le waitID;
+	s32_le wakeupCount;
+	s32_le exitStatus;
+	SceKernelSysClock runForClocks;
+	s32_le numInterruptPreempts;
+	s32_le numThreadPreempts;
+	s32_le numReleases;
+};
+
+struct ThreadWaitInfo {
+	u32 waitValue;
+	u32 timeoutPtr;
+};
+
+enum {
+	PSP_THREAD_ATTR_KERNEL = 0x00001000,
+	PSP_THREAD_ATTR_VFPU = 0x00004000,
+	PSP_THREAD_ATTR_SCRATCH_SRAM = 0x00008000, // Save/restore scratch as part of context???
+	PSP_THREAD_ATTR_NO_FILLSTACK = 0x00100000, // No filling of 0xff.
+	PSP_THREAD_ATTR_CLEAR_STACK = 0x00200000, // Clear thread stack when deleted.
+	PSP_THREAD_ATTR_LOW_STACK = 0x00400000, // Allocate stack from bottom not top.
+	PSP_THREAD_ATTR_USER = 0x80000000,
+	PSP_THREAD_ATTR_USBWLAN = 0xa0000000,
+	PSP_THREAD_ATTR_VSH = 0xc0000000,
+
+	// TODO: Support more, not even sure what all of these mean.
+	PSP_THREAD_ATTR_USER_MASK = 0xf8f060ff,
+	PSP_THREAD_ATTR_USER_ERASE = 0x78800000,
+	PSP_THREAD_ATTR_SUPPORTED = (PSP_THREAD_ATTR_KERNEL | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK | PSP_THREAD_ATTR_CLEAR_STACK | PSP_THREAD_ATTR_LOW_STACK | PSP_THREAD_ATTR_USER)
+};
+
+enum ThreadStatus : u32 {
+	THREADSTATUS_RUNNING = 1,
+	THREADSTATUS_READY = 2,
+	THREADSTATUS_WAIT = 4,
+	THREADSTATUS_SUSPEND = 8,
+	THREADSTATUS_DORMANT = 16,
+	THREADSTATUS_DEAD = 32,
+
+	THREADSTATUS_WAITSUSPEND = THREADSTATUS_WAIT | THREADSTATUS_SUSPEND
+};
+const char *ThreadStatusToString(ThreadStatus status);
+
+class PSPThread : public KernelObject {
+public:
+	PSPThread() : debug(context) {}
+	const char *GetName() override { return nt.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Thread"; }
+	void GetQuickInfo(char *ptr, int size) override;
+
+	static u32 GetMissingErrorCode();
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
+
+	bool AllocateStack(u32 &stackSize);
+	bool FillStack();
+	void FreeStack();
+
+	bool PushExtendedStack(u32 size);
+	bool PopExtendedStack();
+
+	// Can't use a destructor since savestates will call that too.
+	void Cleanup();
+
+	BlockAllocator &StackAllocator();
+
+	void setReturnValue(u32 retval);
+	void setReturnValue(u64 retval);
+	void resumeFromWait();
+	bool isWaitingFor(WaitType type, int id) const;
+	int getWaitID(WaitType type) const;
+	ThreadWaitInfo getWaitInfo() const;
+
+	// Utils
+	inline bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
+	inline bool isStopped() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
+	inline bool isReady() const { return (nt.status & THREADSTATUS_READY) != 0; }
+	inline bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
+	inline bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
+
+	void DoState(PointerWrap &p) override;
+
+	NativeThread nt{};
+
+	ThreadWaitInfo waitInfo{};
+	SceUID moduleId = -1;
+	KernelThreadDebugInterface debug;
+
+	bool isProcessingCallbacks = false;
+	u32 currentMipscallId = -1;
+	SceUID currentCallbackId = -1;
+
+	PSPThreadContext context{};
+
+	std::vector<SceUID> callbacks;
+
+	// TODO: Should probably just be a vector.
+	std::list<u32> pendingMipsCalls;
+
+	struct StackInfo {
+		u32 start;
+		u32 end;
 	};
-	union {
-		float v[128];
-		u32 vi[128];
-	};
-	u32 vfpuCtrl[16];
+	// This is a stack of... stacks, since sceKernelExtendThreadStack() can recurse.
+	// These are stacks that aren't "active" right now, but will pop off once the func returns.
+	std::vector<StackInfo> pushedStacks;
 
-	union {
-		struct {
-			u32 pc;
+	StackInfo currentStack{};
 
-			u32 lo;
-			u32 hi;
-
-			u32 fcr31;
-			u32 fpcond;
-		};
-		u32 other[6];
-	};
+	// For thread end.
+	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, u64> pausedWaits;
 };
 
 // Internal API, used by implementations of kernel functions
@@ -296,18 +422,6 @@ public:
 	int actionTypeID;
 };
 
-enum ThreadStatus
-{
-	THREADSTATUS_RUNNING = 1,
-	THREADSTATUS_READY   = 2,
-	THREADSTATUS_WAIT    = 4,
-	THREADSTATUS_SUSPEND = 8,
-	THREADSTATUS_DORMANT = 16,
-	THREADSTATUS_DEAD    = 32,
-
-	THREADSTATUS_WAITSUSPEND = THREADSTATUS_WAIT | THREADSTATUS_SUSPEND
-};
-
 void __KernelChangeThreadState(PSPThread *thread, ThreadStatus newStatus);
 
 typedef void (*ThreadCallback)(SceUID threadID);
@@ -317,7 +431,7 @@ struct DebugThreadInfo
 {
 	SceUID id;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	u32 status;
+	ThreadStatus status;
 	u32 curPC;
 	u32 entrypoint;
 	u32 initialStack;

@@ -217,7 +217,7 @@ void CtrlThreadList::GetColumnText(wchar_t* dest, size_t destSize, int row, int 
 		}
 		break;
 	case TL_WAITTYPE:
-		wcscpy(dest, ConvertUTF8ToWString(getWaitTypeName(threads[row].waitType)).c_str());
+		wcscpy(dest, ConvertUTF8ToWString(WaitTypeToString(threads[row].waitType)).c_str());
 		break;
 	}
 }

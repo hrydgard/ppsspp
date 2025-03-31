@@ -2170,6 +2170,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h
+	Core/HLE/PSPThreadContext.h
 	Core/HLE/KUBridge.h
 	Core/HLE/KUBridge.cpp
 	Core/HLE/Plugins.h

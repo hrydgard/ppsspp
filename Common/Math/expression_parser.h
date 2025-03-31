@@ -1,21 +1,18 @@
 #pragma once
 
 #include <cstdint>
-#include <cstddef>
 #include <string>
 #include <vector>
 
 typedef std::pair<uint32_t, uint32_t> ExpressionPair;
 typedef std::vector<ExpressionPair> PostfixExpression;
 
-enum ExpressionType
-{
+enum ExpressionType {
 	EXPR_TYPE_UINT = 0,
 	EXPR_TYPE_FLOAT = 2,
 };
 
-class IExpressionFunctions
-{
+class IExpressionFunctions {
 public:
 	virtual ~IExpressionFunctions() {}
 	virtual bool parseReference(char* str, uint32_t& referenceIndex) = 0;
