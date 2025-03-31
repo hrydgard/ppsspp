@@ -1200,6 +1200,6 @@ const HLEFunction sceAtrac3plus[] = {
 
 void Register_sceAtrac3plus() {
 	// Two names
-	RegisterModule("sceATRAC3plus_Library", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
-	RegisterModule("sceAtrac3plus", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
+	RegisterHLEModule("sceATRAC3plus_Library", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
+	RegisterHLEModule("sceAtrac3plus", ARRAY_SIZE(sceAtrac3plus), sceAtrac3plus);
 }

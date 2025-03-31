@@ -294,5 +294,5 @@ const HLEFunction sceNetResolver[] = {
 };
 
 void Register_sceNetResolver() {
-	RegisterModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
+	RegisterHLEModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
 }

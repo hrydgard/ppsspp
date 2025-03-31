@@ -174,7 +174,7 @@ const HLEFunction sceAudiocodec[] = {
 };
 
 void Register_sceAudiocodec() {
-	RegisterModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
+	RegisterHLEModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
 }
 
 void __sceAudiocodecDoState(PointerWrap &p){

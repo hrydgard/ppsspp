@@ -96,5 +96,5 @@ const HLEFunction sceDeflt[] = {
 };
 
 void Register_sceDeflt() {
-	RegisterModule("sceDeflt", ARRAY_SIZE(sceDeflt), sceDeflt);
+	RegisterHLEModule("sceDeflt", ARRAY_SIZE(sceDeflt), sceDeflt);
 }

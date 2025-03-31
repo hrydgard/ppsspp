@@ -175,5 +175,5 @@ const HLEFunction sceParseHttp[] = {
 };
 
 void Register_sceParseHttp() {
-	RegisterModule("sceParseHttp", ARRAY_SIZE(sceParseHttp), sceParseHttp);
+	RegisterHLEModule("sceParseHttp", ARRAY_SIZE(sceParseHttp), sceParseHttp);
 }

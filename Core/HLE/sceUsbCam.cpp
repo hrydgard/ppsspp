@@ -324,7 +324,7 @@ const HLEFunction sceUsbCam[] =
 
 void Register_sceUsbCam()
 {
-	RegisterModule("sceUsbCam", ARRAY_SIZE(sceUsbCam), sceUsbCam);
+	RegisterHLEModule("sceUsbCam", ARRAY_SIZE(sceUsbCam), sceUsbCam);
 }
 
 std::vector<std::string> Camera::getDeviceList() {

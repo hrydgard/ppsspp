@@ -72,5 +72,5 @@ const HLEFunction sceHprm[] =
 
 void Register_sceHprm()
 {
-	RegisterModule("sceHprm", ARRAY_SIZE(sceHprm), sceHprm);
+	RegisterHLEModule("sceHprm", ARRAY_SIZE(sceHprm), sceHprm);
 }

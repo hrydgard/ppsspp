@@ -643,5 +643,5 @@ const HLEFunction sceGe_user[] = {
 };
 
 void Register_sceGe_user() {
-	RegisterModule("sceGe_user", ARRAY_SIZE(sceGe_user), sceGe_user);
+	RegisterHLEModule("sceGe_user", ARRAY_SIZE(sceGe_user), sceGe_user);
 }

@@ -185,9 +185,9 @@ const HLEFunction mp4msv[] = {
 };
 
 void Register_sceMp4() {
-	RegisterModule("sceMp4", ARRAY_SIZE(sceMp4), sceMp4);
+	RegisterHLEModule("sceMp4", ARRAY_SIZE(sceMp4), sceMp4);
 }
 
 void Register_mp4msv() {
-	RegisterModule("mp4msv", ARRAY_SIZE(mp4msv), mp4msv);
+	RegisterHLEModule("mp4msv", ARRAY_SIZE(mp4msv), mp4msv);
 }

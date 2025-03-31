@@ -1132,11 +1132,11 @@ const HLEFunction sceDisplay[] = {
 };
 
 void Register_sceDisplay() {
-	RegisterModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
+	RegisterHLEModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
 }
 
 void Register_sceDisplay_driver() {
-	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
+	RegisterHLEModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
 }
 
 static void __DisplaySetFramerate(void) {

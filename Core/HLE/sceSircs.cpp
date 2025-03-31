@@ -52,5 +52,5 @@ const HLEFunction sceSircs[] =
 
 void Register_sceSircs()
 {
-	RegisterModule("sceSircs", ARRAY_SIZE(sceSircs), sceSircs);
+	RegisterHLEModule("sceSircs", ARRAY_SIZE(sceSircs), sceSircs);
 }

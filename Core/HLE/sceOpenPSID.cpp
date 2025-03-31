@@ -82,7 +82,7 @@ const HLEFunction sceOpenPSID[] = {
 
 void Register_sceOpenPSID()
 {
-	RegisterModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
+	RegisterHLEModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
 }
 
 // According to https://playstationdev.wiki/pspprxlibraries/5.00/kd/openpsid.xml
@@ -95,7 +95,7 @@ const HLEFunction sceOpenPSID_driver[] =
 
 void Register_sceOpenPSID_driver()
 {
-	RegisterModule("sceOpenPSID_driver", ARRAY_SIZE(sceOpenPSID_driver), sceOpenPSID_driver);
+	RegisterHLEModule("sceOpenPSID_driver", ARRAY_SIZE(sceOpenPSID_driver), sceOpenPSID_driver);
 }
 const HLEFunction sceDdrdb[] =
 {
@@ -104,5 +104,5 @@ const HLEFunction sceDdrdb[] =
 
 void Register_sceDdrdb()
 {
-	RegisterModule("sceDdrdb", ARRAY_SIZE(sceDdrdb), sceDdrdb);
+	RegisterHLEModule("sceDdrdb", ARRAY_SIZE(sceDdrdb), sceDdrdb);
 }

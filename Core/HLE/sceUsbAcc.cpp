@@ -42,5 +42,5 @@ const HLEFunction sceUsbAcc[] =
 
 void Register_sceUsbAcc()
 {
-	RegisterModule("sceUsbAcc", ARRAY_SIZE(sceUsbAcc), sceUsbAcc);
+	RegisterHLEModule("sceUsbAcc", ARRAY_SIZE(sceUsbAcc), sceUsbAcc);
 }

@@ -655,5 +655,5 @@ const HLEFunction sceJpeg[] =
 };
 
 void Register_sceJpeg() {
-	RegisterModule("sceJpeg", ARRAY_SIZE(sceJpeg), sceJpeg);
+	RegisterHLEModule("sceJpeg", ARRAY_SIZE(sceJpeg), sceJpeg);
 }

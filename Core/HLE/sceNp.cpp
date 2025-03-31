@@ -307,7 +307,7 @@ const HLEFunction sceNp[] = {
 
 void Register_sceNp()
 {
-	RegisterModule("sceNp", ARRAY_SIZE(sceNp), sceNp);
+	RegisterHLEModule("sceNp", ARRAY_SIZE(sceNp), sceNp);
 }
 
 static int sceNpAuthTerm()
@@ -552,7 +552,7 @@ const HLEFunction sceNpAuth[] = {
 
 void Register_sceNpAuth()
 {
-	RegisterModule("sceNpAuth", ARRAY_SIZE(sceNpAuth), sceNpAuth);
+	RegisterHLEModule("sceNpAuth", ARRAY_SIZE(sceNpAuth), sceNpAuth);
 }
 
 static int sceNpServiceTerm()
@@ -637,7 +637,7 @@ const HLEFunction sceNpService[] = {
 
 void Register_sceNpService()
 {
-	RegisterModule("sceNpService", ARRAY_SIZE(sceNpService), sceNpService);
+	RegisterHLEModule("sceNpService", ARRAY_SIZE(sceNpService), sceNpService);
 }
 
 // TODO: Move NpCommerce2-related stuff to sceNpCommerce2.cpp?
@@ -662,6 +662,6 @@ const HLEFunction sceNpCommerce2[] = {
 
 void Register_sceNpCommerce2()
 {
-	RegisterModule("sceNpCommerce2", ARRAY_SIZE(sceNpCommerce2), sceNpCommerce2);
+	RegisterHLEModule("sceNpCommerce2", ARRAY_SIZE(sceNpCommerce2), sceNpCommerce2);
 }
 

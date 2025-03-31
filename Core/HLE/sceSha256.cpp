@@ -45,5 +45,5 @@ const HLEFunction sceSha256[] =
 
 void Register_sceSha256()
 {
-	RegisterModule("sceSha256", ARRAY_SIZE(sceSha256), sceSha256);
+	RegisterHLEModule("sceSha256", ARRAY_SIZE(sceSha256), sceSha256);
 }

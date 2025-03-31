@@ -123,7 +123,7 @@ namespace MIPSDis
 		u32 callno = (op>>6) & 0xFFFFF; //20 bits
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;
-		snprintf(out, outSize, "syscall\t	%s", GetFuncName(modulenum, funcnum));
+		snprintf(out, outSize, "syscall\t	%s", GetHLEFuncName(modulenum, funcnum));
 	}
 
 	void Dis_ToHiloTransfer(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {

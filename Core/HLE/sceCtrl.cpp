@@ -591,12 +591,12 @@ static const HLEFunction sceCtrl[] =
 
 void Register_sceCtrl()
 {
-	RegisterModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
+	RegisterHLEModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
 }
 
 void Register_sceCtrl_driver()
 {
-	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
+	RegisterHLEModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
 }
 
 u16 sceCtrlGetRightVibration() {

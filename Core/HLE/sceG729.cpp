@@ -36,5 +36,5 @@ const HLEFunction sceG729[] =
 
 void Register_sceG729()
 {
-	RegisterModule("sceG729", ARRAY_SIZE(sceG729), sceG729);
+	RegisterHLEModule("sceG729", ARRAY_SIZE(sceG729), sceG729);
 }

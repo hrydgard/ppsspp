@@ -44,5 +44,5 @@ const HLEFunction sceAdler[] = {
 };
 
 void Register_sceAdler() {
-	RegisterModule("sceAdler", ARRAY_SIZE(sceAdler), sceAdler);
+	RegisterHLEModule("sceAdler", ARRAY_SIZE(sceAdler), sceAdler);
 }

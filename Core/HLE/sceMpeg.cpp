@@ -2318,7 +2318,7 @@ const HLEFunction sceMpeg[] =
 
 void Register_sceMpeg()
 {
-	RegisterModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
+	RegisterHLEModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
 
 // This function is currently only been used for PMP videos
@@ -2354,5 +2354,5 @@ const HLEFunction sceMpegbase[] =
 
 void Register_sceMpegbase()
 {
-	RegisterModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
+	RegisterHLEModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
 };

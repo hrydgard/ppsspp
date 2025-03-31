@@ -1526,11 +1526,11 @@ void DrawHLEModules(ImConfig &config) {
 		return;
 	}
 
-	const int moduleCount = GetNumRegisteredModules();
+	const int moduleCount = GetNumRegisteredHLEModules();
 	std::vector<const HLEModule *> modules;
 	modules.reserve(moduleCount);
 	for (int i = 0; i < moduleCount; i++) {
-		modules.push_back(GetModuleByIndex(i));
+		modules.push_back(GetHLEModuleByIndex(i));
 	}
 
 	std::sort(modules.begin(), modules.end(), [](const HLEModule* a, const HLEModule* b) {

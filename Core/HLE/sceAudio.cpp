@@ -549,5 +549,5 @@ const HLEFunction sceAudio[] =
 
 void Register_sceAudio()
 {
-	RegisterModule("sceAudio", ARRAY_SIZE(sceAudio), sceAudio);
+	RegisterHLEModule("sceAudio", ARRAY_SIZE(sceAudio), sceAudio);
 }

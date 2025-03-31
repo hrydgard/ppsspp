@@ -1205,5 +1205,5 @@ const HLEFunction sceNetInet[] = {
 };
 
 void Register_sceNetInet() {
-	RegisterModule("sceNetInet", std::size(sceNetInet), sceNetInet);
+	RegisterHLEModule("sceNetInet", std::size(sceNetInet), sceNetInet);
 }

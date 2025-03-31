@@ -73,5 +73,5 @@ const HLEFunction sceP3da[] =
 
 void Register_sceP3da()
 {
-	RegisterModule("sceP3da", ARRAY_SIZE(sceP3da), sceP3da);
+	RegisterHLEModule("sceP3da", ARRAY_SIZE(sceP3da), sceP3da);
 }

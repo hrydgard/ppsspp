@@ -286,11 +286,11 @@ void PSPModule::ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 		return;
 	}
 
-	DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
+	DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetHLEFuncName(func.moduleName, func.nid), func.stubAddr);
 
 	// Add the symbol to the symbol map for debugging.
 	char temp[256];
-	snprintf(temp, sizeof(temp), "zz_%s", GetFuncName(func.moduleName, func.nid));
+	snprintf(temp, sizeof(temp), "zz_%s", GetHLEFuncName(func.moduleName, func.nid));
 	g_symbolMap->AddFunction(temp, func.stubAddr, 8);
 
 	// Keep track and actually hook it up if possible.
@@ -644,7 +644,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
 		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
-			WARN_LOG(Log::Loader, "Reimporting updated syscall %s", GetFuncName(func.moduleName, func.nid));
+			WARN_LOG(Log::Loader, "Reimporting updated syscall %s", GetHLEFuncName(func.moduleName, func.nid));
 		}
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
@@ -677,15 +677,15 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		}
 	}
 
-	// It hasn't been exported yet, but hopefully it will later.
-	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
-	if (isKnownModule) {
+	// It hasn't been exported yet, but hopefully it will later. Check if we know about it through HLE.
+	const bool isKnownHLEModule = GetHLEModuleIndex(func.moduleName) != -1;
+	if (isKnownHLEModule) {
 		// We used to report this, but I don't think it's very interesting anymore.
-		WARN_LOG(Log::Loader, "Unknown syscall from known module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
+		WARN_LOG(Log::Loader, "Unknown syscall from known HLE module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
 	} else {
 		INFO_LOG(Log::Loader, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
 	}
-	if (isKnownModule || !reimporting) {
+	if (isKnownHLEModule || !reimporting) {
 		WriteFuncMissingStub(func.stubAddr, func.nid);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
 	}
@@ -2607,9 +2607,9 @@ const HLEFunction ModuleMgrForKernel[] = {
 };
 
 void Register_ModuleMgrForUser() {
-	RegisterModule("ModuleMgrForUser", ARRAY_SIZE(ModuleMgrForUser), ModuleMgrForUser);
+	RegisterHLEModule("ModuleMgrForUser", ARRAY_SIZE(ModuleMgrForUser), ModuleMgrForUser);
 }
 
 void Register_ModuleMgrForKernel() {
-	RegisterModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
+	RegisterHLEModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
 }

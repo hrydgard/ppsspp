@@ -133,5 +133,5 @@ const HLEFunction sceNet_lib[] = {
 
 
 void Register_sceNet_lib() {
-	RegisterModule("sceNet_lib", ARRAY_SIZE(sceNet_lib), sceNet_lib);
+	RegisterHLEModule("sceNet_lib", ARRAY_SIZE(sceNet_lib), sceNet_lib);
 }

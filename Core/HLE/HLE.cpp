@@ -179,21 +179,21 @@ void HLEShutdown() {
 	mipsCallActions.clear();
 }
 
-int GetNumRegisteredModules() {
+int GetNumRegisteredHLEModules() {
 	return (int)moduleDB.size();
 }
 
-void RegisterModule(std::string_view name, int numFunctions, const HLEFunction *funcTable) {
+void RegisterHLEModule(std::string_view name, int numFunctions, const HLEFunction *funcTable) {
 	HLEModule module = {name, numFunctions, funcTable};
 	moduleDB.push_back(module);
 }
 
-const HLEModule *GetModuleByIndex(int index) {
+const HLEModule *GetHLEModuleByIndex(int index) {
 	return &moduleDB[index];
 }
 
 // TODO: Do something faster.
-const HLEModule *GetModuleByName(std::string_view name) {
+const HLEModule *GetHLEModuleByName(std::string_view name) {
 	for (auto &module : moduleDB) {
 		if (name == module.name) {
 			return &module;
@@ -203,7 +203,7 @@ const HLEModule *GetModuleByName(std::string_view name) {
 }
 
 // TODO: Do something faster.
-const HLEFunction *GetFuncByName(const HLEModule *module, std::string_view name) {
+const HLEFunction *GetHLEFuncByName(const HLEModule *module, std::string_view name) {
 	for (int i = 0; i < module->numFunctions; i++) {
 		auto &func = module->funcTable[i];
 		if (func.name == name) {
@@ -213,14 +213,14 @@ const HLEFunction *GetFuncByName(const HLEModule *module, std::string_view name)
 	return nullptr;
 }
 
-int GetModuleIndex(std::string_view moduleName) {
+int GetHLEModuleIndex(std::string_view moduleName) {
 	for (size_t i = 0; i < moduleDB.size(); i++)
 		if (moduleDB[i].name == moduleName)
 			return (int)i;
 	return -1;
 }
 
-int GetFuncIndex(int moduleIndex, u32 nib) {
+int GetHLEFuncIndexByNib(int moduleIndex, u32 nib) {
 	const HLEModule &module = moduleDB[moduleIndex];
 	for (int i = 0; i < module.numFunctions; i++) {
 		if (module.funcTable[i].ID == nib)
@@ -230,7 +230,7 @@ int GetFuncIndex(int moduleIndex, u32 nib) {
 }
 
 u32 GetNibByName(std::string_view moduleName, std::string_view function) {
-	int moduleIndex = GetModuleIndex(moduleName);
+	int moduleIndex = GetHLEModuleIndex(moduleName);
 	if (moduleIndex == -1)
 		return -1;
 
@@ -242,20 +242,21 @@ u32 GetNibByName(std::string_view moduleName, std::string_view function) {
 	return -1;
 }
 
-const HLEFunction *GetFunc(std::string_view moduleName, u32 nib) {
-	int moduleIndex = GetModuleIndex(moduleName);
+const HLEFunction *GetHLEFunc(std::string_view moduleName, u32 nib) {
+	int moduleIndex = GetHLEModuleIndex(moduleName);
 	if (moduleIndex != -1) {
-		int idx = GetFuncIndex(moduleIndex, nib);
+		int idx = GetHLEFuncIndexByNib(moduleIndex, nib);
 		if (idx != -1)
 			return &(moduleDB[moduleIndex].funcTable[idx]);
 	}
 	return 0;
 }
 
-const char *GetFuncName(std::string_view moduleName, u32 nib) {
+// WARNING: Not thread-safe!
+const char *GetHLEFuncName(std::string_view moduleName, u32 nib) {
 	_dbg_assert_msg_(!moduleName.empty(), "Invalid module name.");
 
-	const HLEFunction *func = GetFunc(moduleName, nib);
+	const HLEFunction *func = GetHLEFunc(moduleName, nib);
 	if (func)
 		return func->name;
 
@@ -264,15 +265,25 @@ const char *GetFuncName(std::string_view moduleName, u32 nib) {
 	return temp;
 }
 
+const char *GetHLEFuncName(int moduleIndex, int func) {
+	if (moduleIndex >= 0 && moduleIndex < (int)moduleDB.size()) {
+		const HLEModule &module = moduleDB[moduleIndex];
+		if (func >= 0 && func < module.numFunctions) {
+			return module.funcTable[func].name;
+		}
+	}
+	return "[unknown]";
+}
+
 u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 	// Special case to hook up bad imports.
 	if (moduleName.empty()) {
 		return (0x03FFFFCC);	// invalid syscall
 	}
 
-	int modindex = GetModuleIndex(moduleName);
+	int modindex = GetHLEModuleIndex(moduleName);
 	if (modindex != -1) {
-		int funcindex = GetFuncIndex(modindex, nib);
+		int funcindex = GetHLEFuncIndexByNib(modindex, nib);
 		if (funcindex != -1) {
 			return (0x0000000c | (modindex<<18) | (funcindex<<6));
 		} else {
@@ -287,7 +298,7 @@ u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 
 bool FuncImportIsSyscall(std::string_view module, u32 nib)
 {
-	return GetFunc(module, nib) != nullptr;
+	return GetHLEFunc(module, nib) != nullptr;
 }
 
 void WriteFuncStub(u32 stubAddr, u32 symAddr)
@@ -315,7 +326,7 @@ bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
 		Memory::Write_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return true;
 	}
-	int modindex = GetModuleIndex(moduleName);
+	int modindex = GetHLEModuleIndex(moduleName);
 	if (modindex != -1)
 	{
 		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
@@ -327,19 +338,6 @@ bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
 		ERROR_LOG_REPORT(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
 		return false;
 	}
-}
-
-const char *GetFuncName(int moduleIndex, int func)
-{
-	if (moduleIndex >= 0 && moduleIndex < (int)moduleDB.size())
-	{
-		const HLEModule &module = moduleDB[moduleIndex];
-		if (func >= 0 && func < module.numFunctions)
-		{
-			return module.funcTable[func].name;
-		}
-	}
-	return "[unknown]";
 }
 
 void hleCheckCurrentCallbacks()
@@ -858,12 +856,12 @@ void CallSyscall(MIPSOpcode op) {
 }
 
 void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
-	const HLEModule *mod = GetModuleByName(module);
+	const HLEModule *mod = GetHLEModuleByName(module);
 	_dbg_assert_(mod != nullptr);
 	if (!mod) {
 		return;
 	}
-	const HLEFunction *func = GetFuncByName(mod, funcName);
+	const HLEFunction *func = GetHLEFuncByName(mod, funcName);
 	_dbg_assert_(func != nullptr);
 	// Push to the stack. Be careful (due to the nasty adhoc thread..)
 	int stackSize = g_stackSize;
