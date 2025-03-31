@@ -1154,7 +1154,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				// Use the name from the header.
 				elfFilename = head->modname;
 			}
-			DumpFileIfEnabled(ptr, head->psp_size, elfFilename.c_str(), DumpFileType::PRX);
+			DumpFileIfEnabled(ptr, elfSize, elfFilename.c_str(), DumpFileType::PRX);
 
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
