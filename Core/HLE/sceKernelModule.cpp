@@ -1050,6 +1050,18 @@ static void parsePrxLibInfo(const u8* ptr, u32 headerSize) {
 	INFO_LOG(Log::sceModule, "~SCE module: Lib-PSP %s (SDK %s)", nameBuffer, versionBuffer);
 }
 
+inline u32 Read32(const u8 *ptr) {
+	u32 value;
+	memcpy(&value, ptr, 4);
+	return value;
+}
+
+enum : u32 {
+	SCE_MAGIC = 0x4543537e,
+	PSP_MAGIC = 0x5053507e,
+	ELF_MAGIC = 0x464c457f,
+};
+
 // filename is only used for dumping/metadata.
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
 	PSPModule *module = new PSPModule();
@@ -1063,10 +1075,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	bool reportedModule = false;
 	u32 devkitVersion = 0;
 	u8 *newptr = 0;
-	const u32_le *magicPtr = (const u32_le *) ptr;
-	if (*magicPtr == 0x4543537e) { // "~SCE"
-
-		u32 headerSize = *(const u32_le*)(ptr + 4);
+	if (Read32(ptr) == SCE_MAGIC) { // "~SCE"
+		const u32 headerSize = *(const u32_le*)(ptr + 4);
 		if (headerSize < elfSize) {
 			// Parse and print the lib info
 			parsePrxLibInfo(ptr, headerSize);
@@ -1074,14 +1084,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// Advance the pointer to the relevant data
 			ptr += headerSize;
 			elfSize -= headerSize;
-			magicPtr = (const u32_le *)ptr;
 		}
 		else {
 			ERROR_LOG(Log::sceModule, "~SCE module: bad data");
 		}
 	}
-	*magic = *magicPtr;
-	if (*magic == 0x5053507e && elfSize > sizeof(PSP_Header)) { // "~PSP"
+	*magic = Read32(ptr);
+	if (*magic == PSP_MAGIC && elfSize > sizeof(PSP_Header)) { // "~PSP"
 		DEBUG_LOG(Log::sceModule, "Decrypting ~PSP file");
 		const PSP_Header *head = (const PSP_Header*)ptr;
 		devkitVersion = head->devkitversion;
@@ -1108,9 +1117,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		magicPtr = (const u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
-		if (ret <= 0 && *(u32_le *)&ptr[0x150] == 0x464c457f) {
+		if (ret <= 0 && Read32(ptr + 0x150) == ELF_MAGIC) {
 			ret = head->psp_size - 0x150;
 			memcpy(newptr, in + 0x150, ret);
 		}
@@ -1213,9 +1221,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 	}
 
+	// We keep reading from 'ptr' here, even though it might now point to a decompressed / decrypted buffer.
+
 	// DO NOT change to else if, see above.
-	if (*magicPtr != 0x464c457f) {
-		ERROR_LOG(Log::sceModule, "Wrong magic number %08x", *magicPtr);
+	if (Read32(ptr) != ELF_MAGIC) {
+		ERROR_LOG(Log::sceModule, "Wrong magic number %08x", Read32(ptr));
 		*error_string = "File corrupt";
 		delete [] newptr;
 		module->Cleanup();
