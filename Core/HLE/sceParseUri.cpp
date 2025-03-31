@@ -163,5 +163,5 @@ const HLEFunction sceParseUri[] =
 
 void Register_sceParseUri()
 {
-	RegisterModule("sceParseUri", ARRAY_SIZE(sceParseUri), sceParseUri);
+	RegisterHLEModule("sceParseUri", ARRAY_SIZE(sceParseUri), sceParseUri);
 }

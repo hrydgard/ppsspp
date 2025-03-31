@@ -602,5 +602,5 @@ const HLEFunction sceNpMatching2[] = {
 
 void Register_sceNpMatching2()
 {
-	RegisterModule("sceNpMatching2", ARRAY_SIZE(sceNpMatching2), sceNpMatching2);
+	RegisterHLEModule("sceNpMatching2", ARRAY_SIZE(sceNpMatching2), sceNpMatching2);
 }

@@ -241,7 +241,7 @@ const HLEFunction sceUsbstorBoot[] =
 
 void Register_sceUsb()
 {
-	RegisterModule("sceUsbstor", ARRAY_SIZE(sceUsbstor), sceUsbstor);
-	RegisterModule("sceUsbstorBoot", ARRAY_SIZE(sceUsbstorBoot), sceUsbstorBoot);
-	RegisterModule("sceUsb", ARRAY_SIZE(sceUsb), sceUsb);
+	RegisterHLEModule("sceUsbstor", ARRAY_SIZE(sceUsbstor), sceUsbstor);
+	RegisterHLEModule("sceUsbstorBoot", ARRAY_SIZE(sceUsbstorBoot), sceUsbstorBoot);
+	RegisterHLEModule("sceUsb", ARRAY_SIZE(sceUsb), sceUsb);
 }

@@ -61,5 +61,5 @@ const HLEFunction sceAudioRouting[] =
 
 void Register_sceAudioRouting()
 {
-	RegisterModule("sceAudioRouting", ARRAY_SIZE(sceAudioRouting), sceAudioRouting);
+	RegisterHLEModule("sceAudioRouting", ARRAY_SIZE(sceAudioRouting), sceAudioRouting);
 }

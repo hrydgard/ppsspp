@@ -764,6 +764,6 @@ const HLEFunction sceSasCore[] = {
 
 void Register_sceSasCore()
 {
-	RegisterModule("sceSasCore", ARRAY_SIZE(sceSasCore), sceSasCore);
+	RegisterHLEModule("sceSasCore", ARRAY_SIZE(sceSasCore), sceSasCore);
 }
 

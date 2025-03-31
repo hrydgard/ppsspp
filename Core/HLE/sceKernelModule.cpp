@@ -286,11 +286,11 @@ void PSPModule::ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 		return;
 	}
 
-	DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
+	DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetHLEFuncName(func.moduleName, func.nid), func.stubAddr);
 
 	// Add the symbol to the symbol map for debugging.
 	char temp[256];
-	snprintf(temp, sizeof(temp), "zz_%s", GetFuncName(func.moduleName, func.nid));
+	snprintf(temp, sizeof(temp), "zz_%s", GetHLEFuncName(func.moduleName, func.nid));
 	g_symbolMap->AddFunction(temp, func.stubAddr, 8);
 
 	// Keep track and actually hook it up if possible.
@@ -644,7 +644,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
 		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
-			WARN_LOG(Log::Loader, "Reimporting updated syscall %s", GetFuncName(func.moduleName, func.nid));
+			WARN_LOG(Log::Loader, "Reimporting updated syscall %s", GetHLEFuncName(func.moduleName, func.nid));
 		}
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
@@ -677,15 +677,15 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		}
 	}
 
-	// It hasn't been exported yet, but hopefully it will later.
-	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
-	if (isKnownModule) {
+	// It hasn't been exported yet, but hopefully it will later. Check if we know about it through HLE.
+	const bool isKnownHLEModule = GetHLEModuleIndex(func.moduleName) != -1;
+	if (isKnownHLEModule) {
 		// We used to report this, but I don't think it's very interesting anymore.
-		WARN_LOG(Log::Loader, "Unknown syscall from known module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
+		WARN_LOG(Log::Loader, "Unknown syscall from known HLE module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
 	} else {
 		INFO_LOG(Log::Loader, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
 	}
-	if (isKnownModule || !reimporting) {
+	if (isKnownHLEModule || !reimporting) {
 		WriteFuncMissingStub(func.stubAddr, func.nid);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
 	}
@@ -985,6 +985,7 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 	}
 	err = inflate(&stream, Z_FINISH);
 	if (err != Z_STREAM_END) {
+		ERROR_LOG(Log::Loader, "gzipDecompress: Didn't reach the end of the input, output buffer too small?");
 		inflateEnd(&stream);
 		return -2;
 	}
@@ -1050,6 +1051,18 @@ static void parsePrxLibInfo(const u8* ptr, u32 headerSize) {
 	INFO_LOG(Log::sceModule, "~SCE module: Lib-PSP %s (SDK %s)", nameBuffer, versionBuffer);
 }
 
+inline u32 Read32(const u8 *ptr) {
+	u32 value;
+	memcpy(&value, ptr, 4);
+	return value;
+}
+
+enum : u32 {
+	SCE_MAGIC = 0x4543537e,
+	PSP_MAGIC = 0x5053507e,
+	ELF_MAGIC = 0x464c457f,
+};
+
 // filename is only used for dumping/metadata.
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
 	PSPModule *module = new PSPModule();
@@ -1061,12 +1074,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.modid = module->GetUID();
 
 	bool reportedModule = false;
+	bool fakeLoadedModule = false;
 	u32 devkitVersion = 0;
 	u8 *newptr = 0;
-	const u32_le *magicPtr = (const u32_le *) ptr;
-	if (*magicPtr == 0x4543537e) { // "~SCE"
+	const PSP_Header *head = nullptr;
 
-		u32 headerSize = *(const u32_le*)(ptr + 4);
+	if (Read32(ptr) == SCE_MAGIC) { // "~SCE"
+		const u32 headerSize = *(const u32_le*)(ptr + 4);
 		if (headerSize < elfSize) {
 			// Parse and print the lib info
 			parsePrxLibInfo(ptr, headerSize);
@@ -1074,22 +1088,24 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// Advance the pointer to the relevant data
 			ptr += headerSize;
 			elfSize -= headerSize;
-			magicPtr = (const u32_le *)ptr;
 		}
 		else {
 			ERROR_LOG(Log::sceModule, "~SCE module: bad data");
 		}
 	}
-	*magic = *magicPtr;
-	if (*magic == 0x5053507e && elfSize > sizeof(PSP_Header)) { // "~PSP"
+	*magic = Read32(ptr);
+	if (*magic == PSP_MAGIC && elfSize > sizeof(PSP_Header)) { // "~PSP"
 		DEBUG_LOG(Log::sceModule, "Decrypting ~PSP file");
-		const PSP_Header *head = (const PSP_Header*)ptr;
+		head = (const PSP_Header *)ptr;
 		devkitVersion = head->devkitversion;
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
+
+			// TODO: Don't conflate these!
 			reportedModule = true;
+			fakeLoadedModule = true;
 		}
 
 		const u8 *in = ptr;
@@ -1108,33 +1124,37 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		magicPtr = (const u32_le *)ptr;
-		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
-		if (ret <= 0 && *(u32_le *)&ptr[0x150] == 0x464c457f) {
-			ret = head->psp_size - 0x150;
-			memcpy(newptr, in + 0x150, ret);
+		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		_dbg_assert_(decryptedSize <= (int)maxElfSize);
+		if (decryptedSize <= 0 && Read32(ptr + 0x150) == ELF_MAGIC) {
+			decryptedSize = head->psp_size - 0x150;
+			memcpy(newptr, in + 0x150, decryptedSize);
+			// In this case it's definitely not compressed. Added assert below.
 		}
 
 		// decompress if required.
 		if (isGzip) {
-			auto temp = new u8[ret];
-			memcpy(temp, ptr, ret);
-			gzipDecompress((u8 *)ptr, maxElfSize, temp);
+			_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
+
+			auto temp = new u8[decryptedSize];
+			memcpy(temp, ptr, decryptedSize);
+			int outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
+			if (outBytes < 0) {
+				ERROR_LOG(Log::sceModule, "Module gzip decompression failed!");
+			}
 			delete[] temp;
+			INFO_LOG(Log::sceModule, "gzip is enabled in '%s', decompressing (%d -> %d bytes, bufmax=%d).", head->modname, decryptedSize, outBytes, maxElfSize);
 		}
 
-		if (reportedModule) {
+		if (fakeLoadedModule) {
 			// Opportunity to dump the decrypted elf, even if we choose to fake it.
-			std::string elfFilename(filename);
+			// NOTE: filename is not necessarily a good choice!
+			std::string elfFilename(KeepAfterLast(filename, '/'));
 			if (elfFilename.empty()) {
 				// Use the name from the header.
 				elfFilename = head->modname;
 			}
 			DumpFileIfEnabled(ptr, head->psp_size, elfFilename.c_str(), DumpFileType::PRX);
-
-			if (isGzip) {
-				INFO_LOG(Log::sceModule, "gzip is enabled in 'reported' module");
-			}
 
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
@@ -1144,7 +1164,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 
-			// Let's still try to allocate it.  It may use user memory.
+			// Let's still try to allocate it properly. It may use user memory.
+			// Also, this memory can be used by the fake implementation, like sceAtrac does for contexts.
 			u32 totalSize = 0;
 			for (int i = 0; i < 4; ++i) {
 				if (head->seg_size[i]) {
@@ -1197,9 +1218,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			}
 
 			return module;
-		} else if (ret <= 0) {
-			ERROR_LOG(Log::sceModule, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
-			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
+		} else if (decryptedSize <= 0) {
+			ERROR_LOG(Log::sceModule, "Failed decrypting PRX! That's not normal! ret = %i\n", decryptedSize);
+			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", decryptedSize, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
 		} else {
 			// TODO: Is this right?
@@ -1213,9 +1234,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 	}
 
+	// We keep reading from 'ptr' here, even though it might now point to a decompressed / decrypted buffer.
+
 	// DO NOT change to else if, see above.
-	if (*magicPtr != 0x464c457f) {
-		ERROR_LOG(Log::sceModule, "Wrong magic number %08x", *magicPtr);
+	if (Read32(ptr) != ELF_MAGIC) {
+		ERROR_LOG(Log::sceModule, "Wrong magic number %08x", Read32(ptr));
 		*error_string = "File corrupt";
 		delete [] newptr;
 		module->Cleanup();
@@ -1539,6 +1562,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				module->ExportVar(var);
 				break;
 			}
+		}
+	}
+
+	if (head) {
+		// Here we have the opportunity to check if the information in the header and the information
+		// in the module actually corresponds.
+		if (devkitVersion != head->devkitversion) {
+			WARN_LOG(Log::sceModule, "Devkitversion in module %08x doesn't match header %08x", devkitVersion, head->devkitversion);
 		}
 	}
 
@@ -2607,9 +2638,9 @@ const HLEFunction ModuleMgrForKernel[] = {
 };
 
 void Register_ModuleMgrForUser() {
-	RegisterModule("ModuleMgrForUser", ARRAY_SIZE(ModuleMgrForUser), ModuleMgrForUser);
+	RegisterHLEModule("ModuleMgrForUser", ARRAY_SIZE(ModuleMgrForUser), ModuleMgrForUser);
 }
 
 void Register_ModuleMgrForKernel() {
-	RegisterModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
+	RegisterHLEModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
 }

@@ -946,7 +946,7 @@ const HLEFunction ThreadManForKernel[] =
 
 void Register_ThreadManForUser()
 {
-	RegisterModule("ThreadManForUser", ARRAY_SIZE(ThreadManForUser), ThreadManForUser);
+	RegisterHLEModule("ThreadManForUser", ARRAY_SIZE(ThreadManForUser), ThreadManForUser);
 }
 
 
@@ -962,7 +962,7 @@ const HLEFunction LoadExecForUser[] =
 
 void Register_LoadExecForUser()
 {
-	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
+	RegisterHLEModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
  
 const HLEFunction LoadExecForKernel[] =
@@ -975,7 +975,7 @@ const HLEFunction LoadExecForKernel[] =
  
 void Register_LoadExecForKernel()
 {
-	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
+	RegisterHLEModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }
 
 const HLEFunction ExceptionManagerForKernel[] =
@@ -992,7 +992,7 @@ const HLEFunction ExceptionManagerForKernel[] =
 
 void Register_ExceptionManagerForKernel()
 {
-	RegisterModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
+	RegisterHLEModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
 }
 
 // Seen in some homebrew
@@ -1021,12 +1021,12 @@ const HLEFunction UtilsForKernel[] = {
 
 void Register_UtilsForKernel()
 {
-	RegisterModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
+	RegisterHLEModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
 }
 
 void Register_ThreadManForKernel()
 {
-	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);
+	RegisterHLEModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);
 }
 
 const char *KernelErrorToString(u32 err) {

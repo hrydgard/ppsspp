@@ -250,6 +250,15 @@ std::string_view StripPrefix(std::string_view prefix, std::string_view s) {
 	}
 }
 
+std::string_view KeepAfterLast(std::string_view s, char c) {
+	size_t pos = s.rfind(c);
+	if (pos != std::string_view::npos) {
+		return s.substr(pos + 1);
+	} else {
+		return s;
+	}
+}
+
 void SkipSpace(const char **ptr) {
 	while (**ptr && isspace(**ptr)) {
 		(*ptr)++;

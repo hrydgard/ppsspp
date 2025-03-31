@@ -567,5 +567,5 @@ const HLEFunction sceCcc[] =
 
 void Register_sceCcc()
 {
-	RegisterModule("sceCcc", ARRAY_SIZE(sceCcc), sceCcc);
+	RegisterHLEModule("sceCcc", ARRAY_SIZE(sceCcc), sceCcc);
 }

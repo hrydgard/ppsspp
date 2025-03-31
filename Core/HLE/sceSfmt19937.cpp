@@ -119,5 +119,5 @@ const HLEFunction sceSfmt19937[] =
 
 void Register_sceSfmt19937()
 {
-	RegisterModule("sceSfmt19937", ARRAY_SIZE(sceSfmt19937), sceSfmt19937);
+	RegisterHLEModule("sceSfmt19937", ARRAY_SIZE(sceSfmt19937), sceSfmt19937);
 }

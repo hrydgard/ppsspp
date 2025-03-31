@@ -534,5 +534,5 @@ const HLEFunction sceUmdUser[] =
 
 void Register_sceUmdUser()
 {
-	RegisterModule("sceUmdUser", ARRAY_SIZE(sceUmdUser), sceUmdUser);
+	RegisterHLEModule("sceUmdUser", ARRAY_SIZE(sceUmdUser), sceUmdUser);
 }

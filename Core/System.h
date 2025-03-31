@@ -58,6 +58,7 @@ enum PSPDirectories {
 	DIRECTORY_EXDATA,
 	DIRECTORY_CUSTOM_SHADERS,
 	DIRECTORY_CUSTOM_THEMES,
+	COUNT,
 };
 
 class GraphicsContext;

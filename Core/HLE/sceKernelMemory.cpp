@@ -2118,5 +2118,5 @@ const HLEFunction SysMemUserForUser[] = {
 };
 
 void Register_SysMemUserForUser() {
-	RegisterModule("SysMemUserForUser", ARRAY_SIZE(SysMemUserForUser), SysMemUserForUser);
+	RegisterHLEModule("SysMemUserForUser", ARRAY_SIZE(SysMemUserForUser), SysMemUserForUser);
 }

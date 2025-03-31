@@ -174,5 +174,5 @@ const HLEFunction SysMemForKernel[] = {
 };
 
 void Register_SysMemForKernel() {
-	RegisterModule("SysMemForKernel", ARRAY_SIZE(SysMemForKernel), SysMemForKernel);
+	RegisterHLEModule("SysMemForKernel", ARRAY_SIZE(SysMemForKernel), SysMemForKernel);
 }

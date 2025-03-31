@@ -73,6 +73,19 @@ GameInfo::~GameInfo() {
 	fileLoader.reset();
 }
 
+bool IsReasonableEbootDirectory(Path path) {
+	// First some sanity checks.
+	if (path == Path("/")) {
+		return false;
+	}
+	for (int i = 0; i < (int)PSPDirectories::COUNT; i++) {
+		if (path == GetSysDirectory((PSPDirectories)i)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 bool GameInfo::Delete() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_ISO:
@@ -90,6 +103,17 @@ bool GameInfo::Delete() {
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
 			Path directoryToRemove = ResolvePBPDirectory(filePath_);
+
+			// Check that the directory isn't the base of the GAME folder, or something similarly stupid.
+			// This can happen if the PBP is misplaced, see issue #20187
+			if (!IsReasonableEbootDirectory(directoryToRemove)) {
+				// Just delete the eboot.
+				File::Delete(filePath_);
+				g_recentFiles.Remove(filePath_.ToString());
+				return true;
+			}
+
+			// Delete the whole tree. We better be sure, see IsReasonableEbootDirectory.
 			INFO_LOG(Log::System, "Deleting directory %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(Log::System, "Failed to delete file");

@@ -53,5 +53,5 @@ const HLEFunction sceGameUpdate[] =
 
 void Register_sceGameUpdate()
 {
-	RegisterModule("sceGameUpdate", ARRAY_SIZE(sceGameUpdate), sceGameUpdate);
+	RegisterHLEModule("sceGameUpdate", ARRAY_SIZE(sceGameUpdate), sceGameUpdate);
 }

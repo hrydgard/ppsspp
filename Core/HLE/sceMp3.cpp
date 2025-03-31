@@ -782,5 +782,5 @@ const HLEFunction sceMp3[] = {
 };
 
 void Register_sceMp3() {
-	RegisterModule("sceMp3", ARRAY_SIZE(sceMp3), sceMp3);
+	RegisterHLEModule("sceMp3", ARRAY_SIZE(sceMp3), sceMp3);
 }

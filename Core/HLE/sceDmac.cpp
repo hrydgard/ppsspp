@@ -121,5 +121,5 @@ const HLEFunction sceDmac[] = {
 };
 
 void Register_sceDmac() {
-	RegisterModule("sceDmac", ARRAY_SIZE(sceDmac), sceDmac);
+	RegisterHLEModule("sceDmac", ARRAY_SIZE(sceDmac), sceDmac);
 }

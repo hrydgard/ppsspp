@@ -427,5 +427,5 @@ const HLEFunction semaphore[] = {
 };
 
 void Register_semaphore() {
-	RegisterModule("semaphore", ARRAY_SIZE(semaphore), semaphore);
+	RegisterHLEModule("semaphore", ARRAY_SIZE(semaphore), semaphore);
 }

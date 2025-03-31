@@ -122,5 +122,5 @@ const HLEFunction sceSsl[] =
 
 void Register_sceSsl()
 {
-	RegisterModule("sceSsl", ARRAY_SIZE(sceSsl), sceSsl);
+	RegisterHLEModule("sceSsl", ARRAY_SIZE(sceSsl), sceSsl);
 }

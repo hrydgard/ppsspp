@@ -874,5 +874,5 @@ const HLEFunction sceHttp[] = {
 
 void Register_sceHttp()
 {
-	RegisterModule("sceHttp",ARRAY_SIZE(sceHttp),sceHttp);
+	RegisterHLEModule("sceHttp",ARRAY_SIZE(sceHttp),sceHttp);
 }

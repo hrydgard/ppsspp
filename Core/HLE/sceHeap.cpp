@@ -250,5 +250,5 @@ static const HLEFunction sceHeap[] =
 
 void Register_sceHeap()
 {
-	RegisterModule("sceHeap", ARRAY_SIZE(sceHeap), sceHeap);
+	RegisterHLEModule("sceHeap", ARRAY_SIZE(sceHeap), sceHeap);
 }

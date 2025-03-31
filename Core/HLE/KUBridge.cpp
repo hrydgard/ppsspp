@@ -43,5 +43,5 @@ const HLEFunction KUBridge[] =
 };
 
 void Register_KUBridge() {
-	RegisterModule("KUBridge", ARRAY_SIZE(KUBridge), KUBridge);
+	RegisterHLEModule("KUBridge", ARRAY_SIZE(KUBridge), KUBridge);
 }

@@ -127,7 +127,7 @@ const HLEFunction sceUsbGps[] =
 
 void Register_sceUsbGps()
 {
-	RegisterModule("sceUsbGps", ARRAY_SIZE(sceUsbGps), sceUsbGps);
+	RegisterHLEModule("sceUsbGps", ARRAY_SIZE(sceUsbGps), sceUsbGps);
 }
 
 void GPS::init() {

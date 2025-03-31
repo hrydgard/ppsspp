@@ -2051,9 +2051,9 @@ const HLEFunction scePsmfPlayer[] =
 };
 
 void Register_scePsmf() {
-	RegisterModule("scePsmf",ARRAY_SIZE(scePsmf),scePsmf);
+	RegisterHLEModule("scePsmf",ARRAY_SIZE(scePsmf),scePsmf);
 }
 
 void Register_scePsmfPlayer() {
-	RegisterModule("scePsmfPlayer",ARRAY_SIZE(scePsmfPlayer),scePsmfPlayer);
+	RegisterHLEModule("scePsmfPlayer",ARRAY_SIZE(scePsmfPlayer),scePsmfPlayer);
 }

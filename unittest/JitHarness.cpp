@@ -97,7 +97,7 @@ double ExecCPUTest(bool clearCache = true) {
 
 static void SetupJitHarness() {
 	// We register a syscall so we have an easy way to finish the test.
-	RegisterModule("UnitTestFakeSyscalls", ARRAY_SIZE(UnitTestFakeSyscalls), UnitTestFakeSyscalls);
+	RegisterHLEModule("UnitTestFakeSyscalls", ARRAY_SIZE(UnitTestFakeSyscalls), UnitTestFakeSyscalls);
 
 	// This is pretty much the bare minimum required to setup jit.
 	coreState = CORE_POWERUP;

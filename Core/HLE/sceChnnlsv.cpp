@@ -525,6 +525,6 @@ const HLEFunction sceChnnlsv[] =
 
 void Register_sceChnnlsv()
 {
-	RegisterModule("sceChnnlsv", ARRAY_SIZE(sceChnnlsv), sceChnnlsv);
+	RegisterHLEModule("sceChnnlsv", ARRAY_SIZE(sceChnnlsv), sceChnnlsv);
 	kirk_init();
 }

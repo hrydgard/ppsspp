@@ -2677,7 +2677,7 @@ const HLEFunction sceNetAdhocMatching[] = {
 
 
 void Register_sceNetAdhocMatching() {
-	RegisterModule("sceNetAdhocMatching", ARRAY_SIZE(sceNetAdhocMatching), sceNetAdhocMatching);
+	RegisterHLEModule("sceNetAdhocMatching", ARRAY_SIZE(sceNetAdhocMatching), sceNetAdhocMatching);
 }
 
 void __NetAdhocMatchingInit() {

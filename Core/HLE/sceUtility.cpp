@@ -1476,5 +1476,5 @@ const HLEFunction sceUtility[] =
 
 void Register_sceUtility()
 {
-	RegisterModule("sceUtility", ARRAY_SIZE(sceUtility), sceUtility);
+	RegisterHLEModule("sceUtility", ARRAY_SIZE(sceUtility), sceUtility);
 }

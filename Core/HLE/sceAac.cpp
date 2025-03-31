@@ -219,5 +219,5 @@ const HLEFunction sceAac[] = {
 };
 
 void Register_sceAac() {
-	RegisterModule("sceAac", ARRAY_SIZE(sceAac), sceAac);
+	RegisterHLEModule("sceAac", ARRAY_SIZE(sceAac), sceAac);
 }

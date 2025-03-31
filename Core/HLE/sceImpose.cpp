@@ -125,5 +125,5 @@ const HLEFunction sceImpose[] = {
 };
 
 void Register_sceImpose() {
-	RegisterModule("sceImpose", ARRAY_SIZE(sceImpose), sceImpose);
+	RegisterHLEModule("sceImpose", ARRAY_SIZE(sceImpose), sceImpose);
 }

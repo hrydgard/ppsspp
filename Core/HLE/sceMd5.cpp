@@ -185,5 +185,5 @@ const HLEFunction sceMd5[] = {
 };
 
 void Register_sceMd5() {
-	RegisterModule("sceMd5", ARRAY_SIZE(sceMd5), sceMd5);
+	RegisterHLEModule("sceMd5", ARRAY_SIZE(sceMd5), sceMd5);
 }

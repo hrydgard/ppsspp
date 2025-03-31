@@ -454,5 +454,5 @@ const HLEFunction sceUsbMic[] = {
 };
 
 void Register_sceUsbMic() {
-	RegisterModule("sceUsbMic", ARRAY_SIZE(sceUsbMic), sceUsbMic);
+	RegisterHLEModule("sceUsbMic", ARRAY_SIZE(sceUsbMic), sceUsbMic);
 }

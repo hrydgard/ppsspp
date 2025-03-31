@@ -288,13 +288,13 @@ void RegisterAllModules() {
 	Register_sceHeap();
 
 	for (int i = 0; i < numModules; i++) {
-		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
+		RegisterHLEModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
 
 	// IMPORTANT: New modules have to be added at the end, or they will break savestates.
 
 	Register_StdioForKernel();
-	RegisterModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
+	RegisterHLEModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
 	Register_IoFileMgrForKernel();
 	Register_LoadExecForKernel();
 	Register_SysMemForKernel();

@@ -1005,12 +1005,12 @@ const HLEFunction SysclibForKernel[] =
 
 void Register_Kernel_Library()
 {
-	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
+	RegisterHLEModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
 }
 
 void Register_SysclibForKernel()
 {
-	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
+	RegisterHLEModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
 }
 
 const HLEFunction InterruptManager[] =
@@ -1029,7 +1029,7 @@ const HLEFunction InterruptManager[] =
 
 void Register_InterruptManager()
 {
-	RegisterModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
+	RegisterHLEModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
 }
 
 
@@ -1057,5 +1057,5 @@ const HLEFunction InterruptManagerForKernel[] =
 
 void Register_InterruptManagerForKernel()
 {
-	RegisterModule("InterruptManagerForKernel", ARRAY_SIZE(InterruptManagerForKernel), InterruptManagerForKernel);
+	RegisterHLEModule("InterruptManagerForKernel", ARRAY_SIZE(InterruptManagerForKernel), InterruptManagerForKernel);
 }

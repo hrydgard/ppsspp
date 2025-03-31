@@ -3013,7 +3013,7 @@ const HLEFunction IoFileMgrForUser[] = {
 };
 
 void Register_IoFileMgrForUser() {
-	RegisterModule("IoFileMgrForUser", ARRAY_SIZE(IoFileMgrForUser), IoFileMgrForUser);
+	RegisterHLEModule("IoFileMgrForUser", ARRAY_SIZE(IoFileMgrForUser), IoFileMgrForUser);
 }
 
 const HLEFunction IoFileMgrForKernel[] = {
@@ -3053,7 +3053,7 @@ const HLEFunction IoFileMgrForKernel[] = {
 };
 
 void Register_IoFileMgrForKernel() {
-	RegisterModule("IoFileMgrForKernel", ARRAY_SIZE(IoFileMgrForKernel), IoFileMgrForKernel);
+	RegisterHLEModule("IoFileMgrForKernel", ARRAY_SIZE(IoFileMgrForKernel), IoFileMgrForKernel);
 }
 
 const HLEFunction StdioForUser[] = {
@@ -3071,7 +3071,7 @@ const HLEFunction StdioForUser[] = {
 };
 
 void Register_StdioForUser() {
-	RegisterModule("StdioForUser", ARRAY_SIZE(StdioForUser), StdioForUser);
+	RegisterHLEModule("StdioForUser", ARRAY_SIZE(StdioForUser), StdioForUser);
 }
 
 const HLEFunction StdioForKernel[] = {
@@ -3086,5 +3086,5 @@ const HLEFunction StdioForKernel[] = {
 };
 
 void Register_StdioForKernel() {
-	RegisterModule("StdioForKernel", ARRAY_SIZE(StdioForKernel), StdioForKernel);
+	RegisterHLEModule("StdioForKernel", ARRAY_SIZE(StdioForKernel), StdioForKernel);
 }

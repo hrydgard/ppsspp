@@ -68,5 +68,5 @@ const HLEFunction scePauth[] = {
 
 void Register_scePauth()
 {
-	RegisterModule("scePauth", ARRAY_SIZE(scePauth), scePauth);
+	RegisterHLEModule("scePauth", ARRAY_SIZE(scePauth), scePauth);
 }
