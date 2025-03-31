@@ -113,266 +113,187 @@ void FPL::DoState(PointerWrap &p) {
 	Do(p, pausedWaits);
 }
 
+void SceKernelVplHeader::Init(u32 ptr, u32 size) {
+	startPtr_ = ptr;
+	startPtr2_ = ptr;
+	sentinel_ = ptr + 7;
+	sizeMinus8_ = size - 8;
+	allocatedInBlocks_ = 0;
+	nextFreeBlock_ = FirstBlockPtr();
 
-struct VplWaitingThread
-{
-	SceUID threadID;
-	u32 addrPtr;
-	u64 pausedTimeout;
+	firstBlock_.next = LastBlockPtr();
+	// Includes its own header, which is one block.
+	firstBlock_.sizeInBlocks = (size - 0x28) / 8 + 1;
 
-	bool operator ==(const SceUID &otherThreadID) const
-	{
-		return threadID == otherThreadID;
-	}
-};
+	auto lastBlock = LastBlock();
+	lastBlock->next = FirstBlockPtr();
+	lastBlock->sizeInBlocks = 0;
+}
 
-struct SceKernelVplInfo
-{
-	SceSize_le size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	SceUInt_le attr;
-	s32_le poolSize;
-	s32_le freeSize;
-	s32_le numWaitThreads;
-};
-
-struct SceKernelVplBlock
-{
-	PSPPointer<SceKernelVplBlock> next;
-	// Includes this info (which is 1 block / 8 bytes.)
-	u32_le sizeInBlocks;
-};
-
-struct SceKernelVplHeader {
-	u32_le startPtr_;
-	// TODO: Why twice?  Is there a case it changes?
-	u32_le startPtr2_;
-	u32_le sentinel_;
-	u32_le sizeMinus8_;
-	u32_le allocatedInBlocks_;
-	PSPPointer<SceKernelVplBlock> nextFreeBlock_;
-	SceKernelVplBlock firstBlock_;
-
-	void Init(u32 ptr, u32 size) {
-		startPtr_ = ptr;
-		startPtr2_ = ptr;
-		sentinel_ = ptr + 7;
-		sizeMinus8_ = size - 8;
-		allocatedInBlocks_ = 0;
-		nextFreeBlock_ = FirstBlockPtr();
-
-		firstBlock_.next = LastBlockPtr();
-		// Includes its own header, which is one block.
-		firstBlock_.sizeInBlocks = (size - 0x28) / 8 + 1;
-
-		auto lastBlock = LastBlock();
-		lastBlock->next = FirstBlockPtr();
-		lastBlock->sizeInBlocks = 0;
-	}
-
-	u32 Allocate(u32 size) {
-		u32 allocBlocks = ((size + 7) / 8) + 1;
-		auto prev = nextFreeBlock_;
-		do {
-			auto b = prev->next;
-			if (b->sizeInBlocks > allocBlocks) {
-				b = SplitBlock(b, allocBlocks);
-			}
-
-			if (b->sizeInBlocks == allocBlocks) {
-				UnlinkFreeBlock(b, prev);
-				return b.ptr + 8;
-			}
-
-			prev = b;
-		} while (prev.IsValid() && prev != nextFreeBlock_);
-
-		return (u32)-1;
-	}
-
-	bool Free(u32 ptr) {
-		auto b = PSPPointer<SceKernelVplBlock>::Create(ptr - 8);
-		// Is it even in the right range?  Can't be the last block, which is always 0.
-		if (!b.IsValid() || ptr < FirstBlockPtr() || ptr >= LastBlockPtr()) {
-			return false;
-		}
-		// Great, let's check if it matches our magic.
-		if (b->next.ptr != SentinelPtr() || b->sizeInBlocks > allocatedInBlocks_) {
-			return false;
+u32 SceKernelVplHeader::Allocate(u32 size) {
+	u32 allocBlocks = ((size + 7) / 8) + 1;
+	auto prev = nextFreeBlock_;
+	do {
+		auto b = prev->next;
+		if (b->sizeInBlocks > allocBlocks) {
+			b = SplitBlock(b, allocBlocks);
 		}
 
-		auto prev = LastBlock();
-		do {
-			auto next = prev->next;
-			// Already free.
-			if (next == b) {
-				return false;
-			} else if (next > b) {
-				LinkFreeBlock(b, prev, next);
-				return true;
-			}
+		if (b->sizeInBlocks == allocBlocks) {
+			UnlinkFreeBlock(b, prev);
+			return b.ptr + 8;
+		}
 
-			prev = next;
-		} while (prev.IsValid() && prev != LastBlock());
+		prev = b;
+	} while (prev.IsValid() && prev != nextFreeBlock_);
 
-		// TODO: Log?
+	return (u32)-1;
+}
+
+bool SceKernelVplHeader::Free(u32 ptr) {
+	auto b = PSPPointer<SceKernelVplBlock>::Create(ptr - 8);
+	// Is it even in the right range?  Can't be the last block, which is always 0.
+	if (!b.IsValid() || ptr < FirstBlockPtr() || ptr >= LastBlockPtr()) {
+		return false;
+	}
+	// Great, let's check if it matches our magic.
+	if (b->next.ptr != SentinelPtr() || b->sizeInBlocks > allocatedInBlocks_) {
 		return false;
 	}
 
-	u32 FreeSize() const {
-		// Size less the header and number of allocated bytes.
-		return sizeMinus8_ + 8 - 0x20 - allocatedInBlocks_ * 8;
-	}
-
-	bool LinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev, PSPPointer<SceKernelVplBlock> next) {
-		allocatedInBlocks_ -= b->sizeInBlocks;
-		nextFreeBlock_ = prev;
-
-		// Make sure we don't consider it free later by erasing the magic.
-		b->next = next.ptr;
-		const auto afterB = b + b->sizeInBlocks;
-		if (afterB == next && next->sizeInBlocks != 0) {
-			b = MergeBlocks(b, next);
+	auto prev = LastBlock();
+	do {
+		auto next = prev->next;
+		// Already free.
+		if (next == b) {
+			return false;
+		} else if (next > b) {
+			LinkFreeBlock(b, prev, next);
+			return true;
 		}
 
-		const auto afterPrev = prev + prev->sizeInBlocks;
-		if (afterPrev == b) {
-			b = MergeBlocks(prev, b);
+		prev = next;
+	} while (prev.IsValid() && prev != LastBlock());
+
+	// TODO: Log?
+	return false;
+}
+
+bool SceKernelVplHeader::LinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev, PSPPointer<SceKernelVplBlock> next) {
+	allocatedInBlocks_ -= b->sizeInBlocks;
+	nextFreeBlock_ = prev;
+
+	// Make sure we don't consider it free later by erasing the magic.
+	b->next = next.ptr;
+	const auto afterB = b + b->sizeInBlocks;
+	if (afterB == next && next->sizeInBlocks != 0) {
+		b = MergeBlocks(b, next);
+	}
+
+	const auto afterPrev = prev + prev->sizeInBlocks;
+	if (afterPrev == b) {
+		b = MergeBlocks(prev, b);
+	} else {
+		prev->next = b.ptr;
+	}
+
+	return true;
+}
+
+void SceKernelVplHeader::UnlinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev) {
+	allocatedInBlocks_ += b->sizeInBlocks;
+	prev->next = b->next;
+	nextFreeBlock_ = prev;
+	b->next = SentinelPtr();
+}
+
+PSPPointer<SceKernelVplBlock> SceKernelVplHeader::SplitBlock(PSPPointer<SceKernelVplBlock> b, u32 allocBlocks) {
+	u32 prev = b.ptr;
+	b->sizeInBlocks -= allocBlocks;
+
+	b += b->sizeInBlocks;
+	b->sizeInBlocks = allocBlocks;
+	b->next = prev;
+
+	return b;
+}
+
+void SceKernelVplHeader::Validate() {
+	auto lastBlock = LastBlock();
+	_dbg_assert_msg_(nextFreeBlock_->next.ptr != SentinelPtr(), "Next free block should not be allocated.");
+	_dbg_assert_msg_(nextFreeBlock_->next.ptr != sentinel_, "Next free block should not point to sentinel.");
+	_dbg_assert_msg_(lastBlock->sizeInBlocks == 0, "Last block should have size of 0.");
+	_dbg_assert_msg_(lastBlock->next.ptr != SentinelPtr(), "Last block should not be allocated.");
+	_dbg_assert_msg_(lastBlock->next.ptr != sentinel_, "Last block should not point to sentinel.");
+
+	auto b = PSPPointer<SceKernelVplBlock>::Create(FirstBlockPtr());
+	bool sawFirstFree = false;
+	while (b.ptr < lastBlock.ptr) {
+		bool isFree = b->next.ptr != SentinelPtr();
+		if (isFree) {
+			if (!sawFirstFree) {
+				_dbg_assert_msg_(lastBlock->next.ptr == b.ptr, "Last block should point to first free block.");
+				sawFirstFree = true;
+			}
+			_dbg_assert_msg_(b->next.ptr != SentinelPtr(), "Free blocks should only point to other free blocks.");
+			_dbg_assert_msg_(b->next.ptr > b.ptr, "Free blocks should be in order.");
+			_dbg_assert_msg_(b + b->sizeInBlocks < b->next || b->next.ptr == lastBlock.ptr, "Two free blocks should not be next to each other.");
 		} else {
-			prev->next = b.ptr;
+			_dbg_assert_msg_(b->next.ptr == SentinelPtr(), "Allocated blocks should point to the sentinel.");
 		}
-
-		return true;
-	}
-
-	void UnlinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev) {
-		allocatedInBlocks_ += b->sizeInBlocks;
-		prev->next = b->next;
-		nextFreeBlock_ = prev;
-		b->next = SentinelPtr();
-	}
-
-	PSPPointer<SceKernelVplBlock> SplitBlock(PSPPointer<SceKernelVplBlock> b, u32 allocBlocks) {
-		u32 prev = b.ptr;
-		b->sizeInBlocks -= allocBlocks;
-
+		_dbg_assert_msg_(b->sizeInBlocks != 0, "Only the last block should have a size of 0.");
 		b += b->sizeInBlocks;
-		b->sizeInBlocks = allocBlocks;
-		b->next = prev;
-
-		return b;
 	}
+	if (!sawFirstFree) {
+		_dbg_assert_msg_(lastBlock->next.ptr == lastBlock.ptr, "Last block should point to itself when full.");
+	}
+	_dbg_assert_msg_(b.ptr == lastBlock.ptr, "Blocks should not extend outside vpl.");
+}
 
-	inline void Validate() {
-		auto lastBlock = LastBlock();
-		_dbg_assert_msg_(nextFreeBlock_->next.ptr != SentinelPtr(), "Next free block should not be allocated.");
-		_dbg_assert_msg_(nextFreeBlock_->next.ptr != sentinel_, "Next free block should not point to sentinel.");
-		_dbg_assert_msg_(lastBlock->sizeInBlocks == 0, "Last block should have size of 0.");
-		_dbg_assert_msg_(lastBlock->next.ptr != SentinelPtr(), "Last block should not be allocated.");
-		_dbg_assert_msg_(lastBlock->next.ptr != sentinel_, "Last block should not point to sentinel.");
-
-		auto b = PSPPointer<SceKernelVplBlock>::Create(FirstBlockPtr());
-		bool sawFirstFree = false;
-		while (b.ptr < lastBlock.ptr) {
-			bool isFree = b->next.ptr != SentinelPtr();
-			if (isFree) {
-				if (!sawFirstFree) {
-					_dbg_assert_msg_(lastBlock->next.ptr == b.ptr, "Last block should point to first free block.");
-					sawFirstFree = true;
-				}
-				_dbg_assert_msg_(b->next.ptr != SentinelPtr(), "Free blocks should only point to other free blocks.");
-				_dbg_assert_msg_(b->next.ptr > b.ptr, "Free blocks should be in order.");
-				_dbg_assert_msg_(b + b->sizeInBlocks < b->next || b->next.ptr == lastBlock.ptr, "Two free blocks should not be next to each other.");
-			} else {
-				_dbg_assert_msg_(b->next.ptr == SentinelPtr(), "Allocated blocks should point to the sentinel.");
-			}
-			_dbg_assert_msg_(b->sizeInBlocks != 0, "Only the last block should have a size of 0.");
-			b += b->sizeInBlocks;
+void SceKernelVplHeader::ListBlocks() {
+	auto b = PSPPointer<SceKernelVplBlock>::Create(FirstBlockPtr());
+	auto lastBlock = LastBlock();
+	while (b.ptr < lastBlock.ptr) {
+		bool isFree = b->next.ptr != SentinelPtr();
+		if (nextFreeBlock_ == b && isFree) {
+			NOTICE_LOG(Log::sceKernel, "NEXT:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
+		} else if (isFree) {
+			NOTICE_LOG(Log::sceKernel, "FREE:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
+		} else {
+			NOTICE_LOG(Log::sceKernel, "BLOCK: %x (size %x)", b.ptr - startPtr_, b->sizeInBlocks * 8);
 		}
-		if (!sawFirstFree) {
-			_dbg_assert_msg_(lastBlock->next.ptr == lastBlock.ptr, "Last block should point to itself when full.");
-		}
-		_dbg_assert_msg_(b.ptr == lastBlock.ptr, "Blocks should not extend outside vpl.");
+		b += b->sizeInBlocks;
+	}
+	NOTICE_LOG(Log::sceKernel, "LAST:  %x -> %x (size %x)", lastBlock.ptr - startPtr_, lastBlock->next.ptr - startPtr_, lastBlock->sizeInBlocks * 8);
+}
+
+PSPPointer<SceKernelVplBlock> SceKernelVplHeader::MergeBlocks(PSPPointer<SceKernelVplBlock> first, PSPPointer<SceKernelVplBlock> second) {
+	first->sizeInBlocks += second->sizeInBlocks;
+	first->next = second->next;
+	return first;
+}
+
+u32 VPL::GetMissingErrorCode() {
+	return SCE_KERNEL_ERROR_UNKNOWN_VPLID;
+}
+
+void VPL::DoState(PointerWrap &p) {
+	auto s = p.Section("VPL", 1, 2);
+	if (!s) {
+		return;
 	}
 
-	void ListBlocks() {
-		auto b = PSPPointer<SceKernelVplBlock>::Create(FirstBlockPtr());
-		auto lastBlock = LastBlock();
-		while (b.ptr < lastBlock.ptr) {
-			bool isFree = b->next.ptr != SentinelPtr();
-			if (nextFreeBlock_ == b && isFree) {
-				NOTICE_LOG(Log::sceKernel, "NEXT:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
-			} else if (isFree) {
-				NOTICE_LOG(Log::sceKernel, "FREE:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
-			} else {
-				NOTICE_LOG(Log::sceKernel, "BLOCK: %x (size %x)", b.ptr - startPtr_, b->sizeInBlocks * 8);
-			}
-			b += b->sizeInBlocks;
-		}
-		NOTICE_LOG(Log::sceKernel, "LAST:  %x -> %x (size %x)", lastBlock.ptr - startPtr_, lastBlock->next.ptr - startPtr_, lastBlock->sizeInBlocks * 8);
+	Do(p, nv);
+	Do(p, address);
+	VplWaitingThread dv = { 0 };
+	Do(p, waitingThreads, dv);
+	alloc.DoState(p);
+	Do(p, pausedWaits);
+
+	if (s >= 2) {
+		Do(p, header);
 	}
-
-	PSPPointer<SceKernelVplBlock> MergeBlocks(PSPPointer<SceKernelVplBlock> first, PSPPointer<SceKernelVplBlock> second) {
-		first->sizeInBlocks += second->sizeInBlocks;
-		first->next = second->next;
-		return first;
-	}
-
-	u32 FirstBlockPtr() const {
-		return startPtr_ + 0x18;
-	}
-
-	u32 LastBlockPtr() const {
-		return startPtr_ + sizeMinus8_;
-	}
-
-	PSPPointer<SceKernelVplBlock> LastBlock() {
-		return PSPPointer<SceKernelVplBlock>::Create(LastBlockPtr());
-	}
-
-	u32 SentinelPtr() const {
-		return startPtr_ + 8;
-	}
-};
-
-struct VPL : public KernelObject {
-	const char *GetName() override { return nv.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "VPL"; }
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Vpl; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Vpl; }
-
-	VPL() : alloc(8) {
-		header = 0;
-	}
-
-	void DoState(PointerWrap &p) override {
-		auto s = p.Section("VPL", 1, 2);
-		if (!s) {
-			return;
-		}
-
-		Do(p, nv);
-		Do(p, address);
-		VplWaitingThread dv = {0};
-		Do(p, waitingThreads, dv);
-		alloc.DoState(p);
-		Do(p, pausedWaits);
-
-		if (s >= 2) {
-			Do(p, header);
-		}
-	}
-
-	SceKernelVplInfo nv{};
-	u32 address = 0;
-	std::vector<VplWaitingThread> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, VplWaitingThread> pausedWaits;
-	BlockAllocator alloc;
-	PSPPointer<SceKernelVplHeader> header;
-};
+}
 
 void __KernelVplTimeout(u64 userdata, int cyclesLate);
 void __KernelFplTimeout(u64 userdata, int cyclesLate);

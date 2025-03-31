@@ -17,11 +17,14 @@
 
 #pragma once
 
+#include <vector>
+#include <map>
+
 #include "Core/Util/BlockAllocator.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/MemMap.h"
 
-enum MemblockType
-{
+enum MemblockType {
 	PSP_SMEM_Low = 0,
 	PSP_SMEM_High = 1,
 	PSP_SMEM_Addr = 2,
@@ -43,6 +46,98 @@ KernelObject *__KernelTlsplObject();
 BlockAllocator *BlockAllocatorFromID(int id);
 int BlockAllocatorToID(const BlockAllocator *alloc);
 BlockAllocator *BlockAllocatorFromAddr(u32 addr);
+
+struct VplWaitingThread {
+	SceUID threadID;
+	u32 addrPtr;
+	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const
+	{
+		return threadID == otherThreadID;
+	}
+};
+
+struct SceKernelVplInfo {
+	SceSize_le size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	SceUInt_le attr;
+	s32_le poolSize;
+	s32_le freeSize;
+	s32_le numWaitThreads;
+};
+
+struct SceKernelVplBlock {
+	PSPPointer<SceKernelVplBlock> next;
+	// Includes this info (which is 1 block / 8 bytes.)
+	u32_le sizeInBlocks;
+};
+
+struct SceKernelVplHeader {
+	u32_le startPtr_;
+	// TODO: Why twice?  Is there a case it changes?
+	u32_le startPtr2_;
+	u32_le sentinel_;
+	u32_le sizeMinus8_;
+	u32_le allocatedInBlocks_;
+	PSPPointer<SceKernelVplBlock> nextFreeBlock_;
+	SceKernelVplBlock firstBlock_;
+
+	void Init(u32 ptr, u32 size);
+	u32 Allocate(u32 size);
+	bool Free(u32 ptr);
+
+	u32 FreeSize() const {
+		// Size less the header and number of allocated bytes.
+		return sizeMinus8_ + 8 - 0x20 - allocatedInBlocks_ * 8;
+	}
+
+	bool LinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev, PSPPointer<SceKernelVplBlock> next);
+	void UnlinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev);
+	PSPPointer<SceKernelVplBlock> SplitBlock(PSPPointer<SceKernelVplBlock> b, u32 allocBlocks);
+	void Validate();
+	void ListBlocks();
+	PSPPointer<SceKernelVplBlock> MergeBlocks(PSPPointer<SceKernelVplBlock> first, PSPPointer<SceKernelVplBlock> second);
+
+	u32 FirstBlockPtr() const {
+		return startPtr_ + 0x18;
+	}
+
+	u32 LastBlockPtr() const {
+		return startPtr_ + sizeMinus8_;
+	}
+
+	PSPPointer<SceKernelVplBlock> LastBlock() {
+		return PSPPointer<SceKernelVplBlock>::Create(LastBlockPtr());
+	}
+
+	u32 SentinelPtr() const {
+		return startPtr_ + 8;
+	}
+};
+
+
+struct VPL : public KernelObject {
+	const char *GetName() override { return nv.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "VPL"; }
+	static u32 GetMissingErrorCode();
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Vpl; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Vpl; }
+
+	VPL() : alloc(8) {}
+
+	void DoState(PointerWrap &p) override;
+
+	SceKernelVplInfo nv{};
+	u32 address = 0;
+	std::vector<VplWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, VplWaitingThread> pausedWaits;
+	BlockAllocator alloc;
+	PSPPointer<SceKernelVplHeader> header{};
+};
+
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr);
 int sceKernelDeleteVpl(SceUID uid);
