@@ -1195,6 +1195,7 @@
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\NetInetConstants.h" />
     <ClInclude Include="HLE\Plugins.h" />
+    <ClInclude Include="HLE\PSPThreadContext.h" />
     <ClInclude Include="HLE\sceAac.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
     <ClInclude Include="HLE\sceNetApctl.h" />

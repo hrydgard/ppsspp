@@ -74,11 +74,6 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
-enum {
-	PSP_THREAD_ATTR_KERNEL = 0x00001000,
-	PSP_THREAD_ATTR_USER = 0x80000000,
-};
-
 enum : u32 {
 	// Function exports.
 	NID_MODULE_START = 0xD632ACDB,

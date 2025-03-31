@@ -18,8 +18,10 @@
 #pragma once
 
 #include <cstdio>
-#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/PSPThreadContext.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+
+struct PSPThreadContext;
 
 class KernelThreadDebugInterface : public DebugInterface {
 public:

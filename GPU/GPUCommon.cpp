@@ -25,7 +25,6 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/MemMapHelpers.h"
@@ -36,6 +35,8 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
+
+bool __KernelIsDispatchEnabled();
 
 void GPUCommon::Flush() {
 	drawEngineCommon_->Flush();

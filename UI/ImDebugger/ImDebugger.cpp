@@ -306,21 +306,6 @@ static void DrawVFPU(ImConfig &config, ImControl &control, const MIPSDebugInterf
 	ImGui::End();
 }
 
-static const char *ThreadStatusToString(u32 status) {
-	switch (status) {
-	case THREADSTATUS_RUNNING: return "Running";
-	case THREADSTATUS_READY: return "Ready";
-	case THREADSTATUS_WAIT: return "Wait";
-	case THREADSTATUS_SUSPEND: return "Suspended";
-	case THREADSTATUS_DORMANT: return "Dormant";
-	case THREADSTATUS_DEAD: return "Dead";
-	case THREADSTATUS_WAITSUSPEND: return "WaitSuspended";
-	default:
-		break;
-	}
-	return "(unk)";
-}
-
 void WaitIDToString(WaitType waitType, SceUID waitID, char *buffer, size_t bufSize) {
 	switch (waitType) {
 	case WAITTYPE_AUDIOCHANNEL:

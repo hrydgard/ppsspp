@@ -18,7 +18,7 @@
 #pragma once
 
 #include <string>
-#include <cstdio>
+
 #include "Common/Math/expression_parser.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Debugger/DebugInterface.h"

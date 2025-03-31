@@ -2178,6 +2178,9 @@
     <ClInclude Include="LuaContext.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\PSPThreadContext.h">
+      <Filter>HLE\Kernel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE.TXT" />
