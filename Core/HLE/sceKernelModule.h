@@ -182,6 +182,7 @@ public:
 	NativeModule nm{};
 	std::vector<ModuleWaitingThread> waitingThreads;
 
+	// TODO: Should we store these grouped by moduleName instead? Seems more reasonable.
 	std::vector<FuncSymbolExport> exportedFuncs;
 	std::vector<FuncSymbolImport> importedFuncs;
 	std::vector<VarSymbolExport> exportedVars;
