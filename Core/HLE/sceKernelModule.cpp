@@ -985,6 +985,7 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 	}
 	err = inflate(&stream, Z_FINISH);
 	if (err != Z_STREAM_END) {
+		ERROR_LOG(Log::Loader, "gzipDecompress: Didn't reach the end of the input, output buffer too small?");
 		inflateEnd(&stream);
 		return -2;
 	}
@@ -1118,6 +1119,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		elfSize = maxElfSize;
 		ptr = newptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		_dbg_assert_(ret <= maxElfSize);
 		if (ret <= 0 && Read32(ptr + 0x150) == ELF_MAGIC) {
 			ret = head->psp_size - 0x150;
 			memcpy(newptr, in + 0x150, ret);
@@ -1133,7 +1135,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		if (reportedModule) {
 			// Opportunity to dump the decrypted elf, even if we choose to fake it.
-			std::string elfFilename(filename);
+			// NOTE: filename is not necessarily a good choice!
+			std::string elfFilename(KeepAfterLast(filename, '/'));
 			if (elfFilename.empty()) {
 				// Use the name from the header.
 				elfFilename = head->modname;

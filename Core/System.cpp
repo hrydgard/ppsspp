@@ -882,7 +882,10 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, Du
 	}
 
 	const char *extension = DumpFileTypeToFileExtension(type);
-	const std::string filenameToDumpTo = StringFromFormat("%s_%s%s", g_paramSFO.GetDiscID().c_str(), name, extension);
+	std::string filenameToDumpTo = StringFromFormat("%s_%s", g_paramSFO.GetDiscID().c_str(), name);
+	if (!endsWithNoCase(filenameToDumpTo, extension)) {
+		filenameToDumpTo += extension;
+	}
 	const Path dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
 	const Path fullPath = dumpDirectory / filenameToDumpTo;
 
@@ -939,7 +942,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, Du
 	strcpy(path, fullPath.c_str());
 
 	// Re-suing the translation string here.
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f, "decr");
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f);
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 		g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
 			char *path = (char *)userdata;
