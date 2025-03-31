@@ -204,15 +204,15 @@ public:
 		return static_cast<T *>(pool[realHandle]);
 	}
 
-	template <class T, typename ArgT>
-	void Iterate(bool func(T *, ArgT), ArgT arg) {
+	template <typename T, typename F>
+	void Iterate(F func) {
 		int type = T::GetStaticIDType();
 		for (int i = 0; i < maxCount; i++) {
 			if (!occupied[i])
 				continue;
 			T *t = static_cast<T *>(pool[i]);
 			if (t->GetIDType() == type) {
-				if (!func(t, arg))
+				if (!func(i, t))
 					break;
 			}
 		}

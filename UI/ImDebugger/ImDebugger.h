@@ -124,6 +124,7 @@ struct ImConfig {
 	bool threadsOpen;
 	bool callstackOpen;
 	bool breakpointsOpen;
+	bool symbolsOpen;
 	bool modulesOpen;
 	bool hleModulesOpen;
 	bool audioDecodersOpen;

@@ -1581,7 +1581,6 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			module->nm.entry_addr = module->nm.module_start_func;
 
 		MIPSAnalyst::PrecompileFunctions();
-
 	} else {
 		module->nm.entry_addr = -1;
 	}
@@ -2364,22 +2363,21 @@ struct GetModuleIdByAddressArg
 	SceUID result;
 };
 
-static bool __GetModuleIdByAddressIterator(PSPModule *module, GetModuleIdByAddressArg *state) {
-	const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
-	if (start != 0 && start <= state->addr && start + size > state->addr) {
-		state->result = module->GetUID();
-		return false;
-	}
-	return true;
-}
-
 static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
 	GetModuleIdByAddressArg state;
 	state.addr = moduleAddr;
 	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
 
-	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
+	kernelObjects.Iterate<PSPModule>([&state](int id, PSPModule *module) -> bool {
+		const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
+		if (start != 0 && start <= state.addr && start + size > state.addr) {
+			state.result = module->GetUID();
+			return false;
+		}
+		return true;
+	});
+
 	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE) {
 		return hleLogError(Log::sceModule, state.result, "module not found at address");
 	} else {

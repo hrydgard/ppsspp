@@ -25,6 +25,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetApctl.h"
@@ -1439,13 +1440,60 @@ static void DrawUtilityModules(ImConfig &cfg, ImControl &control) {
 	ImGui::End();
 }
 
+// Started as a module browser but really only draws from the symbols database, so let's
+// evolve it to that.
 static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("Modules", &cfg.modulesOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
 
-	// Hm, this reads from the symbol map.
+	ImGui::TextUnformatted("This shows modules that have been loaded by the game (not plain HLE)");
+
+	if (ImGui::BeginTable("modules", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("IsFake", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Active", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableHeadersRow();
+
+		// TODO: Add context menu and clickability
+		kernelObjects.Iterate<PSPModule>([&cfg, &control](int id, PSPModule *module) -> bool {
+			ImGui::PushID(id);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			if (ImGui::Selectable(module->GetName(), cfg.selectedModule == id, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedModule = id;
+			}
+			ImGui::TableNextColumn();
+			ImClickableValue("addr", module->memoryBlockAddr, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", module->memoryBlockSize);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted("n/a");
+			ImGui::PopID();
+			return true;
+		});
+
+		ImGui::EndTable();
+	}
+
+	//if (cfg.selectedModule >= 0 && cfg.selectedModule < (int)modules.size()) {
+		// TODO: Show details
+	//}
+	ImGui::End();
+}
+
+// Started as a module browser but really only draws from the symbols database, so let's
+// evolve it to that.
+static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImControl &control) {
+	if (!ImGui::Begin("Symbols", &cfg.symbolsOpen) || !g_symbolMap) {
+		ImGui::End();
+		return;
+	}
+
+	// Reads from the symbol map.
 	std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 	if (ImGui::BeginTable("modules", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
@@ -1673,6 +1721,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Symbols")) {
+			ImGui::MenuItem("Symbol browser", nullptr, &cfg_.symbolsOpen);
+			ImGui::Separator();
+
 			if (ImGui::MenuItem("Load .ppmap...")) {
 				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
 					Path path(responseString);
@@ -1834,6 +1885,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.modulesOpen) {
 		DrawModules(mipsDebug, cfg_, control);
+	}
+
+	if (cfg_.symbolsOpen) {
+		DrawSymbols(mipsDebug, cfg_, control);
 	}
 
 	if (cfg_.utilityModulesOpen) {
@@ -2302,6 +2357,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("threadsOpen", &threadsOpen, false);
 	sync.Sync("callstackOpen", &callstackOpen, false);
 	sync.Sync("breakpointsOpen", &breakpointsOpen, false);
+	sync.Sync("symbolsOpen", &symbolsOpen, false);
 	sync.Sync("modulesOpen", &modulesOpen, false);
 	sync.Sync("hleModulesOpen", &hleModulesOpen, false);
 	sync.Sync("audioDecodersOpen", &audioDecodersOpen, false);
