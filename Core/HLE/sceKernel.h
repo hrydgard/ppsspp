@@ -172,6 +172,15 @@ public:
 			return occupied[index];
 	}
 
+	template<class T>
+	bool Is(SceUID handle) const {
+		int index = handle - handleOffset;
+		if (index < 0 || index >= maxCount)
+			return false;
+		else
+			return occupied[index] && pool[handle - handleOffset]->GetIDType() == T::GetStaticIDType();
+	}
+
 	template <class T>
 	T* Get(SceUID handle, u32 &outError) {
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset]) {
@@ -212,7 +221,7 @@ public:
 				continue;
 			T *t = static_cast<T *>(pool[i]);
 			if (t->GetIDType() == type) {
-				if (!func(i, t))
+				if (!func(i + handleOffset, t))
 					break;
 			}
 		}

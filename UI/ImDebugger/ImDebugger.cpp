@@ -1420,8 +1420,8 @@ static void DrawUtilityModules(ImConfig &cfg, ImControl &control) {
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(info->name, cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
-				cfg.selectedModule = i;
+			if (ImGui::Selectable(info->name, cfg.selectedUtilityModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedUtilityModule = i;
 			}
 			ImGui::TableNextColumn();
 			if (loadedAddr) {
@@ -1463,8 +1463,8 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::PushID(id);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(module->GetName(), cfg.selectedModule == id, ImGuiSelectableFlags_SpanAllColumns)) {
-				cfg.selectedModule = id;
+			if (ImGui::Selectable(module->GetName(), cfg.selectedModuleId == id, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedModuleId = id;
 			}
 			ImGui::TableNextColumn();
 			ImClickableValue("addr", module->memoryBlockAddr, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
@@ -1479,6 +1479,21 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 		ImGui::EndTable();
 	}
 
+	if (kernelObjects.Is<PSPModule>(cfg.selectedModuleId)) {
+		PSPModule *sel = kernelObjects.GetFast<PSPModule>(cfg.selectedModuleId);
+		if (sel) {
+			ImGui::Text("%s %d.%d (%s)\n", sel->GetName(), sel->nm.version[1], sel->nm.version[0], sel->isFake ? "FAKE/HLE" : "normal");
+			char buf[512];
+			sel->GetLongInfo(buf, sizeof(buf));
+			ImGui::TextUnformatted(buf);
+			if (ImGui::CollapsingHeader("Imports")) {
+
+			}
+			if (ImGui::CollapsingHeader("Exports")) {
+
+			}
+		}
+	}
 	//if (cfg.selectedModule >= 0 && cfg.selectedModule < (int)modules.size()) {
 		// TODO: Show details
 	//}
@@ -1509,8 +1524,8 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(module.name.c_str(), cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
-				cfg.selectedModule = i;
+			if (ImGui::Selectable(module.name.c_str(), cfg.selectedSymbolModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedSymbolModule = i;
 			}
 			ImGui::TableNextColumn();
 			ImClickableValue("addr", module.address, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
@@ -1524,7 +1539,7 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 		ImGui::EndTable();
 	}
 
-	if (cfg.selectedModule >= 0 && cfg.selectedModule < (int)modules.size()) {
+	if (cfg.selectedModuleId >= 0 && cfg.selectedModuleId < (int)modules.size()) {
 		// TODO: Show details
 	}
 	ImGui::End();
