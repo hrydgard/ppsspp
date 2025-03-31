@@ -1074,8 +1074,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.modid = module->GetUID();
 
 	bool reportedModule = false;
+	bool fakeLoadedModule = false;
 	u32 devkitVersion = 0;
 	u8 *newptr = 0;
+	const PSP_Header *head = nullptr;
+
 	if (Read32(ptr) == SCE_MAGIC) { // "~SCE"
 		const u32 headerSize = *(const u32_le*)(ptr + 4);
 		if (headerSize < elfSize) {
@@ -1093,13 +1096,16 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	*magic = Read32(ptr);
 	if (*magic == PSP_MAGIC && elfSize > sizeof(PSP_Header)) { // "~PSP"
 		DEBUG_LOG(Log::sceModule, "Decrypting ~PSP file");
-		const PSP_Header *head = (const PSP_Header*)ptr;
+		head = (const PSP_Header *)ptr;
 		devkitVersion = head->devkitversion;
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
+
+			// TODO: Don't conflate these!
 			reportedModule = true;
+			fakeLoadedModule = true;
 		}
 
 		const u8 *in = ptr;
@@ -1118,22 +1124,29 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
-		_dbg_assert_(ret <= maxElfSize);
-		if (ret <= 0 && Read32(ptr + 0x150) == ELF_MAGIC) {
-			ret = head->psp_size - 0x150;
-			memcpy(newptr, in + 0x150, ret);
+		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		_dbg_assert_(decryptedSize <= (int)maxElfSize);
+		if (decryptedSize <= 0 && Read32(ptr + 0x150) == ELF_MAGIC) {
+			decryptedSize = head->psp_size - 0x150;
+			memcpy(newptr, in + 0x150, decryptedSize);
+			// In this case it's definitely not compressed. Added assert below.
 		}
 
 		// decompress if required.
 		if (isGzip) {
-			auto temp = new u8[ret];
-			memcpy(temp, ptr, ret);
-			gzipDecompress((u8 *)ptr, maxElfSize, temp);
+			_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
+
+			auto temp = new u8[decryptedSize];
+			memcpy(temp, ptr, decryptedSize);
+			int outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
+			if (outBytes < 0) {
+				ERROR_LOG(Log::sceModule, "Module gzip decompression failed!");
+			}
 			delete[] temp;
+			INFO_LOG(Log::sceModule, "gzip is enabled in '%s', decompressing (%d -> %d bytes, bufmax=%d).", head->modname, decryptedSize, outBytes, maxElfSize);
 		}
 
-		if (reportedModule) {
+		if (fakeLoadedModule) {
 			// Opportunity to dump the decrypted elf, even if we choose to fake it.
 			// NOTE: filename is not necessarily a good choice!
 			std::string elfFilename(KeepAfterLast(filename, '/'));
@@ -1143,10 +1156,6 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			}
 			DumpFileIfEnabled(ptr, head->psp_size, elfFilename.c_str(), DumpFileType::PRX);
 
-			if (isGzip) {
-				INFO_LOG(Log::sceModule, "gzip is enabled in 'reported' module");
-			}
-
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
 			delete [] newptr;
@@ -1155,7 +1164,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 
-			// Let's still try to allocate it.  It may use user memory.
+			// Let's still try to allocate it properly. It may use user memory.
+			// Also, this memory can be used by the fake implementation, like sceAtrac does for contexts.
 			u32 totalSize = 0;
 			for (int i = 0; i < 4; ++i) {
 				if (head->seg_size[i]) {
@@ -1208,9 +1218,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			}
 
 			return module;
-		} else if (ret <= 0) {
-			ERROR_LOG(Log::sceModule, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
-			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
+		} else if (decryptedSize <= 0) {
+			ERROR_LOG(Log::sceModule, "Failed decrypting PRX! That's not normal! ret = %i\n", decryptedSize);
+			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", decryptedSize, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
 		} else {
 			// TODO: Is this right?
@@ -1552,6 +1562,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				module->ExportVar(var);
 				break;
 			}
+		}
+	}
+
+	if (head) {
+		// Here we have the opportunity to check if the information in the header and the information
+		// in the module actually corresponds.
+		if (devkitVersion != head->devkitversion) {
+			WARN_LOG(Log::sceModule, "Devkitversion in module %08x doesn't match header %08x", devkitVersion, head->devkitversion);
 		}
 	}
 
