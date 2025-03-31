@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "../Util/BlockAllocator.h"
-#include "sceKernel.h"
+#include "Core/Util/BlockAllocator.h"
+#include "Core/HLE/sceKernel.h"
 
 enum MemblockType
 {
@@ -52,6 +52,55 @@ int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr);
 int sceKernelFreeVpl(SceUID uid, u32 addr);
 int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferVplStatus(SceUID uid, u32 infoPtr);
+
+struct FplWaitingThread {
+	SceUID threadID;
+	u32 addrPtr;
+	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const {
+		return threadID == otherThreadID;
+	}
+};
+
+struct NativeFPL {
+	u32_le size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	u32_le attr;
+
+	s32_le blocksize;
+	s32_le numBlocks;
+	s32_le numFreeBlocks;
+	s32_le numWaitThreads;
+};
+
+//FPL - Fixed Length Dynamic Memory Pool - every item has the same length
+struct FPL : public KernelObject {
+	~FPL() {
+		delete[] blocks;
+	}
+	const char *GetName() override { return nf.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "FPL"; }
+	static u32 GetMissingErrorCode();
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }
+
+	int FindFreeBlock();
+	int AllocateBlock();
+	bool FreeBlock(int b);
+
+	void DoState(PointerWrap &p) override;
+
+	NativeFPL nf{};
+	bool *blocks = nullptr;
+	u32 address = 0;
+	int alignedSize = 0;
+	int nextBlock = 0;
+	std::vector<FplWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, FplWaitingThread> pausedWaits;
+};
 
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blocksize, u32 numBlocks, u32 optPtr);
 int sceKernelDeleteFpl(SceUID uid);

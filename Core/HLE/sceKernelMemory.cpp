@@ -67,94 +67,52 @@ int flags_ = 0;
 int sdkVersion_;
 int compilerVersion_;
 
-struct FplWaitingThread
-{
-	SceUID threadID;
-	u32 addrPtr;
-	u64 pausedTimeout;
+u32 FPL::GetMissingErrorCode() {
+	return SCE_KERNEL_ERROR_UNKNOWN_FPLID;
+}
 
-	bool operator ==(const SceUID &otherThreadID) const
-	{
-		return threadID == otherThreadID;
-	}
-};
-
-struct NativeFPL
-{
-	u32_le size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	u32_le attr;
-
-	s32_le blocksize;
-	s32_le numBlocks;
-	s32_le numFreeBlocks;
-	s32_le numWaitThreads;
-};
-
-//FPL - Fixed Length Dynamic Memory Pool - every item has the same length
-struct FPL : public KernelObject {
-	~FPL() {
-		delete [] blocks;
-	}
-	const char *GetName() override { return nf.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "FPL"; }
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }
-
-	int findFreeBlock() {
-		for (int i = 0; i < nf.numBlocks; i++) {
-			int b = nextBlock++ % nf.numBlocks;
-			if (!blocks[b]) {
-				return b;
-			}
+int FPL::FindFreeBlock() {
+	for (int i = 0; i < nf.numBlocks; i++) {
+		int b = nextBlock++ % nf.numBlocks;
+		if (!blocks[b]) {
+			return b;
 		}
-		return -1;
 	}
+	return -1;
+}
 
-	int allocateBlock() {
-		int block = findFreeBlock();
-		if (block >= 0)
-			blocks[block] = true;
-		return block;
+int FPL::AllocateBlock() {
+	int block = FindFreeBlock();
+	if (block >= 0)
+		blocks[block] = true;
+	return block;
+}
+
+bool FPL::FreeBlock(int b) {
+	if (blocks[b]) {
+		blocks[b] = false;
+		return true;
 	}
-	
-	bool freeBlock(int b) {
-		if (blocks[b]) {
-			blocks[b] = false;
-			return true;
-		}
-		return false;
-	}
+	return false;
+}
 
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("FPL", 1);
-		if (!s)
-			return;
+void FPL::DoState(PointerWrap &p) {
+	auto s = p.Section("FPL", 1);
+	if (!s)
+		return;
 
-		Do(p, nf);
-		if (p.mode == p.MODE_READ)
-			blocks = new bool[nf.numBlocks];
-		DoArray(p, blocks, nf.numBlocks);
-		Do(p, address);
-		Do(p, alignedSize);
-		Do(p, nextBlock);
-		FplWaitingThread dv = {0};
-		Do(p, waitingThreads, dv);
-		Do(p, pausedWaits);
-	}
+	Do(p, nf);
+	if (p.mode == p.MODE_READ)
+		blocks = new bool[nf.numBlocks];
+	DoArray(p, blocks, nf.numBlocks);
+	Do(p, address);
+	Do(p, alignedSize);
+	Do(p, nextBlock);
+	FplWaitingThread dv = { 0 };
+	Do(p, waitingThreads, dv);
+	Do(p, pausedWaits);
+}
 
-	NativeFPL nf{};
-	bool *blocks = nullptr;
-	u32 address = 0;
-	int alignedSize = 0;
-	int nextBlock = 0;
-	std::vector<FplWaitingThread> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, FplWaitingThread> pausedWaits;
-};
 
 struct VplWaitingThread
 {
@@ -566,7 +524,7 @@ static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u
 
 	// If result is an error code, we're just letting it go.
 	if (result == 0) {
-		int blockNum = fpl->allocateBlock();
+		int blockNum = fpl->AllocateBlock();
 		if (blockNum >= 0) {
 			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, threadInfo.addrPtr);
@@ -748,7 +706,7 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	if (!fpl) {
 		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	} else {
-		int blockNum = fpl->allocateBlock();
+		int blockNum = fpl->AllocateBlock();
 		if (blockNum >= 0) {
 			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, blockPtrAddr);
@@ -776,7 +734,7 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	} else {
 		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
 
-		int blockNum = fpl->allocateBlock();
+		int blockNum = fpl->AllocateBlock();
 		if (blockNum >= 0) {
 			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, blockPtrAddr);
@@ -801,7 +759,7 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr) {
 	if (!fpl) {
 		return hleLogError(Log::sceKernel, error, "invalid fpl");
 	} else {
-		int blockNum = fpl->allocateBlock();
+		int blockNum = fpl->AllocateBlock();
 		if (blockNum >= 0) {
 			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, blockPtrAddr);
@@ -827,7 +785,7 @@ int sceKernelFreeFpl(SceUID uid, u32 blockPtr) {
 		if (blockNum < 0 || blockNum >= fpl->nf.numBlocks) {
 			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK);
 		} else {
-			if (fpl->freeBlock(blockNum)) {
+			if (fpl->FreeBlock(blockNum)) {
 				u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 				NotifyMemInfo(MemBlockFlags::SUB_FREE, blockPtr, fpl->alignedSize, "FplFree");
 
