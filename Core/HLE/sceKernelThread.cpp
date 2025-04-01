@@ -746,7 +746,7 @@ static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 {
 	*ptr = pos;
 	pos += 8;
-	WriteSyscall("FakeSysCalls", nid, *ptr);
+	WriteHLESyscall("FakeSysCalls", nid, *ptr);
 	MIPSAnalyst::PrecompileFunction(*ptr, 8);
 }
 
@@ -1931,7 +1931,7 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 
 	// At the bottom of those 64 bytes, the return syscall and ra is written.
 	// Test Drive Unlimited actually depends on it being in the correct place.
-	WriteSyscall("FakeSysCalls", NID_THREADRETURN, sp);
+	WriteHLESyscall("FakeSysCalls", NID_THREADRETURN, sp);
 	Memory::Write_U32(MIPS_MAKE_B(-1), sp + 8);
 	Memory::Write_U32(MIPS_MAKE_NOP(), sp + 12);
 
