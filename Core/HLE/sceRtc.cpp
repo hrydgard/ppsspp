@@ -39,13 +39,6 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
 
-#ifdef HAVE_LIBNX
-// I guess that works...
-#define setenv(x, y, z) (void*)0
-#define tzset() (void*)0
-#define unsetenv(x) (void*)0
-#endif // HAVE_LIBNX
-
 // This is a base time that everything is relative to.
 // This way, time doesn't move strangely with savestates, turbo speed, etc.
 static PSPTimeval rtcBaseTime;
@@ -258,10 +251,10 @@ static u64 __RtcPspTimeToTicks(const ScePspDateTime &pt)
 {
 	s64 z = days_from_civil(s64(pt.year), pt.month, pt.day);
 	return rtcMagicOffset +
-		pt.microsecond + 
+		pt.microsecond +
 		1000000ull * (pt.second +
-		60ull * (pt.minute + 
-		60ull * (pt.hour + 
+		60ull * (pt.minute +
+		60ull * (pt.hour +
 		24ull * u64(z))));
 }
 
@@ -822,7 +815,7 @@ static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
 {
 	ERROR_LOG_REPORT(Log::sceRtc, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
-	return 0; 
+	return 0;
 }
 
 // Caller must check outPtr and srcTickPtr.
