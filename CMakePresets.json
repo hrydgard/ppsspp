@@ -1,5 +1,5 @@
 {
-    "version": 2,
+    "version": 8,
     "configurePresets": [
         {
             "name": "gcc-debug",
@@ -17,6 +17,26 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "switch-debug",
+            "hidden": false,
+            "generator": "Ninja",
+            "binaryDir": "build-switch-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "$env{DEVKITPRO}/cmake/Switch.cmake",
+                "USE_LIBNX": true,
+                "USING_GLES2": true,
+                "USING_EGL": false,
+                "USE_FFMPEG": false,
+                "USE_DISCORD": false,
+                "USE_MINIUPNPC": false,
+                "USE_ARMIPS": false,
+                "USE_SYSTEM_LIBPNG": false,
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
+                "CMAKE_COLOR_DIAGNOSTICS": "YES"
             }
         }
     ]
