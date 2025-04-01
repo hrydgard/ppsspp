@@ -295,14 +295,14 @@ void PSPModule::ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 
 	// Keep track and actually hook it up if possible.
 	importedFuncs.push_back(func);
-	impExpModuleNames.insert(func.moduleName);
+	impModuleNames.insert(func.moduleName);
 	ImportFuncSymbol(func, reimporting, GetName());
 }
 
 void PSPModule::ImportVar(WriteVarSymbolState &state, const VarSymbolImport &var) {
 	// Keep track and actually hook it up if possible.
 	importedVars.push_back(var);
-	impExpModuleNames.insert(var.moduleName);
+	impModuleNames.insert(var.moduleName);
 	ImportVarSymbol(state, var);
 }
 
@@ -311,7 +311,7 @@ void PSPModule::ExportFunc(const FuncSymbolExport &func) {
 		return;
 	}
 	exportedFuncs.push_back(func);
-	impExpModuleNames.insert(func.moduleName);
+	expModuleNames.insert(func.moduleName);
 	ExportFuncSymbol(func);
 }
 
@@ -320,7 +320,7 @@ void PSPModule::ExportVar(const VarSymbolExport &var) {
 		return;
 	}
 	exportedVars.push_back(var);
-	impExpModuleNames.insert(var.moduleName);
+	expModuleNames.insert(var.moduleName);
 	ExportVarSymbol(var);
 }
 
@@ -1150,11 +1150,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// Opportunity to dump the decrypted elf, even if we choose to fake it.
 			// NOTE: filename is not necessarily a good choice!
 			std::string elfFilename(KeepAfterLast(filename, '/'));
-			if (elfFilename.empty()) {
+			if (elfFilename.empty() || startsWith(elfFilename, "sce_lbn")) {
 				// Use the name from the header.
 				elfFilename = head->modname;
 			}
-			DumpFileIfEnabled(ptr, elfSize, elfFilename.c_str(), DumpFileType::PRX);
+			DumpFileIfEnabled(ptr, (u32)elfSize, elfFilename.c_str(), DumpFileType::PRX);
 
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";

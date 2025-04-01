@@ -1489,37 +1489,40 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 				if (mod->isFake) {
 					ImGui::PopStyleColor();
 				}
-				if (ImGui::CollapsingHeader("Import/export modules")) {
-					for (auto &name : mod->impExpModuleNames) {
+				if (!mod->impModuleNames.empty() && ImGui::CollapsingHeader("Imported modules")) {
+					for (auto &name : mod->impModuleNames) {
 						ImGui::TextUnformatted(name);
 					}
 				}
-				if (ImGui::CollapsingHeader("Imports")) {
-					if (!mod->importedVars.empty()) {
-						if (ImGui::CollapsingHeader("Vars")) {
+				if (!mod->expModuleNames.empty() && ImGui::CollapsingHeader("Exported modules")) {
+					for (auto &name : mod->expModuleNames) {
+						ImGui::TextUnformatted(name);
+					}
+				}
+				if (!mod->importedFuncs.empty() || !mod->importedVars.empty()) {
+					if (ImGui::CollapsingHeader("Imports")) {
+						if (!mod->importedVars.empty() && ImGui::CollapsingHeader("Vars")) {
 							for (auto &var : mod->importedVars) {
 								ImGui::TextUnformatted("(some var)");  // TODO
 							}
 						}
-					}
-					for (auto &import : mod->importedFuncs) {
-						// Look the name up in our HLE database.
-						const HLEFunction *func = GetHLEFunc(import.moduleName, import.nid);
-						ImGui::TextUnformatted(import.moduleName);
-						if (func) {
-							ImGui::SameLine();
-							ImGui::TextUnformatted(func->name);
+						for (auto &import : mod->importedFuncs) {
+							// Look the name up in our HLE database.
+							const HLEFunction *func = GetHLEFunc(import.moduleName, import.nid);
+							ImGui::TextUnformatted(import.moduleName);
+							if (func) {
+								ImGui::SameLine();
+								ImGui::TextUnformatted(func->name);
+							}
+							ImGui::SameLine(); ImClickableValue("addr", import.stubAddr, control, ImCmd::SHOW_IN_CPU_DISASM);
 						}
-						ImGui::SameLine(); ImClickableValue("addr", import.stubAddr, control, ImCmd::SHOW_IN_CPU_DISASM);
 					}
 				}
 				if (!mod->exportedFuncs.empty() || !mod->exportedVars.empty()) {
 					if (ImGui::CollapsingHeader("Exports")) {
-						if (!mod->exportedVars.empty()) {
-							if (ImGui::CollapsingHeader("Vars")) {
-								for (auto &var : mod->importedVars) {
-									ImGui::TextUnformatted("(some var)");  // TODO
-								}
+						if (!mod->exportedVars.empty() && ImGui::CollapsingHeader("Vars")) {
+							for (auto &var : mod->importedVars) {
+								ImGui::TextUnformatted("(some var)");  // TODO
 							}
 						}
 						for (auto &exportFunc : mod->exportedFuncs) {
@@ -1533,8 +1536,6 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 							ImGui::SameLine(); ImClickableValue("addr", exportFunc.symAddr, control, ImCmd::SHOW_IN_CPU_DISASM);
 						}
 					}
-				} else {
-					ImGui::TextUnformatted("(no symbols exported)");
 				}
 			}
 		} else {
