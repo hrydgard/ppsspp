@@ -25,7 +25,7 @@ struct PSPThreadContext;
 
 class KernelThreadDebugInterface : public DebugInterface {
 public:
-	KernelThreadDebugInterface(PSPThreadContext &t) : ctx(t) {}
+	KernelThreadDebugInterface(PSPThreadContext *t) : ctx(*t) {}
 
 	u32 GetGPR32Value(int reg) const override { return ctx.r[reg]; }
 	u32 GetHi() const override { return ctx.hi; }
