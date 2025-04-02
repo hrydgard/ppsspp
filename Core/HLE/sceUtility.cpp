@@ -83,6 +83,13 @@ static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 	if (state == 1) {
+		// If HLE of sceAtrac is disabled, things will break!
+		// For now we do angry logging and a debug assert.
+		if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceAtrac) {
+			ERROR_LOG(Log::ME, "sceAtrac HLE is disabled, and the game tries to load sceAtrac from firmware - this won't work!");
+			_dbg_assert_(false);
+		}
+
 		// We try to imitate a recent version of the prx.
 		// Let's just give it a piece of the space.
 		constexpr int version = 0x105;  // latest.
