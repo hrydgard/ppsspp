@@ -2,6 +2,7 @@
 
 
 #include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_extras.h"
 
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
@@ -25,6 +26,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetApctl.h"
@@ -1419,8 +1421,8 @@ static void DrawUtilityModules(ImConfig &cfg, ImControl &control) {
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(info->name, cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
-				cfg.selectedModule = i;
+			if (ImGui::Selectable(info->name, cfg.selectedUtilityModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedUtilityModule = i;
 			}
 			ImGui::TableNextColumn();
 			if (loadedAddr) {
@@ -1445,7 +1447,114 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 		return;
 	}
 
-	// Hm, this reads from the symbol map.
+	ImGui::TextUnformatted("This shows modules that have been loaded by the game (not plain HLE)");
+
+	if (ImGui::BeginChild("module_list", ImVec2(170.0f, 0.0), ImGuiChildFlags_ResizeX)) {
+		if (ImGui::BeginTable("modules", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableHeadersRow();
+
+			// TODO: Add context menu and clickability
+			kernelObjects.Iterate<PSPModule>([&cfg, &control](int id, PSPModule *module) -> bool {
+				ImGui::PushID(id);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				if (ImGui::Selectable(module->GetName(), cfg.selectedModuleId == id, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedModuleId = id;
+				}
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(module->isFake ? "FAKE/HLE" : "normal");
+				ImGui::PopID();
+				return true;
+			});
+
+			ImGui::EndTable();
+		}
+		ImGui::EndChild();
+	}
+	ImGui::SameLine();
+
+	if (ImGui::BeginChild("info")) {
+		if (kernelObjects.Is<PSPModule>(cfg.selectedModuleId)) {
+			PSPModule *mod = kernelObjects.GetFast<PSPModule>(cfg.selectedModuleId);
+			if (mod) {
+				if (mod->isFake) {
+					ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 170));
+				}
+				ImGui::Text("%s %d.%d (%s)\n", mod->GetName(), mod->nm.version[1], mod->nm.version[0], mod->isFake ? "FAKE/HLE" : "normal");
+				char buf[512];
+				mod->GetLongInfo(buf, sizeof(buf));
+				ImGui::TextUnformatted(buf);
+				if (mod->isFake) {
+					ImGui::PopStyleColor();
+				}
+				if (!mod->impModuleNames.empty() && ImGui::CollapsingHeader("Imported modules")) {
+					for (auto &name : mod->impModuleNames) {
+						ImGui::TextUnformatted(name);
+					}
+				}
+				if (!mod->expModuleNames.empty() && ImGui::CollapsingHeader("Exported modules")) {
+					for (auto &name : mod->expModuleNames) {
+						ImGui::TextUnformatted(name);
+					}
+				}
+				if (!mod->importedFuncs.empty() || !mod->importedVars.empty()) {
+					if (ImGui::CollapsingHeader("Imports")) {
+						if (!mod->importedVars.empty() && ImGui::CollapsingHeader("Vars")) {
+							for (auto &var : mod->importedVars) {
+								ImGui::TextUnformatted("(some var)");  // TODO
+							}
+						}
+						for (auto &import : mod->importedFuncs) {
+							// Look the name up in our HLE database.
+							const HLEFunction *func = GetHLEFunc(import.moduleName, import.nid);
+							ImGui::TextUnformatted(import.moduleName);
+							if (func) {
+								ImGui::SameLine();
+								ImGui::TextUnformatted(func->name);
+							}
+							ImGui::SameLine(); ImClickableValue("addr", import.stubAddr, control, ImCmd::SHOW_IN_CPU_DISASM);
+						}
+					}
+				}
+				if (!mod->exportedFuncs.empty() || !mod->exportedVars.empty()) {
+					if (ImGui::CollapsingHeader("Exports")) {
+						if (!mod->exportedVars.empty() && ImGui::CollapsingHeader("Vars")) {
+							for (auto &var : mod->importedVars) {
+								ImGui::TextUnformatted("(some var)");  // TODO
+							}
+						}
+						for (auto &exportFunc : mod->exportedFuncs) {
+							// Look the name up in our HLE database.
+							const HLEFunction *func = GetHLEFunc(exportFunc.moduleName, exportFunc.nid);
+							ImGui::TextUnformatted(exportFunc.moduleName);
+							if (func) {
+								ImGui::SameLine();
+								ImGui::TextUnformatted(func->name);
+							}
+							ImGui::SameLine(); ImClickableValue("addr", exportFunc.symAddr, control, ImCmd::SHOW_IN_CPU_DISASM);
+						}
+					}
+				}
+			}
+		} else {
+			ImGui::TextUnformatted("(no module selected)");
+		}
+		ImGui::EndChild();
+	}
+	ImGui::End();
+}
+
+// Started as a module browser but really only draws from the symbols database, so let's
+// evolve it to that.
+static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImControl &control) {
+	if (!ImGui::Begin("Symbols", &cfg.symbolsOpen) || !g_symbolMap) {
+		ImGui::End();
+		return;
+	}
+
+	// Reads from the symbol map.
 	std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 	if (ImGui::BeginTable("modules", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
@@ -1461,8 +1570,8 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(module.name.c_str(), cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
-				cfg.selectedModule = i;
+			if (ImGui::Selectable(module.name.c_str(), cfg.selectedSymbolModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedSymbolModule = i;
 			}
 			ImGui::TableNextColumn();
 			ImClickableValue("addr", module.address, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
@@ -1476,7 +1585,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 		ImGui::EndTable();
 	}
 
-	if (cfg.selectedModule >= 0 && cfg.selectedModule < (int)modules.size()) {
+	if (cfg.selectedModuleId >= 0 && cfg.selectedModuleId < (int)modules.size()) {
 		// TODO: Show details
 	}
 	ImGui::End();
@@ -1673,6 +1782,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Symbols")) {
+			ImGui::MenuItem("Symbol browser", nullptr, &cfg_.symbolsOpen);
+			ImGui::Separator();
+
 			if (ImGui::MenuItem("Load .ppmap...")) {
 				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
 					Path path(responseString);
@@ -1834,6 +1946,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.modulesOpen) {
 		DrawModules(mipsDebug, cfg_, control);
+	}
+
+	if (cfg_.symbolsOpen) {
+		DrawSymbols(mipsDebug, cfg_, control);
 	}
 
 	if (cfg_.utilityModulesOpen) {
@@ -2302,6 +2418,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("threadsOpen", &threadsOpen, false);
 	sync.Sync("callstackOpen", &callstackOpen, false);
 	sync.Sync("breakpointsOpen", &breakpointsOpen, false);
+	sync.Sync("symbolsOpen", &symbolsOpen, false);
 	sync.Sync("modulesOpen", &modulesOpen, false);
 	sync.Sync("hleModulesOpen", &hleModulesOpen, false);
 	sync.Sync("audioDecodersOpen", &audioDecodersOpen, false);

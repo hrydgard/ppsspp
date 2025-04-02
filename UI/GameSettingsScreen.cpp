@@ -1995,6 +1995,15 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PRX, dev->T("PRX")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::Atrac3, dev->T("Atrac3/3+")));
 
+	list->Add(new ItemHeader("Disable HLE (experimental! Not expected to work yet)"));
+	for (int i = 0; i < (int)DisableHLEFlags::Count; i++) {
+		DisableHLEFlags flag = (DisableHLEFlags)(1 << i);
+		const HLEModuleMeta *meta = GetHLEModuleMetaByFlag(flag);
+		if (meta) {
+			list->Add(new BitCheckBox(&g_Config.iDisableHLE, (int)flag, meta->modname));
+		}
+	}
+
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
 	list->Add(new ItemHeader(dev->T("MIPSTracer")));
 

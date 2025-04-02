@@ -113,6 +113,111 @@ static std::vector<HLEMipsCallInfo> enqueuedMipsCalls;
 // Does need to be saved, referenced by the stack and owned.
 static std::vector<PSPAction *> mipsCallActions;
 
+// Modules that games try to load from disk, that we should not load normally. Instead we just HLE hook them.
+// TODO: Merge with moduleDB?
+static const HLEModuleMeta g_moduleMeta[] = {
+	{"sceATRAC3plus_Library", "sceAtrac3plus", DisableHLEFlags::sceAtrac},
+	{"sceFont_Library", "sceLibFont", DisableHLEFlags::sceFont},
+	{"SceFont_Library", "sceLibFont", DisableHLEFlags::sceFont},
+	{"SceFont_Library", "sceLibFttt", DisableHLEFlags::sceFont},
+	{"SceHttp_Library", "sceHttp"},
+	{"sceMpeg_library", "sceMpeg", DisableHLEFlags::sceMpeg},
+	{"sceNetAdhocctl_Library"},
+	{"sceNetAdhocDownload_Library"},
+	{"sceNetAdhocMatching_Library"},
+	{"sceNetApDialogDummy_Library"},
+	{"sceNetAdhoc_Library"},
+	{"sceNetApctl_Library"},
+	{"sceNetInet_Library"},
+	{"sceNetResolver_Library"},
+	{"sceNet_Library"},
+	{"sceNetAdhoc_Library"},
+	{"sceNetAdhocAuth_Service"},
+	{"sceNetAdhocctl_Library"},
+	{"sceNetIfhandle_Service"},
+	{"sceSsl_Module"},
+	{"sceDEFLATE_Library"},
+	{"sceMD5_Library"},
+	{"sceMemab"},
+	{"sceAvcodec_driver"},
+	{"sceAudiocodec_Driver"},
+	{"sceAudiocodec"},
+	{"sceVideocodec_Driver"},
+	{"sceVideocodec"},
+	{"sceMpegbase_Driver"},
+	{"sceMpegbase"},
+	{"scePsmf_library", "scePsmf", DisableHLEFlags::scePsmf},
+	{"scePsmfP_library", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
+	{"scePsmfPlayer", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
+	{"sceSAScore", "sceSasCore"},
+	{"sceCcc_Library", "sceCcc"},
+	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
+	{"SceParseURI_Library"},
+	// Guessing these names
+	{"sceJpeg", "sceJpeg", DisableHLEFlags::sceJpeg},
+	{"sceJpeg_library", "sceJpeg", DisableHLEFlags::sceJpeg},
+	{"sceJpeg_Library", "sceJpeg", DisableHLEFlags::sceJpeg},
+};
+
+const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname) {
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (equalsNoCase(modname, g_moduleMeta[i].modname)) {
+			return &g_moduleMeta[i];
+		}
+	}
+	return nullptr;
+}
+
+const HLEModuleMeta *GetHLEModuleMetaByFlag(DisableHLEFlags flag) {
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (g_moduleMeta[i].disableFlag == flag) {
+			return &g_moduleMeta[i];
+		}
+	}
+	return nullptr;
+}
+
+const HLEModuleMeta *GetHLEModuleMetaByImport(std::string_view importModuleName) {
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (g_moduleMeta[i].importName && equalsNoCase(importModuleName, g_moduleMeta[i].importName)) {
+			return &g_moduleMeta[i];
+		}
+	}
+	return nullptr;
+}
+
+// Note: name is the modname from prx, not the export module name!
+bool ShouldHLEModule(std::string_view modname, bool *wasDisabled) {
+	if (wasDisabled) {
+		*wasDisabled = false;
+	}
+	const HLEModuleMeta *meta = GetHLEModuleMeta(modname);
+	if (!meta) {
+		return false;
+	}
+
+	bool disabled = meta->disableFlag & (DisableHLEFlags)g_Config.iDisableHLE;
+	if (disabled) {
+		if (wasDisabled) {
+			*wasDisabled = true;
+		}
+		return false;
+	}
+	return true;
+}
+
+bool ShouldHLEModuleByImportName(std::string_view name) {
+	// Check our special metadata lookup. Should probably be merged with the main one.
+	const HLEModuleMeta *meta = GetHLEModuleMetaByImport(name);
+	if (meta) {
+		bool disabled = meta->disableFlag & (DisableHLEFlags)g_Config.iDisableHLE;
+		return !disabled;
+	}
+
+	// Otherwise, just fall back to the regular db. If it's in there, we should HLE it.
+	return GetHLEModuleByName(name) != nullptr;
+}
+
 static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 	u32 error;
 	SceUID threadID = (SceUID) userdata;
@@ -278,7 +383,7 @@ const char *GetHLEFuncName(int moduleIndex, int func) {
 u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 	// Special case to hook up bad imports.
 	if (moduleName.empty()) {
-		return (0x03FFFFCC);	// invalid syscall
+		return 0x03FFFFCC;  // invalid syscall
 	}
 
 	int modindex = GetHLEModuleIndex(moduleName);
@@ -292,13 +397,8 @@ u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 		}
 	} else {
 		ERROR_LOG(Log::HLE, "Unknown module %.*s!", (int)moduleName.size(), moduleName.data());
-		return 0x03FFFFCC;	// invalid syscall
+		return 0x03FFFFCC;	// invalid syscall (invalid mod index and func index..)
 	}
-}
-
-bool FuncImportIsSyscall(std::string_view module, u32 nib)
-{
-	return GetHLEFunc(module, nib) != nullptr;
 }
 
 void WriteFuncStub(u32 stubAddr, u32 symAddr)
@@ -317,7 +417,7 @@ void WriteFuncMissingStub(u32 stubAddr, u32 nid)
 	Memory::Write_U32(GetSyscallOp("", nid), stubAddr + 4);
 }
 
-bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
+bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address)
 {
 	if (nib == 0)
 	{

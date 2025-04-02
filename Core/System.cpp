@@ -119,7 +119,7 @@ GlobalUIState GetUIState() {
 	return globalUIState;
 }
 
-void SetGPUBackend(GPUBackend type, const std::string &device) {
+void SetGPUBackend(GPUBackend type, std::string_view device) {
 	gpuBackend = type;
 	gpuBackendDevice = device;
 }
@@ -869,7 +869,7 @@ const char *DumpFileTypeToFileExtension(DumpFileType type) {
 	}
 }
 
-void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type) {
+void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view name, DumpFileType type) {
 	if (!(g_Config.iDumpFileTypes & (int)type)) {
 		return;
 	}
@@ -883,7 +883,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, Du
 	}
 
 	const char *extension = DumpFileTypeToFileExtension(type);
-	std::string filenameToDumpTo = StringFromFormat("%s_%s", g_paramSFO.GetDiscID().c_str(), name);
+	std::string filenameToDumpTo = g_paramSFO.GetDiscID() + "_" + std::string(name);
 	if (!endsWithNoCase(filenameToDumpTo, extension)) {
 		filenameToDumpTo += extension;
 	}

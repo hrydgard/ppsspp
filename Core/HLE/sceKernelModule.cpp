@@ -52,12 +52,11 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/CoreTiming.h"
+#include "Core/ConfigValues.h"
 #include "Core/PSPLoaders.h"
 #include "Core/System.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/MIPS.h"
-
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -103,32 +102,6 @@ static const char * const lieAboutSuccessModules[] = {
 	"flash0:/kd/pspnet_resolver.prx",
 };
 
-// Modules to not load. TODO: Look into loosening this a little (say sceFont).
-static const char * const blacklistedModules[] = {
-	"sceATRAC3plus_Library",
-	"sceFont_Library",
-	"SceFont_Library",
-	"SceHttp_Library",
-	"sceMpeg_library",
-	"sceNetAdhocctl_Library",
-	"sceNetAdhocDownload_Library",
-	"sceNetAdhocMatching_Library",
-	"sceNetApDialogDummy_Library",
-	"sceNetAdhoc_Library",
-	"sceNetApctl_Library",
-	"sceNetInet_Library",
-	"sceNetResolver_Library",
-	"sceNet_Library",
-	"sceNetAdhoc_Library",
-	"sceNetAdhocAuth_Service",
-	"sceNetAdhocctl_Library",
-	"sceNetIfhandle_Service",
-	"sceSsl_Module",
-	"sceDEFLATE_Library",
-	"sceMD5_Library",
-	"sceMemab",
-};
-
 const char *NativeModuleStatusToString(NativeModuleStatus status) {
 	switch (status) {
 	case MODULE_STATUS_STARTING: return "STARTING";
@@ -165,6 +138,34 @@ struct ModuleInfo {
 	u16_le attribute;
 	u8 version[2];
 	char name[28];
+};
+
+struct PspLibStubEntry {
+	u32_le name;
+	u16_le version;
+	u16_le flags;
+	u8 size;
+	u8 numVars;
+	u16_le numFuncs;
+	// each symbol has an associated nid; nidData is a pointer
+	// (in .rodata.sceNid section) to an array of longs, one
+	// for each function, which identifies the function whose
+	// address is to be inserted.
+	//
+	// The hash is the first 4 bytes of a SHA-1 hash of the function
+	// name.	(Represented as a little-endian long, so the order
+	// of the bytes is reversed.)
+	u32_le nidData;
+	// the address of the function stubs where the function address jumps
+	// should be filled in
+	u32_le firstSymAddr;
+	// Optional, this is where var relocations are.
+	// They use the format: u32 addr, u32 nid, ...
+	// WARNING: May have garbage if size < 6.
+	u32_le varData;
+	// Not sure what this is yet, assume garbage for now.
+	// TODO: Tales of the World: Radiant Mythology 2 has something here?
+	u32_le extra;
 };
 
 PSPModule::~PSPModule() {
@@ -295,14 +296,14 @@ void PSPModule::ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 
 	// Keep track and actually hook it up if possible.
 	importedFuncs.push_back(func);
-	impExpModuleNames.insert(func.moduleName);
+	impModuleNames.insert(func.moduleName);
 	ImportFuncSymbol(func, reimporting, GetName());
 }
 
 void PSPModule::ImportVar(WriteVarSymbolState &state, const VarSymbolImport &var) {
 	// Keep track and actually hook it up if possible.
 	importedVars.push_back(var);
-	impExpModuleNames.insert(var.moduleName);
+	impModuleNames.insert(var.moduleName);
 	ImportVarSymbol(state, var);
 }
 
@@ -311,7 +312,7 @@ void PSPModule::ExportFunc(const FuncSymbolExport &func) {
 		return;
 	}
 	exportedFuncs.push_back(func);
-	impExpModuleNames.insert(func.moduleName);
+	expModuleNames.insert(func.moduleName);
 	ExportFuncSymbol(func);
 }
 
@@ -320,7 +321,7 @@ void PSPModule::ExportVar(const VarSymbolExport &var) {
 		return;
 	}
 	exportedVars.push_back(var);
-	impExpModuleNames.insert(var.moduleName);
+	expModuleNames.insert(var.moduleName);
 	ExportVarSymbol(var);
 }
 
@@ -639,14 +640,26 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	}
 }
 
+static bool FuncImportIsHLE(std::string_view module, u32 nid) {
+	// TODO: Take into account whether HLE is enabled for the module.
+	// Also, this needs to be more efficient.
+	if (!ShouldHLEModuleByImportName(module)) {
+		return false;
+	}
+
+	return GetHLEFunc(module, nid) != nullptr;
+}
+
 void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule) {
-	// Prioritize HLE implementations.
-	// TODO: Or not?
-	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+	bool shouldHLE = ShouldHLEModuleByImportName(func.moduleName);
+
+	// Prioritize HLE implementations, if we should HLE this.
+	if (shouldHLE && GetHLEFunc(func.moduleName, func.nid)) {
 		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
 			WARN_LOG(Log::Loader, "Reimporting updated syscall %s", GetHLEFuncName(func.moduleName, func.nid));
 		}
-		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
+		// TODO: There's some double lookup going on here (we already did the lookup in GetHLEFunc above).
+		WriteHLESyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
 		if (g_Config.bPreloadFunctions) {
 			MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
@@ -678,21 +691,21 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	}
 
 	// It hasn't been exported yet, but hopefully it will later. Check if we know about it through HLE.
-	const bool isKnownHLEModule = GetHLEModuleIndex(func.moduleName) != -1;
-	if (isKnownHLEModule) {
+	if (shouldHLE) {
 		// We used to report this, but I don't think it's very interesting anymore.
 		WARN_LOG(Log::Loader, "Unknown syscall from known HLE module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
 	} else {
 		INFO_LOG(Log::Loader, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
 	}
-	if (isKnownHLEModule || !reimporting) {
+
+	if (shouldHLE || !reimporting) {
 		WriteFuncMissingStub(func.stubAddr, func.nid);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
 	}
 }
 
 void ExportFuncSymbol(const FuncSymbolExport &func) {
-	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+	if (FuncImportIsHLE(func.moduleName, func.nid)) {
 		// HLE covers this already - let's ignore the function.
 		WARN_LOG(Log::Loader, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
 		return;
@@ -720,7 +733,7 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 }
 
 void UnexportFuncSymbol(const FuncSymbolExport &func) {
-	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+	if (FuncImportIsHLE(func.moduleName, func.nid)) {
 		// Oops, HLE covers this.
 		return;
 	}
@@ -769,72 +782,7 @@ void PSPModule::Cleanup() {
 	}
 }
 
-static bool IsHLEVersionedModule(const char *name) {
-	// TODO: Only some of these are currently known to be versioned.
-	// Potentially only sceMpeg_library matters.
-	// For now, we're just reporting version numbers.
-	for (size_t i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
-		if (!strncmp(name, blacklistedModules[i], 28)) {
-			return true;
-		}
-	}
-	static const char *otherModules[] = {
-		"sceAvcodec_driver",
-		"sceAudiocodec_Driver",
-		"sceAudiocodec",
-		"sceVideocodec_Driver",
-		"sceVideocodec",
-		"sceMpegbase_Driver",
-		"sceMpegbase",
-		"scePsmf_library",
-		"scePsmfP_library",
-		"scePsmfPlayer",
-		"sceSAScore",
-		"sceCcc_Library",
-		"SceParseHTTPheader_Library",
-		"SceParseURI_Library",
-		// Guessing.
-		"sceJpeg",
-		"sceJpeg_library",
-		"sceJpeg_Library",
-	};
-	for (size_t i = 0; i < ARRAY_SIZE(otherModules); i++) {
-		if (!strncmp(name, otherModules[i], 28)) {
-			return true;
-		}
-	}
-	return false;
-}
-
 static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr, bool reimporting) {
-	struct PspLibStubEntry {
-		u32_le name;
-		u16_le version;
-		u16_le flags;
-		u8 size;
-		u8 numVars;
-		u16_le numFuncs;
-		// each symbol has an associated nid; nidData is a pointer
-		// (in .rodata.sceNid section) to an array of longs, one
-		// for each function, which identifies the function whose
-		// address is to be inserted.
-		//
-		// The hash is the first 4 bytes of a SHA-1 hash of the function
-		// name.	(Represented as a little-endian long, so the order
-		// of the bytes is reversed.)
-		u32_le nidData;
-		// the address of the function stubs where the function address jumps
-		// should be filled in
-		u32_le firstSymAddr;
-		// Optional, this is where var relocations are.
-		// They use the format: u32 addr, u32 nid, ...
-		// WARNING: May have garbage if size < 6.
-		u32_le varData;
-		// Not sure what this is yet, assume garbage for now.
-		// TODO: Tales of the World: Radiant Mythology 2 has something here?
-		u32_le extra;
-	};
-
 	// Can't run - we didn't keep track of the libstub entry.
 	if (module->libstub == 0) {
 		return false;
@@ -1099,7 +1047,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		head = (const PSP_Header *)ptr;
 		devkitVersion = head->devkitversion;
 
-		if (IsHLEVersionedModule(head->modname)) {
+		bool wasDisabled;
+		if (ShouldHLEModule(head->modname, &wasDisabled)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
 
@@ -1108,6 +1057,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			fakeLoadedModule = true;
 		}
 
+		if (wasDisabled) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, StringFromFormat("HLE for %s has been manually disabled", head->modname));
+		}
 		const u8 *in = ptr;
 		const auto isGzip = head->comp_attribute & 1;
 		// Kind of odd.
@@ -1150,11 +1102,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// Opportunity to dump the decrypted elf, even if we choose to fake it.
 			// NOTE: filename is not necessarily a good choice!
 			std::string elfFilename(KeepAfterLast(filename, '/'));
-			if (elfFilename.empty()) {
+			if (elfFilename.empty() || startsWith(elfFilename, "sce_lbn")) {
 				// Use the name from the header.
 				elfFilename = head->modname;
 			}
-			DumpFileIfEnabled(ptr, head->psp_size, elfFilename.c_str(), DumpFileType::PRX);
+			DumpFileIfEnabled(ptr, (u32)elfSize, elfFilename.c_str(), DumpFileType::PRX);
 
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
@@ -1310,16 +1262,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	char moduleName[29] = {0};
 	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
 
-	// Check for module blacklist - we don't allow games to load these modules from disc
-	// as we have HLE implementations and the originals won't run in the emu because they
-	// directly access hardware or for other reasons.
-	for (u32 i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
-		if (strncmp(modinfo->name, blacklistedModules[i], ARRAY_SIZE(modinfo->name)) == 0) {
-			module->isFake = true;
-		}
-	}
-
-	if (!module->isFake && module->memoryBlockAddr != 0) {
+	if (module->memoryBlockAddr != 0) {
 		g_symbolMap->AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
 	}
 
@@ -1415,6 +1358,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 
 	// Look at the exports, too.
+	// TODO: Add them to the symbol map!
 
 	struct PspLibEntEntry {
 		u32_le name; /* ent's name (module name) address */
@@ -1500,7 +1444,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				func.nid = nid;
 				func.symAddr = exportAddr;
 				if (ent->name == 0) {
-					WARN_LOG_REPORT(Log::HLE, "Exporting func from syslib export: %08x", nid);
+					WARN_LOG(Log::HLE, "Exporting func from syslib export: %08x", nid);
 				}
 				module->ExportFunc(func);
 			}
@@ -1581,14 +1525,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			module->nm.entry_addr = module->nm.module_start_func;
 
 		MIPSAnalyst::PrecompileFunctions();
-
 	} else {
 		module->nm.entry_addr = -1;
 	}
 
 	delete [] newptr;
 
-	if (!reportedModule && IsHLEVersionedModule(modinfo->name)) {
+	if (!reportedModule && ShouldHLEModule(modinfo->name)) {
 		INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
@@ -2364,22 +2307,21 @@ struct GetModuleIdByAddressArg
 	SceUID result;
 };
 
-static bool __GetModuleIdByAddressIterator(PSPModule *module, GetModuleIdByAddressArg *state) {
-	const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
-	if (start != 0 && start <= state->addr && start + size > state->addr) {
-		state->result = module->GetUID();
-		return false;
-	}
-	return true;
-}
-
 static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
 	GetModuleIdByAddressArg state;
 	state.addr = moduleAddr;
 	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
 
-	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
+	kernelObjects.Iterate<PSPModule>([&state](int id, PSPModule *module) -> bool {
+		const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
+		if (start != 0 && start <= state.addr && start + size > state.addr) {
+			state.result = module->GetUID();
+			return false;
+		}
+		return true;
+	});
+
 	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE) {
 		return hleLogError(Log::sceModule, state.result, "module not found at address");
 	} else {

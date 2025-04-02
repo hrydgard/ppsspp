@@ -124,6 +124,7 @@ struct ImConfig {
 	bool threadsOpen;
 	bool callstackOpen;
 	bool breakpointsOpen;
+	bool symbolsOpen;
 	bool modulesOpen;
 	bool hleModulesOpen;
 	bool audioDecodersOpen;
@@ -158,7 +159,8 @@ struct ImConfig {
 	// bool filterByUsed = true;
 
 	// Various selections
-	int selectedModule = 0;
+	int selectedModuleId = 0;
+	int selectedSymbolModule = 0;
 	int selectedUtilityModule = 0;
 	int selectedThread = 0;
 	int selectedKernelObject = 0;

@@ -161,32 +161,43 @@ public:
 	void ExportVar(const VarSymbolExport &var);
 
 	template <typename T>
-	void RebuildImpExpList(const std::vector<T> &list) {
+	void RebuildExpList(const std::vector<T> &list) {
 		for (size_t i = 0; i < list.size(); ++i) {
-			impExpModuleNames.insert(list[i].moduleName);
+			expModuleNames.insert(list[i].moduleName);
+		}
+	}
+
+	template <typename T>
+	void RebuildImpList(const std::vector<T> &list) {
+		for (size_t i = 0; i < list.size(); ++i) {
+			impModuleNames.insert(list[i].moduleName);
 		}
 	}
 
 	void RebuildImpExpModuleNames() {
-		impExpModuleNames.clear();
-		RebuildImpExpList(exportedFuncs);
-		RebuildImpExpList(importedFuncs);
-		RebuildImpExpList(exportedVars);
-		RebuildImpExpList(importedVars);
+		impModuleNames.clear();
+		expModuleNames.clear();
+		RebuildExpList(exportedFuncs);
+		RebuildImpList(importedFuncs);
+		RebuildExpList(exportedVars);
+		RebuildImpList(importedVars);
 	}
 
 	bool ImportsOrExportsModuleName(const std::string &moduleName) {
-		return impExpModuleNames.find(moduleName) != impExpModuleNames.end();
+		return impModuleNames.find(moduleName) != impModuleNames.end() ||
+			expModuleNames.find(moduleName) != expModuleNames.end();
 	}
 
 	NativeModule nm{};
 	std::vector<ModuleWaitingThread> waitingThreads;
 
+	// TODO: Should we store these grouped by moduleName instead? Seems more reasonable.
 	std::vector<FuncSymbolExport> exportedFuncs;
 	std::vector<FuncSymbolImport> importedFuncs;
 	std::vector<VarSymbolExport> exportedVars;
 	std::vector<VarSymbolImport> importedVars;
-	std::set<std::string> impExpModuleNames;
+	std::set<std::string> impModuleNames;
+	std::set<std::string> expModuleNames;
 
 	// Keep track of the code region so we can throw out analysis results
 	// when unloaded.

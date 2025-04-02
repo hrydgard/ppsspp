@@ -1970,14 +1970,6 @@ struct FindTLSByIndexArg {
 	TLSPL *result = nullptr;
 };
 
-static bool FindTLSByIndex(TLSPL *possible, FindTLSByIndexArg *state) {
-	if (possible->ntls.index == state->index) {
-		state->result = possible;
-		return false;
-	}
-	return true;
-}
-
 int sceKernelGetTlsAddr(SceUID uid) {
 	if (!__KernelIsDispatchEnabled() || __IsInInterrupt())
 		return hleLogWarning(Log::sceKernel, 0, "dispatch disabled");
@@ -1994,7 +1986,14 @@ int sceKernelGetTlsAddr(SceUID uid) {
 
 		FindTLSByIndexArg state;
 		state.index = (uid >> 3) & 15;
-		kernelObjects.Iterate<TLSPL>(&FindTLSByIndex, &state);
+		kernelObjects.Iterate<TLSPL>([&state](int id, TLSPL *possible) {
+			if (possible->ntls.index == state.index) {
+				state.result = possible;
+				return false;
+			}
+			return true;
+		});
+
 		if (!state.result)
 			return hleLogError(Log::sceKernel, 0, "tlspl not found");
 

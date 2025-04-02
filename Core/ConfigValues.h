@@ -116,6 +116,21 @@ enum class RestoreSettingsBits : int {
 };
 ENUM_CLASS_BITOPS(RestoreSettingsBits);
 
+// Modules that are candidates for disabling HLE of.
+enum class DisableHLEFlags : int {
+	sceFont = (1 << 0),
+	sceAtrac = (1 << 1),
+	scePsmf = (1 << 2),
+	scePsmfPlayer = (1 << 3),
+	sceMpeg = (1 << 4),
+	sceMp3 = (1 << 5),
+	sceJpeg = (1 << 6),
+	sceParseHttp = (1 << 7),
+	Count = 8,
+	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
+};
+ENUM_CLASS_BITOPS(DisableHLEFlags);
+
 std::string GPUBackendToString(GPUBackend backend);
 GPUBackend GPUBackendFromString(std::string_view backend);
 

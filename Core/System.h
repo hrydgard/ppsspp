@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <string_view>
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 #include "Core/CoreParameter.h"
@@ -68,7 +69,7 @@ void ResetUIState();
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();
 
-void SetGPUBackend(GPUBackend type, const std::string &device = "");
+void SetGPUBackend(GPUBackend type, std::string_view device = "");
 GPUBackend GetGPUBackend();
 std::string GetGPUBackendDevice();
 
@@ -128,4 +129,4 @@ inline CoreParameter &PSP_CoreParameter() {
 }
 
 // Centralized place for dumping useful files, also takes care of checking for dupes and creating a clickable UI popup.
-void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type);
+void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view name, DumpFileType type);

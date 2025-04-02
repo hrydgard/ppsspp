@@ -691,6 +691,9 @@
     <ClInclude Include="..\ext\sol\sol.hpp">
       <Filter>ext\sol</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\imgui\imgui_extras.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

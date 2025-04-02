@@ -238,6 +238,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
 	ConfigSetting("DebugOverlay", &g_Config.iDebugOverlay, 0, CfgFlag::DONT_SAVE),
 	ConfigSetting("DefaultTab", &g_Config.iDefaultTab, 0, CfgFlag::DEFAULT),
+	ConfigSetting("DisableHLEFlags", &g_Config.iDisableHLE, 0, CfgFlag::PER_GAME),
 
 	ConfigSetting("ScreenshotMode", &g_Config.iScreenshotMode, 0, CfgFlag::DEFAULT),
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, CfgFlag::PER_GAME),
