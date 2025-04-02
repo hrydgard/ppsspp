@@ -329,14 +329,9 @@ int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_sample
         if (ch_block >= ctx->num_channel_blocks ||
             ctx->channel_blocks[ch_block] != ch_unit_id) {
             av_log(AV_LOG_WARNING, "Frame data doesn't match channel configuration! ch_block %d >= num_channel_blocks %d", ch_block, ctx->num_channel_blocks);
-            // This happens in Code Lyoko, see issue #19994.
-            // The atrac3+ wav header clearly specifies stereo, so we only have one channel block, but here we try to decode a third (and/or fourth) one.
-            // Maybe the data chunk is just improperly terminated, but it's reported that when ignoring this error previously,
-            // it didn't sound right. So I'm really not sure what's going on here. Most likely some unknown feature of the Atrac3+ format that we
-            // failed to parse previously?
-            //
-            // return AVERROR_INVALIDDATA;  // This soft-locks the game.
-            return FFMIN(ctx->block_align, indata_size); // We try to stumble along.
+            // We used to have trouble in Code Lyoko and other games here. It's usually because data is corrupted
+            // or the wrong channel configuration is used..
+            return AVERROR_INVALIDDATA;
         }
 
         ctx->ch_units[ch_block].unit_type = ch_unit_id;

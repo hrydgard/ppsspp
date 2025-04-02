@@ -192,10 +192,12 @@ struct Track;
 class ImAtracToolWindow {
 public:
 	void Draw(ImConfig &cfg);
+	void Load();
 
 	char atracPath_[1024]{};
 	std::unique_ptr<Track> track_;
 	std::string error_;
+	std::string data_;
 };
 
 enum class ImCmd {

@@ -136,11 +136,14 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			// TODO: There are some format specific bytes here which seem to have fixed values?
 			// Probably don't need them.
 
-			if (at3fmt->fmtTag == AT3_MAGIC) {
+			if (at3fmt->fmtTag == AT3_MAGIC) {  // 0x270
 				// This is the offset to the jointStereo_ field.
 				track->jointStereo = Read16(buffer, offset + 24);
 				// Then there are more fields here.
 				u16 unknown1_2 = Read16(buffer, offset + 30);
+			} else if (at3fmt->fmtTag == AT3_PLUS_MAGIC) {
+				_dbg_assert_(at3fmt->fmtTag == 0xFFFE);
+				// It's in an "Extensible" wave format. Let's read some more.
 
 			}
 			if (chunkSize > 16) {

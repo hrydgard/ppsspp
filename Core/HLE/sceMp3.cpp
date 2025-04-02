@@ -91,7 +91,6 @@ static const u32 ERROR_MP3_BAD_SAMPLE_RATE = 0x80671302;
 static const u32 ERROR_MP3_BAD_RESET_FRAME = 0x80671501;
 static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
 static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
-static const u32 ERROR_AVCODEC_INVALID_DATA = 0x807f00fd;
 static const int AU_BUF_MIN_SIZE = 8192;
 static const int PCM_BUF_MIN_SIZE = 9216;
 static const size_t MP3_MAX_HANDLES = 2;
@@ -448,7 +447,7 @@ static int sceMp3Init(u32 mp3) {
 	// If we have an ID3 tag, we'll get past it based on frame sync.  Don't modify startPos.
 	int header = 0;
 	if (FindMp3Header(ctx, header, 1440) < 0)
-		return hleDelayResult(hleLogWarning(Log::ME, ERROR_AVCODEC_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
+		return hleDelayResult(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
 
 	// Parse the Mp3 header
 	int layerBits = (header >> 17) & 0x3;
@@ -464,10 +463,10 @@ static int sceMp3Init(u32 mp3) {
 		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not layer 3");
 	}
 	if (bitrate == 0 || bitrate == -1) {
-		return hleDelayResult(hleReportError(Log::ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
+		return hleDelayResult(hleReportError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
 	}
 	if (samplerate == -1) {
-		return hleDelayResult(hleReportError(Log::ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
+		return hleDelayResult(hleReportError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
 	}
 
 	// Before we allow init, newer SDK versions next require at least 156 bytes.

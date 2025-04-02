@@ -4,6 +4,7 @@
 
 enum PSPErrorCode : u32 {
 	SCE_KERNEL_ERROR_OK                               = 0,
+	SCE_KERNEL_ERROR_BAD_ARGUMENT                     = 0x80000004,  // Maybe
 	SCE_KERNEL_ERROR_ALREADY                          = 0x80000020,
 	SCE_KERNEL_ERROR_BUSY                             = 0x80000021,
 	SCE_KERNEL_ERROR_OUT_OF_MEMORY                    = 0x80000022,
@@ -492,4 +493,6 @@ enum PSPErrorCode : u32 {
 	SCE_SAS_ERROR_ATRAC3_NOT_SET = 0x80420041,
 	SCE_SAS_ERROR_ATRAC3_ALREADY_QUEUED = 0x80420042,
 	SCE_SAS_ERROR_NOT_INIT = 0x80420100,
+
+	SCE_AVCODEC_ERROR_INVALID_DATA = 0x807f00fd,
 };

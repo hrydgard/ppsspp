@@ -267,6 +267,7 @@ void GameScreen::CreateViews() {
 		});
 	}
 
+	// TODO: This is synchronous, bad!
 	if (g_recentFiles.ContainsFile(gamePath_.ToString())) {
 		Choice *removeButton = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))));
 		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
@@ -291,7 +292,7 @@ void GameScreen::CreateViews() {
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
 
-	isHomebrew_ = info && info->region > GAMEREGION_MAX;
+	isHomebrew_ = info && info->region > GAMEREGION_COUNT;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
@@ -381,8 +382,8 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (tvRegion_) {
-		if (info->region >= 0 && info->region < GAMEREGION_MAX && info->region != GAMEREGION_OTHER) {
-			static const char *regionNames[GAMEREGION_MAX] = {
+		if (info->region >= 0 && info->region < GAMEREGION_COUNT && info->region != GAMEREGION_OTHER) {
+			static const char *regionNames[GAMEREGION_COUNT] = {
 				"Japan",
 				"USA",
 				"Europe",
@@ -391,7 +392,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 				"Korea"
 			};
 			tvRegion_->SetText(ga->T(regionNames[info->region]));
-		} else if (info->region > GAMEREGION_MAX) {
+		} else if (info->region > GAMEREGION_COUNT) {
 			tvRegion_->SetText(ga->T("Homebrew"));
 		}
 	}
