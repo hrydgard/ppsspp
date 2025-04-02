@@ -1066,6 +1066,23 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 							ImGui::Text("can't access sas state");
 						}
 					}
+
+					if (ctx->BufferState() == ATRAC_STATUS_ALL_DATA_LOADED) {
+						if (ImGui::Button("Save to disk...")) {
+							System_BrowseForFileSave(cfg.requesterToken, "Save AT3 file", "song.at3", BrowseFileType::ATRAC3, [=](const std::string &filename, int) {
+								const u8 *data = Memory::GetPointerRange(info.buffer, info.bufferByte);
+								if (!data) {
+									return;
+								}
+								FILE *file = File::OpenCFile(Path(filename), "wb");
+								if (!file) {
+									return;
+								}
+								fwrite(data, 1, info.bufferByte, file);
+								fclose(file);
+							});
+						}
+					}
 				} else  {
 					ImGui::Text("loop: %d", ctx->LoopNum());
 				}
@@ -1591,6 +1608,13 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 	ImGui::End();
 }
 
+void ImAtracToolWindow::Load() {
+	if (File::ReadBinaryFileToString(Path(atracPath_), &data_)) {
+		track_.reset(new Track());
+		AnalyzeAtracTrack((const u8 *)data_.data(), (u32)data_.size(), track_.get(), &error_);
+	}
+}
+
 void ImAtracToolWindow::Draw(ImConfig &cfg) {
 	if (!ImGui::Begin("Atrac Tool", &cfg.atracToolOpen) || !g_symbolMap) {
 		ImGui::End();
@@ -1600,18 +1624,15 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 	ImGui::InputText("File", atracPath_, sizeof(atracPath_));
 	ImGui::SameLine();
 	if (ImGui::Button("Choose...")) {
-		System_BrowseForFile(cfg.requesterToken, "Choose AT3 file", BrowseFileType::ATRAC3, [&](const std::string &filename, int) {
+		System_BrowseForFile(cfg.requesterToken, "Choose AT3 file", BrowseFileType::ATRAC3, [this](const std::string &filename, int) {
 			truncate_cpy(atracPath_, filename);
+			Load();
 		}, nullptr);
 	}
 
 	if (strlen(atracPath_) > 0) {
 		if (ImGui::Button("Load")) {
-			track_.reset(new Track());
-			std::string data;
-			if (File::ReadBinaryFileToString(Path(atracPath_), &data)) {
-				AnalyzeAtracTrack((const u8 *)data.data(), (u32)data.size(), track_.get(), &error_);
-			}
+			Load();
 		}
 	}
 
@@ -1620,6 +1641,24 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 		ImGui::Text("Bitrate: %d kbps Channels: %d", track_->Bitrate(), track_->channels);
 		ImGui::Text("Frame size in bytes: %d Output frame in samples: %d", track_->BytesPerFrame(), track_->SamplesPerFrame());
 		ImGui::Text("First valid sample: %08x", track_->FirstSampleOffsetFull());
+	}
+
+	if (data_.size()) {
+		if (ImGui::Button("Dump 64 raw frames")) {
+			std::string firstFrames = data_.substr(track_->dataByteOffset, track_->bytesPerFrame * 64);
+			System_BrowseForFileSave(cfg.requesterToken, "Save .at3raw", "at3.raw", BrowseFileType::ANY, [firstFrames](const std::string &filename, int) {
+				FILE *f = File::OpenCFile(Path(filename), "wb");
+				if (f) {
+					fwrite(firstFrames.data(), 1, firstFrames.size(), f);
+					fclose(f);
+				}
+			});
+		}
+
+		if (ImGui::Button("Unload")) {
+			data_.clear();
+			track_.reset(nullptr);
+		}
 	}
 
 	if (!error_.empty()) {
@@ -2458,6 +2497,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("logConfigOpen", &logConfigOpen, false);
 	sync.Sync("luaConsoleOpen", &luaConsoleOpen, false);
 	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
+	sync.Sync("atracToolOpen", &atracToolOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);
