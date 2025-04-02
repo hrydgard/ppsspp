@@ -21,6 +21,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceAudiocodec.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -74,26 +75,29 @@ void __AudioCodecShutdown() {
 // TODO: Actually support mono output.
 static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	PSPAudioType audioType = (PSPAudioType)codec;
-	if (IsValidCodec(audioType)) {
-		// Initialize the codec memory.
-		auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
-		ctx->unk_init = 0x5100601;  // Firmware version indicator?
-		ctx->err = 0;
-		// The rest of the initialization is done by the driver.
-
-		// Create audio decoder for given audio codec and push it into AudioList
-		if (removeDecoder(ctxPtr)) {
-			WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
-		}
-		AudioDecoder *decoder = CreateAudioDecoder(audioType);
-		decoder->SetCtxPtr(ctxPtr);
-		g_audioDecoderContexts[ctxPtr] = decoder;
-		INFO_LOG(Log::ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(audioType));
-		DEBUG_LOG(Log::ME, "Number of playing sceAudioCodec audios : %d", (int)g_audioDecoderContexts.size());
-		return 0;
+	if (!IsValidCodec(audioType)) {
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_OUT_OF_RANGE, "Invalid codec");
 	}
-	ERROR_LOG_REPORT(Log::ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(audioType), codec);
-	return 0;
+
+	// Initialize the codec memory.
+	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
+	ctx->unk_init = 0x5100601;  // Firmware version indicator?
+	ctx->err = 0;
+
+	if (codec == 0x1002) {
+		ctx->mp3_9999 = 9999;
+	}
+
+	// Create audio decoder for given audio codec and push it into AudioList
+	if (removeDecoder(ctxPtr)) {
+		WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
+	}
+
+	AudioDecoder *decoder = CreateAudioDecoder(audioType);
+	decoder->SetCtxPtr(ctxPtr);
+	g_audioDecoderContexts[ctxPtr] = decoder;
+
+	return hleLogDebug(Log::ME, 0);
 }
 
 static int sceAudiocodecInit(u32 ctxPtr, int codec) {
@@ -133,11 +137,14 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		int inDataConsumed = 0;
 		int outSamples = 0;
 
+		INFO_LOG(Log::ME, "decoder. in: %08x out: %08x format1: %d format2: %d", ctx->inBuf, ctx->outBuf, ctx->format1, ctx->format2);
+
 		int16_t *outBuf = (int16_t *)Memory::GetPointerWrite(ctx->outBuf);
 
 		bool result = decoder->Decode(Memory::GetPointer(ctx->inBuf), ctx->srcFrameSize, &inDataConsumed, 2, outBuf, &outSamples);
 		if (!result) {
 			ctx->err = 0x20b;
+			ERROR_LOG(Log::ME, "AudioCodec decode failed. Setting error to %08x", ctx->err);
 		}
 	}
 	return hleLogInfo(Log::ME, 0, "codec %s", GetCodecName(codec));
@@ -152,36 +159,49 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	if (codec < 0x1000 || codec >= 0x1006) {
 		return hleLogError(Log::ME, 0x80000004, "invalid codec");
 	}
-	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
+
+	if (!Memory::IsValidRange(ctxPtr, sizeof(SceAudiocodecCodec))) {
+		return hleLogError(Log::ME, 0, "Bad address");
+	}
+
+	// Check for expected values.
+	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
+	if (ctx->format1 != 0x28 || ctx->format2 != 0x5c) {
+		ctx->err = 0x20f;
+		return hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Bad format values");
+	}
 	ctx->unk_init = 0x5100601;
+	ctx->err = 0;
 
-	uint32_t reqMem = 0x20000;  // TODO.
+	switch (codec) {
+	case 0x1000:  // at3+
+		ctx->neededMem = 0x7bc0;
+		break;
+	case 0x1001:
+		ctx->neededMem = 0x3de0;
+		break;
+	}
 
-	return hleLogInfo(Log::ME, reqMem, "codec %s", GetCodecName(codec));
+	return hleLogWarning(Log::ME, 0, "UNIMPL sceAudiocodecCheckNeedMem(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 }
 
 static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
-	// Do we need to do anything here?
-
-	return hleLogInfo(Log::ME, 0, "codec %s", GetCodecName(codec));
+	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
+	// TODO: Set this a bit more dynamically. No idea what the allocation algorithm is...
+	ctx->allocMem = 0x0018ea90;
+	ctx->edramAddr = (ctx->allocMem + 0x3f) & ~0x3f;  // round up to 64 bytes.
+	return hleLogInfo(Log::ME, 0, "edram address set to %08x", ctx->edramAddr);
 }
 
 static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	if (removeDecoder(ctxPtr)){
-		INFO_LOG(Log::ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
-		return 0;
+		return hleLogInfo(Log::ME, 0);
 	}
-	WARN_LOG(Log::ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
-	return 0;
+	return hleLogWarning(Log::ME, 0, "failed to remove decoder");
 }
 
 static int sceAudiocodecGetOutputBytes(u32 ctxPtr, int id) {
-	if (removeDecoder(ctxPtr)) {
-		INFO_LOG(Log::ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
-		return 0;
-	}
-	WARN_LOG(Log::ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
-	return 0;
+	return hleLogInfo(Log::ME, 0);
 }
 
 const HLEFunction sceAudiocodec[] = {

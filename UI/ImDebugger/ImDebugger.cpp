@@ -1674,7 +1674,21 @@ void DrawHLEModules(ImConfig &config) {
 					}
 					w.F("%s 0x%08x %d %s", func.name, func.ID, strlen(func.argmask), amask.c_str()).endl();
 				}
-				System_CopyStringToClipboard(std::string_view(buffer, w.size()));
+				System_CopyStringToClipboard(w.as_view());
+				delete[] buffer;
+			}
+			if (ImGui::MenuItem("Copy as imports.S")) {
+				char *buffer = new char[100000];
+				StringWriter w(buffer, 100000);
+
+				w.C(".set noreorder\n\n#include \"pspimport.s\"\n\n");
+				w.F("IMPORT_START \"%.*s\",0x00090011\n", (int)mod->name.size(), mod->name.data());
+				for (int j = 0; j < mod->numFunctions; j++) {
+					auto &func = mod->funcTable[j];
+					w.F("IMPORT_FUNC  \"%.*s\",0x%08X,%s\n", (int)mod->name.size(), mod->name.data(), func.ID, func.name);
+				}
+				w.endl();
+				System_CopyStringToClipboard(w.as_view());
 				delete[] buffer;
 			}
 			ImGui::EndPopup();
