@@ -557,7 +557,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		currentRenderVfb_ = vfb;
 
 		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
-		if (useBufferedRendering_ && params.isDrawing) {
+		if (useBufferedRendering_ && params.isDrawing && vfb->fb_stride > 0) {
 			gpu->PerformWriteColorFromMemory(params.fb_address, colorByteSize);
 			// Alpha was already done by PerformWriteColorFromMemory.
 			PerformWriteStencilFromMemory(params.fb_address, colorByteSize, WriteStencil::STENCIL_IS_ZERO | WriteStencil::IGNORE_ALPHA);
