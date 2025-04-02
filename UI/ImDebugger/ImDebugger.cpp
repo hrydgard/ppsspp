@@ -1639,7 +1639,7 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 	if (track_.get() != 0) {
 		ImGui::Text("Codec: %s", track_->codecType != PSP_CODEC_AT3 ? "at3+" : "at3");
 		ImGui::Text("Bitrate: %d kbps Channels: %d", track_->Bitrate(), track_->channels);
-		ImGui::Text("Frame size in bytes: %d Output frame in samples: %d", track_->BytesPerFrame(), track_->SamplesPerFrame());
+		ImGui::Text("Frame size in bytes: %d (%04x) Output frame in samples: %d", track_->BytesPerFrame(), track_->BytesPerFrame(), track_->SamplesPerFrame());
 		ImGui::Text("First valid sample: %08x", track_->FirstSampleOffsetFull());
 	}
 

@@ -47,7 +47,7 @@ enum GameRegion {
 	GAMEREGION_ASIA,
 	GAMEREGION_KOREA,
 	GAMEREGION_OTHER,
-	GAMEREGION_MAX,
+	GAMEREGION_COUNT,
 };
 
 enum class GameInfoFlags {

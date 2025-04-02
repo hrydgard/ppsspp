@@ -578,7 +578,7 @@ public:
 							&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 							info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 							info_->id_version = info_->id + "_1.00";
-							info_->region = GAMEREGION_MAX + 1; // Homebrew
+							info_->region = GAMEREGION_COUNT + 1; // Homebrew
 						}
 						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
@@ -641,7 +641,7 @@ handleELF:
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
 				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 				info_->id_version = info_->id + "_1.00";
-				info_->region = GAMEREGION_MAX + 1; // Homebrew
+				info_->region = GAMEREGION_COUNT + 1; // Homebrew
 			}
 
 			if (flags_ & GameInfoFlags::ICON) {

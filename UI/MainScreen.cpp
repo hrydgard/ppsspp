@@ -394,8 +394,9 @@ void GameButton::Draw(UIContext &dc) {
 			}
 		}
 	}
-	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
-		const ImageID regionIcons[GAMEREGION_MAX] = {
+	const int region = ginfo->region;
+	if (g_Config.bShowRegionOnGameIcon && region >= 0 && region < GAMEREGION_COUNT && region != GAMEREGION_OTHER) {
+		const ImageID regionIcons[GAMEREGION_COUNT] = {
 			ImageID("I_FLAG_JP"),
 			ImageID("I_FLAG_US"),
 			ImageID("I_FLAG_EU"),
@@ -404,13 +405,13 @@ void GameButton::Draw(UIContext &dc) {
 			ImageID("I_FLAG_KO"),
 			ImageID::invalid(),
 		};
-		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[ginfo->region]);
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[region]);
 		if (image) {
 			if (gridStyle_) {
-				dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - (image->w + 5)*g_Config.fGameGridScale,
+				dc.Draw()->DrawImage(regionIcons[region], x + w - (image->w + 5)*g_Config.fGameGridScale,
 							y + h - (image->h + 5)*g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(regionIcons[ginfo->region], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
+				dc.Draw()->DrawImage(regionIcons[region], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
 			}
 		}
 	}
