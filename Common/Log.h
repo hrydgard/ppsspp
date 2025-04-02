@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 #include "ppsspp_config.h"
 #include "CommonFuncs.h"
 
