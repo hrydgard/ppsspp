@@ -64,6 +64,7 @@
 #include "scePower.h"
 #include "scePspNpDrm_user.h"
 #include "scePsmf.h"
+#include "sceReg.h"
 #include "sceRtc.h"
 #include "sceSas.h"
 #include "sceSircs.h"
@@ -323,6 +324,7 @@ void RegisterAllModules() {
 	Register_InterruptManagerForKernel();
 	Register_sceSircs();
 	Register_sceNet_lib();
+	Register_sceReg();
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 

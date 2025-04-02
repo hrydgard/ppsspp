@@ -759,6 +759,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceParseUri.cpp \
 	       $(COREDIR)/HLE/scePower.cpp \
 	       $(COREDIR)/HLE/scePsmf.cpp \
+	       $(COREDIR)/HLE/sceReg.cpp \
 	       $(COREDIR)/HLE/sceRtc.cpp \
 	       $(COREDIR)/HLE/sceSas.cpp \
 	       $(COREDIR)/HLE/sceSsl.cpp \

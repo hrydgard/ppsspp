@@ -1048,7 +1048,7 @@ void Atrac2::CheckForSas() {
 	if (info.state != 0x10) {
 		WARN_LOG(Log::ME, "Caller forgot to set state to 0x10");
 	}
-	sas_.isStreaming = info.fileDataEnd > info.bufferByte;
+	sas_.isStreaming = info.fileDataEnd > (s32)info.bufferByte;
 	if (sas_.isStreaming) {
 		INFO_LOG(Log::ME, "SasAtrac stream mode");
 	} else {
