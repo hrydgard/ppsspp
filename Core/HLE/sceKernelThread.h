@@ -209,7 +209,7 @@ const char *ThreadStatusToString(ThreadStatus status);
 
 class PSPThread : public KernelObject {
 public:
-	PSPThread() : debug(context) {}
+	PSPThread() : debug(&context) {}
 	const char *GetName() override { return nt.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "Thread"; }
