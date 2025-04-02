@@ -356,6 +356,11 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
 	}
 
+	// This must be before Memory::Init because plugins can override the memory size.
+	if (type != IdentifiedFileType::PPSSPP_GE_DUMP) {
+		HLEPlugins::Init();
+	}
+
 	// Initialize the memory map as early as possible (now that we've read the PARAM.SFO).
 	if (!Memory::Init()) {
 		// We're screwed.
@@ -364,9 +369,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	}
 
 	InitVFPU();
-
-	if (type != IdentifiedFileType::PPSSPP_GE_DUMP)
-		HLEPlugins::Init();
 
 	LoadSymbolsIfSupported();
 
