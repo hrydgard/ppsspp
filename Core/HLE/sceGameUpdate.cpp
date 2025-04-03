@@ -19,28 +19,20 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceGameUpdate.h"
 
-static u32 sceGameUpdateInit()
-{
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceGameUpdateInit()");
-	return 0;
+static u32 sceGameUpdateInit() {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceGameUpdateTerm()
-{
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceGameUpdateTerm()");
-	return 0;
+static u32 sceGameUpdateTerm() {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceGameUpdateRun()
-{
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceGameUpdateRun()");
-	return 0;
+static u32 sceGameUpdateRun() {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceGameUpdateAbort()
-{
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceGameUpdateAbort()");
-	return 0;
+static u32 sceGameUpdateAbort() {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 const HLEFunction sceGameUpdate[] =
