@@ -140,6 +140,7 @@ public:
 	int iAskForExitConfirmationAfterSeconds;
 	int iUIScaleFactor;  // In 8ths of powers of two.
 	int iDisableHLE;
+	int iForceEnableHLE;  // This is the opposite of DisableHLE but can force on HLE even when we've made it permanently off. Only used in tests, not hooked up to the ini file yet.
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
 	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
