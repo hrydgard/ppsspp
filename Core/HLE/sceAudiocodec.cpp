@@ -49,33 +49,26 @@ static_assert(sizeof(SceAudiocodecCodec) == 128);
 //
 // Known byte values.
 
-void CalculateInputBytesAndChannels(const SceAudiocodecCodec *ctx, int codec, int *inputBytes, int *channels) {
+void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *inputBytes, int *channels) {
 	*inputBytes = 0;
 	*channels = 2;
-	switch (codec) {
-	case PSP_CODEC_AT3PLUS:
-	{
-		int size = ctx->unk41 * 8 + 8;
-		// No idea if this is accurate, this is just a guess...
-		if (ctx->unk40 & 8) {
-			*channels = 2;
-		} else {
-			*channels = 1;
-		}
-		switch (size) {
-		case 0x118:
-		case 0x178:
-		case 0x230:
-		case 0x2E8:
-			// These have been seen before, let's return it.
-			*inputBytes = size;
-			return;
-		default:
-			break;
-		}
+
+	int size = ctx->unk41 * 8 + 8;
+	// No idea if this is accurate, this is just a guess...
+	if (ctx->unk40 & 8) {
+		*channels = 2;
+	} else {
+		*channels = 1;
 	}
+	switch (size) {
+	case 0x118:
+	case 0x178:
+	case 0x230:
+	case 0x2E8:
+		// These have been seen before, let's return it.
+		*inputBytes = size;
+		return;
 	default:
-		// Unsupported codec, ignore.
 		break;
 	}
 }
@@ -118,9 +111,13 @@ void __AudioCodecShutdown() {
 
 // TODO: Actually support mono output.
 static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
-	PSPAudioType audioType = (PSPAudioType)codec;
+	const PSPAudioType audioType = (PSPAudioType)codec;
 	if (!IsValidCodec(audioType)) {
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_OUT_OF_RANGE, "Invalid codec");
+	}
+
+	if (removeDecoder(ctxPtr)) {
+		WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
 	}
 
 	// Initialize the codec memory.
@@ -128,19 +125,25 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	ctx->unk_init = 0x5100601;  // Firmware version indicator?
 	ctx->err = 0;
 
-	if (codec == 0x1002) {
+	int inFrameBytes = 0;
+	int channels = 2;
+
+	// Special actions for some codecs.
+	switch (audioType) {
+	case PSP_CODEC_MP3:
 		ctx->mp3_9999 = 9999;
+		break;
+	case PSP_CODEC_AAC:
+		// AAC / mp4
+		// offsets 40-42 are a 24-bit LE number specifying the sample rate. It's 32000, 44100 or 48000.
+		// neededMem has been set to 0x18f20.
+		break;
+	case PSP_CODEC_AT3PLUS:
+		CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
+		break;
 	}
 
 	// Create audio decoder for given audio codec and push it into AudioList
-	if (removeDecoder(ctxPtr)) {
-		WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
-	}
-
-	int inFrameBytes;
-	int channels;
-	CalculateInputBytesAndChannels(ctx, codec, &inFrameBytes, &channels);
-
 	if (inFrameBytes) {
 		INFO_LOG(Log::ME, "sceAudioDecoder: Creating codec with %04x frame size and %d channels, codec %04x", inFrameBytes, channels, codec);
 		AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, inFrameBytes);
@@ -177,7 +180,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
 	int inFrameBytes;
 	int channels;
-	CalculateInputBytesAndChannels(ctx, codec, &inFrameBytes, &channels);
+	CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
 
 	// find a decoder in audioList
 	auto decoder = findDecoder(ctxPtr);
