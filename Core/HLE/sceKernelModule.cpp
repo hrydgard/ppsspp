@@ -1058,7 +1058,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 
 		if (wasDisabled) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, StringFromFormat("HLE for %s has been manually disabled", head->modname));
+			g_OSD.Show(OSDType::MESSAGE_WARNING, StringFromFormat("HLE for '%s' has been manually disabled", head->modname));
 		}
 		const u8 *in = ptr;
 		const auto isGzip = head->comp_attribute & 1;

@@ -149,6 +149,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceEnableGPUReadback", &flags_.ForceEnableGPUReadback);
 	CheckSetting(iniFile, gameID, "UseFFMPEGFindStreamInfo", &flags_.UseFFMPEGFindStreamInfo);
 	CheckSetting(iniFile, gameID, "SoftwareRasterDepth", &flags_.SoftwareRasterDepth);
+	CheckSetting(iniFile, gameID, "DisableHLESceFont", &flags_.DisableHLESceFont);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

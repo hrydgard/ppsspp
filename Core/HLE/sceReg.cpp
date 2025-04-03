@@ -787,9 +787,12 @@ const HLEFunction sceReg[] = {
 	{ 0x2D211135, &WrapI_IUI<sceRegGetKeys>, "sceRegGetKeys", 'i', "ipi" },
 	{ 0xC5768D02, &WrapI_ICUU<sceRegGetKeyInfoByName>, "sceRegGetKeyInfoByName", 'i', "isxx" },
 	{ 0x30BE0259, &WrapI_ICUU<sceRegGetKeyValueByName>, "sceRegGetKeyValueByName", 'i', "isxx" },
-	// { 0x4CA16893, &WrapI_I<sceRegRemoveCategory>, "sceRegRemoveCategory", 'i', "i" },
-	// { 0x3615BC87, &WrapI_I<sceRegRemoveKey>, "sceRegRemoveKey", 'i', "i" },
-	// { 0x9B25EDF1, &WrapI_I<sceRegExit>, "sceRegExit", 'i', "i" },
+	{ 0x4CA16893, &WrapI_IC<sceRegRemoveCategory>, "sceRegRemoveCategory", 'i', "i" },
+	{ 0x3615BC87, nullptr, "sceRegRemoveKey", 'i', "i" },
+	{ 0x9B25EDF1, nullptr, "sceRegExit", 'i', "i" },
+	// TODO: Add test for these.
+	{ 0xBE8C1263, nullptr, "sceRegGetCategoryNumAtRoot", 'i', "ii" },
+	{ 0x835ECE6F, nullptr, "sceRegGetCategoryListAtRoot", 'i', "ipi" },
 };
 
 void Register_sceReg() {

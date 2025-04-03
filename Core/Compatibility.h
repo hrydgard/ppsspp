@@ -112,6 +112,7 @@ struct CompatFlags {
 	bool ForceEnableGPUReadback;
 	bool UseFFMPEGFindStreamInfo;
 	bool SoftwareRasterDepth;
+	bool DisableHLESceFont;
 };
 
 struct VRCompat {

@@ -107,7 +107,7 @@ struct HLEModuleMeta {
 
 const HLEModuleMeta *GetHLEModuleMetaByFlag(DisableHLEFlags flag);
 const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname);
-bool ShouldHLEModule(std::string_view modname, bool *wasDisabled = nullptr);
+bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually = nullptr);
 bool ShouldHLEModuleByImportName(std::string_view importModuleName);
 
 const char *GetHLEFuncName(std::string_view module, u32 nib);
@@ -121,6 +121,7 @@ u32 GetNibByName(std::string_view module, std::string_view function);
 void RegisterHLEModule(std::string_view name, int numFunctions, const HLEFunction *funcTable);
 int GetNumRegisteredHLEModules();
 const HLEModule *GetHLEModuleByIndex(int index);
+DisableHLEFlags AlwaysDisableHLEFlags();
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();
