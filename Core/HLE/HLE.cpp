@@ -201,6 +201,8 @@ static DisableHLEFlags GetDisableHLEFlags() {
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
 		flags |= DisableHLEFlags::sceFont;
 	}
+
+	flags &= ~(DisableHLEFlags)g_Config.iForceEnableHLE;
 	return flags;
 }
 
