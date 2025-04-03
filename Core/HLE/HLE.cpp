@@ -189,9 +189,10 @@ const HLEModuleMeta *GetHLEModuleMetaByImport(std::string_view importModuleName)
 
 DisableHLEFlags AlwaysDisableHLEFlags() {
 	// Once a module seems stable to load properly, we'll graduate it here.
-	// This will hide the checkbox, too.
-	// return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer;
-	return (DisableHLEFlags)0;
+	// This will hide the checkbox in Developer Settings, too.
+	//
+	// PSMF testing issue: #20200
+	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer;
 }
 
 // Process compat flags.
