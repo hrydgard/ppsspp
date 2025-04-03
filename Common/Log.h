@@ -67,6 +67,7 @@ enum class Log {
 	sceSas,
 	sceUtility,
 	sceMisc,
+	sceReg,
 
 	NUMBER_OF_LOGS,  // Must be last
 };
