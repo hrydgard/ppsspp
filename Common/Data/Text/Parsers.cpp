@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdarg>
 #include <climits>
 #include <cstdio>
@@ -166,7 +167,8 @@ StringWriter &StringWriter::F(const char *format, ...) {
 	}
 	va_list args;
 	va_start(args, format);
-	p_ += vsnprintf(p_, remainder, format, args);
+	int wouldHaveBeenWritten = vsnprintf(p_, remainder, format, args);
+	p_ += std::min((int)remainder, wouldHaveBeenWritten);
 	va_end(args);
 	return *this;
 }

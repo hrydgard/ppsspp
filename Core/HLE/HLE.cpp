@@ -122,6 +122,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"SceFont_Library", "sceLibFttt", DisableHLEFlags::sceFont},
 	{"SceHttp_Library", "sceHttp"},
 	{"sceMpeg_library", "sceMpeg", DisableHLEFlags::sceMpeg},
+	{"sceMp3_Library", "sceMp3", DisableHLEFlags::sceMp3},
 	{"sceNetAdhocctl_Library"},
 	{"sceNetAdhocDownload_Library"},
 	{"sceNetAdhocMatching_Library"},
@@ -154,9 +155,9 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
 	{"SceParseURI_Library"},
 	// Guessing these names
-	{"sceJpeg", "sceJpeg", DisableHLEFlags::sceJpeg},
-	{"sceJpeg_library", "sceJpeg", DisableHLEFlags::sceJpeg},
-	{"sceJpeg_Library", "sceJpeg", DisableHLEFlags::sceJpeg},
+	{"sceJpeg", "sceJpeg"},
+	{"sceJpeg_library", "sceJpeg"},
+	{"sceJpeg_Library", "sceJpeg"},
 };
 
 const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname) {

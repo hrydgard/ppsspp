@@ -124,9 +124,8 @@ enum class DisableHLEFlags : int {
 	scePsmfPlayer = (1 << 3),
 	sceMpeg = (1 << 4),
 	sceMp3 = (1 << 5),
-	sceJpeg = (1 << 6),
-	sceParseHttp = (1 << 7),
-	Count = 8,
+	sceParseHttp = (1 << 6),
+	Count = 7,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);

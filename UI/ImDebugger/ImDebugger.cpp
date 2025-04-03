@@ -1500,7 +1500,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 					ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 170));
 				}
 				ImGui::Text("%s %d.%d (%s)\n", mod->GetName(), mod->nm.version[1], mod->nm.version[0], mod->isFake ? "FAKE/HLE" : "normal");
-				ImGui::Text("Attr: %08x (%s)\n", (mod->nm.attribute & 0x1000) ? "Kernel" : "User");
+				ImGui::Text("Attr: %08x (%s)\n", mod->nm.attribute, (mod->nm.attribute & 0x1000) ? "Kernel" : "User");
 				char buf[512];
 				mod->GetLongInfo(buf, sizeof(buf));
 				ImGui::TextUnformatted(buf);
