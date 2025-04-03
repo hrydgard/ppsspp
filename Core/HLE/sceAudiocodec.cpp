@@ -144,15 +144,10 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	}
 
 	// Create audio decoder for given audio codec and push it into AudioList
-	if (inFrameBytes) {
-		INFO_LOG(Log::ME, "sceAudioDecoder: Creating codec with %04x frame size and %d channels, codec %04x", inFrameBytes, channels, codec);
-		AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, inFrameBytes);
-		decoder->SetCtxPtr(ctxPtr);
-		g_audioDecoderContexts[ctxPtr] = decoder;
-	} else {
-		ERROR_LOG(Log::ME, "sceAudioDecoder: Unsupported codec %08x", codec);
-		g_audioDecoderContexts[ctxPtr] = nullptr;
-	}
+	INFO_LOG(Log::ME, "sceAudioDecoder: Creating codec with %04x frame size and %d channels, codec %04x", inFrameBytes, channels, codec);
+	AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, inFrameBytes);
+	decoder->SetCtxPtr(ctxPtr);
+	g_audioDecoderContexts[ctxPtr] = decoder;
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -178,9 +173,18 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	// TODO: Should check that codec corresponds to the currently used codec in the context, I guess..
 
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
-	int inFrameBytes;
-	int channels;
-	CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
+
+	int inFrameBytes = 0;
+	int channels = 2;
+
+	switch (codec) {
+	case PSP_CODEC_AT3PLUS:
+		CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
+		break;
+	case PSP_CODEC_MP3:
+		inFrameBytes = ctx->srcBytesRead;
+		break;
+	}
 
 	// find a decoder in audioList
 	auto decoder = findDecoder(ctxPtr);

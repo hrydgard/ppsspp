@@ -105,6 +105,7 @@ static const char * const g_logTypeNames[] = {
 	"SCESAS",
 	"SCEUTIL",
 	"SCEMISC",
+	"SCEREG",
 };
 
 const char *LogManager::GetLogTypeName(Log type) {

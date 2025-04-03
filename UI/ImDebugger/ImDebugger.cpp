@@ -1910,10 +1910,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			// More to come here...
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Audio")) {
+		if (ImGui::BeginMenu("Audio/Video")) {
 			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
 			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
-			ImGui::MenuItem("Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
+			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Network")) {

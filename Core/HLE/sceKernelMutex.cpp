@@ -523,25 +523,30 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
+	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
+	// This ID is always invalid.
+	if (id == 0x80020001 && timeoutPtr == 0) {
+		return hleNoLog(0);
+	}
+
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
 		return hleLogDebug(Log::sceKernel, 0);
-	else if (error)
+	else if (error) {
 		return hleLogError(Log::sceKernel, error);
-	else
-	{
-		SceUID threadID = __KernelGetCurThread();
-		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
-		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
-			mutex->waitingThreads.push_back(threadID);
-		__KernelWaitMutex(mutex, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false, "mutex waited");
-
-		// Return value will be overwritten by wait.
-		return hleLogDebug(Log::sceKernel, 0);
 	}
+
+	SceUID threadID = __KernelGetCurThread();
+	// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+	if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
+		mutex->waitingThreads.push_back(threadID);
+	__KernelWaitMutex(mutex, timeoutPtr);
+	__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false, "mutex waited");
+
+	// Return value will be overwritten by wait.
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 // int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
@@ -598,6 +603,12 @@ int sceKernelTryLockMutex(SceUID id, int count) {
 // int sceKernelUnlockMutex(SceUID id, int count)
 int sceKernelUnlockMutex(SceUID id, int count)
 {
+	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
+	// This ID is always invalid.
+	if (id == 0x80020001) {
+		return hleNoLog(0);
+	}
+
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 

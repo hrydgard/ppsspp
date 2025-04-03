@@ -514,13 +514,13 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 					found = true;
 					break;
 				} else {
-					ERROR_LOG(Log::System, "Not a dir");
+					ERROR_LOG(Log::sceReg, "Not a dir");
 					return nullptr;
 				}
 			}
 		}
 		if (!found) {
-			WARN_LOG(Log::System, "Path not found: %.*s", (int)path.size(), path.data());
+			WARN_LOG(Log::sceReg, "Path not found: %.*s", (int)path.size(), path.data());
 			return nullptr;
 		}
 	}
@@ -544,28 +544,28 @@ int sceRegOpenRegistry(u32 regParamAddr, int mode, u32 regHandleAddr) {
 		Memory::WriteUnchecked_U32(0, regHandleAddr);
 	}
 	g_openRegistryMode = mode;
-	return hleLogInfo(Log::System, 0);
+	return hleLogInfo(Log::sceReg, 0);
 }
 
 int sceRegCloseRegistry(int regHandle) {
 	if (regHandle != 0) {
-		return hleLogError(Log::System, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 	}
 	g_openCategories.clear();
-	return hleLogInfo(Log::System, 0);
+	return hleLogInfo(Log::sceReg, 0);
 }
 
 int sceRegFlushRegistry(int regHandle) {
 	if (regHandle != 0) {
-		return hleLogError(Log::System, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 	}
 	// For us this is a no-op.
-	return hleLogInfo(Log::System, 0);
+	return hleLogInfo(Log::sceReg, 0);
 }
 
 // Seems dangerous! Have not dared to test this on hardware.
 int sceRegRemoveRegistry(u32 regParamAddr) {
-	return hleLogError(Log::System, 0, "UNIMPL");
+	return hleLogError(Log::sceReg, 0, "UNIMPL");
 }
 
 int sceRegOpenCategory(int regHandle, const char *name, int mode, u32 regHandleAddr) {
@@ -573,54 +573,54 @@ int sceRegOpenCategory(int regHandle, const char *name, int mode, u32 regHandleA
 		return -1;
 	}
 	if (!name) {
-		return hleLogError(Log::System, SCE_REG_ERROR_INVALID_NAME);
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_NAME);
 	}
 	if (regHandle != 0) {
 		Memory::WriteUnchecked_U32(-1, regHandleAddr);
-		return hleLogError(Log::System, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "Invalid registry");
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "Invalid registry");
 	}
 
 	if (equals(name, "") || equals(name, "/")) {
-		return hleLogError(Log::System, SCE_REG_ERROR_INVALID_PATH);
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH);
 	}
 
 	int count = 0;
 	const KeyValue *keyvals = LookupCategory(name, &count);
 	if (!keyvals) {
 		Memory::WriteUnchecked_U32(-1, regHandleAddr);
-		return hleLogError(Log::System, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
 	// Let's see if this category is marked as inaccessible (presumably from user mode)..
 	if (count == 1 && keyvals[0].type == ValueType::FAIL) {
 		const int errorCode = keyvals[0].intValue;
-		return hleLogWarning(Log::System, errorCode, "Inaccessible category");
+		return hleLogWarning(Log::sceReg, errorCode, "Inaccessible category");
 	}
 
 	int handle = g_handleGen++;
 	OpenCategory cat{ name, mode };
 	g_openCategories[handle] = cat;
 	Memory::WriteUnchecked_U32(handle, regHandleAddr);
-	return hleLogInfo(Log::System, 0, "open handle: %d", handle);
+	return hleLogInfo(Log::sceReg, 0, "open handle: %d", handle);
 }
 
 int sceRegCloseCategory(int regHandle) {
 	auto iter = g_openCategories.find(regHandle);
 	if (iter == g_openCategories.end()) {
 		// Not found
-		return hleLogError(Log::System, 0, "Not an open category");
+		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
 	g_openCategories.erase(iter);
-	return hleLogInfo(Log::System, 0);
+	return hleLogInfo(Log::sceReg, 0);
 }
 
 int sceRegRemoveCategory(int regHandle, const char *name) {
-	return hleLogError(Log::System, 0, "UNIMPL");
+	return hleLogError(Log::sceReg, 0, "UNIMPL");
 }
 
 int sceRegFlushCategory(int regHandle) {
-	return hleLogError(Log::System, 0, "UNIMPL");
+	return hleLogError(Log::sceReg, 0, "UNIMPL");
 }
 
 // Key level
@@ -628,7 +628,7 @@ int sceRegFlushCategory(int regHandle) {
 int sceRegGetKeysNum(int catHandle, u32 numAddr) {
 	auto iter = g_openCategories.find(catHandle);
 	if (iter == g_openCategories.end()) {
-		return hleLogError(Log::System, 0, "Not an open category");
+		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
 	if (!Memory::IsValid4AlignedAddress(numAddr)) {
@@ -639,21 +639,21 @@ int sceRegGetKeysNum(int catHandle, u32 numAddr) {
 	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
 	if (!keyvals) {
 		Memory::WriteUnchecked_U32(-1, numAddr);
-		return hleLogWarning(Log::System, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
 	Memory::WriteUnchecked_U32(count, numAddr);
-	return hleLogInfo(Log::System, 0);
+	return hleLogInfo(Log::sceReg, 0);
 }
 
 int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 	auto iter = g_openCategories.find(catHandle);
 	if (iter == g_openCategories.end()) {
-		return hleLogError(Log::System, 0, "Not an open category");
+		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
 	if (!Memory::IsValidRange(bufAddr, num * 27)) {
-		return hleLogError(Log::System, -1, "bad output addr");
+		return hleLogError(Log::sceReg, -1, "bad output addr");
 	}
 
 	const int addrLen = 27;  // for some reason
@@ -661,7 +661,7 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 	int count = 0;
 	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
 	if (!keyvals) {
-		return hleLogWarning(Log::System, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
 	count = std::min(count, num);
@@ -671,19 +671,19 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 		strncpy(dest, keyvals[i].name.c_str(), 27);
 	}
 
-	return hleLogInfo(Log::System, 0);
+	return hleLogInfo(Log::sceReg, 0);
 }
 
 int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 outTypeAddr, u32 outSizeAddr) {
 	auto iter = g_openCategories.find(catHandle);
 	if (iter == g_openCategories.end()) {
-		return hleLogError(Log::System, 0, "Not found");
+		return hleLogError(Log::sceReg, 0, "Not found");
 	}
 
 	int count = 0;
 	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
 	if (!keyvals) {
-		return hleLogWarning(Log::System, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
 	for (int i = 0; i < count; i++) {
@@ -709,15 +709,15 @@ int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 
 				// Let's just make the index the key handle.
 				Memory::WriteUnchecked_U32(size, outSizeAddr);
 			}
-			return hleLogInfo(Log::System, 0, "handle: %d type: %d size: %d", i, (int)keyvals[i].type, size);
+			return hleLogInfo(Log::sceReg, 0, "handle: %d type: %d size: %d", i, (int)keyvals[i].type, size);
 		}
 	}
 
-	return hleLogWarning(Log::System, -1, "key with name '%s' not found", name);
+	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
 }
 
 int sceRegGetKeyInfoByName(int catHandle, const char *name, u32 typeAddr, u32 sizeAddr) {
-	return hleLogError(Log::System, 0);
+	return hleLogError(Log::sceReg, 0);
 }
 
 int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
@@ -727,48 +727,48 @@ int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
 
 	auto iter = g_openCategories.find(catHandle);
 	if (iter == g_openCategories.end()) {
-		return hleLogError(Log::System, 0, "Not found");
+		return hleLogError(Log::sceReg, 0, "Not found");
 	}
 
 	int count = 0;
 	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
 	if (!keyvals) {
-		return hleLogWarning(Log::System, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
 	if (keyHandle < 0 || keyHandle >= count) {
-		return hleLogWarning(Log::System, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
 	const KeyValue &keyval = keyvals[keyHandle];
 	switch (keyval.type) {
 	case ValueType::BIN:
 		Memory::MemcpyUnchecked(bufAddr, keyval.strValue.data(), std::min(size, (u32)keyval.strValue.size()));
-		return hleLogInfo(Log::System, 0);
+		return hleLogInfo(Log::sceReg, 0);
 	case ValueType::STR:
 		Memory::MemcpyUnchecked(bufAddr, keyval.strValue.data(), std::min(size, (u32)keyval.strValue.size() + 1));
-		return hleLogInfo(Log::System, 0, "value: '%s'", keyval.strValue.data());
+		return hleLogInfo(Log::sceReg, 0, "value: '%s'", keyval.strValue.data());
 	case ValueType::INT:
 		Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
-		return hleLogInfo(Log::System, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
+		return hleLogInfo(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
 	case ValueType::DIR:
 	case ValueType::FAIL:
 	default:
 		// Return an error?
-		return hleLogWarning(Log::System, 0, "Unexpected type for sceRegGetKeyValue");
+		return hleLogWarning(Log::sceReg, 0, "Unexpected type for sceRegGetKeyValue");
 	}
 }
 
 int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 size) {
-	return hleLogError(Log::System, 0);
+	return hleLogError(Log::sceReg, 0);
 }
 
 int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
-	return hleLogError(Log::System, 0);
+	return hleLogError(Log::sceReg, 0);
 }
 
 int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
-	return hleLogError(Log::System, 0);
+	return hleLogError(Log::sceReg, 0);
 }
 
 const HLEFunction sceReg[] = {

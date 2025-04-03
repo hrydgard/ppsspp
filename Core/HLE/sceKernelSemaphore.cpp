@@ -199,10 +199,13 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 }
 
 int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr) {
-	if (!name)
+	if (!name) {
+		// This is strangely quite common! Some shared library must be doing this.
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
-	if (attr >= 0x200)
+	}
+	if (attr >= 0x200) {
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter %08x", attr);
+	}
 
 	PSPSemaphore *s = new PSPSemaphore();
 	SceUID id = kernelObjects.Create(s);

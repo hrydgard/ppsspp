@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 
@@ -60,6 +62,69 @@ struct SceMpegRingBuffer {
 	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 	// Note: not available in all versions.
 	u32_le gp;
+};
+
+// Internal structure
+struct AvcContext {
+	int avcDetailFrameWidth;
+	int avcDetailFrameHeight;
+	int avcDecodeResult;
+	int avcFrameStatus;
+};
+
+struct StreamInfo {
+	int type;
+	int num;
+	int sid;
+	bool needsReset;
+};
+
+static const int MPEG_DATA_ES_BUFFERS = 2;
+typedef std::map<u32, StreamInfo> StreamInfoMap;
+class MediaEngine;
+
+// Internal structure
+struct MpegContext {
+	MpegContext();
+	~MpegContext();
+
+	void DoState(PointerWrap &p);
+
+	u8 mpegheader[2048];
+	u32 defaultFrameWidth;
+	int videoFrameCount;
+	int audioFrameCount;
+	bool endOfAudioReached;
+	bool endOfVideoReached;
+	int videoPixelMode;
+	u32 mpegMagic;
+	int mpegVersion;
+	u32 mpegRawVersion;
+	u32 mpegOffset;
+	u32 mpegStreamSize;
+	s64 mpegFirstTimestamp;
+	s64 mpegLastTimestamp;
+	u32 mpegFirstDate;
+	u32 mpegLastDate;
+	u32 mpegRingbufferAddr;
+	int mpegwarmUp;
+	bool esBuffers[MPEG_DATA_ES_BUFFERS];
+	AvcContext avc;
+
+	bool avcRegistered;
+	bool atracRegistered;
+	bool pcmRegistered;
+	bool dataRegistered;
+
+	bool ignoreAtrac;
+	bool ignorePcm;
+	bool ignoreAvc;
+
+	bool isAnalyzed = false;
+	bool ringbufferNeedsReverse = false;
+
+	StreamInfoMap streamMap;
+	MediaEngine *mediaengine = nullptr;
 };
 
 void __MpegInit();
