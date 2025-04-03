@@ -222,6 +222,7 @@ tests_good = [
   "misc/sdkver",
   "misc/testgp",
   "misc/timeconv",
+  "misc/reg",
   "mstick/mstick",
   "power/cpu",
   "power/power",

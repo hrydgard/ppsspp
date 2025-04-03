@@ -715,7 +715,7 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 	for (SceUID moduleId : loadedModules) {
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
-			continue;
+			continue; 
 		}
 
 		// Look for imports currently loaded modules already have, hook it up right away.

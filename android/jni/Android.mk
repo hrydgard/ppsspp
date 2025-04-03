@@ -722,6 +722,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceParseHttp.cpp \
   $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \
+  $(SRC)/Core/HLE/sceReg.cpp \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \

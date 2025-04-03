@@ -75,6 +75,7 @@
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
+#include "sceReg.h"
 #include "sceRtc.h"
 #include "sceSsl.h"
 #include "sceSas.h"
@@ -164,6 +165,7 @@ void __KernelInit()
 	__OpenPSIDInit();
 	__HttpInit();
 	__NpInit();
+	__RegInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -188,6 +190,7 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__RegShutdown();
 	__HttpShutdown();
 	__OpenPSIDShutdown();
 	__UsbCamShutdown();
@@ -303,6 +306,7 @@ void __KernelDoState(PointerWrap &p)
 		__AACDoState(p);
 		__UsbGpsDoState(p);
 		__UsbMicDoState(p);
+		__RegDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
@@ -1491,6 +1495,13 @@ const char *KernelErrorToString(u32 err) {
 	case SCE_SAS_ERROR_NOT_INIT: return "SCE_SAS_ERROR_NOT_INIT";
 
 	case SCE_AVCODEC_ERROR_INVALID_DATA: return "SCE_AVCODEC_ERROR_INVALID_DATA";
+
+	case SCE_REG_ERROR_MALLOC_FAILURE: return "SCE_REG_ERROR_MALLOC_FAILURE";
+	case SCE_REG_ERROR_CATEGORY_NOT_FOUND: return "SCE_REG_ERROR_CATEGORY_NOT_FOUND";
+	case SCE_REG_ERROR_REGISTRY_NOT_FOUND: return "SCE_REG_ERROR_REGISTRY_NOT_FOUND";
+	case SCE_REG_ERROR_INVALID_PATH: return "SCE_REG_ERROR_INVALID_PATH";
+	case SCE_REG_ERROR_INVALID_NAME: return "SCE_REG_ERROR_INVALID_NAME";
+	case SCE_REG_ERROR_PERMISSION_FAILURE: return "SCE_REG_ERROR_PERMISSION_FAILURE";
 
 	default:
 		return nullptr;
