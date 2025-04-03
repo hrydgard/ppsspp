@@ -2004,7 +2004,8 @@ void DeveloperToolsScreen::CreateViews() {
 		if (!(flag & AlwaysDisableHLEFlags())) {
 			const HLEModuleMeta *meta = GetHLEModuleMetaByFlag(flag);
 			if (meta) {
-				list->Add(new BitCheckBox(&g_Config.iDisableHLE, (int)flag, meta->modname));
+				BitCheckBox *checkBox = list->Add(new BitCheckBox(&g_Config.iDisableHLE, (int)flag, meta->modname));
+				checkBox->SetEnabled(!PSP_IsInited());
 			}
 		}
 	}
