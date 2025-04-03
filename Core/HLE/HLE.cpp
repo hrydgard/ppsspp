@@ -187,18 +187,26 @@ const HLEModuleMeta *GetHLEModuleMetaByImport(std::string_view importModuleName)
 	return nullptr;
 }
 
+DisableHLEFlags AlwaysDisableHLEFlags() {
+	// Once a module seems stable to load properly, we'll graduate it here.
+	// This will hide the checkbox, too.
+	// return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer;
+	return (DisableHLEFlags)0;
+}
+
 // Process compat flags.
 static DisableHLEFlags GetDisableHLEFlags() {
-	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE;
+	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | AlwaysDisableHLEFlags();
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
 		flags |= DisableHLEFlags::sceFont;
 	}
+	return flags;
 }
 
 // Note: name is the modname from prx, not the export module name!
-bool ShouldHLEModule(std::string_view modname, bool *wasDisabled) {
-	if (wasDisabled) {
-		*wasDisabled = false;
+bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually) {
+	if (wasDisabledManually) {
+		*wasDisabledManually = false;
 	}
 	const HLEModuleMeta *meta = GetHLEModuleMeta(modname);
 	if (!meta) {
@@ -207,8 +215,11 @@ bool ShouldHLEModule(std::string_view modname, bool *wasDisabled) {
 
 	bool disabled = meta->disableFlag & GetDisableHLEFlags();
 	if (disabled) {
-		if (wasDisabled) {
-			*wasDisabled = true;
+		if (wasDisabledManually) {
+			// We don't show notifications if a flag has "graduated".
+			if (!(meta->disableFlag & AlwaysDisableHLEFlags())) {
+				*wasDisabledManually = true;
+			}
 		}
 		return false;
 	}
