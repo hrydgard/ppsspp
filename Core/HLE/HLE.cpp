@@ -187,6 +187,14 @@ const HLEModuleMeta *GetHLEModuleMetaByImport(std::string_view importModuleName)
 	return nullptr;
 }
 
+// Process compat flags.
+static DisableHLEFlags GetDisableHLEFlags() {
+	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE;
+	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
+		flags |= DisableHLEFlags::sceFont;
+	}
+}
+
 // Note: name is the modname from prx, not the export module name!
 bool ShouldHLEModule(std::string_view modname, bool *wasDisabled) {
 	if (wasDisabled) {
@@ -197,7 +205,7 @@ bool ShouldHLEModule(std::string_view modname, bool *wasDisabled) {
 		return false;
 	}
 
-	bool disabled = meta->disableFlag & (DisableHLEFlags)g_Config.iDisableHLE;
+	bool disabled = meta->disableFlag & GetDisableHLEFlags();
 	if (disabled) {
 		if (wasDisabled) {
 			*wasDisabled = true;
@@ -211,7 +219,7 @@ bool ShouldHLEModuleByImportName(std::string_view name) {
 	// Check our special metadata lookup. Should probably be merged with the main one.
 	const HLEModuleMeta *meta = GetHLEModuleMetaByImport(name);
 	if (meta) {
-		bool disabled = meta->disableFlag & (DisableHLEFlags)g_Config.iDisableHLE;
+		bool disabled = meta->disableFlag & GetDisableHLEFlags();
 		return !disabled;
 	}
 
