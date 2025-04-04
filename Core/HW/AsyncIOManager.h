@@ -50,11 +50,9 @@ struct AsyncIOEvent {
 };
 
 struct AsyncIOResult {
-	AsyncIOResult() : result(0), finishTicks(0), invalidateAddr(0) {
-	}
+	AsyncIOResult() : result(0), finishTicks(0), invalidateAddr(0) {}
 
-	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0), invalidateAddr(0) {
-	}
+	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0), invalidateAddr(0) {}
 
 	AsyncIOResult(s64 r, int usec, u32 addr = 0) : result(r), invalidateAddr(addr) {
 		finishTicks = CoreTiming::GetTicks() + usToCycles(usec);
@@ -79,8 +77,17 @@ struct AsyncIOResult {
 	u32 invalidateAddr;
 };
 
-struct ThreadEventQueue {
-	virtual ~ThreadEventQueue() {}
+class AsyncIOManager {
+public:
+	void DoState(PointerWrap &p);
+
+	bool HasOperation(u32 handle);
+	void ScheduleOperation(const AsyncIOEvent &ev);
+	void Shutdown();
+
+	bool HasResult(u32 handle);
+	bool WaitResult(u32 handle, AsyncIOResult &result);
+	u64 ResultFinishTicks(u32 handle);
 
 	void SetThreadEnabled(bool threadEnabled) {
 		threadEnabled_ = threadEnabled;
@@ -228,8 +235,10 @@ struct ThreadEventQueue {
 	}
 
 protected:
-	virtual void ProcessEvent(AsyncIOEvent ev) = 0;
-	virtual bool ShouldExitEventLoop() = 0;
+	void ProcessEvent(AsyncIOEvent ref);
+	bool ShouldExitEventLoop() {
+		return coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN;
+	}
 
 	inline void ProcessEventIfApplicable(AsyncIOEvent &ev, u64 &globalticks) {
 		switch (AsyncIOEventType(ev)) {
@@ -248,6 +257,12 @@ protected:
 	}
 
 private:
+	bool PopResult(u32 handle, AsyncIOResult &result);
+	bool ReadResult(u32 handle, AsyncIOResult &result);
+	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
+	void Write(u32 handle, const u8 *buf, size_t bytes);
+
+	void EventResult(u32 handle, const AsyncIOResult &result);
 	bool threadEnabled_ = false;
 	bool eventsRunning_ = false;
 	bool eventsHaveRun_ = false;
@@ -255,33 +270,6 @@ private:
 	std::recursive_mutex eventsLock_;  // TODO: Should really make this non-recursive - condition_variable_any is dangerous
 	std::condition_variable_any eventsWait_;
 	std::condition_variable_any eventsDrain_;
-};
-
-class AsyncIOManager : public ThreadEventQueue {
-public:
-	void DoState(PointerWrap &p);
-
-	bool HasOperation(u32 handle);
-	void ScheduleOperation(const AsyncIOEvent &ev);
-	void Shutdown();
-
-	bool HasResult(u32 handle);
-	bool WaitResult(u32 handle, AsyncIOResult &result);
-	u64 ResultFinishTicks(u32 handle);
-
-protected:
-	void ProcessEvent(AsyncIOEvent ref) override;
-	bool ShouldExitEventLoop() override {
-		return coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN;
-	}
-
-private:
-	bool PopResult(u32 handle, AsyncIOResult &result);
-	bool ReadResult(u32 handle, AsyncIOResult &result);
-	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
-	void Write(u32 handle, const u8 *buf, size_t bytes);
-
-	void EventResult(u32 handle, const AsyncIOResult &result);
 
 	std::mutex resultsLock_;
 	std::condition_variable resultsWait_;
