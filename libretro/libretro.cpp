@@ -1480,6 +1480,7 @@ bool retro_load_game(const struct retro_game_info *game)
    g_pendingBoot = true;
 
    std::string error_string;
+   coreState = CORE_POWERUP;
    if (!PSP_InitStart(coreParam)) {
       // Can't really fail, the errors happen later during InitUpdate
       ERROR_LOG(Log::Boot, "%s", error_string.c_str());

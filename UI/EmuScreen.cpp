@@ -264,6 +264,7 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		g_BackgroundAudio.SetGame(Path());
 		bootPending_ = false;
 		errorMessage_ = error_string;
+		coreState = CORE_BOOT_ERROR;
 		ERROR_LOG(Log::Boot, "Boot failed: %s", errorMessage_.c_str());
 		return;
 	case BootState::Complete:
@@ -271,7 +272,16 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		g_BackgroundAudio.SetGame(Path());
 		bootPending_ = false;
 		errorMessage_.clear();
+
+		if (PSP_CoreParameter().startBreak) {
+			coreState = CORE_STEPPING_CPU;
+			System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+		} else {
+			coreState = CORE_RUNNING_CPU;
+		}
+
 		bootComplete();
+
 		// Reset views in case controls are in a different place.
 		RecreateViews();
 		return;
@@ -332,6 +342,7 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	coreParam.pixelHeight = g_display.pixel_yres;
 
 	// PSP_InitStart can't really fail anymore, unless it's called at the wrong time. It just starts the loader thread.
+	coreState = CORE_POWERUP;
 	if (!PSP_InitStart(coreParam)) {
 		bootPending_ = false;
 		ERROR_LOG(Log::Boot, "InitStart ProcessGameBoot error: %s", errorMessage_.c_str());

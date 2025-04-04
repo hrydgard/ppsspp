@@ -130,6 +130,7 @@ enum CoreState {
 	// Running the GPU. When done, will switch over to RUNNING_CPU.
 	CORE_RUNNING_GE,
 };
+const char *CoreStateToString(CoreState state);
 
 // Callback is called on the Emu thread.
 typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
@@ -149,8 +150,6 @@ void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
-
-const char *CoreStateToString(CoreState state);
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;
