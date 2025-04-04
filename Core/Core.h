@@ -117,12 +117,8 @@ enum CoreState {
 	CORE_NEXTFRAME = 1,
 	// Emulation is paused, CPU thread is sleeping.
 	CORE_STEPPING_CPU,  // Can be used for recoverable runtime errors (ignored memory exceptions)
-	// Core is being powered up.
-	CORE_POWERUP,
-	// Core is being powered down.
+	// Core is not running.
 	CORE_POWERDOWN,
-	// An error happened at boot.
-	CORE_BOOT_ERROR,
 	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
 	CORE_RUNTIME_ERROR,
 	// Stepping the GPU. When done, will switch over to STEPPING_CPU.

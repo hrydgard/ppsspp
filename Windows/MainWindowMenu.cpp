@@ -1246,7 +1246,7 @@ namespace MainWindow {
 
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
-		static CoreState lastCoreState = CORE_BOOT_ERROR;
+		static CoreState lastCoreState = CORE_POWERDOWN;
 
 		HMENU menu = GetMenu(GetHWND());
 		EnableMenuItem(menu, ID_DEBUG_LOG, g_Config.bEnableLogging ? MF_ENABLED : MF_GRAYED);

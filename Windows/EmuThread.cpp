@@ -276,8 +276,6 @@ void MainThreadFunc() {
 
 	DEBUG_LOG(Log::Boot, "Done.");
 
-	_dbg_assert_(coreState != CORE_POWERDOWN);
-
 	g_inLoop = true;
 
 	if (useEmuThread) {
@@ -285,10 +283,9 @@ void MainThreadFunc() {
 	}
 	graphicsContext->ThreadStart();
 
-	if (g_Config.bBrowse)
+	if (g_Config.bBrowse) {
 		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
-
-	Core_Resume();
+	}
 
 	if (useEmuThread) {
 		while (emuThreadState != (int)EmuThreadState::DISABLED) {
@@ -325,8 +322,6 @@ void MainThreadFunc() {
 		}
 		EmuThreadJoin();
 	}
-
-shutdown:
 
 	if (!useEmuThread) {
 		NativeShutdownGraphics();

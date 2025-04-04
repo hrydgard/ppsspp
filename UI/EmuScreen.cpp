@@ -201,10 +201,7 @@ EmuScreen::EmuScreen(const Path &filename)
 		&SetPSPAnalog,
 		nullptr);
 
-	// Make sure we don't leave it at powerdown after the last game.
-	// TODO: This really should be handled elsewhere if it isn't.
-	if (coreState == CORE_POWERDOWN)
-		coreState = CORE_STEPPING_CPU;
+	_dbg_assert_(coreState == CORE_POWERDOWN);
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
@@ -264,7 +261,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		g_BackgroundAudio.SetGame(Path());
 		bootPending_ = false;
 		errorMessage_ = error_string;
-		coreState = CORE_BOOT_ERROR;
 		ERROR_LOG(Log::Boot, "Boot failed: %s", errorMessage_.c_str());
 		return;
 	case BootState::Complete:
@@ -342,7 +338,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	coreParam.pixelHeight = g_display.pixel_yres;
 
 	// PSP_InitStart can't really fail anymore, unless it's called at the wrong time. It just starts the loader thread.
-	coreState = CORE_POWERUP;
 	if (!PSP_InitStart(coreParam)) {
 		bootPending_ = false;
 		ERROR_LOG(Log::Boot, "InitStart ProcessGameBoot error: %s", errorMessage_.c_str());
@@ -445,9 +440,13 @@ EmuScreen::~EmuScreen() {
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
+	// Should not be able to quit during boot, as boot can't be cancelled.
+	_dbg_assert_(!bootPending_);
 	if (!bootPending_) {
 		PSP_Shutdown(true);
 	}
+
+	_dbg_assert_(coreState == CORE_POWERDOWN);
 
 	System_PostUIMessage(UIMessage::GAME_SELECTED, "");
 
@@ -568,8 +567,6 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			PSP_Shutdown(true);
 			bootPending_ = true;
 			gamePath_ = Path(value);
-			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
-			Core_UpdateState(CORE_POWERUP);
 		}
 	} else if (message == UIMessage::CONFIG_LOADED) {
 		// In case we need to position touch controls differently.

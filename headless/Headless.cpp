@@ -185,7 +185,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	if (opt.compare || opt.bench)
 		coreParameter.collectDebugOutput = &output;
 
-	coreState = CORE_POWERUP;
 	if (!PSP_InitStart(coreParameter)) {
 		// Shouldn't really happen anymore, the errors happen later in PSP_InitUpdate.
 		fprintf(stderr, "Failed to start '%s'.\n", coreParameter.fileToStart.c_str());
