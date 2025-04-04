@@ -78,7 +78,7 @@ private:
 	UI::EventReturn OnChat(UI::EventParams &params);
 	UI::EventReturn OnResume(UI::EventParams &params);
 
-	void bootGame(const Path &filename);
+	void ProcessGameBoot(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
 	void bootComplete();
 	bool hasVisibleUI();

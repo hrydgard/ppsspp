@@ -244,7 +244,7 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 	return false;
 }
 
-void EmuScreen::bootGame(const Path &filename) {
+void EmuScreen::ProcessGameBoot(const Path &filename) {
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
 		return;
@@ -334,7 +334,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	// PSP_InitStart can't really fail anymore, unless it's called at the wrong time. It just starts the loader thread.
 	if (!PSP_InitStart(coreParam)) {
 		bootPending_ = false;
-		ERROR_LOG(Log::Boot, "InitStart bootGame error: %s", errorMessage_.c_str());
+		ERROR_LOG(Log::Boot, "InitStart ProcessGameBoot error: %s", errorMessage_.c_str());
 		return;
 	}
 
@@ -520,19 +520,31 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
+		if (bootPending_) {
+			ERROR_LOG(Log::Loader, "Can't stop during a pending boot");
+			return;
+		}
 		PSP_Shutdown(true);
 		bootPending_ = false;
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
+		if (bootPending_) {
+			ERROR_LOG(Log::Loader, "Can't reset during a pending boot");
+			return;
+		}
 		PSP_Shutdown(true);
 		bootPending_ = true;
-		System_Notify(SystemNotification::DISASSEMBLY);
+		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
 			ERROR_LOG(Log::Loader, "Error resetting");
 			screenManager()->switchScreen(new MainScreen());
 			return;
 		}
 	} else if (message == UIMessage::REQUEST_GAME_BOOT) {
+		if (bootPending_) {
+			ERROR_LOG(Log::Loader, "Can't boot a new game during a pending boot");
+			return;
+		}
 		// TODO: Ignore or not if it's the same game that's already running?
 		if (gamePath_ == Path(value)) {
 			WARN_LOG(Log::Loader, "Game already running, ignoring");
@@ -764,7 +776,9 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_RESET_EMULATION:
-		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		if (down) {
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		}
 		break;
 
 #ifndef MOBILE_DEVICE
@@ -1466,7 +1480,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (bootPending_) {
 		// Keep trying the boot until bootPending_ is lifted.
 		// It may be delayed due to RetroAchievements or any other cause.
-		bootGame(gamePath_);
+		ProcessGameBoot(gamePath_);
 	}
 
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
