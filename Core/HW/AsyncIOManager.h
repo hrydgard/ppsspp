@@ -79,7 +79,6 @@ struct AsyncIOResult {
 	u32 invalidateAddr;
 };
 
-template <typename Event, typename EventType, EventType EVENT_INVALID, EventType EVENT_SYNC, EventType EVENT_FINISH>
 struct ThreadEventQueue {
 	virtual ~ThreadEventQueue() {}
 
@@ -91,7 +90,7 @@ struct ThreadEventQueue {
 		return threadEnabled_;
 	}
 
-	void ScheduleEvent(Event ev) {
+	void ScheduleEvent(AsyncIOEvent ev) {
 		if (threadEnabled_) {
 			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			events_.push_back(ev);
@@ -121,22 +120,22 @@ struct ThreadEventQueue {
 		}
 	}
 
-	Event GetNextEvent() {
+	AsyncIOEvent GetNextEvent() {
 		if (threadEnabled_) {
 			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			if (events_.empty()) {
 				NotifyDrain();
-				return EVENT_INVALID;
+				return IO_EVENT_INVALID;
 			}
 
-			Event ev = events_.front();
+			AsyncIOEvent ev = events_.front();
 			events_.pop_front();
 			return ev;
 		} else {
 			if (events_.empty()) {
-				return EVENT_INVALID;
+				return IO_EVENT_INVALID;
 			}
-			Event ev = events_.front();
+			AsyncIOEvent ev = events_.front();
 			events_.pop_front();
 			return ev;
 		}
@@ -145,7 +144,7 @@ struct ThreadEventQueue {
 	void RunEventsUntil(u64 globalticks) {
 		if (!threadEnabled_) {
 			do {
-				for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
+				for (AsyncIOEvent ev = GetNextEvent(); AsyncIOEventType(ev) != IO_EVENT_INVALID; ev = GetNextEvent()) {
 					ProcessEventIfApplicable(ev, globalticks);
 				}
 			} while (CoreTiming::GetTicks() < globalticks);
@@ -164,7 +163,7 @@ struct ThreadEventQueue {
 				break;
 			}
 
-			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
+			for (AsyncIOEvent ev = GetNextEvent(); AsyncIOEventType(ev) != IO_EVENT_INVALID; ev = GetNextEvent()) {
 				guard.unlock();
 				ProcessEventIfApplicable(ev, globalticks);
 				guard.lock();
@@ -210,7 +209,7 @@ struct ThreadEventQueue {
 		std::unique_lock<std::recursive_mutex> guard(eventsLock_);
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
-		ScheduleEvent(EVENT_SYNC);
+		ScheduleEvent(IO_EVENT_SYNC);
 		while (ShouldSyncThread(force)) {
 			eventsDrain_.wait(guard);
 		}
@@ -224,22 +223,22 @@ struct ThreadEventQueue {
 		std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 		// Don't schedule a finish if it's not even running.
 		if (eventsRunning_) {
-			ScheduleEvent(EVENT_FINISH);
+			ScheduleEvent(IO_EVENT_FINISH);
 		}
 	}
 
 protected:
-	virtual void ProcessEvent(Event ev) = 0;
+	virtual void ProcessEvent(AsyncIOEvent ev) = 0;
 	virtual bool ShouldExitEventLoop() = 0;
 
-	inline void ProcessEventIfApplicable(Event &ev, u64 &globalticks) {
-		switch (EventType(ev)) {
-		case EVENT_FINISH:
+	inline void ProcessEventIfApplicable(AsyncIOEvent &ev, u64 &globalticks) {
+		switch (AsyncIOEventType(ev)) {
+		case IO_EVENT_FINISH:
 			// Stop waiting.
 			globalticks = 0;
 			break;
 
-		case EVENT_SYNC:
+		case IO_EVENT_SYNC:
 			// Nothing special to do, this event it just to wait on, see SyncThread.
 			break;
 
@@ -252,14 +251,13 @@ private:
 	bool threadEnabled_ = false;
 	bool eventsRunning_ = false;
 	bool eventsHaveRun_ = false;
-	std::deque<Event> events_;
+	std::deque<AsyncIOEvent> events_;
 	std::recursive_mutex eventsLock_;  // TODO: Should really make this non-recursive - condition_variable_any is dangerous
 	std::condition_variable_any eventsWait_;
 	std::condition_variable_any eventsDrain_;
 };
 
-typedef ThreadEventQueue<AsyncIOEvent, AsyncIOEventType, IO_EVENT_INVALID, IO_EVENT_SYNC, IO_EVENT_FINISH> IOThreadEventQueue;
-class AsyncIOManager : public IOThreadEventQueue {
+class AsyncIOManager : public ThreadEventQueue {
 public:
 	void DoState(PointerWrap &p);
 
