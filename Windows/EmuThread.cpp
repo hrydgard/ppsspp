@@ -316,10 +316,7 @@ void MainThreadFunc() {
 
 	DEBUG_LOG(Log::Boot, "Done.");
 
-	if (coreState == CORE_POWERDOWN) {
-		INFO_LOG(Log::Boot, "Exit before core loop.");
-		goto shutdown;
-	}
+	_dbg_assert_(coreState != CORE_POWERDOWN);
 
 	g_inLoop = true;
 
