@@ -213,16 +213,13 @@ void Core_RunLoopUntil(u64 globalticks) {
 			case DLResult::DebugBreak:
 				GPUStepping::EnterStepping(coreState);
 				break;
-			case DLResult::Error:
-				// We should elegantly report the error somehow, or I guess ignore it.
+
+			case DLResult::Error: // We should elegantly report the error somehow, or I guess ignore it.
+			case DLResult::Done: // Done executing for now
 				hleFinishSyscallAfterGe();
 				coreState = preGeCoreState;
 				break;
-			case DLResult::Done:
-				// Done executing for now
-				hleFinishSyscallAfterGe();
-				coreState = preGeCoreState;
-				break;
+
 			default:
 				// Not a valid return value.
 				_dbg_assert_(false);

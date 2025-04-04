@@ -263,6 +263,7 @@ private:
 	void Write(u32 handle, const u8 *buf, size_t bytes);
 
 	void EventResult(u32 handle, const AsyncIOResult &result);
+
 	bool threadEnabled_ = false;
 	bool eventsRunning_ = false;
 	bool eventsHaveRun_ = false;

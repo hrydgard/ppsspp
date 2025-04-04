@@ -68,57 +68,12 @@ void MainThread_Stop() {
 	// Already stopped?
 	UpdateUIState(UISTATE_EXIT);
 	Core_Stop();
+	_dbg_assert_(mainThread.joinable());
 	mainThread.join();
 }
 
 bool MainThread_Ready() {
 	return g_inLoop;
-}
-
-static bool Run(GraphicsContext *ctx) {
-	System_Notify(SystemNotification::DISASSEMBLY);
-	while (true) {
-		if (GetUIState() != UISTATE_INGAME) {
-			Core_StateProcessed();
-			if (GetUIState() == UISTATE_EXIT) {
-				// Not sure why we do a final frame here?
-				NativeFrame(ctx);
-				return false;
-			}
-			NativeFrame(ctx);
-			continue;
-		}
-
-		switch (coreState) {
-		case CORE_RUNNING_CPU:
-		case CORE_STEPPING_CPU:
-		case CORE_RUNNING_GE:  // Shouldn't be in this state between frames
-		case CORE_STEPPING_GE:  // This is OK though.
-			// enter a fast runloop
-			NativeFrame(ctx);
-			if (coreState == CORE_POWERDOWN) {
-				return true;
-			}
-			break;
-		case CORE_POWERUP:
-		case CORE_POWERDOWN:
-			// Need to step the loop.
-			NativeFrame(ctx);
-			return true;
-
-		case CORE_RUNTIME_ERROR:
-			// Need to step the loop.
-			NativeFrame(ctx);
-			break;
-
-		case CORE_BOOT_ERROR:
-			// Exit loop!!
-			return true;
-
-		case CORE_NEXTFRAME:
-			return true;
-		}
-	}
 }
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext) {
@@ -133,9 +88,14 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		// We're here again, so the game quit.  Restart Run() which controls the UI.
 		// This way they can load a new game.
-		if (!Core_IsActive())
+		if (!Core_IsActive()) {
 			UpdateUIState(UISTATE_MENU);
-		if (!Run(g_graphicsContext)) {
+		}
+
+		Core_StateProcessed();
+		NativeFrame(graphicsContext);
+
+		if (GetUIState() == UISTATE_EXIT) {
 			emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
 		}
 	}
@@ -343,16 +303,15 @@ void MainThreadFunc() {
 			// This way they can load a new game.
 			if (!Core_IsActive())
 				UpdateUIState(UISTATE_MENU);
-			Run(g_graphicsContext);
-			if (coreState == CORE_BOOT_ERROR) {
-				break;
-			}
+			Core_StateProcessed();
+			NativeFrame(graphicsContext);
 		}
 	}
 	Core_Stop();
 	if (!useEmuThread) {
 		// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
-		Run(g_graphicsContext);
+		Core_StateProcessed();
+		NativeFrame(graphicsContext);
 	}
 	Core_WaitInactive();
 
