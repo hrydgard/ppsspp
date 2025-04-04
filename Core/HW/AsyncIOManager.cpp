@@ -24,7 +24,6 @@
 #include "Common/Serialize/SerializeSet.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "Core/System.h"
 #include "Core/HW/AsyncIOManager.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 

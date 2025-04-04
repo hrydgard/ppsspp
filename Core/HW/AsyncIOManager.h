@@ -148,6 +148,8 @@ public:
 		}
 	}
 
+	// This is the threadfunc, really. Although it can also run on the main thread if threadEnabled_ is set.
+	// TODO: Remove threadEnabled_, always be on a thread.
 	void RunEventsUntil(u64 globalticks) {
 		if (!threadEnabled_) {
 			do {
@@ -162,7 +164,7 @@ public:
 		eventsRunning_ = true;
 		eventsHaveRun_ = true;
 		do {
-			while (events_.empty() && !ShouldExitEventLoop()) {
+			while (events_.empty()) {
 				eventsWait_.wait(guard);
 			}
 			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
@@ -236,10 +238,7 @@ public:
 
 protected:
 	void ProcessEvent(AsyncIOEvent ref);
-	bool ShouldExitEventLoop() {
-		return coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN;
-	}
-
+	
 	inline void ProcessEventIfApplicable(AsyncIOEvent &ev, u64 &globalticks) {
 		switch (AsyncIOEventType(ev)) {
 		case IO_EVENT_FINISH:
