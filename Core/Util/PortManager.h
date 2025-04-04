@@ -46,12 +46,18 @@ struct UPnPArgs {
 
 #define IP_PROTOCOL_TCP	"TCP"
 #define IP_PROTOCOL_UDP	"UDP"
-#define UPNP_INITSTATE_NONE	0
-#define UPNP_INITSTATE_BUSY	1
-#define UPNP_INITSTATE_DONE	2
 
-#define UPNP_CMD_ADD	0
-#define UPNP_CMD_REMOVE	1
+enum {
+	UPNP_INITSTATE_NONE	= 0,
+	UPNP_INITSTATE_BUSY	= 1,
+	UPNP_INITSTATE_DONE	= 2,
+};
+
+enum {
+	UPNP_CMD_ADD = 0,
+	UPNP_CMD_REMOVE = 1,
+	UPNP_CMD_EXIT = 2,
+};
 
 struct UPNPUrls;
 struct IGDdatas;
@@ -70,9 +76,6 @@ struct PortMap {
 
 class PortManager {
 public:
-	PortManager();
-	~PortManager();
-
 	// Initialize UPnP
 	// timeout: milliseconds to wait for a router to respond (default = 2000 ms)
 	bool Initialize(const unsigned int timeout = 2000);
@@ -116,7 +119,7 @@ private:
 
 extern PortManager g_PortManager;
 
-void __UPnPInit(const int timeout_ms);
+void __UPnPInit(const unsigned int timeout_ms);
 void __UPnPShutdown();
 
 // Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding (intport = 0 : same as [external] port)
@@ -124,3 +127,8 @@ void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport 
 
 // Remove a port mapping (external port)
 void UPnP_Remove(const char* protocol, unsigned short port);
+
+// Wakes the UPnP service thread immediately, without queuing a request - useful after
+// changing the enable setting or similar, so it can (re)connect without waiting for the
+// periodic retry.
+void UPnP_Notify();
