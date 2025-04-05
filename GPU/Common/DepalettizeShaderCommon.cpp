@@ -182,10 +182,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	case GE_FORMAT_CLUT8:
 		if (shift == 0 && mask == 0xFF) {
 			// Easy peasy.
-			if (writer.Lang().shaderLanguage == HLSL_D3D9)
-				snprintf(lookupMethod, sizeof(lookupMethod), "index.a");
-			else
-				snprintf(lookupMethod, sizeof(lookupMethod), "index.r");
+			snprintf(lookupMethod, sizeof(lookupMethod), "index.r");
 			formatOK = true;
 		} else {
 			// Deal with this if we find it.
@@ -318,10 +315,6 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
 	// Technically, the clutBase should be |'d, not added, but that's hard with floats.
 	float texel_offset = ((float)config.startPos + 0.5f) / texturePixels;
-	if (writer.Lang().shaderLanguage == HLSL_D3D9) {
-		// Seems to need a half-pixel offset fix?  Might mean it was rendered wrong...
-		texel_offset += 0.5f / texturePixels;
-	}
 	writer.F("  float coord = (%s * %f) + %f;\n", lookupMethod, index_multiplier, texel_offset);
 	writer.C("  vec4 outColor = ").SampleTexture2D("pal", "vec2(coord, 0.0)").C(";\n");
 }
@@ -366,7 +359,6 @@ void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 		GenerateDepalSmoothed(writer, config);
 	} else {
 		switch (writer.Lang().shaderLanguage) {
-		case HLSL_D3D9:
 		case GLSL_1xx:
 			GenerateDepalShaderFloat(writer, config);
 			break;

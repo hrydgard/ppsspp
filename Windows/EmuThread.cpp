@@ -30,7 +30,6 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 #include "Windows/GPU/WindowsVulkanContext.h"
-#include "Windows/GPU/D3D9Context.h"
 #include "Windows/GPU/D3D11Context.h"
 
 enum class EmuThreadState {
@@ -173,9 +172,6 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 		graphicsContext = new WindowsGLContext();
 		break;
 #endif
-	case (int)GPUBackend::DIRECT3D9:
-		graphicsContext = new D3D9Context();
-		break;
 	case (int)GPUBackend::DIRECT3D11:
 		graphicsContext = new D3D11Context();
 		break;
@@ -267,19 +263,15 @@ void MainThreadFunc() {
 		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
 		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		std::string_view genericError;
-		GPUBackend nextBackend = GPUBackend::DIRECT3D9;
+		GPUBackend nextBackend = GPUBackend::VULKAN;
 		switch (g_Config.iGPUBackend) {
-		case (int)GPUBackend::DIRECT3D9:
-			nextBackend = GPUBackend::OPENGL;
-			genericError = err->T("GenericDirect3D9Error", defaultErrorDirect3D9);
-			break;
 		case (int)GPUBackend::VULKAN:
 			nextBackend = GPUBackend::OPENGL;
 			genericError = err->T("GenericVulkanError", defaultErrorVulkan);
 			break;
 		case (int)GPUBackend::OPENGL:
 		default:
-			nextBackend = GPUBackend::DIRECT3D9;
+			nextBackend = GPUBackend::DIRECT3D11;
 			genericError = err->T("GenericOpenGLError", defaultErrorOpenGL);
 			break;
 		}
@@ -296,11 +288,6 @@ void MainThreadFunc() {
 			g_Config.Save("save_graphics_fallback");
 
 			W32Util::ExitAndRestart();
-		} else {
-			if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D9) {
-				// Allow the user to download the DX9 runtime.
-				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.microsoft.com/en-us/download/details.aspx?id=34429");
-			}
 		}
 
 		// No safe way out without graphics.
