@@ -1473,7 +1473,6 @@
     <ClInclude Include="MIPS\MIPSStackWalk.h" />
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
-    <ClInclude Include="ThreadEventQueue.h" />
     <ClInclude Include="TiltEventProcessor.h" />
     <ClInclude Include="Util\AtracTrack.h" />
     <ClInclude Include="Util\AudioFormat.h" />

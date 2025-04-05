@@ -1267,7 +1267,6 @@
     <ClInclude Include="..\..\Core\SaveState.h" />
     <ClInclude Include="..\..\Core\Screenshot.h" />
     <ClInclude Include="..\..\Core\System.h" />
-    <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h">
       <Filter>MIPS\ARM</Filter>

@@ -73,8 +73,8 @@ static int steppingCounter = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 
 // This can be read and written from ANYWHERE.
-volatile CoreState coreState = CORE_STEPPING_CPU;
-CoreState preGeCoreState = CORE_BOOT_ERROR;
+volatile CoreState coreState = CORE_POWERDOWN;
+CoreState preGeCoreState = CORE_POWERDOWN;
 // If true, core state has been changed, but JIT has probably not noticed yet.
 volatile bool coreStatePending = false;
 
@@ -89,6 +89,19 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu);
 
 BreakReason Core_BreakReason() {
 	return g_breakReason;
+}
+
+const char *CoreStateToString(CoreState state) {
+	switch (state) {
+	case CORE_RUNNING_CPU: return "RUNNING_CPU";
+	case CORE_NEXTFRAME: return "NEXTFRAME";
+	case CORE_STEPPING_CPU: return "STEPPING_CPU";
+	case CORE_POWERDOWN: return "POWERDOWN";
+	case CORE_RUNTIME_ERROR: return "RUNTIME_ERROR";
+	case CORE_STEPPING_GE: return "STEPPING_GE";
+	case CORE_RUNNING_GE: return "RUNNING_GE";
+	default: return "N/A";
+	}
 }
 
 const char *BreakReasonToString(BreakReason reason) {
@@ -188,9 +201,7 @@ bool Core_GetPowerSaving() {
 void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
 		switch (coreState) {
-		case CORE_POWERUP:
 		case CORE_POWERDOWN:
-		case CORE_BOOT_ERROR:
 		case CORE_RUNTIME_ERROR:
 		case CORE_NEXTFRAME:
 			return;
@@ -213,16 +224,13 @@ void Core_RunLoopUntil(u64 globalticks) {
 			case DLResult::DebugBreak:
 				GPUStepping::EnterStepping(coreState);
 				break;
-			case DLResult::Error:
-				// We should elegantly report the error somehow, or I guess ignore it.
+
+			case DLResult::Error: // We should elegantly report the error somehow, or I guess ignore it.
+			case DLResult::Done: // Done executing for now
 				hleFinishSyscallAfterGe();
 				coreState = preGeCoreState;
 				break;
-			case DLResult::Done:
-				// Done executing for now
-				hleFinishSyscallAfterGe();
-				coreState = preGeCoreState;
-				break;
+
 			default:
 				// Not a valid return value.
 				_dbg_assert_(false);

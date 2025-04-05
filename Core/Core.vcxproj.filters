@@ -1737,9 +1737,6 @@
     <ClInclude Include="FileSystems\VirtualDiscFileSystem.h">
       <Filter>FileSystems</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadEventQueue.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="HW\AsyncIOManager.h">
       <Filter>HW</Filter>
     </ClInclude>

@@ -100,7 +100,7 @@ static void SetupJitHarness() {
 	RegisterHLEModule("UnitTestFakeSyscalls", ARRAY_SIZE(UnitTestFakeSyscalls), UnitTestFakeSyscalls);
 
 	// This is pretty much the bare minimum required to setup jit.
-	coreState = CORE_POWERUP;
+	coreState = CORE_RUNNING_CPU;
 	currentMIPS = &mipsr4k;
 	g_symbolMap = new SymbolMap();
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;

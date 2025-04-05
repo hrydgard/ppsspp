@@ -582,10 +582,12 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 static void __IoManagerThread() {
 	SetCurrentThreadName("IO");
+	INFO_LOG(Log::sceIo, "Entering __IoManagerThread");
 	AndroidJNIThreadContext jniContext;
-	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
+	while (ioManagerThreadEnabled) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
+	INFO_LOG(Log::sceIo, "Leaving __IoManagerThread");
 }
 
 static void __IoWakeManager(CoreLifecycle stage) {
