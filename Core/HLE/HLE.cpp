@@ -192,7 +192,8 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	// This will hide the checkbox in Developer Settings, too.
 	//
 	// PSMF testing issue: #20200
-	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer;
+	// sceCcc is simply a character conversion library, zero deps. If available we just load it.
+	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc;
 }
 
 // Process compat flags.
