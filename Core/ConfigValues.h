@@ -125,7 +125,8 @@ enum class DisableHLEFlags : int {
 	sceMpeg = (1 << 4),
 	sceMp3 = (1 << 5),
 	sceParseHttp = (1 << 6),
-	Count = 7,
+	sceCcc = (1 << 7),  // character conversion library.
+	Count = 8,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);

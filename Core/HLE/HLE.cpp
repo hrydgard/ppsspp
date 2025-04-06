@@ -151,7 +151,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"scePsmfP_library", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
 	{"scePsmfPlayer", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
 	{"sceSAScore", "sceSasCore"},
-	{"sceCcc_Library", "sceCcc"},
+	{"sceCcc_Library", "sceCcc", DisableHLEFlags::sceCcc},
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
 	{"SceParseURI_Library"},
 	// Guessing these names
