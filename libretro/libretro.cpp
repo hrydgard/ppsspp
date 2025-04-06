@@ -483,8 +483,7 @@ static void check_variables(CoreParameter &coreParam)
 
    bool updated = false;
 
-   if (     coreState != CoreState::CORE_POWERUP
-         && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
          && !updated)
       return;
 
@@ -1446,7 +1445,6 @@ bool retro_load_game(const struct retro_game_info *game)
 
    retro_check_backend();
 
-   coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
    INFO_LOG(Log::System, "Using %s backend", ctx->Ident());
 

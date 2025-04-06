@@ -2118,11 +2118,6 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
 
-		if (coreState == CORE_POWERDOWN) {
-			breakNext_ = BreakNext::NONE;
-			return process ? NotifyResult::Execute : NotifyResult::Skip;
-		}
-
 		u32 op = Memory::Read_U32(pc);
 		auto info = DisassembleOp(pc, op);
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());

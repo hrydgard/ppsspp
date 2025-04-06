@@ -2057,7 +2057,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/LuaContext.h
 	Core/RetroAchievements.h
 	Core/RetroAchievements.cpp
-	Core/ThreadEventQueue.h
 	Core/TiltEventProcessor.h
 	Core/TiltEventProcessor.cpp
 	Core/WebServer.cpp
