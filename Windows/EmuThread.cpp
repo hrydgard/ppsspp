@@ -67,7 +67,6 @@ void MainThread_Start(bool separateEmuThread) {
 void MainThread_Stop() {
 	// Already stopped?
 	UpdateUIState(UISTATE_EXIT);
-	Core_Stop();
 	_dbg_assert_(mainThread.joinable());
 	mainThread.join();
 }
