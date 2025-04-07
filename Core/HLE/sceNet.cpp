@@ -515,8 +515,11 @@ void __NetInit() {
 	INFO_LOG(Log::sceNet, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
 
 	__PlatformNetInit();
-	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
-	__UPnPInit();
+
+	// For libretro we don't have a better place. On other platforms, we just init/shutdown it with the rest of the emu (NativeInit / NativeShutdown).
+#ifdef __LIBRETRO__
+	__UPnPInit(2000);
+#endif
 
 	__ResetInitNetLib();
 	__NetApctlInit();
@@ -541,8 +544,9 @@ void __NetShutdown() {
 	__NetApctlShutdown();
 	__ResetInitNetLib();
 
-	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
+#ifdef __LIBRETRO__
 	__UPnPShutdown();
+#endif
 
 	__PlatformNetShutdown();
 
