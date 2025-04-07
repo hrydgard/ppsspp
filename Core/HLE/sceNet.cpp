@@ -1123,7 +1123,7 @@ void NetApctl_InitInfo(int confId) {
 
 static int sceNetApctlInit(int stackSize, int initPriority) {
 	if (g_netApctlInited) {
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_ALREADY_INITIALIZED);
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_ALREADY_INITIALIZED);
 	}
 
 	apctlEvents.clear();
@@ -1325,7 +1325,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	default:
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_INVALID_CODE, "apctl invalid code");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "apctl invalid code");
 	}
 
 	return hleLogDebug(Log::sceNet, 0);
@@ -1392,10 +1392,10 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 
 int sceNetApctlConnect(int confId) {
 	if (!g_Config.bEnableWlan)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_DISCONNECTED);
 
 	// Is this confId is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	netApctlInfoId = confId;
@@ -1439,7 +1439,7 @@ bool __NetApctlConnected() {
 }
 
 static int sceNetApctlGetState(u32 pStateAddr) {
-	//if (!netApctlInited) return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
+	//if (!netApctlInited) return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_IN_BSS, "apctl not in bss");
 
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
@@ -1455,11 +1455,11 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 // This one logs like a syscall because it's called at the end of some.
 int NetApctl_ScanUser() {
 	if (!g_Config.bEnableWlan)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
 	// Scan probably only works when not in connected state, right?
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_DISCONNECTED);
 
 	__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_SCANNING, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
 	return hleLogInfo(Log::sceNet, 0);
@@ -1573,7 +1573,7 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 		Memory::Write_U32(netApctlInfo.securityType, resultAddr);
 		break;
 	default:
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_INVALID_CODE, "unknown info id");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "unknown info id");
 	}
 
 	return 0;
