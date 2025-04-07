@@ -77,14 +77,13 @@ bool MainScreen::showHomebrewTab = false;
 
 bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 	// Depending on the file type, we don't want to launch EmuScreen at all.
-	auto loader = ConstructFileLoader(path);
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
 	if (!loader) {
 		return false;
 	}
 
 	std::string errorString;
-	IdentifiedFileType type = Identify_File(loader, &errorString);
-	delete loader;
+	IdentifiedFileType type = Identify_File(loader.get(), &errorString);
 
 	switch (type) {
 	case IdentifiedFileType::ARCHIVE_ZIP:

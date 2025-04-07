@@ -63,6 +63,18 @@ enum class OpType {
 	Done,
 };
 
+static const char *OpTypeToString(OpType type) {
+	switch (type) {
+	case OpType::None: return "None";
+	case OpType::UpdateStallAddr: return "UpdateStallAddr";
+	case OpType::EnqueueList: return "EnqueueList";
+	case OpType::ListSync: return "ListSync";
+	case OpType::ReapplyGfxState: return "ReapplyGfxState";
+	case OpType::Done: return "Done";
+	default: return "N/A";
+	}
+}
+
 struct Operation {
 	OpType type;
 	u32 listID;  // also listPC in EnqueueList
@@ -888,6 +900,8 @@ static u32 LoadReplay(const std::string &filename) {
 }
 
 void Replay_Unload() {
+	// TODO: Hm, we have a problem here. We might be paused inside a replay and exiting - in this case, the thread is still running.
+
 	_dbg_assert_(!replayThread.joinable());
 
 	lastExecFilename.clear();

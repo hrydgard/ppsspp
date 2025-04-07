@@ -45,6 +45,7 @@ FileLoader *ConstructFileLoader(const Path &filename) {
 }
 
 // TODO : improve, look in the file more
+// Does not take ownership.
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString) {
 	errorString->clear();
 	if (fileLoader == nullptr) {
