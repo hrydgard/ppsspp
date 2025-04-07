@@ -116,13 +116,12 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	std::string json;
 	if (!jsonReady_ && PollInfraJsonDownload(&json)) {
 		if (!json.empty()) {
-			INFO_LOG(Log::sceNet, "PollInfraJsonDownload returned a string");
 			if (!LoadAutoDNS(json)) {
 				// If the JSON parse fails, throw away the cache file at least.
 				ERROR_LOG(Log::sceNet, "Failed to parse bad json. Deleting cache file.");
 				DeleteAutoDNSCacheFile();
 			} else {
-				INFO_LOG(Log::sceNet, "Got and processed the AutoDNS json.");
+				DEBUG_LOG(Log::sceNet, "Got and processed the AutoDNS json.");
 			}
 		} else {
 			// TODO: Show a notice?

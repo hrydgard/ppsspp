@@ -17,11 +17,11 @@
 				"group": "MOHH Revival",
 				"url": "https://mohh-revival.pages.dev/"
 			},
-			"dns": "ablondel.ddns.net",
+			"dns": "86.223.243.173",
 			"dyn_dns": "ablondel.ddns.net",
 			"domains": {
-				"pspmoh07.ea.com": "ablondel.ddns.net",
-				"tos.ea.com": "ablondel.ddns.net"
+				"pspmoh07.ea.com": "86.223.243.173",
+				"tos.ea.com": "86.223.243.173"
 			},
 			"score": 5,
 			"known_working_ids": [

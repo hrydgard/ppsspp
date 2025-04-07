@@ -348,8 +348,11 @@ bool LoadAutoDNS(std::string_view json) {
 					if (inet_ntop(ptr->ai_family, &(((struct sockaddr_in*)ptr->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
 						INFO_LOG(Log::sceNet, "Successfully resolved '%s' to '%s', overriding DNS.", dyn_dns.c_str(), ipstr);
 						if (g_infraDNSConfig.dns != ipstr) {
-							WARN_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
+							INFO_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
 							g_infraDNSConfig.dns = ipstr;
+							// If dyndns is working, we do not need the fixed lookups. So let's kick them.
+							INFO_LOG(Log::sceNet, "Clearing fixed DNS lookups.");
+							g_infraDNSConfig.fixedDNS.clear();
 						} else {
 							INFO_LOG(Log::sceNet, "DynDNS: %s already up to date", g_infraDNSConfig.dns.c_str());
 						}
@@ -871,7 +874,7 @@ static u32 sceNetTerm() {
 
 	// Give time to make sure everything are cleaned up
 	hleEatMicro(adhocDefaultDelay);
-	return hleLogWarning(Log::sceNet, retval, "at %08x", currentMIPS->pc);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 /*

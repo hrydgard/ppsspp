@@ -67,7 +67,7 @@ static int sceNetInetInit() {
 }
 
 static int sceNetInetTerm() {
-	WARN_LOG(Log::sceNet, "UNIMPL sceNetInetTerm()");
+	INFO_LOG(Log::sceNet, "sceNetInetTerm()");
 	__NetInetShutdown();
 	return hleLogDebug(Log::sceNet, 0);
 }
@@ -429,8 +429,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 }
 
 static int sceNetInetSocket(int domain, int type, int protocol) {
-	// Still using WARN_LOG to make this stand out in the log.
-	WARN_LOG(Log::sceNet, "sceNetInetSocket(%i, %i, %i) at %08x - Socket: Domain = %s, Type = %s, Protocol = %s",
+	INFO_LOG(Log::sceNet, "sceNetInetSocket(%d, %d, %d) at %08x - Socket: Domain = %s, Type = %s, Protocol = %s",
 		domain, type, protocol, currentMIPS->pc, inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 
 	int socket;
@@ -459,7 +458,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	}
 
 	u32 optval = optvalPtr ? Memory::Read_U32(optvalPtr) : 0;
-	WARN_LOG(Log::sceNet, "sceNetInetSetsockopt(%i, %i, %i, %08x, %i) at %08x: Level = %s, OptName = %s, OptValue = %d",
+	INFO_LOG(Log::sceNet, "sceNetInetSetsockopt(%i, %i, %i, %08x, %i) at %08x: Level = %s, OptName = %s, OptValue = %d",
 		socket, level, optname, optvalPtr, optlen, currentMIPS->pc,
 		inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str(), optval);
 
@@ -617,7 +616,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 		// Get Local IP Address
 		sockaddr_in sockAddr{};
 		getLocalIp(&sockAddr);
-		WARN_LOG(Log::sceNet, "Bind: Address Replacement = %s => %s", ip2str(saddr.in.sin_addr).c_str(), ip2str(sockAddr.sin_addr).c_str());
+		INFO_LOG(Log::sceNet, "Bind: Address Replacement = %s => %s", ip2str(saddr.in.sin_addr).c_str(), ip2str(sockAddr.sin_addr).c_str());
 		saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
 	}
 	// TODO: Make use Port Offset only for PPSSPP to PPSSPP communications (ie. IP addresses available in the group/friendlist), otherwise should be considered as Online Service thus should use the port as is.
@@ -848,7 +847,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
 
 	// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
-	return hleDelayResult(hleLogInfo(Log::sceNet, retval,
+	return hleDelayResult(hleLogDebug(Log::sceNet, retval,
 		"RecvFrom: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port)), "workaround until blocking-socket", 500);
 }
 
@@ -921,7 +920,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 		}
 	}
 
-	return hleLogInfo(Log::sceNet, retval, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	return hleLogDebug(Log::sceNet, retval, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 }
 
 // Similar to POSIX's sendmsg or Winsock2's WSASendMsg? Are their packets compatible one another?
