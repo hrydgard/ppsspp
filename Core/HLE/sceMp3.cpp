@@ -76,7 +76,6 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceMp3.h"
-#include "Core/HW/MediaEngine.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"

@@ -139,7 +139,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"sceSsl_Module"},
 	{"sceDEFLATE_Library"},
 	{"sceMD5_Library"},
-	{"sceMemab"},
+	{"sceMemab"},  // Underlying AdHoc crypto library
 	{"sceAvcodec_driver"},
 	{"sceAudiocodec_Driver"},
 	{"sceAudiocodec"},
