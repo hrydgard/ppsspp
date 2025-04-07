@@ -1016,7 +1016,6 @@ void TabHolder::AddTabDeferred(std::string_view title, std::function<ViewGroup *
 	tabTweens_.push_back(nullptr);
 	createFuncs_.push_back(createCb);
 
-	// Pre-create the first tab in a non-deferred way.
 	if (tabs_.size() == 1) {
 		EnsureTab(0);
 	}
@@ -1031,7 +1030,7 @@ void TabHolder::EnsureAllCreated() {
 	}
 }
 
-void TabHolder::EnsureTab(int index) {
+bool TabHolder::EnsureTab(int index) {
 	_dbg_assert_(index >= 0 && index < createFuncs_.size());
 
 	if (!tabs_[index]) {
@@ -1045,16 +1044,24 @@ void TabHolder::EnsureTab(int index) {
 		contents_->Add(tabContents);
 
 		tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+		return true;
+	} else {
+		return false;
 	}
 }
 
-void TabHolder::SetCurrentTab(int tab, bool skipTween) {
+bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 	if (tab >= (int)tabs_.size()) {
 		// Ignore
-		return;
+		return false;
 	}
 
-	EnsureTab(tab);
+	bool created = false;
+
+	if (tab != currentTab_) {
+		_dbg_assert_(tabs_[currentTab_]);  // we should always have a tab to switch *from*.
+		created = EnsureTab(tab);
+	}
 
 	auto setupTween = [&](View *view, AnchorTranslateTween *&tween) {
 		_dbg_assert_(view != nullptr);
@@ -1100,9 +1107,10 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		tabs_[tab]->SetVisibility(V_VISIBLE);
 
 		currentTab_ = tab;
-		EnsureTab(currentTab_);
 	}
 	tabStrip_->SetSelection(tab, false);
+
+	return created;
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
@@ -1132,7 +1140,10 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 
 	case PERSIST_RESTORE:
 		if (buffer.size() == 1) {
-			SetCurrentTab(buffer[0], true);
+			if (SetCurrentTab(buffer[0], true)) {
+				// Re-run PersistData. TODO: Only need to do it for the new tab.
+				ViewGroup::PersistData(status, anonId, storage);
+			}
 		}
 		break;
 	}

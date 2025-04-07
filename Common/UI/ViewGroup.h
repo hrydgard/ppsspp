@@ -305,7 +305,8 @@ public:
 
 	void AddBack(UIScreen *parent);
 
-	void SetCurrentTab(int tab, bool skipTween = false);
+	// Returns true if the tab wasn't created before (but is now).
+	bool SetCurrentTab(int tab, bool skipTween = false);
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string DescribeLog() const override { return "TabHolder: " + View::DescribeLog(); }
@@ -323,7 +324,7 @@ public:
 private:
 	void AddTabContents(std::string_view title, ViewGroup *tabContents);
 	EventReturn OnTabClick(EventParams &e);
-	void EnsureTab(int index);
+	bool EnsureTab(int index);  // return true if it actually created a tab.
 
 	View *bannerView_ = nullptr;
 	LinearLayout *tabContainer_ = nullptr;

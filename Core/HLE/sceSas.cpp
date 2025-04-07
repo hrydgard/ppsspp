@@ -283,7 +283,7 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 		return hleReportError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid address");
 	}
 	if (sas->outputMode == PSP_SAS_OUTPUTMODE_RAW) {
-		return hleReportError(Log::sceSas, 0x80000004, "unsupported outputMode");
+		return hleReportError(Log::sceSas, SCE_KERNEL_ERROR_BAD_ARGUMENT, "unsupported outputMode");
 	}
 	if (!__KernelIsDispatchEnabled()) {
 		return hleLogError(Log::sceSas, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");

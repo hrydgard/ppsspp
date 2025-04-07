@@ -139,7 +139,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"sceSsl_Module"},
 	{"sceDEFLATE_Library"},
 	{"sceMD5_Library"},
-	{"sceMemab"},
+	{"sceMemab"},  // Underlying AdHoc crypto library
 	{"sceAvcodec_driver"},
 	{"sceAudiocodec_Driver"},
 	{"sceAudiocodec"},
@@ -151,7 +151,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"scePsmfP_library", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
 	{"scePsmfPlayer", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
 	{"sceSAScore", "sceSasCore"},
-	{"sceCcc_Library", "sceCcc"},
+	{"sceCcc_Library", "sceCcc", DisableHLEFlags::sceCcc},
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
 	{"SceParseURI_Library"},
 	// Guessing these names
@@ -192,7 +192,8 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	// This will hide the checkbox in Developer Settings, too.
 	//
 	// PSMF testing issue: #20200
-	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer;
+	// sceCcc is simply a character conversion library, zero deps. If available we just load it.
+	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc;
 }
 
 // Process compat flags.

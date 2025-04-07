@@ -67,16 +67,16 @@ struct SceAudiocodecCodec {
 	s32 unk48;  // 30 Atrac3 (non-+) related. Zero with Atrac3+.
 	s32 unk52;  // 34
 	s32 mp3_9999;  // 38  // unk56
-	s32 unk60;
+	s32 mp3_3;  // unk60 gets the value 3
 	s32 unk64;  // Atrac3+ size related
-	s32 unk68;
-	s32 unk72;
+	s32 mp3_9;
+	s32 mp3_0;
 	s32 unk76;
 	s32 unk80;
-	s32 unk84;
+	s32 mp3_1_first;
 	s32 unk88;
 	s32 unk92;
-	s32 unk96;
+	s32 mp3_1;
 	s32 unk100;
 	u32 allocMem; // 104
 	// make sure the size is 128

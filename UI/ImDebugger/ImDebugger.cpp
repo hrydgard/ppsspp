@@ -649,10 +649,26 @@ static void DrawInternals(ImConfig &cfg) {
 		{DIRECTORY_CUSTOM_THEMES, "CUSTOM_THEMES"},
 	};
 
-	if (ImGui::CollapsingHeader("Directories", ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeader("GetSysDirectory")) {
 		for (auto &dir : dirs) {
 			ImGui::Text("%s: %s", dir.name, GetSysDirectory(dir.dir).c_str());
 		}
+	}
+
+	if (ImGui::CollapsingHeader("Memory")) {
+		ImGui::Text("Base pointer: %p", Memory::base);
+		ImGui::Text("Main memory size: %08x", Memory::g_MemorySize);
+		if (ImGui::Button("Copy to clipboard")) {
+			System_CopyStringToClipboard(StringFromFormat("0x%p", Memory::base));
+		}
+	}
+
+	if (ImGui::CollapsingHeader("ImGui state")) {
+		const auto &io = ImGui::GetIO();
+		ImGui::Text("WantCaptureMouse: %s", BoolStr(io.WantCaptureMouse));
+		ImGui::Text("WantCaptureKeyboard: %s", BoolStr(io.WantCaptureKeyboard));
+		ImGui::Text("WantCaptureMouseUnlessPopupClose: %s", BoolStr(io.WantCaptureMouseUnlessPopupClose));
+		ImGui::Text("WantTextInput: %s", BoolStr(io.WantTextInput));
 	}
 
 	ImGui::End();
@@ -671,15 +687,6 @@ static void DrawAdhoc(ImConfig &cfg) {
 	case 2: discoverStatusStr = "COMPLETED"; break;
 	default: break;
 	}
-
-	auto &io = ImGui::GetIO();
-
-	/*
-	ImGui::Text("WantCaptureMouse: %s", BoolStr(io.WantCaptureMouse));
-	ImGui::Text("WantCaptureKeyboard: %s", BoolStr(io.WantCaptureKeyboard));
-	ImGui::Text("WantCaptureMouseUnlessPopupClose: %s", BoolStr(io.WantCaptureMouseUnlessPopupClose));
-	ImGui::Text("WantTextInput: %s", BoolStr(io.WantTextInput));
-	*/
 
 	ImGui::Text("sceNetAdhoc inited: %s", BoolStr(netAdhocInited));
 	ImGui::Text("sceNetAdhocctl inited: %s", BoolStr(netAdhocctlInited));
@@ -1710,6 +1717,9 @@ void DrawHLEModules(ImConfig &config) {
 						case 'I': amask[i] = 'd'; break;
 						case 'f':
 						case 'F': amask[i] = 'x'; break;
+						default:
+							// others go straight through (p)
+							break;
 						}
 					}
 					w.F("%s 0x%08x %d %s", func.name, func.ID, strlen(func.argmask), amask.c_str()).endl();
@@ -2420,6 +2430,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	StatusBar(disasmView_.StatusBarText());
 	ImGui::End();
+}
+
+void ImDebugger::DeviceLost() {
+	pixelViewer_.DeviceLost();
+	geDebugger_.DeviceLost();
 }
 
 Path ImDebugger::ConfigPath() {

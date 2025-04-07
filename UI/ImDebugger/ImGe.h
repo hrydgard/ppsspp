@@ -70,6 +70,7 @@ struct ImGePixelViewer : public PixelLookup {
 		dirty_ = true;
 	}
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
+	void DeviceLost();
 
 	uint32_t addr = 0x04110000;
 	uint16_t stride = 512;
@@ -95,6 +96,7 @@ struct ImGeReadbackViewer : public PixelLookup {
 		dirty_ = true;
 	}
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
+	void DeviceLost();
 
 	// TODO: This is unsafe! If you load state for example with the debugger open...
 	// We need to re-fetch this each frame from the parameters.
@@ -124,6 +126,9 @@ public:
 		viewer_.stride = stride;
 		viewer_.format = format;
 	}
+	void DeviceLost() {
+		viewer_.DeviceLost();
+	}
 
 private:
 	ImGePixelViewer viewer_;
@@ -140,6 +145,7 @@ public:
 		return "GE Debugger";
 	}
 	void NotifyStep();
+	void DeviceLost();
 
 private:
 	ImGeDisasmView disasmView_;

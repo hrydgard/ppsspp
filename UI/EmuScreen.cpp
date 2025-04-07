@@ -1283,6 +1283,9 @@ void EmuScreen::deviceLost() {
 	UIScreen::deviceLost();
 
 	if (imguiInited_) {
+		if (imDebugger_) {
+			imDebugger_->DeviceLost();
+		}
 		ImGui_ImplThin3d_DestroyDeviceObjects();
 	}
 }

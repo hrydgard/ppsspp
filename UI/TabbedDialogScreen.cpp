@@ -94,7 +94,6 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 
 				noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
 			}, true);
-
 		}
 	}
 }

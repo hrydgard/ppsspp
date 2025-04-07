@@ -28,7 +28,6 @@
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
-#include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 
 #include "Core/HLE/sceKernel.h"

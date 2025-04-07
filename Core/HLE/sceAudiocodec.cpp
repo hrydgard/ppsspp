@@ -131,6 +131,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	// Special actions for some codecs.
 	switch (audioType) {
 	case PSP_CODEC_MP3:
+		_dbg_assert_(ctx->inited == 1);
 		ctx->mp3_9999 = 9999;
 		break;
 	case PSP_CODEC_AAC:
@@ -219,14 +220,38 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	return hleLogInfo(Log::ME, 0, "codec %s", GetCodecName(codec));
 }
 
+// This is used by sceMp3, in Beats.
+// Is the return value the only output?
 static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
-	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAudiocodecGetInfo(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
-	return 0;
+	if (codec < 0x1000 || codec >= 0x1006) {
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_BAD_ARGUMENT, "invalid codec");
+	}
+
+	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
+
+	// Write some expected values.
+	switch (codec) {
+	case PSP_CODEC_MP3:
+		// When this is called, the caller has written:
+		// * inptr
+		// * outptr
+		// * formatOutSamples = 0x5A1
+		// Our response is written to a bunch of fields, but I really don't know much
+		// about what the values are - this is handled internally in the ME.
+		ctx->mp3_3 = 3;
+		ctx->mp3_9 = 9;
+		ctx->mp3_0 = 0;
+		ctx->mp3_1 = 1;
+		ctx->mp3_1_first = 1;
+		break;
+	}
+
+	return hleLogInfo(Log::ME, 0, "codec=%s", GetCodecName(codec));
 }
 
 static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	if (codec < 0x1000 || codec >= 0x1006) {
-		return hleLogError(Log::ME, 0x80000004, "invalid codec");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_BAD_ARGUMENT, "invalid codec");
 	}
 
 	if (!Memory::IsValidRange(ctxPtr, sizeof(SceAudiocodecCodec))) {
@@ -247,6 +272,9 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	case 0x1001:
 		ctx->neededMem = 0x3de0;
 		break;
+	case 0x1002:
+		ctx->neededMem = 0x3b68;
+		break;
 	case 0x1003:
 		// Kosmodrones uses sceAudiocodec directly (no intermediate library).
 		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", ctx->unk40, ctx->unk41);
@@ -262,7 +290,15 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
 	// TODO: Set this a bit more dynamically. No idea what the allocation algorithm is...
-	ctx->allocMem = 0x0018ea90;
+	switch (codec) {
+	case PSP_CODEC_MP3:
+		ctx->allocMem = 0x001B3124;
+		break;
+	case PSP_CODEC_AT3:
+	default:
+		ctx->allocMem = 0x0018ea90;
+		break;
+	}
 	ctx->edramAddr = (ctx->allocMem + 0x3f) & ~0x3f;  // round up to 64 bytes.
 	return hleLogInfo(Log::ME, 0, "edram address set to %08x", ctx->edramAddr);
 }
@@ -274,25 +310,34 @@ static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	return hleLogWarning(Log::ME, 0, "failed to remove decoder");
 }
 
-static int sceAudiocodecGetOutputBytes(u32 ctxPtr, int codec) {
+static int sceAudiocodecGetOutputBytes(u32 ctxPtr, int codec, u32 outBytesAddr) {
+	if (!Memory::IsValid4AlignedAddress(outBytesAddr)) {
+		// Not tested
+		return hleLogError(Log::ME, SCE_MP3_ERROR_BAD_ADDR);
+	}
+
+	int bytes = 0;
 	switch (codec) {
-	case 0x1000: return hleLogInfo(Log::ME, 0x2000);  // Atrac3+
-	case 0x1001: return hleLogInfo(Log::ME, 0x1000);  // Atrac3
+	case PSP_CODEC_AT3PLUS: bytes = 0x2000; break;
+	case PSP_CODEC_AT3: bytes = 0x1000; break;  // Atrac3
+	case PSP_CODEC_MP3: bytes = 0x1200; break;
 	default:
 		return hleLogWarning(Log::ME, 0, "Block size query not implemented for codec %04x", codec);
 	}
+
+	Memory::WriteUnchecked_U32(bytes, outBytesAddr);
 	return hleLogInfo(Log::ME, 0);
 }
 
 const HLEFunction sceAudiocodec[] = {
-	{0X70A703F8, &WrapI_UI<sceAudiocodecDecode>,         "sceAudiocodecDecode",       'i', "xi"},
-	{0X5B37EB1D, &WrapI_UI<sceAudiocodecInit>,           "sceAudiocodecInit",         'i', "xi"},
-	{0X8ACA11D5, &WrapI_UI<sceAudiocodecGetInfo>,        "sceAudiocodecGetInfo",      'i', "xi"},
-	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,       "sceAudiocodecGetEDRAM",     'i', "xi"},
-	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>,   "sceAudiocodecReleaseEDRAM", 'i', "xi"},
-	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>,   "sceAudiocodecCheckNeedMem", 'i', "xi"},
-	{0X59176A0F, &WrapI_UI<sceAudiocodecGetOutputBytes>, "sceAudiocodecGetOutputBytes", 'i', "xxx" },  // params are context, codec, outptr
-	{0X3DD7EE1A, &WrapI_UI<sceAudiocodecInitMono>,       "sceAudiocodecInitMono",     'i', "xi"},  // Used by sceAtrac for MOut* functions.
+	{0X70A703F8, &WrapI_UI<sceAudiocodecDecode>,         "sceAudiocodecDecode",       'i', "xx"},
+	{0X5B37EB1D, &WrapI_UI<sceAudiocodecInit>,           "sceAudiocodecInit",         'i', "xx"},
+	{0X8ACA11D5, &WrapI_UI<sceAudiocodecGetInfo>,        "sceAudiocodecGetInfo",      'i', "xx"},
+	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,       "sceAudiocodecGetEDRAM",     'i', "xx"},
+	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>,   "sceAudiocodecReleaseEDRAM", 'i', "xx"},
+	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>,   "sceAudiocodecCheckNeedMem", 'i', "xx"},
+	{0X59176A0F, &WrapI_UIU<sceAudiocodecGetOutputBytes>, "sceAudiocodecGetOutputBytes", 'i', "xxp" },  // params are context, codec, outptr
+	{0X3DD7EE1A, &WrapI_UI<sceAudiocodecInitMono>,       "sceAudiocodecInitMono",     'i', "xx"},  // Used by sceAtrac for MOut* functions.
 };
 
 void Register_sceAudiocodec() {
