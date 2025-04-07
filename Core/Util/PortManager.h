@@ -116,7 +116,7 @@ private:
 
 extern PortManager g_PortManager;
 
-void __UPnPInit(const unsigned int timeout = 2000);
+void __UPnPInit(const int timeout_ms);
 void __UPnPShutdown();
 
 // Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding (intport = 0 : same as [external] port)

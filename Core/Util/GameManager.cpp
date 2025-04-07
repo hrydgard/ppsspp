@@ -52,6 +52,7 @@
 
 GameManager g_GameManager;
 
+// Close the return value with ZipClose (if non-null, of course).
 struct zip *ZipOpenPath(Path fileName) {
 	int error = 0;
 	// Need to special case for content URI here, similar to OpenCFile.
@@ -73,7 +74,8 @@ struct zip *ZipOpenPath(Path fileName) {
 }
 
 void ZipClose(struct zip *z) {
-	zip_close(z);
+	if (z)
+		zip_close(z);
 }
 
 GameManager::GameManager() {

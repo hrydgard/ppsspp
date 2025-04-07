@@ -59,7 +59,7 @@ void InstallZipScreen::CreateViews() {
 	std::string shortFilename = zipPath_.GetFilename();
 	
 	// TODO: Do in the background?
-	struct zip *z = ZipOpenPath(zipPath_);
+	struct zip *zipFile = ZipOpenPath(zipPath_);
 
 	bool showDeleteCheckbox = false;
 	returnToHomebrew_ = false;
@@ -71,8 +71,8 @@ void InstallZipScreen::CreateViews() {
 
 	std::vector<Path> destOptions;
 
-	if (z) {
-		DetectZipFileContents(z, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+	if (zipFile) {
+		DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
 		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE || zipFileInfo_.contents == ZipFileContents::PSP_GAME_DIR) {
 			std::string_view question = iz->T("Install game from ZIP file?");
 
@@ -120,7 +120,7 @@ void InstallZipScreen::CreateViews() {
 			leftColumn->Add(new TextView(zipFileInfo_.gameTitle + ": " + zipFileInfo_.savedataDir));
 
 			Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
-			bool overwrite = !CanExtractWithoutOverwrite(z, savedataDir, 50);
+			bool overwrite = !CanExtractWithoutOverwrite(zipFile, savedataDir, 50);
 
 			destFolders_.push_back(savedataDir);
 
@@ -163,6 +163,7 @@ void InstallZipScreen::CreateViews() {
 		} else {
 			leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		}
+		ZipClose(zipFile);
 	} else {
 		leftColumn->Add(new TextView(er->T("The file is not a valid zip file"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 	}

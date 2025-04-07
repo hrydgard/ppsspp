@@ -523,10 +523,10 @@ int upnpService(const unsigned int timeout) {
 	return 0;
 }
 
-void __UPnPInit(const unsigned int timeout) {
+void __UPnPInit(const int timeout_ms) {
 	if (!upnpServiceRunning) {
 		upnpServiceRunning = true;
-		upnpServiceThread = std::thread(upnpService, timeout);
+		upnpServiceThread = std::thread(upnpService, timeout_ms);
 	}
 }
 
