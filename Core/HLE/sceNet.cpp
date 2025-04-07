@@ -55,42 +55,81 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 
+// These are all public. Should probably add accessors around these.
 bool g_netInited;
+bool g_netApctlInited;
+SceNetApctlInfoInternal netApctlInfo;
+u32 netApctlState;
+const char *const defaultNetConfigName = "NetConf";
+const char *const defaultNetSSID = "Wifi"; // fake AP/hotspot
 
-u32 netDropRate = 0;
-u32 netDropDuration = 0;
-u32 netPoolAddr = 0;
-u32 netThread1Addr = 0;
-u32 netThread2Addr = 0;
+static u32 netDropRate = 0;
+static u32 netDropDuration = 0;
+static u32 netPoolAddr = 0;
+static u32 netThread1Addr = 0;
+static u32 netThread2Addr = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-const char * const defaultNetConfigName = "NetConf";
-const char * const defaultNetSSID = "Wifi"; // fake AP/hotspot
+static int netApctlInfoId = 0;
 
-int netApctlInfoId = 0;
-SceNetApctlInfoInternal netApctlInfo;
+static u32 apctlProdCodeAddr = 0;
+static u32 apctlThreadHackAddr = 0;
+static u32_le apctlThreadCode[3];
+static SceUID apctlThreadID = 0;
+static int apctlStateEvent = -1;
+static int actionAfterApctlMipsCall;
+static std::recursive_mutex apctlEvtMtx;
+static std::deque<ApctlArgs> apctlEvents;
 
-bool g_netApctlInited;
-u32 netApctlState;
-u32 apctlProdCodeAddr = 0;
-u32 apctlThreadHackAddr = 0;
-u32_le apctlThreadCode[3];
-SceUID apctlThreadID = 0;
-int apctlStateEvent = -1;
-int actionAfterApctlMipsCall;
-std::recursive_mutex apctlEvtMtx;
-std::deque<ApctlArgs> apctlEvents;
+// Currently loaded auto-config
+static InfraDNSConfig g_infraDNSConfig;
 
-// Loaded auto-config
-InfraDNSConfig g_infraDNSConfig;
+static u32 Net_Term();
+static int NetApctl_Term();
+static void NetApctl_InitDefaultInfo();
+static void NetApctl_InitInfo(int confId);
 
-u32 Net_Term();
-int NetApctl_Term();
-void NetApctl_InitDefaultInfo();
-void NetApctl_InitInfo(int confId);
+const InfraDNSConfig &GetInfraDNSConfig() {
+	return g_infraDNSConfig;
+}
+
+std::string InfraDNSConfig::ToString() const {
+	char temp[2000];
+	StringWriter w(temp);
+
+	if (!loaded) {
+		return "InfraDNSConfig not loaded.";
+	}
+	if (!gameName.empty()) {
+		w.C("Game: ").W(gameName).endl();
+	}
+	w.C("State: ");
+	switch (state) {
+	case InfraGameState::NotWorking: w.C("Not working").endl(); break;
+	case InfraGameState::Working: w.C("Working").endl(); break;
+	case InfraGameState::Unknown: w.C("Unknown").endl(); break;
+	}
+	w.C("connectAdhocForGrouping: ").B(connectAdHocForGrouping).endl();
+	w.C("DNS: ").W(dns).endl();
+	if (!dyn_dns.empty()) {
+		w.C("DynDNS: ").W(dyn_dns).endl();
+	}
+	if (!fixedDNS.empty()) {
+		w.C("Fixed DNS").endl();
+		for (auto iter : fixedDNS) {
+			w.F("%s -> %s", iter.first.c_str(), iter.second.c_str()).endl();
+		}
+	}
+	if (!revivalTeam.empty()) {
+		w.F("Revival team: ").W(revivalTeam).C(" (").W(revivalTeamURL).C(")").endl();
+	}
+	w.F("Comment: ").W(comment).endl();
+	return std::string(w.as_view());
+}
+
 
 bool IsNetworkConnected() {
 	// TODO: Tweak this.
@@ -271,6 +310,8 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	}
 
 	dns->loaded = true;
+
+	NOTICE_LOG(Log::sceNet, "Loaded DNS config from JSON: %s", dns->ToString().c_str());
 	return true;
 }
 
@@ -285,7 +326,8 @@ bool LoadAutoDNS(std::string_view json) {
 		return false;
 	}
 
-	// If dyn_dns is non-empty, try to use it to replace the specified DNS.
+	// If dyn_dns is non-empty, try to use it to replace the specified DNS server.
+	// Additionally, this removes all fixed lookups from the table.
 	// If fails, we just use the dns. TODO: Do this in the background somehow...
 	const auto &dns = g_infraDNSConfig.dns;
 	const auto &dyn_dns = g_infraDNSConfig.dyn_dns;
@@ -346,11 +388,13 @@ void StartInfraJsonDownload() {
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
 	if (!g_Config.bInfrastructureAutoDNS) {
+		INFO_LOG(Log::sceNet, "Auto DNS disabled, returning success");
+		jsonOutput->clear();
 		return true;
 	}
 
 	if (g_Config.bDontDownloadInfraJson) {
-		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json from /assets");
+		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json directly from /assets");
 		size_t jsonSize = 0;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
 		if (!jsonStr) {
@@ -370,8 +414,12 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		return false;
 	}
 
+	// Steal the contents of the global.
+	std::shared_ptr<http::Request> infraDL;
+	infraDL.swap(g_infraDL);
+
 	// The request is done, but did it fail?
-	if (g_infraDL->Failed()) {
+	if (infraDL->Failed()) {
 		// First, fall back to cache if it exists. Could build this functionality into the download manager
 		// but it would be a bit awkward.
 		std::string json;
@@ -394,11 +442,13 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 	}
 
 	// OK, we actually got data. Load it!
-	g_infraDL->buffer().TakeAll(jsonOutput);
+	infraDL->buffer().TakeAll(jsonOutput);
 	if (jsonOutput->empty()) {
 		_dbg_assert_msg_(false, "Json output is empty!");
 		ERROR_LOG(Log::sceNet, "JSON output is empty! Something went wrong.");
 	}
+
+	// The stolen download falls out of scope and gets destroyed here.
 	return true;
 }
 
@@ -478,6 +528,8 @@ void __NetCallbackInit() {
 }
 
 void __NetInit() {
+	g_infraDNSConfig = InfraDNSConfig();
+
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
 	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
@@ -1070,7 +1122,7 @@ void NetApctl_InitInfo(int confId) {
 
 static int sceNetApctlInit(int stackSize, int initPriority) {
 	if (g_netApctlInited) {
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_ALREADY_INITIALIZED);
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_ALREADY_INITIALIZED);
 	}
 
 	apctlEvents.clear();
@@ -1129,6 +1181,9 @@ int NetApctl_Term() {
 		__KernelDeleteThread(apctlThreadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "ApctlThread deleted");
 		apctlThreadID = 0;
 	}
+
+	// Clear out handlers.
+	apctlHandlers.clear();
 
 	g_netApctlInited = false;
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
@@ -1269,7 +1324,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	default:
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_INVALID_CODE, "apctl invalid code");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "apctl invalid code");
 	}
 
 	return hleLogDebug(Log::sceNet, 0);
@@ -1336,10 +1391,10 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 
 int sceNetApctlConnect(int confId) {
 	if (!g_Config.bEnableWlan)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_DISCONNECTED);
 
 	// Is this confId is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	netApctlInfoId = confId;
@@ -1383,7 +1438,7 @@ bool __NetApctlConnected() {
 }
 
 static int sceNetApctlGetState(u32 pStateAddr) {
-	//if (!netApctlInited) return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
+	//if (!netApctlInited) return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_IN_BSS, "apctl not in bss");
 
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
@@ -1399,11 +1454,11 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 // This one logs like a syscall because it's called at the end of some.
 int NetApctl_ScanUser() {
 	if (!g_Config.bEnableWlan)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
 	// Scan probably only works when not in connected state, right?
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_DISCONNECTED);
 
 	__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_SCANNING, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
 	return hleLogInfo(Log::sceNet, 0);
@@ -1517,7 +1572,7 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 		Memory::Write_U32(netApctlInfo.securityType, resultAddr);
 		break;
 	default:
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_INVALID_CODE, "unknown info id");
+		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "unknown info id");
 	}
 
 	return 0;

@@ -72,13 +72,13 @@ std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view ur
 }
 
 std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime) {
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, "");
+	const bool enableCache = !cacheDir_.empty() && (flags & RequestFlags::Cached24H);
 
-	if (!cacheDir_.empty() && (flags & RequestFlags::Cached24H)) {
+	// Come up with a cache file path.
+	Path cacheFile = UrlToCachePath(url);
+
+	if (enableCache) {
 		_dbg_assert_(outfile.empty());  // It's automatically replaced below
-
-		// Come up with a cache file path.
-		Path cacheFile = UrlToCachePath(url);
 
 		// TODO: This should be done on the thread, maybe. But let's keep it simple for now.
 		time_t cacheFileTime;
@@ -89,24 +89,36 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 				// to modify the calling code.
 				std::string contents;
 				if (File::ReadBinaryFileToString(cacheFile, &contents)) {
+					INFO_LOG(Log::sceNet, "Returning cached file for %.*s: %s", (int)url.size(), url.data(), cacheFile.c_str());
 					// All is well, but we've indented a bit much here.
-					dl.reset(new CachedRequest(RequestMethod::GET, url, "", nullptr, flags, contents));
+					std::shared_ptr<Request> dl(new CachedRequest(RequestMethod::GET, url, "infra-dns.json", nullptr, flags, contents));
 					newDownloads_.push_back(dl);
 					return dl;
+				} else {
+					INFO_LOG(Log::sceNet, "Failed reading from cache, proceeding with request");
 				}
+			} else {
+				INFO_LOG(Log::sceNet, "Cached file too old, proceeding with request");
 			}
+		} else {
+			INFO_LOG(Log::sceNet, "Failed to check time modified. Proceeding with request.");
 		}
+	}
 
-		// OK, didn't get it from cache, so let's continue with the download, putting it in the cache.
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, "");
+
+	// OK, didn't get it from cache, so let's continue with the download, putting it in the cache.
+	if (enableCache) {
 		dl->OverrideOutFile(cacheFile);
 		dl->AddFlag(RequestFlags::KeepInMemory);
 	}
 
-	if (!userAgent_.empty())
+	if (!userAgent_.empty()) {
 		dl->SetUserAgent(userAgent_);
-	if (acceptMime)
+	}
+	if (acceptMime) {
 		dl->SetAccept(acceptMime);
-
+	}
 	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;

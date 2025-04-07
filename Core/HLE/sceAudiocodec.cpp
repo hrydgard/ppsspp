@@ -142,6 +142,8 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	case PSP_CODEC_AT3PLUS:
 		CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
 		break;
+	default:
+		break;
 	}
 
 	// Create audio decoder for given audio codec and push it into AudioList
@@ -277,7 +279,7 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 		break;
 	case 0x1003:
 		// Kosmodrones uses sceAudiocodec directly (no intermediate library).
-		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", ctx->unk40, ctx->unk41);
+		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", codec, ctx->unk40, ctx->unk41);
 		break;
 	}
 

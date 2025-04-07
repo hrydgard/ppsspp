@@ -159,6 +159,8 @@ struct InfraDNSConfig {
 	std::vector<std::string> workingIDs;
 
 	bool connectAdHocForGrouping;
+
+	std::string ToString() const;
 };
 
-extern InfraDNSConfig g_infraDNSConfig;
+const InfraDNSConfig &GetInfraDNSConfig();

@@ -114,6 +114,12 @@ public:
 		p_ += T - 1;
 		return *this;
 	}
+	// Assumes the input is zero-terminated.
+	// C: Copies a string literal (which always are zero-terminated, the count includes the zero) directly to the stream.
+	StringWriter &B(bool b) {
+		return W(b ? "true" : "false");
+	}
+
 	// W: Writes a string_view to the stream.
 	StringWriter &W(std::string_view text) {
 		const size_t remainder = bufSize_ - (p_ - start_);

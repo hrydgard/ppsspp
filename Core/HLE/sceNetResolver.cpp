@@ -30,6 +30,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPS.h"
@@ -61,38 +62,35 @@ struct NetResolver {
 
 static int g_currentNetResolverId = 1;
 static std::unordered_map<u32, NetResolver> g_netResolvers;
-static std::mutex g_netResolversLock;  // Do we really need this?
 
 // NOTE: It starts as true, needed for Outrun 2006.
 static bool g_netResolverInitialized = true;
 
 static int sceNetResolverInit() {
 	// Hardcoded mHostToAlias entries here have been moved to the infra-dns.json file.
+	g_netResolverInitialized = true;
 	return hleLogInfo(Log::sceNet, 0);
 }
 
 void __NetResolverShutdown() {
-	std::unique_lock lock(g_netResolversLock);
 	g_netResolvers.clear();
+	g_netResolverInitialized = false;
 }
 
 static int sceNetResolverTerm() {
-	g_netResolverInitialized = false;
 	__NetResolverShutdown();
 	return hleLogInfo(Log::sceNet, 0);
 }
 
+// TODO: Add DoState, store the ID gen and active resolvers.
+
 // Note: timeouts are in seconds
-static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	std::unique_lock lock(g_netResolversLock);
+static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
+	addrinfo *resolved = nullptr;
 
-	auto iter = g_netResolvers.find(resolverId);
-	if (iter == g_netResolvers.end()) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
-	}
+	std::string err;
+	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
 
-	addrinfo* resolved = nullptr;
-	std::string err, hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
 	SockAddrIN4 addr{};
 	addr.in.sin_addr.s_addr = INADDR_NONE;
 
@@ -106,8 +104,8 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 
 	if (g_Config.bInfrastructureAutoDNS) {
 		// Also look up into the preconfigured fixed DNS JSON.
-		auto fixedDNSIter = g_infraDNSConfig.fixedDNS.find(hostname);
-		if (fixedDNSIter != g_infraDNSConfig.fixedDNS.end()) {
+		auto fixedDNSIter = GetInfraDNSConfig().fixedDNS.find(hostname);
+		if (fixedDNSIter != GetInfraDNSConfig().fixedDNS.end()) {
 			const std::string& domainIP = fixedDNSIter->second;
 			INFO_LOG(Log::sceNet, "%s - Resolved IP %s from fixed DNS lookup with '%s'", __FUNCTION__, domainIP.c_str(), hostname.c_str());
 			hostname = domainIP;
@@ -124,31 +122,37 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 	}
 
 	// Flag resolver as in-progress - not relevant for sync functions but potentially relevant for async
-	iter->second.isRunning = true;
+	resolver->isRunning = true;
 
 	// Now use the configured primary DNS server to do a lookup.
 	// If auto DNS, use the server from that config.
-	const std::string &dnsServer = (g_Config.bInfrastructureAutoDNS && !g_infraDNSConfig.dns.empty()) ? g_infraDNSConfig.dns : g_Config.sInfrastructureDNSServer;
+	std::string dnsServer;
+	if (g_Config.bInfrastructureAutoDNS && !GetInfraDNSConfig().dns.empty()) {
+		dnsServer = GetInfraDNSConfig().dns;
+	} else {
+		dnsServer = g_Config.sInfrastructureDNSServer;
+	}
+
 	if (net::DirectDNSLookupIPV4(dnsServer.c_str(), hostname.c_str(), &resolvedAddr)) {
 		char temp[32];
 		inet_ntop(AF_INET, &resolvedAddr, temp, sizeof(temp));
-		INFO_LOG(Log::sceNet, "Direct lookup of '%s' from '%s' succeeded: %s (%08x)", hostname.c_str(), dnsServer.c_str(), temp, resolvedAddr);
-		iter->second.isRunning = false;
+		resolver->isRunning = false;
 		Memory::Write_U32(resolvedAddr, inAddrPtr);
+		INFO_LOG(Log::sceNet, "Direct lookup of '%s' from '%s' succeeded: %s (%08x)", hostname.c_str(), dnsServer.c_str(), temp, resolvedAddr);
 		return 0;
 	}
 
 	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.sInfrastructureDNSServer.c_str());
 
-	// Attempt to execute a DNS resolution
+	// Attempt to execute an OS DNS resolution
 	if (!net::DNSResolve(hostname, "", &resolved, err)) {
 		// TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST, "OS DNS Error Resolving %s (%s)\n", hostname.c_str(),
-			err.c_str());
+		ERROR_LOG(Log::sceNet, "OS DNS Error Resolving %s (%s)\n", hostname.c_str(), err.c_str());
+		return SCE_NET_RESOLVER_ERROR_INVALID_HOST;
 	}
 
 	// If successful, write to memory
-	if (resolved != nullptr) {
+	if (resolved) {
 		for (auto ptr = resolved; ptr != nullptr; ptr = ptr->ai_next) {
 			switch (ptr->ai_family) {
 			case AF_INET:
@@ -159,78 +163,94 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 		net::DNSResolveFree(resolved);
 
 		Memory::Write_U32(addr.in.sin_addr.s_addr, inAddrPtr);
+		resolver->isRunning = false;
 		INFO_LOG(Log::sceNet, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(),
 			ip2str(addr.in.sin_addr, false).c_str());
 	}
 
 	// Flag resolver as complete
-	iter->second.isRunning = false;
+	resolver->isRunning = false;
 	return 0;
 }
 
 static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)", resolverId);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	}
+
+	auto iter = g_netResolvers.find(resolverId);
+	if (iter == g_netResolvers.end()) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
 	for (int attempt = 0; attempt < retry; ++attempt) {
-		if (const int status = NetResolver_StartNtoA(resolverId, hostnamePtr, inAddrPtr, timeout, retry); status >= 0) {
-			return hleLogInfo(Log::sceNet, status);
+		const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
+		if (status >= 0) {
+			return hleLogDebugOrError(Log::sceNet, status);
 		}
 	}
-	return -1;
+	return hleLogError(Log::sceNet, -1);
 }
 
 static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)",
-			resolverId);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
 	}
-	ERROR_LOG_REPORT_ONCE(sceNetResolverStartNtoAAsync, Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x",
-                          __FUNCTION__, resolverId, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
-    return NetResolver_StartNtoA(resolverId, hostnamePtr, inAddrPtr, timeout, retry);
+
+	auto iter = g_netResolvers.find(resolverId);
+	if (iter == g_netResolvers.end()) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
+	}
+
+	const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
+	return hleLogDebugOrError(Log::sceNet, status);
 }
 
 static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverPollAsync, Log::sceNet, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, resolverId, unknown, currentMIPS->pc);
+	if (!g_netResolverInitialized) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	}
+
     // TODO: Implement after confirming that this returns the state of resolver.isRunning
-    return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverWaitAsync, Log::sceNet, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, resolverId, unknown, currentMIPS->pc);
-    // TODO: Implement after confirming that this blocks current thread until resolver.isRunning flips to false
-    return 0;
+	if (!g_netResolverInitialized) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	}
+
+	// TODO: Implement after confirming that this blocks current thread until resolver.isRunning flips to false
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNetResolverStartAtoN(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoN, Log::sceNet, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x",
-                          __FUNCTION__, resolverId, inAddr, ip2str(*(in_addr*)&inAddr, false).c_str(), hostnamePtr,
-                          hostnameLength, timeout, retry, currentMIPS->pc);
+	if (!g_netResolverInitialized) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	}
     // TODO: Implement via getnameinfo
-    return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNetResolverStartAtoNAsync(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoNAsync, Log::sceNet, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x",
-                          __FUNCTION__, resolverId, inAddr, ip2str(*(in_addr*)&inAddr, false).c_str(), hostnamePtr,
-                          hostnameLength, timeout, retry, currentMIPS->pc);
-    return 0;
+	if (!g_netResolverInitialized) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	}
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen) {
 	if (!Memory::IsValidRange(resolverIdPtr, 4))
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
 
 	if (Memory::IsValidRange(bufferPtr, 4) && bufferLen < 1)
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
 
-	// Outrun calls this without init.
+	// Outrun calls this without init. Something else must have initialized it, unclear what.
 
-	// TODO: Consider using SceUidManager instead of this 1-indexed id
-	// TODO: Implement ERROR_NET_RESOLVER_ID_MAX (possibly 32?)
-	std::unique_lock lock(g_netResolversLock);
-	int currentNetResolverId = g_currentNetResolverId++;
+	// TODO: Consider using SceUidManager instead of this 1-indexed id - not sure what the PSP does. Actually, probably not using SceUID.
+	// TODO: Implement SCE_NET_RESOLVER_ERROR_ID_MAX (possibly 32?)
+	const int currentNetResolverId = g_currentNetResolverId++;
 	g_netResolvers[currentNetResolverId] = NetResolver{
 		currentNetResolverId, // id
 		false,
@@ -238,25 +258,23 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 		(u32)bufferLen // bufferLen
 	};
 
-	Memory::Write_U32(currentNetResolverId, resolverIdPtr);
-	return hleLogInfo(Log::sceNet, 0, "ID: %d", Memory::Read_U32(resolverIdPtr));
+	Memory::WriteUnchecked_U32(currentNetResolverId, resolverIdPtr);
+	return hleLogInfo(Log::sceNet, 0, "ID: %d", currentNetResolverId);
 }
 
 static int sceNetResolverStop(u32 resolverId) {
 	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped");
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
 	}
-
-	std::unique_lock lock(g_netResolversLock);
 
 	const auto resolverIter = g_netResolvers.find(resolverId);
 
 	if (resolverIter == g_netResolvers.end()) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
 	if (resolverIter->second.isRunning) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
 	}
 
 	resolverIter->second.isRunning = false;
@@ -265,14 +283,12 @@ static int sceNetResolverStop(u32 resolverId) {
 
 static int sceNetResolverDelete(u32 resolverId) {
 	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped");
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
 	}
-
-	std::unique_lock lock(g_netResolversLock);
 
 	const auto resolverIter = g_netResolvers.find(resolverId);
 	if (resolverIter == g_netResolvers.end()) {
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 	g_netResolvers.erase(resolverIter);
 
