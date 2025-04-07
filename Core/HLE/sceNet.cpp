@@ -414,8 +414,12 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		return false;
 	}
 
+	// Steal the contents of the global.
+	std::shared_ptr<http::Request> infraDL;
+	infraDL.swap(g_infraDL);
+
 	// The request is done, but did it fail?
-	if (g_infraDL->Failed()) {
+	if (infraDL->Failed()) {
 		// First, fall back to cache if it exists. Could build this functionality into the download manager
 		// but it would be a bit awkward.
 		std::string json;
@@ -438,11 +442,13 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 	}
 
 	// OK, we actually got data. Load it!
-	g_infraDL->buffer().TakeAll(jsonOutput);
+	infraDL->buffer().TakeAll(jsonOutput);
 	if (jsonOutput->empty()) {
 		_dbg_assert_msg_(false, "Json output is empty!");
 		ERROR_LOG(Log::sceNet, "JSON output is empty! Something went wrong.");
 	}
+
+	// The stolen download falls out of scope and gets destroyed here.
 	return true;
 }
 
