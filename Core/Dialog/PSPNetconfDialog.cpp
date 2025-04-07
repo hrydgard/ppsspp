@@ -60,6 +60,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	NOTICE_LOG(Log::sceNet, "PSPNetConfDialog Init");
+	jsonReady_ = false;
 	// Kick off a request to the infra-dns.json since we'll need it later.
 	StartInfraJsonDownload();
 
