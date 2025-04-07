@@ -327,7 +327,8 @@ bool LoadAutoDNS(std::string_view json) {
 		return false;
 	}
 
-	// If dyn_dns is non-empty, try to use it to replace the specified DNS.
+	// If dyn_dns is non-empty, try to use it to replace the specified DNS server.
+	// Additionally, this removes all fixed lookups from the table.
 	// If fails, we just use the dns. TODO: Do this in the background somehow...
 	const auto &dns = g_infraDNSConfig.dns;
 	const auto &dyn_dns = g_infraDNSConfig.dyn_dns;
@@ -1181,6 +1182,9 @@ int NetApctl_Term() {
 		__KernelDeleteThread(apctlThreadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "ApctlThread deleted");
 		apctlThreadID = 0;
 	}
+
+	// Clear out handlers.
+	apctlHandlers.clear();
 
 	g_netApctlInited = false;
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
