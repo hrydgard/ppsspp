@@ -2069,7 +2069,7 @@ static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 bufferA
 static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "bad mpeg handle");
 	}
 
 	if (Memory::IsValidRange(resultAddr, 8)) {
@@ -2086,7 +2086,7 @@ static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultA
 static u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegNextAvcRpAu(%08x, %08x)", mpeg, streamUid);

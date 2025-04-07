@@ -55,11 +55,13 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 
-// Should probably add accessors around these.
+// These are all public. Should probably add accessors around these.
 bool g_netInited;
 bool g_netApctlInited;
 SceNetApctlInfoInternal netApctlInfo;
 u32 netApctlState;
+const char *const defaultNetConfigName = "NetConf";
+const char *const defaultNetSSID = "Wifi"; // fake AP/hotspot
 
 static u32 netDropRate = 0;
 static u32 netDropDuration = 0;
@@ -70,9 +72,6 @@ static u32 netThread2Addr = 0;
 static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
-
-static const char *const defaultNetConfigName = "NetConf";
-static const char *const defaultNetSSID = "Wifi"; // fake AP/hotspot
 
 static int netApctlInfoId = 0;
 

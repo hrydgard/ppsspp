@@ -1483,7 +1483,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::TableHeadersRow();
 
 			// TODO: Add context menu and clickability
-			kernelObjects.Iterate<PSPModule>([&cfg, &control](int id, PSPModule *module) -> bool {
+			kernelObjects.Iterate<PSPModule>([&cfg](int id, PSPModule *module) -> bool {
 				ImGui::PushID(id);
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
