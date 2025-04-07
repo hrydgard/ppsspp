@@ -414,25 +414,6 @@ void InitLocalhostIP() {
 	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 
-static bool __PlatformNetInit() {
-#ifdef _WIN32
-	WSADATA wsaData;
-	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-		// TODO: log
-		return false;
-	}
-#endif
-	return true;
-}
-
-static bool __PlatformNetShutdown() {
-#ifdef _WIN32
-	return WSACleanup() == 0;
-#else
-	return true;
-#endif
-}
-
 static void __ApctlState(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	int uid = (int)(userdata & 0xFFFFFFFF);
@@ -514,8 +495,6 @@ void __NetInit() {
 	getLocalMac(&mac);
 	INFO_LOG(Log::sceNet, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
 
-	__PlatformNetInit();
-
 	// For libretro we don't have a better place. On other platforms, we just init/shutdown it with the rest of the emu (NativeInit / NativeShutdown).
 #ifdef __LIBRETRO__
 	__UPnPInit(2000);
@@ -547,8 +526,6 @@ void __NetShutdown() {
 #ifdef __LIBRETRO__
 	__UPnPShutdown();
 #endif
-
-	__PlatformNetShutdown();
 
 	free(dummyPeekBuf64k);
 }
