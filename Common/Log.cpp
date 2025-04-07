@@ -47,7 +47,8 @@ static void *g_assertCancelCallbackUserData = 0;
 
 void SetAssertDialogParent(void *handle) {
 #if PPSSPP_PLATFORM(WINDOWS)
-	g_dialogParent = (HWND)handle;
+	// I thought this would be nice, but for some reason the dialog becomes invisible.
+	// g_dialogParent = (HWND)handle;
 #endif
 }
 
