@@ -91,8 +91,11 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
-	addrinfo* resolved = nullptr;
-	std::string err, hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
+	addrinfo *resolved = nullptr;
+
+	std::string err;
+	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
+
 	SockAddrIN4 addr{};
 	addr.in.sin_addr.s_addr = INADDR_NONE;
 
@@ -106,8 +109,8 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 
 	if (g_Config.bInfrastructureAutoDNS) {
 		// Also look up into the preconfigured fixed DNS JSON.
-		auto fixedDNSIter = g_infraDNSConfig.fixedDNS.find(hostname);
-		if (fixedDNSIter != g_infraDNSConfig.fixedDNS.end()) {
+		auto fixedDNSIter = GetInfraDNSConfig().fixedDNS.find(hostname);
+		if (fixedDNSIter != GetInfraDNSConfig().fixedDNS.end()) {
 			const std::string& domainIP = fixedDNSIter->second;
 			INFO_LOG(Log::sceNet, "%s - Resolved IP %s from fixed DNS lookup with '%s'", __FUNCTION__, domainIP.c_str(), hostname.c_str());
 			hostname = domainIP;
@@ -128,7 +131,13 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 
 	// Now use the configured primary DNS server to do a lookup.
 	// If auto DNS, use the server from that config.
-	const std::string &dnsServer = (g_Config.bInfrastructureAutoDNS && !g_infraDNSConfig.dns.empty()) ? g_infraDNSConfig.dns : g_Config.sInfrastructureDNSServer;
+	std::string dnsServer;
+	if (g_Config.bInfrastructureAutoDNS && !GetInfraDNSConfig().dns.empty()) {
+		dnsServer = GetInfraDNSConfig().dns;
+	} else {
+		dnsServer = g_Config.sInfrastructureDNSServer;
+	}
+
 	if (net::DirectDNSLookupIPV4(dnsServer.c_str(), hostname.c_str(), &resolvedAddr)) {
 		char temp[32];
 		inet_ntop(AF_INET, &resolvedAddr, temp, sizeof(temp));
@@ -140,15 +149,15 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 
 	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.sInfrastructureDNSServer.c_str());
 
-	// Attempt to execute a DNS resolution
+	// Attempt to execute an OS DNS resolution
 	if (!net::DNSResolve(hostname, "", &resolved, err)) {
 		// TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST, "OS DNS Error Resolving %s (%s)\n", hostname.c_str(),
-			err.c_str());
+		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST,
+			"OS DNS Error Resolving %s (%s)\n", hostname.c_str(), err.c_str());
 	}
 
 	// If successful, write to memory
-	if (resolved != nullptr) {
+	if (resolved) {
 		for (auto ptr = resolved; ptr != nullptr; ptr = ptr->ai_next) {
 			switch (ptr->ai_family) {
 			case AF_INET:

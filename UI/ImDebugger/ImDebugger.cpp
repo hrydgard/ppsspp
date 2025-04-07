@@ -595,21 +595,24 @@ static void DrawApctl(ImConfig &cfg) {
 	}
 
 	if (g_Config.bInfrastructureAutoDNS) {
-		if (g_infraDNSConfig.loaded) {
-			if (!g_infraDNSConfig.gameName.empty()) {
-				ImGui::Text("Known game: %s", g_infraDNSConfig.gameName.c_str());
+		const InfraDNSConfig &dnsConfig = GetInfraDNSConfig();
+		if (dnsConfig.loaded) {
+			if (!dnsConfig.gameName.empty()) {
+				ImGui::Text("Known game: %s", dnsConfig.gameName.c_str());
 			}
-			ImGui::Text("connectAdhocForGrouping: %s", BoolStr(g_infraDNSConfig.connectAdHocForGrouping));
-			ImGui::Text("DNS: %s", g_infraDNSConfig.dns.c_str());
-			if (!g_infraDNSConfig.dyn_dns.empty()) {
-				ImGui::Text("DynDNS: %s", g_infraDNSConfig.dyn_dns.c_str());
+			ImGui::Text("connectAdhocForGrouping: %s", BoolStr(dnsConfig.connectAdHocForGrouping));
+			ImGui::Text("DNS: %s", dnsConfig.dns.c_str());
+			if (!dnsConfig.dyn_dns.empty()) {
+				ImGui::Text("DynDNS: %s", dnsConfig.dyn_dns.c_str());
 			}
-			if (!g_infraDNSConfig.fixedDNS.empty()) {
+			if (!dnsConfig.fixedDNS.empty()) {
 				ImGui::TextUnformatted("Fixed DNS");
-				for (auto iter : g_infraDNSConfig.fixedDNS) {
+				for (auto iter : dnsConfig.fixedDNS) {
 					ImGui::Text("%s -> %s", iter.first.c_str(), iter.second.c_str());
 				}
 			}
+		} else {
+			ImGui::TextUnformatted("(InfraDNSConfig not loaded)");
 		}
 	}
 

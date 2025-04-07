@@ -55,42 +55,82 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 
+// Should probably add accessors around these.
 bool g_netInited;
+bool g_netApctlInited;
+SceNetApctlInfoInternal netApctlInfo;
+u32 netApctlState;
 
-u32 netDropRate = 0;
-u32 netDropDuration = 0;
-u32 netPoolAddr = 0;
-u32 netThread1Addr = 0;
-u32 netThread2Addr = 0;
+static u32 netDropRate = 0;
+static u32 netDropDuration = 0;
+static u32 netPoolAddr = 0;
+static u32 netThread1Addr = 0;
+static u32 netThread2Addr = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-const char * const defaultNetConfigName = "NetConf";
-const char * const defaultNetSSID = "Wifi"; // fake AP/hotspot
+static const char *const defaultNetConfigName = "NetConf";
+static const char *const defaultNetSSID = "Wifi"; // fake AP/hotspot
 
-int netApctlInfoId = 0;
-SceNetApctlInfoInternal netApctlInfo;
+static int netApctlInfoId = 0;
 
-bool g_netApctlInited;
-u32 netApctlState;
-u32 apctlProdCodeAddr = 0;
-u32 apctlThreadHackAddr = 0;
-u32_le apctlThreadCode[3];
-SceUID apctlThreadID = 0;
-int apctlStateEvent = -1;
-int actionAfterApctlMipsCall;
-std::recursive_mutex apctlEvtMtx;
-std::deque<ApctlArgs> apctlEvents;
+static u32 apctlProdCodeAddr = 0;
+static u32 apctlThreadHackAddr = 0;
+static u32_le apctlThreadCode[3];
+static SceUID apctlThreadID = 0;
+static int apctlStateEvent = -1;
+static int actionAfterApctlMipsCall;
+static std::recursive_mutex apctlEvtMtx;
+static std::deque<ApctlArgs> apctlEvents;
 
-// Loaded auto-config
-InfraDNSConfig g_infraDNSConfig;
+// Currently loaded auto-config
+static InfraDNSConfig g_infraDNSConfig;
 
-u32 Net_Term();
-int NetApctl_Term();
-void NetApctl_InitDefaultInfo();
-void NetApctl_InitInfo(int confId);
+static u32 Net_Term();
+static int NetApctl_Term();
+static void NetApctl_InitDefaultInfo();
+static void NetApctl_InitInfo(int confId);
+
+const InfraDNSConfig &GetInfraDNSConfig() {
+	return g_infraDNSConfig;
+}
+
+std::string InfraDNSConfig::ToString() const {
+	char temp[2000];
+	StringWriter w(temp);
+
+	if (!loaded) {
+		return "InfraDNSConfig not loaded.";
+	}
+	if (!gameName.empty()) {
+		w.C("Game: ").W(gameName).endl();
+	}
+	w.C("State: ");
+	switch (state) {
+	case InfraGameState::NotWorking: w.C("Not working").endl(); break;
+	case InfraGameState::Working: w.C("Working").endl(); break;
+	case InfraGameState::Unknown: w.C("Unknown").endl(); break;
+	}
+	w.C("connectAdhocForGrouping: ").B(connectAdHocForGrouping).endl();
+	w.C("DNS: ").W(dns).endl();
+	if (!dyn_dns.empty()) {
+		w.C("DynDNS: ").W(dyn_dns).endl();
+	}
+	if (!fixedDNS.empty()) {
+		w.C("Fixed DNS").endl();
+		for (auto iter : fixedDNS) {
+			w.F("%s -> %s", iter.first.c_str(), iter.second.c_str()).endl();
+		}
+	}
+	if (!revivalTeam.empty()) {
+		w.F("Revival team: ").W(revivalTeam).C(" (").W(revivalTeamURL).C(")").endl();
+	}
+	w.F("Comment: ").W(comment).endl();
+	return std::string(w.as_view());
+}
+
 
 bool IsNetworkConnected() {
 	// TODO: Tweak this.
@@ -271,6 +311,8 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	}
 
 	dns->loaded = true;
+
+	NOTICE_LOG(Log::sceNet, "Loaded DNS config from JSON: %s", dns->ToString().c_str());
 	return true;
 }
 
@@ -346,11 +388,13 @@ void StartInfraJsonDownload() {
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
 	if (!g_Config.bInfrastructureAutoDNS) {
+		INFO_LOG(Log::sceNet, "Auto DNS disabled, returning success");
+		jsonOutput->clear();
 		return true;
 	}
 
 	if (g_Config.bDontDownloadInfraJson) {
-		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json from /assets");
+		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json directly from /assets");
 		size_t jsonSize = 0;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
 		if (!jsonStr) {
@@ -478,6 +522,8 @@ void __NetCallbackInit() {
 }
 
 void __NetInit() {
+	g_infraDNSConfig = InfraDNSConfig();
+
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
 	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
