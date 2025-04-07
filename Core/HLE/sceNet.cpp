@@ -385,14 +385,18 @@ void StartInfraJsonDownload() {
 		WARN_LOG(Log::sceNet, "json is already being downloaded. Still, starting a new download.");
 	}
 
-	const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-	g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+	if (!g_Config.bDontDownloadInfraJson) {
+		const char * const acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+	}
 }
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
 	if (!g_Config.bInfrastructureAutoDNS) {
 		INFO_LOG(Log::sceNet, "Auto DNS disabled, returning success");
 		jsonOutput->clear();
+		// In case there's an old request, get rid of it.
+		g_infraDL.reset();
 		return true;
 	}
 
@@ -405,6 +409,8 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 			return true;  // A clear output but returning true means something vent very wrong.
 		}
 		*jsonOutput = std::string((const char *)jsonStr.get(), jsonSize);
+		// In case there's an old request, get rid of it.
+		g_infraDL.reset();
 		return true;
 	}
 
