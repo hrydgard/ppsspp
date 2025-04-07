@@ -1914,8 +1914,6 @@ void DeveloperToolsScreen::CreateViews() {
 	cpuTests->SetEnabled(TestsAvailable());
 #endif
 
-	list->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
-
 	AddOverlayList(list, screenManager());
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
@@ -1990,6 +1988,8 @@ void DeveloperToolsScreen::CreateViews() {
 
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(si->T("%d Hz"));
+
+	list->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
 
 	list->Add(new ItemHeader("Dump file types"));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::EBOOT, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));

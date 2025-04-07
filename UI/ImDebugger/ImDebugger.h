@@ -237,6 +237,7 @@ public:
 	void PostCmd(ImCommand cmd) {
 		externalCommand_ = cmd;
 	}
+	void DeviceLost();
 
 private:
 	Path ConfigPath();

@@ -197,6 +197,13 @@ ImGePixelViewer::~ImGePixelViewer() {
 		texture_->Release();
 }
 
+void ImGePixelViewer::DeviceLost() {
+	if (texture_) {
+		texture_->Release();
+		texture_ = nullptr;
+	}
+}
+
 bool ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
 	if (dirty_) {
 		UpdateTexture(draw);
@@ -269,8 +276,9 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 	int bpp = BufferFormatBytesPerPixel(format);
 
 	int srcBytes = width * stride * bpp;
-	if (stride > width)
+	if (stride > width) {
 		srcBytes -= stride - width;
+	}
 	if (Memory::ValidSize(addr, srcBytes) != srcBytes) {
 		// TODO: Show a message that the address is out of bounds.
 		return;
@@ -375,6 +383,13 @@ ImGeReadbackViewer::~ImGeReadbackViewer() {
 	delete[] data_;
 }
 
+void ImGeReadbackViewer::DeviceLost() {
+	if (texture_) {
+		texture_->Release();
+		texture_ = nullptr;
+	}
+}
+
 bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
 	FramebufferManagerCommon *fbmanager = gpuDebug->GetFramebufferManagerCommon();
 	if (!vfb || !vfb->fbo || !fbmanager) {
@@ -461,6 +476,7 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) const {
 	if (!vfb || !vfb->fbo || !data_) {
 		snprintf(buf, bufSize, "N/A");
+		return true;
 	}
 	int bpp = (int)Draw::DataFormatSizeInBytes(readbackFmt_);
 	int offset = (y * vfb->fbo->Width() + x) * bpp;
@@ -749,6 +765,11 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveTyp
 
 ImGeDebuggerWindow::ImGeDebuggerWindow() {
 	selectedAspect_ = Draw::Aspect::COLOR_BIT;
+}
+
+void ImGeDebuggerWindow::DeviceLost() {
+	rbViewer_.DeviceLost();
+	swViewer_.DeviceLost();
 }
 
 void ImGeDebuggerWindow::NotifyStep() {
