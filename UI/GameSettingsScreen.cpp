@@ -1910,8 +1910,7 @@ void DeveloperToolsScreen::CreateViews() {
 #if !PPSSPP_PLATFORM(UWP)
 	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-
-	cpuTests->SetEnabled(TestsAvailable());
+	cpuTests->SetEnabled(TestsAvailable() && !PSP_IsInited());
 #endif
 
 	AddOverlayList(list, screenManager());
@@ -1945,7 +1944,13 @@ void DeveloperToolsScreen::CreateViews() {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
-	list->Add(new Choice(dev->T("Framedump tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnFramedumpTest);
+	Choice *frameDumpTests = list->Add(new Choice(dev->T("Framedump tests")));
+	frameDumpTests->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new FrameDumpTestScreen());
+		return UI::EVENT_DONE;
+	});
+	frameDumpTests->SetEnabled(!PSP_IsInited());
+
 	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
 	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
 
@@ -2209,11 +2214,6 @@ UI::EventReturn DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 	screenManager()->push(new GPUDriverTestScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnFramedumpTest(UI::EventParams &e) {
-	screenManager()->push(new FrameDumpTestScreen());
 	return UI::EVENT_DONE;
 }
 
