@@ -1916,6 +1916,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Graphics")) {
 			ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
 			ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
+			ImGui::MenuItem("GE Vertices", nullptr, &cfg_.geVertsOpen);
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
@@ -2065,6 +2066,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.geStateOpen) {
 		geStateWindow_.Draw(cfg_, control, gpuDebug);
+	}
+
+	if (cfg_.geVertsOpen) {
+		DrawImGeVertsWindow(cfg_, control, gpuDebug);
 	}
 
 	if (cfg_.schedulerOpen) {
@@ -2505,6 +2510,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("debugStatsOpen", &debugStatsOpen, false);
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
 	sync.Sync("geStateOpen", &geStateOpen, false);
+	sync.Sync("geVertsOpen", &geVertsOpen, false);
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
 	sync.Sync("socketsOpen", &socketsOpen, false);
 	sync.Sync("npOpen", &npOpen, false);

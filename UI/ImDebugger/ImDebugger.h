@@ -139,6 +139,7 @@ struct ImConfig {
 	bool debugStatsOpen;
 	bool geDebuggerOpen;
 	bool geStateOpen;
+	bool geVertsOpen;
 	bool schedulerOpen;
 	bool watchOpen;
 	bool pixelViewerOpen;
