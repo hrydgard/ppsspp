@@ -69,6 +69,8 @@ bool HTTPSRequest::Done() {
 	if (completed_)
 		return true;
 
+	_dbg_assert_(res_ != nullptr);
+
 	if (!naettComplete(res_)) {
 		int total = 0;
 		int size = naettGetTotalBytesRead(res_, &total);

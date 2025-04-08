@@ -348,8 +348,11 @@ bool LoadAutoDNS(std::string_view json) {
 					if (inet_ntop(ptr->ai_family, &(((struct sockaddr_in*)ptr->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
 						INFO_LOG(Log::sceNet, "Successfully resolved '%s' to '%s', overriding DNS.", dyn_dns.c_str(), ipstr);
 						if (g_infraDNSConfig.dns != ipstr) {
-							WARN_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
+							INFO_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
 							g_infraDNSConfig.dns = ipstr;
+							// If dyndns is working, we do not need the fixed lookups. So let's kick them.
+							INFO_LOG(Log::sceNet, "Clearing fixed DNS lookups.");
+							g_infraDNSConfig.fixedDNS.clear();
 						} else {
 							INFO_LOG(Log::sceNet, "DynDNS: %s already up to date", g_infraDNSConfig.dns.c_str());
 						}
@@ -382,14 +385,18 @@ void StartInfraJsonDownload() {
 		WARN_LOG(Log::sceNet, "json is already being downloaded. Still, starting a new download.");
 	}
 
-	const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-	g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+	if (!g_Config.bDontDownloadInfraJson) {
+		const char * const acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+	}
 }
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
 	if (!g_Config.bInfrastructureAutoDNS) {
 		INFO_LOG(Log::sceNet, "Auto DNS disabled, returning success");
 		jsonOutput->clear();
+		// In case there's an old request, get rid of it.
+		g_infraDL.reset();
 		return true;
 	}
 
@@ -402,6 +409,8 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 			return true;  // A clear output but returning true means something vent very wrong.
 		}
 		*jsonOutput = std::string((const char *)jsonStr.get(), jsonSize);
+		// In case there's an old request, get rid of it.
+		g_infraDL.reset();
 		return true;
 	}
 
@@ -871,7 +880,7 @@ static u32 sceNetTerm() {
 
 	// Give time to make sure everything are cleaned up
 	hleEatMicro(adhocDefaultDelay);
-	return hleLogWarning(Log::sceNet, retval, "at %08x", currentMIPS->pc);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 /*
@@ -920,7 +929,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate pool");
 	}
 
-	WARN_LOG(Log::sceNet, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
+	INFO_LOG(Log::sceNet, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	
 	netMallocStat.pool = poolSize - 0x20; // On Vantage Master Portable this is slightly (32 bytes) smaller than the poolSize arg when tested with JPCSP + prx files
 	netMallocStat.maximum = 0x4050; // Dummy maximum foot print
@@ -1356,7 +1365,7 @@ static int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
 			return retval;
 		}
 		apctlHandlers[retval] = handler;
-		WARN_LOG(Log::sceNet, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
+		INFO_LOG(Log::sceNet, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
 	}
 	else {
 		ERROR_LOG(Log::sceNet, "Existing Apctl handler(%x, %x)", handlerPtr, handlerArg);

@@ -259,7 +259,7 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	};
 
 	Memory::WriteUnchecked_U32(currentNetResolverId, resolverIdPtr);
-	return hleLogInfo(Log::sceNet, 0, "ID: %d", currentNetResolverId);
+	return hleLogDebug(Log::sceNet, 0, "ID: %d", currentNetResolverId);
 }
 
 static int sceNetResolverStop(u32 resolverId) {
@@ -278,7 +278,7 @@ static int sceNetResolverStop(u32 resolverId) {
 	}
 
 	resolverIter->second.isRunning = false;
-	return hleLogInfo(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNetResolverDelete(u32 resolverId) {
@@ -292,7 +292,7 @@ static int sceNetResolverDelete(u32 resolverId) {
 	}
 	g_netResolvers.erase(resolverIter);
 
-	return hleLogInfo(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 const HLEFunction sceNetResolver[] = {

@@ -6,9 +6,11 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/SocketCompat.h"
 
@@ -411,7 +413,15 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 	return false;
 }
 
-// This was written by ChatGPT! (And then cleaned up...)
+// This was written by ChatGPT, although not much of that remains, after all the cleanup and fixing...
+
+// Specialized cache for the direct DNS lookups
+struct DNSCacheEntry {
+	uint32_t ipv4Address;
+};
+
+static std::map<std::string, DNSCacheEntry> g_directDNSCache;
+
 bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t *ipv4_addr) {
 	if (!strlen(dns_server_ip)) {
 		WARN_LOG(Log::sceNet, "Direct lookup: DNS server not specified");
@@ -421,6 +431,15 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if (!strlen(domain)) {
 		ERROR_LOG(Log::sceNet, "Direct lookup: Can't look up an empty domain");
 		return false;
+	}
+
+	std::string key = StringFromFormat("%s:%s", dns_server_ip, domain);
+
+	auto iter = g_directDNSCache.find(key);
+	if (iter != g_directDNSCache.end()) {
+		INFO_LOG(Log::sceNet, "Returning cached response from direct DNS request for '%s' to DNS server '%s", domain, dns_server_ip);
+		*ipv4_addr = iter->second.ipv4Address;
+		return true;
 	}
 
 	SOCKET sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -470,11 +489,17 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 		closesocket(sockfd);
 		return 1;
 	}
+
 	// Close socket
 	closesocket(sockfd);
 
 	// Done communicating, time to parse.
-	return parse_dns_response(buffer, response_len, ipv4_addr);
+	if (!parse_dns_response(buffer, response_len, ipv4_addr)) {
+		return false;
+	}
+
+	g_directDNSCache[key] = DNSCacheEntry{ *ipv4_addr };
+	return true;
 }
 
 }  // namespace net
