@@ -262,6 +262,7 @@
     <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_uastc.h" />
     <ClInclude Include="..\..\ext\imgui\imconfig.h" />
     <ClInclude Include="..\..\ext\imgui\imgui.h" />
+    <ClInclude Include="..\..\ext\imgui\imgui_extras.h" />
     <ClInclude Include="..\..\ext\imgui\imgui_impl_platform.h" />
     <ClInclude Include="..\..\ext\imgui\imgui_impl_thin3d.h" />
     <ClInclude Include="..\..\ext\imgui\imgui_internal.h" />
@@ -416,6 +417,7 @@
     <ClCompile Include="..\..\ext\imgui\imgui.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\ext\imgui\imgui_extras.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_impl_platform.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_impl_thin3d.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_tables.cpp" />

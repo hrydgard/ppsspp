@@ -1303,6 +1303,9 @@
     <ClCompile Include="..\ext\lua\lzio.c">
       <Filter>ext\lua</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\imgui\imgui_extras.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

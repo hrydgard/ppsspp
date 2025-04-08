@@ -1,4 +1,5 @@
 #include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_extras.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 
 #include "Common/StringUtils.h"
@@ -1239,8 +1240,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	}
 
 	ImGui::SameLine();
-	ImGui::SmallButton("Skim");
-	if (ImGui::IsItemActive()) {
+	if (ImGui::RepeatButton("Skim")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
 		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}

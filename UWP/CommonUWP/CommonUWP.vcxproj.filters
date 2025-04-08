@@ -517,6 +517,9 @@
     <ClCompile Include="..\..\ext\imgui\imgui_impl_thin3d.cpp">
       <Filter>ext\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_extras.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -991,6 +994,9 @@
       <Filter>ext\imgui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\imgui\imgui_impl_thin3d.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui_extras.h">
       <Filter>ext\imgui</Filter>
     </ClInclude>
   </ItemGroup>

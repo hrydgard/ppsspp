@@ -230,6 +230,7 @@ EXT_FILES := \
   $(SRC)/ext/imgui/imgui.cpp \
   $(SRC)/ext/imgui/imgui_demo.cpp \
   $(SRC)/ext/imgui/imgui_draw.cpp \
+  $(SRC)/ext/imgui/imgui_extras.cpp \
   $(SRC)/ext/imgui/imgui_impl_thin3d.cpp \
   $(SRC)/ext/imgui/imgui_impl_platform.cpp \
   $(SRC)/ext/imgui/imgui_tables.cpp \

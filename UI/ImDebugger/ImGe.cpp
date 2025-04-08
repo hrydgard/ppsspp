@@ -1,5 +1,6 @@
 #include "ext/imgui/imgui.h"
 #include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_extras.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "UI/ImDebugger/ImGe.h"
@@ -847,19 +848,15 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		ImGui::BeginDisabled();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Tex")) {
+	if (ImGui::RepeatButtonShift("Tex")) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::TEX);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("NonTex")) {
-		gpuDebug->SetBreakNext(GPUDebug::BreakNext::NONTEX);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Prim")) {
+	if (ImGui::RepeatButtonShift("Prim")) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::PRIM);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Draw")) {
+	if (ImGui::RepeatButtonShift("Draw")) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 	}
 	ImGui::SameLine();
@@ -871,7 +868,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Single step")) {
+	if (ImGui::RepeatButtonShift("Single step")) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
 	if (disableStepButtons) {
