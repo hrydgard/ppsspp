@@ -283,7 +283,7 @@ void GamePauseScreen::update() {
 	const bool networkConnected = IsNetworkConnected();
 	const InfraDNSConfig &dnsConfig = GetInfraDNSConfig();
 	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected || lastOnline_ != networkConnected || lastDNSConfigLoaded_ != dnsConfig.loaded) {
-		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
+		INFO_LOG(Log::sceNet, "Network status changed (or pause dialog just popped up), recreating views");
 		RecreateViews();
 		lastNetInetInited_ = netInetInited;
 		lastNetInited_ = g_netInited;
@@ -388,7 +388,7 @@ void GamePauseScreen::CreateViews() {
 		char buf[512];
 		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
 		if (sz != (size_t)-1) {
-			leftColumnItems->Add(new TextView(std::string_view(buf, sz), new UI::LinearLayoutParams(Margins(5, 5))))->SetSmall(true);
+			leftColumnItems->Add(new TextView(std::string_view(buf, sz), FLAG_WRAP_TEXT, true, new UI::LinearLayoutParams(Margins(5, 5))));
 		}
 	}
 
