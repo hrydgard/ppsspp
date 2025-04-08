@@ -2409,7 +2409,7 @@ static u32 sceIoDopen(const char *path) {
 	auto listing = pspFileSystem.GetDirListing(path, &listingExists);
 
 	if (!listingExists) {
-		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND);
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND);
 	}
 
 	DirListing *dir = new DirListing();
