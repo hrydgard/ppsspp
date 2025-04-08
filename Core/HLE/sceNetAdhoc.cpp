@@ -2425,7 +2425,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 			return retval;
 		}
 		adhocctlHandlers[retval] = handler;
-		WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
+		INFO_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	} else if(foundHandler) {
 		ERROR_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
 		retval = 0; //Faking success

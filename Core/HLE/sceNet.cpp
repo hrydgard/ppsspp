@@ -929,7 +929,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate pool");
 	}
 
-	WARN_LOG(Log::sceNet, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
+	INFO_LOG(Log::sceNet, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	
 	netMallocStat.pool = poolSize - 0x20; // On Vantage Master Portable this is slightly (32 bytes) smaller than the poolSize arg when tested with JPCSP + prx files
 	netMallocStat.maximum = 0x4050; // Dummy maximum foot print
@@ -1365,7 +1365,7 @@ static int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
 			return retval;
 		}
 		apctlHandlers[retval] = handler;
-		WARN_LOG(Log::sceNet, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
+		INFO_LOG(Log::sceNet, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
 	}
 	else {
 		ERROR_LOG(Log::sceNet, "Existing Apctl handler(%x, %x)", handlerPtr, handlerArg);

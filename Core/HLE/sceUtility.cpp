@@ -88,6 +88,8 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 		if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceAtrac) {
 			ERROR_LOG(Log::ME, "sceAtrac HLE is disabled, and the game tries to load sceAtrac from firmware - this won't work!");
 			_dbg_assert_(false);
+
+			// Actually, if the user has an F0 (psardumper) dump, we could go look for the file there.
 		}
 
 		// We try to imitate a recent version of the prx.
