@@ -420,8 +420,19 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	default:
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
-			// Can't safely double alpha, will clamp.
+		{
+			// L.A. Rush ends up here (detail textures at the end of the frame). It uses FIXA = 0 (no src color contribution)
+			// but I still can't find a way to replicate the formula.
+			// If our framebuffer was floating point we could make it work (since that turns off clamping before blending)
+			// by just doubling src_alpha in the shader.
+			//
+			// It might be possible to replicate it if we implement a 2-pass decomposition:
+			// * First pass just does:
+			//   src=ZERO dst=SRC_ALPHA.
+			// * Second pass renders with white input color. To double the resulting destination color:
+			//   src=DST_COLOR dst=ONE
 			return REPLACE_BLEND_READ_FRAMEBUFFER;
+		}
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Doubling alpha is safe for the inverse, will clamp to zero either way.
@@ -430,6 +441,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 			if (bufferFormat == GE_FORMAT_565) {
+				// Alpha is irrelevant with this format.
 				return REPLACE_BLEND_STANDARD;
 			}
 			return REPLACE_BLEND_READ_FRAMEBUFFER;
@@ -437,9 +449,10 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		case GE_DSTBLEND_FIXB:
 		default:
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
-				// Some games specify this.  Some cards may prefer blending off entirely.
+				// Some games specify this. Some GPUs may prefer blending off entirely.
 				return REPLACE_BLEND_NO;
 			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
+				// We can represent this with standard factors.
 				return REPLACE_BLEND_STANDARD;
 			} else {
 				// Multiply the src color in the shader, that way it's always accurate.
@@ -467,6 +480,8 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
 				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
+				// Hm, this is similar to the L.A. Rush case above. This will not be accurate.
+				// Wonder in which games we encounter this?
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
@@ -474,6 +489,8 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
+				// Hm, this is similar to the L.A. Rush case above. This will not be accurate.
+				// Wonder in which games we encounter this?
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
