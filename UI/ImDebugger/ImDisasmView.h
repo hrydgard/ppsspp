@@ -174,3 +174,39 @@ private:
 	u32 funcBegin_ = 0;
 	char funcNameTemp_[128]{};
 };
+
+// Corresponds to the CDisasm dialog
+class ImDisasmWindow {
+public:
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState);
+	ImDisasmView &View() {
+		return disasmView_;
+	}
+	void NotifyStep() {
+		disasmView_.NotifyStep();
+	}
+	void DirtySymbolMap() {
+		symsDirty_ = true;
+	}
+	const char *Title() const {
+		return "CPU Debugger";
+	}
+
+private:
+	// We just keep the state directly in the window. Can refactor later.
+
+	enum {
+		INVALID_ADDR = 0xFFFFFFFF,
+	};
+
+	u32 gotoAddr_ = 0x08800000;
+
+	// Symbol cache
+	std::vector<SymbolEntry> symCache_;
+	bool symsDirty_ = true;
+	int selectedSymbol_ = -1;
+	char selectedSymbolName_[128];
+
+	ImDisasmView disasmView_;
+	char searchTerm_[64]{};
+};
