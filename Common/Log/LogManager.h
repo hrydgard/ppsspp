@@ -56,9 +56,8 @@ ENUM_CLASS_BITOPS(LogOutput);
 class RingbufferLog {
 public:
 	void Log(const LogMessage &msg);
-
 	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
-	const char *TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg.c_str(); }
+	std::string_view TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg; }
 	LogLevel LevelAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level; }
 
 	void Clear() {
@@ -67,7 +66,7 @@ public:
 	}
 
 private:
-	enum { MAX_LOGS = 128 };
+	enum { MAX_LOGS = 256 };
 	LogMessage messages_[MAX_LOGS];
 	int curMessage_ = 0;
 	int count_ = 0;
