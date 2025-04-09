@@ -477,6 +477,10 @@ public:
 	int Height() const { return height_; }
 	int Depth() const { return depth_; }
 	DataFormat Format() const { return format_; }
+	int DataSize() const {
+		// Rough estimate, discounts padding etc.
+		return width_ * height_ * (int)DataFormatSizeInBytes(format_);
+	}
 
 protected:
 	int width_ = -1, height_ = -1, depth_ = -1;

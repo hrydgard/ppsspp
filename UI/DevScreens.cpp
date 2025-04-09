@@ -44,7 +44,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/IconCache.h"
-#include "Common/Data/Text/Parsers.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Log/LogManager.h"
@@ -938,6 +938,11 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 		RecreateViews();
 		return UI::EVENT_DONE;
 	});
+
+	internals->Add(new ItemHeader(si->T("Font cache")));
+	const TextDrawer *text = screenManager()->getUIContext()->Text();
+	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
