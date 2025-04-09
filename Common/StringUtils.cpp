@@ -161,6 +161,13 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 		}
 	}
 
+	if (restriction == StringRestriction::NoLineBreaksOrSpecials) {
+		// Additionally, cut off the string if we find an overlong UTF-8 character, such as in Jak & Daxter's title.
+		size_t pos = sanitized.find("\xc0\x80");
+		if (pos != (size_t)std::string::npos) {
+			sanitized.resize(pos);
+		}
+	}
 	return sanitized;
 }
 
