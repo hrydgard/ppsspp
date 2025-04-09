@@ -105,6 +105,7 @@ namespace Libretro
    static retro_log_printf_t log_cb;
 
    bool g_pendingBoot = false;
+   std::string g_bootErrorString;
 
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
@@ -480,12 +481,6 @@ static void check_variables(CoreParameter &coreParam)
       if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
           coreParam.fastForward = isFastForwarding;
    }
-
-   bool updated = false;
-
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
-         && !updated)
-      return;
 
    struct retro_variable var = {0};
    std::string sTextureShaderName_prev;
@@ -1294,6 +1289,8 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->timing.fps            = (60.0 / 1.001) / (double)vsyncSwapInterval;
    info->timing.sample_rate    = SAMPLERATE;
 
+   _dbg_assert_(g_Config.iInternalResolution != 0);
+
    info->geometry.base_width   = g_Config.iInternalResolution * NATIVEWIDTH;
    info->geometry.base_height  = g_Config.iInternalResolution * NATIVEHEIGHT;
    info->geometry.max_width    = g_Config.iInternalResolution * NATIVEWIDTH;
@@ -1330,8 +1327,16 @@ namespace Libretro
       if (gpu)
          gpu->BeginHostFrame();
 
-      coreState = CORE_RUNNING_CPU;
       PSP_RunLoopWhileState();
+      switch (coreState) {
+      case CORE_NEXTFRAME:
+         // Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
+         coreState = CORE_RUNNING_CPU;
+         break;
+      default:
+         // We're not handling the various states used for debugging in the libretro port.
+         break;
+      }
 
       if (gpu)
          gpu->EndHostFrame();
@@ -1454,14 +1459,14 @@ bool retro_load_game(const struct retro_game_info *game)
    useEmuThread              = ctx->GetGPUCore() == GPUCORE_GLES;
 
    // default to interpreter to allow startup in platforms w/o JIT capability
+   // TODO: I guess we should auto detect? And also, default to IR Interpreter...
    g_Config.iCpuCore         = (int)CPUCore::INTERPRETER;
 
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
    coreParam.fileToStart     = Path(std::string(game->path));
-   coreParam.mountIso.clear();
    coreParam.startBreak      = false;
-   coreParam.headLess        = true;
+   coreParam.headLess        = true;  // really?
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
    check_variables(coreParam);
@@ -1477,13 +1482,6 @@ bool retro_load_game(const struct retro_game_info *game)
 
    g_pendingBoot = true;
 
-   std::string error_string;
-   if (!PSP_InitStart(coreParam)) {
-      // Can't really fail, the errors happen later during InitUpdate
-      ERROR_LOG(Log::Boot, "%s", error_string.c_str());
-      return false;
-   }
-
    struct retro_core_option_display option_display;
 
    // Show/hide 'MSAA' and 'Texture Shader' options, Vulkan only
@@ -1495,7 +1493,7 @@ bool retro_load_game(const struct retro_game_info *game)
 
    // Show/hide 'Buffered Frames' option, Vulkan/GL only
    option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN ||
-         g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
+      g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
    option_display.key = "ppsspp_inflight_frames";
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
@@ -1503,6 +1501,15 @@ bool retro_load_game(const struct retro_game_info *game)
 
    // NOTE: At this point we haven't really booted yet, but "in-game" we'll just keep polling
    // PSP_InitUpdate until done.
+
+   // Launch the init process.
+   if (!PSP_InitStart(coreParam)) {
+      g_bootErrorString = coreParam.errorString;
+      // Can't really fail, the errors happen later during InitUpdate
+      ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
+      return false;
+   }
+
    return true;
 }
 
@@ -1521,13 +1528,11 @@ void retro_unload_game(void)
 
 void retro_reset(void)
 {
-   std::string error_string;
-
    PSP_Shutdown(true);
 
-   if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &error_string))
+   if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &g_bootErrorString))
    {
-      ERROR_LOG(Log::Boot, "%s", error_string.c_str());
+      ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
       environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
    }
 }
@@ -1633,21 +1638,28 @@ static void retro_input(void)
 void retro_run(void)
 {
    if (g_pendingBoot) {
-      std::string error_string;
-      BootState state = PSP_InitUpdate(&error_string);
-      if (state == BootState::Failed) {
+      BootState state = PSP_InitUpdate(&g_bootErrorString);
+      switch (state) {
+      case BootState::Failed:
          g_pendingBoot = false;
-         ERROR_LOG(Log::Boot, "%s", error_string.c_str());
+         ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
          environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
          return;
-      } else if (state == BootState::Booting) {
+      case BootState::Booting:
          // Not done yet. Do maintenance stuff and bail.
          retro_input();
          ctx->SwapBuffers();
          return;
+      case BootState::Off:
+         // shouldn't happen.
+         _dbg_assert_(false);
+         return;
       }
 
+      // BootState is BootState::Complete.
       // Here's where we finish the boot process.
+      coreState = CORE_RUNNING_CPU;
+      g_bootErrorString.clear();
       g_pendingBoot = false;
    }
 
@@ -1660,7 +1672,10 @@ void retro_run(void)
       retro_reset();
    }
 
-   check_variables(PSP_CoreParameter());
+   bool updated;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
+      && updated)
+      check_variables(PSP_CoreParameter());
 
    retro_input();
 
