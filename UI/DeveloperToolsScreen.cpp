@@ -229,7 +229,7 @@ void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	list->Add(new ItemHeader("Dump file types"));
+	list->Add(new ItemHeader(dev->T("Dump files")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::EBOOT, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PRX, dev->T("PRX")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::Atrac3, dev->T("Atrac3/3+")));
@@ -313,7 +313,7 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
 }
 
-void DeveloperToolsScreen::CreateRenderingTab(UI::LinearLayout *list) {
+void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -384,36 +384,42 @@ void DeveloperToolsScreen::CreateRenderingTab(UI::LinearLayout *list) {
 	}
 }
 
-void DeveloperToolsScreen::CreateViews() {
-	using namespace UI;
-	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-	settingsScroll->SetTag("DevToolsSettings");
-	root_->Add(settingsScroll);
+void DeveloperToolsScreen::CreateTabs() {
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	AddStandardBack(root_);
-
-	LinearLayout *list = settingsScroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	list->SetSpacing(0);
-
-	CreateTextureReplacementTab(list);
-	CreateGeneralTab(list);
-	CreateDumpFileTab(list);
-	CreateHLETab(list);
+	AddTab("TextureReplacement", dev->T("Texture Replacement"), [this](UI::LinearLayout *parent) {
+		CreateTextureReplacementTab(parent);
+	});
+	AddTab("General", sy->T("General"), [this](UI::LinearLayout *parent) {
+		CreateGeneralTab(parent);
+	});
+	AddTab("DumpFiles", sy->T("Dump files"), [this](UI::LinearLayout *parent) {
+		CreateDumpFileTab(parent);
+	});
+	// Need a better title string.
+	AddTab("HLE", dev->T("Disable HLE"), [this](UI::LinearLayout *parent) {
+		CreateHLETab(parent);
+	});
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
-	CreateMIPSTracerTab(list);
+	AddTab("MIPSTracer", dev->T("MIPSTracer"), [this](UI::LinearLayout *parent) {
+		CreateMIPSTracerTab(parent);
+	});
 #endif
-	CreateRenderingTab(list);
+	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
+		CreateGraphicsTab(parent);
+	});
 
 	// Reconsider whenever recreating views.
 	hasTexturesIni_ = HasIni::MAYBE;
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
+	UIScreen::onFinish(result);
 	g_Config.Save("DeveloperToolsScreen::onFinish");
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 }
-
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);

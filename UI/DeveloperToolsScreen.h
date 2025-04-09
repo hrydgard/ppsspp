@@ -4,17 +4,15 @@
 
 #include "UI/TabbedDialogScreen.h"
 
-class DeveloperToolsScreen : public UIDialogScreenWithGameBackground {
+class DeveloperToolsScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
-	DeveloperToolsScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	DeveloperToolsScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
 
+	void CreateTabs() override;
 	void update() override;
 	void onFinish(DialogResult result) override;
 
 	const char *tag() const override { return "DeveloperTools"; }
-
-protected:
-	void CreateViews() override;
 
 private:
 	void CreateTextureReplacementTab(UI::LinearLayout *parent);
@@ -22,7 +20,7 @@ private:
 	void CreateDumpFileTab(UI::LinearLayout *parent);
 	void CreateHLETab(UI::LinearLayout *parent);
 	void CreateMIPSTracerTab(UI::LinearLayout *list);
-	void CreateRenderingTab(UI::LinearLayout *list);
+	void CreateGraphicsTab(UI::LinearLayout *list);
 
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);

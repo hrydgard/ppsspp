@@ -501,10 +501,7 @@ void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;
 
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	AddTab("Device Info", si->T("Device Info"), [this](UI::LinearLayout *parent) {
 		CreateDeviceInfoTab(parent);
