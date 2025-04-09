@@ -91,6 +91,7 @@ static const char * const g_logTypeNames[] = {
 	"PRINTF",
 	"TEXREPLACE",
 	"DEBUGGER",
+	"UI",
 	"SCEAUDIO",
 	"SCECTRL",
 	"SCEDISP",

@@ -250,7 +250,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 			} else if (ParseFileInfo(line, &info)) {
 				// We can just reconstruct the URI.
 				info.fullName = Path(uri) / info.name;
-				// INFO_LOG(Log::FileSystem, "%s", info.name.c_str());
+				// INFO_LOG(Log::IO, "%s", info.name.c_str());
 				items.push_back(info);
 			}
 		}
@@ -262,7 +262,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 	double elapsed = time_now_d() - start;
 	double threshold = 0.1;
 	if (elapsed >= threshold) {
-		INFO_LOG(Log::FileSystem, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", uri.c_str(), elapsed, (int)items.size(), threshold);
+		INFO_LOG(Log::IO, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", uri.c_str(), elapsed, (int)items.size(), threshold);
 	}
 	return items;
 }

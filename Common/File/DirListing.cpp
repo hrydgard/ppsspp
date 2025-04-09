@@ -63,7 +63,7 @@ static uint64_t FiletimeToStatTime(FILETIME ft) {
 
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "GetFileInfo %s", path.ToVisualString().c_str());
+		INFO_LOG(Log::IO, "GetFileInfo %s", path.ToVisualString().c_str());
 	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
@@ -205,7 +205,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "GetFilesInDir '%s' (ext %s, prefix %.*s)", directory.ToVisualString().c_str(), filter, (int)prefix.size(), prefix.data());
+		INFO_LOG(Log::IO, "GetFilesInDir '%s' (ext %s, prefix %.*s)", directory.ToVisualString().c_str(), filter, (int)prefix.size(), prefix.data());
 	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
@@ -218,7 +218,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		int beforeFilter = (int)fileList.size();
 		*files = ApplyFilter(fileList, filter, prefix);
 		std::sort(files->begin(), files->end());
-		DEBUG_LOG(Log::System, "GetFilesInDir: Found %d entries (%d before filter)", (int)files->size(), beforeFilter);
+		DEBUG_LOG(Log::IO, "GetFilesInDir: Found %d entries (%d before filter)", (int)files->size(), beforeFilter);
 		return exists;
 	}
 
@@ -292,7 +292,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		}
 
 		if (LOG_IO) {
-			// INFO_LOG(Log::System, "GetFilesInDir item %s", virtualName.c_str());
+			// INFO_LOG(Log::IO, "GetFilesInDir item %s", virtualName.c_str());
 		}
 
 		FileInfo info;
@@ -369,7 +369,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 #endif
 	std::sort(files->begin(), files->end());
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "GetFilesInDir: Found %d files", (int)files->size());
+		INFO_LOG(Log::IO, "GetFilesInDir: Found %d files", (int)files->size());
 	}
 	return true;
 }

@@ -329,7 +329,7 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
 		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
-			INFO_LOG(Log::System, "Contain overlap");
+			INFO_LOG(Log::UI, "Contain overlap");
 			return 0.0;
 		}
 	}
@@ -386,7 +386,7 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		break;
 	case FOCUS_PREV:
 	case FOCUS_NEXT:
-		ERROR_LOG(Log::System, "Invalid focus direction");
+		ERROR_LOG(Log::UI, "Invalid focus direction");
 		break;
 	}
 
@@ -408,7 +408,7 @@ static float GetDirectionScore(int originIndex, const View *origin, View *destin
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
 	if (!IsEnabled()) {
-		INFO_LOG(Log::sceCtrl, "Not enabled");
+		INFO_LOG(Log::UI, "Not enabled");
 		return result;
 	}
 	if (GetVisibility() != V_VISIBLE) {
@@ -474,7 +474,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
 
 	default:
-		ERROR_LOG(Log::System, "Bad focus direction %d", (int)direction);
+		ERROR_LOG(Log::UI, "Bad focus direction %d", (int)direction);
 		return result;
 	}
 }
@@ -889,7 +889,7 @@ void AnchorLayout::Layout() {
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
 	: ViewGroup(layoutParams), settings_(settings) {
 	if (settings.orientation != ORIENT_HORIZONTAL)
-		ERROR_LOG(Log::System, "GridLayout: Vertical layouts not yet supported");
+		ERROR_LOG(Log::UI, "GridLayout: Vertical layouts not yet supported");
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {

@@ -111,7 +111,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 	listing->clear();
 
-	// INFO_LOG(Log::System, "Zip: Listing '%s'", orig_path);
+	// INFO_LOG(Log::IO, "Zip: Listing '%s'", orig_path);
 
 	const std::string relativePath = path.substr(inZipPath_.size());
 
@@ -125,7 +125,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
-		// INFO_LOG(Log::System, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(Log::IO, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -142,7 +142,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 				continue;
 			}
 		}
-		// INFO_LOG(Log::System, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(Log::IO, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 

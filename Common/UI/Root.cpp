@@ -368,7 +368,7 @@ void UpdateViewHierarchy(ViewGroup *root) {
 	frameCount++;
 
 	if (!root) {
-		ERROR_LOG(Log::System, "Tried to update a view hierarchy from a zero pointer root");
+		ERROR_LOG(Log::UI, "Tried to update a view hierarchy from a zero pointer root");
 		return;
 	}
 
