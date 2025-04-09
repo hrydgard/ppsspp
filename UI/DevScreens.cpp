@@ -70,7 +70,7 @@
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
 #include "UI/ControlMappingScreen.h"
-#include "UI/GameSettingsScreen.h"
+#include "UI/DeveloperToolsScreen.h"
 #include "UI/JitCompareScreen.h"
 
 #ifdef _WIN32
