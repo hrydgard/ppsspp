@@ -1106,14 +1106,14 @@ public abstract class NativeActivity extends Activity {
 						Log.i(TAG, "Erroneous move event"); // should be in touch events
 						return true;
 					case MotionEvent.ACTION_HOVER_MOVE:
-						Log.i(TAG, "Action Hover Move");
+						// Log.i(TAG, "Action Hover Move");
 						// process the mouse hover movement...
 						NativeApp.mouse(event.getX(), event.getY(), 0, 0);
 						return true;
 					case MotionEvent.ACTION_SCROLL:
 						float scrollX = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
 						float scrollY = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
-						Log.i(TAG, "Action Scroll: " + scrollX + " " + scrollY);
+						// Log.i(TAG, "Action Scroll: " + scrollX + " " + scrollY);
 						NativeApp.mouseWheelEvent(scrollX, scrollY);
 						return true;
 				}
