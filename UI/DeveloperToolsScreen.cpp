@@ -73,26 +73,9 @@ static std::string PostShaderTranslateName(std::string_view value) {
 	}
 }
 
-void DeveloperToolsScreen::CreateViews() {
+void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	using namespace UI;
-	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-	settingsScroll->SetTag("DevToolsSettings");
-	root_->Add(settingsScroll);
-
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto a = GetI18NCategory(I18NCat::AUDIO);
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
-	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
-	auto si = GetI18NCategory(I18NCat::SYSINFO);
-
-	AddStandardBack(root_);
-
-	LinearLayout *list = settingsScroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	list->SetSpacing(0);
 
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
@@ -112,6 +95,14 @@ void DeveloperToolsScreen::CreateViews() {
 		}
 		return true;
 	});
+}
+
+void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	list->Add(new ItemHeader(sy->T("General")));
 
@@ -226,14 +217,31 @@ void DeveloperToolsScreen::CreateViews() {
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(si->T("%d Hz"));
 
-	list->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
+	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
+	// you to descend into directories.
+#if PPSSPP_PLATFORM(IOS)
+	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
+#endif
 
-	list->Add(new ItemHeader("Dump file types"));
+}
+
+void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+
+	list->Add(new ItemHeader(dev->T("Dump files")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::EBOOT, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PRX, dev->T("PRX")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::Atrac3, dev->T("Atrac3/3+")));
+}
 
-	list->Add(new ItemHeader("Disable HLE (experimental! Not expected to work yet)"));
+void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+
+	list->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
+
+	list->Add(new ItemHeader(dev->T("Disable HLE")));
 
 	for (int i = 0; i < (int)DisableHLEFlags::Count; i++) {
 		DisableHLEFlags flag = (DisableHLEFlags)(1 << i);
@@ -247,8 +255,11 @@ void DeveloperToolsScreen::CreateViews() {
 			}
 		}
 	}
+}
 
-#if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
+void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	list->Add(new ItemHeader(dev->T("MIPSTracer")));
 
 	MIPSTracerEnabled_ = mipsTracer.tracing_enabled;
@@ -300,7 +311,13 @@ void DeveloperToolsScreen::CreateViews() {
 
 	Button *ClearMIPSTracer = list->Add(new Button(dev->T("Clear the MIPSTracer")));
 	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
-#endif
+}
+
+void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
@@ -312,7 +329,7 @@ void DeveloperToolsScreen::CreateViews() {
 #if !PPSSPP_PLATFORM(UWP)
 	if (g_Config.iGPUBackend != (int)GPUBackend::OPENGL || gl_extensions.GLES3) {
 #else
-		{
+	{
 #endif
 		list->Add(new CheckBox(&g_Config.bUberShaderFragment, dev->T("Fragment")));
 	}
@@ -365,22 +382,44 @@ void DeveloperToolsScreen::CreateViews() {
 			}
 		}
 	}
+}
 
-	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
-	// you to descend into directories.
-#if PPSSPP_PLATFORM(IOS)
-	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
+void DeveloperToolsScreen::CreateTabs() {
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+
+	AddTab("TextureReplacement", dev->T("Texture Replacement"), [this](UI::LinearLayout *parent) {
+		CreateTextureReplacementTab(parent);
+	});
+	AddTab("General", sy->T("General"), [this](UI::LinearLayout *parent) {
+		CreateGeneralTab(parent);
+	});
+	AddTab("DumpFiles", sy->T("Dump files"), [this](UI::LinearLayout *parent) {
+		CreateDumpFileTab(parent);
+	});
+	// Need a better title string.
+	AddTab("HLE", dev->T("Disable HLE"), [this](UI::LinearLayout *parent) {
+		CreateHLETab(parent);
+	});
+#if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
+	AddTab("MIPSTracer", dev->T("MIPSTracer"), [this](UI::LinearLayout *parent) {
+		CreateMIPSTracerTab(parent);
+	});
 #endif
+	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
+		CreateGraphicsTab(parent);
+	});
 
 	// Reconsider whenever recreating views.
 	hasTexturesIni_ = HasIni::MAYBE;
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
+	UIScreen::onFinish(result);
 	g_Config.Save("DeveloperToolsScreen::onFinish");
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 }
-
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
