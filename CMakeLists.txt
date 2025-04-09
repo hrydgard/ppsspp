@@ -460,7 +460,9 @@ if(NOT MSVC)
 
 	if(X86 OR X86_64)
 		# enable sse2 code generation
-		add_compile_options(-msse2)
+		if(NOT MACOSX)
+			add_compile_options(-msse2)
+		endif()
 		if(NOT X86_64 AND NOT CLANG)
 			add_compile_options(-mfpmath=sse)
 			# add_definitions(-mstackrealign)
