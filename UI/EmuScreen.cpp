@@ -357,6 +357,12 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 // Only call this on successful boot.
 void EmuScreen::bootComplete() {
+	// Initialize retroachievements, now that we're on the right thread.
+	if (g_Config.bAchievementsEnable) {
+		std::string errorString;
+		Achievements::SetGame(PSP_CoreParameter().fileToStart, PSP_CoreParameter().fileType, PSP_LoadedFile());
+	}
+
 	// We don't want to boot with the wrong game specific config, so wait until info is ready.
 	// TODO: Actually, we read this info again during bootup, so this is not really necessary.
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
@@ -382,7 +388,7 @@ void EmuScreen::bootComplete() {
 	NOTICE_LOG(Log::Boot, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
 	if (!Achievements::HardcoreModeActive()) {
 		// Don't auto-load savestates in hardcore mode.
-		autoLoad();
+		AutoLoadSaveState();
 	}
 
 #ifndef MOBILE_DEVICE
@@ -445,6 +451,7 @@ EmuScreen::~EmuScreen() {
 	_dbg_assert_(!bootPending_);
 	if (!bootPending_) {
 		PSP_Shutdown(true);
+		Achievements::UnloadGame();
 	}
 
 	_dbg_assert_(coreState == CORE_POWERDOWN);
@@ -538,6 +545,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			return;
 		}
 		PSP_Shutdown(true);
+		Achievements::UnloadGame();
 		bootPending_ = false;
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
@@ -546,6 +554,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			return;
 		}
 		PSP_Shutdown(true);
+		Achievements::UnloadGame();
 		bootPending_ = true;
 		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
@@ -568,6 +577,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			SaveState::Load(Path(value), -1, &AfterStateBoot);
 		} else {
 			PSP_Shutdown(true);
+			Achievements::UnloadGame();
 			bootPending_ = true;
 			gamePath_ = Path(value);
 		}
@@ -1441,6 +1451,7 @@ bool EmuScreen::checkPowerDown() {
 		bool shutdown = false;
 		if (PSP_IsInited()) {
 			PSP_Shutdown(true);
+			Achievements::UnloadGame();
 			shutdown = true;
 		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
@@ -1922,7 +1933,7 @@ void EmuScreen::renderUI() {
 	ctx->Flush();
 }
 
-void EmuScreen::autoLoad() {
+void EmuScreen::AutoLoadSaveState() {
 	int autoSlot = -1;
 
 	//check if save state has save, if so, load

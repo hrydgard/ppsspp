@@ -102,6 +102,7 @@ void PSP_CancelBoot();
 void PSP_Shutdown(bool success);
 BootState PSP_Reboot(std::string *error_string);
 
+FileLoader *PSP_LoadedFile();
 
 void PSP_BeginHostFrame();
 void PSP_EndHostFrame();

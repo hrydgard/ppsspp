@@ -999,6 +999,11 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		return;
 	}
 
+	if (!fileLoader) {
+		ERROR_LOG(Log::Achievements, "File loader not initialized");
+		return;
+	}
+
 	// The caller should hold off on executing game code until this turns false, checking with IsBlockingExecution()
 	g_gamePath = path;
 	g_isIdentifying = true;

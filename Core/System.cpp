@@ -42,7 +42,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/GraphicsContext.h"
-#include "Core/RetroAchievements.h"
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
@@ -99,6 +98,10 @@ static BootState g_bootState = BootState::Off;
 
 BootState PSP_GetBootState() {
 	return g_bootState;
+}
+
+FileLoader *PSP_LoadedFile() {
+	return g_loadedFile;
 }
 
 void ResetUIState() {
@@ -276,6 +279,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		// Doesn't seem to take ownership of fileLoader?
 		if (!MountGameISO(fileLoader)) {
 			*errorString = "Failed to mount ISO file - invalid format?";
 			return false;
@@ -509,7 +513,7 @@ void PSP_ForceDebugStats(bool enable) {
 
 bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_bootState != BootState::Off) {
-		ERROR_LOG(Log::System, "Can't start loader thread - already on.");
+		ERROR_LOG(Log::Loader, "Can't start loader thread - already on.");
 		return false;
 	}
 
@@ -524,7 +528,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	std::string *error_string = &g_CoreParameter.errorString;
 
-	INFO_LOG(Log::System, "Starting loader thread...");
+	INFO_LOG(Log::Loader, "Starting loader thread...");
 
 	_dbg_assert_(!g_loadingThread.joinable());
 
@@ -551,15 +555,10 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 					loadedFile = new RamCachingFileLoader(loadedFile);
 					break;
 				default:
-					INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
+					INFO_LOG(Log::Loader, "RAM caching is on, but file is not an ISO, so ignoring");
 					break;
 				}
 			}
-		}
-
-		if (g_Config.bAchievementsEnable) {
-			std::string errorString;
-			Achievements::SetGame(filename, type, loadedFile);
 		}
 
 		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
@@ -602,7 +601,7 @@ BootState PSP_InitUpdate(std::string *error_string) {
 
 	// Ok, async boot completed, let's finish up things on the main thread.
 	if (!gpu) {  // should be!
-		INFO_LOG(Log::System, "Starting graphics...");
+		INFO_LOG(Log::Loader, "Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
 		// This set the `gpu` global.
 		bool success = GPU_Init(g_CoreParameter.graphicsContext, draw);
@@ -644,8 +643,6 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 void PSP_Shutdown(bool success) {
 	// Reduce the risk for weird races with the Windows GE debugger.
 	gpuDebug = nullptr;
-
-	Achievements::UnloadGame();
 
 	// Do nothing if we never inited.
 	if (g_bootState == BootState::Off) {
@@ -846,11 +843,11 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 		return;
 	}
 	if (!dataPtr) {
-		ERROR_LOG(Log::System, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
+		ERROR_LOG(Log::Loader, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
 		return;
 	}
 	if (length == 0) {
-		ERROR_LOG(Log::System, "Error dumping %s: invalid length", DumpFileTypeToString(DumpFileType::EBOOT));
+		ERROR_LOG(Log::Loader, "Error dumping %s: invalid length", DumpFileTypeToString(DumpFileType::EBOOT));
 		return;
 	}
 
