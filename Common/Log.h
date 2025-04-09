@@ -52,6 +52,7 @@ enum class Log {
 	Printf,
 	TexReplacement,
 	GeDebugger,
+	UI,
 
 	sceAudio,
 	sceCtrl,

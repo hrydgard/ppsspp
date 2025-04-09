@@ -38,11 +38,7 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 float TextDrawer::CalculateDPIScale() const {
 	if (ignoreGlobalDpi_)
 		return dpiScale_;
-	float scale = g_display.dpi_scale;
-	if (scale >= 1.0f) {
-		scale = 1.0f;
-	}
-	return scale;
+	return g_display.dpi_scale;
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
@@ -242,6 +238,14 @@ void TextDrawer::OncePerFrame() {
 			}
 		}
 	}
+}
+
+size_t TextDrawer::GetCacheDataSize() const {
+	size_t sz = 0;
+	for (const auto &iter : cache_) {
+		sz += iter.second->texture->DataSize();
+	}
+	return sz;
 }
 
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {

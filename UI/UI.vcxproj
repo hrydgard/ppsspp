@@ -41,6 +41,7 @@
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DebugOverlay.cpp" />
+    <ClCompile Include="DeveloperToolsScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
@@ -86,6 +87,7 @@
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="CustomButtonMappingScreen.h" />
     <ClInclude Include="DebugOverlay.h" />
+    <ClInclude Include="DeveloperToolsScreen.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />

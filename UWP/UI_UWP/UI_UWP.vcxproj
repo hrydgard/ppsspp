@@ -116,6 +116,7 @@
     <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
     <ClInclude Include="..\..\UI\DebugOverlay.h" />
+    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
@@ -162,6 +163,7 @@
     <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
     <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
+    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />

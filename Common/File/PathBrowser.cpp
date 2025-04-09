@@ -129,7 +129,7 @@ void PathBrowser::SetPath(const Path &path) {
 }
 
 void PathBrowser::RestrictToRoot(const Path &root) {
-	INFO_LOG(Log::System, "Restricting to root: %s", root.c_str());
+	INFO_LOG(Log::IO, "Restricting to root: %s", root.c_str());
 	restrictedRoot_ = root;
 }
 
@@ -244,7 +244,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 
 void PathBrowser::ApplyRestriction() {
 	if (!path_.StartsWith(restrictedRoot_) && !startsWith(path_.ToString(), "!")) {
-		WARN_LOG(Log::System, "Applying path restriction: %s (%s didn't match)", restrictedRoot_.c_str(), path_.c_str());
+		WARN_LOG(Log::IO, "Applying path restriction: %s (%s didn't match)", restrictedRoot_.c_str(), path_.c_str());
 		path_ = restrictedRoot_;
 	}
 }

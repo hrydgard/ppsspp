@@ -136,18 +136,24 @@ public class PpssppActivity extends NativeActivity {
 	public int openContentUri(String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, mode);
-			if (filePfd == null) {
-				Log.e(TAG, "Failed to get file descriptor for " + uriString);
-				return -1;
+			try (ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, mode)) {
+				if (filePfd == null) {
+					Log.e(TAG, "Failed to get file descriptor for " + uriString);
+					return -1;
+				}
+				return filePfd.detachFd();  // Take ownership of the fd.
 			}
-			return filePfd.detachFd();  // Take ownership of the fd.
+		} catch (java.lang.IllegalArgumentException e) {
+			// This exception is long and ugly and really just means file not found.
+			Log.d(TAG, "openFileDescriptor: File not found.");
+			return -1;
 		} catch (Exception e) {
-			Log.e(TAG, "openContentUri exception: " + e);
+			Log.e(TAG, "Unexpected openContentUri exception: " + e);
 			return -1;
 		}
 	}
 
+	@TargetApi(Build.VERSION_CODES.KITKAT)
 	private static final String[] columns = new String[] {
 		DocumentsContract.Document.COLUMN_DISPLAY_NAME,
 		DocumentsContract.Document.COLUMN_SIZE,

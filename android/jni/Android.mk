@@ -920,6 +920,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
+  $(SRC)/UI/DeveloperToolsScreen.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \

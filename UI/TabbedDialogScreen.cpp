@@ -9,7 +9,7 @@
 void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch) {
 	using namespace UI;
 
-	tabHolder_->AddTabDeferred(title, [this, createCallback = std::move(createCallback), tag, title, isSearch]() -> UI::ViewGroup * {
+	tabHolder_->AddTabDeferred(title, [createCallback = std::move(createCallback), tag]() -> UI::ViewGroup * {
 		ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scroll->SetTag(tag);
 		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);

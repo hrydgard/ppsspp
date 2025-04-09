@@ -59,6 +59,7 @@ public:
 	void OncePerFrame();
 
 	float CalculateDPIScale() const;
+	// This is used by PPGe, since we run at the PSP's DPI inside of there.
 	void SetForcedDPIScale(float dpi) {
 		dpiScale_ = dpi;
 		ignoreGlobalDpi_ = true;
@@ -66,6 +67,11 @@ public:
 
 	// Factory function that selects implementation.
 	static TextDrawer *Create(Draw::DrawContext *draw);
+
+	size_t GetStringCacheSize() const {
+		return cache_.size();
+	}
+	size_t GetCacheDataSize() const;
 
 protected:
 	TextDrawer(Draw::DrawContext *draw);

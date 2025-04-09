@@ -123,6 +123,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/DeveloperToolsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"

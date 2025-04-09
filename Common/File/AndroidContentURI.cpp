@@ -48,7 +48,7 @@ bool AndroidContentURI::Parse(std::string_view path) {
 
 AndroidContentURI AndroidContentURI::WithRootFilePath(const std::string &filePath) {
 	if (root.empty()) {
-		ERROR_LOG(Log::System, "WithRootFilePath cannot be used with single file URIs.");
+		ERROR_LOG(Log::IO, "WithRootFilePath cannot be used with single file URIs.");
 		return *this;
 	}
 
@@ -116,7 +116,7 @@ bool AndroidContentURI::ComputePathTo(const AndroidContentURI &other, std::strin
 	size_t offset = FilePath().size() + 1;
 	const auto &otherFilePath = other.FilePath();
 	if (offset >= otherFilePath.size()) {
-		ERROR_LOG(Log::System, "Bad call to PathTo. '%s' -> '%s'", FilePath().c_str(), other.FilePath().c_str());
+		ERROR_LOG(Log::IO, "Bad call to PathTo. '%s' -> '%s'", FilePath().c_str(), other.FilePath().c_str());
 		return false;
 	}
 

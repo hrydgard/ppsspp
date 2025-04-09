@@ -89,7 +89,7 @@ private:
 	void onVKey(VirtKey virtualKeyCode, bool down);
 	void onVKeyAnalog(VirtKey virtualKeyCode, float value);
 
-	void autoLoad();
+	void AutoLoadSaveState();
 	bool checkPowerDown();
 
 	void ProcessQueuedVKeys();

@@ -2096,7 +2096,7 @@ static u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid) {
 static u32 sceMpegGetAvcNalAu(u32 mpeg) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegGetAvcNalAu(%08x)", mpeg);
@@ -2106,7 +2106,7 @@ static u32 sceMpegGetAvcNalAu(u32 mpeg) {
 static u32 sceMpegAvcDecodeDetailIndex(u32 mpeg) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegAvcDecodeDetailIndex(%08x)", mpeg);
@@ -2116,7 +2116,7 @@ static u32 sceMpegAvcDecodeDetailIndex(u32 mpeg) {
 static u32 sceMpegAvcDecodeDetail2(u32 mpeg) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegAvcDecodeDetail2(%08x)", mpeg);
@@ -2126,7 +2126,7 @@ static u32 sceMpegAvcDecodeDetail2(u32 mpeg) {
 static u32 sceMpegGetAvcEsAu(u32 mpeg) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegGetAvcEsAu(%08x)", mpeg);
@@ -2136,7 +2136,7 @@ static u32 sceMpegGetAvcEsAu(u32 mpeg) {
 static u32 sceMpegAvcCscInfo(u32 mpeg) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle", mpeg);
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegAvcCscInfo(%08x)", mpeg);
@@ -2146,8 +2146,7 @@ static u32 sceMpegAvcCscInfo(u32 mpeg) {
 static u32 sceMpegAvcCscMode(u32 mpeg) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		WARN_LOG(Log::ME, "UNIMPL sceMpegAvcCscMode(%08x): bad mpeg handle", mpeg);
-		return -1;
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegAvcCscMode(%08x)", mpeg);
@@ -2158,8 +2157,7 @@ static u32 sceMpegFlushAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		WARN_LOG(Log::ME, "UNIMPL sceMpegFlushAu(%08x): bad mpeg handle", mpeg);
-		return -1;
+		return hleLogWarning(Log::ME, -1, "UNIMPL / bad mpeg handle");
 	}
 
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMpegFlushAu(%08x)", mpeg);
