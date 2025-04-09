@@ -9,4 +9,7 @@ inline void TextUnformatted(std::string_view str) {
 	TextUnformatted(str.data(), str.data() + str.size());
 }
 
+bool RepeatButton(const char *title);
+bool RepeatButtonShift(const char* label, float repeatRate = 0.05f);
+
 }  // namespace ImGui

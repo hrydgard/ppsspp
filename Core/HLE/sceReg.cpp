@@ -61,6 +61,8 @@ struct KeyValue {
 
 // Dump of the PSP registry using tests/misc/reg.prx in pspautotests
 
+// TODO: /DATA/FONT/PROPERTY could just be generated from our fontRegistry in sceFont.cpp.
+
 // Dump of /DATA/FONT/PROPERTY/INFO0
 static const KeyValue tree_DATA_FONT_PROPERTY_INFO0[] = {
 	{ "h_size", ValueType::INT, "", (int)0x00000288 },

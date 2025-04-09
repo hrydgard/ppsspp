@@ -148,3 +148,37 @@ private:
 	char filename_[1024];
 	std::string errorMsg_;
 };
+
+// Corresponds to the CMemView dialog
+class ImMemWindow {
+public:
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index);
+	ImMemView &View() {
+		return memView_;
+	}
+	void DirtySymbolMap() {
+		symsDirty_ = true;
+	}
+	void GotoAddr(u32 addr) {
+		gotoAddr_ = addr;
+		memView_.gotoAddr(addr);
+	}
+	static const char *Title(int index);
+
+private:
+	// We just keep the state directly in the window. Can refactor later.
+	enum {
+		INVALID_ADDR = 0xFFFFFFFF,
+	};
+
+	// Symbol cache
+	std::vector<SymbolEntry> symCache_;
+	bool symsDirty_ = true;
+	int selectedSymbol_ = -1;
+	char selectedSymbolName_[128];
+
+	ImMemView memView_;
+	char searchTerm_[64]{};
+
+	u32 gotoAddr_ = 0x08800000;
+};

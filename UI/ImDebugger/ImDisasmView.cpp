@@ -1,10 +1,12 @@
 #include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_extras.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/Math/geom2d.h"
 #include "Core/Core.h"
+#include "Core/HLE/HLE.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -1151,4 +1153,203 @@ u32 ImDisasmView::getInstructionSizeAt(u32 address) {
 	u32 start = g_disassemblyManager.getStartAddress(address);
 	u32 next = g_disassemblyManager.getNthNextAddress(start, 1);
 	return next - address;
+}
+
+
+void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState) {
+	disasmView_.setDebugger(mipsDebug);
+
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin(Title(), &cfg.disasmOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::IsWindowFocused()) {
+		// Process stepping keyboard shortcuts.
+		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
+			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+			Core_RequestCPUStep(CPUStepType::Over, stepSize);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
+			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+			Core_RequestCPUStep(CPUStepType::Into, stepSize);
+		}
+	}
+
+	if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
+		ImGui::Text("!!! Currently stepping the GE");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Open Ge Debugger")) {
+			cfg.geDebuggerOpen = true;
+			ImGui::SetWindowFocus("GE Debugger");
+		}
+	}
+
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
+	if (ImGui::SmallButton("Run")) {
+		Core_Resume();
+	}
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(coreState != CORE_RUNNING_CPU);
+	if (ImGui::SmallButton("Pause")) {
+		Core_Break(BreakReason::DebugBreak);
+	}
+	ImGui::EndDisabled();
+
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
+
+	ImGui::SameLine();
+	ImGui::Text("Step: ");
+	ImGui::SameLine();
+
+	if (ImGui::SmallButton("Into")) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Into, stepSize);
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("F11");
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Over")) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Over, stepSize);
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("F10");
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Out")) {
+		Core_RequestCPUStep(CPUStepType::Out, 0);
+	}
+
+	/*
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Frame")) {
+		Core_RequestCPUStep(CPUStepType::Frame, 0);
+	}*/
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Syscall")) {
+		hleDebugBreak();
+		Core_Resume();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::RepeatButton("Skim")) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Into, stepSize);
+	}
+
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Goto PC")) {
+		disasmView_.GotoPC();
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Goto RA")) {
+		disasmView_.GotoRA();
+	}
+
+	if (ImGui::BeginPopup("disSearch")) {
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		if (ImGui::InputText("Search", searchTerm_, sizeof(searchTerm_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+			disasmView_.Search(searchTerm_);
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Search")) {
+		// Open a small popup
+		ImGui::OpenPopup("disSearch");
+		ImGui::Shortcut(ImGuiKey_F | ImGuiMod_Ctrl);
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Next")) {
+		disasmView_.SearchNext(true);
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Settings")) {
+		ImGui::OpenPopup("disSettings");
+	}
+
+	if (ImGui::BeginPopup("disSettings")) {
+		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
+		ImGui::EndPopup();
+	}
+
+	ImGui::SetNextItemWidth(100);
+	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X")) {
+		disasmView_.setCurAddress(gotoAddr_);
+		disasmView_.scrollAddressIntoView();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Go")) {
+		disasmView_.setCurAddress(gotoAddr_);
+		disasmView_.scrollAddressIntoView();
+	}
+
+	BreakReason breakReason = Core_BreakReason();
+	ImGui::SameLine();
+	ImGui::TextUnformatted(BreakReasonToString(breakReason));
+
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	avail.y -= ImGui::GetTextLineHeightWithSpacing();
+
+	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
+		if (symCache_.empty() || symsDirty_) {
+			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
+			symsDirty_ = false;
+		}
+
+		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
+			auto &sym = symCache_[selectedSymbol_];
+			if (ImGui::TreeNode("Edit Symbol", "Edit %s", sym.name.c_str())) {
+				if (ImGui::InputText("Name", selectedSymbolName_, sizeof(selectedSymbolName_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+					g_symbolMap->SetLabelName(selectedSymbolName_, sym.address);
+					symsDirty_ = true;
+				}
+				ImGui::Text("%08x (size: %0d)", sym.address, sym.size);
+				ImGui::TreePop();
+			}
+		}
+
+		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
+			ImGuiListClipper clipper;
+			clipper.Begin((int)symCache_.size(), -1);
+			while (clipper.Step()) {
+				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
+						disasmView_.gotoAddr(symCache_[i].address);
+						disasmView_.scrollAddressIntoView();
+						truncate_cpy(selectedSymbolName_, symCache_[i].name.c_str());
+						selectedSymbol_ = i;
+					}
+				}
+			}
+			clipper.End();
+			ImGui::EndListBox();
+		}
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	if (ImGui::BeginChild("right", ImVec2(0.0f, avail.y))) {
+		disasmView_.Draw(ImGui::GetWindowDrawList(), control);
+	}
+	ImGui::EndChild();
+
+	StatusBar(disasmView_.StatusBarText());
+	ImGui::End();
 }

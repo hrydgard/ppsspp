@@ -367,6 +367,7 @@ SOURCES_CXX += \
 	$(EXTDIR)/imgui/imgui.cpp \
 	$(EXTDIR)/imgui/imgui_demo.cpp \
 	$(EXTDIR)/imgui/imgui_draw.cpp \
+	$(EXTDIR)/imgui/imgui_extras.cpp \
 	$(EXTDIR)/imgui/imgui_impl_thin3d.cpp \
 	$(EXTDIR)/imgui/imgui_impl_platform.cpp \
 	$(EXTDIR)/imgui/imgui_tables.cpp \

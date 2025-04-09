@@ -522,8 +522,6 @@ bool Delete(const Path &filename) {
 		return false;
 	}
 
-	INFO_LOG(Log::Common, "Delete: file %s", filename.c_str());
-
 	// Return true because we care about the file no
 	// being there, not the actual delete.
 	if (!Exists(filename)) {
@@ -557,6 +555,7 @@ bool Delete(const Path &filename) {
 	}
 #endif
 
+	INFO_LOG(Log::Common, "Delete: file %s was deleted.", filename.c_str());
 	return true;
 }
 

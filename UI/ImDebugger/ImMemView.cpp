@@ -893,3 +893,73 @@ void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
 
 	ImGui::End();
 }
+
+void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin(Title(index), &cfg.memViewOpen[index])) {
+		ImGui::End();
+		return;
+	}
+
+	// Toolbars
+
+	ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X");
+	if (ImGui::IsItemDeactivatedAfterEdit()) {
+		memView_.gotoAddr(gotoAddr_);
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Go")) {
+		memView_.gotoAddr(gotoAddr_);
+	}
+
+	ImVec2 size(0, -ImGui::GetFrameHeightWithSpacing());
+
+	auto node = [&](const char *title, uint32_t start, uint32_t len) {
+		if (ImGui::TreeNode(title)) {
+			if (ImGui::Selectable("(start)", cfg.selectedMemoryBlock == start)) {
+				cfg.selectedMemoryBlock = start;
+				GotoAddr(start);
+			}
+			const std::vector<MemBlockInfo> info = FindMemInfo(start, len);
+			for (auto &iter : info) {
+				ImGui::PushID(iter.start);
+				if (ImGui::Selectable(iter.tag.c_str(), cfg.selectedMemoryBlock == iter.start)) {
+					cfg.selectedMemoryBlock = iter.start;
+					GotoAddr(iter.start);
+				}
+				ImGui::PopID();
+			}
+			const u32 end = start + len;
+			if (ImGui::Selectable("(end)", cfg.selectedMemoryBlock == end)) {
+				cfg.selectedMemoryBlock = end;
+				GotoAddr(end);
+			}
+			ImGui::TreePop();
+		}
+	};
+
+	// Main views - list of interesting addresses to the left, memory view to the right.
+	if (ImGui::BeginChild("addr_list", ImVec2(200.0f, size.y), ImGuiChildFlags_ResizeX)) {
+		node("Scratch", 0x00010000, 0x00004000);
+		node("Kernel RAM", 0x08000000, 0x00800000);
+		node("User RAM", 0x08800000, 0x01800000);
+		node("VRAM", 0x04000000, 0x00200000);
+	}
+
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	if (ImGui::BeginChild("memview", size)) {
+		memView_.Draw(ImGui::GetWindowDrawList());
+	}
+	ImGui::EndChild();
+
+	StatusBar(memView_.StatusMessage());
+
+	ImGui::End();
+}
+
+const char *ImMemWindow::Title(int index) {
+	static const char *const titles[4] = { "Memory 1", "Memory 2", "Memory 3", "Memory 4" };
+	return titles[index];
+}

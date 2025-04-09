@@ -25,6 +25,7 @@ using namespace std::placeholders;
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Log/LogManager.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Context.h"
@@ -454,6 +455,8 @@ EmuScreen::~EmuScreen() {
 
 	SetExtraAssertInfo(nullptr);
 	SetAssertCancelCallback(nullptr, nullptr);
+
+	g_logManager.EnableOutput(LogOutput::RingBuffer);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && startDumping)

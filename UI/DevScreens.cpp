@@ -122,14 +122,23 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
-#if !defined(MOBILE_DEVICE)
-	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenuScreen::OnLogView);
-#endif
-	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenuScreen::OnLogConfig);
+	items->Add(new Choice(dev->T("Log View")))->OnClick.Add([this](UI::EventParams & e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new LogViewScreen());
+		return UI::EVENT_DONE;
+	});
+
+	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Add([this](UI::EventParams & e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new LogConfigScreen());
+		return UI::EVENT_DONE;
+	});
+
 	items->Add(new Choice(dev->T("Debugger")))->OnClick.Add([](UI::EventParams &e) {
 		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 		return UI::EVENT_DONE;
 	});
+
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 
 	// Debug overlay
@@ -187,18 +196,6 @@ UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenuScreen::OnLogView(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new LogScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnLogConfig(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new LogConfigScreen());
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen(gamePath_));
@@ -235,14 +232,16 @@ void GPIGPOScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 }
 
-void LogScreen::UpdateLog() {
+void LogViewScreen::UpdateLog() {
 	using namespace UI;
 	const RingbufferLog *ring = g_logManager.GetRingbuffer();
 	if (!ring)
 		return;
 	vert_->Clear();
+
+	// TODO: Direct rendering without TextViews.
 	for (int i = ring->GetCount() - 1; i >= 0; i--) {
-		TextView *v = vert_->Add(new TextView(ring->TextAt(i), FLAG_DYNAMIC_ASCII, false));
+		TextView *v = vert_->Add(new TextView(StripSpaces(ring->TextAt(i)), FLAG_DYNAMIC_ASCII, true));
 		uint32_t color = 0xFFFFFF;
 		switch (ring->LevelAt(i)) {
 		case LogLevel::LDEBUG: color = 0xE0E0E0; break;
@@ -257,7 +256,7 @@ void LogScreen::UpdateLog() {
 	toBottom_ = true;
 }
 
-void LogScreen::update() {
+void LogViewScreen::update() {
 	UIDialogScreenWithBackground::update();
 	if (toBottom_) {
 		toBottom_ = false;
@@ -265,7 +264,7 @@ void LogScreen::update() {
 	}
 }
 
-void LogScreen::CreateViews() {
+void LogViewScreen::CreateViews() {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
@@ -275,27 +274,11 @@ void LogScreen::CreateViews() {
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	bottom->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	cmdLine_ = bottom->Add(new TextEdit("", "Command", "Command Line", new LinearLayoutParams(1.0)));
-	cmdLine_->OnEnter.Handle(this, &LogScreen::OnSubmit);
-	bottom->Add(new Button(di->T("Submit")))->OnClick.Handle(this, &LogScreen::OnSubmit);
 
 	vert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	vert_->SetSpacing(0);
 
 	UpdateLog();
-}
-
-UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
-	std::string cmd = cmdLine_->GetText();
-
-	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
-
-	NOTICE_LOG(Log::System, "Submitted: %s", cmd.c_str());
-
-	UpdateLog();
-	cmdLine_->SetText("");
-	cmdLine_->SetFocus();
-	return UI::EVENT_DONE;
 }
 
 void LogConfigScreen::CreateViews() {

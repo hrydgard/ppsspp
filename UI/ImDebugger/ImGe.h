@@ -50,6 +50,8 @@ public:
 	void Snapshot();
 };
 
+void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+
 namespace Draw {
 class Texture;
 enum class Aspect;

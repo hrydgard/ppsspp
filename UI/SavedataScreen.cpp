@@ -65,6 +65,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 		if (showIcon) {
 			toprow->Add(new GameIconView(savePath, 2.0f, new LinearLayoutParams(Margins(5, 5))));
 		}
+		// Contents to the right of the image:
 		LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 		topright->SetSpacing(1.0f);
 		savedataTitle_ = topright->Add(new TextView(savedataTitle, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
@@ -74,6 +75,8 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 		mTime_ = topright->Add(new TextView(mtime, 0, true));
 		mTime_->SetTextColor(textStyle.fgColor);
 		toprow->Add(topright);
+
+		// Content below the image.
 		Add(new Spacer(3.0));
 		detail_ = Add(new TextView(SanitizeString(savedataDetail, StringRestriction::ConvertToUnixEndings), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
 		detail_->SetTextColor(textStyle.fgColor);
