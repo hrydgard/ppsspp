@@ -17,6 +17,13 @@ protected:
 	void CreateViews() override;
 
 private:
+	void CreateTextureReplacementTab(UI::LinearLayout *parent);
+	void CreateGeneralTab(UI::LinearLayout *parent);
+	void CreateDumpFileTab(UI::LinearLayout *parent);
+	void CreateHLETab(UI::LinearLayout *parent);
+	void CreateMIPSTracerTab(UI::LinearLayout *list);
+	void CreateRenderingTab(UI::LinearLayout *list);
+
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnOpenTexturesIniFile(UI::EventParams &e);

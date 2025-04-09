@@ -490,7 +490,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				// Hm, this is similar to the L.A. Rush case above. This will not be accurate.
-				// Wonder in which games we encounter this?
+				// Wonder in which games we encounter this? One example is MotorStorm.
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
