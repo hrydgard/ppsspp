@@ -221,6 +221,7 @@ enum SystemProperty {
 	SYSPROP_BATTERY_PERCENTAGE,
 
 	SYSPROP_ENOUGH_RAM_FOR_FULL_ISO,
+	SYSPROP_HAS_TRASH_BIN,
 };
 
 enum class SystemNotification {

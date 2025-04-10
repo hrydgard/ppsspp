@@ -44,7 +44,6 @@ public:
 
 protected:
 	void CreateViews() override;
-	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
 
