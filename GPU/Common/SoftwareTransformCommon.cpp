@@ -210,6 +210,30 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			// The w of uv is also never used (hardcoded to 1.0.)
 		}
 	} else {
+		// Check for invalid states. Moved this out of the per-vertex path.
+		// Should probably just delete this.
+		switch (gstate.getUVGenMode()) {
+		case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
+		case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
+		case GE_TEXMAP_ENVIRONMENT_MAP:
+			break;
+		case GE_TEXMAP_TEXTURE_MATRIX:
+			if (!reader.hasNormal()) {
+				switch (gstate.getUVProjMode()) {
+				case GE_PROJMAP_POSITION: // Use model space XYZ as source
+				case GE_PROJMAP_UV: // Use unscaled UV as source
+					break;
+				case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
+					ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
+					break;
+				case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
+					ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
+					break;
+				}
+			}
+			break;
+		}
+
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < numDecodedVerts; index++) {
@@ -303,16 +327,10 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 						source = normal.Normalized(cpu_info.bSSE4_1);
-						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
-						}
 						break;
 
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 						source = normal;
-						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
-						}
 						break;
 					}
 
@@ -337,6 +355,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 						Vec3f pos = getLPos(l);
 						return pos.NormalizedOr001(cpu_info.bSSE4_1);
 					};
+
 					// Might not have lighting enabled, so don't use lighter.
 					Vec3f lightpos0 = calcShadingLPos(gstate.getUVLS0());
 					Vec3f lightpos1 = calcShadingLPos(gstate.getUVLS1());
@@ -346,10 +365,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 					uv[2] = 1.0f;
 				}
 				break;
-
 			default:
-				// Illegal
-				ERROR_LOG_REPORT(Log::G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
 
