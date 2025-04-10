@@ -56,21 +56,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	indexGen.Setup(decIndex_);
 
-	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
-	case DepthRasterMode::DEFAULT:
-	case DepthRasterMode::LOW_QUALITY:
-		useDepthRaster_ = PSP_CoreParameter().compat.flags().SoftwareRasterDepth;
-		break;
-	case DepthRasterMode::FORCE_ON:
-		useDepthRaster_ = true;
-		break;
-	case DepthRasterMode::OFF:
-		useDepthRaster_ = false;
-	}
-
-	if (useDepthRaster_) {
-		depthDraws_.reserve(256);
-	}
+	InitDepthRaster();
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
@@ -78,11 +64,7 @@ DrawEngineCommon::~DrawEngineCommon() {
 	FreeMemoryPages(decIndex_, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed_, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded_, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	if (depthTransformed_) {
-		FreeMemoryPages(depthTransformed_, DEPTH_TRANSFORMED_SIZE);
-		FreeMemoryPages(depthScreenVerts_, DEPTH_SCREENVERTS_SIZE);
-		FreeMemoryPages(depthIndices_, DEPTH_INDEXBUFFER_SIZE);
-	}
+	ShutdownDepthRaster();
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
@@ -795,11 +777,6 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 void DrawEngineCommon::BeginFrame() {
 	applySkinInDecode_ = g_Config.bSoftwareSkinning;
-	if (!depthTransformed_ && useDepthRaster_) {
-		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-		depthScreenVerts_ = (int *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-		depthIndices_ = (uint16_t *)AllocateMemoryPages(DEPTH_INDEXBUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	}
 }
 
 void DrawEngineCommon::DecodeVerts(VertexDecoder *dec, u8 *dest) {
@@ -922,6 +899,39 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 		return true;
 	} else {
 		return false;
+	}
+}
+
+void DrawEngineCommon::InitDepthRaster() {
+	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
+	case DepthRasterMode::DEFAULT:
+	case DepthRasterMode::LOW_QUALITY:
+		useDepthRaster_ = PSP_CoreParameter().compat.flags().SoftwareRasterDepth;
+		break;
+	case DepthRasterMode::FORCE_ON:
+		useDepthRaster_ = true;
+		break;
+	case DepthRasterMode::OFF:
+		useDepthRaster_ = false;
+	}
+
+	if (useDepthRaster_) {
+		depthDraws_.reserve(256);
+		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		depthScreenVerts_ = (int *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		depthIndices_ = (uint16_t *)AllocateMemoryPages(DEPTH_INDEXBUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
+}
+
+void DrawEngineCommon::ShutdownDepthRaster() {
+	if (depthTransformed_) {
+		FreeMemoryPages(depthTransformed_, DEPTH_TRANSFORMED_SIZE);
+	}
+	if (depthScreenVerts_) {
+		FreeMemoryPages(depthScreenVerts_, DEPTH_SCREENVERTS_SIZE);
+	}
+	if (depthIndices_) {
+		FreeMemoryPages(depthIndices_, DEPTH_INDEXBUFFER_SIZE);
 	}
 }
 

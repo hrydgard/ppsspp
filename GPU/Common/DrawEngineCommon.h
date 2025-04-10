@@ -177,6 +177,8 @@ protected:
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
+	void InitDepthRaster();
+	void ShutdownDepthRaster();
 	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
 	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
 	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
