@@ -290,6 +290,11 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		useBlit = false;
 	}
 
+	// Blitting to (or from) multisampled images is not allowed.
+	if (dstBuffer->fbo && dstBuffer->fbo->MultiSampleLevel() != 0) {
+		useBlit = false;
+	}
+
 	u16 w = useBlit ? dstBuffer->width : dstBuffer->renderWidth;
 	u16 h = useBlit ? dstBuffer->height : dstBuffer->renderHeight;
 
