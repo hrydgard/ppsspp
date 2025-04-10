@@ -1688,7 +1688,7 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 	Path fullIniFilePath = Path(getGameConfigFile(pGameId, &exists));
 
 	if (exists) {
-		File::Delete(fullIniFilePath);
+		File::MoveFileToTrashOrDelete(fullIniFilePath);
 	}
 	return true;
 }

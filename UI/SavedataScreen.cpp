@@ -172,8 +172,11 @@ public:
 		buttonRow->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
+
+			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+
 			std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
-			screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Delete"), di->T("Cancel"), [=](bool result) {
+			screenManager()->push(new PromptScreen(gamePath_, confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
 				if (result) {
 					ginfo->Delete();
 					TriggerFinish(DR_NO);

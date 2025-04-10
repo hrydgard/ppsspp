@@ -321,25 +321,22 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::CallbackDeleteConfig(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-			return;
-		}
-		g_Config.deleteGameConfig(info->id);
-		info->hasConfig = false;
-		screenManager()->RecreateAllViews();
-	}
-}
-
-UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
-{
+UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), di->T("Delete"), di->T("Cancel"),
-		std::bind(&GameScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
-
+		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+			[this](bool result) {
+		if (result) {
+			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+			if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+				return;
+			}
+			g_Config.deleteGameConfig(info->id);
+			info->hasConfig = false;
+			screenManager()->RecreateAllViews();
+		}
+	}));
 	return UI::EVENT_DONE;
 }
 
@@ -537,9 +534,10 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	if (info) {
 		// Check that there's any savedata to delete
 		if (info->saveDataSize) {
+			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			screenManager()->push(
-				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), di->T("Delete"), di->T("Cancel"),
+				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
 		}
 	}
@@ -563,8 +561,9 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 		std::string prompt;
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
+		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 		screenManager()->push(
-			new PromptScreen(gamePath_, prompt, di->T("Delete"), di->T("Cancel"),
+			new PromptScreen(gamePath_, prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
 	}
 	return UI::EVENT_DONE;

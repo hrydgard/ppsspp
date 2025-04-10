@@ -94,7 +94,7 @@ bool GameInfo::Delete() {
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			Path fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
-			File::Delete(fileToRemove);
+			File::MoveFileToTrashOrDelete(fileToRemove);
 			g_recentFiles.Remove(filePath_.ToString());
 			return true;
 		}
@@ -108,14 +108,14 @@ bool GameInfo::Delete() {
 			// This can happen if the PBP is misplaced, see issue #20187
 			if (!IsReasonableEbootDirectory(directoryToRemove)) {
 				// Just delete the eboot.
-				File::Delete(filePath_);
+				File::MoveFileToTrashOrDelete(filePath_);
 				g_recentFiles.Remove(filePath_.ToString());
 				return true;
 			}
 
 			// Delete the whole tree. We better be sure, see IsReasonableEbootDirectory.
 			INFO_LOG(Log::System, "Deleting directory %s", directoryToRemove.c_str());
-			if (!File::DeleteDirRecursively(directoryToRemove)) {
+			if (!File::MoveDirectoryTreeToTrashOrDelete(directoryToRemove)) {
 				ERROR_LOG(Log::System, "Failed to delete file");
 				return false;
 			}
@@ -133,7 +133,7 @@ bool GameInfo::Delete() {
 		{
 			const Path &fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
-			File::Delete(fileToRemove);
+			File::MoveFileToTrashOrDelete(fileToRemove);
 			g_recentFiles.Remove(filePath_.ToString());
 			return true;
 		}
@@ -142,10 +142,10 @@ bool GameInfo::Delete() {
 		{
 			const Path &ppstPath = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", ppstPath.c_str());
-			File::Delete(ppstPath);
+			File::MoveFileToTrashOrDelete(ppstPath);
 			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
-				File::Delete(screenshotPath);
+				File::MoveFileToTrashOrDelete(screenshotPath);
 			}
 			return true;
 		}
@@ -331,7 +331,9 @@ bool GameInfo::DeleteAllSaveData() {
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		INFO_LOG(Log::System, "Deleting savedata from %s", saveDataDir[j].c_str());
-		File::DeleteDirRecursively(saveDataDir[j]);
+		if (!File::MoveDirectoryTreeToTrashOrDelete(saveDataDir[j])) {
+			ERROR_LOG(Log::System, "Failed to delete savedata %s", saveDataDir[j].c_str());
+		}
 	}
 	return true;
 }

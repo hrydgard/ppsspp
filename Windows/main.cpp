@@ -379,6 +379,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 	case SYSPROP_CAN_CREATE_SHORTCUT:
 	case SYSPROP_CAN_SHOW_FILE:
+	case SYSPROP_HAS_TRASH_BIN:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
