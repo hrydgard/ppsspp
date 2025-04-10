@@ -337,6 +337,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowGPOLEDs", &g_Config.bShowGPOLEDs, false, CfgFlag::PER_GAME),
 
 	ConfigSetting("UIScaleFactor", &g_Config.iUIScaleFactor, false, CfgFlag::DEFAULT),
+
+	ConfigSetting("VulkanDisableImplicitLayers", &g_Config.bVulkanDisableImplicitLayers, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultSasThread() {

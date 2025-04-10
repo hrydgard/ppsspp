@@ -580,6 +580,12 @@
     <ClInclude Include="..\UI\DarwinFileSystemServices.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
+    <ClInclude Include="..\ios\ViewControllerCommon.h">
+      <Filter>Other Platforms\iOS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ios\ViewControllerMetal.h">
+      <Filter>Other Platforms\iOS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -592,12 +598,6 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\README.md" />
-    <None Include="aboutbox.rc">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="version.rc">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="..\assets\knownfuncs.ini">
       <Filter>Resource Files</Filter>
     </None>
@@ -816,6 +816,9 @@
       <Filter>Other Platforms\Mac</Filter>
     </None>
     <None Include="..\UI\DarwinFileSystemServices.mm">
+      <Filter>Other Platforms\iOS</Filter>
+    </None>
+    <None Include="..\ios\ViewControllerMetal.mm">
       <Filter>Other Platforms\iOS</Filter>
     </None>
   </ItemGroup>

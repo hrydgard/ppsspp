@@ -100,6 +100,19 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	if (info.flags & VulkanInitFlags::DISABLE_IMPLICIT_LAYERS) {
+		// https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderDebugging.md
+#if PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)
+		// Windows uses _putenv_s
+		_putenv_s("VK_LOADER_LAYERS_DISABLE", "~implicit~");
+#endif
+#else
+		// POSIX: use setenv
+		setenv("VK_LOADER_LAYERS_DISABLE", "~implicit~", 1);  // overwrite = 1
+#endif
+	}
+
 	// Check which Vulkan version we should request.
 	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
 	vulkanInstanceApiVersion_ = VK_API_VERSION_1_0;
@@ -158,7 +171,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 #endif
 
-	if ((flags_ & VULKAN_FLAG_VALIDATE) && g_Config.sCustomDriver.empty()) {
+	if ((flags_ & VulkanInitFlags::VALIDATE) && g_Config.sCustomDriver.empty()) {
 		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
@@ -170,7 +183,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			INFO_LOG(Log::G3D, "Vulkan debug_utils validation enabled.");
 		} else {
 			ERROR_LOG(Log::G3D, "Validation layer extension not available - not enabling Vulkan validation.");
-			flags_ &= ~VULKAN_FLAG_VALIDATE;
+			flags_ &= ~VulkanInitFlags::VALIDATE;
 		}
 	}
 
@@ -509,15 +522,15 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 	return true;
 }
 
-int VulkanContext::GetPhysicalDeviceByName(const std::string &name) {
+int VulkanContext::GetPhysicalDeviceByName(std::string_view name) const {
 	for (size_t i = 0; i < physical_devices_.size(); i++) {
-		if (physicalDeviceProperties_[i].properties.deviceName == name)
+		if (equals(physicalDeviceProperties_[i].properties.deviceName, name))
 			return (int)i;
 	}
 	return -1;
 }
 
-int VulkanContext::GetBestPhysicalDevice() {
+int VulkanContext::GetBestPhysicalDevice() const {
 	// Rules: Prefer discrete over embedded.
 	// Prefer nVidia over Intel.
 
@@ -1375,10 +1388,10 @@ bool VulkanContext::InitSwapchain() {
 	INFO_LOG(Log::G3D, "Supported present modes: %s", modes.c_str());
 	for (size_t i = 0; i < presentModeCount; i++) {
 		bool match = false;
-		match = match || ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
-		match = match || ((flags_ & VULKAN_FLAG_PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR);
-		match = match || ((flags_ & VULKAN_FLAG_PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
-		match = match || ((flags_ & VULKAN_FLAG_PRESENT_FIFO) && presentModes[i] == VK_PRESENT_MODE_FIFO_KHR);
+		match = match || ((flags_ & VulkanInitFlags::PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
+		match = match || ((flags_ & VulkanInitFlags::PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR);
+		match = match || ((flags_ & VulkanInitFlags::PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
+		match = match || ((flags_ & VulkanInitFlags::PRESENT_FIFO) && presentModes[i] == VK_PRESENT_MODE_FIFO_KHR);
 
 		// Default to the first present mode from the list.
 		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {

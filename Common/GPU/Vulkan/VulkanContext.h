@@ -1,11 +1,14 @@
 #pragma once
 
+#include <cstdint>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 #include <functional>
 
+#include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
@@ -20,13 +23,15 @@
 #define VK_PROFILE_BEGIN(vulkan, cmd, stage, ...) vulkan->GetProfiler()->Begin(cmd, stage, __VA_ARGS__);
 #define VK_PROFILE_END(vulkan, cmd, stage) vulkan->GetProfiler()->End(cmd, stage);
 
-enum {
-	VULKAN_FLAG_VALIDATE = 1,
-	VULKAN_FLAG_PRESENT_MAILBOX = 2,
-	VULKAN_FLAG_PRESENT_IMMEDIATE = 4,
-	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
-	VULKAN_FLAG_PRESENT_FIFO = 16,
+enum class VulkanInitFlags : uint32_t {
+	VALIDATE = (1 << 0),
+	PRESENT_MAILBOX = (1 << 1),
+	PRESENT_IMMEDIATE = (1 << 2),
+	PRESENT_FIFO_RELAXED = (1 << 3),
+	PRESENT_FIFO = (1 << 4),
+	DISABLE_IMPLICIT_LAYERS = (1 << 5),
 };
+ENUM_CLASS_BITOPS(VulkanInitFlags);
 
 enum {
 	VULKAN_VENDOR_NVIDIA = 0x000010de,
@@ -178,14 +183,14 @@ public:
 	struct CreateInfo {
 		const char *app_name;
 		int app_ver;
-		uint32_t flags;
+		VulkanInitFlags flags;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
 	void DestroyInstance();
 
-	int GetBestPhysicalDevice();
-	int GetPhysicalDeviceByName(const std::string &name);
+	int GetBestPhysicalDevice() const;
+	int GetPhysicalDeviceByName(std::string_view name) const;
 
 	// Convenience method to avoid code duplication.
 	// If it returns false, delete the context.
@@ -202,8 +207,8 @@ public:
 
 	VkDevice GetDevice() const { return device_; }
 	VkInstance GetInstance() const { return instance_; }
-	uint32_t GetFlags() const { return flags_; }
-	void UpdateFlags(uint32_t flags) { flags_ = flags; }
+	VulkanInitFlags GetInitFlags() const { return flags_; }
+	void UpdateInitFlags(VulkanInitFlags flags) { flags_ = flags; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
@@ -483,7 +488,7 @@ private:
 	// Swap chain extent
 	VkExtent2D swapChainExtent_{};
 
-	int flags_ = 0;
+	VulkanInitFlags flags_{};
 	PerfClass devicePerfClass_ = PerfClass::SLOW;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;

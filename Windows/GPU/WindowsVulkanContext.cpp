@@ -67,11 +67,13 @@ static const bool g_validate_ = true;
 static const bool g_validate_ = false;
 #endif
 
-static uint32_t FlagsFromConfig() {
-	uint32_t flags = 0;
-	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
+static VulkanInitFlags FlagsFromConfig() {
+	VulkanInitFlags flags = g_Config.bVSync ? VulkanInitFlags::PRESENT_FIFO : VulkanInitFlags::PRESENT_MAILBOX;
 	if (g_validate_) {
-		flags |= VULKAN_FLAG_VALIDATE;
+		flags |= VulkanInitFlags::VALIDATE;
+	}
+	if (g_Config.bVulkanDisableImplicitLayers) {
+		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
 	}
 	return flags;
 }
@@ -175,7 +177,7 @@ void WindowsVulkanContext::Shutdown() {
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	vulkan_->DestroySwapchain();
-	vulkan_->UpdateFlags(FlagsFromConfig());
+	vulkan_->UpdateInitFlags(FlagsFromConfig());
 	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }

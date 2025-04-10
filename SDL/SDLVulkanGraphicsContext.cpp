@@ -28,15 +28,18 @@ static const bool g_Validate = false;
 #endif
 
 // TODO: Share this between backends.
-static uint32_t FlagsFromConfig() {
-	uint32_t flags;
+static VulkanInitFlags FlagsFromConfig() {
+	VulkanInitFlags flags;
 	if (g_Config.bVSync) {
-		flags = VULKAN_FLAG_PRESENT_FIFO;
+		flags = VulkanInitFlags::PRESENT_FIFO;
 	} else {
-		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_IMMEDIATE;
+		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
 	}
 	if (g_Validate) {
-		flags |= VULKAN_FLAG_VALIDATE;
+		flags |= VulkanInitFlags::VALIDATE;
+	}
+	if (g_Config.bVulkanDisableImplicitLayers) {
+		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
 	}
 	return flags;
 }
@@ -64,12 +67,11 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 	}
 
 	vulkan_ = new VulkanContext();
-	int vulkanFlags = FlagsFromConfig();
 
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
-	info.flags = vulkanFlags;
+	info.flags = FlagsFromConfig();
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
@@ -183,7 +185,7 @@ void SDLVulkanGraphicsContext::Shutdown() {
 void SDLVulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	vulkan_->DestroySwapchain();
-	vulkan_->UpdateFlags(FlagsFromConfig());
+	vulkan_->UpdateInitFlags(FlagsFromConfig());
 	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }

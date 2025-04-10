@@ -21,15 +21,18 @@ static const bool g_Validate = false;
 #endif
 
 // TODO: Share this between backends.
-static uint32_t FlagsFromConfig() {
-	uint32_t flags;
+static VulkanInitFlags FlagsFromConfig() {
+	VulkanInitFlags flags;
 	if (g_Config.bVSync) {
-		flags = VULKAN_FLAG_PRESENT_FIFO;
+		flags = VulkanInitFlags::PRESENT_FIFO;
 	} else {
-		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_IMMEDIATE;
+		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
 	}
 	if (g_Validate) {
-		flags |= VULKAN_FLAG_VALIDATE;
+		flags |= VulkanInitFlags::VALIDATE;
+	}
+	if (g_Config.bVulkanDisableImplicitLayers) {
+		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
 	}
 	return flags;
 }
@@ -148,7 +151,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->DestroySurface();
 
-	g_Vulkan->UpdateFlags(FlagsFromConfig());
+	g_Vulkan->UpdateInitFlags(FlagsFromConfig());
 
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();

@@ -79,7 +79,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	// The graphics debugger always "needs" TRANSFER_SRC but in practice doesn't matter - 
 	// unless validation is on. So let's only force it on when being validated, for now.
-	if (vulkan_->GetFlags() & VULKAN_FLAG_VALIDATE) {
+	if (vulkan_->GetInitFlags() & VulkanInitFlags::VALIDATE) {
 		image_create_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 	VmaAllocationCreateInfo allocCreateInfo{};
