@@ -624,7 +624,6 @@ BEGIN
 
         POPUP "Backend",                                    ID_OPTIONS_BACKEND_MENU
         BEGIN
-            MENUITEM "Direct3D9",                           ID_OPTIONS_DIRECT3D9
             MENUITEM "Direct3D11",                          ID_OPTIONS_DIRECT3D11
             MENUITEM "OpenGL",                              ID_OPTIONS_OPENGL
             MENUITEM "Vulkan",                              ID_OPTIONS_VULKAN
