@@ -36,6 +36,9 @@ static VulkanInitFlags FlagsFromConfig() {
 	} else {
 		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
 	}
+	if (g_Config.bVulkanDisableImplicitLayers) {
+		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
+	}
 	return flags;
 }
 
@@ -143,7 +146,7 @@ void IOSVulkanContext::Resize() {
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->DestroySurface();
 
-	g_Vulkan->UpdateFlags(FlagsFromConfig());
+	g_Vulkan->UpdateInitFlags(FlagsFromConfig());
 
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();

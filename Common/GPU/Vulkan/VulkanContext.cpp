@@ -100,6 +100,19 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	if (info.flags & VulkanInitFlags::DISABLE_IMPLICIT_LAYERS) {
+		// https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderDebugging.md
+#if PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)
+		// Windows uses _putenv_s
+		_putenv_s("VK_LOADER_LAYERS_DISABLE", "~implicit~");
+#endif
+#else
+		// POSIX: use setenv
+		setenv("VK_LOADER_LAYERS_DISABLE", "~implicit~", 1);  // overwrite = 1
+#endif
+	}
+
 	// Check which Vulkan version we should request.
 	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
 	vulkanInstanceApiVersion_ = VK_API_VERSION_1_0;

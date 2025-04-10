@@ -321,6 +321,9 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
+	list->Add(new ItemHeader(dev->T("Vulkan")));
+	list->Add(new CheckBox(&g_Config.bVulkanDisableImplicitLayers, dev->T("Prevent loading overlays")));
+
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
 	if (draw->GetShaderLanguageDesc().bitwiseOps && !draw->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
 		// If the above if fails, the checkbox is redundant since it'll be force disabled anyway.

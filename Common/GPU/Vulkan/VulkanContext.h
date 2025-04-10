@@ -29,6 +29,7 @@ enum class VulkanInitFlags : uint32_t {
 	PRESENT_IMMEDIATE = (1 << 2),
 	PRESENT_FIFO_RELAXED = (1 << 3),
 	PRESENT_FIFO = (1 << 4),
+	DISABLE_IMPLICIT_LAYERS = (1 << 5),
 };
 ENUM_CLASS_BITOPS(VulkanInitFlags);
 
