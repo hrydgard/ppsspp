@@ -29,12 +29,12 @@
 // https://www.progressconcepts.com/blog/ios-appdelegate-viewcontroller-method-order/
 
 // TODO: Share this between backends.
-static uint32_t FlagsFromConfig() {
-	uint32_t flags;
+static VulkanInitFlags FlagsFromConfig() {
+	VulkanInitFlags flags;
 	if (g_Config.bVSync) {
-		flags = VULKAN_FLAG_PRESENT_FIFO;
+		flags = VulkanInitFlags::PRESENT_FIFO;
 	} else {
-		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_IMMEDIATE;
+		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
 	}
 	return flags;
 }
