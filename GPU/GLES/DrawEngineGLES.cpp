@@ -316,7 +316,7 @@ void DrawEngineGLES::Flush() {
 				glprim[prim], 0, vertexCount);
 		}
 		if (useDepthRaster_) {
-			DepthRasterTransform(prim, dec_, dec_->VertexType(), vertexCount);
+			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");

@@ -293,7 +293,7 @@ void DrawEngineDX9::Flush() {
 			}
 		}
 		if (useDepthRaster_) {
-			DepthRasterTransform(prim, dec_, dec_->VertexType(), vertexCount);
+			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
 		}
 	} else {
 		VertexDecoder *swDec = dec_;
