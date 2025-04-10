@@ -20,6 +20,7 @@ private:
 	void CreateDumpFileTab(UI::LinearLayout *parent);
 	void CreateHLETab(UI::LinearLayout *parent);
 	void CreateMIPSTracerTab(UI::LinearLayout *list);
+	void CreateTestsTab(UI::LinearLayout *list);
 	void CreateGraphicsTab(UI::LinearLayout *list);
 
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
