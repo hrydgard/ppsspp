@@ -100,7 +100,6 @@
       <Filter>glslang</Filter>
     </ClCompile>
     <ClCompile Include="glslang\glslang\OSDependent\Windows\ossource.cpp" />
-    <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
