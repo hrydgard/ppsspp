@@ -1525,6 +1525,10 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 	int layerCount = std::min(step.blit.src->numLayers, step.blit.dst->numLayers);
 	_dbg_assert_(step.blit.src->numLayers >= step.blit.dst->numLayers);
 
+	// Blitting is not allowed for multisample images. You're suppose to use vkCmdResolveImage but it only goes in one direction (multi to single).
+	_dbg_assert_(step.blit.src->sampleCount == VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT);
+	_dbg_assert_(step.blit.dst->sampleCount == VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT);
+
 	VKRFramebuffer *src = step.blit.src;
 	VKRFramebuffer *dst = step.blit.dst;
 
