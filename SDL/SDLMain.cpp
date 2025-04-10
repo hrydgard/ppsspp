@@ -6,9 +6,11 @@
 #if PPSSPP_PLATFORM(MAC)
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_syswm.h"
+#include "SDL2/SDL_mouse.h"
 #else
 #include "SDL.h"
 #include "SDL_syswm.h"
+#include "SDL_mouse.h"
 #endif
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
@@ -26,6 +28,8 @@ SDLJoystick *joystick = NULL;
 
 #include "ext/portable-file-dialogs/portable-file-dialogs.h"
 
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_platform.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -256,6 +260,10 @@ static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType 
 	case BrowseFileType::ATRAC3:
 		filters.push_back("Atrac3 files (at3)");
 		filters.push_back("*.at3");
+		break;
+	case BrowseFileType::IMAGE:
+		filters.push_back("Pictures (jpg, png)");
+		filters.push_back("*.jpg *.png");
 		break;
 	case BrowseFileType::ANY:
 		break;
@@ -836,6 +844,36 @@ struct InputStateTracker {
 	bool mouseCaptured;
 };
 
+SDL_Cursor *g_builtinCursors[SDL_NUM_SYSTEM_CURSORS];
+
+static SDL_SystemCursor GetSDLCursorFromImgui(ImGuiMouseCursor cursor) {
+	switch (cursor) {
+	case ImGuiMouseCursor_Arrow:        return SDL_SYSTEM_CURSOR_ARROW; break;
+	case ImGuiMouseCursor_TextInput:    return SDL_SYSTEM_CURSOR_IBEAM; break;
+	case ImGuiMouseCursor_ResizeAll:    return SDL_SYSTEM_CURSOR_SIZEALL; break;
+	case ImGuiMouseCursor_ResizeEW:     return SDL_SYSTEM_CURSOR_SIZEWE; break;
+	case ImGuiMouseCursor_ResizeNS:     return SDL_SYSTEM_CURSOR_SIZENS; break;
+	case ImGuiMouseCursor_ResizeNESW:   return SDL_SYSTEM_CURSOR_SIZENESW; break;
+	case ImGuiMouseCursor_ResizeNWSE:   return SDL_SYSTEM_CURSOR_SIZENWSE; break;
+	case ImGuiMouseCursor_Hand:         return SDL_SYSTEM_CURSOR_HAND; break;
+	case ImGuiMouseCursor_NotAllowed:   return SDL_SYSTEM_CURSOR_NO; break;
+	default:							return SDL_SYSTEM_CURSOR_ARROW; break;
+	}
+}
+
+void UpdateCursor() {
+	static SDL_SystemCursor curCursor = SDL_SYSTEM_CURSOR_ARROW;
+	auto cursor = ImGui_ImplPlatform_GetCursor();
+	SDL_SystemCursor sysCursor = GetSDLCursorFromImgui(cursor);
+	if (sysCursor != curCursor) {
+		curCursor = sysCursor;
+		if (!g_builtinCursors[(int)curCursor]) {
+			g_builtinCursors[(int)curCursor] = SDL_CreateSystemCursor(curCursor);
+		}
+	}
+	SDL_SetCursor(g_builtinCursors[(int)curCursor]);
+}
+
 static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputStateTracker *inputTracker) {
 	// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
 	// provided (through --dpi, it is equal to system DPI if unspecified):
@@ -1131,6 +1169,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = 0;
 			NativeTouch(input);
 			NativeMouseDelta(event.motion.xrel, event.motion.yrel);
+
+			UpdateCursor();
 			break;
 		}
 	case SDL_MOUSEBUTTONUP:
