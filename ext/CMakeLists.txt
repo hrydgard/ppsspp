@@ -26,7 +26,16 @@ add_subdirectory(cmake/cpu_features EXCLUDE_FROM_ALL)
 
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
 set(ENABLE_GLSLANG_INSTALL OFF)
+
+# When compiling for the Switch (libnx), fake UNIX for glslang to compile Unix's OSDependent
+if (USE_LIBNX)
+	set(UNIX ON CACHE BOOL "" FORCE)
+endif()
 add_subdirectory(glslang EXCLUDE_FROM_ALL)
+if (USE_LIBNX)
+	unset(UNIX CACHE)
+endif()
+
 add_subdirectory(snappy)
 add_subdirectory(lua-build)
 add_subdirectory(minimp3)

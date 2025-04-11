@@ -15,20 +15,19 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include <cstring>
-
 #include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(SWITCH)
+#define _GNU_SOURCE
+#endif
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #endif
 
-#if PPSSPP_PLATFORM(SWITCH)
-#define _GNU_SOURCE
 #include <cstdio>
-#endif
-
 #include <cstdarg>
+#include <cstring>
 
 #include <string>
 #include <sstream>

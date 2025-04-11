@@ -57,7 +57,9 @@ void RegisterAttachDetach(AttachDetachFunc attach, AttachDetachFunc detach) {
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
+#if !PPSSPP_PLATFORM(SWITCH)
 #include <sys/syscall.h>
+#endif
 #endif
 
 #if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
