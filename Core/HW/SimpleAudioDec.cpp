@@ -70,7 +70,17 @@ public:
 		_dbg_assert_(outputChannels == 2);
 
 		mp3dec_frame_info_t info{};
-		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)outbuf, &info);
+		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)temp_, &info);
+		_dbg_assert_(samplesWritten <= MINIMP3_MAX_SAMPLES_PER_FRAME);
+		_dbg_assert_(info.channels <= 2);
+		if (info.channels == 1) {
+			for (int i = 0; i < samplesWritten; i++) {
+				outbuf[i * 2] = temp_[i];
+				outbuf[i * 2 + 1] = temp_[i];
+			}
+		} else {
+			memcpy(outbuf, temp_, 4 * samplesWritten);
+		}
 		*inbytesConsumed = info.frame_bytes;
 		*outSamples = samplesWritten;
 		return true;
@@ -86,6 +96,7 @@ public:
 private:
 	// We use the lowest-level API.
 	mp3dec_t mp3_{};
+	int16_t temp_[MINIMP3_MAX_SAMPLES_PER_FRAME]{};
 };
 
 // FFMPEG-based decoder. TODO: Replace with individual codecs.
