@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <vector>
 #include <string>
 #include <cstring>
@@ -24,6 +25,7 @@
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/File/FileUtil.h"
@@ -312,10 +314,20 @@ static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, 
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(Log::G3D,"Missing (global): %s", #x);}
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
-static const char * const device_name_blacklist[] = {
+static const char * const g_deviceNameBlacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
 	"SDL:Horizon",
 	"motorola:moto g54 5G",  // See issue #18681 / #17825
+};
+
+static constexpr std::string_view g_gpuNameBlacklist[] = {
+	"DuMmY",  // avoid an empty array
+#if PPSSPP_PLATFORM(MAC)
+	"Intel(R) Iris(TM) Graphics 6000",
+	"Intel(R) Iris(TM) Graphics 6100",
+	"Intel(R) Iris(TM) Pro Graphics 6200",
+	"Intel Iris Pro Graphics",
+#endif
 };
 
 #ifndef _WIN32
@@ -431,15 +443,17 @@ bool VulkanMayBeAvailable() {
 		return g_vulkanMayBeAvailable;
 	}
 
-	std::string name = System_GetProperty(SYSPROP_NAME);
-	for (const char *blacklisted_name : device_name_blacklist) {
-		if (!strcmp(name.c_str(), blacklisted_name)) {
+	// Note: Here it's device name as in the entire physical device, not GPU device.
+	const std::string name = System_GetProperty(SYSPROP_NAME);
+	for (std::string_view blacklisted_name : g_deviceNameBlacklist) {
+		if (equals(name, blacklisted_name)) {
 			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device blacklisted ('%s')", name.c_str());
 			g_vulkanAvailabilityChecked = true;
 			g_vulkanMayBeAvailable = false;
 			return false;
 		}
 	}
+
 	INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
 
 	std::string errorStr;
@@ -577,9 +591,22 @@ bool VulkanMayBeAvailable() {
 		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-			anyGood = true;
-			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
+		{
+			// Check with the device blacklist.
+			bool blacklisted = false;
+			for (size_t i = 0; i < ARRAY_SIZE(g_gpuNameBlacklist); i++) {
+				if (equals(props.deviceName, g_gpuNameBlacklist[i])) {
+					blacklisted = true;
+				}
+			}
+			anyGood = !blacklisted;
+			if (anyGood) {
+				INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
+			} else {
+				INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Blacklisted device found and ignored: '%s'", props.deviceName);
+			}
 			break;
+		}
 		default:
 			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
 			break;
