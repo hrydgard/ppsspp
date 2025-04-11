@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cstddef>
 
 
 #include "ext/imgui/imgui_internal.h"
