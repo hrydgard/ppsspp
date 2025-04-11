@@ -875,7 +875,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		}
 	}
 
-	INFO_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
+	DEBUG_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
 
 	// Copy parameters into state struct.
 	info.codec = track.codecType;
@@ -931,7 +931,7 @@ void Atrac2::WrapLastPacket() {
 			const int copyStart = info.streamOff + distanceToEnd;
 			const int copyLen = info.bufferByte - copyStart;
 			// Then, let's copy it.
-			INFO_LOG(Log::ME, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
+			DEBUG_LOG(Log::ME, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
 				copyLen, info.sampleSize - copyLen, info.sampleSize);
 			Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
 		}
