@@ -274,7 +274,12 @@ int sceKernelSignalSema(SceUID id, int signal) {
 	u32 error;
 	PSPSemaphore *s = kernelObjects.Get<PSPSemaphore>(id, error);
 	if (!s) {
-		return hleLogError(Log::sceKernel, error, "bad sema id");
+		if (id == 0 && error == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {
+			// See #20111. Prevents logspam.
+			return hleLogDebug(Log::sceKernel, error, "bad sema id");
+		} else {
+			return hleLogError(Log::sceKernel, error, "bad sema id");
+		}
 	} else {
 		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount) {
 			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_SEMA_OVF, "overflow at %d", s->ns.currentCount);
@@ -374,11 +379,23 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 
 int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr) {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
+
+	if (id == 0 && result == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {
+		// See #20111. Prevents logspam.
+		return hleLogDebug(Log::sceKernel, result, "bad sema id");
+	}
+
 	return hleLogDebugOrError(Log::sceKernel, result);
 }
 
 int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr) {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
+
+	if (id == 0 && result == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {
+		// See #20111. Prevents logspam.
+		return hleLogDebug(Log::sceKernel, result, "bad sema id");
+	}
+
 	return hleLogDebugOrError(Log::sceKernel, result);
 }
 
