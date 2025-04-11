@@ -970,7 +970,7 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 			return hleDelayResult(hleLogError(Log::sceIo, -1, "bad address"), "io getstat", usec);
 		}
 	} else {
-		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "FILE NOT FOUND"), "io getstat", usec);
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "FILE NOT FOUND"), "io getstat", usec);
 	}
 }
 
