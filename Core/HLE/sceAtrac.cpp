@@ -473,7 +473,12 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 	int pos = 0;
 	int ret = atrac->GetNextDecodePosition(&pos);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		if (ret == SCE_ERROR_ATRAC_ALL_DATA_DECODED) {
+			// Benign.
+			return hleLogDebug(Log::ME, ret);
+		} else {
+			return hleLogError(Log::ME, ret);
+		}
 	}
 
 	Memory::WriteUnchecked_U32(pos, outposAddr);
@@ -597,7 +602,7 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 			return hleLogWarning(Log::ME, result, "did not exist");
 		}
 	}
-	return hleLogInfo(Log::ME, result);
+	return hleLogDebug(Log::ME, result);
 }
 
 // This is called when a game wants to seek (or "reset") to a specific position in the audio data.
@@ -760,7 +765,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	}
 
 	int ret = atrac->SetLoopNum(loopNum);
-	if (ret == SCE_ERROR_ATRAC_NO_LOOP_INFORMATION && loopNum == -1) {
+	if (ret == SCE_ERROR_ATRAC_NO_LOOP_INFORMATION && (loopNum == -1 || loopNum == 0)) {
 		// Not really an issue
 		return hleLogDebug(Log::ME, ret);
 	}
