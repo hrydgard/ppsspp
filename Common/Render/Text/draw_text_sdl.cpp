@@ -187,7 +187,12 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 }
 
 uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
-	TTF_Font *font = fontMap_.find(fontHash_)->second;
+	auto iter = fontMap_.find(fontHash_);
+	if (iter == fontMap_.end()) {
+		return 0;
+	}
+
+	TTF_Font *font = iter->second;
 	UTF8 utf8Decoded(text);
 
 	uint32_t missingGlyph = 0;
@@ -285,7 +290,7 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 		
 	if (missingGlyph) {
 		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackFont >= 0) {
+		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
 		}
 	}
@@ -319,14 +324,20 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		processedStr.push_back(' ');
 	}
 
-	TTF_Font *font = fontMap_.find(fontHash_)->second;
+	auto fontIter = fontMap_.find(fontHash_);
+	if (fontIter == fontMap_.end()) {
+		ERROR_LOG(Log::G3D, "Font hash not in map: %08x", fontHash_);
+		return false;
+	}
+
+	TTF_Font *font = fontIter->second;
 	int ptSize = TTF_FontHeight(font) / 1.35;
 
 	uint32_t missingGlyph = CheckMissingGlyph(processedStr);
 
 	if (missingGlyph) {
 		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackFont >= 0) {
+		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
 		}
 	}
