@@ -851,8 +851,9 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
-				// TODO: This clashes with the checkbox!
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns) && !bp.temporary) {
+				// DONE: This clashes with the checkbox!
+				// TODO: Test to make sure this works properly
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap) && !bp.temporary) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
 				}
@@ -889,7 +890,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i + 10000);
-				if (ImGui::Selectable("", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				if (ImGui::Selectable("##memcheck", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = -1;
 					cfg.selectedMemCheck = i;
 				}
@@ -935,8 +936,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
 				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
-				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start);
-				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end);
+				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
 				}
