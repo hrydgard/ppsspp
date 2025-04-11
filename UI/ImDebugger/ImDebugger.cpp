@@ -852,8 +852,9 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
-				// TODO: This clashes with the checkbox!
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns) && !bp.temporary) {
+				// DONE: This clashes with the checkbox!
+				// TODO: Test to make sure this works properly
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap) && !bp.temporary) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
 				}
@@ -890,7 +891,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i + 10000);
-				if (ImGui::Selectable("", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				if (ImGui::Selectable("##memcheck", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = -1;
 					cfg.selectedMemCheck = i;
 				}
