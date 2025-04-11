@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 
 
 #include "ext/imgui/imgui_internal.h"
@@ -935,8 +936,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
 				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
-				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start);
-				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end);
+				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
 				}
