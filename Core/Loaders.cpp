@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
@@ -350,6 +352,34 @@ inline char asciitolower(char in) {
 	if (in <= 'Z' && in >= 'A')
 		return in - ('Z' - 'z');
 	return in;
+}
+
+static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
+	struct zip_stat zstat;
+	zip_stat_index(z, fileIndex, 0, &zstat);
+	if (zstat.size == 0) {
+		data->clear();
+		return true;
+	}
+
+	size_t readSize = zstat.size;
+	data->resize(readSize);
+
+	zip_file *zf = zip_fopen_index(z, fileIndex, 0);
+	if (!zf) {
+		ERROR_LOG(Log::HLE, "Failed to zip_fopen_index file %d from zip", fileIndex);
+		return false;
+	}
+
+	zip_int64_t retval = zip_fread(zf, data->data(), readSize);
+	zip_fclose(zf);
+
+	if (retval < 0 || retval < (int)readSize) {
+		ERROR_LOG(Log::HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
+		return false;
+	} else {
+		return true;
+	}
 }
 
 void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {

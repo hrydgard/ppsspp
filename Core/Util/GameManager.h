@@ -122,8 +122,4 @@ extern GameManager g_GameManager;
 struct zip *ZipOpenPath(Path fileName);
 void ZipClose(zip *z);
 
-void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
-bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
-
-bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data);
 bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);
