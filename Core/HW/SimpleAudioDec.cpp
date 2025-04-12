@@ -139,10 +139,10 @@ AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int c
 	switch (audioType) {
 	case PSP_CODEC_MP3:
 		return new MiniMp3Audio();
-	case PSP_CODEC_AT3:
-		return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
-	case PSP_CODEC_AT3PLUS:
-		return CreateAtrac3PlusAudio(channels, blockAlign);
+	// case PSP_CODEC_AT3:
+	// 	return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
+	// case PSP_CODEC_AT3PLUS:
+	// 	return CreateAtrac3PlusAudio(channels, blockAlign);
 	default:
 		// Only AAC falls back to FFMPEG now.
 		return new FFmpegAudioDecoder(audioType, sampleRateHz, channels);

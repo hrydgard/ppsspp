@@ -991,10 +991,10 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				case 0:
 					ImGui::TextUnformatted("-");  // Uninitialized
 					break;
-				case PSP_MODE_AT_3_PLUS:
+				case PSP_CODEC_AT3PLUS:
 					ImGui::TextUnformatted("Atrac3+");
 					break;
-				case PSP_MODE_AT_3:
+				case PSP_CODEC_AT3:
 					ImGui::TextUnformatted("Atrac3");
 					break;
 				default:

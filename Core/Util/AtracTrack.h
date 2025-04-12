@@ -5,11 +5,7 @@
 #include <vector>
 #include <string>
 
-// Atrac file parsing.
-#define AT3_MAGIC           0x0270
-#define AT3_PLUS_MAGIC      0xFFFE
-#define PSP_MODE_AT_3_PLUS  0x00001000
-#define PSP_MODE_AT_3       0x00001001
+#include "Core/HLE/sceAudiocodec.h"
 
 constexpr u32 ATRAC3_MAX_SAMPLES = 0x400;  // 1024
 constexpr u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;   // 2048
@@ -72,7 +68,7 @@ struct Track {
 
 	inline int FirstOffsetExtra() const {
 		// These first samples are skipped, after first possibly skipping 0-2 full frames, it seems.
-		return codecType == PSP_MODE_AT_3_PLUS ? 0x170 : 0x45;
+		return codecType == PSP_CODEC_AT3PLUS ? 0x170 : 0x45;
 	}
 
 	// Includes the extra offset. See firstSampleOffset comment above.
@@ -82,12 +78,12 @@ struct Track {
 
 	// Output frame size, different between the two supported codecs.
 	int SamplesPerFrame() const {
-		return codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
+		return codecType == PSP_CODEC_AT3PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
 	}
 
 	int Bitrate() const {
 		int bitrate = (bytesPerFrame * 352800) / 1000;
-		if (codecType == PSP_MODE_AT_3_PLUS)
+		if (codecType == PSP_CODEC_AT3PLUS)
 			bitrate = ((bitrate >> 11) + 8) & 0xFFFFFFF0;
 		else
 			bitrate = (bitrate + 511) >> 10;

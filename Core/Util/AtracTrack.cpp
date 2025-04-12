@@ -4,6 +4,10 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
 
+// Atrac file parsing constants
+#define AT3_MAGIC           0x0270
+#define AT3_PLUS_MAGIC      0xFFFE  // This is normally a marker for WAVE_FORMAT_EXTENSIBLE
+
 const int RIFF_CHUNK_MAGIC = 0x46464952;
 const int RIFF_WAVE_MAGIC = 0x45564157;
 const int FMT_CHUNK_MAGIC = 0x20746D66;
@@ -110,9 +114,9 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			}
 
 			if (at3fmt->fmtTag == AT3_MAGIC)
-				track->codecType = PSP_MODE_AT_3;
+				track->codecType = PSP_CODEC_AT3;
 			else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
-				track->codecType = PSP_MODE_AT_3_PLUS;
+				track->codecType = PSP_CODEC_AT3PLUS;
 			else {
 				*error = "AnalyzeTrack: invalid fmt magic: %04x";
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
@@ -288,14 +292,14 @@ int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 fileSize, Track *track, std:
 
 	switch (buffer[32]) {
 	case 0:
-		track->codecType = PSP_MODE_AT_3;
+		track->codecType = PSP_CODEC_AT3;
 		track->bytesPerFrame = (codecParams & 0x03FF) * 8;
 		track->bitrate = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 1024;
 		track->channels = 2;
 		track->jointStereo = (codecParams >> 17) & 1;
 		break;
 	case 1:
-		track->codecType = PSP_MODE_AT_3_PLUS;
+		track->codecType = PSP_CODEC_AT3PLUS;
 		track->bytesPerFrame = ((codecParams & 0x03FF) * 8) + 8;
 		track->bitrate = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 2048;
 		track->channels = (codecParams >> 10) & 7;

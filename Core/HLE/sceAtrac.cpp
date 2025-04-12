@@ -122,10 +122,10 @@ void __AtracInit() {
 	memset(g_muteFlag, 0, sizeof(g_muteFlag));
 
 	// Start with 2 of each in this order.
-	atracContextTypes[0] = PSP_MODE_AT_3_PLUS;
-	atracContextTypes[1] = PSP_MODE_AT_3_PLUS;
-	atracContextTypes[2] = PSP_MODE_AT_3;
-	atracContextTypes[3] = PSP_MODE_AT_3;
+	atracContextTypes[0] = PSP_CODEC_AT3PLUS;
+	atracContextTypes[1] = PSP_CODEC_AT3PLUS;
+	atracContextTypes[2] = PSP_CODEC_AT3;
+	atracContextTypes[3] = PSP_CODEC_AT3;
 	atracContextTypes[4] = 0;
 	atracContextTypes[5] = 0;
 }
@@ -255,7 +255,7 @@ static int UnregisterAndDeleteAtrac(int atracID) {
 // Really, allocate an Atrac context of a specific codec type.
 // Useful to initialize a context for low level decode.
 static u32 sceAtracGetAtracID(int codecType) {
-	if (codecType != PSP_MODE_AT_3 && codecType != PSP_MODE_AT_3_PLUS) {
+	if (codecType != PSP_CODEC_AT3 && codecType != PSP_CODEC_AT3PLUS) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_INVALID_CODECTYPE, "invalid codecType");
 	}
 
@@ -808,13 +808,13 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < at3plusCount; ++i) {
 		space -= 2;
 		if (space >= 0) {
-			atracContextTypes[next++] = PSP_MODE_AT_3_PLUS;
+			atracContextTypes[next++] = PSP_CODEC_AT3PLUS;
 		}
 	}
 	for (int i = 0; i < at3Count; ++i) {
 		space -= 1;
 		if (space >= 0) {
-			atracContextTypes[next++] = PSP_MODE_AT_3;
+			atracContextTypes[next++] = PSP_CODEC_AT3;
 		}
 	}
 
@@ -1044,7 +1044,7 @@ static const At3HeaderMap at3HeaderMap[] = {
 };
 
 bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels) {
-	if (codecType != PSP_MODE_AT_3) {
+	if (codecType != PSP_CODEC_AT3) {
 		// Well, might actually be, but it's not used in codec setup.
 		return false;
 	}
@@ -1075,7 +1075,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 	atrac->InitLowLevel(*params, codecType);
 
-	const char *codecName = codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *codecName = codecType == PSP_CODEC_AT3 ? "atrac3" : "atrac3+";
 	const char *encodedChannelName = params->encodedChannels == 1 ? "mono" : "stereo";
 	const char *outputChannelName = params->outputChannels == 1 ? "mono" : "stereo";
 	return hleLogInfo(Log::ME, 0, "%s %s->%s audio", codecName, encodedChannelName, outputChannelName);

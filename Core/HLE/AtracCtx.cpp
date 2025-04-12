@@ -207,7 +207,7 @@ void Atrac::WriteContextToPSPMem() {
 	if (track_.firstSampleOffset != 0) {
 		context->info.firstValidSample = track_.FirstSampleOffsetFull();
 	} else {
-		context->info.firstValidSample = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		context->info.firstValidSample = (track_.codecType == PSP_CODEC_AT3PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
 	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = track_.channels;
@@ -226,7 +226,7 @@ void Atrac::WriteContextToPSPMem() {
 
 void Track::DebugLog() const {
 	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
-		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
+		codecType == PSP_CODEC_AT3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
 	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
 	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
 	DEBUG_LOG(Log::ME, "sampleSize: %d (%03x", bytesPerFrame, bytesPerFrame);
@@ -308,7 +308,7 @@ void AtracBase::CreateDecoder(int codecType, int bytesPerFrame, int channels) {
 	}
 
 	// First, init the standalone decoder.
-	if (codecType == PSP_MODE_AT_3) {
+	if (codecType == PSP_CODEC_AT3) {
 		// TODO: This is maybe not entirely reliable? Mui Mui house in LocoRoco 2 fails. Although also fails
 		// when I override this, so maybe the issue is something different...
 		bool jointStereo = IsAtrac3StreamJointStereo(codecType, bytesPerFrame, channels);
@@ -435,7 +435,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	ResetData();
 	UpdateBufferState();
 
-	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
+	if (track_.codecType != PSP_CODEC_AT3 && track_.codecType != PSP_CODEC_AT3PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
 		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track_.codecType);
@@ -454,7 +454,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 		bufferValidBytes_ = first_.size - bufferPos_;
 	}
 
-	const char *codecName = track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *codecName = track_.codecType == PSP_CODEC_AT3 ? "atrac3" : "atrac3+";
 	const char *channelName = track_.channels == 1 ? "mono" : "stereo";
 
 	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
@@ -897,7 +897,7 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		bufferValidBytes_ = bytesWrittenFirstBuf - bufferPos_;
 	}
 
-	if (track_.codecType == PSP_MODE_AT_3 || track_.codecType == PSP_MODE_AT_3_PLUS) {
+	if (track_.codecType == PSP_CODEC_AT3 || track_.codecType == PSP_CODEC_AT3PLUS) {
 		SeekToSample(sample);
 	}
 
@@ -916,11 +916,11 @@ void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
 	first_.writableBytes = track_.bytesPerFrame;
 	ResetData();
 
-	if (codecType == PSP_MODE_AT_3) {
+	if (codecType == PSP_CODEC_AT3) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = (track_.bitrate + 511) >> 10;
 		track_.jointStereo = IsAtrac3StreamJointStereo(codecType, params.bytesPerFrame, params.encodedChannels);
-	} else if (codecType == PSP_MODE_AT_3_PLUS) {
+	} else if (codecType == PSP_CODEC_AT3PLUS) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
 		track_.jointStereo = false;
