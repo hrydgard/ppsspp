@@ -623,12 +623,18 @@ void SasInstance::MixVoice(SasVoice &voice) {
 	}
 }
 
-void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
+void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol, bool mute) {
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
 			continue;
 		MixVoice(voice);
+	}
+
+	// Apply mute if needed (note: we try to keep everything else identical to the non-muted case).
+	if (mute) {
+		memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
+		memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
 	}
 
 	// Then mix the send buffer in with the rest.
@@ -664,6 +670,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
 }
 
+// Note: leftVol/rightVol here are how much to scale the inp content by, not the mixBuffer.
 void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol) {
 	const bool dry = waveformEffect.isDryOn != 0;
 	const bool wet = waveformEffect.isWetOn != 0;

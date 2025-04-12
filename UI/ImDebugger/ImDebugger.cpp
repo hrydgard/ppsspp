@@ -1306,6 +1306,8 @@ void DrawSasAudio(ImConfig &cfg) {
 		return;
 	}
 
+	ImGui::Checkbox("Mute", __SasGetGlobalMuteFlag());
+	ImGui::SameLine();
 	ImGui::Checkbox("Show all voices", &cfg.sasShowAllVoices);
 
 	if (ImGui::BeginTable("saschannels", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {

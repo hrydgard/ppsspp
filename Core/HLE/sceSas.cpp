@@ -79,6 +79,12 @@ static volatile int sasThreadState = SasThreadState::DISABLED;
 static SasThreadParams sasThreadParams;
 static int sasMixEvent = -1;
 
+static bool g_sasMuteFlag = false;
+
+bool *__SasGetGlobalMuteFlag() {
+	return &g_sasMuteFlag;
+}
+
 int __SasThread() {
 	SetCurrentThreadName("SAS");
 
@@ -86,8 +92,8 @@ int __SasThread() {
 	while (sasThreadState != SasThreadState::DISABLED) {
 		sasWake.wait(guard);
 		if (sasThreadState == SasThreadState::QUEUED) {
-			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol);
-
+			const bool mute = g_sasMuteFlag;
+			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol, mute);
 			std::lock_guard<std::mutex> doneGuard(sasDoneMutex);
 			sasThreadState = SasThreadState::READY;
 			sasDone.notify_one();
@@ -105,7 +111,8 @@ static void __SasDrain() {
 static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0) {
 	if (sasThreadState == SasThreadState::DISABLED) {
 		// No thread, call it immediately.
-		sas->Mix(outAddr, inAddr, leftVol, rightVol);
+		const bool mute = g_sasMuteFlag;
+		sas->Mix(outAddr, inAddr, leftVol, rightVol, mute);
 		return;
 	}
 
@@ -161,6 +168,8 @@ static void sasMixFinish(u64 userdata, int cycleslate) {
 
 void __SasInit() {
 	sas = new SasInstance();
+
+	g_sasMuteFlag = false;
 
 	sasMixEvent = CoreTiming::RegisterEvent("SasMix", sasMixFinish);
 
