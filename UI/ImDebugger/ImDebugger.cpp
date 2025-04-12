@@ -957,33 +957,40 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 	}
 
 	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
-		if (ImGui::BeginTable("atracs", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		if (ImGui::BeginTable("atracs", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("CurSample", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("RemFrames", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Impl", ImGuiTableColumnFlags_WidthFixed);
 
 			ImGui::TableHeadersRow();
-
-			for (int i = 0; i < PSP_MAX_ATRAC_IDS; i++) {
-				u32 type = 0;
-				const AtracBase *ctx = __AtracGetCtx(i, &type);
-				if (!ctx) {
-					continue;
-				}
+			const int maxContexts = __AtracMaxContexts();
+			for (int i = 0; i < maxContexts; i++) {
+				u32 codecType = 0;
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
+				ImGui::PushID(i);
+				ImGui::SetNextItemAllowOverlap();
 				char temp[16];
 				snprintf(temp, sizeof(temp), "%d", i);
 				if (ImGui::Selectable(temp, i == cfg.selectedAtracCtx, ImGuiSelectableFlags_SpanAllColumns)) {
 					cfg.selectedAtracCtx = i;
 				}
 				ImGui::TableNextColumn();
-				switch (type) {
+				bool *mutePtr = __AtracMuteFlag(i);
+				if (mutePtr) {
+					ImGui::Checkbox("", mutePtr);
+				}
+				ImGui::TableNextColumn();
+				switch (codecType) {
+				case 0:
+					ImGui::TextUnformatted("-");  // Uninitialized
+					break;
 				case PSP_MODE_AT_3_PLUS:
 					ImGui::TextUnformatted("Atrac3+");
 					break;
@@ -991,8 +998,15 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 					ImGui::TextUnformatted("Atrac3");
 					break;
 				default:
-					ImGui::Text("%04x", type);
+					ImGui::Text("%04x", codecType);
 					break;
+				}
+
+				const AtracBase *ctx = __AtracGetCtx(i, &codecType);
+				if (!ctx) {
+					// Nothing more we can display about uninitialized contexts.
+					ImGui::PopID();
+					continue;
 				}
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(AtracStatusToString(ctx->BufferState()));
@@ -1014,6 +1028,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				}
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(ctx->GetContextVersion() >= 2 ? "NewImpl" : "Legacy");
+				ImGui::PopID();
 			}
 
 			ImGui::EndTable();

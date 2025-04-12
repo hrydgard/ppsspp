@@ -26,6 +26,7 @@ void Register_sceAtrac3plus();
 void __AtracInit();
 void __AtracDoState(PointerWrap &p);
 void __AtracShutdown();
+int __AtracMaxContexts();
 
 void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize);
 void __AtracNotifyUnloadModule();
@@ -141,3 +142,7 @@ bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels);
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
 void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish);
 int AtracSasBindContextAndGetID(u32 contextAddr);
+
+// To provide checkboxes in the debugger UI.
+// This setting is not saved.
+bool *__AtracMuteFlag(int atracID);
