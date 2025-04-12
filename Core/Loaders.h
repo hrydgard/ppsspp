@@ -20,6 +20,7 @@
 #include <string>
 #include <memory>
 
+#include "ext/libzip/zip.h"
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 
@@ -158,3 +159,33 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 bool LoadFile(FileLoader **fileLoaderPtr, IdentifiedFileType type, std::string *error_string);
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
+
+
+enum class ZipFileContents {
+	UNKNOWN,
+	PSP_GAME_DIR,
+	ISO_FILE,
+	TEXTURE_PACK,
+	SAVE_DATA,
+	FRAME_DUMP,
+};
+
+struct ZipFileInfo {
+	ZipFileContents contents;
+	int numFiles;
+	int stripChars;  // for PSP game - how much to strip from the path.
+	int isoFileIndex;  // for ISO
+	int textureIniIndex;  // for textures
+	bool ignoreMetaFiles;
+	std::string gameTitle;  // from PARAM.SFO if available
+	std::string savedataTitle;
+	std::string savedataDetails;
+	std::string savedataDir;
+	std::string mTime;
+	s64 totalFileSize;
+
+	std::string contentName;
+};
+
+bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
+void DetectZipFileContents(struct zip *z, ZipFileInfo *info);

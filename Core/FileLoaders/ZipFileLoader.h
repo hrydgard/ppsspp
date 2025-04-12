@@ -44,7 +44,7 @@ public:
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
-	std::string GetFileExtension() const {
+	std::string GetFileExtension() const override {
 		return fileExtension_;
 	}
 

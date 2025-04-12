@@ -1,5 +1,3 @@
-#pragma once
-
 #include <ext/libzip/zip.h>
 
 #include "Core/FileLoaders/LocalFileLoader.h"
