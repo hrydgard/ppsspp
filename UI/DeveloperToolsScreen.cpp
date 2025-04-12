@@ -291,6 +291,12 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
 }
 
+void DeveloperToolsScreen::CreateAudioTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	list->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
+}
+
 void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -402,11 +408,14 @@ void DeveloperToolsScreen::CreateTabs() {
 	AddTab("General", sy->T("General"), [this](UI::LinearLayout *parent) {
 		CreateGeneralTab(parent);
 	});
+	AddTab("TextureReplacement", dev->T("Texture Replacement"), [this](UI::LinearLayout *parent) {
+		CreateTextureReplacementTab(parent);
+	});
 	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
 		CreateGraphicsTab(parent);
 	});
-	AddTab("TextureReplacement", dev->T("Texture Replacement"), [this](UI::LinearLayout *parent) {
-		CreateTextureReplacementTab(parent);
+	AddTab("Audio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
+		CreateAudioTab(parent);
 	});
 	AddTab("Tests", dev->T("Tests"), [this](UI::LinearLayout *parent) {
 		CreateTestsTab(parent);

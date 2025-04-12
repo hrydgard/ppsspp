@@ -957,6 +957,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 	}
 
 	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Checkbox("Force FFMPEG", &g_Config.bForceFfmpegForAudioDec);
 		if (ImGui::BeginTable("atracs", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed);
@@ -1851,6 +1852,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 					System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 				}
 			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Close")) {
+				g_Config.bShowImDebugger = false;
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Core")) {
@@ -1969,11 +1974,22 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::EndMenu();
 		}
-
-		// Let's have this at the top level, to help anyone confused.
-		if (ImGui::BeginMenu("Close Debugger")) {
+		if (ImGui::MenuItem("Close")) {
 			g_Config.bShowImDebugger = false;
-			ImGui::EndMenu();
+		}
+		switch (coreState) {
+		case CoreState::CORE_STEPPING_CPU:
+			if (ImGui::MenuItem(">> Run")) {
+				Core_Resume();
+			}
+			break;
+		case CoreState::CORE_RUNNING_CPU:
+			if (ImGui::MenuItem("|| Break")) {
+				Core_Break(BreakReason::DebugBreak);
+			}
+			break;
+		default:
+			break;
 		}
 		ImGui::EndMainMenuBar();
 	}

@@ -39,6 +39,7 @@ extern "C" {
 
 #include "Core/FFMPEGCompat.h"
 }
+#include "Core/Config.h"
 
 #else
 
@@ -136,15 +137,23 @@ private:
 };
 
 AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) {
+	bool forceFfmpeg = false;
+#ifdef USE_FFMPEG
+	forceFfmpeg = g_Config.bForceFfmpegForAudioDec;
+#endif
+	if (forceFfmpeg) {
+		return new FFmpegAudioDecoder(audioType, sampleRateHz, channels);
+	}
+
 	switch (audioType) {
 	case PSP_CODEC_MP3:
 		return new MiniMp3Audio();
-	// case PSP_CODEC_AT3:
-	// 	return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
-	// case PSP_CODEC_AT3PLUS:
-	// 	return CreateAtrac3PlusAudio(channels, blockAlign);
+	case PSP_CODEC_AT3:
+	 	return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
+	case PSP_CODEC_AT3PLUS:
+		return CreateAtrac3PlusAudio(channels, blockAlign);
 	default:
-		// Only AAC falls back to FFMPEG now.
+		// Only AAC normally falls back to FFMPEG now.
 		return new FFmpegAudioDecoder(audioType, sampleRateHz, channels);
 	}
 }
