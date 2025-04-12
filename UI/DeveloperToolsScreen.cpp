@@ -100,11 +100,10 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	list->Add(new ItemHeader(sy->T("General")));
+	list->Add(new ItemHeader(sy->T("CPU Core")));
 
 	bool canUseJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
 	// iOS can now use JIT on all modes, apparently.
@@ -130,13 +129,9 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	list->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show Developer Menu")));
 
-#if !PPSSPP_PLATFORM(UWP)
-	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
-	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-	cpuTests->SetEnabled(TestsAvailable() && !PSP_IsInited());
-#endif
-
 	AddOverlayList(list, screenManager());
+
+	list->Add(new ItemHeader(sy->T("General")));
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
@@ -145,45 +140,13 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
 	}
 
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
-			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
-			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
-			return UI::EVENT_DONE;
-		});
-	}
-
-	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-		auto driverChoice = list->Add(new Choice(gr->T("AdrenoTools driver manager")));
-		driverChoice->OnClick.Add([=](UI::EventParams &e) {
-			screenManager()->push(new DriverManagerScreen(gamePath_));
-			return UI::EVENT_DONE;
-		});
-	}
-
-	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
-	// because the D3D drivers are generally solid enough to not need this type of investigation.
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
-	}
-	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
-	Choice *frameDumpTests = list->Add(new Choice(dev->T("Framedump tests")));
-	frameDumpTests->OnClick.Add([this](UI::EventParams &e) {
-		screenManager()->push(new FrameDumpTestScreen());
-		return UI::EVENT_DONE;
-	});
-	frameDumpTests->SetEnabled(!PSP_IsInited());
-
-	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
-	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
+	list->Add(new CheckBox(&g_Config.bShowOnScreenMessages, dev->T("Show on-screen messages")));
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
 	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
 	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
-
-	list->Add(new CheckBox(&g_Config.bShowOnScreenMessages, dev->T("Show on-screen messages")));
 
 	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
@@ -209,20 +172,35 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 #endif
 
-	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
-	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));
-	ffMode->SetEnabledFunc([]() { return !g_Config.bVSync; });
-	ffMode->HideChoice(1);  // not used
-
-	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
-	displayRefreshRate->SetFormat(si->T("%d Hz"));
-
 	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
 	// you to descend into directories.
 #if PPSSPP_PLATFORM(IOS)
 	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
 #endif
+}
 
+void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+
+	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
+	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
+	Choice *frameDumpTests = list->Add(new Choice(dev->T("Framedump tests")));
+	frameDumpTests->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new FrameDumpTestScreen());
+		return UI::EVENT_DONE;
+	});
+	frameDumpTests->SetEnabled(!PSP_IsInited());
+#if !PPSSPP_PLATFORM(UWP)
+	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
+	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	cpuTests->SetEnabled(TestsAvailable() && !PSP_IsInited());
+#endif
+	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
+	// because the D3D drivers are generally solid enough to not need this type of investigation.
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
+	}
 }
 
 void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
@@ -313,16 +291,51 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
 }
 
+void DeveloperToolsScreen::CreateAudioTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	list->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
+}
+
 void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
+	list->Add(new ItemHeader(sy->T("General")));
+	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
+
+	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
+	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));
+	ffMode->SetEnabledFunc([]() { return !g_Config.bVSync; });
+	ffMode->HideChoice(1);  // not used
+
+	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
+	displayRefreshRate->SetFormat(si->T("%d Hz"));
+
 	list->Add(new ItemHeader(dev->T("Vulkan")));
 	list->Add(new CheckBox(&g_Config.bVulkanDisableImplicitLayers, dev->T("Prevent loading overlays")));
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
+			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
+			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
+			return UI::EVENT_DONE;
+		});
+	}
+
+	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
+		auto driverChoice = list->Add(new Choice(gr->T("AdrenoTools driver manager")));
+		driverChoice->OnClick.Add([=](UI::EventParams &e) {
+			screenManager()->push(new DriverManagerScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
+	}
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
 	if (draw->GetShaderLanguageDesc().bitwiseOps && !draw->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
@@ -392,11 +405,20 @@ void DeveloperToolsScreen::CreateTabs() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
+	AddTab("General", sy->T("General"), [this](UI::LinearLayout *parent) {
+		CreateGeneralTab(parent);
+	});
 	AddTab("TextureReplacement", dev->T("Texture Replacement"), [this](UI::LinearLayout *parent) {
 		CreateTextureReplacementTab(parent);
 	});
-	AddTab("General", sy->T("General"), [this](UI::LinearLayout *parent) {
-		CreateGeneralTab(parent);
+	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
+		CreateGraphicsTab(parent);
+	});
+	AddTab("Audio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
+		CreateAudioTab(parent);
+	});
+	AddTab("Tests", dev->T("Tests"), [this](UI::LinearLayout *parent) {
+		CreateTestsTab(parent);
 	});
 	AddTab("DumpFiles", sy->T("Dump files"), [this](UI::LinearLayout *parent) {
 		CreateDumpFileTab(parent);
@@ -410,10 +432,6 @@ void DeveloperToolsScreen::CreateTabs() {
 		CreateMIPSTracerTab(parent);
 	});
 #endif
-	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
-		CreateGraphicsTab(parent);
-	});
-
 	// Reconsider whenever recreating views.
 	hasTexturesIni_ = HasIni::MAYBE;
 }

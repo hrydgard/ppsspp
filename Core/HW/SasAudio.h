@@ -315,7 +315,7 @@ public:
 
 	FILE *audioDump = nullptr;
 
-	void Mix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0);
+	void Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol, bool mute);
 	void MixVoice(SasVoice &voice);
 
 	// Applies reverb to send buffer, according to waveformEffect.
