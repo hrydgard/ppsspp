@@ -18,11 +18,13 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/FileLoaders/RetryingFileLoader.h"
+#include "Core/FileLoaders/ZipFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
@@ -31,6 +33,7 @@
 #include "Core/System.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/Util/GameManager.h"
 
 FileLoader *ConstructFileLoader(const Path &filename) {
 	if (filename.Type() == PathType::HTTP) {
@@ -62,7 +65,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	std::string extension = fileLoader->GetPath().GetFileExtension();
+	std::string extension = fileLoader->GetFileExtension();
 	if (extension == ".iso") {
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
 		if ((fileLoader->FileSize() % 2352) == 0) {
@@ -228,6 +231,29 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 			// Switch fileLoader to the actual EBOOT.
 			delete fileLoader;
 			fileLoader = ConstructFileLoader(ebootFilename);
+		}
+	} else if (type == IdentifiedFileType::ARCHIVE_ZIP) {
+		// Handle zip files, take automatic action depending on contents.
+		// Can also return nullptr.
+		ZipFileLoader *zipLoader = new ZipFileLoader(fileLoader);
+
+		ZipFileInfo zipFileInfo{};
+		DetectZipFileContents(zipLoader->GetZip(), &zipFileInfo);
+
+		switch (zipFileInfo.contents) {
+		case ZipFileContents::ISO_FILE:
+		case ZipFileContents::FRAME_DUMP:
+		{
+			zipLoader->Initialize(zipFileInfo.isoFileIndex);
+			return zipLoader;
+		}
+		default:
+		{
+			// Nothing runnable in file. Take the original loader back and return it.
+			fileLoader = zipLoader->Steal();
+			delete zipLoader;
+			return fileLoader;
+		}
 		}
 	}
 	return fileLoader;

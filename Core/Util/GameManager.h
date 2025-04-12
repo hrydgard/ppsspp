@@ -41,6 +41,7 @@ enum class ZipFileContents {
 	ISO_FILE,
 	TEXTURE_PACK,
 	SAVE_DATA,
+	FRAME_DUMP,
 };
 
 struct ZipFileInfo {

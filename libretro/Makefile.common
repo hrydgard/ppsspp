@@ -660,6 +660,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/FileLoaders/RetryingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/RamCachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/LocalFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/ZipFileLoader.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
 	       $(COREDIR)/HDRemaster.cpp \

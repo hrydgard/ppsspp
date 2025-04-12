@@ -57,6 +57,7 @@ enum class IdentifiedFileType {
 };
 
 // NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
+// TOOD: actually, is it really?
 class FileLoader {
 public:
 	enum class Flags {
@@ -77,7 +78,9 @@ public:
 	virtual bool IsDirectory() = 0;
 	virtual s64 FileSize() = 0;
 	virtual Path GetPath() const = 0;
-
+	virtual std::string GetFileExtension() const {
+		return GetPath().GetFileExtension();
+	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
@@ -98,7 +101,6 @@ public:
 		// Takes ownership.
 		delete backend_;
 	}
-
 	bool IsRemote() override {
 		return backend_->IsRemote();
 	}
@@ -128,6 +130,11 @@ public:
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override {
 		return backend_->ReadAt(absolutePos, bytes, data, flags);
+	}
+	FileLoader *Steal() {
+		FileLoader *backend = backend_;
+		backend_ = nullptr;
+		return backend;
 	}
 
 protected:

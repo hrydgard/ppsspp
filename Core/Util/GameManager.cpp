@@ -256,6 +256,7 @@ bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxO
 
 void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
+	_dbg_assert_(numFiles >= 0);
 
 	// Verify that this is a PSP zip file with the correct layout. We also try
 	// to detect simple zipped ISO files, those we'll just "install" to the current
@@ -263,6 +264,7 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	bool isPSPMemstickGame = false;
 	bool isZippedISO = false;
 	bool isTexturePack = false;
+	bool isFrameDump = false;
 	int stripChars = 0;
 	int isoFileIndex = -1;
 	int stripCharsTexturePack = -1;
@@ -323,6 +325,10 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 				isTexturePack = true;
 				textureIniIndex = i;
 			}
+		} else if (endsWith(zippedName, ".ppdmp")) {
+			isFrameDump = true;
+			isoFileIndex = i;
+			info->contentName = zippedName;
 		} else if (endsWith(zippedName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
@@ -368,6 +374,8 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG) {
 		// As downloaded from GameFAQs, for example.
 		info->contents = ZipFileContents::SAVE_DATA;
+	} else if (isFrameDump) {
+		info->contents = ZipFileContents::FRAME_DUMP;
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}

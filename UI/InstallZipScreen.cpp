@@ -31,6 +31,7 @@
 #include "UI/MainScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/SavedataScreen.h"
+#include "UI/EmuScreen.h"
 
 InstallZipScreen::InstallZipScreen(const Path &zipPath) : zipPath_(zipPath) {
 	g_GameManager.ResetInstallError();
@@ -64,8 +65,8 @@ void InstallZipScreen::CreateViews() {
 	bool showDeleteCheckbox = false;
 	returnToHomebrew_ = false;
 	installChoice_ = nullptr;
+	playChoice_ = nullptr;
 	doneView_ = nullptr;
-	installChoice_ = nullptr;
 	existingSaveView_ = nullptr;
 	destFolders_.clear();
 
@@ -101,6 +102,9 @@ void InstallZipScreen::CreateViews() {
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
+			playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
+			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
+
 			returnToHomebrew_ = true;
 			showDeleteCheckbox = true;
 		} else if (zipFileInfo_.contents == ZipFileContents::TEXTURE_PACK) {
@@ -160,6 +164,11 @@ void InstallZipScreen::CreateViews() {
 
 			doneView_ = leftColumn->Add(new TextView(""));
 			showDeleteCheckbox = true;
+		} else if (zipFileInfo_.contents == ZipFileContents::FRAME_DUMP) {
+			leftColumn->Add(new TextView(zipFileInfo_.contentName));
+			// It's a frame dump, add a play button!
+			playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
+			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
 		} else {
 			leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		}
@@ -209,6 +218,11 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 			installChoice_->SetEnabled(false);
 		}
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn InstallZipScreen::OnPlay(UI::EventParams &params) {
+	screenManager()->switchScreen(new EmuScreen(zipPath_));
 	return UI::EVENT_DONE;
 }
 
