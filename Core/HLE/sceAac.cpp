@@ -116,7 +116,7 @@ static u32 sceAacInit(u32 id)
 
 static u32 sceAacInitResource(u32 numberIds) {
 	// Do nothing here
-	INFO_LOG_REPORT(Log::ME, "sceAacInitResource(%i)", numberIds);
+	WARN_LOG_REPORT(Log::ME, "sceAacInitResource(%i)", numberIds);
 	return hleNoLog(0);
 }
 

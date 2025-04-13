@@ -499,7 +499,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	}
 
 	if (vaddr == (u32)-1) {
-		ERROR_LOG_REPORT(Log::Loader, "Failed to allocate memory for ELF!");
+		ERROR_LOG(Log::Loader, "Failed to allocate memory for ELF!");
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 

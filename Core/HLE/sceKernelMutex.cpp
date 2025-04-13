@@ -535,7 +535,12 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 	if (__KernelLockMutex(mutex, count, error))
 		return hleLogDebug(Log::sceKernel, 0);
 	else if (error) {
-		return hleLogError(Log::sceKernel, error);
+		if (error == SCE_MUTEX_ERROR_ALREADY_LOCKED) {
+			// Benign it seems.
+			return hleLogDebug(Log::sceKernel, error);
+		} else {
+			return hleLogError(Log::sceKernel, error);
+		}
 	}
 
 	SceUID threadID = __KernelGetCurThread();

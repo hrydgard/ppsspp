@@ -144,7 +144,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 						return nullptr;
 					}
 				} else {
-					INFO_LOG_REPORT_ONCE(openCFileFailedNavigateUp, Log::IO, "Failed to navigate up to create file: %s", path.c_str());
+					INFO_LOG(Log::IO, "Failed to navigate up to create file: %s", path.c_str());
 					return nullptr;
 				}
 			} else {
