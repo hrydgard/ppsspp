@@ -148,7 +148,6 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			} else if (at3fmt->fmtTag == AT3_PLUS_MAGIC) {
 				_dbg_assert_(at3fmt->fmtTag == 0xFFFE);
 				// It's in an "Extensible" wave format. Let's read some more.
-
 			}
 			if (chunkSize > 16) {
 				// Read and format extra bytes as hexadecimal

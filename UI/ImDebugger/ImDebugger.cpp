@@ -27,6 +27,7 @@
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetApctl.h"
@@ -950,10 +951,56 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
-	if (!ImGui::Begin("Audio decoding contexts", &cfg.audioDecodersOpen)) {
+void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
+	if (!ImGui::Begin("Media decoding contexts", &cfg.mediaDecodersOpen)) {
 		ImGui::End();
 		return;
+	}
+
+	if (ImGui::CollapsingHeader("sceMpeg")) {
+		const std::map<u32, MpegContext *> &ctxs = __MpegGetContexts();
+		if (ImGui::BeginTable("mpegs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Addr", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("VFrames", ImGuiTableColumnFlags_WidthFixed);
+
+			ImGui::TableHeadersRow();
+			for (auto iter : ctxs) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(iter.first);
+				ImGui::SetNextItemAllowOverlap();
+				char temp[16];
+				snprintf(temp, sizeof(temp), "%08x", iter.first);
+				if (ImGui::Selectable(temp, iter.first == cfg.selectedMpegCtx, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedMpegCtx = iter.first;
+				}
+				ImGui::TableNextColumn();
+				const MpegContext *ctx = iter.second;
+				if (!ctx) {
+					ImGui::TextUnformatted("N/A");
+					ImGui::PopID();
+					continue;
+				}
+				ImGui::Text("%d", ctx->videoFrameCount);
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+
+		auto iter = ctxs.find(cfg.selectedMpegCtx);
+		if (iter != ctxs.end()) {
+			const MpegContext *ctx = iter->second;
+			char temp[16];
+			snprintf(temp, sizeof(temp), "sceMpeg context at %08x", iter->first);
+			if (ctx && ImGui::CollapsingHeader(temp, ImGuiTreeNodeFlags_DefaultOpen)) {
+				// ImGui::ProgressBar((float)sas->CurPos() / (float)info.fileDataEnd, ImVec2(200.0f, 0.0f));
+				ImGui::Text("Mpeg version: %d raw: %08x", ctx->mpegVersion, ctx->mpegRawVersion);
+				ImGui::Text("Frame counts: Audio %d, video %d", ctx->audioFrameCount, ctx->videoFrameCount);
+				ImGui::Text("Video pixel mode: %d", ctx->videoPixelMode);
+				ImGui::Text("AVC status=%d width=%d height=%d result=%d", ctx->avc.avcFrameStatus, ctx->avc.avcDetailFrameWidth, ctx->avc.avcDetailFrameHeight, ctx->avc.avcDecodeResult);
+				ImGui::Text("Stream size: %d", ctx->mpegStreamSize);
+			}
+		}
 	}
 
 	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -1642,6 +1689,8 @@ void ImAtracToolWindow::Load() {
 	if (File::ReadBinaryFileToString(Path(atracPath_), &data_)) {
 		track_.reset(new Track());
 		AnalyzeAtracTrack((const u8 *)data_.data(), (u32)data_.size(), track_.get(), &error_);
+	} else {
+		error_ = "Failed to read file from disk. Bad path?";
 	}
 }
 
@@ -1671,6 +1720,7 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 		ImGui::Text("Bitrate: %d kbps Channels: %d", track_->Bitrate(), track_->channels);
 		ImGui::Text("Frame size in bytes: %d (%04x) Output frame in samples: %d", track_->BytesPerFrame(), track_->BytesPerFrame(), track_->SamplesPerFrame());
 		ImGui::Text("First valid sample: %08x", track_->FirstSampleOffsetFull());
+		ImGui::Text("EndSample: %08x", track_->endSample);
 	}
 
 	if (data_.size()) {
@@ -1950,7 +2000,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Audio/Video")) {
 			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
 			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
-			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
+			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Network")) {
@@ -2058,8 +2108,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawUtilityModules(cfg_, control);
 	}
 
-	if (cfg_.audioDecodersOpen) {
-		DrawAudioDecodersView(cfg_, control);
+	if (cfg_.mediaDecodersOpen) {
+		DrawMediaDecodersView(cfg_, control);
 	}
 
 	if (cfg_.hleModulesOpen) {
@@ -2263,7 +2313,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("symbolsOpen", &symbolsOpen, false);
 	sync.Sync("modulesOpen", &modulesOpen, false);
 	sync.Sync("hleModulesOpen", &hleModulesOpen, false);
-	sync.Sync("audioDecodersOpen", &audioDecodersOpen, false);
+	sync.Sync("mediaDecodersOpen", &mediaDecodersOpen, false);
 	sync.Sync("structViewerOpen", &structViewerOpen, false);
 	sync.Sync("framebuffersOpen", &framebuffersOpen, false);
 	sync.Sync("displayOpen", &displayOpen, true);

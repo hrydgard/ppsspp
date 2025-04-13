@@ -17,6 +17,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
@@ -86,7 +87,12 @@ void ffmpeg_logger(void *, int level, const char *format, va_list va_args) {
 	} else if (level >= AV_LOG_VERBOSE) {
 		DEBUG_LOG(Log::ME, "FF: %s", tmp);
 	} else {
-		INFO_LOG(Log::ME, "FF: %s", tmp);
+		// Downgrade some log messages we don't care about
+		if (startsWith(tmp, "No accelerated colorspace") || startsWith(tmp, "SEI type 1 size 40 truncated at 36")) {
+			VERBOSE_LOG(Log::ME, "FF: %s", tmp);
+		} else {
+			INFO_LOG(Log::ME, "FF: %s", tmp);
+		}
 	}
 }
 

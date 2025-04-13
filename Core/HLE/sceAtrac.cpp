@@ -1023,42 +1023,6 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 	return hleLogDebug(Log::ME, atrac->context_.ptr);
 }
 
-struct At3HeaderMap {
-	u16 bytes;
-	u16 channels;
-	u8 jointStereo;
-
-	bool Matches(int bytesPerFrame, int encodedChannels) const {
-		return this->bytes == bytesPerFrame && this->channels == encodedChannels;
-	}
-};
-
-// These should represent all possible supported bitrates (66, 104, and 132 for stereo.)
-static const At3HeaderMap at3HeaderMap[] = {
-	{ 0x00C0, 1, 0 }, // 132/2 (66) kbps mono
-	{ 0x0098, 1, 0 }, // 105/2 (52.5) kbps mono
-	{ 0x0180, 2, 0 }, // 132 kbps stereo
-	{ 0x0130, 2, 0 }, // 105 kbps stereo
-	// At this size, stereo can only use joint stereo.
-	{ 0x00C0, 2, 1 }, // 66 kbps stereo
-};
-
-bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels) {
-	if (codecType != PSP_CODEC_AT3) {
-		// Well, might actually be, but it's not used in codec setup.
-		return false;
-	}
-
-	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
-		if (at3HeaderMap[i].Matches(bytesPerFrame, channels)) {
-			return at3HeaderMap[i].jointStereo;
-		}
-	}
-
-	// Not found? Should we log?
-	return false;
-}
-
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {

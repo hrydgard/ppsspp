@@ -49,6 +49,19 @@ static_assert(sizeof(SceAudiocodecCodec) == 128);
 //
 // Known byte values.
 
+// Atrac3 (0x1001)
+// ------------------------------------------------
+
+// AAC (0x1003)
+// ------------------------------------------------
+// Sample rate is at offset 0x28.
+// srcBytesConsumed can be very small the first frames.
+// 0x1000 is always the frame size.
+
+// MP3 (0x1002)
+// ------------------------------------------------
+
+
 void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *inputBytes, int *channels) {
 	*inputBytes = 0;
 	*channels = 2;
@@ -125,9 +138,12 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	ctx->unk_init = 0x5100601;  // Firmware version indicator?
 	ctx->err = 0;
 
-	int inFrameBytes = 0;
+	int bytesPerFrame = 0;
 	int channels = 2;
 
+	uint8_t extraData[14]{};
+
+	SceAudiocodecCodec *ptr = ctx;
 	// Special actions for some codecs.
 	switch (audioType) {
 	case PSP_CODEC_MP3:
@@ -140,15 +156,31 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		// neededMem has been set to 0x18f20.
 		break;
 	case PSP_CODEC_AT3PLUS:
-		CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
+		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
 		break;
+	case PSP_CODEC_AT3:
+	{
+		// See AtracBase::CreateDecoder. Need to properly understand this one day..
+		//
+		// TODO: How do we get the bytesPerFrame?
+		bytesPerFrame = 384;  // TODO: Calculate from params.
+		bool jointStereo = IsAtrac3StreamJointStereo(PSP_CODEC_AT3, bytesPerFrame, channels);
+		// The only thing that changes are the jointStereo_ values.
+		extraData[0] = 1;
+		extraData[3] = channels << 3;
+		extraData[6] = jointStereo;
+		extraData[8] = jointStereo;
+		extraData[10] = 1;
+		break;
+	}
 	default:
 		break;
 	}
 
 	// Create audio decoder for given audio codec and push it into AudioList
-	INFO_LOG(Log::ME, "sceAudioDecoder: Creating codec with %04x frame size and %d channels, codec %04x", inFrameBytes, channels, codec);
-	AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, inFrameBytes);
+	INFO_LOG(Log::ME, "sceAudioDecoder: Creating codec with %04x frame size and %d channels, codec %04x", bytesPerFrame, channels, codec);
+	// We send in extra data with all codec, most ignore it.
+	AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, bytesPerFrame, extraData, sizeof(extraData));
 	decoder->SetCtxPtr(ctxPtr);
 	g_audioDecoderContexts[ctxPtr] = decoder;
 	return hleLogDebug(Log::ME, 0);
@@ -177,15 +209,23 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
 
-	int inFrameBytes = 0;
+	int bytesPerFrame = 0;
 	int channels = 2;
+	int sampleRate = 0;
 
 	switch (codec) {
 	case PSP_CODEC_AT3PLUS:
-		CalculateInputBytesAndChannelsAt3Plus(ctx, &inFrameBytes, &channels);
+		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
 		break;
 	case PSP_CODEC_MP3:
-		inFrameBytes = ctx->srcBytesRead;
+		bytesPerFrame = ctx->srcBytesRead;
+		break;
+	case PSP_CODEC_AAC:
+		bytesPerFrame = ctx->srcBytesRead;
+		sampleRate = ctx->formatOutSamples;
+		break;
+	case PSP_CODEC_AT3:
+		bytesPerFrame = 384;
 		break;
 	}
 
@@ -195,7 +235,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	if (!decoder && oldStateLoaded) {
 		// We must have loaded an old state that did not have sceAudiocodec information.
 		// Fake it by creating the desired context.
-		decoder = CreateAudioDecoder(audioType, 44100, channels, inFrameBytes);
+		decoder = CreateAudioDecoder(audioType, 44100, channels, bytesPerFrame);
 		decoder->SetCtxPtr(ctxPtr);
 		g_audioDecoderContexts[ctxPtr] = decoder;
 	}
@@ -206,11 +246,11 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		int inDataConsumed = 0;
 		int outSamples = 0;
 
-		INFO_LOG(Log::ME, "decoder. in: %08x out: %08x unk40: %d unk41: %d", ctx->inBuf, ctx->outBuf, ctx->unk40, ctx->unk41);
+		DEBUG_LOG(Log::ME, "decoder. in: %08x out: %08x unk40: %02x unk41: %02x", ctx->inBuf, ctx->outBuf, ctx->unk40, ctx->unk41);
 
 		int16_t *outBuf = (int16_t *)Memory::GetPointerWrite(ctx->outBuf);
 
-		bool result = decoder->Decode(Memory::GetPointer(ctx->inBuf), inFrameBytes, &inDataConsumed, 2, outBuf, &outSamples);
+		bool result = decoder->Decode(Memory::GetPointer(ctx->inBuf), bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
 		if (!result) {
 			ctx->err = 0x20b;
 			ERROR_LOG(Log::ME, "AudioCodec decode failed. Setting error to %08x", ctx->err);
@@ -219,7 +259,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		ctx->srcBytesRead = inDataConsumed;
 		ctx->dstSamplesWritten = outSamples;
 	}
-	return hleLogInfo(Log::ME, 0, "codec %s", GetCodecName(codec));
+	return hleLogDebug(Log::ME, 0, "codec %s", GetCodecName(codec));
 }
 
 // This is used by sceMp3, in Beats.
@@ -330,6 +370,43 @@ static int sceAudiocodecGetOutputBytes(u32 ctxPtr, int codec, u32 outBytesAddr) 
 	Memory::WriteUnchecked_U32(bytes, outBytesAddr);
 	return hleLogInfo(Log::ME, 0);
 }
+
+struct At3HeaderMap {
+	u16 bytes;
+	u16 channels;
+	u8 jointStereo;
+
+	bool Matches(int bytesPerFrame, int encodedChannels) const {
+		return this->bytes == bytesPerFrame && this->channels == encodedChannels;
+	}
+};
+
+// These should represent all possible supported bitrates (66, 104, and 132 for stereo.)
+static const At3HeaderMap at3HeaderMap[] = {
+	{ 0x00C0, 1, 0 }, // 132/2 (66) kbps mono
+	{ 0x0098, 1, 0 }, // 105/2 (52.5) kbps mono
+	{ 0x0180, 2, 0 }, // 132 kbps stereo
+	{ 0x0130, 2, 0 }, // 105 kbps stereo
+	// At this size, stereo can only use joint stereo.
+	{ 0x00C0, 2, 1 }, // 66 kbps stereo
+};
+
+bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels) {
+	if (codecType != PSP_CODEC_AT3) {
+		// Well, might actually be, but it's not used in codec setup.
+		return false;
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
+		if (at3HeaderMap[i].Matches(bytesPerFrame, channels)) {
+			return at3HeaderMap[i].jointStereo;
+		}
+	}
+
+	// Not found? Should we log?
+	return false;
+}
+
 
 const HLEFunction sceAudiocodec[] = {
 	{0X70A703F8, &WrapI_UI<sceAudiocodecDecode>,         "sceAudiocodecDecode",       'i', "xx"},

@@ -642,12 +642,12 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	// This is as good a place as any to do this. Though, we don't use this much anymore after we added
 	// support for VMA.
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties_);
-	INFO_LOG(Log::G3D, "Memory Types (%d):", memory_properties_.memoryTypeCount);
+	DEBUG_LOG(Log::G3D, "Memory Types (%d):", memory_properties_.memoryTypeCount);
 	for (int i = 0; i < (int)memory_properties_.memoryTypeCount; i++) {
 		// Don't bother printing dummy memory types.
 		if (!memory_properties_.memoryTypes[i].propertyFlags)
 			continue;
-		INFO_LOG(Log::G3D, "  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties_.memoryTypes[i].heapIndex,
+		DEBUG_LOG(Log::G3D, "  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties_.memoryTypes[i].heapIndex,
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL " : "",
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE " : "",
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED " : "",
@@ -1349,7 +1349,7 @@ bool VulkanContext::InitSwapchain() {
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
 	_dbg_assert_(res == VK_SUCCESS);
 
-	VkExtent2D currentExtent { surfCapabilities_.currentExtent };
+	VkExtent2D currentExtent{ surfCapabilities_.currentExtent };
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceCapabilitiesKHR.html
 	// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
 	if (currentExtent.width == 0xFFFFFFFFu || currentExtent.height == 0xFFFFFFFFu
@@ -1357,7 +1357,7 @@ bool VulkanContext::InitSwapchain() {
 		|| currentExtent.width == 0 || currentExtent.height == 0
 #endif
 		) {
-		_dbg_assert_((bool)cbGetDrawSize_)
+		_dbg_assert_((bool)cbGetDrawSize_);
 		if (cbGetDrawSize_) {
 			currentExtent = cbGetDrawSize_();
 		}
@@ -1407,8 +1407,7 @@ bool VulkanContext::InitSwapchain() {
 	// queued for display):
 	uint32_t desiredNumberOfSwapChainImages = surfCapabilities_.minImageCount + 1;
 	if ((surfCapabilities_.maxImageCount > 0) &&
-		(desiredNumberOfSwapChainImages > surfCapabilities_.maxImageCount))
-	{
+		(desiredNumberOfSwapChainImages > surfCapabilities_.maxImageCount)) {
 		// Application must settle for fewer images than desired:
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
@@ -1459,8 +1458,11 @@ bool VulkanContext::InitSwapchain() {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
 
-	std::string preTransformStr = surface_transforms_to_string(preTransform);
-	INFO_LOG(Log::G3D, "Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
+	// Only log transforms if relevant.
+	if (surfCapabilities_.supportedTransforms != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+		std::string preTransformStr = surface_transforms_to_string(preTransform);
+		INFO_LOG(Log::G3D, "Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
+	}
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
 		u32 driverVersion = physicalDeviceProperties_[physical_device_].properties.driverVersion;
