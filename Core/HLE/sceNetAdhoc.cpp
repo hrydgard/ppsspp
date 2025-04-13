@@ -2752,7 +2752,7 @@ int NetAdhocctl_Create(const char *groupName) {
 
 				// Set Network Name
 				if (groupName) {
-					truncate_cpy((char *)parameter.group_name.data, sizeof(parameter.group_name.data), groupName);
+					strncpy((char *)parameter.group_name.data, groupName, sizeof(parameter.group_name.data));
 				} else {
 					memset(&parameter.group_name, 0, sizeof(parameter.group_name));
 				}
