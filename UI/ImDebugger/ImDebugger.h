@@ -57,7 +57,7 @@ struct ImConfig {
 	bool symbolsOpen;
 	bool modulesOpen;
 	bool hleModulesOpen;
-	bool audioDecodersOpen;
+	bool mediaDecodersOpen;
 	bool structViewerOpen;
 	bool framebuffersOpen;
 	bool texturesOpen;
@@ -100,6 +100,7 @@ struct ImConfig {
 	int selectedMemCheck = -1;
 	int selectedAtracCtx = 0;
 	int selectedMemoryBlock = 0;
+	u32 selectedMpegCtx = 0;
 
 	uint64_t selectedTexAddr = 0;
 
