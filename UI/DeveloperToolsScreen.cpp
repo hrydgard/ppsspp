@@ -337,6 +337,12 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 		});
 	}
 
+	static const char *depthRasterModes[] = { "Auto (default)", "Low", "Off", "Always on" };
+
+	PopupMultiChoice *depthRasterMode = list->Add(new PopupMultiChoice(&g_Config.iDepthRasterMode, gr->T("Lens flare occlusion"), depthRasterModes, 0, ARRAY_SIZE(depthRasterModes), I18NCat::GRAPHICS, screenManager()));
+	depthRasterMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
+
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
 	if (draw->GetShaderLanguageDesc().bitwiseOps && !draw->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
 		// If the above if fails, the checkbox is redundant since it'll be force disabled anyway.
