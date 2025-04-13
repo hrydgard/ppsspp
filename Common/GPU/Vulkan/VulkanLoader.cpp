@@ -317,16 +317,21 @@ static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, 
 static const char * const g_deviceNameBlacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
 	"SDL:Horizon",
-	"motorola:moto g54 5G",  // See issue #18681 / #17825
 };
 
-static constexpr std::string_view g_gpuNameBlacklist[] = {
-	"DuMmY",  // avoid an empty array
+struct DriverBlackListEntry {
+	std::string_view deviceNamePrefix;
+	std::string_view gpuDeviceName;
+	uint32_t minOkDriverVersion;
+};
+
+static constexpr DriverBlackListEntry g_gpuNameBlacklist[] = {
+	{"motorola:moto g", "PowerVR BXM-8-256", 0x005d9576},  // avoid an empty array
 #if PPSSPP_PLATFORM(MAC)
-	"Intel(R) Iris(TM) Graphics 6000",
-	"Intel(R) Iris(TM) Graphics 6100",
-	"Intel(R) Iris(TM) Pro Graphics 6200",
-	"Intel Iris Pro Graphics",
+	{"", "Intel(R) Iris(TM) Graphics 6000"},
+	{"", "Intel(R) Iris(TM) Graphics 6100"},
+	{"", "Intel(R) Iris(TM) Pro Graphics 6200"},
+	{"", "Intel Iris Pro Graphics"},
 #endif
 };
 
@@ -444,17 +449,17 @@ bool VulkanMayBeAvailable() {
 	}
 
 	// Note: Here it's device name as in the entire physical device, not GPU device.
-	const std::string name = System_GetProperty(SYSPROP_NAME);
+	const std::string hwDeviceName = System_GetProperty(SYSPROP_NAME);
 	for (std::string_view blacklisted_name : g_deviceNameBlacklist) {
-		if (equals(name, blacklisted_name)) {
-			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device blacklisted ('%s')", name.c_str());
+		if (equals(hwDeviceName, blacklisted_name)) {
+			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device blacklisted ('%s')", hwDeviceName.c_str());
 			g_vulkanAvailabilityChecked = true;
 			g_vulkanMayBeAvailable = false;
 			return false;
 		}
 	}
 
-	INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
+	INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device allowed ('%s')", hwDeviceName.c_str());
 
 	std::string errorStr;
 	VulkanLibraryHandle lib = VulkanLoadLibrary(&errorStr);
@@ -595,8 +600,16 @@ bool VulkanMayBeAvailable() {
 			// Check with the device blacklist.
 			bool blacklisted = false;
 			for (size_t i = 0; i < ARRAY_SIZE(g_gpuNameBlacklist); i++) {
-				if (equals(props.deviceName, g_gpuNameBlacklist[i])) {
-					blacklisted = true;
+				if (startsWith(hwDeviceName, g_gpuNameBlacklist[i].deviceNamePrefix)) {
+					if (equals(props.deviceName, g_gpuNameBlacklist[i].gpuDeviceName)) {
+						if (g_gpuNameBlacklist[i].minOkDriverVersion != 0) {
+							if (props.driverVersion < g_gpuNameBlacklist[i].minOkDriverVersion) {
+								blacklisted = true;
+							}
+						} else {
+							blacklisted = true;
+						}
+					}
 				}
 			}
 			anyGood = !blacklisted;
