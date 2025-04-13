@@ -90,3 +90,5 @@ void __sceAudiocodecDoState(PointerWrap &p);
 
 class AudioDecoder;
 extern std::map<u32, AudioDecoder *> g_audioDecoderContexts;
+
+bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels);

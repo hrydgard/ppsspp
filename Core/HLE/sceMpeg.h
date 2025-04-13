@@ -88,6 +88,9 @@ struct MpegContext {
 	MpegContext();
 	~MpegContext();
 
+	MpegContext(const MpegContext &) = delete;
+	void operator=(const MpegContext &) = delete;
+
 	void DoState(PointerWrap &p);
 
 	u8 mpegheader[2048];
@@ -140,3 +143,5 @@ void Register_sceMpegbase();
 void __VideoPmpInit();
 void __VideoPmpDoState(PointerWrap &p);
 void __VideoPmpShutdown();
+
+const std::map<u32, MpegContext *> &__MpegGetContexts();

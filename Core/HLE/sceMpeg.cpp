@@ -162,7 +162,7 @@ static int mpegLibVersion = 0;
 static u32 mpegLibCrc = 0;
 static u32 streamIdGen;
 static int actionPostPut;
-static std::map<u32, MpegContext *> mpegMap;
+std::map<u32, MpegContext *> g_mpegCtxs;
 
 MpegContext::MpegContext() {
 	memcpy(mpegheader, defaultMpegheader, 2048);
@@ -215,8 +215,8 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 		return nullptr;
 
 	u32 mpeg = Memory::Read_U32(mpegAddr);
-	auto found = mpegMap.find(mpeg);
-	if (found == mpegMap.end())
+	auto found = g_mpegCtxs.find(mpeg);
+	if (found == g_mpegCtxs.end())
 		return nullptr;
 
 	MpegContext *res = found->second;
@@ -227,6 +227,10 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 		res->ringbufferNeedsReverse = false;
 	}
 	return res;
+}
+
+const std::map<u32, MpegContext *> &__MpegGetContexts() {
+	return g_mpegCtxs;
 }
 
 static u32 convertTimestampToDate(u32 ts) {
@@ -366,15 +370,15 @@ void __MpegDoState(PointerWrap &p) {
 	Do(p, actionPostPut);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
-	Do(p, mpegMap);
+	Do(p, g_mpegCtxs);
 }
 
 void __MpegShutdown() {
 	std::map<u32, MpegContext *>::iterator it, end;
-	for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
+	for (it = g_mpegCtxs.begin(), end = g_mpegCtxs.end(); it != end; ++it) {
 		delete it->second;
 	}
-	mpegMap.clear();
+	g_mpegCtxs.clear();
 }
 
 void __MpegLoadModule(int version,u32 crc) {
@@ -486,12 +490,12 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 		Memory::Write_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
 	}
 	MpegContext *ctx = new MpegContext();
-	if (mpegMap.find(mpegHandle) != mpegMap.end()) {
+	if (g_mpegCtxs.find(mpegHandle) != g_mpegCtxs.end()) {
 		WARN_LOG_REPORT(Log::HLE, "Replacing existing mpeg context at %08x", mpegAddr);
 		// Otherwise, it would leak.
-		delete mpegMap[mpegHandle];
+		delete g_mpegCtxs[mpegHandle];
 	}
-	mpegMap[mpegHandle] = ctx;
+	g_mpegCtxs[mpegHandle] = ctx;
 
 	// Initialize mpeg values.
 	ctx->mpegRingbufferAddr = ringbufferAddr;
@@ -526,7 +530,7 @@ static int sceMpegDelete(u32 mpeg) {
 	}
 
 	delete ctx;
-	mpegMap.erase(Memory::Read_U32(mpeg));
+	g_mpegCtxs.erase(Memory::Read_U32(mpeg));
 
 	return hleDelayResult(hleLogDebug(Log::ME, 0), "mpeg delete", 40000);
 }
