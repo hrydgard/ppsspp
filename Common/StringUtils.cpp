@@ -266,6 +266,15 @@ std::string_view KeepAfterLast(std::string_view s, char c) {
 	}
 }
 
+std::string_view KeepIncludingLast(std::string_view s, char c) {
+	size_t pos = s.rfind(c);
+	if (pos != std::string_view::npos) {
+		return s.substr(pos);
+	} else {
+		return s;
+	}
+}
+
 void SkipSpace(const char **ptr) {
 	while (**ptr && isspace(**ptr)) {
 		(*ptr)++;

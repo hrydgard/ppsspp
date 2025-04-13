@@ -35,31 +35,6 @@ enum class GameManagerState {
 	INSTALLING,
 };
 
-enum class ZipFileContents {
-	UNKNOWN,
-	PSP_GAME_DIR,
-	ISO_FILE,
-	TEXTURE_PACK,
-	SAVE_DATA,
-};
-
-struct ZipFileInfo {
-	ZipFileContents contents;
-	int numFiles;
-	int stripChars;  // for PSP game - how much to strip from the path.
-	int isoFileIndex;  // for ISO
-	int textureIniIndex;  // for textures
-	bool ignoreMetaFiles;
-	std::string gameTitle;  // from PARAM.SFO if available
-	std::string savedataTitle;
-	std::string savedataDetails;
-	std::string savedataDir;
-	std::string mTime;
-	s64 totalFileSize;
-
-	std::string contentName;
-};
-
 struct ZipFileTask {
 	std::optional<ZipFileInfo> zipFileInfo;
 	Path url;  // Same as filename if installing from disk. Probably not really useful.
@@ -147,8 +122,4 @@ extern GameManager g_GameManager;
 struct zip *ZipOpenPath(Path fileName);
 void ZipClose(zip *z);
 
-void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
-bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
-
-bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data);
 bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);

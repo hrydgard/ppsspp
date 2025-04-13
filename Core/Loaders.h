@@ -20,6 +20,7 @@
 #include <string>
 #include <memory>
 
+#include "ext/libzip/zip.h"
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 
@@ -57,6 +58,7 @@ enum class IdentifiedFileType {
 };
 
 // NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
+// TOOD: actually, is it really?
 class FileLoader {
 public:
 	enum class Flags {
@@ -77,7 +79,9 @@ public:
 	virtual bool IsDirectory() = 0;
 	virtual s64 FileSize() = 0;
 	virtual Path GetPath() const = 0;
-
+	virtual std::string GetFileExtension() const {
+		return GetPath().GetFileExtension();
+	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
@@ -98,7 +102,6 @@ public:
 		// Takes ownership.
 		delete backend_;
 	}
-
 	bool IsRemote() override {
 		return backend_->IsRemote();
 	}
@@ -129,6 +132,11 @@ public:
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override {
 		return backend_->ReadAt(absolutePos, bytes, data, flags);
 	}
+	FileLoader *Steal() {
+		FileLoader *backend = backend_;
+		backend_ = nullptr;
+		return backend;
+	}
 
 protected:
 	FileLoader *backend_;
@@ -151,3 +159,33 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 bool LoadFile(FileLoader **fileLoaderPtr, IdentifiedFileType type, std::string *error_string);
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
+
+
+enum class ZipFileContents {
+	UNKNOWN,
+	PSP_GAME_DIR,
+	ISO_FILE,
+	TEXTURE_PACK,
+	SAVE_DATA,
+	FRAME_DUMP,
+};
+
+struct ZipFileInfo {
+	ZipFileContents contents;
+	int numFiles;
+	int stripChars;  // for PSP game - how much to strip from the path.
+	int isoFileIndex;  // for ISO
+	int textureIniIndex;  // for textures
+	bool ignoreMetaFiles;
+	std::string gameTitle;  // from PARAM.SFO if available
+	std::string savedataTitle;
+	std::string savedataDetails;
+	std::string savedataDir;
+	std::string mTime;
+	s64 totalFileSize;
+
+	std::string contentName;
+};
+
+bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
+void DetectZipFileContents(struct zip *z, ZipFileInfo *info);

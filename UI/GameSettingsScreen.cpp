@@ -777,7 +777,8 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		autoHide->SetFormat(di->T("%d seconds"));
 		autoHide->SetZeroLabel(co->T("Off"));
 
-		controlsSettings->Add(new CheckBox(&g_Config.bTouchGliding, co->T("Keep first touched button pressed when dragging")));
+		CheckBox *touchGliding = controlsSettings->Add(new CheckBox(&g_Config.bTouchGliding, co->T("Keep first touched button pressed when dragging")));
+		touchGliding->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// Hide stick background, useful when increasing the size
 		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));

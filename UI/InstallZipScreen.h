@@ -41,8 +41,10 @@ protected:
 
 private:
 	UI::EventReturn OnInstall(UI::EventParams &params);
+	UI::EventReturn OnPlay(UI::EventParams &params);
 
 	UI::Choice *installChoice_ = nullptr;
+	UI::Choice *playChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
 	UI::TextView *doneView_ = nullptr;
 	SavedataView *existingSaveView_ = nullptr;

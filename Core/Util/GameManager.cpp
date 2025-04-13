@@ -197,42 +197,6 @@ void GameManager::Update() {
 	}
 }
 
-static int countSlashes(const std::string &fileName, int *slashLocation) {
-	int slashCount = 0;
-	int lastSlashLocation = -1;
-	if (slashLocation) {
-		*slashLocation = -1;
-	}
-	for (size_t i = 0; i < fileName.size(); i++) {
-		if (fileName[i] == '/') {
-			slashCount++;
-			if (slashLocation) {
-				*slashLocation = lastSlashLocation;
-				lastSlashLocation = (int)i;
-			}
-		}
-	}
-
-	return slashCount;
-}
-
-bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
-	struct zip *z = ZipOpenPath(fileName);
-	if (!z) {
-		info->contents = ZipFileContents::UNKNOWN;
-		return false;
-	}
-	DetectZipFileContents(z, info);
-	zip_close(z);
-	return true;
-}
-
-inline char asciitolower(char in) {
-	if (in <= 'Z' && in >= 'A')
-		return in - ('Z' - 'z');
-	return in;
-}
-
 bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
 	int numFiles = zip_get_num_files(z);
 	if (numFiles > maxOkFiles && maxOkFiles >= 0) {
@@ -252,125 +216,6 @@ bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxO
 		}
 	}
 	return true;
-}
-
-void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
-	int numFiles = zip_get_num_files(z);
-
-	// Verify that this is a PSP zip file with the correct layout. We also try
-	// to detect simple zipped ISO files, those we'll just "install" to the current
-	// directory of the Games tab (where else?).
-	bool isPSPMemstickGame = false;
-	bool isZippedISO = false;
-	bool isTexturePack = false;
-	int stripChars = 0;
-	int isoFileIndex = -1;
-	int stripCharsTexturePack = -1;
-	int textureIniIndex = -1;
-	int filesInRoot = 0;
-	int directoriesInRoot = 0;
-	bool hasParamSFO = false;
-	bool hasIcon0PNG = false;
-	s64 totalFileSize = 0;
-
-	// TODO: It might be cleaner to write separate detection functions, but this big loop doing it all at once
-	// is quite convenient and makes it easy to add shared heuristics.
-	for (int i = 0; i < numFiles; i++) {
-		const char *fn = zip_get_name(z, i, 0);
-
-		zip_stat_t stat{};
-		zip_stat_index(z, i, 0, &stat);
-		totalFileSize += stat.size;
-
-		std::string zippedName = fn;
-		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
-			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
-		// Ignore macos metadata stuff
-		if (startsWith(zippedName, "__macosx/")) {
-			continue;
-		}
-		if (endsWith(zippedName, "/")) {
-			// A directory. Not all zips bother including these.
-			continue;
-		}
-
-		int prevSlashLocation = -1;
-		int slashCount = countSlashes(zippedName, &prevSlashLocation);
-		if (zippedName.find("eboot.pbp") != std::string::npos) {
-			if (slashCount >= 1 && (!isPSPMemstickGame || prevSlashLocation < stripChars + 1)) {
-				stripChars = prevSlashLocation + 1;
-				isPSPMemstickGame = true;
-			} else {
-				INFO_LOG(Log::HLE, "Wrong number of slashes (%i) in '%s'", slashCount, fn);
-			}
-			// TODO: Extract icon and param.sfo from the pbp to be able to display it on the install screen.
-		} else if (endsWith(zippedName, ".iso") || endsWith(zippedName, ".cso") || endsWith(zippedName, ".chd")) {
-			if (slashCount <= 1) {
-				// We only do this if the ISO file is in the root or one level down.
-				isZippedISO = true;
-				INFO_LOG(Log::HLE, "ISO found in zip: %s", zippedName.c_str());
-				if (isoFileIndex != -1) {
-					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
-				} else {
-					isoFileIndex = i;
-					info->contentName = zippedName;
-				}
-			}
-		} else if (zippedName.find("textures.ini") != std::string::npos) {
-			int slashLocation = (int)zippedName.find_last_of('/');
-			if (stripCharsTexturePack == -1 || slashLocation < stripCharsTexturePack + 1) {
-				stripCharsTexturePack = slashLocation + 1;
-				isTexturePack = true;
-				textureIniIndex = i;
-			}
-		} else if (endsWith(zippedName, "/param.sfo")) {
-			// Get the game name so we can display it.
-			std::string paramSFOContents;
-			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
-				ParamSFOData sfo;
-				if (sfo.ReadSFO((const u8 *)paramSFOContents.data(), paramSFOContents.size())) {
-					if (sfo.HasKey("TITLE")) {
-						info->gameTitle = sfo.GetValueString("TITLE");
-						info->savedataTitle = sfo.GetValueString("SAVEDATA_TITLE");
-						char buff[20];
-						strftime(buff, 20, "%Y-%m-%d %H:%M:%S", localtime(&stat.mtime));
-						info->mTime = buff;
-						info->savedataDetails = sfo.GetValueString("SAVEDATA_DETAIL");
-						info->savedataDir = sfo.GetValueString("SAVEDATA_DIRECTORY");  // should also be parsable from the path.
-						hasParamSFO = true;
-					}
-				}
-			}
-		} else if (endsWith(zippedName, "/icon0.png")) {
-			hasIcon0PNG = true;
-		}
-		if (slashCount == 0) {
-			filesInRoot++;
-		}
-	}
-
-	info->stripChars = stripChars;
-	info->numFiles = numFiles;
-	info->isoFileIndex = isoFileIndex;
-	info->textureIniIndex = textureIniIndex;
-	info->ignoreMetaFiles = false;
-	info->totalFileSize = totalFileSize;
-
-	// Priority ordering for detecting the various kinds of zip file content.s
-	if (isPSPMemstickGame) {
-		info->contents = ZipFileContents::PSP_GAME_DIR;
-	} else if (isZippedISO) {
-		info->contents = ZipFileContents::ISO_FILE;
-	} else if (isTexturePack) {
-		info->stripChars = stripCharsTexturePack;
-		info->ignoreMetaFiles = true;
-		info->contents = ZipFileContents::TEXTURE_PACK;
-	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG) {
-		// As downloaded from GameFAQs, for example.
-		info->contents = ZipFileContents::SAVE_DATA;
-	} else {
-		info->contents = ZipFileContents::UNKNOWN;
-	}
 }
 
 // Parameters need to be by value, since this is a thread func.
@@ -626,34 +471,6 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	ParamSFOData sfo;
 	sfo.ReadSFO((const u8 *)sfoData.data(), sfoData.size());
 	return sfo.GetValueString("DISC_ID");
-}
-
-bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
-	struct zip_stat zstat;
-	zip_stat_index(z, fileIndex, 0, &zstat);
-	if (zstat.size == 0) {
-		data->clear();
-		return true;
-	}
-
-	size_t readSize = zstat.size;
-	data->resize(readSize);
-
-	zip_file *zf = zip_fopen_index(z, fileIndex, 0);
-	if (!zf) {
-		ERROR_LOG(Log::HLE, "Failed to zip_fopen_index file %d from zip", fileIndex);
-		return false;
-	}
-
-	zip_int64_t retval = zip_fread(zf, data->data(), readSize);
-	zip_fclose(zf);
-
-	if (retval < 0 || retval < (int)readSize) {
-		ERROR_LOG(Log::HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
-		return false;
-	} else {
-		return true;
-	}
 }
 
 bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes) {

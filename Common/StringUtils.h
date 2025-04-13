@@ -99,6 +99,7 @@ std::string StripSpaces(const std::string &s);
 std::string StripQuotes(const std::string &s);
 
 std::string_view KeepAfterLast(std::string_view s, char c);
+std::string_view KeepIncludingLast(std::string_view s, char c);
 
 std::string_view StripSpaces(std::string_view s);
 std::string_view StripQuotes(std::string_view s);

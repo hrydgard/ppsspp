@@ -17,6 +17,10 @@
 
 #pragma once
 
+// TODO: Somehow unify FileSystem, VFS and FileLoaders. Actually, maybe FileSystem and VFS have the most in common
+// but file systems should be able to contain FileLoader as files. Then we can do stuff like playing homebrew directly
+// out of zip files, and similar tricks.
+
 #include <vector>
 #include <string>
 #include <cstring>

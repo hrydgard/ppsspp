@@ -21,6 +21,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+#include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 
 #ifdef _WIN32

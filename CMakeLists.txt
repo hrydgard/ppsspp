@@ -2378,6 +2378,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileLoaders/RamCachingFileLoader.h
 	Core/FileLoaders/RetryingFileLoader.cpp
 	Core/FileLoaders/RetryingFileLoader.h
+	Core/FileLoaders/ZipFileLoader.cpp
+	Core/FileLoaders/ZipFileLoader.h
 	Core/MIPS/MIPS.cpp
 	Core/MIPS/MIPS.h
 	Core/MIPS/MIPSAnalyst.cpp
