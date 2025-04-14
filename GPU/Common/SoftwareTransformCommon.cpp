@@ -1087,12 +1087,8 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std:
 				}
 				break;
 			case GE_VTYPE_IDX_32BIT:
-				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
 				for (int i = 0; i < count; ++i) {
-					// These aren't documented and should be rare.  Let's bounds check each one.
-					if (inds32[i] != (u16)inds32[i]) {
-						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
-					}
+					// These are rare. Only the bottom 16 bits are used.
 					indices[i] = (u16)inds32[i];
 				}
 				break;

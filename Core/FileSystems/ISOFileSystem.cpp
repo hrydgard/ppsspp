@@ -478,7 +478,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		OpenFileEntry &e = iter->second;
 
 		if (size < 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			ERROR_LOG(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
 			return 0;
 		}
 		

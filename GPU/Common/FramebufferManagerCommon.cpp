@@ -1615,7 +1615,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (vfb) {
 			// Okay, we found one above.
 			// Log should be "Displaying from framebuf" but not worth changing the report.
-			INFO_LOG_REPORT_ONCE(displayoffset, Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			INFO_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
 		}
 	}
 

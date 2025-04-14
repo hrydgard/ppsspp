@@ -441,6 +441,8 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	PopupMultiChoice *depthRasterMode = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iDepthRasterMode, gr->T("Lens flare occlusion"), depthRasterModes, 0, ARRAY_SIZE(depthRasterModes), I18NCat::GRAPHICS, screenManager()));
 	depthRasterMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
+	if (g_Config.iDepthRasterMode != 3)
+		depthRasterMode->HideChoice(3);
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);

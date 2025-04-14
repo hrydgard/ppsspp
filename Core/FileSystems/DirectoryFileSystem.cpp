@@ -437,12 +437,12 @@ void DirectoryFileHandle::Close() {
 #ifdef _WIN32
 		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
 		if (SetEndOfFile(hFile) == 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
+			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
 		}
 #elif !PPSSPP_PLATFORM(SWITCH)
 		// Note: it's not great that Switch cannot truncate appropriately...
 		if (ftruncate(hFile, (off_t)needsTrunc_) != 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
+			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
 		}
 #endif
 	}

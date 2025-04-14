@@ -711,23 +711,20 @@ static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
 	return hleDelayResult(hleLogInfo(Log::ME, 0), "mp3 low level", 600);
 }
 
+// Used by SD Gundam Overworld for custom BGM, and Heroes VS.
 static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
 	// sourceAddr: input mp3 stream buffer
 	// sourceBytesConsumedAddr: consumed bytes decoded in source
 	// samplesAddr: output pcm buffer
 	// sampleBytesAddr: output pcm size
-	DEBUG_LOG(Log::ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		return hleLogError(Log::ME, SCE_MP3_ERROR_INVALID_HANDLE, "invalid handle");
 	}
 
 	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(sourceBytesConsumedAddr) ||
 		!Memory::IsValidAddress(samplesAddr) || !Memory::IsValidAddress(sampleBytesAddr)) {
-		ERROR_LOG(Log::ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x) : invalid address in args", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
-		return -1;
+		return hleLogError(Log::ME, -1, "invalid address in args");
 	}
 
 	const u8 *inbuff = Memory::GetPointerWriteUnchecked(sourceAddr);
@@ -735,13 +732,15 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	
 	int outSamples = 0;
 	int inbytesConsumed = 0;
-	ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, 2, outbuf, &outSamples);
+	if (!ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, 2, outbuf, &outSamples)) {
+		WARN_LOG(Log::ME, "sceMp3LowLevelDecode: Decode failed");
+	}
 	int outBytes = outSamples * sizeof(int16_t) * 2;
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outBytes, "Mp3LowLevelDecode");
 	
 	Memory::Write_U32(inbytesConsumed, sourceBytesConsumedAddr);
 	Memory::Write_U32(outBytes, sampleBytesAddr);
-	return 0;
+	return hleLogDebug(Log::ME, 0);
 }
 
 const HLEFunction sceMp3[] = {

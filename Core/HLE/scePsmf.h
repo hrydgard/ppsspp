@@ -19,7 +19,7 @@
 // NOTE: This is now unmaintained legacy code. scePsmf/scePsmfPlayer is just a wrapper over sceMpeg
 // which is always shipped by games that use it, so we simply load the libraries now and focus
 // on emulating sceMpeg as accurately as possible. We might actually go one step deeper if we can
-// figure out sceVideocodec, as sceMpeg is also often shipped.
+// figure out sceVideocodec, as sceMpeg is also often shipped (but not always!)
 
 #pragma once
 

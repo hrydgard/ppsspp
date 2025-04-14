@@ -957,14 +957,14 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	if (ImGui::CollapsingHeader("sceMpeg")) {
-		const std::map<u32, MpegContext *> &ctxs = __MpegGetContexts();
+	const std::map<u32, MpegContext *> &mpegCtxs = __MpegGetContexts();
+	if (ImGui::CollapsingHeaderWithCount("sceMpeg", mpegCtxs.size())) {
 		if (ImGui::BeginTable("mpegs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Addr", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("VFrames", ImGuiTableColumnFlags_WidthFixed);
 
 			ImGui::TableHeadersRow();
-			for (auto iter : ctxs) {
+			for (auto iter : mpegCtxs) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(iter.first);
@@ -987,8 +987,8 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::EndTable();
 		}
 
-		auto iter = ctxs.find(cfg.selectedMpegCtx);
-		if (iter != ctxs.end()) {
+		auto iter = mpegCtxs.find(cfg.selectedMpegCtx);
+		if (iter != mpegCtxs.end()) {
 			const MpegContext *ctx = iter->second;
 			char temp[16];
 			snprintf(temp, sizeof(temp), "sceMpeg context at %08x", iter->first);
@@ -1003,7 +1003,17 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
+	// Count the active atrac contexts so we can display it.
+	const int maxAtracContexts = __AtracMaxContexts();
+	int atracCount = 0;
+	for (int i = 0; i < maxAtracContexts; i++) {
+		u32 type;
+		if (__AtracGetCtx(i, &type)) {
+			atracCount++;
+		}
+	}
+
+	if (ImGui::CollapsingHeaderWithCount("sceAtrac", atracCount, ImGuiTreeNodeFlags_DefaultOpen)) {
 		ImGui::Checkbox("Force FFMPEG", &g_Config.bForceFfmpegForAudioDec);
 		if (ImGui::BeginTable("atracs", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
@@ -1016,8 +1026,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::TableSetupColumn("Impl", ImGuiTableColumnFlags_WidthFixed);
 
 			ImGui::TableHeadersRow();
-			const int maxContexts = __AtracMaxContexts();
-			for (int i = 0; i < maxContexts; i++) {
+			for (int i = 0; i < maxAtracContexts; i++) {
 				u32 codecType = 0;
 
 				ImGui::TableNextRow();
@@ -1164,7 +1173,48 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("sceAudiocodec", ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeaderWithCount("sceMp3", (int)mp3Map.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("ReadPos", ImGuiTableColumnFlags_WidthFixed);
+
+			for (auto &iter : mp3Map) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(iter.first);
+				ImGui::SetNextItemAllowOverlap();
+				char temp[16];
+				snprintf(temp, sizeof(temp), "%d", iter.first);
+				if (ImGui::Selectable(temp, iter.first == cfg.selectedMp3Ctx, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedMp3Ctx = iter.first;
+				}
+				if (!iter.second) {
+					continue;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->Channels);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", (int)iter.second->ReadPos());
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+
+		auto iter = mp3Map.find(cfg.selectedMp3Ctx);
+		if (iter != mp3Map.end() && ImGui::CollapsingHeader("MP3 %d", iter->first)) {
+			ImGui::Text("MP3 Context %d", iter->first);
+			if (iter->second) {
+				AuCtx *ctx = iter->second;
+				ImGui::Text("%d Hz, %d channels", ctx->SamplingRate, ctx->Channels);
+				ImGui::Text("AUBuf: %08x AUSize: %08x", ctx->AuBuf, ctx->AuBufSize);
+				ImGui::Text("PCMBuf: %08x PCMSize: %08x", ctx->PCMBuf, ctx->PCMBufSize);
+				ImGui::Text("Pos: %d (%d -> %d)", ctx->ReadPos(), ctx->startPos, ctx->endPos);
+			}
+		}
+	}
+
+	if (ImGui::CollapsingHeaderWithCount("sceAudiocodec", (int)g_audioDecoderContexts.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
 		if (ImGui::BeginTable("codecs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("CtxAddr", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
@@ -1181,29 +1231,6 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 				case PSP_CODEC_AT3: ImGui::TextUnformatted("Atrac3"); break;
 				default: ImGui::Text("%08x", iter.second->GetAudioType()); break;
 				}
-			}
-			ImGui::EndTable();
-		}
-	}
-
-	if (ImGui::CollapsingHeader("sceMp3", ImGuiTreeNodeFlags_DefaultOpen)) {
-		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("StartPos", ImGuiTableColumnFlags_WidthFixed);
-			// TODO: more..
-
-			for (auto &iter : mp3Map) {
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", iter.first);
-				if (!iter.second) {
-					continue;
-				}
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", iter.second->Channels);
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", (int)iter.second->startPos);
 			}
 			ImGui::EndTable();
 		}

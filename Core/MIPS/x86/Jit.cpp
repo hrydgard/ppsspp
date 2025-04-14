@@ -696,9 +696,10 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 		else
 			ABI_CallFunctionC(func, op.encoding);
 		ApplyRoundingMode();
+	} else {
+		// These are basically always due to some kind of crash or corruption now.
+		ERROR_LOG(Log::JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
 	}
-	else
-		ERROR_LOG_REPORT(Log::JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
 
 	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)

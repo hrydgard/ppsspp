@@ -705,7 +705,7 @@ static int sceHttpLoadSystemCookie() {
 static int sceHttpCreateTemplate(const char *userAgent, int httpVer, int autoProxyConf) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d) at %08x", safe_string(userAgent), httpVer, autoProxyConf, currentMIPS->pc);
 	// Reporting to find more games to be tested
-	DEBUG_LOG_REPORT_ONCE(sceHttpCreateTemplate, Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d)", safe_string(userAgent), httpVer, autoProxyConf);
+	WARN_LOG_REPORT_ONCE(sceHttpCreateTemplate, Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d)", safe_string(userAgent), httpVer, autoProxyConf);
 	std::lock_guard<std::mutex> guard(httpLock);
 	httpObjects.push_back(std::make_shared<HTTPTemplate>(userAgent? userAgent:"", httpVer, autoProxyConf));
 	int retid = (int)httpObjects.size();

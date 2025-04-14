@@ -70,6 +70,10 @@ public:
 	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
 		_dbg_assert_(outputChannels == 2);
 
+		// When used from sceMp3LowLevelDecode, this fails to parse the mp3 header!
+		// It's because minimp3 is a bit more sensitive than ffmpeg - if you give it a buffer that's larger than the frame size,
+		// it'll check that there's a second matching frame before accepting. But in our case we only get one frame,
+		// but we do not know the size. So this might need some modifications in minimp3.
 		mp3dec_frame_info_t info{};
 		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)temp_, &info);
 		_dbg_assert_(samplesWritten <= MINIMP3_MAX_SAMPLES_PER_FRAME);
@@ -146,8 +150,13 @@ AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int c
 	}
 
 	switch (audioType) {
-	case PSP_CODEC_MP3:
-		return new MiniMp3Audio();
+	// Our MiniMP3 backend has too many issues:
+	//   * Doesn't accept sample rate
+	//   * Doesn't accept data where there's only one valid frame if the buffer is bigger.
+	//     This prevents sceMp3LowLevelDecode from working, since nothing passes us the frame size.
+	//
+	// case PSP_CODEC_MP3:
+	// 	return new MiniMp3Audio();
 	case PSP_CODEC_AT3:
 	 	return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
 	case PSP_CODEC_AT3PLUS:
@@ -338,7 +347,9 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	}
 	
 	// get bytes consumed in source
-	*inbytesConsumed = len;
+	if (inbytesConsumed) {
+		*inbytesConsumed = len;
+	}
 
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
@@ -352,15 +363,18 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 #endif
 
 		if (!swrCtx_) {
+			// TODO: Allow these to differ.
+			const int inputSampleRate = codecCtx_->sample_rate;
+			const int outputSampleRate = codecCtx_->sample_rate;
 #if LIBAVUTIL_VERSION_MAJOR >= 59
 			swr_alloc_set_opts2(
 				&swrCtx_,
 				&wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
-				codecCtx_->sample_rate,
+				outputSampleRate,
 				&dec_channel_layout,
 				codecCtx_->sample_fmt,
-				codecCtx_->sample_rate,
+				inputSampleRate,
 				0,
 				NULL);
 #else
@@ -368,10 +382,10 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 				swrCtx_,
 				wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
-				codecCtx_->sample_rate,
+				outputSampleRate,
 				dec_channel_layout,
 				codecCtx_->sample_fmt,
-				codecCtx_->sample_rate,
+				inputSampleRate,
 				0,
 				NULL);
 #endif
@@ -394,7 +408,9 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 			return false;
 		}
 		// output stereo samples per frame
-		*outSamples = swrRet;
+		if (outSamples) {
+			*outSamples = swrRet;
+		}
 
 		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
 		// SaveAudio("dump.pcm", outbuf, *outbytes);
