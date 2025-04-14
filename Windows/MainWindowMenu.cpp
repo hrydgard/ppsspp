@@ -59,6 +59,7 @@
 #endif
 
 extern bool g_TakeScreenshot;
+extern void SaveFrameDump();
 
 namespace MainWindow {
 	extern HINSTANCE hInst;
@@ -245,7 +246,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE);
 		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, g_Config.bSystemControls ? L"\tF12" : L"");
-		TranslateMenuItem(menu, ID_DEBUG_DUMPNEXTFRAME);
+		TranslateMenuItem(menu, ID_DEBUG_SAVEFRAMEDUMP);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
 		TranslateMenuItem(menu, ID_DEBUG_RESTARTGRAPHICS);
 		TranslateMenuItem(menu, ID_DEBUG_DISASSEMBLY, g_Config.bSystemControls ? L"\tCtrl+D" : L"");
@@ -767,9 +768,13 @@ namespace MainWindow {
 			g_Config.bAutoRun = !g_Config.bAutoRun;
 			break;
 
-		case ID_DEBUG_DUMPNEXTFRAME:
-			System_PostUIMessage(UIMessage::REQUEST_GPU_DUMP_NEXT_FRAME);
+		case ID_DEBUG_SAVEFRAMEDUMP:
+		{
+			System_RunOnMainThread([]() {
+				SaveFrameDump();
+			});
 			break;
+		}
 
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
