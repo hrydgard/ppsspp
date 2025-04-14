@@ -1,5 +1,7 @@
 // Just some string_view and related wrappers.
 
+#include <cstdio>
+#include <cstdlib>
 #include <string_view>
 #include "ext/imgui/imgui.h"
 
@@ -51,6 +53,12 @@ bool RepeatButtonShift(const char* label, float repeatRate) {
 	}
 
 	return clicked;
+}
+
+bool CollapsingHeaderWithCount(const char *title, int count, ImGuiTreeNodeFlags flags) {
+	char temp[256];
+	snprintf(temp, sizeof(temp), "%s (%d)##%s", title, count, title);
+	return ImGui::CollapsingHeader(temp, flags);
 }
 
 }  // namespace ImGui
