@@ -398,9 +398,9 @@ void OSXOpenURL(const char *url) {
     takeScreenshotAction.target = self;
     takeScreenshotAction.tag = 9;
 
-    NSMenuItem *dumpNextFrameToLogAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Dump Next Frame to Log") action:@selector(dumpNextFrameToLog) keyEquivalent:@""];
-    dumpNextFrameToLogAction.target = self;
-    dumpNextFrameToLogAction.tag = 10;
+    NSMenuItem *saveFrameDumpAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save frame dump") action:@selector(saveFrameDump) keyEquivalent:@""];
+    saveFrameDumpAction.target = self;
+    saveFrameDumpAction.tag = 10;
 
     NSMenuItem *copyBaseAddr = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Copy PSP memory base address") action:@selector(copyAddr) keyEquivalent:@""];
     copyBaseAddr.target = self;
@@ -424,7 +424,7 @@ void OSXOpenURL(const char *url) {
     [parent addItem:[NSMenuItem separatorItem]];
 
     [parent addItem:takeScreenshotAction];
-    [parent addItem:dumpNextFrameToLogAction];
+    [parent addItem:saveFrameDumpAction];
     [parent addItem:showDebugStatsAction];
     [parent addItem:restartGraphicsAction];
 
@@ -493,8 +493,8 @@ void OSXOpenURL(const char *url) {
     return nil;
 }
 
--(void)dumpNextFrameToLog {
-    gpu->DumpNextFrame();
+-(void)saveFrameDump {
+	System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
 }
 
 -(void)takeScreenshot {

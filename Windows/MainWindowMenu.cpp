@@ -59,7 +59,6 @@
 #endif
 
 extern bool g_TakeScreenshot;
-extern void SaveFrameDump();
 
 namespace MainWindow {
 	extern HINSTANCE hInst;
@@ -770,9 +769,8 @@ namespace MainWindow {
 
 		case ID_DEBUG_SAVEFRAMEDUMP:
 		{
-			System_RunOnMainThread([]() {
-				SaveFrameDump();
-			});
+			System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
+
 			break;
 		}
 
