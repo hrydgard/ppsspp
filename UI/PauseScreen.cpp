@@ -373,6 +373,7 @@ void GamePauseScreen::CreateViews() {
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto nw = GetI18NCategory(I18NCat::NETWORKING);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -440,6 +441,15 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (showSavestateControls) {
+		if (PSP_CoreParameter().compat.flags().SaveStatesNotRecommended) {
+			LinearLayout *horiz = new LinearLayout(UI::ORIENT_HORIZONTAL);
+			leftColumnItems->Add(horiz);
+			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)));
+			horiz->Add(new Button(di->T("More info")))->OnClick.Add([](UI::EventParams &e) {
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps");
+				return UI::EVENT_DONE;
+			});
+		}
 		CreateSavestateControls(leftColumnItems, vertical);
 	} else {
 		// Let's show the active challenges.
