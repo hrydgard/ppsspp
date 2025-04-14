@@ -166,6 +166,7 @@
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value);
 static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress);
+void SaveFrameDump();
 
 ScreenManager *g_screenManager;
 std::string config_filename;
@@ -1254,6 +1255,9 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 	} else if (message == UIMessage::APP_RESUMED || message == UIMessage::GOT_FOCUS) {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
+		return true;
+	} else if (message == UIMessage::SAVE_FRAME_DUMP) {
+		SaveFrameDump();
 		return true;
 	} else {
 		return false;

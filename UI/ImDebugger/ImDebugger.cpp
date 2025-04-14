@@ -958,7 +958,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 	}
 
 	const std::map<u32, MpegContext *> &mpegCtxs = __MpegGetContexts();
-	if (ImGui::CollapsingHeaderWithCount("sceMpeg", mpegCtxs.size())) {
+	if (ImGui::CollapsingHeaderWithCount("sceMpeg", (int)mpegCtxs.size())) {
 		if (ImGui::BeginTable("mpegs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Addr", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("VFrames", ImGuiTableColumnFlags_WidthFixed);

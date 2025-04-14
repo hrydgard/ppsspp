@@ -569,7 +569,7 @@ BEGIN
         MENUITEM "Reset Symbol Table",                      ID_DEBUG_RESETSYMBOLTABLE
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Take Screenshot",                         ID_DEBUG_TAKESCREENSHOT
-        MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
+        MENUITEM "Save frame dump",                         ID_DEBUG_SAVEFRAMEDUMP
         MENUITEM "Show Debug Statistics",                   ID_DEBUG_SHOWDEBUGSTATISTICS
         MENUITEM "Restart Graphics",                        ID_DEBUG_RESTARTGRAPHICS
         MENUITEM "", 0, MFT_SEPARATOR
