@@ -1534,7 +1534,7 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 
 		isTTY = true;
 	} else {
-		h = pspFileSystem.OpenFile(filename, (FileAccess)access);
+		h = pspFileSystem.OpenFile(filename, (FileAccess)(access | (int)FileAccess::FILEACCESS_PPSSPP_QUIET));
 		if (h < 0) {
 			error = h;
 			return nullptr;

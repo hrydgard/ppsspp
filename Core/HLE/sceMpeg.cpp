@@ -1630,7 +1630,7 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	// The audio can end earlier than the video does.
 	if (ringbuffer->packetsAvail == 0) {
 		// TODO: Does this really delay?
-		return hleDelayResult(hleLogError(Log::ME, SCE_MPEG_ERROR_NO_DATA), "mpeg get atrac", mpegDecodeErrorDelayMs);
+		return hleDelayResult(hleLogDebug(Log::ME, SCE_MPEG_ERROR_NO_DATA), "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
 
 	// esBuffer is the memory where this au data goes.  We don't write the data to memory.

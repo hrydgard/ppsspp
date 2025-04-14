@@ -338,7 +338,9 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	}
 	
 	// get bytes consumed in source
-	*inbytesConsumed = len;
+	if (inbytesConsumed) {
+		*inbytesConsumed = len;
+	}
 
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
@@ -352,15 +354,18 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 #endif
 
 		if (!swrCtx_) {
+			// TODO: Allow these to differ.
+			const int inputSampleRate = codecCtx_->sample_rate;
+			const int outputSampleRate = codecCtx_->sample_rate;
 #if LIBAVUTIL_VERSION_MAJOR >= 59
 			swr_alloc_set_opts2(
 				&swrCtx_,
 				&wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
-				codecCtx_->sample_rate,
+				outputSampleRate,
 				&dec_channel_layout,
 				codecCtx_->sample_fmt,
-				codecCtx_->sample_rate,
+				inputSampleRate,
 				0,
 				NULL);
 #else
@@ -368,10 +373,10 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 				swrCtx_,
 				wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
-				codecCtx_->sample_rate,
+				outputSampleRate,
 				dec_channel_layout,
 				codecCtx_->sample_fmt,
-				codecCtx_->sample_rate,
+				inputSampleRate,
 				0,
 				NULL);
 #endif
@@ -394,7 +399,9 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 			return false;
 		}
 		// output stereo samples per frame
-		*outSamples = swrRet;
+		if (outSamples) {
+			*outSamples = swrRet;
+		}
 
 		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
 		// SaveAudio("dump.pcm", outbuf, *outbytes);
