@@ -770,7 +770,6 @@ namespace MainWindow {
 		case ID_DEBUG_SAVEFRAMEDUMP:
 		{
 			System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
-
 			break;
 		}
 

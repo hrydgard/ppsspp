@@ -1484,32 +1484,71 @@ bool Slider::Key(const KeyInput &input) {
 }
 
 bool Slider::ApplyKey(InputKeyCode keyCode) {
-	switch (keyCode) {
-	case NKCODE_DPAD_LEFT:
-	case NKCODE_MINUS:
-	case NKCODE_NUMPAD_SUBTRACT:
-		*value_ -= step_;
-		break;
-	case NKCODE_DPAD_RIGHT:
-	case NKCODE_PLUS:
-	case NKCODE_NUMPAD_ADD:
-		*value_ += step_;
-		break;
-	case NKCODE_PAGE_UP:
-		*value_ -= step_ * 10;
-		break;
-	case NKCODE_PAGE_DOWN:
-		*value_ += step_ * 10;
-		break;
-	case NKCODE_MOVE_HOME:
-		*value_ = minValue_;
-		break;
-	case NKCODE_MOVE_END:
-		*value_ = maxValue_;
-		break;
-	default:
-		return false;
+	SnapToFixed();
+	
+	if (numFixedChoices_) {
+		// Find the current one.
+		int curIndex = -1;
+		for (int i = 0; i < numFixedChoices_; i++) {
+			if (*value_ == fixedChoices_[i]) {
+				curIndex = i;
+			}
+		}
+		switch (keyCode) {
+		case NKCODE_DPAD_LEFT:
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
+		case NKCODE_PAGE_DOWN:
+			if (curIndex >= 1) {
+				*value_ = fixedChoices_[curIndex - 1];
+			}
+			break;
+		case NKCODE_DPAD_RIGHT:
+		case NKCODE_PLUS:
+		case NKCODE_NUMPAD_ADD:
+		case NKCODE_PAGE_UP:
+			if (curIndex < numFixedChoices_ - 1) {
+				*value_ = fixedChoices_[curIndex + 1];
+			}
+			break;
+		case NKCODE_MOVE_HOME:
+			*value_ = fixedChoices_[0];
+			break;
+		case NKCODE_MOVE_END:
+			*value_ = fixedChoices_[numFixedChoices_ - 1];
+			break;
+		default:
+			return false;
+		}
+	} else {
+		switch (keyCode) {
+		case NKCODE_DPAD_LEFT:
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
+			*value_ -= step_;
+			break;
+		case NKCODE_DPAD_RIGHT:
+		case NKCODE_PLUS:
+		case NKCODE_NUMPAD_ADD:
+			*value_ += step_;
+			break;
+		case NKCODE_PAGE_UP:
+			*value_ -= step_ * 10;
+			break;
+		case NKCODE_PAGE_DOWN:
+			*value_ += step_ * 10;
+			break;
+		case NKCODE_MOVE_HOME:
+			*value_ = minValue_;
+			break;
+		case NKCODE_MOVE_END:
+			*value_ = maxValue_;
+			break;
+		default:
+			return false;
+		}
 	}
+
 	EventParams params{};
 	params.v = this;
 	params.a = (uint32_t)(*value_);
@@ -1544,6 +1583,9 @@ void Slider::Clamp() {
 
 	// Clamp the value to be a multiple of the nearest step (e.g. if step == 5, value == 293, it'll round down to 290).
 	*value_ = *value_ - fmodf(*value_, step_);
+
+	// If it's a fixed set, snap it.
+	SnapToFixed();
 }
 
 void Slider::Draw(UIContext &dc) {
@@ -1585,6 +1627,30 @@ void Slider::Update() {
 	} else if (repeat_ >= 12 && (repeat_ & 1) == 1) {
 		ApplyKey(repeatCode_);
 		Clamp();
+	}
+}
+
+void Slider::SnapToFixed() {
+	if (!numFixedChoices_) {
+		return;
+	}
+
+	int val = *value_;
+	// Find the closest value.
+	int minDist = 999999999;
+	int best = -1;
+	for (int i = 0; i < numFixedChoices_; i++) {
+		int dist = val - fixedChoices_[i];
+		if (dist < 0)
+			dist = -dist;
+		if (dist < minDist) {
+			minDist = dist;
+			best = i;
+		}
+	}
+
+	if (best >= 0) {
+		*value_ = fixedChoices_[best];
 	}
 }
 

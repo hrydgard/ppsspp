@@ -615,6 +615,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	auto a = GetI18NCategory(I18NCat::AUDIO);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 #if PPSSPP_PLATFORM(IOS)
 	CheckBox *respectSilentMode = audioSettings->Add(new CheckBox(&g_Config.bAudioRespectSilentMode, a->T("Respect silent mode")));
@@ -693,6 +694,14 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceList, I18NCat::NONE, screenManager()));
 	audioDevice->OnChoice.Handle(this, &GameSettingsScreen::OnAudioDevice);
 	sdlAudio = true;
+
+	static const int bufferSizes[] = {128, 256, 512, 1024, 2048};
+	PopupSliderChoice *bufferSize = audioSettings->Add(new PopupSliderChoice(&g_Config.iSDLAudioBufferSize, 0, 2048, 256, a->T("Buffer size"), screenManager()));
+	bufferSize->RestrictChoices(bufferSizes, ARRAY_SIZE(bufferSizes));
+	bufferSize->OnChange.Add([=](EventParams& e) {
+		settingInfo_->Show(di->T("This change will not take effect until PPSSPP is restarted."), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 #endif
 
 	if (sdlAudio || g_Config.iAudioBackend == AUDIO_BACKEND_WASAPI) {

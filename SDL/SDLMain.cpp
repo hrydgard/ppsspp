@@ -146,7 +146,7 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	fmt.freq = g_sampleRate;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 256;
+	fmt.samples = std::max(g_Config.iSDLAudioBufferSize, 128);
 	fmt.callback = &sdl_mixaudio_callback;
 	fmt.userdata = nullptr;
 
@@ -163,7 +163,9 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		}
 	}
 	if (audioDev <= 0) {
-		INFO_LOG(Log::Audio, "SDL: Trying a different audio device");
+		if (audioDev < 0) {
+			INFO_LOG(Log::Audio, "SDL: Error: %s. Trying a different audio device", SDL_GetError());
+		}
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {

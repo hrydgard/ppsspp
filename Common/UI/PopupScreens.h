@@ -88,6 +88,10 @@ public:
 		negativeLabel_ = str;
 		disabled_ = *value_ < 0;
 	}
+	void RestrictChoices(const int *fixedChoices, size_t numFixedChoices) {
+		fixedChoices_ = fixedChoices;
+		numFixedChoices_ = numFixedChoices;
+	}
 
 	const char *tag() const override { return "SliderPopup"; }
 
@@ -113,6 +117,8 @@ private:
 	bool liveUpdate_;
 	bool changing_ = false;
 	bool disabled_ = false;
+	const int *fixedChoices_ = nullptr;
+	size_t numFixedChoices_ = 0;
 };
 
 class SliderFloatPopupScreen : public PopupScreen {
@@ -310,6 +316,10 @@ public:
 	void SetNegativeDisable(std::string_view str) {
 		negativeLabel_ = str;
 	}
+	void RestrictChoices(const int *fixedChoices, size_t numFixedChoices) {
+		fixedChoices_ = fixedChoices;
+		numFixedChoices_ = numFixedChoices;
+	}
 
 	Event OnChange;
 
@@ -332,6 +342,8 @@ private:
 	ScreenManager *screenManager_;
 	bool restoreFocus_ = false;
 	bool liveUpdate_ = false;
+	const int *fixedChoices_ = nullptr;
+	size_t numFixedChoices_ = 0;
 };
 
 class PopupSliderChoiceFloat : public AbstractChoiceWithValueDisplay {

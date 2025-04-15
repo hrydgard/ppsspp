@@ -624,6 +624,10 @@ public:
 	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void SetShowPercent(bool s) { showPercent_ = s; }
+	void RestrictChoices(const int *fixedChoices, size_t numFixedChoices) {
+		fixedChoices_ = fixedChoices;
+		numFixedChoices_ = numFixedChoices;
+	}
 
 	// OK to call this from the outside after having modified *value_
 	void Clamp();
@@ -632,6 +636,7 @@ public:
 
 private:
 	bool ApplyKey(InputKeyCode keyCode);
+	void SnapToFixed();
 
 	int *value_;
 	bool showPercent_;
@@ -641,6 +646,8 @@ private:
 	float paddingRight_;
 	int step_;
 	int repeat_ = 0;
+	const int *fixedChoices_ = nullptr;
+	size_t numFixedChoices_ = 0;
 	InputKeyCode repeatCode_ = NKCODE_UNKNOWN;
 };
 
