@@ -208,6 +208,7 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	if (!negativeLabel_.empty())
 		popupScreen->SetNegativeDisable(negativeLabel_);
+	popupScreen->RestrictChoices(fixedChoices_, numFixedChoices_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
@@ -369,6 +370,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
+	slider_->RestrictChoices(fixedChoices_, numFixedChoices_);
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
