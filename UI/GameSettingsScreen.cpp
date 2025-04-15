@@ -715,6 +715,8 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, I18NCat::NONE, screenManager()));
 		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
 	}
+
+	PopupSliderChoice *audioSamples = audioSettings->Add(new PopupSliderChoice(&g_Config.iAudioSamples, AUDIOSAMPLES_MIN, AUDIOSAMPLES_MAX, 256, a->T("Audio Samples"), screenManager()));
 }
 
 void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings) {
