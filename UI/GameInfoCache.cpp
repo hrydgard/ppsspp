@@ -30,6 +30,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/Render/ManagedTexture.h"
+#include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Core/FileSystems/ISOFileSystem.h"
@@ -86,6 +87,26 @@ bool IsReasonableEbootDirectory(Path path) {
 	return true;
 }
 
+static bool MoveFileToTrashOrDelete(const Path &path) {
+	if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+		// TODO: Way to see if it succeeded
+		System_MoveToTrash(path);
+		return true;
+	} else {
+		return File::Delete(path);
+	}
+}
+
+static bool MoveDirectoryTreeToTrashOrDelete(const Path &path) {
+	if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+		// TODO: Way to see if it succeeded
+		System_MoveToTrash(path);
+		return true;
+	} else {
+		return File::DeleteDirRecursively(path);
+	}
+}
+
 bool GameInfo::Delete() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_ISO:
@@ -94,7 +115,7 @@ bool GameInfo::Delete() {
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			Path fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
-			File::MoveFileToTrashOrDelete(fileToRemove);
+			MoveFileToTrashOrDelete(fileToRemove);
 			g_recentFiles.Remove(filePath_.ToString());
 			return true;
 		}
@@ -108,14 +129,14 @@ bool GameInfo::Delete() {
 			// This can happen if the PBP is misplaced, see issue #20187
 			if (!IsReasonableEbootDirectory(directoryToRemove)) {
 				// Just delete the eboot.
-				File::MoveFileToTrashOrDelete(filePath_);
+				MoveFileToTrashOrDelete(filePath_);
 				g_recentFiles.Remove(filePath_.ToString());
 				return true;
 			}
 
 			// Delete the whole tree. We better be sure, see IsReasonableEbootDirectory.
 			INFO_LOG(Log::System, "Deleting directory %s", directoryToRemove.c_str());
-			if (!File::MoveDirectoryTreeToTrashOrDelete(directoryToRemove)) {
+			if (!MoveDirectoryTreeToTrashOrDelete(directoryToRemove)) {
 				ERROR_LOG(Log::System, "Failed to delete file");
 				return false;
 			}
@@ -133,7 +154,7 @@ bool GameInfo::Delete() {
 		{
 			const Path &fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
-			File::MoveFileToTrashOrDelete(fileToRemove);
+			MoveFileToTrashOrDelete(fileToRemove);
 			g_recentFiles.Remove(filePath_.ToString());
 			return true;
 		}
@@ -142,10 +163,10 @@ bool GameInfo::Delete() {
 		{
 			const Path &ppstPath = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", ppstPath.c_str());
-			File::MoveFileToTrashOrDelete(ppstPath);
+			MoveFileToTrashOrDelete(ppstPath);
 			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
-				File::MoveFileToTrashOrDelete(screenshotPath);
+				MoveFileToTrashOrDelete(screenshotPath);
 			}
 			return true;
 		}
@@ -331,7 +352,7 @@ bool GameInfo::DeleteAllSaveData() {
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		INFO_LOG(Log::System, "Deleting savedata from %s", saveDataDir[j].c_str());
-		if (!File::MoveDirectoryTreeToTrashOrDelete(saveDataDir[j])) {
+		if (!MoveDirectoryTreeToTrashOrDelete(saveDataDir[j])) {
 			ERROR_LOG(Log::System, "Failed to delete savedata %s", saveDataDir[j].c_str());
 		}
 	}

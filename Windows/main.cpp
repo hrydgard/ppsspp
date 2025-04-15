@@ -720,6 +720,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		MainWindow::RunCallbackInWndProc(func, userdata);
 		return true;
 	}
+	case SystemRequestType::MOVE_TO_TRASH:
+	{
+		W32Util::MoveToTrash(Path(param1));
+		return true;
+	}
 	default:
 		return false;
 	}

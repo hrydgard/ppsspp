@@ -150,3 +150,8 @@ void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdat
 	int64_t castUserData = (int64_t)userdata;
 	g_requestManager.MakeSystemRequest(SystemRequestType::RUN_CALLBACK_IN_WNDPROC, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", castPtr, castUserData);
 }
+
+void System_MoveToTrash(const Path &path) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::MOVE_TO_TRASH, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), "", 0);
+}
+

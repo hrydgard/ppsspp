@@ -155,9 +155,6 @@ Path ResolvePBPFile(const Path &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
-// Can modify the string filename, as it calls IdentifyFile above.
-bool LoadFile(FileLoader **fileLoaderPtr, IdentifiedFileType type, std::string *error_string);
-
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
 
 
@@ -186,6 +183,9 @@ struct ZipFileInfo {
 
 	std::string contentName;
 };
+
+struct zip *ZipOpenPath(const Path &fileName);
+void ZipClose(zip *z);
 
 bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
 void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
