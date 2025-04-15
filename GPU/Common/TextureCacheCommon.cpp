@@ -272,13 +272,19 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		case TEX_FILTER_AUTO_MAX_QUALITY:
 		default:
 			forceFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+				key.aniso = true;
+			}
 			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
 				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
-				if (uglyColorTest)
+				if (uglyColorTest) {
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
+					key.aniso = false;
+				}
 			}
 			if (gstate_c.pixelMapped) {
 				forceFiltering = TEX_FILTER_FORCE_NEAREST;
+				key.aniso = false;
 			}
 			break;
 		}
@@ -304,9 +310,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		key.mipFilt = 1;
 		key.maxLevel = 9 * 256;
 		key.lodBias = 0.0f;
-		if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
-			key.aniso = true;
-		}
 		break;
 	}
 
