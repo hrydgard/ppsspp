@@ -233,12 +233,4 @@ inline bool ReadTextFileToString(const Path &path, std::string *str) {
 // Return value must be delete[]-d.
 uint8_t *ReadLocalFile(const Path &path, size_t *size);
 
-// Moves to trash/recycle bin.
-// This is only functional if SYSPROP_HAS_TRASH_BIN is true, otherwise will return false.
-bool MoveFileToTrash(const Path &path);
-
-// These move to trash if possible, otherwise permanently delete.
-bool MoveFileToTrashOrDelete(const Path &path);
-bool MoveDirectoryTreeToTrashOrDelete(const Path &path);
-
 }  // namespace

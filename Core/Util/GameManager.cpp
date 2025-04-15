@@ -52,32 +52,6 @@
 
 GameManager g_GameManager;
 
-// Close the return value with ZipClose (if non-null, of course).
-struct zip *ZipOpenPath(Path fileName) {
-	int error = 0;
-	// Need to special case for content URI here, similar to OpenCFile.
-	struct zip *z;
-#if PPSSPP_PLATFORM(ANDROID)
-	if (fileName.Type() == PathType::CONTENT_URI) {
-		int fd = File::OpenFD(fileName, File::OPEN_READ);
-		z = zip_fdopen(fd, 0, &error);
-	} else
-#endif
-	{  // continuation of above else in the ifdef
-		z = zip_open(fileName.c_str(), 0, &error);
-	}
-
-	if (!z) {
-		ERROR_LOG(Log::HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
-	}
-	return z;
-}
-
-void ZipClose(struct zip *z) {
-	if (z)
-		zip_close(z);
-}
-
 GameManager::GameManager() {
 }
 

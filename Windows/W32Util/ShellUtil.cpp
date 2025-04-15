@@ -11,12 +11,50 @@
 #include "ShellUtil.h"
 
 #include <shobjidl.h>  // For IFileDialog and related interfaces
+#include <shellapi.h>
 #include <shlobj.h>
 #include <commdlg.h>
 #include <cderr.h>
 #include <wrl/client.h>
 
 namespace W32Util {
+
+bool MoveToTrash(const Path &path) {
+	IFileOperation *pFileOp = nullptr;
+
+	HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pFileOp));
+	if (FAILED(hr)) {
+		return false;
+	}
+
+	// Set operation flags
+	hr = pFileOp->SetOperationFlags(FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT);
+	if (FAILED(hr)) {
+		pFileOp->Release();
+		return false;
+	}
+
+	// Create a shell item from the file path
+	IShellItem* pItem = nullptr;
+	hr = SHCreateItemFromParsingName(path.ToWString().c_str(), nullptr, IID_PPV_ARGS(&pItem));
+	if (SUCCEEDED(hr)) {
+		// Schedule the delete (move to recycle bin)
+		hr = pFileOp->DeleteItem(pItem, nullptr);
+		if (SUCCEEDED(hr)) {
+			hr = pFileOp->PerformOperations(); // Execute
+		}
+		pItem->Release();
+	}
+	pFileOp->Release();
+
+	if (SUCCEEDED(hr)) {
+		INFO_LOG(Log::IO, "Moved file to trash successfully: %s", path.c_str());
+		return true;
+	} else {
+		WARN_LOG(Log::IO, "Failed to move file to trash: %s", path.c_str());
+		return false;
+	}
+}
 
 std::string BrowseForFolder2(HWND parent, std::string_view title, std::string_view initialPath) {
 	const std::wstring wtitle = ConvertUTF8ToWString(title);

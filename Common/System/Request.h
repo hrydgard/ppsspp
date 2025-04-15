@@ -189,6 +189,7 @@ inline void System_SendDebugScreenshot(std::string_view data, int height) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, NO_REQUESTER_TOKEN, nullptr, nullptr, data, "", height);
 }
 
+void System_MoveToTrash(const Path &path);
 void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata);
 
 // Non-inline to avoid including Path.h

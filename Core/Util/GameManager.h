@@ -27,7 +27,6 @@
 #include <optional>
 
 #include "Common/Net/HTTPClient.h"
-#include "Common/File/Path.h"
 
 enum class GameManagerState {
 	IDLE,
@@ -45,6 +44,7 @@ struct ZipFileTask {
 
 struct zip;
 class FileLoader;
+class Path;
 struct ZipFileInfo;
 
 class GameManager {
@@ -118,8 +118,5 @@ private:
 };
 
 extern GameManager g_GameManager;
-
-struct zip *ZipOpenPath(Path fileName);
-void ZipClose(zip *z);
 
 bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);

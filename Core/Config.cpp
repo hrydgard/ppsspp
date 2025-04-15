@@ -49,6 +49,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/OSD.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
@@ -1690,7 +1691,11 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 	Path fullIniFilePath = Path(getGameConfigFile(pGameId, &exists));
 
 	if (exists) {
-		File::MoveFileToTrashOrDelete(fullIniFilePath);
+		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+			System_MoveToTrash(fullIniFilePath);
+		} else {
+			File::Delete(fullIniFilePath);
+		}
 	}
 	return true;
 }

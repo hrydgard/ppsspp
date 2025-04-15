@@ -98,6 +98,8 @@ enum class SystemRequestType {
 	MICROPHONE_COMMAND,
 
 	RUN_CALLBACK_IN_WNDPROC,
+
+	MOVE_TO_TRASH,
 };
 
 // Run a closure on the main thread. Used to safely implement UI that runs on another thread.

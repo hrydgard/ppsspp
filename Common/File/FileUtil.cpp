@@ -42,13 +42,12 @@
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/SysError.h"
+#include "Common/System/Request.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <sys/utime.h>
-#include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
-#include <commdlg.h>	// for GetSaveFileName
 #include <io.h>
 #include <direct.h>		// getcwd
 #if PPSSPP_PLATFORM(UWP)
@@ -1369,58 +1368,6 @@ bool IsProbablyInDownloadsFolder(const Path &filename) {
 		break;
 	}
 	return filename.FilePathContainsNoCase("download");
-}
-
-// The Win32 implementation kinda belongs in ShellUtil.cpp but that's in the wrong project.
-// Some reorganization is in order...
-bool MoveFileToTrash(const Path &path) {
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	IFileOperation *pFileOp = nullptr;
-	HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pFileOp));
-	if (FAILED(hr)) {
-		return false;
-	}
-
-	// Set operation flags
-	hr = pFileOp->SetOperationFlags(FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT);
-	if (FAILED(hr)) {
-		pFileOp->Release();
-		CoUninitialize();
-		return false;
-	}
-
-	// Create a shell item from the file path
-	IShellItem* pItem = nullptr;
-	hr = SHCreateItemFromParsingName(path.ToWString().c_str(), nullptr, IID_PPV_ARGS(&pItem));
-	if (SUCCEEDED(hr)) {
-		// Schedule the delete (move to recycle bin)
-		hr = pFileOp->DeleteItem(pItem, nullptr);
-		if (SUCCEEDED(hr)) {
-			hr = pFileOp->PerformOperations(); // Execute
-		}
-		pItem->Release();
-	}
-	pFileOp->Release();
-	return true;
-#else
-	return false;
-#endif
-}
-
-bool MoveFileToTrashOrDelete(const Path &path) {
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	return MoveFileToTrash(path);
-#else
-	return Delete(path);
-#endif
-}
-
-bool MoveDirectoryTreeToTrashOrDelete(const Path &path) {
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	return MoveFileToTrash(path);  // works with directories
-#else
-	return DeleteDirRecursively(path);
-#endif
 }
 
 }  // namespace File
