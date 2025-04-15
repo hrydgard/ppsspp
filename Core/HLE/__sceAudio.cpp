@@ -338,8 +338,9 @@ void __AudioUpdate(bool resetRecording) {
 	int16_t srcBuffer[srcBufferSize];
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
-		if (!g_audioChans[i].reserved)
+		if (!g_audioChans[i].reserved) {
 			continue;
+		}
 
 		__AudioWakeThreads(g_audioChans[i], 0, hwBlockSize);
 
@@ -357,6 +358,11 @@ void __AudioUpdate(bool resetRecording) {
 		size_t sz1, sz2;
 
 		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+
+		// We do this check as the very last thing before mixing, to maximize compatibility.
+		if (g_audioChans[i].mute) {
+			continue;
+		}
 
 		if (needsResample) {
 			auto read = [&](size_t i) {

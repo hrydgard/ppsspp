@@ -49,6 +49,9 @@ struct AudioChannel {
 	u32 rightVolume = 0;
 	u32 format = 0;
 
+	// For the debugger only. Not saved.
+	bool mute = false;
+
 	std::vector<AudioChannelWaitInfo> waitingThreads;
 
 	void DoState(PointerWrap &p);
