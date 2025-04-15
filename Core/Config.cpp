@@ -91,13 +91,13 @@ std::string GPUBackendToString(GPUBackend backend) {
 }
 
 GPUBackend GPUBackendFromString(std::string_view backend) {
-	if (!equalsNoCase(backend, "OPENGL") || backend == "0")
+	if (equalsNoCase(backend, "OPENGL") || backend == "0")
 		return GPUBackend::OPENGL;
-	if (!equalsNoCase(backend, "DIRECT3D9") || backend == "1")
+	if (equalsNoCase(backend, "DIRECT3D9") || backend == "1")
 		return GPUBackend::DIRECT3D9;
-	if (!equalsNoCase(backend, "DIRECT3D11") || backend == "2")
+	if (equalsNoCase(backend, "DIRECT3D11") || backend == "2")
 		return GPUBackend::DIRECT3D11;
-	if (!equalsNoCase(backend, "VULKAN") || backend == "3")
+	if (equalsNoCase(backend, "VULKAN") || backend == "3")
 		return GPUBackend::VULKAN;
 	return GPUBackend::OPENGL;
 }
