@@ -58,7 +58,7 @@ struct AudioChannel {
 };
 
 // The extra channel is for SRC/Output2/Vaudio (who all share, apparently.)
-extern AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
+extern AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void Register_sceAudio();
 
