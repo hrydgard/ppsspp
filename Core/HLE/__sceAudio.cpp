@@ -111,8 +111,8 @@ void __AudioInit() {
 	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles, eventHostAudioUpdate, 0);
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-		chans[i].index = i;
-		chans[i].clear();
+		g_audioChans[i].index = i;
+		g_audioChans[i].clear();
 	}
 
 	mixBuffer = new s32[hwBlockSize * 2];
@@ -156,17 +156,17 @@ void __AudioDoState(PointerWrap &p) {
 		System_AudioClear();
 	}
 
-	int chanCount = ARRAY_SIZE(chans);
+	int chanCount = ARRAY_SIZE(g_audioChans);
 	Do(p, chanCount);
-	if (chanCount != ARRAY_SIZE(chans))
+	if (chanCount != ARRAY_SIZE(g_audioChans))
 	{
 		ERROR_LOG(Log::sceAudio, "Savestate failure: different number of audio channels.");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
 	for (int i = 0; i < chanCount; ++i) {
-		chans[i].index = i;
-		chans[i].DoState(p);
+		g_audioChans[i].index = i;
+		g_audioChans[i].DoState(p);
 	}
 
 	__AudioCPUMHzChange();
@@ -178,8 +178,8 @@ void __AudioShutdown() {
 
 	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-		chans[i].index = i;
-		chans[i].clear();
+		g_audioChans[i].index = i;
+		g_audioChans[i].clear();
 	}
 
 #ifndef MOBILE_DEVICE
@@ -338,10 +338,11 @@ void __AudioUpdate(bool resetRecording) {
 	int16_t srcBuffer[srcBufferSize];
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
-		if (!chans[i].reserved)
+		if (!g_audioChans[i].reserved) {
 			continue;
+		}
 
-		__AudioWakeThreads(chans[i], 0, hwBlockSize);
+		__AudioWakeThreads(g_audioChans[i], 0, hwBlockSize);
 
 		if (!chanSampleQueues[i].size()) {
 			continue;
@@ -357,6 +358,11 @@ void __AudioUpdate(bool resetRecording) {
 		size_t sz1, sz2;
 
 		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+
+		// We do this check as the very last thing before mixing, to maximize compatibility.
+		if (g_audioChans[i].mute) {
+			continue;
+		}
 
 		if (needsResample) {
 			auto read = [&](size_t i) {

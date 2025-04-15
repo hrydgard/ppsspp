@@ -1245,8 +1245,9 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	if (ImGui::BeginTable("audios", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("audios", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("SampleAddr", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("SampleCount", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Volume", ImGuiTableColumnFlags_WidthFixed);
@@ -1257,26 +1258,29 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 
 		// vaudio / output2 uses channel 8.
 		for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-			if (!chans[i].reserved) {
+			if (!g_audioChans[i].reserved) {
 				continue;
 			}
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
+			ImGui::PushID(i);
 			if (i == 8) {
 				ImGui::TextUnformatted("audio2");
 			} else {
 				ImGui::Text("%d", i);
 			}
 			ImGui::TableNextColumn();
+			ImGui::Checkbox("", &g_audioChans[i].mute);
+			ImGui::TableNextColumn();
 			char id[2]{};
 			id[0] = i + 1;
-			ImClickableValue(id, chans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			ImClickableValue(id, g_audioChans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", chans[i].sampleCount);
+			ImGui::Text("%08x", g_audioChans[i].sampleCount);
 			ImGui::TableNextColumn();
-			ImGui::Text("%d | %d", chans[i].leftVolume, chans[i].rightVolume);
+			ImGui::Text("%d | %d", g_audioChans[i].leftVolume, g_audioChans[i].rightVolume);
 			ImGui::TableNextColumn();
-			switch (chans[i].format) {
+			switch (g_audioChans[i].format) {
 			case PSP_AUDIO_FORMAT_STEREO:
 				ImGui::TextUnformatted("Stereo");
 				break;
@@ -1288,12 +1292,13 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 				break;
 			}
 			ImGui::TableNextColumn();
-			for (auto t : chans[i].waitingThreads) {
+			for (auto t : g_audioChans[i].waitingThreads) {
 				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t.threadID);
 				if (thread) {
 					ImGui::Text("%s: %d", thread->GetName(), t.numSamples);
 				}
 			}
+			ImGui::PopID();
 		}
 
 		ImGui::EndTable();

@@ -49,6 +49,9 @@ struct AudioChannel {
 	u32 rightVolume = 0;
 	u32 format = 0;
 
+	// For the debugger only. Not saved.
+	bool mute = false;
+
 	std::vector<AudioChannelWaitInfo> waitingThreads;
 
 	void DoState(PointerWrap &p);
@@ -58,7 +61,7 @@ struct AudioChannel {
 };
 
 // The extra channel is for SRC/Output2/Vaudio (who all share, apparently.)
-extern AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
+extern AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void Register_sceAudio();
 
