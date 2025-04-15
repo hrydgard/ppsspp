@@ -304,19 +304,28 @@ static void CheckFailedGPUBackends() {
 	// Use this if you want to debug a graphics crash...
 	if (g_Config.sFailedGPUBackends == "IGNORE")
 		return;
-	else if (!g_Config.sFailedGPUBackends.empty())
+	else if (!g_Config.sFailedGPUBackends.empty()) {
 		ERROR_LOG(Log::Loader, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
+	}
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	if (lastBackend != g_Config.iGPUBackend) {
+		// This is the expected path.
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 		System_GraphicsBackendFailedAlert(param);
-		WARN_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+		INFO_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+	} else {
+		WARN_LOG(Log::Loader, "Did not switch failed backend! %d", g_Config.iGPUBackend);
 	}
+
 	// And then let's - for now - add the current to the failed list, in case it fails - we'll clear it again once it succeeds.
+	const std::string curBackend = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 	if (g_Config.sFailedGPUBackends.empty()) {
-		g_Config.sFailedGPUBackends = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+		g_Config.sFailedGPUBackends = curBackend;
+	} else if (g_Config.sFailedGPUBackends.find(curBackend) != std::string::npos) {
+		// Backend already listed!
+		ERROR_LOG(Log::Loader, "Unexpected: Backend already in failed backends. Should not have been attempted");
 	} else if (g_Config.sFailedGPUBackends.find("ALL") == std::string::npos) {
 		g_Config.sFailedGPUBackends += "," + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 	}
