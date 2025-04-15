@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include "Common/Common.h"
 #include "Common/StringUtils.h"
@@ -907,10 +908,9 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 	u16 minIndex = 0;
 	u16 maxIndex = count - 1;
 	if (!indices.empty()) {
-		_dbg_assert_(count <= indices.size());
 		minIndex = 0xFFFF;
 		maxIndex = 0;
-		for (int i = 0; i < count; ++i) {
+		for (int i = 0; i < std::min((size_t)count, indices.size()); ++i) {
 			if (minIndex > indices[i]) {
 				minIndex = indices[i];
 			}
