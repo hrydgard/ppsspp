@@ -146,7 +146,7 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	fmt.freq = g_sampleRate;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 256;
+	fmt.samples = g_Config.iAudioSamples;
 	fmt.callback = &sdl_mixaudio_callback;
 	fmt.userdata = nullptr;
 
