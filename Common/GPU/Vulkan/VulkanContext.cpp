@@ -187,6 +187,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	// Uncomment to test GPU backend fallback
+	// abort();
+
 	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}

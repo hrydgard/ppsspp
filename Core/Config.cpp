@@ -91,13 +91,13 @@ std::string GPUBackendToString(GPUBackend backend) {
 }
 
 GPUBackend GPUBackendFromString(std::string_view backend) {
-	if (!equalsNoCase(backend, "OPENGL") || backend == "0")
+	if (equalsNoCase(backend, "OPENGL") || backend == "0")
 		return GPUBackend::OPENGL;
-	if (!equalsNoCase(backend, "DIRECT3D9") || backend == "1")
+	if (equalsNoCase(backend, "DIRECT3D9") || backend == "1")
 		return GPUBackend::DIRECT3D9;
-	if (!equalsNoCase(backend, "DIRECT3D11") || backend == "2")
+	if (equalsNoCase(backend, "DIRECT3D11") || backend == "2")
 		return GPUBackend::DIRECT3D11;
-	if (!equalsNoCase(backend, "VULKAN") || backend == "3")
+	if (equalsNoCase(backend, "VULKAN") || backend == "3")
 		return GPUBackend::VULKAN;
 	return GPUBackend::OPENGL;
 }
@@ -347,7 +347,7 @@ static bool DefaultSasThread() {
 
 static const ConfigSetting achievementSettings[] = {
 	// Core settings
-	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsEnableRAIntegration", &g_Config.bAchievementsEnableRAIntegration, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsHardcoreMode, true, CfgFlag::PER_GAME | CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsEncoreMode", &g_Config.bAchievementsEncoreMode, false, CfgFlag::PER_GAME | CfgFlag::DEFAULT),
