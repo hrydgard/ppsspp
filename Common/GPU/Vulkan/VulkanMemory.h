@@ -93,7 +93,4 @@ private:
 	VkBufferUsageFlags usage_;
 	int curBlockIndex_ = -1;
 	const char *name_;
-	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
-	VkMemoryPropertyFlags allocation_extra_flags_;
-	#endif
 };
