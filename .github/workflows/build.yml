@@ -158,12 +158,12 @@ jobs:
           args: ./b.sh --libretro_android ppsspp_libretro
           id: android-libretro
 
-        # - os: ubuntu-latest
-        #   extra: qt
-        #   cc: gcc
-        #   cxx: g++
-        #   args: ./b.sh --qt
-        #   id: qt
+        - os: ubuntu-latest
+          extra: qt
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --qt
+          id: qt
         - os: ubuntu-latest
           extra: libretro
           cc: gcc
