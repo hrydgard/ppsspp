@@ -682,6 +682,8 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 // Need to use raw Android logging before NativeInit.
 #define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
 
+static bool bFirstResume = false;
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
@@ -763,6 +765,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
+	bFirstResume = true;
 
 	// In debug mode, don't allow creating software Vulkan devices (reject by VulkanMaybeAvailable).
 	// Needed for #16931.
@@ -873,7 +877,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
 
-	System_PostUIMessage(UIMessage::APP_RESUMED);
+	System_PostUIMessage(UIMessage::APP_RESUMED, bFirstResume ? "first" : "");
+
+	bFirstResume = false;
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
