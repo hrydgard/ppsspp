@@ -594,7 +594,6 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 		gpuStats.numCopiesForShaderBlend++;
 		*fboTexState = FBO_TEX_COPY_BIND_TEX;
 	}
-
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 }
 

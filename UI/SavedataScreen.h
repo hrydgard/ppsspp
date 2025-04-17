@@ -91,7 +91,6 @@ private:
 	void CreateSavedataTab(UI::ViewGroup *savedata);
 	void CreateSavestateTab(UI::ViewGroup *savestate);
 
-	bool gridStyle_ = false;
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	SavedataBrowser *dataBrowser_ = nullptr;
 	SavedataBrowser *stateBrowser_ = nullptr;

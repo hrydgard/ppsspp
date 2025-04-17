@@ -515,11 +515,11 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			// Clamp to the remaining size, but read what we can.
 			const s64 newSize = fileSize - (s64)e.seekPos;
 			// Reading beyond the file is really quite normal behavior (if return value handled correctly), so
-			// not doing WARN here. Still, can potentially be useful to see so leaving at INFO.
+			// not doing WARN here.
 			if (newSize == 0) {
-				INFO_LOG(Log::FileSystem, "Attempted read at end of file, 0-size read simulated");
+				DEBUG_LOG(Log::FileSystem, "Attempted read at end of file, 0-size read simulated");
 			} else {
-				INFO_LOG(Log::FileSystem, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
+				DEBUG_LOG(Log::FileSystem, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
 			}
 			size = newSize;
 		}

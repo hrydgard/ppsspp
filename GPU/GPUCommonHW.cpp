@@ -618,6 +618,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
 		features |= GPU_USE_FRAMEBUFFER_FETCH;
+		features |= GPU_USE_SHADER_BLENDING;   // doesn't matter if we are buffered or not here.
+	} else {
+		if (!g_Config.bSkipBufferEffects) {
+			features |= GPU_USE_SHADER_BLENDING;
+		}
 	}
 
 	if (draw_->GetShaderLanguageDesc().bitwiseOps && g_Config.bUberShaderVertex) {

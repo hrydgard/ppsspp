@@ -101,6 +101,7 @@ static inline void DrawSinglePixel(u16 *pixel, const u32 color_in) {
 			old_color = RGBA4444ToRGBA8888(*pixel);
 			break;
 		default:
+			old_color = 0;  // avoid warning. can't get here though since we enumerate all 16-bit formats above.
 			break;
 		}
 

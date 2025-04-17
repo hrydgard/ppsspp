@@ -71,7 +71,6 @@ private:
 	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 	bool generateMips_ = false;
 	ImageFileType type_ = ImageFileType::DETECT;
-	TextureLoadTask *loadTask_ = nullptr;
 	LimitedWaitable *taskWaitable_ = nullptr;
 	TempImage pendingImage_;
 	LoadState state_ = LoadState::PENDING;

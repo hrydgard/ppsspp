@@ -104,7 +104,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		VkAccessFlagBits dstAccessFlags;
+		VkAccessFlagBits dstAccessFlags = (VkAccessFlagBits)0;
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 			dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;

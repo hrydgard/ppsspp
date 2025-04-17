@@ -136,7 +136,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
 		} else {
-			pipelineState_.Convert(draw_->GetShaderLanguageDesc().bitwiseOps);
+			pipelineState_.Convert(draw_->GetShaderLanguageDesc().bitwiseOps, gstate_c.Use(GPU_USE_SHADER_BLENDING));
 			GenericMaskState &maskState = pipelineState_.maskState;
 			GenericBlendState &blendState = pipelineState_.blendState;
 			GenericLogicState &logicState = pipelineState_.logicState;

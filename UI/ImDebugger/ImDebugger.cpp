@@ -791,12 +791,13 @@ static void DrawSockets(ImConfig &cfg) {
 }
 
 static const char *MemCheckConditionToString(MemCheckCondition cond) {
-	switch (cond) {
-	case MEMCHECK_READ: return "Read";
-	case MEMCHECK_WRITE: return "Write";
-	case MEMCHECK_READWRITE: return "Read/Write";
-	case MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE: return "Write Change";
-	case MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE: return "Read/Write Change";
+	// (int) casting to avoid "case not in enum" warnings
+	switch ((int)cond) {
+	case (int)MEMCHECK_READ: return "Read";
+	case (int)MEMCHECK_WRITE: return "Write";
+	case (int)MEMCHECK_READWRITE: return "Read/Write";
+	case (int)(MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE): return "Write Change";
+	case (int)(MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE): return "Read/Write Change";
 	default:
 		return "(bad!)";
 	}
@@ -1209,7 +1210,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 				ImGui::Text("%d Hz, %d channels", ctx->SamplingRate, ctx->Channels);
 				ImGui::Text("AUBuf: %08x AUSize: %08x", ctx->AuBuf, ctx->AuBufSize);
 				ImGui::Text("PCMBuf: %08x PCMSize: %08x", ctx->PCMBuf, ctx->PCMBufSize);
-				ImGui::Text("Pos: %d (%d -> %d)", ctx->ReadPos(), ctx->startPos, ctx->endPos);
+				ImGui::Text("Pos: %d (%d -> %d)", ctx->ReadPos(), (int)ctx->startPos, (int)ctx->endPos);
 			}
 		}
 	}
