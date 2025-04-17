@@ -990,7 +990,7 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent event) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
-			Log.i(TAG, "key event" + event.getSource());
+			// Log.d(TAG, "key event source: " + event.getSource());
 			if (NativeSurfaceView.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
 				Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode());
 				Log.i(TAG, "usemodernb2: " + useModernMouseEventsB2);
