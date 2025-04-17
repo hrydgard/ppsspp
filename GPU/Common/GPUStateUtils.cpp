@@ -1077,13 +1077,19 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	}
 }
 
+enum class FBReadSetting {
+	Forced,
+	Allowed,
+	Disallowed,
+};
+
 // If we can we emulate the colorMask by simply toggling the full R G B A masks offered
 // by modern hardware, we do that. This is 99.9% of the time.
 // When that's not enough, we fall back on a technique similar to shader blending,
 // we read from the framebuffer (or a copy of it).
 // We also prepare uniformMask so that if doing this in the shader gets forced-on,
 // we have the right mask already.
-static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSupported) {
+static void ConvertMaskState(GenericMaskState &maskState, FBReadSetting useShader) {
 	if (gstate_c.blueToAlpha) {
 		maskState.applyFramebufferRead = false;
 		maskState.uniformMask = 0xFF000000;
@@ -1106,7 +1112,7 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 			maskState.channelMask |= 1 << i;
 			break;
 		default:
-			if (shaderBitOpsSupported && PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
+			if (useShader != FBReadSetting::Disallowed && PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
 				// Shaders can emulate masking accurately. Let's make use of that.
 				maskState.applyFramebufferRead = true;
 				maskState.channelMask |= 1 << i;
@@ -1137,7 +1143,7 @@ static void ConvertMaskState(GenericMaskState &maskState, bool shaderBitOpsSuppo
 }
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
-static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBlend) {
+static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFBRead) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -1153,7 +1159,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 	blendState.useBlendColor = false;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.framebufFormat);
-	if (forceReplaceBlend) {
+	if (useFBRead == FBReadSetting::Forced) {
 		// Enforce blend replacement if enabled. If not, shouldn't do anything of course.
 		replaceBlend = gstate.isAlphaBlendEnabled() ? REPLACE_BLEND_READ_FRAMEBUFFER : REPLACE_BLEND_NO;
 	}
@@ -1174,7 +1180,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 		// We may still want to do something about stencil -> alpha.
 		ApplyStencilReplaceAndLogicOpIgnoreBlend(replaceAlphaWithStencil, blendState);
 
-		if (forceReplaceBlend) {
+		if (useFBRead == FBReadSetting::Forced) {
 			// If this is true, the logic and mask replacements will be applied, at least. In that case,
 			// we should not apply any logic op simulation.
 			blendState.simulateLogicOpType = LOGICOPTYPE_NORMAL;
@@ -1435,26 +1441,26 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 	blendState.setEquation(colorEq, alphaEq);
 }
 
-static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported, bool forceApplyFramebuffer) {
+static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSupported, bool shaderBitOpsSupported, FBReadSetting useFBRead) {
 	// TODO: We can get more detailed with checks here. Some logic ops don't involve the destination at all.
 	// Several can be trivially supported even without any bitwise logic.
 	if (!gstate.isLogicOpEnabled() || gstate.getLogicOp() == GE_LOGIC_COPY) {
 		// No matter what, don't need to do anything.
 		logicOpState.logicOpEnabled = false;
 		logicOpState.logicOp = GE_LOGIC_COPY;
-		logicOpState.applyFramebufferRead = forceApplyFramebuffer;
+		logicOpState.applyFramebufferRead = useFBRead == FBReadSetting::Forced;
 		return;
 	}
 
 	// TODO: Brave story uses GE_INVERTED, this is easy to convert to a blend function - unless blend is also enabled simultaneously.
 
-	if (forceApplyFramebuffer && shaderBitOpsSupported) {
+	if (useFBRead == FBReadSetting::Forced && shaderBitOpsSupported) {
 		// We have to emulate logic ops in the shader.
 		logicOpState.logicOpEnabled = false;  // Don't use any hardware logic op, supported or not.
 		logicOpState.applyFramebufferRead = true;
 		logicOpState.logicOp = gstate.getLogicOp();
 	} else if (logicSupported) {
-		// We can use hardware logic ops, if needed.
+		// We can use hardware logic ops directly, if needed.
 		logicOpState.applyFramebufferRead = false;
 		if (gstate.isLogicOpEnabled()) {
 			logicOpState.logicOpEnabled = true;
@@ -1463,7 +1469,7 @@ static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSuppo
 			logicOpState.logicOpEnabled = false;
 			logicOpState.logicOp = GE_LOGIC_COPY;
 		}
-	} else if (shaderBitOpsSupported) {
+	} else if (shaderBitOpsSupported && useFBRead != FBReadSetting::Disallowed) {
 		// D3D11 and some OpenGL versions will end up here.
 		// Logic ops not support, bitops supported. Let's punt to the shader.
 		// We should possibly always do this and never use the hardware ops, since they'll mishandle the alpha channel..
@@ -1668,12 +1674,15 @@ void GenericBlendState::Log() {
 		blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
 }
 
-void ComputedPipelineState::Convert(bool shaderBitOpsSuppported) {
+void ComputedPipelineState::Convert(bool shaderBitOpsSupported, bool fbReadAllowed) {
 	// Passing on the previous applyFramebufferRead as forceFrameBuffer read in the next one,
 	// thus propagating forward.
-	ConvertMaskState(maskState, shaderBitOpsSuppported);
-	ConvertLogicOpState(logicState, gstate_c.Use(GPU_USE_LOGIC_OP), shaderBitOpsSuppported, maskState.applyFramebufferRead);
-	ConvertBlendState(blendState, logicState.applyFramebufferRead);
+	FBReadSetting readFB = (fbReadAllowed && shaderBitOpsSupported) ? FBReadSetting::Allowed : FBReadSetting::Disallowed;
+	ConvertMaskState(maskState, readFB);
+	readFB = maskState.applyFramebufferRead ? FBReadSetting::Forced : (fbReadAllowed ? FBReadSetting::Allowed : FBReadSetting::Disallowed);
+	ConvertLogicOpState(logicState, gstate_c.Use(GPU_USE_LOGIC_OP), shaderBitOpsSupported, readFB);
+	readFB = logicState.applyFramebufferRead ? FBReadSetting::Forced : (fbReadAllowed ? FBReadSetting::Allowed : FBReadSetting::Disallowed);
+	ConvertBlendState(blendState, readFB);
 
 	// Note: If the blend state decided it had to use framebuffer reads,
 	// we need to make sure that both mask and logic also use it, otherwise things will go wrong.
