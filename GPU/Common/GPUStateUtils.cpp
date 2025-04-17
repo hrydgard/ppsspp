@@ -1446,6 +1446,8 @@ static void ConvertLogicOpState(GenericLogicState &logicOpState, bool logicSuppo
 		return;
 	}
 
+	// TODO: Brave story uses GE_INVERTED, this is easy to convert to a blend function - unless blend is also enabled simultaneously.
+
 	if (forceApplyFramebuffer && shaderBitOpsSupported) {
 		// We have to emulate logic ops in the shader.
 		logicOpState.logicOpEnabled = false;  // Don't use any hardware logic op, supported or not.

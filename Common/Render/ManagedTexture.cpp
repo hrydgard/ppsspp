@@ -54,7 +54,7 @@ private:
 	std::string filename_;
 	TempImage *tempImage_;
 	ImageFileType type_;
-	bool generateMips_;
+	bool generateMips_;  // not yet used
 	ManagedTexture::LoadState *state_;
 };
 

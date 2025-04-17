@@ -74,10 +74,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// ARM best practices: index buffer usage warning (too few indices used compared to value range).
 		// This should be looked into more - happens even in moppi-flower which is weird.
 		return false;
-	case 337425955:
-		// False positive
-		// https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/3615
-		return false;
 	case 227275665:
 		// PowerVR (and all other) best practices: LOAD_OP_LOAD used in render pass.
 		return false;
