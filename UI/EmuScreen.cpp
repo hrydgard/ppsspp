@@ -631,8 +631,10 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
 				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
 				// use this as the fallback way to get into the menu.
-
-				screenManager()->push(new GamePauseScreen(gamePath_));
+				// Don't do it on the first resume though, in case we launch directly into emuscreen, like from a frontend - see #18926
+				if (!equals(value, "first")) {
+					screenManager()->push(new GamePauseScreen(gamePath_));
+				}
 			}
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
