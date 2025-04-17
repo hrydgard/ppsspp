@@ -96,7 +96,7 @@ private:
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
 	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
-		: PopupScreen(T(i18n, "Map Mouse"), "", ""), pspBtn_(btn), callback_(callback) {}
+		: PopupScreen(T(i18n, "Map Mouse"), "", ""), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 
@@ -111,7 +111,6 @@ protected:
 	void OnCompleted(DialogResult result) override {}
 
 private:
-	int pspBtn_;
 	std::function<void(KeyMap::MultiInputMapping)> callback_;
 	bool mapped_ = false;  // Prevent double registrations
 };
