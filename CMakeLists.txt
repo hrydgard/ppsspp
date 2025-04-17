@@ -2670,7 +2670,6 @@ set(WindowsFiles
 	Windows/DSoundStream.h
 	Windows/EmuThread.cpp
 	Windows/EmuThread.h
-	Windows/GeDebugger/GeDebugger.cpp
 	Windows/GPU/D3D9Context.cpp
 	Windows/GPU/D3D9Context.h
 	Windows/GPU/D3D11Context.cpp
