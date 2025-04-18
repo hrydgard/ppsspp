@@ -84,7 +84,7 @@ public:
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames);
+	D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -274,7 +274,7 @@ private:
 	std::vector<std::string> deviceList_;
 };
 
-D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
+D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
 	: hWnd_(hWnd),
 		device_(device),
 		context_(deviceContext1),
@@ -1952,7 +1952,7 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	}
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames) {
+DrawContext *T3DCreateD3D11Context(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> context, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> context1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames) {
 	return new D3D11DrawContext(device, context, device1, context1, swapChain, featureLevel, hWnd, adapterNames, maxInflightFrames);
 }
 
