@@ -2470,7 +2470,7 @@ endif()
 #	target_link_libraries(native X11-xcb X11)
 #endif()
 
-set(GlslangLibs glslang OGLCompiler OSDependent SPIRV spirv-cross-glsl)
+set(GlslangLibs glslang OSDependent SPIRV spirv-cross-glsl)
 
 if (ENABLE_SPVREMAPPER)
 	list(APPEND GlslangLibs SPVRemapper)
