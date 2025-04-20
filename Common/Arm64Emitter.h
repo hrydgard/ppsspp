@@ -20,6 +20,9 @@
 #ifdef FMIN
 #undef FMIN
 #endif
+#ifdef BIT
+#undef BIT
+#endif
 
 namespace Arm64Gen
 {

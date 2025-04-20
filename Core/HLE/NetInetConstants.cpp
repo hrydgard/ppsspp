@@ -1,5 +1,9 @@
 #include "ppsspp_config.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+#define __LINUX_ERRNO_EXTENSIONS__ 1
+#endif
+
 #include <string>
 #include "Common/Net/SocketCompat.h"
 #include "Common/StringUtils.h"
@@ -843,8 +847,10 @@ int convertInetErrnoHost2PSP(int error) {
 		return ERROR_INET_ECONNABORTED;
 	case ENETUNREACH:
 		return ERROR_INET_ENETUNREACH;
+#if ENETDOWN != ESHUTDOWN
 	case ENETDOWN:
 		return ERROR_INET_ENETDOWN;
+#endif
 	case ETIMEDOUT:
 		return ERROR_INET_ETIMEDOUT;
 	case EHOSTDOWN:

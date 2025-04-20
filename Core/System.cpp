@@ -27,6 +27,7 @@
 #endif
 #endif
 
+#include <climits>
 #include <mutex>
 
 #include "ext/lua/lapi.h"
