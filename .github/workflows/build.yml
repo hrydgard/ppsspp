@@ -207,6 +207,7 @@ jobs:
       if: matrix.extra == 'qt'
       with:
         cache: true
+        modules: qtquick3d
 
     - uses: nttld/setup-ndk@v1
       if: matrix.extra == 'android'
