@@ -1017,6 +1017,7 @@ public:
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(float pad) { pad_ = pad; }
 	void SetAlign(int align) { textAlign_ = align; }
+	void SetBreak(bool b) { break_ = b; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -1032,6 +1033,7 @@ private:
 	bool clip_ = true;
 	bool bullet_ = false;
 	float pad_ = 0.0f;
+	bool break_ = false;
 };
 
 // Quick hack for clickable version number

@@ -1055,6 +1055,11 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	} else if (big_) {
 		style = &dc.theme->uiFontBig;
 	}
+
+	if (break_) {
+		int w = break_;
+	}
+
 	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, bounds, &w, &h, textAlign_);
 	w += pad_ * 2.0f;
 	h += pad_ * 2.0f;
@@ -1111,7 +1116,14 @@ void TextView::Draw(UIContext &dc) {
 		uint32_t shadowColor = 0x80000000;
 		dc.DrawTextRect(text_, textBounds.Offset(1.0f + pad_, 1.0f + pad_), shadowColor, textAlign_);
 	}
-	dc.DrawTextRect(text_, textBounds.Offset(pad_, pad_), textColor, textAlign_);
+
+	Bounds finalBounds = textBounds.Offset(pad_, pad_);
+
+	if (break_) {
+		int w = break_;
+	}
+
+	dc.DrawTextRect(text_, finalBounds, textColor, textAlign_);
 	if (small_ || big_) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.theme->uiFont);

@@ -70,6 +70,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 		topright->SetSpacing(1.0f);
 		savedataTitle_ = topright->Add(new TextView(savedataTitle, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 		savedataTitle_->SetTextColor(textStyle.fgColor);
+		savedataTitle_->SetBreak(true);
 		fileSize_ = topright->Add(new TextView(fileSize, 0, true));
 		fileSize_->SetTextColor(textStyle.fgColor);
 		mTime_ = topright->Add(new TextView(mtime, 0, true));
