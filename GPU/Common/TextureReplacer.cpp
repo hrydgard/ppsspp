@@ -91,9 +91,7 @@ void TextureReplacer::NotifyConfigChanged() {
 		delete vfs_;
 		vfs_ = nullptr;
 		Decimate(ReplacerDecimateMode::ALL);
-	}
-
-	if (replaceEnabled_) {
+	} else if (!wasReplaceEnabled && replaceEnabled_) {
 		std::string error;
 		replaceEnabled_ = LoadIni(&error);
 		if (!error.empty() && !replaceEnabled_) {
@@ -101,8 +99,8 @@ void TextureReplacer::NotifyConfigChanged() {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, error, 5.0f);
 		}
 	} else if (saveEnabled_) {
-		// Even if just saving is enabled, it makes sense to load the ini to get the correct
-		// settings for saving. See issue #19086
+		// Even if just saving is enabled, it makes sense to reload the ini to get the correct
+		// settings for saving. See issue #19086. This can be expensive though.
 		std::string error;
 		bool result = LoadIni(&error);
 		if (!result) {
