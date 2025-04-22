@@ -207,6 +207,7 @@ jobs:
       if: matrix.extra == 'qt'
       with:
         cache: true
+        version: 5.15.2
 
     - uses: nttld/setup-ndk@v1
       if: matrix.extra == 'android'
