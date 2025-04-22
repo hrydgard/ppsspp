@@ -114,7 +114,7 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	}
 
 	static const char *texLoadSpeeds[] = { "Slow (smooth)", "Medium", "Fast", "Instant (may stutter)" };
-	PopupMultiChoice *texLoadSpeed = list->Add(new PopupMultiChoice(&g_Config.iReplacementTextureLoadSpeed, dev->T("Texture load speed"), texLoadSpeeds, 0, ARRAY_SIZE(texLoadSpeeds), I18NCat::DEVELOPER, screenManager()));
+	PopupMultiChoice *texLoadSpeed = list->Add(new PopupMultiChoice(&g_Config.iReplacementTextureLoadSpeed, dev->T("Replacement texture load speed"), texLoadSpeeds, 0, ARRAY_SIZE(texLoadSpeeds), I18NCat::DEVELOPER, screenManager()));
 	texLoadSpeed->SetChoiceIcon(3, ImageID("I_WARNING"));
 }
 
