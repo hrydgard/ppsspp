@@ -34,6 +34,7 @@
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/System.h"
+#include "Core/HW/Display.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -126,6 +127,31 @@ void TextureCacheCommon::StartFrame() {
 	textureShaderCache_->Decimate();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
+
+	float fps;
+	__DisplayGetFPS(nullptr, &fps, nullptr);
+	if (fps <= 5.0f) {
+		fps = 60.0f;
+	}
+
+	float baseValue = 0.5f;
+	switch (g_Config.iReplacementTextureLoadSpeed) {
+	case (int)ReplacementTextureLoadSpeed::SLOW:
+		baseValue = 0.5f;
+		break;
+	case (int)ReplacementTextureLoadSpeed::MEDIUM:
+		baseValue = 0.75f;
+		break;
+	case (int)ReplacementTextureLoadSpeed::FAST:
+		baseValue = 1.0f;
+		break;
+	case (int)ReplacementTextureLoadSpeed::INSTANT:
+		baseValue = 100000.0f;  // no budget limit, effectively.
+		break;
+	}
+
+	// Allow spending half a frame on uploading textures.
+	replacementFrameBudgetSeconds_ = baseValue / fps;
 
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
 		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
@@ -530,7 +556,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudget_) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
@@ -1572,10 +1598,9 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 }
 
 void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, int *d) {
-	// Allow some delay to reduce pop-in.
-	constexpr double MAX_BUDGET_PER_TEX = 0.25 / 60.0;
-
-	double budget = std::min(MAX_BUDGET_PER_TEX, replacementFrameBudget_ - replacementTimeThisFrame_);
+	double budget = replacementFrameBudgetSeconds_ - replacementTimeThisFrame_;
+	// Note: Don't avoid the Poll call if budget is 0, we do meaningful things there.
+	// Poll also handles negative budgets.
 
 	double replaceStart = time_now_d();
 	if (entry->replacedTexture->Poll(budget)) {
@@ -3157,7 +3182,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 		ImGui::Text("Texels scaled this frame: %d", texelsScaledThisFrame_);
 		ImGui::Text("Low memory mode: %d", (int)lowMemoryMode_);
 		if (ImGui::CollapsingHeader("Texture Replacement", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame time/budget: %0.3f/%0.3f ms", replacementTimeThisFrame_ * 1000.0f, replacementFrameBudget_ * 1000.0f);
+			ImGui::Text("Frame time/budget: %0.3f/%0.3f ms", replacementTimeThisFrame_ * 1000.0f, replacementFrameBudgetSeconds_ * 1000.0f);
 			ImGui::Text("UNLOADED: %d PENDING: %d NOT_FOUND: %d ACTIVE: %d CANCEL_INIT: %d",
 				replacementStateCounts[(int)ReplacementState::UNLOADED],
 				replacementStateCounts[(int)ReplacementState::PENDING],

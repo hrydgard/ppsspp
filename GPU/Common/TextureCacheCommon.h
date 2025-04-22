@@ -496,8 +496,8 @@ protected:
 	int texelsScaledThisFrame_ = 0;
 	int timesInvalidatedAllThisFrame_ = 0;
 	double replacementTimeThisFrame_ = 0;
-	// TODO: Maybe vary by FPS...
-	double replacementFrameBudget_ = 0.5 / 60.0;
+	// Recomputed once per frame. Depends FPS and soon also config.
+	double replacementFrameBudgetSeconds_ = 0.5 / 60.0;
 
 	TexCache cache_;
 	u32 cacheSizeEstimate_ = 0;

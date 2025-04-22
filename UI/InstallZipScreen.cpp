@@ -152,7 +152,7 @@ void InstallZipScreen::CreateViews() {
 				compareColumns->Add(rightCompare);
 				existingSaveView_ = rightCompare->Add(new SavedataView(*screenManager()->getUIContext(), ginfo.get(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
 				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-					rightCompare->Add(new Button(ga->T("Show In Folder")))->OnClick.Add([=](UI::EventParams &) {
+					rightCompare->Add(new Button(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
 						System_ShowFileInFolder(savedataToOverwrite_);
 						return UI::EVENT_DONE;
 					});

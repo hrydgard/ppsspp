@@ -105,9 +105,15 @@ static void CalculateFPS() {
 
 // TODO: Also average actualFps
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
-	*out_vps = (float)fps;
-	*out_fps = flips;
-	*out_actual_fps = actualFps;
+	if (out_vps) {
+		*out_vps = (float)fps;
+	}
+	if (out_fps) {
+		*out_fps = flips;
+	}
+	if (out_actual_fps) {
+		*out_actual_fps = actualFps;
+	}
 }
 
 void __DisplayGetVPS(float *out_vps) {

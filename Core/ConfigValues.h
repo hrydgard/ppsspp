@@ -86,6 +86,13 @@ enum TextureFiltering {
 	TEX_FILTER_AUTO_MAX_QUALITY = 4,
 };
 
+enum ReplacementTextureLoadSpeed {
+	SLOW = 0,
+	MEDIUM = 1,
+	FAST = 2,
+	INSTANT = 3,
+};
+
 enum BufferFilter {
 	SCALE_LINEAR = 1,
 	SCALE_NEAREST = 2,
