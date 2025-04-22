@@ -1768,8 +1768,6 @@ void EmuScreen::runImDebugger() {
 	if (g_Config.bShowImDebugger) {
 		Draw::DrawContext *draw = screenManager()->getDrawContext();
 		if (!imguiInited_) {
-			imguiInited_ = true;
-
 			// TODO: Do this only on demand.
 			IMGUI_CHECKVERSION();
 			ctx_ = ImGui::CreateContext();
@@ -1783,6 +1781,7 @@ void EmuScreen::runImDebugger() {
 			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
 			// This takes ownership of the font array.
 			ImGui_ImplThin3d_Init(draw, fontData, size);
+			imguiInited_ = true;
 		}
 
 		if (PSP_IsInited()) {
