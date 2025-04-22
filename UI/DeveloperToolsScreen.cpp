@@ -76,6 +76,7 @@ static std::string PostShaderTranslateName(std::string_view value) {
 void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
@@ -95,6 +96,22 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 		}
 		return true;
 	});
+
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		// Best string we have
+		list->Add(new Choice(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
+			Path path;
+			if (PSP_IsInited()) {
+				std::string gameID = g_paramSFO.GetDiscID();
+				path = GetSysDirectory(DIRECTORY_TEXTURES) / gameID;
+			} else {
+				// Just show the root textures directory.
+				path = GetSysDirectory(DIRECTORY_TEXTURES);
+			}
+			System_ShowFileInFolder(path);
+			return UI::EVENT_DONE;
+		});
+	}
 }
 
 void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
