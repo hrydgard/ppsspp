@@ -133,8 +133,25 @@ void TextureCacheCommon::StartFrame() {
 	if (fps <= 5.0f) {
 		fps = 60.0f;
 	}
+
+	float baseValue = 0.5f;
+	switch (g_Config.iReplacementTextureLoadSpeed) {
+	case (int)ReplacementTextureLoadSpeed::SLOW:
+		baseValue = 0.5f;
+		break;
+	case (int)ReplacementTextureLoadSpeed::MEDIUM:
+		baseValue = 0.75f;
+		break;
+	case (int)ReplacementTextureLoadSpeed::FAST:
+		baseValue = 1.0f;
+		break;
+	case (int)ReplacementTextureLoadSpeed::INSTANT:
+		baseValue = 100000.0f;  // no budget limit, effectively.
+		break;
+	}
+
 	// Allow spending half a frame on uploading textures.
-	replacementFrameBudgetSeconds_ = 0.5f / fps;
+	replacementFrameBudgetSeconds_ = baseValue / fps;
 
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
 		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();

@@ -713,6 +713,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, CfgFlag::PER_GAME),
+	ConfigSetting("ReplacementTextureLoadSpeed", &g_Config.iReplacementTextureLoadSpeed, 0, CfgFlag::PER_GAME),
 
 	ConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
