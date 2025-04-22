@@ -158,12 +158,12 @@ jobs:
           args: ./b.sh --libretro_android ppsspp_libretro
           id: android-libretro
 
-        # - os: ubuntu-latest
-        #   extra: qt
-        #   cc: gcc
-        #   cxx: g++
-        #   args: ./b.sh --qt
-        #   id: qt
+        - os: ubuntu-latest
+          extra: qt
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --qt
+          id: qt
         - os: ubuntu-latest
           extra: libretro
           cc: gcc
@@ -207,6 +207,7 @@ jobs:
       if: matrix.extra == 'qt'
       with:
         cache: true
+        version: 5.15.2
 
     - uses: nttld/setup-ndk@v1
       if: matrix.extra == 'android'
