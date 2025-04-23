@@ -1,5 +1,11 @@
-#define ApplicationName 'PPSSPP'
-#define ApplicationVersion GetFileVersion('PPSSPPWindows.exe')
+; Note: The buildbot runs the following (though of course with dynamically inserted values):
+; "ppsspp.iss /FPPSSPPSetup /D"ApplicationName"="PPSSPP" /D"ApplicationVersion"="1.19"
+
+#define ApplicationName     "PPSSPP"
+#define ApplicationVersion  GetFileVersion('PPSSPPWindows64.exe')
+#define StartYearCopyright  "2012"
+#define CurrentYear         GetDateTimeString('yyyy','','')
+#define ApplicationAuthor   "PPSSPP Project"
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
@@ -36,15 +42,33 @@ Name: "uk"; MessagesFile: "compiler:Languages\Ukrainian.isl"
 [Setup]
 ; Installer - name for title and wizard pages
 AppName={#ApplicationName}
-; Installer - version
-VersionInfoVersion={#ApplicationVersion}
-
-; Programs and Features - Name
-AppVerName={#ApplicationName}
 ; Programs and Features - Version
 AppVersion={#ApplicationVersion}
-; Programs and Features - Publisher
-AppPublisher=PPSSPP Team
+; Programs and Features - Name
+AppVerName={#ApplicationName} {#ApplicationVersion}
+
+; Installer - Exe file properties - App Version
+VersionInfoVersion={#ApplicationVersion}
+; Installer - Exe file properties - File Version
+VersionInfoProductName={#ApplicationName}
+; Installer - Exe file properties - Application description
+VersionInfoDescription={#ApplicationName} installer
+; Installer - Exe file properties - Copyright info
+AppCopyright={#StartYearCopyright}-{#CurrentYear}  {#ApplicationAuthor}
+
+; Windows control Panel - Uninstaller program name icon and author
+UninstallDisplayName={#ApplicationName}
+UninstallDisplayIcon={app}\PPSSPPWindows.exe
+AppPublisher={#ApplicationAuthor}
+
+; Languages dialog settings
+ShowLanguageDialog=yes
+UsePreviousLanguage=no
+LanguageDetectionMethod=uilanguage
+
+; Modern interface
+WizardStyle=modern
+
 ; Programs and Features - Help link
 AppSupportURL=https://forums.ppsspp.org
 ; Programs and Features - Support link
@@ -56,7 +80,6 @@ DefaultDirName={pf}\PPSSPP
 ; Since no icons will be created in "{group}", we don't need the wizard
 ; to ask for a Start Menu folder name:
 DisableProgramGroupPage=yes
-UninstallDisplayIcon={app}\PPSSPPWindows.exe
 ; Detect the correct directory for Program Files x86/64
 ArchitecturesInstallIn64BitMode=x64
 

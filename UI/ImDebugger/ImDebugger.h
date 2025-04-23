@@ -71,6 +71,7 @@ struct ImConfig {
 	bool geStateOpen;
 	bool geVertsOpen;
 	bool schedulerOpen;
+	bool timeOpen;
 	bool watchOpen;
 	bool pixelViewerOpen;
 	bool npOpen;

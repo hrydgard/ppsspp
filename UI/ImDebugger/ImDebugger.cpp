@@ -44,6 +44,7 @@
 #include "Core/HLE/AtracCtx.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HW/SasAudio.h"
+#include "Core/HW/Display.h"
 
 #include "Core/CoreTiming.h"
 // Threads window
@@ -148,6 +149,33 @@ void ImClickableValueFloat(const char *id, float value) {
 	}
 	ImGui::PopStyleColor();
 	ImGui::PopID();
+}
+
+void DrawTimeView(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Time", &cfg.timeOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	// Display timing
+	if (ImGui::CollapsingHeader("Display Timing", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Text("Num VBlanks: %d", __DisplayGetNumVblanks());
+		ImGui::Text("FlipCount: %d", __DisplayGetFlipCount());
+		ImGui::Text("VCount: %d", __DisplayGetVCount());
+		ImGui::Text("HCount cur: %d accum: %d", __DisplayGetCurrentHcount(), __DisplayGetAccumulatedHcount());
+		ImGui::Text("IsVblank: %d", DisplayIsVblank());
+	}
+
+	// RTC
+	if (ImGui::CollapsingHeader("RTC", ImGuiTreeNodeFlags_DefaultOpen)) {
+		PSPTimeval tv;
+		__RtcTimeOfDay(&tv);
+		ImGui::Text("RtcTimeOfDay: %d.%06d", tv.tv_sec, tv.tv_usec);
+		ImGui::Text("RtcGetCurrentTick: %lld", (long long)__RtcGetCurrentTick());
+	}
+
+	ImGui::End();
 }
 
 void DrawSchedulerView(ImConfig &cfg) {
@@ -1943,6 +1971,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		}
 		if (ImGui::BeginMenu("Core")) {
 			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
+			ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("CPU")) {
@@ -2193,6 +2222,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawSchedulerView(cfg_);
 	}
 
+	if (cfg_.timeOpen) {
+		DrawTimeView(cfg_);
+	}
+
 	if (cfg_.pixelViewerOpen) {
 		pixelViewer_.Draw(cfg_, control, gpuDebug, draw);
 	}
@@ -2360,6 +2393,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("geStateOpen", &geStateOpen, false);
 	sync.Sync("geVertsOpen", &geVertsOpen, false);
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
+	sync.Sync("timeOpen", &timeOpen, false);
 	sync.Sync("socketsOpen", &socketsOpen, false);
 	sync.Sync("npOpen", &npOpen, false);
 	sync.Sync("adhocOpen", &adhocOpen, false);
