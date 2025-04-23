@@ -1,8 +1,11 @@
+; Note: The buildbot runs the following (though of course with dynamically inserted values):
+; "ppsspp.iss /FPPSSPPSetup /D"ApplicationName"="PPSSPP" /D"ApplicationVersion"="1.19"
+
 #define ApplicationName     "PPSSPP"
-#define ApplicationVersion  GetFileVersion('PPSSPPWindows.exe')
-#define StartYearCopyright  "2017"
+#define ApplicationVersion  GetFileVersion('PPSSPPWindows64.exe')
+#define StartYearCopyright  "2012"
 #define CurrentYear         GetDateTimeString('yyyy','','')
-#define ApplicationAuthor   "PPSSPP Team"
+#define ApplicationAuthor   "PPSSPP Project"
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
