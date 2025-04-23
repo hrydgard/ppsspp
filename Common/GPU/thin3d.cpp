@@ -528,7 +528,7 @@ const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
 	uint32_t supported = draw->GetSupportedShaderLanguages();
-	for (auto iter : sources) {
+	for (const auto &iter : sources) {
 		if ((uint32_t)iter.lang & supported) {
 			return draw->CreateShaderModule(stage, iter.lang, (const uint8_t *)iter.src, strlen(iter.src));
 		}

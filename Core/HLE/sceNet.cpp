@@ -119,7 +119,7 @@ std::string InfraDNSConfig::ToString() const {
 	}
 	if (!fixedDNS.empty()) {
 		w.C("Fixed DNS").endl();
-		for (auto iter : fixedDNS) {
+		for (const auto &iter : fixedDNS) {
 			w.F("%s -> %s", iter.first.c_str(), iter.second.c_str()).endl();
 		}
 	}
@@ -290,7 +290,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 		dns->connectAdHocForGrouping = game.getBool("connect_adhoc_for_grouping", dns->connectAdHocForGrouping);
 		if (game.hasChild("domains", JSON_OBJECT)) {
 			const JsonGet domains = game.getDict("domains");
-			for (auto iter : domains.value_) {
+			for (const auto &iter : domains.value_) {
 				std::string domain = std::string(iter->key);
 				std::string ipAddr = std::string(iter->value.toString());
 				dns->fixedDNS[domain] = ipAddr;

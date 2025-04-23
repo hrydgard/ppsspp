@@ -646,7 +646,7 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
 	u64 result = 0;
 	auto allFiles = GetDirListing(dirPath);
-	for (auto file : allFiles) {
+	for (const auto &file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
 		if (file.type == FILETYPE_DIRECTORY) {

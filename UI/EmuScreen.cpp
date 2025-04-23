@@ -345,8 +345,10 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		return;
 	}
 
-	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
-	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
+	if (loadingViewColor_)
+		loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
+	if (loadingViewVisible_)
+		loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 
 	screenManager()->getDrawContext()->ResetStats();
 
@@ -431,8 +433,10 @@ void EmuScreen::bootComplete() {
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 
-	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
-	loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
+	if (loadingViewColor_)
+		loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
+	if (loadingViewVisible_)
+		loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
 
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Start(gameID);

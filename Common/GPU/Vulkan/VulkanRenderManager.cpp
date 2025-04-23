@@ -507,7 +507,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			}
 		}
 
-		for (auto iter : map) {
+		for (const auto &iter : map) {
 			auto &shaders = iter.first;
 			auto &entries = iter.second;
 

@@ -198,7 +198,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				glAttachShader(program->program, step.create_program.shaders[j]->shader);
 			}
 
-			for (auto iter : program->semantics_) {
+			for (const auto &iter : program->semantics_) {
 				glBindAttribLocation(program->program, iter.location, iter.attrib);
 			}
 
@@ -304,7 +304,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 					LineNumberString(code).c_str());
 				std::vector<std::string_view> lines;
 				SplitString(errorString, '\n', lines);
-				for (auto line : lines) {
+				for (const auto &line : lines) {
 					ERROR_LOG(Log::G3D, "%.*s", (int)line.size(), line.data());
 				}
 				if (errorCallback_) {
