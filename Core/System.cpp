@@ -530,7 +530,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	INFO_LOG(Log::Loader, "Starting loader thread...");
 
-	_dbg_assert_(!g_loadingThread.joinable());
+	_assert_msg_(!g_loadingThread.joinable(), "%s", coreParam.fileToStart.c_str());
 
 	g_loadingThread = std::thread([error_string]() {
 		SetCurrentThreadName("ExecLoader");

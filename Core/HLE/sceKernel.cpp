@@ -180,9 +180,8 @@ void __KernelInit()
 
 void __KernelShutdown()
 {
-	if (!kernelRunning)
-	{
-		ERROR_LOG(Log::sceKernel, "Can't shut down kernel - not running");
+	if (!kernelRunning) {
+		INFO_LOG(Log::sceKernel, "Can't shut down kernel - not running");
 		return;
 	}
 	kernelObjects.List();
