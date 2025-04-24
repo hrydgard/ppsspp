@@ -2194,7 +2194,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),"27312",&hints,&resultAddr);
 	if (iResult == EAI_AGAIN) {
 		// Temporary failure.  Since this already blocks, let's just try once more.
-		sleep_ms(1);
+		sleep_ms(1, "pro-adhoc-socket-dns-retry");
 		iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),"27312",&hints,&resultAddr);
 	}
 

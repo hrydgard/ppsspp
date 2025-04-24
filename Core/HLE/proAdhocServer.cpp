@@ -30,7 +30,6 @@
 
 #if PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
 #include <netdb.h>
-#include <switch.h>
 // Missing include, *shrugs*
 extern "C" struct hostent *gethostbyname(const char *name);
 #endif // PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)

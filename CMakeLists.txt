@@ -284,9 +284,12 @@ endif()
 
 if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL2)
-	find_package(SDL2_ttf)
-	find_package(Fontconfig)
-
+	
+	if(NOT USE_LIBNX)
+		find_package(SDL2_ttf)
+		find_package(Fontconfig)	
+	endif()
+	
 	# TODO: this can be removed once CI supports newer SDL2_ttf
 	if (NOT SDL2_ttf_FOUND)
 		find_package(PkgConfig)
@@ -620,7 +623,9 @@ set(CommonVR
 include_directories(ext/OpenXR-SDK/include)
 
 # For ext/sol includes, that are usually included as sol/*.hpp
-include_directories(ext)
+if(NOT USE_LIBNX)
+	include_directories(ext)
+endif()
 
 add_library(Common STATIC
 	${CommonX86}
@@ -2081,8 +2086,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/KeyMap.h
 	Core/KeyMapDefaults.cpp
 	Core/KeyMapDefaults.h
-	Core/LuaContext.cpp
-	Core/LuaContext.h
+	#Core/LuaContext.cpp
+	#Core/LuaContext.h
 	Core/RetroAchievements.h
 	Core/RetroAchievements.cpp
 	Core/TiltEventProcessor.h

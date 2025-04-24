@@ -330,7 +330,7 @@ static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x)  (PFN_ ## x)NULL;
 #endif // PPSSPP_PLATFORM(SWITCH)
 
-static const char * const device_name_blacklist[] = {
+static const char * const g_deviceNameBlacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
 	"SDL:Horizon",
 };
