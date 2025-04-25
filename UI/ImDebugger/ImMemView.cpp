@@ -150,6 +150,8 @@ void ImMemView::Draw(ImDrawList *drawList) {
 			const ImColor secondarySelFg = 0xFFFFFFFF;
 			const ImColor secondarySelBg = 0xFF808080;
 
+			const ImColor zeroColor = 0x888888ff;
+
 			if (address + j >= selectRangeStart_ && address + j < selectRangeEnd_ && !searching_) {
 				if (asciiSelected_) {
 					hexBGCol = secondarySelBg;
@@ -179,6 +181,10 @@ void ImMemView::Draw(ImDrawList *drawList) {
 			if (bg != 0) {
 				int bgWidth = 2; // continueRect ? 3 : 2;
 				drawList->AddRectFilled(ImVec2(canvas_p0.x + hexX - 1, canvas_p0.y + rowY), ImVec2(canvas_p0.x + hexX + charWidth_ * bgWidth, canvas_p0.y + rowY + charHeight_), bg);
+			}
+			if (temp[0] == '0' && temp[1] == '0') {
+				// if the byte is all zero make it darker
+				fg = zeroColor;
 			}
 			drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
 			if (underline >= 0) {
