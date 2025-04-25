@@ -1034,7 +1034,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		auto iter = mpegCtxs.find(cfg.selectedMpegCtx);
 		if (iter != mpegCtxs.end()) {
 			const MpegContext *ctx = iter->second;
-			char temp[16];
+			char temp[28];
 			snprintf(temp, sizeof(temp), "sceMpeg context at %08x", iter->first);
 			if (ctx && ImGui::CollapsingHeader(temp, ImGuiTreeNodeFlags_DefaultOpen)) {
 				// ImGui::ProgressBar((float)sas->CurPos() / (float)info.fileDataEnd, ImVec2(200.0f, 0.0f));
