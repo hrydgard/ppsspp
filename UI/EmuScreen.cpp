@@ -1658,6 +1658,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
 			coreState = CORE_RUNNING_CPU;
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
+			Achievements::FrameUpdate();
 			break;
 		case CORE_STEPPING_CPU:
 		case CORE_STEPPING_GE:
@@ -1691,13 +1692,11 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 			// However, let's not cause a UI sleep in the mainloop.
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
+			Achievements::FrameUpdate();
 			break;
 		}
 
 		PSP_EndHostFrame();
-
-		// This place rougly matches how libretro handles it (after retro_frame).
-		Achievements::FrameUpdate();
 	}
 
 	if (gpu && gpu->PresentedThisFrame()) {
