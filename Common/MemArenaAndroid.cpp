@@ -117,7 +117,10 @@ bool MemArena::GrabMemSpace(size_t size) {
 }
 
 void MemArena::ReleaseSpace() {
-	close(fd);
+	if (fd >= 0) {
+		close(fd);
+	}
+	fd = -1;
 }
 
 void *MemArena::CreateView(s64 offset, size_t size, void *base) {
