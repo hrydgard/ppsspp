@@ -34,12 +34,6 @@ u8 *GetPointerWrite(const u32 address) {
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerWriteUnchecked(address);
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("Unknown GetPointerWrite %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
-
 		// Size is not known, we pass 0 to signal that.
 		Core_MemoryException(address, 0, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
 		return nullptr;
@@ -53,11 +47,6 @@ const u8 *GetPointer(const u32 address) {
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
 		// Size is not known, we pass 0 to signal that.
 		Core_MemoryException(address, 0, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
 		return nullptr;
@@ -75,7 +64,7 @@ u8 *GetPointerWriteRange(const u32 address, const u32 size) {
 			return ptr;
 		}
 	} else {
-		// Error was reported in GetPointerWrite already, if we're not ignoring errors.
+		// Error was handled in GetPointerWrite already, if we're not ignoring errors.
 		return nullptr;
 	}
 }
@@ -91,7 +80,7 @@ const u8 *GetPointerRange(const u32 address, const u32 size) {
 			return ptr;
 		}
 	} else {
-		// Error was reported in GetPointer already, if we're not ignoring errors.
+		// Error was handled in GetPointer already, if we're not ignoring errors.
 		return nullptr;
 	}
 }
@@ -112,11 +101,6 @@ inline void ReadFromHardware(T &var, const u32 address) {
 		// More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("ReadFromHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
 		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::READ_WORD);
 		var = 0;
 	}
@@ -137,11 +121,6 @@ inline void WriteToHardware(u32 address, const T data) {
 		// More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("WriteToHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
 		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
 	}
 }
