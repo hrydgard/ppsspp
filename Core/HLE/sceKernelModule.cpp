@@ -707,6 +707,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 void ExportFuncSymbol(const FuncSymbolExport &func) {
 	if (FuncImportIsHLE(func.moduleName, func.nid)) {
 		// HLE covers this already - let's ignore the function.
+		// This means that we loaded a module that we are HLE:ing, which is kinda unnecessary, but not harmful. And might even be good.
 		WARN_LOG(Log::Loader, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
 		return;
 	}
