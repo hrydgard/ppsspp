@@ -368,7 +368,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		sliderValue_ = 0;
 
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
+	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, 1, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
 	slider_->RestrictChoices(fixedChoices_, numFixedChoices_);
 	vert->Add(slider_);

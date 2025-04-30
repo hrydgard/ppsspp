@@ -81,7 +81,7 @@ protected:
 	ScanStatus status_ = ScanStatus::SCANNING;
 	std::string statusMessage_;
 	double nextRetry_ = 0.0;
-	std::thread *scanThread_;
+	std::thread scanThread_;
 	std::mutex statusLock_;
 	std::string host_;
 	int port_ = -1;
