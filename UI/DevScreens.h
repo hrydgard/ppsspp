@@ -121,6 +121,8 @@ private:
 	void CreateInternalsTab(UI::ViewGroup *internals);
 	void CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions);
 	void CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions);
+
+	int testSliderValue_ = 0;
 };
 
 class GPIGPOScreen : public PopupScreen {

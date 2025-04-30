@@ -610,10 +610,7 @@ private:
 
 class Slider : public Clickable {
 public:
-	Slider(int *value, int minValue, int maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), step_(1), repeat_(-1) {}
-
-	Slider(int *value, int minValue, int maxValue, int step = 1, LayoutParams *layoutParams = 0)
+	Slider(int *value, int minValue, int maxValue, int step = 1, LayoutParams *layoutParams = nullptr)
 		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), repeat_(-1) {
 		step_ = step <= 0 ? 1 : step;
 	}

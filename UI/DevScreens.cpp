@@ -948,6 +948,9 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
 	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
 
+	internals->Add(new ItemHeader(si->T("Slider test")));
+	internals->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
 		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
