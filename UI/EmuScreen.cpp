@@ -964,7 +964,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			g_Config.bEnableWlan = !g_Config.bEnableWlan;
 			// Try to avoid adding more strings so we piece together a message from existing ones.
 			g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
-				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
+				"%s: %s", n->T_cstr("Enable networking"), g_Config.bEnableWlan ? di->T_cstr("Enabled") : di->T_cstr("Disabled")), 2.0, "toggle_wlan");
 		}
 		break;
 
