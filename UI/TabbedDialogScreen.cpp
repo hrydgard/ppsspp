@@ -91,6 +91,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
 					return UI::EVENT_DONE;
 				});
+				clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
 
 				noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
 			}, true);
