@@ -70,7 +70,7 @@ struct SasThreadParams {
 	int rightVol;
 };
 
-static std::thread *sasThread;
+static std::thread g_sasThread;
 static std::mutex sasWakeMutex;
 static std::mutex sasDoneMutex;
 static std::condition_variable sasWake;
@@ -141,9 +141,9 @@ static void __SasDisableThread() {
 		sasThreadState = SasThreadState::DISABLED;
 		sasWake.notify_one();
 		sasWakeMutex.unlock();
-		sasThread->join();
-		delete sasThread;
-		sasThread = nullptr;
+		if (g_sasThread.joinable()) {
+			g_sasThread.join();
+		}
 	}
 }
 
@@ -175,7 +175,7 @@ void __SasInit() {
 
 	if (g_Config.bSeparateSASThread) {
 		sasThreadState = SasThreadState::READY;
-		sasThread = new std::thread(__SasThread);
+		g_sasThread = std::thread(__SasThread);
 	} else {
 		sasThreadState = SasThreadState::DISABLED;
 	}
