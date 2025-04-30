@@ -44,7 +44,11 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 		return;
 	}
 
-	textureCache->DrawImGuiDebug(cfg.selectedTexAddr);
+	if (textureCache) {
+		textureCache->DrawImGuiDebug(cfg.selectedTexAddr);
+	} else {
+		ImGui::TextUnformatted("Texture cache not available");
+	}
 
 	ImGui::End();
 }
@@ -56,22 +60,28 @@ void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManag
 		return;
 	}
 
-	ImGui::Checkbox("Display latched", &cfg.displayLatched);
+	if (framebufferManager) {
+		ImGui::Checkbox("Display latched", &cfg.displayLatched);
 
-	PSPPointer<u8> topaddr;
-	u32 linesize;
-	u32 pixelFormat;
+		PSPPointer<u8> topaddr;
+		u32 linesize;
+		u32 pixelFormat;
 
-	__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, cfg.displayLatched);
+		__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, cfg.displayLatched);
 
-	VirtualFramebuffer *fb = framebufferManager->GetVFBAt(topaddr.ptr);
-	if (fb && fb->fbo) {
-		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-		ImGui::Image(texId, ImVec2(fb->width, fb->height));
-		ImGui::Text("%s - %08x", fb->fbo->Tag(), topaddr.ptr);
+		VirtualFramebuffer *fb = framebufferManager->GetVFBAt(topaddr.ptr);
+		if (fb && fb->fbo) {
+			ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+			ImGui::Image(texId, ImVec2(fb->width, fb->height));
+			ImGui::Text("%s - %08x", fb->fbo->Tag(), topaddr.ptr);
+		} else {
+			// TODO: Sometimes we should display RAM here.
+			ImGui::Text("Framebuffer not available to display");
+		}
 	} else {
-		// TODO: Sometimes we should display RAM here.
-		ImGui::Text("Framebuffer not available to display");
+		// TODO: We should implement this anyway for software mode.
+		// In the meantime, use the pixel viewer.
+		ImGui::TextUnformatted("Framebuffer manager not available");
 	}
 
 	ImGui::End();

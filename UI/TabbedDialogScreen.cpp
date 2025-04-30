@@ -91,6 +91,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
 					return UI::EVENT_DONE;
 				});
+				clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
 
 				noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
 			}, true);
@@ -115,6 +116,7 @@ void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
 }
 
 void TabbedUIDialogScreenWithGameBackground::EnsureTabs() {
+	_assert_(tabHolder_);
 	tabHolder_->EnsureAllCreated();
 }
 
@@ -122,7 +124,7 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 
-	tabHolder_->EnsureAllCreated();
+	EnsureTabs();
 
 	// Show an indicator that a filter is applied.
 	filterNotice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
@@ -142,6 +144,8 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 			View *v = tabContents->GetViewByIndex(0);
 			if (v->IsViewGroup()) {
 				tabContents = (ViewGroup *)v;
+			} else {
+				break;
 			}
 		}
 

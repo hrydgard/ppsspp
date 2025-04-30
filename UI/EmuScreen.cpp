@@ -548,11 +548,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
 	// This happens on the main thread.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
-		if (!bootPending_) {
-			screenManager()->push(new GamePauseScreen(gamePath_));
-		} else {
-			ERROR_LOG(Log::Loader, "Can't pause during pending boot");
-		}
+		screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		if (bootPending_) {
@@ -648,7 +644,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 				// use this as the fallback way to get into the menu.
 				// Don't do it on the first resume though, in case we launch directly into emuscreen, like from a frontend - see #18926
 				if (!equals(value, "first")) {
-					screenManager()->push(new GamePauseScreen(gamePath_));
+					screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
 				}
 			}
 		}
@@ -968,7 +964,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			g_Config.bEnableWlan = !g_Config.bEnableWlan;
 			// Try to avoid adding more strings so we piece together a message from existing ones.
 			g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
-				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
+				"%s: %s", n->T_cstr("Enable networking"), g_Config.bEnableWlan ? di->T_cstr("Enabled") : di->T_cstr("Disabled")), 2.0, "toggle_wlan");
 		}
 		break;
 
@@ -1421,7 +1417,7 @@ void EmuScreen::update() {
 
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
 	}
 
 	if (!PSP_IsInited())

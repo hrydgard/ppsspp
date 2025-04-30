@@ -298,8 +298,8 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
-GamePauseScreen::GamePauseScreen(const Path &filename)
-	: UIDialogScreenWithGameBackground(filename) {
+GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
+	: UIDialogScreenWithGameBackground(filename), bootPending_(bootPending) {
 	// So we can tell if something blew up while on the pause screen.
 	std::string assertStr = "PauseScreen: " + filename.GetFilename();
 	SetExtraAssertInfo(assertStr.c_str());
@@ -487,10 +487,14 @@ void GamePauseScreen::CreateViews() {
 
 	if (g_paramSFO.IsValid() && g_Config.hasGameConfig(g_paramSFO.GetDiscID())) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		rightColumnItems->Add(new Choice(pa->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+		Choice *delGameConfig = rightColumnItems->Add(new Choice(pa->T("Delete Game Config")));
+		delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+		delGameConfig->SetEnabled(!bootPending_);
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config")));
+		createGameConfig->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+		createGameConfig->SetEnabled(!bootPending_);
 	}
 
 	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
@@ -517,12 +521,15 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(20.0));
+	Choice *exit;
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
+		exit = rightColumnItems->Add(new Choice(mm->T("Exit")));
 	} else {
-		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
+		exit = rightColumnItems->Add(new Choice(pa->T("Exit to menu")));
 	}
+	exit->OnClick.Handle(this, &GamePauseScreen::OnExit);
+	exit->SetEnabled(!bootPending_);
 
 	middleColumn->SetSpacing(20.0f);
 	playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
