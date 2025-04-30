@@ -50,7 +50,6 @@ private:
 	void DisplayMessage(std::string_view text, bool hasYesNo = false);
 	std::string GetSelectedSaveDirName() const;
 
-	void JoinIOThread();
 	void StartIOThread();
 	void ExecuteNotVisibleIOAction();
 
@@ -102,7 +101,7 @@ private:
 		SAVEIO_DONE,
 	};
 
-	std::thread *ioThread = nullptr;
+	std::thread ioThread;
 	std::mutex paramLock;
 	volatile SaveIOStatus ioThreadStatus = SAVEIO_NONE;
 };
