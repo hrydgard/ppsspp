@@ -28,7 +28,7 @@
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const Path &filename);
+	GamePauseScreen(const Path &filename, bool bootPending);
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
@@ -71,6 +71,8 @@ private:
 	bool lastNetInetInited_ = false;
 	bool lastAdhocServerConnected_ = false;
 	bool lastDNSConfigLoaded_ = false;
+
+	bool bootPending_ = false;
 };
 
 std::string GetConfirmExitMessage();
