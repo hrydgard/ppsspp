@@ -142,8 +142,8 @@ bool GameDB::GetGameInfos(std::string_view id, std::vector<GameDBInfo> *infos) {
 
 	LoadIfNeeded();
 
-	for (auto &line : lines_) {
-		for (auto &serial : line.serials) {
+	for (const auto &line : lines_) {
+		for (const auto serial : line.serials) {
 			// Ignore version and stuff for now
 			if (IDMatches(id, serial)) {
 				GameDBInfo info;
