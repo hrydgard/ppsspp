@@ -229,6 +229,8 @@ void GameScreen::CreateViews() {
 
 	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
 	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	if (inGame_)
+		btnGameSettings_->SetEnabled(false);
 
 	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);

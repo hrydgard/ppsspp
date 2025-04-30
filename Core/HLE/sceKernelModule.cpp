@@ -542,7 +542,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 				ERROR_LOG_REPORT(Log::Loader, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, state.lastHI16ExportAddress, exportAddress);
 			} else {
 				// Process each of the HI16.  Usually there's only one.
-				for (auto &reloc : state.lastHI16Relocs) {
+				for (const auto &reloc : state.lastHI16Relocs) {
 					if (!reverse) {
 						full = (reloc.data << 16) + offsetLo + exportAddress;
 					} else {

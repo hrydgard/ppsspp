@@ -243,8 +243,18 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::ProcessGameBoot(const Path &filename) {
+	if (!bootPending_) {
+		// Nothing to do.
+		return;
+	}
+
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
+		return;
+	}
+
+	// Check permission status first, in case we came from a shortcut.
+	if (!bootAllowStorage(filename)) {
 		return;
 	}
 
@@ -286,10 +296,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		// Gotta start the boot process! Continue below.
 		break;
 	}
-
-	// Check permission status first, in case we came from a shortcut.
-	if (!bootAllowStorage(filename))
-		return;
 
 	SetAssertCancelCallback(&AssertCancelCallback, this);
 
@@ -345,14 +351,17 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		return;
 	}
 
-	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
-	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
+	_dbg_assert_(loadingViewVisible_);
+	_dbg_assert_(loadingViewColor_);
+
+	if (loadingViewColor_)
+		loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
+	if (loadingViewVisible_)
+		loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 
 	screenManager()->getDrawContext()->ResetStats();
 
-	if (bootPending_) {
-		System_PostUIMessage(UIMessage::GAME_SELECTED, filename.c_str());
-	}
+	System_PostUIMessage(UIMessage::GAME_SELECTED, filename.c_str());
 }
 
 // Only call this on successful boot.
@@ -489,7 +498,8 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
-	if (result == DR_OK || quit_) {
+	if ((result == DR_OK || quit_) && !bootPending_) {
+		_dbg_assert_(!bootPending_);
 		screenManager()->switchScreen(new MainScreen());
 		quit_ = false;
 	}
@@ -536,8 +546,13 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 
 void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
+	// This happens on the main thread.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		if (!bootPending_) {
+			screenManager()->push(new GamePauseScreen(gamePath_));
+		} else {
+			ERROR_LOG(Log::Loader, "Can't pause during pending boot");
+		}
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		if (bootPending_) {
@@ -712,7 +727,7 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_FASTFORWARD:
-		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
+		if (down && !NetworkWarnUserIfOnlineAndCantSpeed() && !bootPending_) {
 			/*
 			// This seems like strange behavior. Commented it out.
 			if (coreState == CORE_STEPPING_CPU) {
@@ -827,7 +842,7 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 #endif
 
 	case VIRTKEY_REWIND:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			if (SaveState::CanRewind()) {
 				SaveState::Rewind(&AfterSaveStateAction);
 			} else {
@@ -836,12 +851,12 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		}
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		}
 		break;
@@ -1504,11 +1519,9 @@ void EmuScreen::darken() {
 ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	// Moved from update, because we want it to be possible for booting to happen even when the screen
 	// is in the background, like when choosing Reset from the pause menu.
-	if (bootPending_) {
-		// Keep trying the boot until bootPending_ is lifted.
-		// It may be delayed due to RetroAchievements or any other cause.
-		ProcessGameBoot(gamePath_);
-	}
+
+	// If a boot is in progress, update it.
+	ProcessGameBoot(gamePath_);
 
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
 	Draw::Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };

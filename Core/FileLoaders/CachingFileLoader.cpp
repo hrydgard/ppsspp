@@ -116,7 +116,7 @@ void CachingFileLoader::ShutdownCache() {
 		aheadThread_.join();
 
 	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
-	for (auto block : blocks_) {
+	for (const auto &block : blocks_) {
 		delete [] block.second.ptr;
 	}
 	blocks_.clear();

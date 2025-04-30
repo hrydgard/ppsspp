@@ -530,7 +530,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	INFO_LOG(Log::Loader, "Starting loader thread...");
 
-	_dbg_assert_(!g_loadingThread.joinable());
+	_assert_msg_(!g_loadingThread.joinable(), "%s", coreParam.fileToStart.c_str());
 
 	g_loadingThread = std::thread([error_string]() {
 		SetCurrentThreadName("ExecLoader");
@@ -589,7 +589,7 @@ BootState PSP_InitUpdate(std::string *error_string) {
 	_dbg_assert_(g_bootState == BootState::Complete || g_bootState == BootState::Failed);
 
 	// Since we load on a background thread, wait for startup to complete.
-	_dbg_assert_(g_loadingThread.joinable());
+	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)g_bootState);
 	g_loadingThread.join();
 
 	if (g_bootState == BootState::Failed) {

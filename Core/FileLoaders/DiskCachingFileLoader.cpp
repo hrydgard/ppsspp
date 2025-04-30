@@ -129,7 +129,7 @@ std::vector<Path> DiskCachingFileLoader::GetCachedPathsInUse() {
 	std::vector<Path> files;
 	files.reserve(caches_.size());
 
-	for (auto it : caches_) {
+	for (const auto &it : caches_) {
 		files.push_back(it.first);
 	}
 

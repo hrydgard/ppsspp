@@ -100,7 +100,7 @@ View::~View() {
 	RemoveQueuedEventsByView(this);
 
 	// Could use unique_ptr, but then we have to include tween everywhere.
-	for (auto &tween : tweens_)
+	for (UI::Tween *tween : tweens_)
 		delete tween;
 }
 
