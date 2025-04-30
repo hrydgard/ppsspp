@@ -87,18 +87,10 @@ const u8 *GetPointerRange(const u32 address, const u32 size) {
 
 template <typename T>
 inline void ReadFromHardware(T &var, const u32 address) {
-	// TODO: Figure out the fastest order of tests for both read and write (they are probably different).
-	if ((address & 0x3E000000) == 0x08000000) {
-		// RAM
-		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		// VRAM
-		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		// Scratchpad
-		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		// More RAM (remasters, etc.)
+	if ((address & 0x3E000000) == 0x08000000 || // RAM
+		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
 		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::READ_WORD);
@@ -108,17 +100,10 @@ inline void ReadFromHardware(T &var, const u32 address) {
 
 template <typename T>
 inline void WriteToHardware(u32 address, const T data) {
-	if ((address & 0x3E000000) == 0x08000000) {
-		// RAM
-		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		// VRAM
-		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		// Scratchpad
-		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		// More RAM (remasters, etc.)
+	if ((address & 0x3E000000) == 0x08000000 || // RAM
+		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
 		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
