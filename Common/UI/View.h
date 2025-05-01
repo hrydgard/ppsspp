@@ -116,6 +116,8 @@ struct Theme {
 
 	uint32_t backgroundColor;
 	uint32_t scrollbarColor;
+	uint32_t popupSliderColor;
+	uint32_t popupSliderFocusedColor;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
