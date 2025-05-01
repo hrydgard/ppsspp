@@ -113,7 +113,7 @@ public:  // TODO: Very little of this below should be public.
 
 	int m_desWidth = 0;
 	int m_desHeight = 0;
-	int m_bufSize;
+	int m_bufSize;  // initialized in constructor
 	s64 m_videopts = 0;
 
 	s64 m_firstTimeStamp = 0;
