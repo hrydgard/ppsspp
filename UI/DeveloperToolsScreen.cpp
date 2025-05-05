@@ -318,6 +318,14 @@ void DeveloperToolsScreen::CreateAudioTab(UI::LinearLayout *list) {
 	list->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
 }
 
+void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	list->Add(new ItemHeader(ms->T("Networking")));
+	list->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
+}
+
 void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -440,6 +448,9 @@ void DeveloperToolsScreen::CreateTabs() {
 	});
 	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
 		CreateGraphicsTab(parent);
+	});
+	AddTab("Networking", ms->T("Networking"), [this](UI::LinearLayout *parent) {
+		CreateNetworkTab(parent);
 	});
 	AddTab("Audio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
 		CreateAudioTab(parent);

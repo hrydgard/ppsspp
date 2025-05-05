@@ -1,5 +1,5 @@
 {
-	"comment": "This file contains our built-in DNS used by the Auto mode in Infrastructure. In addition to being shipped, it'll also be hosted on ppsspp.org. Game names below are not important.",
+	"comment": "This file contains our built-in DNS used by the Auto mode in Infrastructure. In addition to being shipped, it's also hosted on https://metadata.ppsspp.org/infra-dns.json. (Exact game names below are not important).",
 	"default": {
 		"dns": "67.222.156.250",
 		"revival_credits": {
