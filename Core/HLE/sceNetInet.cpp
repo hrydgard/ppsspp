@@ -680,20 +680,22 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	saddr.addr.sa_family = dst->sa_family;
 	memcpy(saddr.addr.sa_data, dst->sa_data, sizeof(dst->sa_data));
 
-	// Enforcing blocking-mode on games that use blocking-mode as a temporary fix for UNO, since we don't simulate blocking-mode yet
+	// Enforcing real blocking-mode on games that use blocking-mode socket (as a temporary fix for UNO), since we don't simulate blocking-mode yet
 	if (!inetSock->nonblocking) {
 		WARN_LOG(Log::sceNet, "Enforcing blocking-mode on Connect! (socket #%d)", socket);
+		changeBlockingMode(inetSock->sock, 0);
 		// Workaround to avoid blocking for indefinitely
 		setSockTimeout(inetSock->sock, SO_SNDTIMEO, 5000000);
 		setSockTimeout(inetSock->sock, SO_RCVTIMEO, 5000000);
-		changeBlockingMode(inetSock->sock, 0);
 	}
 	int retval = connect(inetSock->sock, (struct sockaddr*)&saddr.addr, dstlen);
+	int hostErrno = socket_errno;
+	if (!inetSock->nonblocking) {
+		// Change the blocking mode back to nonblocking
+		changeBlockingMode(inetSock->sock, 1);
+	}
 	if (retval < 0) {
-		int hostErrno = socket_errno;
 		if (!inetSock->nonblocking) {
-			// Change the blocking mode back to nonblocking
-			changeBlockingMode(inetSock->sock, 1);
 			// Since we're temporarily forcing blocking-mode, we'll need to change errno from ETIMEDOUT to EAGAIN
 			if (hostErrno == ETIMEDOUT)
 				hostErrno = EAGAIN;
@@ -705,10 +707,6 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 			retval = hleLogError(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 		
 		return retval;
-	}
-	if (!inetSock->nonblocking) {
-		// Change the blocking mode back to nonblocking
-		changeBlockingMode(inetSock->sock, 1);
 	}
 
 	if (saddr.in.sin_port == 53) {
