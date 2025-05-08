@@ -74,9 +74,9 @@
 				"group": "The AG Racing Foundation",
 				"url": "https://agracingfoundation.org/"
 			},
-			"dns": "145.239.30.230",
+			"dns": "147.135.213.57",
 			"domains": {
-				"hub.psnexus.net": "145.239.30.230"
+				"hub.psnexus.net": "147.135.213.57"
 			},
 			"other_ids": [
 				"UCUS98612",
@@ -95,7 +95,7 @@
 				"group": "The AG Racing Foundation",
 				"url": "https://agracingfoundation.org/"
 			},
-			"dns": "145.239.30.230",
+			"dns": "147.135.213.57",
 			"score": 5,
 			"known_working_ids": [
 				"UCES00465",
@@ -116,7 +116,7 @@
 				"group": "The AG Racing Foundation",
 				"url": "https://agracingfoundation.org/"
 			},
-			"dns": "145.239.30.230",
+			"dns": "147.135.213.57",
 			"score": 5,
 			"known_working_ids": [
 				"UCES01250",
