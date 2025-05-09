@@ -1584,10 +1584,8 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
-	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
-		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
-	}
 
+	g_Config.Save("GameSettingsScreen::onFinish");
 	if (editThenRestore_) {
 		// In case we didn't have the title yet before, try again.
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
@@ -1600,8 +1598,10 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	KeyMap::UpdateNativeMenuKeys();
 
 	// Wipe some caches after potentially changing settings.
+#if !PPSSPP_PLATFORM(SWITCH)
 	// Let's not send resize messages here, handled elsewhere.
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+#endif // !PPSSPP_PLATFORM(SWITCH)
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {

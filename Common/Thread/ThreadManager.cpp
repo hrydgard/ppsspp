@@ -244,7 +244,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 			task->Run();
 			task->Release();
 		}, task);
-		th.detach();
+		//th.detach();
 		return;
 	}
 

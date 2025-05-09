@@ -219,6 +219,22 @@ else ifeq ($(platform), tvos-arm64)
 	PLATFORM_EXT = darwin
 	TARGET_ARCH = arm
 
+# Nintendo Switch
+else ifeq ($(platform), libnx)
+   include $(DEVKITPRO)/libnx/switch_rules
+   PIC = 1
+   TARGET := $(TARGET_NAME)_libretro_$(platform).a
+   CPUOPTS := -g -march=armv8-a -mtune=cortex-a57 -mtp=soft -mcpu=cortex-a57+crc+fp+simd
+   PLATCFLAGS = -D__aarch64__ -fPIE -I$(PORTLIBS)/include/ -I$(LIBNX)/include/ -ffunction-sections -fdata-sections -ftls-model=local-exec -DEGL
+   PLATCFLAGS += $(INCLUDE) -D__SWITCH__=1 -DMOBILE_DEVICE -DHAVE_LIBNX
+   FFMPEGINCFLAGS += -I$(PORTLIBS)/include
+   FFMPEGLIBDIR := -I$(PORTLIBS)/lib
+   CXXFLAGS += -fno-rtti
+   WITH_DYNAREC = 1
+   STATIC_LINKING = 1
+   HAVE_NEON = 1
+   TARGET_ARCH = arm64
+
 # Android
 else ifneq (,$(findstring android,$(platform)))
 	fpic = -fPIC
@@ -423,7 +439,8 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
+# COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
+COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG
 ifneq ($(platform), emscripten)
 	# ffmpeg does not work with emscripten
 	COREFLAGS += -DUSE_FFMPEG
@@ -444,15 +461,15 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   CXXFLAGS += -std=c++17
+   CXXFLAGS += -std=gnu++17
 else
    CXXFLAGS += -std:c++17
 endif
 
 ### Finalize ###
 OBJECTS		+= $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(ASMFILES:.S=.o)
-CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
-CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 
 LDFLAGS		+= $(FFMPEGLDFLAGS) $(fpic)
 ifeq (,$(findstring android,$(platform))$(findstring msvc,$(platform)))
