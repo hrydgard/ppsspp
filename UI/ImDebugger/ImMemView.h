@@ -43,6 +43,8 @@ public:
 	void toggleOffsetScale(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
 
+	void toggleDrawZeroDark(bool toggle);
+
 	const std::string &StatusMessage() const {
 		return statusMessage_;
 	}
@@ -108,6 +110,8 @@ private:
 
 	// Number of rows visible as of last redraw.
 	int visibleRows_ = 0;
+
+	bool drawZeroDark_ = false;
 
 	// Last used search query, used when continuing a search.
 	std::string searchQuery_;
@@ -176,6 +180,8 @@ private:
 	bool symsDirty_ = true;
 	int selectedSymbol_ = -1;
 	char selectedSymbolName_[128];
+
+	bool drawZeroDark_ = false;
 
 	ImMemView memView_;
 	char searchTerm_[64]{};
