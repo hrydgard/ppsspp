@@ -48,6 +48,8 @@ enum {
 	HLE_CLEAR_STACK_BYTES = 1 << 10,
 	// Indicates that this call operates in kernel mode.
 	HLE_KERNEL_SYSCALL = 1 << 11,
+	// Indicates that the framework performs the logging, depending on the return value.
+	HLE_AUTO_LOG = 1 << 12,
 };
 
 struct HLEFunction {
@@ -75,6 +77,7 @@ struct HLEFunction {
 	u32 flags;
 	// See HLE_CLEAR_STACK_BYTES.
 	u32 stackBytesToClear;
+	Log logCat;
 };
 
 struct HLEModule {
