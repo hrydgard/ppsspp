@@ -182,7 +182,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 				int bgWidth = 2; // continueRect ? 3 : 2;
 				drawList->AddRectFilled(ImVec2(canvas_p0.x + hexX - 1, canvas_p0.y + rowY), ImVec2(canvas_p0.x + hexX + charWidth_ * bgWidth, canvas_p0.y + rowY + charHeight_), bg);
 			}
-			if (temp[0] == '0' && temp[1] == '0') {
+			if (drawZeroDark_ && temp[0] == '0' && temp[1] == '0') {
 				// if the byte is all zero make it darker
 				fg = zeroColor;
 			}
@@ -841,6 +841,10 @@ void ImMemView::setHighlightType(MemBlockFlags flags) {
 	}
 }
 
+void ImMemView::toggleDrawZeroDark(bool toggle) {
+	drawZeroDark_ = toggle;
+}
+
 void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
 	ImGui::SetNextWindowSize(ImVec2(200, 300), ImGuiCond_FirstUseEver);
 
@@ -916,6 +920,16 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Go")) {
 		memView_.gotoAddr(gotoAddr_);
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Settings")) {
+		ImGui::OpenPopup("disSettings");
+	}
+	if (ImGui::BeginPopup("disSettings")) {
+		if(ImGui::Checkbox("Darken Zeros", &drawZeroDark_)) {
+			memView_.toggleDrawZeroDark(drawZeroDark_);
+		}
+		ImGui::EndPopup();
 	}
 
 	ImVec2 size(0, -ImGui::GetFrameHeightWithSpacing());
