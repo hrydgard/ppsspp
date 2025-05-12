@@ -73,9 +73,8 @@ android {
 		} else {
 			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 		}
-
-		new File("versionname.txt").write(androidGitVersion.name())
-		new File("versioncode.txt").write(androidGitVersion.code().toString())
+		file("versionname.txt").text = androidGitVersion.name()
+		file("versioncode.txt").text = androidGitVersion.code().toString()
 
 		minSdk 9
 		targetSdk 35
