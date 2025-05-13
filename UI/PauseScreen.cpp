@@ -603,7 +603,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	} else {
 		if (tag == "Game") {
 			g_BackgroundAudio.SetGame(Path());
-		} else if (tag != "ContextMenuPopup") {
+		} else if (tag != "Prompt" && tag != "ContextMenuPopup") {
 			// There may have been changes to our savestates, so let's recreate.
 			RecreateViews();
 		}

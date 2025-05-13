@@ -210,13 +210,19 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		return;
 	}
 
-	if (Achievements::IsBlockingExecution()) {
-		// Keep waiting.
+	if (!root_) {
+		// Views not created yet, wait until they are. Not sure if this can actually happen
+		// but crash reports seem to indicate it.
 		return;
 	}
 
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename)) {
+		return;
+	}
+
+	if (Achievements::IsBlockingExecution()) {
+		// Keep waiting.
 		return;
 	}
 
@@ -456,9 +462,15 @@ EmuScreen::~EmuScreen() {
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (std::string_view(dialog->tag()) == "TextEditPopup") {
+	std::string_view tag = dialog->tag();
+	if (tag == "TextEditPopup") {
 		// Chat message finished.
 		return;
+	}
+
+	// Returning to the PauseScreen, unless we're stepping, means we should go back to controls.
+	if (Core_IsActive()) {
+		UI::EnableFocusMovement(false);
 	}
 
 	// TODO: improve the way with which we got commands from PauseMenu.
@@ -468,11 +480,10 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		_dbg_assert_(!bootPending_);
 		screenManager()->switchScreen(new MainScreen());
 		quit_ = false;
+	} else {
+		RecreateViews();
 	}
-	// Returning to the PauseScreen, unless we're stepping, means we should go back to controls.
-	if (Core_IsActive())
-		UI::EnableFocusMovement(false);
-	RecreateViews();
+
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 
 	// Make sure we re-enable keyboard mode if it was disabled by the dialog, and if needed.
@@ -523,7 +534,6 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		}
 		PSP_Shutdown(true);
 		Achievements::UnloadGame();
-		bootPending_ = false;
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
@@ -532,7 +542,10 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		}
 		PSP_Shutdown(true);
 		Achievements::UnloadGame();
+
+		// Restart the boot process
 		bootPending_ = true;
+		RecreateViews();
 		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
 			ERROR_LOG(Log::Loader, "Error resetting");
@@ -601,6 +614,10 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			} else {
 				UI::EventParams e{};
 				OnChatMenu.Trigger(e);
+			}
+		} else if (!g_Config.bEnableNetworkChat) {
+			if (chatButton_) {
+				RecreateViews();
 			}
 		}
 	} else if (message == UIMessage::APP_RESUMED && screenManager()->topScreen() == this) {
@@ -1222,6 +1239,8 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
+	chatButton_ = nullptr;
+	chatMenu_ = nullptr;
 	if (g_Config.bEnableNetworkChat) {
 		if (g_Config.iChatButtonPosition != 8) {
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
@@ -1232,9 +1251,6 @@ void EmuScreen::CreateViews() {
 		}
 		chatMenu_ = root_->Add(new ChatMenu(GetRequesterToken(), screenManager()->getUIContext()->GetBounds(), screenManager(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
 		chatMenu_->SetVisibility(UI::V_GONE);
-	} else {
-		chatButton_ = nullptr;
-		chatMenu_ = nullptr;
 	}
 
 	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
@@ -1339,7 +1355,9 @@ int GetChatMessageCount();
 void EmuScreen::update() {
 	using namespace UI;
 
+	// This is where views are recreated.
 	UIScreen::update();
+
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
 	backButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
