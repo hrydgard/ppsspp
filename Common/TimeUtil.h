@@ -25,6 +25,9 @@ void sleep_ms(int ms, const char *reason);
 // Precise sleep. Can consume a little bit of CPU on Windows at least.
 void sleep_precise(double seconds);
 
+// Random sleep, used for debugging.
+void sleep_random(double minSeconds, double maxSeconds);
+
 // Yield. Signals that this thread is busy-waiting but wants to allow other hyperthreads to run.
 void yield();
 
