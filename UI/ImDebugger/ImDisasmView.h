@@ -130,7 +130,7 @@ private:
 	void disassembleToFile();
 	void FollowBranch();
 	void calculatePixelPositions();
-	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
+	bool getDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
 	void drawBranchLine(ImDrawList *list, Bounds rc, std::map<u32, float> &addressPositions, const BranchLine &line);
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);

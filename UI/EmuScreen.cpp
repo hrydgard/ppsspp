@@ -476,7 +476,6 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
 	if ((result == DR_OK || quit_) && !bootPending_) {
-		_dbg_assert_(!bootPending_);
 		screenManager()->switchScreen(new MainScreen());
 		quit_ = false;
 	} else {

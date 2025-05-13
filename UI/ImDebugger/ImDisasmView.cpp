@@ -51,11 +51,11 @@ static ImColor scaleColor(ImColor color, float factor) {
 	return color;
 }
 
-bool ImDisasmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData) {
+bool ImDisasmView::getDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbreviateLabels, bool showData) {
 	if (PSP_GetBootState() != BootState::Complete)
 		return false;
 
-	return GetDisasmAddressText(address, dest, abbreviateLabels, showData, displaySymbols_);
+	return GetDisasmAddressText(address, dest, bufSize, abbreviateLabels, showData, displaySymbols_);
 }
 
 void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
@@ -358,7 +358,7 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 		}
 
 		char addressText[64];
-		getDisasmAddressText(address, addressText, true, line.type == DISTYPE_OPCODE);
+		getDisasmAddressText(address, addressText, sizeof(addressText), true, line.type == DISTYPE_OPCODE);
 		drawList->AddText(ImVec2(bounds.x + pixelPositions_.addressStart, bounds.y + rowY1 + 2), textColor, addressText);
 
 		if (isInInterval(address, line.totalSize, pc)) {
@@ -1013,7 +1013,7 @@ void ImDisasmView::SearchNext(bool forward) {
 		g_disassemblyManager.getLine(searchAddress, displaySymbols_, lineInfo, debugger_);
 
 		char addressText[64];
-		getDisasmAddressText(searchAddress, addressText, true, lineInfo.type == DISTYPE_OPCODE);
+		getDisasmAddressText(searchAddress, addressText, sizeof(addressText), true, lineInfo.type == DISTYPE_OPCODE);
 
 		const char* opcode = lineInfo.name.c_str();
 		const char* arguments = lineInfo.params.c_str();
@@ -1075,7 +1075,7 @@ std::string ImDisasmView::disassembleRange(u32 start, u32 size) {
 		char addressText[64], buffer[512];
 
 		g_disassemblyManager.getLine(disAddress, displaySymbols_, line, debugger_);
-		bool isLabel = getDisasmAddressText(disAddress, addressText, false, line.type == DISTYPE_OPCODE);
+		bool isLabel = getDisasmAddressText(disAddress, addressText, sizeof(addressText), false, line.type == DISTYPE_OPCODE);
 
 		if (isLabel) {
 			if (!previousLabel) result += "\r\n";

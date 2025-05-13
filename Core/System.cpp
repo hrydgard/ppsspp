@@ -342,6 +342,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
+	_dbg_assert_(!g_symbolMap);
 	g_symbolMap = new SymbolMap();
 
 	MIPSAnalyst::Reset();
