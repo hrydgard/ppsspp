@@ -18,11 +18,12 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 
 class PointerWrap;
 
-typedef void (*VblankCallback)();
-// Listen for vblank events.
+typedef std::function<void()> VblankCallback;
+// Listen for vblank events. Callbacks are cleared in DisplayHWShutdown().
 void __DisplayListenVblank(VblankCallback callback);
 typedef void (*FlipCallback)(void *userdata);
 void __DisplayListenFlip(FlipCallback callback, void *userdata);

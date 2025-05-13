@@ -76,6 +76,7 @@ private:
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
 
+	void HandleVBlank();
 	void ProcessGameBoot(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
 	void bootComplete();
@@ -130,8 +131,6 @@ private:
 
 	std::string extraAssertInfoStr_;
 
-	std::atomic<bool> doFrameAdvance_{};
-
 	ControlMapper controlMapper_;
 
 	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
@@ -151,6 +150,11 @@ private:
 	std::vector<VirtKey> queuedVirtKeys_;
 
 	ImGuiContext *ctx_ = nullptr;
+
+	// TODO: Ugly!
+	bool frameStep_ = false;
+	int lastNumFlips = -1;
+	bool startDumping = false;
 };
 
 bool MustRunBehind();
