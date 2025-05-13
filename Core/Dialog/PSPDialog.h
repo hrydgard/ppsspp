@@ -29,8 +29,7 @@ class PointerWrap;
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL       1
 #define SCE_UTILITY_DIALOG_RESULT_ABORT        2
 
-struct pspUtilityDialogCommon
-{
+struct pspUtilityDialogCommon {
 	u32_le size;            /** Size of the structure */
 	s32_le language;        /** Language */
 	s32_le buttonSwap;      /** Set to 1 for X/O button swap */
@@ -50,7 +49,10 @@ public:
 	virtual int Update(int animSpeed) = 0;
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
-	virtual pspUtilityDialogCommon *GetCommonParam();
+	virtual pspUtilityDialogCommon *GetCommonParam() {
+		// This is returned properly by the derived classes (or should be...).
+		return nullptr;
+	}
 
 	enum DialogStatus {
 		SCE_UTILITY_STATUS_NONE       = 0,
