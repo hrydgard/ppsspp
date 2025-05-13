@@ -74,9 +74,7 @@ protected:
 private:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
-	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
-	UI::EventReturn OnResume(UI::EventParams &params);
 
 	void ProcessGameBoot(const Path &filename);
 	bool bootAllowStorage(const Path &filename);

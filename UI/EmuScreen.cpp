@@ -440,8 +440,10 @@ void EmuScreen::bootComplete() {
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 
-	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
-	loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
+	if (loadingViewColor_)
+		loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
+	if (loadingViewVisible_)
+		loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
 
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Start(gameID);
@@ -1217,7 +1219,14 @@ void EmuScreen::CreateViews() {
 	root_->Add(buttons);
 
 	resumeButton_ = buttons->Add(new Button(dev->T("Resume")));
-	resumeButton_->OnClick.Handle(this, &EmuScreen::OnResume);
+	resumeButton_->OnClick.Add([this](UI::EventParams &) {
+		if (coreState == CoreState::CORE_RUNTIME_ERROR) {
+			// Force it!
+			Memory::MemFault_IgnoreLastCrash();
+			coreState = CoreState::CORE_RUNNING_CPU;
+		}
+		return UI::EVENT_DONE;
+	});
 	resumeButton_->SetVisibility(V_GONE);
 
 	resetButton_ = buttons->Add(new Button(dev->T("Reset")));
@@ -1237,7 +1246,10 @@ void EmuScreen::CreateViews() {
 	backButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
-	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
+	cardboardDisableButton_->OnClick.Add([](UI::EventParams &) {
+		g_Config.bEnableCardboardVR = false;
+		return UI::EVENT_DONE;
+	});
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
 
@@ -1331,11 +1343,6 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
-	g_Config.bEnableCardboardVR = false;
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 	if (chatButton_ != nullptr && chatButton_->GetVisibility() == UI::V_VISIBLE) {
 		chatButton_->SetVisibility(UI::V_GONE);
@@ -1353,15 +1360,6 @@ UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 			root_->SubviewFocused(focused);
 		}
 #endif
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
-	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
-		// Force it!
-		Memory::MemFault_IgnoreLastCrash();
-		coreState = CoreState::CORE_RUNNING_CPU;
 	}
 	return UI::EVENT_DONE;
 }
