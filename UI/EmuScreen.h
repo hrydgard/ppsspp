@@ -153,8 +153,7 @@ private:
 
 	// TODO: Ugly!
 	bool frameStep_ = false;
-	int lastNumFlips = -1;
-	bool startDumping = false;
+	bool startDumping_ = false;
 };
 
 bool MustRunBehind();

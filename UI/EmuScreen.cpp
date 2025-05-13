@@ -155,7 +155,6 @@ static void SetPSPAnalog(int stick, float x, float y) {
 EmuScreen::EmuScreen(const Path &filename)
 	: gamePath_(filename) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
-	lastNumFlips = gpuStats.numFlips;
 	controlMapper_.SetCallbacks(
 		std::bind(&EmuScreen::onVKey, this, _1, _2),
 		std::bind(&EmuScreen::onVKeyAnalog, this, _1, _2),
@@ -442,11 +441,11 @@ EmuScreen::~EmuScreen() {
 	g_logManager.EnableOutput(LogOutput::RingBuffer);
 
 #ifndef MOBILE_DEVICE
-	if (g_Config.bDumpFrames && startDumping)
+	if (g_Config.bDumpFrames && startDumping_)
 	{
 		avi.Stop();
 		g_OSD.Show(OSDType::MESSAGE_INFO, "AVI Dump stopped.", 2.0f);
-		startDumping = false;
+		startDumping_ = false;
 	}
 #endif
 
@@ -1480,27 +1479,22 @@ void EmuScreen::darken() {
 	}
 }
 
+// TODO: We probably shouldn't even handle frame dumping at vblank, we can just as well handle it directly in EmuScreen.
 void EmuScreen::HandleVBlank() {
-	if (frameStep_ && lastNumFlips != gpuStats.numFlips) {
-		frameStep_ = false;
-		Core_Break(BreakReason::FrameAdvance, 0);
-		lastNumFlips = gpuStats.numFlips;
-	}
 #ifndef MOBILE_DEVICE
-	if (g_Config.bDumpFrames && !startDumping)
-	{
+	if (g_Config.bDumpFrames && !startDumping_) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		avi.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		g_OSD.Show(OSDType::MESSAGE_INFO, sy->T("AVI Dump started."), 1.0f);
-		startDumping = true;
+		startDumping_ = true;
 	}
-	if (g_Config.bDumpFrames && startDumping) {
+	if (g_Config.bDumpFrames && startDumping_) {
 		avi.AddFrame();
-	} else if (!g_Config.bDumpFrames && startDumping) {
+	} else if (!g_Config.bDumpFrames && startDumping_) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		avi.Stop();
 		g_OSD.Show(OSDType::MESSAGE_INFO, sy->T("AVI Dump stopped."), 1.0f);
-		startDumping = false;
+		startDumping_ = false;
 	}
 #endif
 }
@@ -1686,6 +1680,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 
 		PSP_EndHostFrame();
+	}
+
+	if (frameStep_) {
+		frameStep_ = false;
+		if (coreState == CORE_RUNNING_CPU) {
+			Core_Break(BreakReason::FrameAdvance, 0);
+		}
 	}
 
 	if (gpu && gpu->PresentedThisFrame()) {
