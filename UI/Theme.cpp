@@ -50,7 +50,7 @@ struct ThemeInfo {
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleBg = 0x00000000;
 	uint32_t uPopupStyleFg = 0xFFFFFFFF;
-	uint32_t uPopupStyleBg = 0xFF303030;
+	uint32_t uPopupStyleBg = 0xFF5E4D1F;
 	uint32_t uPopupTitleStyleFg = 0xFFFFFFFF;
 	uint32_t uPopupTitleStyleBg = 0x00000000;  // default to invisible
 	uint32_t uTooltipStyleFg = 0xFFFFFFFF;
