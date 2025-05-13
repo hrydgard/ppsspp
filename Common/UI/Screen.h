@@ -108,6 +108,9 @@ public:
 
 protected:
 	int GetRequesterToken();
+	void WipeRequesterToken() {
+		token_ = -1;
+	}
 
 private:
 	ScreenManager *screenManager_;
