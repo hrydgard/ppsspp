@@ -295,25 +295,36 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	bool checkingISO = false;
 	bool isoOK = false;
-
 	char crcStr[50]{};
-	if (Reporting::HasCRC(gamePath)) {
-		u32 crc = Reporting::RetrieveCRC(gamePath);
-		std::vector<GameDBInfo> dbInfos;
-		if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
-			for (auto &dbInfo : dbInfos) {
-				if (dbInfo.crc == crc) {
-					isoOK = true;
+
+	switch (PSP_CoreParameter().fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	{
+		if (Reporting::HasCRC(gamePath)) {
+			u32 crc = Reporting::RetrieveCRC(gamePath);
+			std::vector<GameDBInfo> dbInfos;
+			if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
+				for (auto &dbInfo : dbInfos) {
+					if (dbInfo.crc == crc) {
+						isoOK = true;
+					}
 				}
 			}
+			snprintf(crcStr, sizeof(crcStr), "CRC: %08x %s\n", crc, isoOK ? "(Known good!)" : "(not identified)");
+		} else {
+			// Queue it for calculation, we want it!
+			// It's OK to call this repeatedly until we have it, which is natural here.
+			Reporting::QueueCRC(gamePath);
+			checkingISO = true;
 		}
-		snprintf(crcStr, sizeof(crcStr), "CRC: %08x %s\n", crc, isoOK ? "(Known good!)" : "(not identified)");
-	} else {
-		// Queue it for calculation, we want it!
-		// It's OK to call this repeatedly until we have it, which is natural here.
-		Reporting::QueueCRC(gamePath);
-		checkingISO = true;
+		break;
 	}
+	default:
+		// Don't show ISO warning for other file types.
+		isoOK = true;
+		break;
+	};
 
 	// TODO: Draw a lot more information. Full register set, and so on.
 
@@ -423,7 +434,7 @@ Invalid / Unknown (%d)
 	}
 	if (checkingISO) {
 		tips += "* (waiting for CRC...)\n";
-	} else if (!isoOK) {  // TODO: Should check that it actually is an ISO and not a homebrew
+	} else if (!isoOK) {
 		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
 	}
 	if (g_paramSFO.GetValueString("DISC_VERSION").empty()) {

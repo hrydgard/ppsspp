@@ -147,7 +147,8 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	// Special actions for some codecs.
 	switch (audioType) {
 	case PSP_CODEC_MP3:
-		_dbg_assert_(ctx->inited == 1);
+		// Not seeing inited in Kurok (homebrew)
+		// _dbg_assert_(ctx->inited == 1);
 		ctx->mp3_9999 = 9999;
 		break;
 	case PSP_CODEC_AAC:

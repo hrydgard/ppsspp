@@ -1505,8 +1505,9 @@ bool retro_load_game(const struct retro_game_info *game)
    // Launch the init process.
    if (!PSP_InitStart(coreParam)) {
       g_bootErrorString = coreParam.errorString;
-      // Can't really fail, the errors happen later during InitUpdate
+      // Can't really fail, the errors normally happen later during InitUpdate
       ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
+      g_pendingBoot = false;
       return false;
    }
 

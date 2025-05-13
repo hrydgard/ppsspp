@@ -235,7 +235,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		return;
 	case BootState::Failed:
 		// Failure.
-		PSP_CancelBoot();
 		_dbg_assert_(!error_string.empty());
 		g_BackgroundAudio.SetGame(Path());
 		bootPending_ = false;
@@ -529,7 +528,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		if (bootPending_) {
-			ERROR_LOG(Log::Loader, "Can't stop during a pending boot");
+			WARN_LOG(Log::Loader, "Can't stop during a pending boot");
 			return;
 		}
 		PSP_Shutdown(true);
@@ -537,7 +536,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
-			ERROR_LOG(Log::Loader, "Can't reset during a pending boot");
+			WARN_LOG(Log::Loader, "Can't reset during a pending boot");
 			return;
 		}
 		PSP_Shutdown(true);
@@ -548,7 +547,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		RecreateViews();
 		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
-			ERROR_LOG(Log::Loader, "Error resetting");
+			WARN_LOG(Log::Loader, "Error resetting");
 			screenManager()->switchScreen(new MainScreen());
 			return;
 		}
