@@ -965,6 +965,21 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			if (ImGui::BeginChild("mc_edit")) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
+				if (ImGui::BeginCombo("Condition", MemCheckConditionToString(mc.cond))) {
+					if (ImGui::Selectable("Read", mc.cond == MemCheckCondition::MEMCHECK_READ)) {
+						mc.cond = MemCheckCondition::MEMCHECK_READ;
+					}
+					if (ImGui::Selectable("Write", mc.cond == MemCheckCondition::MEMCHECK_WRITE)) {
+						mc.cond = MemCheckCondition::MEMCHECK_WRITE;
+					}
+					if (ImGui::Selectable("Read / Write", mc.cond == MemCheckCondition::MEMCHECK_READWRITE)) {
+						mc.cond = MemCheckCondition::MEMCHECK_READWRITE;
+					}
+					if (ImGui::Selectable("Write On Change", mc.cond == MemCheckCondition::MEMCHECK_WRITE_ONCHANGE)) {
+						mc.cond = MemCheckCondition::MEMCHECK_WRITE_ONCHANGE;
+					}
+					ImGui::EndCombo();
+				}
 				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
 				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
@@ -1019,7 +1034,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		auto iter = mpegCtxs.find(cfg.selectedMpegCtx);
 		if (iter != mpegCtxs.end()) {
 			const MpegContext *ctx = iter->second;
-			char temp[16];
+			char temp[28];
 			snprintf(temp, sizeof(temp), "sceMpeg context at %08x", iter->first);
 			if (ctx && ImGui::CollapsingHeader(temp, ImGuiTreeNodeFlags_DefaultOpen)) {
 				// ImGui::ProgressBar((float)sas->CurPos() / (float)info.fileDataEnd, ImVec2(200.0f, 0.0f));
