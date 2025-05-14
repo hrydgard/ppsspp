@@ -985,14 +985,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
 
-	bool isTriangle = IsTrianglePrim(prim);
+	const bool isTriangle = IsTrianglePrim(prim);
 
 	bool canExtend = isTriangle;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
-		u32 indexSize = (vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
-		if (!Memory::IsValidRange(indexAddr, count * indexSize)) {
+		const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+		if (!Memory::IsValidRange(indexAddr, count << indexShift)) {
 			ERROR_LOG(Log::G3D, "Bad index address %08x (%d)!", indexAddr, count);
 			return;
 		}
@@ -1109,7 +1109,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+				const u32 indexAddr = gstate_c.indexAddr;
+				const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+				if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+					// Bad index range. Let's give up the fast loop.
+					goto bail;
+				}
+				inds = Memory::GetPointerUnchecked(indexAddr);
 			} else {
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
