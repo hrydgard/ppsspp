@@ -582,19 +582,21 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 }
 
 BootState PSP_InitUpdate(std::string *error_string) {
-	if (g_bootState == BootState::Booting || g_bootState == BootState::Off) {
+	const BootState bootState = g_bootState;
+
+	if (bootState == BootState::Booting || bootState == BootState::Off) {
 		// Nothing to do right now.
-		_dbg_assert_(g_bootState == BootState::Booting || !g_loadingThread.joinable());
-		return g_bootState;
+		_dbg_assert_(bootState == BootState::Booting || !g_loadingThread.joinable());
+		return bootState;
 	}
 
-	_dbg_assert_(g_bootState == BootState::Complete || g_bootState == BootState::Failed);
+	_dbg_assert_(bootState == BootState::Complete || bootState == BootState::Failed);
 
 	// Since we load on a background thread, wait for startup to complete.
-	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)g_bootState);
+	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)bootState);
 	g_loadingThread.join();
 
-	if (g_bootState == BootState::Failed) {
+	if (bootState == BootState::Failed) {
 		// Failed! (Note: PSP_Shutdown was already called on the loader thread).
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		*error_string = g_CoreParameter.errorString;
@@ -627,7 +629,7 @@ BootState PSP_InitUpdate(std::string *error_string) {
 
 	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 	// The thread should have set it at this point.
-	_dbg_assert_(g_bootState == BootState::Complete);
+	_dbg_assert_(bootState == BootState::Complete);
 	return BootState::Complete;
 }
 

@@ -578,13 +578,7 @@ struct GPUStateCache {
 			Dirty(DIRTY_UVSCALEOFFSET);
 		}
 	}
-	void SetUseFlags(u32 newFlags) {
-		if (newFlags != useFlags_) {
-			if (useFlags_ != 0)
-				useFlagsChanged = true;
-			useFlags_ = newFlags;
-		}
-	}
+	bool SetUseFlags(u32 newFlags);
 
 	// When checking for a single flag, use Use()/UseAll().
 	u32 GetUseFlags() const {

@@ -833,7 +833,6 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 
 	rm->NudgeCompilerThread();
 
-	NOTICE_LOG(Log::G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
-	// We just ignore any failures.
+	// The rest of the work is async, we can't know here if it'll succeed.
 	return true;
 }

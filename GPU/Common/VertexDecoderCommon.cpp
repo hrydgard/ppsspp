@@ -107,7 +107,7 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
 	// Find index bounds. Could cache this in display lists.
 	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck, and some compilers
-	// autovectorize this just fine.
+	// autovectorize this just fine. (Though, it should be noted, MSVC generates really crap code here...).
 	u32 idx = vertType & GE_VTYPE_IDX_MASK;
 	if (idx == GE_VTYPE_IDX_16BIT) {
 		uint16_t upperBound = 0;

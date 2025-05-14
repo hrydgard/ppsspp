@@ -362,7 +362,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		gstate_c.Dirty(DIRTY_CULL_PLANES);
 }
 
-static const char *const gpuUseFlagNames[32] = {
+static const char *const g_gpuUseFlagNames[32] = {
 	"GPU_USE_DUALSOURCE_BLEND",
 	"GPU_USE_LIGHT_UBERSHADER",
 	"GPU_USE_FRAGMENT_TEST_CACHE",
@@ -399,8 +399,27 @@ static const char *const gpuUseFlagNames[32] = {
 
 const char *GpuUseFlagToString(int useFlag) {
 	if ((u32)useFlag < 32) {
-		return gpuUseFlagNames[useFlag];
+		return g_gpuUseFlagNames[useFlag];
 	} else {
 		return "N/A";
 	}
+}
+
+bool GPUStateCache::SetUseFlags(const u32 newFlags) {
+	if (newFlags != useFlags_) {
+		if (useFlags_ != 0 && newFlags != 0) {
+			INFO_LOG(Log::G3D, "Shader useflags changed from %08x to %08x:", useFlags_, newFlags);
+			for (int i = 0; i < 32; i++) {
+				const int mask = 1 << i;
+				bool oldVal = (useFlags_ & mask) != 0;
+				bool newVal = (newFlags & mask) != 0;
+				if (oldVal != newVal) {
+					INFO_LOG(Log::G3D, "%s changed from %d to %d", g_gpuUseFlagNames[i], (int)oldVal, (int)newVal);
+				}
+			}
+			useFlagsChanged = true;
+		}
+		useFlags_ = newFlags;
+	}
+	return useFlagsChanged;
 }

@@ -289,7 +289,10 @@ void sleep_precise(double seconds) {
 			LARGE_INTEGER due;
 			due.QuadPart = -(sleepTicks > maxTicks ? maxTicks : sleepTicks);
 			// Note: SetWaitableTimerEx is not available on Vista.
-			SetWaitableTimer(Timer, &due, 0, NULL, NULL, FALSE);
+			if (!SetWaitableTimer(Timer, &due, 0, NULL, NULL, FALSE)) {
+				_dbg_assert_(false);
+				break;
+			}
 			WaitForSingleObject(Timer, INFINITE);
 			QueryPerformanceCounter(&qpc);
 		}
