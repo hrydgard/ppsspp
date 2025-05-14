@@ -529,8 +529,8 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SetTextColor(hdc,textColor);
 
 		char addressText[64];
-		GetDisasmAddressText(address,addressText,true,line.type == DISTYPE_OPCODE, displaySymbols);
-		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
+		GetDisasmAddressText(address, addressText, sizeof(addressText), true, line.type == DISTYPE_OPCODE, displaySymbols);
+		TextOutA(hdc, pixelPositions.addressStart, rowY1+2, addressText, (int)strlen(addressText));
 		
 		if (isInInterval(address,line.totalSize,debugger->GetPC()))
 		{
@@ -1252,7 +1252,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 		g_disassemblyManager.getLine(searchAddress,displaySymbols,lineInfo, debugger);
 
 		char addressText[64];
-		GetDisasmAddressText(searchAddress,addressText,true,lineInfo.type == DISTYPE_OPCODE, displaySymbols);
+		GetDisasmAddressText(searchAddress, addressText, sizeof(addressText), true, lineInfo.type == DISTYPE_OPCODE, displaySymbols);
 
 		const char* opcode = lineInfo.name.c_str();
 		const char* arguments = lineInfo.params.c_str();

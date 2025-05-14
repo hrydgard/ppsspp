@@ -911,7 +911,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	FlushImm();
 
 	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
+	const GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
@@ -956,7 +956,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	// This also makes skipping drawing very effective.
 	bool changed;
-	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
+	VirtualFramebuffer *const vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
 	if (blueToAlpha) {
 		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
 	}
@@ -969,7 +969,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		vertexCost_ = EstimatePerVertexCost();
 	}
 
-	u32 count = op & 0xFFFF;
+	const u32 count = op & 0xFFFF;
 	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
@@ -985,14 +985,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
 
-	bool isTriangle = IsTrianglePrim(prim);
+	const bool isTriangle = IsTrianglePrim(prim);
 
 	bool canExtend = isTriangle;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
-		u32 indexSize = (vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
-		if (!Memory::IsValidRange(indexAddr, count * indexSize)) {
+		const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+		if (!Memory::IsValidRange(indexAddr, count << indexShift)) {
 			ERROR_LOG(Log::G3D, "Bad index address %08x (%d)!", indexAddr, count);
 			return;
 		}
@@ -1075,7 +1075,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
-	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
+	const uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
 
 	if (!useFastRunLoop_)
 		goto bail;  // we're either recording or stepping.
@@ -1109,7 +1109,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+				const u32 indexAddr = gstate_c.indexAddr;
+				const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+				if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+					// Bad index range. Let's give up the fast loop.
+					goto bail;
+				}
+				inds = Memory::GetPointerUnchecked(indexAddr);
 			} else {
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
@@ -1258,7 +1264,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 bail:
 	drawEngineCommon_->FlushSkin();
 	gstate.cmdmem[GE_CMD_VERTEXTYPE] = vertexType;
-	int cmdCount = src - start;
+	const int cmdCount = src - start;
 	// Skip over the commands we just read out manually.
 	if (cmdCount > 0) {
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);

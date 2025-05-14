@@ -222,6 +222,13 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
+
+	auto memmapTest = list->Add(new Choice(dev->T("Memory map test")));
+	memmapTest->OnClick.Add([this](UI::EventParams &e) {
+		MemoryMapTest();
+		return UI::EVENT_DONE;
+	});
+	memmapTest->SetEnabled(PSP_IsInited());
 }
 
 void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
@@ -338,6 +345,7 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 
 	list->Add(new ItemHeader(sy->T("General")));
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
+	list->Add(new CheckBox(&g_Config.bShaderCache, dev->T("Enable shader cache")));
 
 	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
 	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));
@@ -611,6 +619,18 @@ void DeveloperToolsScreen::update() {
 	UIDialogScreenWithBackground::update();
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+}
+
+void DeveloperToolsScreen::MemoryMapTest() {
+	int sum = 0;
+	for (uint64_t addr = 0; addr < 0x100000000ULL; addr += 0x1000) {
+		const u32 addr32 = (u32)addr;
+		if (Memory::IsValidAddress(addr32)) {
+			sum += Memory::ReadUnchecked_U32(addr32);
+		}
+	}
+	// Just to force the compiler to do things properly.
+	INFO_LOG(Log::JIT, "Total sum: %08x", sum);
 }
 
 static bool RunMemstickTest(std::string *error) {

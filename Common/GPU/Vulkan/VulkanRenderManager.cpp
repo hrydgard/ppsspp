@@ -799,6 +799,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
+		_dbg_assert_(runCompileThread_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -820,8 +821,11 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				sampleCount = VK_SAMPLE_COUNT_1_BIT;
 			}
 
-			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			// Sanity check
+			if (runCompileThread_) {
+				pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
+				compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			}
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -833,6 +837,8 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 void VulkanRenderManager::EndCurRenderStep() {
 	if (!curRenderStep_)
 		return;
+
+	_dbg_assert_(runCompileThread_);
 
 	RPKey key{
 		curRenderStep_->render.colorLoad, curRenderStep_->render.depthLoad, curRenderStep_->render.stencilLoad,

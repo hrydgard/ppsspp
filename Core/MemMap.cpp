@@ -418,8 +418,7 @@ MemoryInitedLock Lock()
 	return MemoryInitedLock();
 }
 
-__forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
-{
+static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {
 	if (!MIPS_IS_EMUHACK(inst.encoding)) {
 		return inst;
 	}
@@ -458,14 +457,19 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 	}
 }
 
-Opcode Read_Instruction(u32 address, bool resolveReplacements)
-{
-	Opcode inst = Opcode(Read_U32(address));
+Opcode Read_Instruction(u32 address, bool resolveReplacements) {
+	if (!IsValid4AlignedAddress(address)) {
+		// BAD!
+		_dbg_assert_(false);
+		return Opcode(0);
+	}
+
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
 	return Read_Instruction(address, resolveReplacements, inst);
 }
 
-Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements)
-{
+Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
+	_dbg_assert_((address & 3) == 0);
 	Opcode inst = Opcode(ReadUnchecked_U32(address));
 	return Read_Instruction(address, resolveReplacements, inst);
 }
@@ -482,10 +486,9 @@ Opcode Read_Opcode_JIT(u32 address)
 }
 
 // WARNING! No checks!
-// We assume that _Address is cached
-void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
-{
-	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
+void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
+	_dbg_assert_((address & 3) == 0);
+	Memory::WriteUnchecked_U32(_Value.encoding, address);
 }
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char *tag) {
@@ -496,7 +499,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
 		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
 		for (size_t i = 0; i < _iLength; i++) {
-			if (Memory::IsValidAddress(_Address + i)) {
+			if (Memory::IsValidAddress(_Address + (u32)i)) {
 				WriteUnchecked_U8(_iValue, (u32)(_Address + i));
 			}
 		}

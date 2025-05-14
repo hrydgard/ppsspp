@@ -1045,8 +1045,11 @@ namespace MIPSInt
 	void Int_Emuhack(MIPSOpcode op)
 	{
 		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
-			_dbg_assert_msg_(false,"Trying to interpret emuhack instruction that can't be interpreted");
+			_dbg_assert_msg_(false, "Trying to interpret emuhack instruction that can't be interpreted");
 		}
+
+		_assert_((PC & 3) == 0);
+
 		// It's a replacement func!
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
@@ -1071,6 +1074,4 @@ namespace MIPSInt
 			MIPSInterpret(Memory::Read_Instruction(PC, true));
 		}
 	}
-
-
 }

@@ -738,7 +738,7 @@ static const ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("MultiThreading", &g_Config.bRenderMultiThreading, true, CfgFlag::DEFAULT),
 
-	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, CfgFlag::DONT_SAVE),  // Doesn't save. Ini-only.
+	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, CfgFlag::DEFAULT),
 	ConfigSetting("GpuLogProfiler", &g_Config.bGpuLogProfiler, false, CfgFlag::DEFAULT),
 
 	ConfigSetting("UberShaderVertex", &g_Config.bUberShaderVertex, true, CfgFlag::DEFAULT),

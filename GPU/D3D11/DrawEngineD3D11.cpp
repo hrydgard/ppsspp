@@ -284,7 +284,7 @@ void DrawEngineD3D11::Flush() {
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
+		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
 		ComPtr<ID3D11InputLayout> inputLayout;
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
@@ -331,7 +331,7 @@ void DrawEngineD3D11::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		VertexDecoder *swDec = dec_;
+		const VertexDecoder *swDec = dec_;
 		if (swDec->nweights != 0) {
 			u32 withSkinning = lastVType_ | (1 << 26);
 			if (withSkinning != lastVType_) {
@@ -420,7 +420,7 @@ void DrawEngineD3D11::Flush() {
 		if (result.action == SW_DRAW_INDEXED) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, swDec, &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());

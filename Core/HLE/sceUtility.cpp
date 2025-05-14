@@ -484,10 +484,10 @@ static int sceUtilitySavedataGetStatus() {
 }
 
 static int sceUtilitySavedataUpdate(int animSpeed) {
-	if (currentDialogType != UtilityDialogType::SAVEDATA) {
+	if (currentDialogType != UtilityDialogType::SAVEDATA || !saveDialog) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	int result = hleLogDebug(Log::sceUtility, saveDialog->Update(animSpeed));
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);

@@ -778,10 +778,10 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -814,7 +814,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 
 		// Can still work with software transform.
 		VShaderID vsidTemp;
-		ComputeVertexShaderID(&vsidTemp, decoder, false, false, weightsAsFloat, true);
+		ComputeVertexShaderID(&vsidTemp, vertexType, false, false, weightsAsFloat, true);
 		vs = CompileVertexShader(vsidTemp);
 	}
 

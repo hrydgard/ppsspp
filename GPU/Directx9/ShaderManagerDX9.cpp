@@ -544,11 +544,11 @@ void ShaderManagerDX9::DirtyLastShader() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -598,7 +598,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			}
 			delete vs;
 
-			ComputeVertexShaderID(&VSID, decoder, false, false, weightsAsFloat, useSkinInDecode);
+			ComputeVertexShaderID(&VSID, vertexType, false, false, weightsAsFloat, useSkinInDecode);
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match

@@ -42,6 +42,8 @@ private:
 	UI::EventReturn OnTouchscreenTest(UI::EventParams &e);
 	UI::EventReturn OnCopyStatesToRoot(UI::EventParams &e);
 
+	void MemoryMapTest();
+
 	bool allowDebugger_ = false;
 	bool canAllowDebugger_ = true;
 	enum class HasIni {

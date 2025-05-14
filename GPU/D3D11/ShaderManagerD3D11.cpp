@@ -27,6 +27,7 @@
 #include "Common/CommonTypes.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexShaderGenerator.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 
@@ -162,13 +163,13 @@ void ShaderManagerD3D11::BindUniforms() {
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 
-void ShaderManagerD3D11::GetShaders(int prim, VertexDecoder *decoder, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
+void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
 	VShaderID VSID;
 	FShaderID FSID;
 
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}

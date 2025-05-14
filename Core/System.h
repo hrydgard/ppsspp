@@ -96,8 +96,6 @@ BootState PSP_InitUpdate(std::string *error_string);
 // Should be avoided/removed eventually.
 // Returns either BootState::Complete or BootState::Failed.
 BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
-// Call this after handling BootState::Failed from PSP_Init.
-void PSP_CancelBoot();
 
 void PSP_Shutdown(bool success);
 BootState PSP_Reboot(std::string *error_string);

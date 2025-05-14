@@ -106,14 +106,15 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
 	// Find index bounds. Could cache this in display lists.
-	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck.
+	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck, and some compilers
+	// autovectorize this just fine. (Though, it should be noted, MSVC generates really crap code here...).
 	u32 idx = vertType & GE_VTYPE_IDX_MASK;
 	if (idx == GE_VTYPE_IDX_16BIT) {
 		uint16_t upperBound = 0;
 		uint16_t lowerBound = 0xFFFF;
 		const u16_le *ind16 = (const u16_le *)inds;
 		for (int i = 0; i < count; i++) {
-			u16 value = ind16[i];
+			const u16 value = ind16[i];
 			if (value > upperBound)
 				upperBound = value;
 			if (value < lowerBound)
@@ -126,7 +127,7 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 		uint8_t lowerBound = 0xFF;
 		const u8 *ind8 = (const u8 *)inds;
 		for (int i = 0; i < count; i++) {
-			u8 value = ind8[i];
+			const u8 value = ind8[i];
 			if (value > upperBound)
 				upperBound = value;
 			if (value < lowerBound)
@@ -137,13 +138,13 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 	} else if (idx == GE_VTYPE_IDX_32BIT) {
 		int lowerBound = 0x7FFFFFFF;
 		int upperBound = 0;
-		WARN_LOG_REPORT_ONCE(indexBounds32, Log::G3D, "GetIndexBounds: Decoding 32-bit indexes");
+		bool oob = false;
 		const u32_le *ind32 = (const u32_le *)inds;
 		for (int i = 0; i < count; i++) {
-			u16 value = (u16)ind32[i];
+			const u16 value = (u16)ind32[i];
 			// These aren't documented and should be rare.  Let's bounds check each one.
 			if (ind32[i] != value) {
-				ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, Log::G3D, "GetIndexBounds: Index outside 16-bit range");
+				oob = true;
 			}
 			if (value > upperBound)
 				upperBound = value;
@@ -152,6 +153,9 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 		}
 		*indexLowerBound = (u16)lowerBound;
 		*indexUpperBound = (u16)upperBound;
+		if (oob) {
+			ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, Log::G3D, "GetIndexBounds: Index outside 16-bit range");
+		}
 	} else {
 		*indexLowerBound = 0;
 		if (count > 0) {

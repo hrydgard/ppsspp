@@ -360,11 +360,11 @@ u32 sceKernelDevkitVersion()
 }
 
 u32 sceKernelRegisterKprintfHandler() {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
 int sceKernelRegisterDefaultExceptionHandler() {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
 void sceKernelSetGPO(u32 ledBits) {

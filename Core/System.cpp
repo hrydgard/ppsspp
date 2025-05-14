@@ -342,6 +342,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
+	_dbg_assert_(!g_symbolMap);
 	g_symbolMap = new SymbolMap();
 
 	MIPSAnalyst::Reset();
@@ -581,22 +582,26 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 }
 
 BootState PSP_InitUpdate(std::string *error_string) {
-	if (g_bootState == BootState::Booting || g_bootState == BootState::Off) {
+	const BootState bootState = g_bootState;
+
+	if (bootState == BootState::Booting || bootState == BootState::Off) {
 		// Nothing to do right now.
-		return g_bootState;
+		_dbg_assert_(bootState == BootState::Booting || !g_loadingThread.joinable());
+		return bootState;
 	}
 
-	_dbg_assert_(g_bootState == BootState::Complete || g_bootState == BootState::Failed);
+	_dbg_assert_(bootState == BootState::Complete || bootState == BootState::Failed);
 
 	// Since we load on a background thread, wait for startup to complete.
-	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)g_bootState);
+	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)bootState);
 	g_loadingThread.join();
 
-	if (g_bootState == BootState::Failed) {
+	if (bootState == BootState::Failed) {
 		// Failed! (Note: PSP_Shutdown was already called on the loader thread).
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		*error_string = g_CoreParameter.errorString;
-		return g_bootState;
+		g_bootState = BootState::Off;
+		return BootState::Failed;
 	}
 
 	// Ok, async boot completed, let's finish up things on the main thread.
@@ -608,8 +613,8 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		if (!success) {
 			*error_string = "Unable to initialize rendering engine.";
 			PSP_Shutdown(false);
-			g_bootState = BootState::Failed;
-			return g_bootState;
+			g_bootState = BootState::Off;
+			return BootState::Failed;
 		}
 	}
 
@@ -617,19 +622,25 @@ BootState PSP_InitUpdate(std::string *error_string) {
 	if (!GPU_IsStarted()) {
 		*error_string = "Unable to initialize rendering engine.";
 		PSP_Shutdown(false);
-		g_bootState = BootState::Failed;
+		g_bootState = BootState::Off;
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+		return BootState::Failed;
 	}
 
 	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-	return g_bootState;
+	// The thread should have set it at this point.
+	_dbg_assert_(bootState == BootState::Complete);
+	return BootState::Complete;
 }
 
 // Most platforms should not use this one, they should call PSP_InitStart and then do their thing
 // while repeatedly calling PSP_InitUpdate. This is basically just for libretro convenience.
 BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	// InitStart doesn't really fail anymore.
-	if (!PSP_InitStart(coreParam))
+	if (!PSP_InitStart(coreParam)) {
+		g_bootState = BootState::Off;
 		return BootState::Failed;
+	}
 
 	while (true) {
 		BootState state = PSP_InitUpdate(error_string);
@@ -649,6 +660,8 @@ void PSP_Shutdown(bool success) {
 		return;
 	}
 
+	_assert_(g_bootState != BootState::Failed);
+
 	Core_Stop();
 
 	if (g_Config.bFuncHashMap) {
@@ -659,6 +672,7 @@ void PSP_Shutdown(bool success) {
 		// This should only happen during failures.
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 	}
+
 	Core_NotifyLifecycle(CoreLifecycle::STOPPING);
 
 	CPU_Shutdown(success);
@@ -675,12 +689,6 @@ void PSP_Shutdown(bool success) {
 	if (success) {
 		g_bootState = BootState::Off;
 	}
-}
-
-// Call this after handling BootState::Failed.
-void PSP_CancelBoot() {
-	_dbg_assert_(g_bootState == BootState::Failed);
-	g_bootState = BootState::Off;
 }
 
 BootState PSP_Reboot(std::string *error_string) {

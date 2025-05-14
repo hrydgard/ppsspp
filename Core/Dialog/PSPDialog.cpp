@@ -259,12 +259,6 @@ void PSPDialog::DoState(PointerWrap &p) {
 	}
 }
 
-pspUtilityDialogCommon *PSPDialog::GetCommonParam()
-{
-	// FIXME
-	return 0;
-}
-
 void PSPDialog::UpdateButtons()
 {
 	lastButtons = __CtrlPeekButtons();
@@ -323,7 +317,13 @@ void PSPDialog::DisplayButtons(int flags, std::string_view caption) {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	float x1 = 183.5f, x2 = 261.5f;
-	if (GetCommonParam()->buttonSwap == 1) {
+
+	const pspUtilityDialogCommon *commonParams = GetCommonParam();
+	if (!commonParams) {
+		return;
+	}
+
+	if (commonParams->buttonSwap == 1) {
 		x1 = 261.5f;
 		x2 = 183.5f;
 	}

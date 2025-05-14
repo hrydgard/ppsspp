@@ -62,6 +62,9 @@ void UIScreen::DoRecreateViews() {
 			root_->SubviewFocused(focused);
 		}
 	}
+
+	// NOTE: We also wipe the requester token. It's possible that views were created with the old token, so any pending requests from them must be invalidated.
+	WipeRequesterToken();
 }
 
 void UIScreen::touch(const TouchInput &touch) {

@@ -99,12 +99,12 @@ public:
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
 
-	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType);
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
-	bool TestBoundingBoxFast(const void *control_points, int vertexCount, VertexDecoder *dec, u32 vertType);
-	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBoxFast(const void *control_points, int vertexCount, const VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType);
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);
@@ -116,9 +116,9 @@ public:
 		}
 	}
 
-	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
-	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
-	void SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, int *bytesRead);
+	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
+	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
+	void SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, int *bytesRead);
 
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
@@ -170,7 +170,7 @@ protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
 
-	void DecodeVerts(VertexDecoder *dec, u8 *dest);
+	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
 
 	int ComputeNumVertsToDecode() const;
@@ -179,8 +179,8 @@ protected:
 
 	void InitDepthRaster();
 	void ShutdownDepthRaster();
-	void DepthRasterSubmitRaw(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
-	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
+	void DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
+	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount);
 	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	static inline int IndexSize(u32 vtype) {
@@ -319,7 +319,7 @@ protected:
 	uint32_t drawVertexOffsets_[MAX_DEFERRED_DRAW_VERTS];
 	DeferredInds drawInds_[MAX_DEFERRED_DRAW_INDS];
 
-	VertexDecoder *dec_ = nullptr;
+	const VertexDecoder *dec_ = nullptr;
 	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
 	int numDrawVerts_ = 0;
 	int numDrawInds_ = 0;
