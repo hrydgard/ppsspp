@@ -268,7 +268,7 @@ void DrawEngineDX9::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_, pipelineState_);
 		ComPtr<IDirect3DVertexDeclaration9> pHardwareVertexDecl;
 		SetupDecFmtForDraw(dec_->GetDecVtxFmt(), dec_->VertexType(), &pHardwareVertexDecl);
 
@@ -296,7 +296,7 @@ void DrawEngineDX9::Flush() {
 			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
 		}
 	} else {
-		VertexDecoder *swDec = dec_;
+		const VertexDecoder *swDec = dec_;
 		if (swDec->nweights != 0) {
 			u32 withSkinning = lastVType_ | (1 << 26);
 			if (withSkinning != lastVType_) {
@@ -386,7 +386,7 @@ void DrawEngineDX9::Flush() {
 
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(false, false, swDec, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(false, false, swDec->VertexType(), decOptions_.expandAllWeightsToFloat, true, pipelineState_);
 
 		if (result.action == SW_DRAW_INDEXED) {
 			if (result.setStencil) {
