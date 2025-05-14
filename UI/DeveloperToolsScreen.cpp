@@ -345,6 +345,7 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 
 	list->Add(new ItemHeader(sy->T("General")));
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
+	list->Add(new CheckBox(&g_Config.bShaderCache, dev->T("Enable shader cache")));
 
 	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
 	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));

@@ -266,6 +266,11 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 	SetAssertCancelCallback(&AssertCancelCallback, this);
 
+	if (!g_Config.bShaderCache) {
+		// Only developers should ever see this.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Shader cache is disabled (developer)");
+	}
+
 	currentMIPS = &mipsr4k;
 
 	CoreParameter coreParam{};
