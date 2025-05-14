@@ -1085,6 +1085,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// In this case it's definitely not compressed. Added assert below.
 		}
 
+		// Don't accept ELFs over 32MB.
+		if (decryptedSize > 32 * 1024 * 1024) {
+			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
+			// TODO: Might be the wrong error code.
+			error = SCE_KERNEL_ERROR_FILEERR;
+			return nullptr;
+		}
+
 		// decompress if required.
 		if (isGzip) {
 			_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
