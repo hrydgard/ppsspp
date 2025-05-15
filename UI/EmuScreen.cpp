@@ -1208,7 +1208,7 @@ void EmuScreen::CreateViews() {
 	root_->Add(buttons);
 
 	resumeButton_ = buttons->Add(new Button(dev->T("Resume")));
-	resumeButton_->OnClick.Add([this](UI::EventParams &) {
+	resumeButton_->OnClick.Add([](UI::EventParams &) {
 		if (coreState == CoreState::CORE_RUNTIME_ERROR) {
 			// Force it!
 			Memory::MemFault_IgnoreLastCrash();

@@ -34,6 +34,7 @@ class FramebufferManagerDX9;
 class GPU_DX9 : public GPUCommonHW {
 public:
 	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
+	void FinishInitOnMainThread() override;
 
 	u32 CheckGPUFeatures() const override;
 

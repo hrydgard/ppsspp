@@ -46,6 +46,7 @@ public:
 	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
+	void InitDeviceObjects();
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
@@ -54,7 +55,6 @@ protected:
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 private:
-	void InitDeviceObjects();
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;

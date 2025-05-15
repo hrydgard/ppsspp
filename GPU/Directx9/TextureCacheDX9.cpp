@@ -73,8 +73,6 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 	lastBoundTexture = INVALID_TEX;
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-
-	InitDeviceObjects();
 }
 
 TextureCacheDX9::~TextureCacheDX9() {

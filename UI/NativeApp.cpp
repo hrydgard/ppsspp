@@ -1282,7 +1282,6 @@ bool NativeIsAtTopLevel() {
 	Screen *currentScreen = g_screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
-		INFO_LOG(Log::System, "Screen toplevel: %i", (int)top);
 		return currentScreen->isTopLevel();
 	} else {
 		ERROR_LOG(Log::System, "No current screen");

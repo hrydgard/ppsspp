@@ -410,7 +410,7 @@ void VulkanRenderManager::StopThreads() {
 		presentWaitThread_.join();
 	}
 
-	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
+	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks. runCompileThread_ = %d", (int)runCompileThread_);
 	CreateMultiPipelinesTask::WaitForAll();
 
 	{

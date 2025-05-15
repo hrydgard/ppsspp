@@ -21,7 +21,7 @@
 #include <cstring>
 #include <cstdint>
 
-enum GPUCore;
+enum GPUCore : int;
 
 class GPUCommon;
 class GPUDebugInterface;

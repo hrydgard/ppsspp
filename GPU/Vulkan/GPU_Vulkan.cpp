@@ -65,7 +65,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
-	framebufferManagerVulkan_->Init(msaaLevel_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
@@ -90,6 +89,11 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	}
 
 	InitDeviceObjects();
+}
+
+void GPU_Vulkan::FinishInitOnMainThread() {
+	// This can end up stopping/starting the vulkan render manager.
+	framebufferManagerVulkan_->Init(msaaLevel_);
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {

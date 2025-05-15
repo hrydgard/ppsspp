@@ -75,7 +75,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
-	dxstate.Restore();
 	textureCache_->NotifyConfigChanged();
 
 	if (g_Config.bHardwareTessellation) {
@@ -85,6 +84,11 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		// TODO: Badly formulated
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("Turn off Hardware Tessellation - unsupported"));
 	}
+}
+
+void GPU_DX9::FinishInitOnMainThread() {
+	textureCacheDX9_->InitDeviceObjects();
+	dxstate.Restore();
 }
 
 u32 GPU_DX9::CheckGPUFeatures() const {

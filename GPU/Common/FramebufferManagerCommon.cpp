@@ -2783,7 +2783,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 
 		// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 		// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
-		if (!useBufferedRendering_ && currentRenderVfb_ != dstRect.vfb) {
+		if ((!useBufferedRendering_ && currentRenderVfb_ != dstRect.vfb) || dstRect.vfb == nullptr) {
 			return;
 		}
 
