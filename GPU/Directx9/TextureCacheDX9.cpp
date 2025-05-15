@@ -73,6 +73,13 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 	lastBoundTexture = INVALID_TEX;
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
+}
+
+TextureCacheDX9::~TextureCacheDX9() {
+	Clear(true);
+}
+
+void TextureCacheDX9::InitDeviceObjects() {
 	D3DCAPS9 pCaps;
 	ZeroMemory(&pCaps, sizeof(pCaps));
 	HRESULT result = 0;
@@ -90,10 +97,6 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 
 	nextTexture_ = nullptr;
 	device_->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
-}
-
-TextureCacheDX9::~TextureCacheDX9() {
-	Clear(true);
 }
 
 void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {

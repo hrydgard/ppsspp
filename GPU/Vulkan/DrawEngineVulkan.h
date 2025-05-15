@@ -229,5 +229,5 @@ private:
 	FBOTexState fboTexBindState_ = FBO_TEX_NONE;
 
 	// Hardware tessellation
-	TessellationDataTransferVulkan *tessDataTransferVulkan;
+	TessellationDataTransferVulkan *tessDataTransferVulkan = nullptr;
 };

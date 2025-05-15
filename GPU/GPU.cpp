@@ -43,12 +43,6 @@ GPUStatistics gpuStats;
 GPUCommon *gpu;
 GPUDebugInterface *gpuDebug;
 
-template <typename T>
-static void SetGPU(T *obj) {
-	gpu = obj;
-	gpuDebug = obj;
-}
-
 #ifdef USE_CRT_DBG
 #undef new
 #endif
@@ -59,70 +53,78 @@ bool GPU_IsStarted() {
 	return false;
 }
 
-bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
-	const auto &gpuCore = PSP_CoreParameter().gpuCore;
-	_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
+static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
 #if PPSSPP_PLATFORM(UWP)
+	// TODO: Can probably remove this special case.
 	if (gpuCore == GPUCORE_SOFTWARE) {
-		SetGPU(new SoftGPU(ctx, draw));
+		return new SoftGPU(ctx, draw);
 	} else {
-		SetGPU(new GPU_D3D11(ctx, draw));
+		return new GPU_D3D11(ctx, draw);
 	}
-	return true;
 #else
 	switch (gpuCore) {
 	case GPUCORE_GLES:
 		// Disable GLES on ARM Windows (but leave it enabled on other ARM platforms).
 #if PPSSPP_API(ANY_GL)
-		SetGPU(new GPU_GLES(ctx, draw));
-		break;
+		return new GPU_GLES(ctx, draw);
 #else
-		return false;
+		return nullptr;
 #endif
 	case GPUCORE_SOFTWARE:
-		SetGPU(new SoftGPU(ctx, draw));
-		break;
+		return new SoftGPU(ctx, draw);
 	case GPUCORE_DIRECTX9:
 #if PPSSPP_API(D3D9)
-		SetGPU(new GPU_DX9(ctx, draw));
-		break;
+		return new GPU_DX9(ctx, draw);
 #else
-		return false;
+		return nullptr;
 #endif
 	case GPUCORE_DIRECTX11:
 #if PPSSPP_API(D3D11)
-		SetGPU(new GPU_D3D11(ctx, draw));
-		break;
+		return new GPU_D3D11(ctx, draw);
 #else
-		return false;
+		return nullptr;
 #endif
 #if !PPSSPP_PLATFORM(SWITCH)
 	case GPUCORE_VULKAN:
 		if (!ctx) {
+			// Can this happen?
 			ERROR_LOG(Log::G3D, "Unable to init Vulkan GPU backend, no context");
-			break;
+			return nullptr;
 		}
-		SetGPU(new GPU_Vulkan(ctx, draw));
-		break;
+		return new GPU_Vulkan(ctx, draw);
 #endif
 	default:
-		break;
+		return nullptr;
 	}
-
-	if (gpu && !gpu->IsStarted())
-		SetGPU<SoftGPU>(nullptr);
-
-	return gpu != nullptr;
 #endif
 }
+
+bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
+	_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
+	GPUCommon *createdGPU = CreateGPUCore(gpuCore, ctx, draw);
+
+	// This can happen on some memory allocation failure, but can probably just be ignored in practice.
+	if (createdGPU && !createdGPU->IsStarted()) {
+		delete createdGPU;
+		createdGPU = nullptr;
+	}
+
+	if (createdGPU) {
+		gpu = createdGPU;
+		gpuDebug = createdGPU;
+	}
+
+	return gpu != nullptr;
+}
+
 #ifdef USE_CRT_DBG
 #define new DBG_NEW
 #endif
 
 void GPU_Shutdown() {
-
 	delete gpu;
 	gpu = nullptr;
+	gpuDebug = nullptr;
 }
 
 const char *RasterChannelToString(RasterChannel channel) {

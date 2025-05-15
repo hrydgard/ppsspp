@@ -42,6 +42,8 @@ private:
 	std::map<SamplerCacheKey, Microsoft::WRL::ComPtr<ID3D11SamplerState>> cache_;
 };
 
+#define D3D11_INVALID_TEX (ID3D11ShaderResourceView *)(-1LL)
+
 class TextureCacheD3D11 : public TextureCacheCommon {
 public:
 	TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D);
@@ -55,6 +57,8 @@ public:
 
 	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+
+	void InitDeviceObjects();
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
@@ -82,7 +86,7 @@ private:
 
 	SamplerCacheD3D11 samplerCache_;
 
-	ID3D11ShaderResourceView *lastBoundTexture;
+	ID3D11ShaderResourceView *lastBoundTexture_ = D3D11_INVALID_TEX;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> depalConstants_;
 };
 

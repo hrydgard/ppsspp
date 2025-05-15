@@ -46,6 +46,7 @@ public:
 	void DeviceLost() override { draw_ = nullptr; }
 	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
+	void InitDeviceObjects();
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
@@ -73,7 +74,7 @@ private:
 	IDirect3DBaseTexture9 *lastBoundTexture = nullptr;
 	float maxAnisotropyLevel;
 
-	FramebufferManagerDX9 *framebufferManagerDX9_;
+	FramebufferManagerDX9 *framebufferManagerDX9_ = nullptr;
 };
 
 static D3DFORMAT getClutDestFormat(GEPaletteFormat format);

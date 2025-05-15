@@ -23,7 +23,7 @@
 #include "Core/Compatibility.h"
 #include "Core/Loaders.h"
 
-enum GPUCore {
+enum GPUCore : int {
 	GPUCORE_GLES,
 	GPUCORE_SOFTWARE,
 	GPUCORE_DIRECTX9,

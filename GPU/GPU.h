@@ -21,6 +21,8 @@
 #include <cstring>
 #include <cstdint>
 
+enum GPUCore : int;
+
 class GPUCommon;
 class GPUDebugInterface;
 class GraphicsContext;
@@ -181,7 +183,7 @@ namespace Draw {
 	class DrawContext;
 }
 
-bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw);
+bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw);
 bool GPU_IsStarted();
 void GPU_Shutdown();
 

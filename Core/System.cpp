@@ -575,6 +575,21 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			return;
 		}
 
+		// Initialize the GPU as far as we can here (do things like load cache files).
+
+		if (!gpu) {  // should be!
+			INFO_LOG(Log::Loader, "Starting graphics...");
+			Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
+			// This set the `gpu` global.
+			GPUCore gpuCore = PSP_CoreParameter().gpuCore;
+			bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
+			if (!success) {
+				*error_string = "Unable to initialize rendering engine.";
+				CPU_Shutdown(false);
+				g_bootState = BootState::Failed;
+			}
+		}
+
 		g_bootState = BootState::Complete;
 	});
 
@@ -604,27 +619,11 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		return BootState::Failed;
 	}
 
-	// Ok, async boot completed, let's finish up things on the main thread.
-	if (!gpu) {  // should be!
-		INFO_LOG(Log::Loader, "Starting graphics...");
-		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
-		// This set the `gpu` global.
-		bool success = GPU_Init(g_CoreParameter.graphicsContext, draw);
-		if (!success) {
-			*error_string = "Unable to initialize rendering engine.";
-			PSP_Shutdown(false);
-			g_bootState = BootState::Off;
-			return BootState::Failed;
-		}
-	}
-
-	// TODO: This should all be checked during GPU_Init.
-	if (!GPU_IsStarted()) {
-		*error_string = "Unable to initialize rendering engine.";
-		PSP_Shutdown(false);
-		g_bootState = BootState::Off;
-		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-		return BootState::Failed;
+	// Ok, async part of the boot completed, let's finish up things on the main thread.
+	if (gpu) {
+		gpu->FinishInitOnMainThread();
+	} else {
+		_dbg_assert_(gpu);
 	}
 
 	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);

@@ -95,6 +95,7 @@ public:
 	void DeviceRestore(VulkanContext *vulkan);
 
 	void InvalidateMSAAPipelines();
+	void BlockUntilReady();
 
 	std::string DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type) const;
