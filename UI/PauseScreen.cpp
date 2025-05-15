@@ -64,7 +64,7 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/BackgroundAudio.h"
 
-static void AfterSaveStateAction(SaveState::Status status, std::string_view message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, std::string_view message) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
 			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);

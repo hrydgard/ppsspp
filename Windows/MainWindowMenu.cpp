@@ -375,7 +375,7 @@ namespace MainWindow {
 		});
 	}
 
-	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, void *userdata) {
+	static void SaveStateActionFinished(SaveState::Status status, std::string_view message) {
 		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 			g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 		}
