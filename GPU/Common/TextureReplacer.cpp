@@ -790,6 +790,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	_assert_msg_(saveEnabled_, "Texture saving not enabled");
 	_assert_(srcPitch >= 0);
 	_assert_(data);
+	_assert_(level >= 0);
 
 	if (!WillSave(replacedInfo)) {
 		// Ignore.

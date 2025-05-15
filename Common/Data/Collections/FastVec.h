@@ -47,7 +47,7 @@ public:
 		other.capacity_ = 0;
 	}
 
-	FastVec &operator=(FastVec &&other)	{
+	FastVec &operator=(FastVec &&other) noexcept {
 		if (this != &other) {
 			free(data_);
 			data_ = other.data_;

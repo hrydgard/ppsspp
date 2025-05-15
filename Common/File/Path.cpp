@@ -162,7 +162,7 @@ std::string Path::GetFilename() const {
 	return path_;
 }
 
-std::string GetExtFromString(std::string_view str) {
+static std::string GetExtFromString(std::string_view str) {
 	size_t pos = str.rfind(".");
 	if (pos == std::string::npos) {
 		return "";

@@ -1085,6 +1085,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// In this case it's definitely not compressed. Added assert below.
 		}
 
+		// Don't accept ELFs over 32MB.
+		if (decryptedSize > 32 * 1024 * 1024) {
+			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
+			// TODO: Might be the wrong error code.
+			error = SCE_KERNEL_ERROR_FILEERR;
+			return nullptr;
+		}
+
 		// decompress if required.
 		if (isGzip) {
 			_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
@@ -1323,7 +1331,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				// Seen in WWE: Smackdown vs Raw 2009. See #17435.
 				continue;
 			}
-			if (!Memory::IsValidRange(start, len)) {
+			if (!Memory::IsValid4AlignedRange(start, len)) {
 				ERROR_LOG(Log::Loader, "Bad section %08x (len %08x) of section %d", start, len, id);
 				continue;
 			}
@@ -1343,7 +1351,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			u32 scanStart = module->textStart;
 			u32 scanEnd = module->textEnd;
 
-			if (Memory::IsValidRange(scanStart, scanEnd - scanStart)) {
+			if (Memory::IsValid4AlignedRange(scanStart, scanEnd - scanStart)) {
 				// Skip the exports and imports sections, they're not code.
 				if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
 					insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
@@ -1464,6 +1472,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		for (u32 j = 0; j < variableCount; j++) {
 			u32 nid = residentPtr[ent->fcount + j];
 			u32 exportAddr = exportPtr[ent->fcount + j];
+
+			if (exportAddr & 3) {
+				ERROR_LOG(Log::Loader, "Bad export address %08x", exportAddr);
+				continue;
+			}
 
 			int size;
 			switch (nid) {

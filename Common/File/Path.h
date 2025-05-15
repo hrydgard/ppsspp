@@ -142,9 +142,6 @@ private:
 	PathType type_;
 };
 
-// Utility function for parsing out file extensions.
-std::string GetExtFromString(std::string_view str);
-
 // Utility function for fixing the case of paths. Only necessary on Unix-like systems.
 
 enum FixPathCaseBehavior {
