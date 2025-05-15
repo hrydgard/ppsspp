@@ -29,6 +29,11 @@
 #include "Core/HLE/sceKernelTime.h"
 #include "Core/HLE/sceRtc.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in Misc.cpp
+extern size_t strnlen(const char *s, size_t maxlen);
+#endif // PPSSPP_PLATFORM(SWITCH)
+
 enum class ReplayState {
 	IDLE,
 	EXECUTE,

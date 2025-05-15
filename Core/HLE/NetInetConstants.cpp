@@ -833,8 +833,11 @@ int convertInetErrnoHost2PSP(int error) {
 		return ERROR_INET_ENOTSOCK;
 	case ENOPROTOOPT:
 		return ERROR_INET_ENOPROTOOPT;
+#if !PPSSPP_PLATFORM(SWITCH)
+	// On Switch this is a duplicate of ENETDOWN
 	case ESHUTDOWN:
 		return ERROR_INET_ESHUTDOWN;
+#endif
 	case ECONNREFUSED:
 		return ERROR_INET_ECONNREFUSED;
 	case EADDRINUSE:
@@ -857,8 +860,11 @@ int convertInetErrnoHost2PSP(int error) {
 		return ERROR_INET_EMSGSIZE;
 	case EPROTONOSUPPORT:
 		return ERROR_INET_EPROTONOSUPPORT;
+#if !PPSSPP_PLATFORM(SWITCH)
+	// Missing on Switch
 	case ESOCKTNOSUPPORT:
 		return ERROR_INET_ESOCKTNOSUPPORT;
+#endif
 	case EADDRNOTAVAIL:
 		return ERROR_INET_EADDRNOTAVAIL;
 	case ENETRESET:

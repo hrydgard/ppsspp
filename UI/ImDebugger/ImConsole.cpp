@@ -4,7 +4,9 @@
 
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImConsole.h"
+#if !PPSSPP_PLATFORM(SWITCH)
 #include "Core/LuaContext.h"
+#endif
 #include "Common/StringUtils.h"
 
 ImConsole::ImConsole() {
@@ -45,7 +47,9 @@ void ImConsole::Draw(ImConfig &cfg) {
 	}
 
 	if (ImGui::SmallButton("Clear")) {
+#if !PPSSPP_PLATFORM(SWITCH)
 		g_lua.Clear();
+#endif
 	}
 
 	ImGui::SameLine();
@@ -71,8 +75,11 @@ void ImConsole::Draw(ImConfig &cfg) {
 	const float footer_height_to_reserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
 	if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar | ImGuiChildFlags_NavFlattened)) {
 		if (ImGui::BeginPopupContextWindow()) {
-			if (ImGui::Selectable("Clear"))
+			if (ImGui::Selectable("Clear")) {
+#if !PPSSPP_PLATFORM(SWITCH)
 				g_lua.Clear();
+#endif
+			}
 			ImGui::EndPopup();
 		}
 
@@ -103,6 +110,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
 		if (copy_to_clipboard)
 			ImGui::LogToClipboard();
+#if !PPSSPP_PLATFORM(SWITCH)
 		for (const auto &item : g_lua.GetLines()) {
 			if (!Filter.PassFilter(item.line.c_str()))
 				continue;
@@ -135,6 +143,9 @@ void ImConsole::Draw(ImConfig &cfg) {
 			if (has_color)
 				ImGui::PopStyleColor();
 		}
+#else
+		ImGui::TextUnformatted("Lua Console not available on Switch");
+#endif
 		if (copy_to_clipboard)
 			ImGui::LogFinish();
 
@@ -152,6 +163,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 	// Command-line
 	bool reclaim_focus = false;
 	ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (ImGui::InputText("Input", InputBuf, IM_ARRAYSIZE(InputBuf), input_text_flags, &TextEditCallbackStub, (void*)this)) {
 		char* s = InputBuf;
 		Strtrim(s);
@@ -160,6 +172,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 		strcpy(s, "");
 		reclaim_focus = true;
 	}
+#endif
 
 	// Auto-focus on window apparition
 	ImGui::SetItemDefaultFocus();
@@ -182,6 +195,7 @@ void ImConsole::ExecCommand(const char* command_line) {
 		}
 	History.push_back(Strdup(command_line));
 
+#if !PPSSPP_PLATFORM(SWITCH)
 	g_lua.Print(LogLineType::Cmd, std::string(command_line));
 
 	// Process command
@@ -201,6 +215,7 @@ void ImConsole::ExecCommand(const char* command_line) {
 	} else {
 		g_lua.ExecuteConsoleCommand(command_line);
 	}
+#endif
 
 	// On command input, we scroll to bottom even if AutoScroll==false
 	ScrollToBottom = true;
@@ -230,6 +245,7 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 			if (Strnicmp(Commands[i], word_start, (int)(word_end - word_start)) == 0)
 				candidates.push_back(Commands[i]);
 
+#if !PPSSPP_PLATFORM(SWITCH)
 		// TODO: Add lua globals to candidates!
 
 		if (candidates.Size == 0) {
@@ -268,7 +284,7 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 				g_lua.Print(StringFromFormat("- %s", candidates[i]));
 			}
 		}
-
+#endif
 		break;
 	}
 	case ImGuiInputTextFlags_CallbackHistory:

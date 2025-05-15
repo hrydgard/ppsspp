@@ -7,9 +7,9 @@
 #include "Common/Data/Random/Rng.h"
 #include "Common/Log.h"
 
-#ifdef HAVE_LIBNX
+#if PPSSPP_PLATFORM(SWITCH)
 #include <switch.h>
-#endif // HAVE_LIBNX
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -257,7 +257,7 @@ void sleep_ms(int ms, const char *reason) {
 	// INFO_LOG(Log::System, "Sleep %d ms: %s", ms, reason);
 #ifdef _WIN32
 	Sleep(ms);
-#elif defined(HAVE_LIBNX)
+#elif PPSSPP_PLATFORM(SWITCH)
 	svcSleepThread(ms * 1000000);
 #elif defined(__EMSCRIPTEN__)
 	emscripten_sleep(ms);

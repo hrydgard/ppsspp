@@ -29,7 +29,9 @@
 
 #include <mutex>
 
+#if !PPSSPP_PLATFORM(SWITCH)
 #include "ext/lua/lapi.h"
+#endif
 
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -58,7 +60,9 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
+#if !PPSSPP_PLATFORM(SWITCH)
 #include "Core/LuaContext.h"
+#endif
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
@@ -348,7 +352,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	MIPSAnalyst::Reset();
 	Replacement_Init();
 
+#if !PPSSPP_PLATFORM(SWITCH)
 	g_lua.Init();
+#endif
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
@@ -481,7 +487,9 @@ void CPU_Shutdown(bool success) {
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
 
+#if !PPSSPP_PLATFORM(SWITCH)
 	g_lua.Shutdown();
+#endif
 }
 
 // Used for UMD switching only.
