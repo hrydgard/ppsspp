@@ -702,19 +702,6 @@ BootState PSP_Reboot(std::string *error_string) {
 	return PSP_Init(PSP_CoreParameter(), error_string);
 }
 
-void PSP_BeginHostFrame() {
-	if (gpu) {
-		gpu->BeginHostFrame();
-	}
-}
-
-void PSP_EndHostFrame() {
-	if (gpu) {
-		gpu->EndHostFrame();
-	}
-	SaveState::Cleanup();
-}
-
 void PSP_RunLoopWhileState() {
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...

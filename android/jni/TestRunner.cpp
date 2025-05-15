@@ -127,8 +127,6 @@ bool RunTests() {
 			return false;
 		}
 
-		PSP_BeginHostFrame();
-
 		// Run the emu until the test exits
 		INFO_LOG(Log::System, "Test: Entering runloop.");
 		while (true) {
@@ -145,7 +143,6 @@ bool RunTests() {
 				break;
 			}
 		}
-		PSP_EndHostFrame();
 
 		std::string expect_results;
 		if (!File::ReadTextFileToString(expectedFile, &expect_results)) {

@@ -1139,15 +1139,12 @@ double g_lastSaveTime = -1.0;
 		lastSaveDataGeneration = saveDataGeneration;
 	}
 
-	void Cleanup() {
-		// TODO: Handle this better.
+	bool PollRestartNeeded() {
 		if (needsRestart) {
-			std::string error_string;
-			PSP_Reboot(&error_string);
-			System_Notify(SystemNotification::BOOT_DONE);
-			System_Notify(SystemNotification::DISASSEMBLY);
 			needsRestart = false;
+			return true;
 		}
+		return false;
 	}
 
 	void Init()

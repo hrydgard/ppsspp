@@ -545,6 +545,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		RecreateViews();
 		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
+			bootPending_ = false;
 			WARN_LOG(Log::Loader, "Error resetting");
 			screenManager()->switchScreen(new MainScreen());
 			return;
@@ -773,17 +774,6 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 
-	case VIRTKEY_PAUSE_NO_MENU:
-		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
-			// We re-use debug break/resume to implement pause/resume without a menu.
-			if (coreState == CORE_STEPPING_CPU) {  // should we check reason?
-				Core_Resume();
-			} else {
-				Core_Break(BreakReason::UIPause);
-			}
-		}
-		break;
-
 	case VIRTKEY_RESET_EMULATION:
 		if (down) {
 			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
@@ -812,15 +802,6 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		break;
 #endif
 
-	case VIRTKEY_REWIND:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			if (SaveState::CanRewind()) {
-				SaveState::Rewind(&AfterSaveStateAction);
-			} else {
-				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0);
-			}
-		}
-		break;
 	case VIRTKEY_SAVE_STATE:
 		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
@@ -961,6 +942,27 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			g_Config.bShowTouchControls = true;
 			RecreateViews();
 			GamepadTouch();
+		}
+		break;
+
+	case VIRTKEY_REWIND:
+		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
+			if (SaveState::CanRewind()) {
+				SaveState::Rewind(&AfterSaveStateAction);
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0);
+			}
+		}
+		break;
+
+	case VIRTKEY_PAUSE_NO_MENU:
+		if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
+			// We re-use debug break/resume to implement pause/resume without a menu.
+			if (coreState == CORE_STEPPING_CPU) {  // should we check reason?
+				Core_Resume();
+			} else {
+				Core_Break(BreakReason::UIPause);
+			}
 		}
 		break;
 
@@ -1578,9 +1580,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// Just to make sure.
 		if (PSP_IsInited() && !skipBufferEffects) {
 			_dbg_assert_(gpu);
-			PSP_BeginHostFrame();
+			gpu->BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
-			PSP_EndHostFrame();
+			gpu->EndHostFrame();
 		}
 		if (gpu && gpu->PresentedThisFrame()) {
 			framebufferBound = true;
@@ -1644,7 +1646,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
-		PSP_BeginHostFrame();
+		if (gpu) {
+			gpu->BeginHostFrame();
+		}
 		if (SaveState::Process()) {
 			// We might have lost the framebuffer bind if we had one, due to a readback.
 			if (framebufferBound) {
@@ -1697,7 +1701,24 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			break;
 		}
 
-		PSP_EndHostFrame();
+		if (gpu) {
+			gpu->EndHostFrame();
+		}
+
+		if (SaveState::PollRestartNeeded() && !bootPending_) {
+			PSP_Shutdown(true);
+			Achievements::UnloadGame();
+
+			// Restart the boot process
+			bootPending_ = true;
+			RecreateViews();
+			_dbg_assert_(coreState == CORE_POWERDOWN);
+			if (!PSP_InitStart(PSP_CoreParameter())) {
+				bootPending_ = false;
+				WARN_LOG(Log::Loader, "Error resetting");
+				screenManager()->switchScreen(new MainScreen());
+			}
+		}
 	}
 
 	if (frameStep_) {
@@ -1942,6 +1963,10 @@ void EmuScreen::renderUI() {
 }
 
 void EmuScreen::AutoLoadSaveState() {
+	if (autoLoadFailed_) {
+		return;
+	}
+
 	int autoSlot = -1;
 
 	//check if save state has save, if so, load
@@ -1960,7 +1985,12 @@ void EmuScreen::AutoLoadSaveState() {
 	}
 
 	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
-		SaveState::LoadSlot(gamePath_, autoSlot, &AfterSaveStateAction);
+		SaveState::LoadSlot(gamePath_, autoSlot, [this](SaveState::Status status, std::string_view message) {
+			AfterSaveStateAction(status, message);
+			if (status == SaveState::Status::FAILURE) {
+				autoLoadFailed_ = true;
+			}
+		});
 		g_Config.iCurrentStateSlot = autoSlot;
 	}
 }

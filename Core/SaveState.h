@@ -108,8 +108,8 @@ namespace SaveState {
 	// Notify save state code that new save data has been written.
 	void NotifySaveData();
 
-	// Cleanup by triggering a restart if needed.
-	void Cleanup();
+	// Checks whether a bad load required the caller to trigger a restart (and if returns true, resets the flag internally).
+	bool PollRestartNeeded();
 
 	// Returns the time since last save. -1 if N/A.
 	double SecondsSinceLastSavestate();
