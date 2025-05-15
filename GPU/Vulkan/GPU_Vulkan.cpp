@@ -42,7 +42,6 @@
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw) {
 	gstate_c.SetUseFlags(CheckGPUFeatures());
-	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
 
@@ -71,8 +70,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
 
-	InitDeviceObjects();
-
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
@@ -82,6 +79,8 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	textureCache_->NotifyConfigChanged();
 
+	drawEngine_.InitDeviceObjects();  // Creates important things like the pipeline layout. Required for loading the disk cache.
+
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
@@ -89,6 +88,8 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".vkshadercache");
 		LoadCache(shaderCachePath_);
 	}
+
+	InitDeviceObjects();
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {

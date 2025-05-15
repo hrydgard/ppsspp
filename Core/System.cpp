@@ -575,6 +575,8 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			return;
 		}
 
+		// Initialize the GPU as far as we can here (do things like load cache files).
+
 		g_bootState = BootState::Complete;
 	});
 
@@ -609,7 +611,8 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		INFO_LOG(Log::Loader, "Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
 		// This set the `gpu` global.
-		bool success = GPU_Init(g_CoreParameter.graphicsContext, draw);
+		GPUCore gpuCore = PSP_CoreParameter().gpuCore;
+		bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
 		if (!success) {
 			*error_string = "Unable to initialize rendering engine.";
 			PSP_Shutdown(false);

@@ -42,8 +42,6 @@ struct DepthPushConstants {
 	float pad[2];
 };
 
-#define INVALID_TEX (ID3D11ShaderResourceView *)(-1LL)
-
 static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12,},
@@ -135,19 +133,19 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
-	lastBoundTexture = INVALID_TEX;
+	lastBoundTexture_ = D3D11_INVALID_TEX;
 
-	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
-	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
-	_dbg_assert_(SUCCEEDED(hr));
-
-	HRESULT result = 0;
-
-	nextTexture_ = nullptr;
+	InitDeviceObjects();
 }
 
 TextureCacheD3D11::~TextureCacheD3D11() {
 	Clear(true);
+}
+
+void TextureCacheD3D11::InitDeviceObjects() {
+	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
+	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
+	_dbg_assert_(SUCCEEDED(hr));
 }
 
 void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager) {
@@ -168,7 +166,7 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 }
 
 void TextureCacheD3D11::ForgetLastTexture() {
-	lastBoundTexture = INVALID_TEX;
+	lastBoundTexture_ = D3D11_INVALID_TEX;
 
 	ID3D11ShaderResourceView *nullTex[4]{};
 	context_->PSSetShaderResources(0, 4, nullTex);
@@ -217,9 +215,9 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 	ID3D11ShaderResourceView *textureView = DxView(entry);
-	if (textureView != lastBoundTexture) {
+	if (textureView != lastBoundTexture_) {
 		context_->PSSetShaderResources(0, 1, &textureView);
-		lastBoundTexture = textureView;
+		lastBoundTexture_ = textureView;
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);

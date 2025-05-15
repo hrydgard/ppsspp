@@ -54,6 +54,7 @@ protected:
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 private:
+	void InitDeviceObjects();
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
 
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
@@ -73,7 +74,7 @@ private:
 	IDirect3DBaseTexture9 *lastBoundTexture = nullptr;
 	float maxAnisotropyLevel;
 
-	FramebufferManagerDX9 *framebufferManagerDX9_;
+	FramebufferManagerDX9 *framebufferManagerDX9_ = nullptr;
 };
 
 static D3DFORMAT getClutDestFormat(GEPaletteFormat format);
