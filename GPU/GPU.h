@@ -184,7 +184,6 @@ namespace Draw {
 }
 
 bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw);
-bool GPU_IsStarted();
 void GPU_Shutdown();
 
 const char *RasterChannelToString(RasterChannel channel);

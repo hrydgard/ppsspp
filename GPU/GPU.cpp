@@ -47,12 +47,6 @@ GPUDebugInterface *gpuDebug;
 #undef new
 #endif
 
-bool GPU_IsStarted() {
-	if (gpu)
-		return gpu->IsStarted();
-	return false;
-}
-
 static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
 #if PPSSPP_PLATFORM(UWP)
 	// TODO: Can probably remove this special case.
