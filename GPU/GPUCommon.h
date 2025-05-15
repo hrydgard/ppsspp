@@ -201,12 +201,21 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 
 class GPUCommon : public GPUDebugInterface {
 public:
+	// The constructor might run on the loader thread.
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
+
+	// FinishInitOnMainThread runs on the main thread, of course.
+	virtual void FinishInitOnMainThread() {}
+
 	virtual ~GPUCommon() {}
 
 	Draw::DrawContext *GetDrawContext() {
 		return draw_;
 	}
+
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
+
 	virtual u32 CheckGPUFeatures() const = 0;
 
 	virtual void UpdateCmdInfo() = 0;
@@ -256,9 +265,6 @@ public:
 	virtual bool FramebufferReallyDirty() = 0;
 
 	virtual void ReapplyGfxState();
-
-	virtual void DeviceLost() = 0;
-	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
 	// Returns true if we should split the call across GE execution.
 	// For example, a debugger is active.

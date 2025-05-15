@@ -617,17 +617,9 @@ BootState PSP_InitUpdate(std::string *error_string) {
 			*error_string = "Unable to initialize rendering engine.";
 			PSP_Shutdown(false);
 			g_bootState = BootState::Off;
+			Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 			return BootState::Failed;
 		}
-	}
-
-	// TODO: This should all be checked during GPU_Init.
-	if (!GPU_IsStarted()) {
-		*error_string = "Unable to initialize rendering engine.";
-		PSP_Shutdown(false);
-		g_bootState = BootState::Off;
-		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-		return BootState::Failed;
 	}
 
 	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
