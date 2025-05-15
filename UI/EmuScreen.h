@@ -152,7 +152,7 @@ private:
 	ImGuiContext *ctx_ = nullptr;
 
 	bool frameStep_ = false;
-#ifdef MOBILE_DEVICE
+#ifndef MOBILE_DEVICE
 	bool startDumping_ = false;
 #endif
 };

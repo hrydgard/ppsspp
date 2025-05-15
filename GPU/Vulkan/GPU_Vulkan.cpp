@@ -21,6 +21,7 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 
@@ -130,6 +131,14 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), msaaLevel_);
 	}
 	fclose(f);
+
+	// Now, since we're on the loader thread, we can just block here until all pipelines are actually created.
+	// This makes it so that the on-screen spinner keeps spinning until we are done.
+	double start = time_now_d();
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	int maxTasksSeen = rm->WaitForPipelines();
+	double seconds = time_now_d() - start;
+	INFO_LOG(Log::G3D, "Waited %0.1fms for at least %d pipeline tasks to finish compiling.", maxTasksSeen, seconds * 1000.0);
 
 	if (!result) {
 		WARN_LOG(Log::G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
