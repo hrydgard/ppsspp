@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "Common/Thread/ParallelLoop.h"
+#include "Common/Log.h"
 #include "Common/CPUDetect.h"
 
 class LoopRangeTask : public Task {
@@ -35,7 +36,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 		minSize = 1;
 	}
 
-	int numTasks = threadMan->GetNumLooperThreads();
+	const int numLooperTasks = threadMan->GetNumLooperThreads();
 	int range = upper - lower;
 	if (range <= 0) {
 		// Nothing to do. A finished counter allocated to keep the API.
@@ -50,14 +51,21 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 		const int fractionalBits = 8;
 
 		int64_t totalFrac = (int64_t)range << fractionalBits;
-		int64_t delta = totalFrac / numTasks;
+		int64_t delta = totalFrac / numLooperTasks;
 
 		delta = std::max(delta, (int64_t)minSize << fractionalBits);
 
 		// Now we can compute the actual number of tasks.
 		// Remember that stragglers are done on the current thread
 		// so we don't round up.
-		numTasks = (int)(totalFrac / delta);
+		const int numTasks = (int)(totalFrac / delta);
+		// Sanity check
+		if (numTasks > numLooperTasks) {
+			// Something went very wrong in our calculations (seen this in a report). Let's just run it without threads.
+			_dbg_assert_(false);
+			loop(lower, upper);
+			return new WaitableCounter(0);
+		}
 
 		WaitableCounter *waitableCounter = new WaitableCounter(numTasks);
 		int64_t counter = (int64_t)lower << fractionalBits;
