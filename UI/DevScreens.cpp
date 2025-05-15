@@ -69,6 +69,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
+#include "UI/EmuScreen.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/JitCompareScreen.h"
@@ -1159,12 +1160,12 @@ void FrameDumpTestScreen::CreateViews() {
 }
 
 UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
-	std::string url = params.v->Tag();
+	Path url = Path(params.v->Tag());
 	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
 	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
 	// except for some reason the game ID.
 	// TODO: Fix that since it can be important for compat settings.
-	LaunchFile(screenManager(), Path(url));
+	screenManager()->switchScreen(new EmuScreen(url));
 	return UI::EVENT_DONE;
 }
 

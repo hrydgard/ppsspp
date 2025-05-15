@@ -75,26 +75,14 @@
 
 bool MainScreen::showHomebrewTab = false;
 
-bool LaunchFile(ScreenManager *screenManager, const Path &path) {
-	// Depending on the file type, we don't want to launch EmuScreen at all.
-	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
-	if (!loader) {
-		return false;
-	}
-
-	std::string errorString;
-	IdentifiedFileType type = Identify_File(loader.get(), &errorString);
-
-	switch (type) {
-	case IdentifiedFileType::ARCHIVE_ZIP:
+static void LaunchFile(ScreenManager *screenManager, const Path &path) {
+	if (path.GetFileExtension() == ".zip") {
+		// If it's a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
-		break;
-	default:
-		// Let the EmuScreen take care of it.
+	} else {
+		// Otherwise let the EmuScreen take care of it, including error handling.
 		screenManager->switchScreen(new EmuScreen(path));
-		break;
 	}
-	return true;
 }
 
 static bool IsTempPath(const Path &str) {
