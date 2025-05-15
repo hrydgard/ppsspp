@@ -996,16 +996,16 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::
 
 		std::string_view confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
 		std::string_view warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
-		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
 
 		auto confirmScreen = new PromptScreen(
 			gamePath_,
-			combined, di->T("Yes"), di->T("No"),
+			confirmMessage, di->T("Yes"), di->T("No"),
 			[&](bool success) {
-				if (success) {
-					g_Config.sMACAddress = CreateRandMAC();
-				}}
+			if (success) {
+				g_Config.sMACAddress = CreateRandMAC();
+			}}
 		);
+		confirmScreen->AddNoticeView(NoticeLevel::WARN, warningMessage);
 		screenManager->push(confirmScreen);
 		return UI::EVENT_DONE;
 	});

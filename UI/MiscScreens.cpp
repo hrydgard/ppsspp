@@ -59,6 +59,7 @@
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
+#include "UI/OnScreenDisplay.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
@@ -631,18 +632,25 @@ void PromptScreen::CreateViews() {
 
 	root_ = new AnchorLayout();
 	ViewGroup *rightColumnItems;
-
+	ViewGroup *leftColumnItems;
 	if (!vertical) {
 		// Horizontal layout.
-		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
+		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10));
+		leftColumnItems->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
 		rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
-		root_->Add(rightColumnItems);
 	} else {
 		// Vertical layout
-		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 55, NONE)))->SetClip(false);
+		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 55, NONE));
+		leftColumnItems->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 55, NONE)))->SetClip(false);
 		// Leave space for the version at the bottom.
 		rightColumnItems = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(FILL_PARENT, WRAP_CONTENT, 15, NONE, 15, 65));
-		root_->Add(rightColumnItems);
+	}
+	root_->Add(leftColumnItems);
+	root_->Add(rightColumnItems);
+
+	if (!noticeText_.empty()) {
+		NoticeView *notice = leftColumnItems->Add(new NoticeView(noticeLevel_, noticeText_, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		notice->SetWrap(true);
 	}
 
 	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));

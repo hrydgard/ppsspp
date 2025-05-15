@@ -85,6 +85,8 @@ protected:
 	Path gamePath_;
 };
 
+enum class NoticeLevel;
+
 class PromptScreen : public UIDialogScreenWithGameBackground {
 public:
 	PromptScreen(const Path& gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
@@ -94,10 +96,17 @@ public:
 
 	void TriggerFinish(DialogResult result) override;
 
+	void AddNoticeView(NoticeLevel level, std::string_view noticeText) {
+		noticeLevel_ = level;
+		noticeText_ = noticeText;
+	}
+
 	const char *tag() const override { return "Prompt"; }
 
 private:
 	std::string message_;
+	NoticeLevel noticeLevel_{};
+	std::string noticeText_;
 	std::string yesButtonText_;
 	std::string noButtonText_;
 	std::function<void(bool)> callback_;

@@ -170,7 +170,10 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 	Bounds primaryBounds = bounds;
 	primaryBounds.h = height1;
 
-	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_VCENTER);
+	// We don't allow a lot of align params as input here.
+	align &= (FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+
+	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, align | ALIGN_VCENTER);
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
@@ -179,7 +182,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 			dc.FillRect(backgroundDark, bottomTextBounds);
 		}
 		dc.SetFontScale(extraTextScale, extraTextScale);
-		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
+		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, align | ALIGN_LEFT);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 }
@@ -580,7 +583,13 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 		bounds.h = vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
-	MeasureNotice(dc, level_, text_, detailsText_, iconName_, 0, &w, &h, &height1_);
+	
+	int align = 0;
+	if (wrap_) {
+		align |= FLAG_WRAP_TEXT;
+		w = horiz.size;
+	}
+	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, &w, &h, &height1_);
 	// Layout hack! Some weird problems with the layout that I can't figure out right now..
 	if (squishy_) {
 		w = 50.0;
@@ -589,6 +598,10 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f, OSDMessageFlags::None, 0.0f);
+	int align = 0;
+	if (wrap_) {
+		align |= FLAG_WRAP_TEXT;
+	}
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f);
 	dc.PopScissor();
 }
