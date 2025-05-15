@@ -1092,7 +1092,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 	u8 assembly[1000];
 	// Keep decoding from the current buffer until it runs out.
-	if (sas_.streamOffset + info.sampleSize <= sas_.bufSize[sas_.curBuffer]) {
+	if (sas_.streamOffset + (int)info.sampleSize <= (int)sas_.bufSize[sas_.curBuffer]) {
 		// Just decode.
 		const u8 *srcData = Memory::GetPointer(sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset);
 		int bytesConsumed = 0;

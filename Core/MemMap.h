@@ -369,6 +369,15 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
 }
 
+// NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
+// Also, length is not checked for alignment.
+inline bool IsValid4AlignedRange(const u32 address, const u32 size) {
+	if (address & 3) {
+		return false;
+	}
+	return ValidSize(address, size) == size;
+}
+
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -
 // so we don't want to get caught in GetPointer's crash reporting
 // TODO: This should use IsValidNullTerminatedString, but may be expensive since this is used so much - needs evaluation.
