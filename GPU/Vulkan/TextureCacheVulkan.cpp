@@ -493,7 +493,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.saveTexture) {
-		INFO_LOG(Log::G3D, "About to save texture (%dx%d)", plan.createW, plan.createH);
+		DEBUG_LOG(Log::G3D, "About to save texture (%dx%d) (might not, if it already exists)", plan.createW, plan.createH);
 		actualFmt = VULKAN_8888_FORMAT;
 	}
 
@@ -603,6 +603,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		};
 
 		bool dataScaled = true;
+		int srcStride = byteStride;
 		if (plan.doReplace) {
 			int rowLength = pixelStride;
 			if (bcFormat) {
@@ -626,7 +627,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, pixelStride);
 			} else if (computeUpload) {
 				int srcBpp = VkFormatBytesPerPixel(dstFmt);
-				int srcStride = mipUnscaledWidth * srcBpp;
+				srcStride = mipUnscaledWidth * srcBpp;
 				int srcSize = srcStride * mipUnscaledHeight;
 				loadLevel(srcSize, i == 0 ? plan.baseLevelSrc : i, srcStride, 1);
 				dataScaled = false;
@@ -650,8 +651,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// Format might be wrong in lowMemoryMode_, so don't save.
 			if (plan.saveTexture && !lowMemoryMode_) {
 				// When hardware texture scaling is enabled, this saves the original.
-				int w = dataScaled ? mipWidth : mipUnscaledWidth;
-				int h = dataScaled ? mipHeight : mipUnscaledHeight;
+				const int w = dataScaled ? mipWidth : mipUnscaledWidth;
+				const int h = dataScaled ? mipHeight : mipUnscaledHeight;
+				const int stride = dataScaled ? byteStride : srcStride;
 				// At this point, data should be saveData, and not slow.
 				ReplacedTextureDecodeInfo replacedInfo;
 				replacedInfo.cachekey = entry->CacheKey();
@@ -660,7 +662,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.isVideo = IsVideo(entry->addr);
 				replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
-				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, byteStride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
+				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, stride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
 		}
 	}

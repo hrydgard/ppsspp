@@ -1280,12 +1280,16 @@ void MainScreen::CreateViews() {
 	ClickableTextView *ver = rightColumnItems->Add(new ClickableTextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-	ver->OnClick.Add([](UI::EventParams &e) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
-		return UI::EVENT_DONE;
-	});
+
+	// Only allow copying the version if it looks like a git version string. 1.19 for example is not really necessary to be able to copy/paste.
+	if (strchr(PPSSPP_GIT_VERSION, '-')) {
+		ver->OnClick.Add([](UI::EventParams &e) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
+			return UI::EVENT_DONE;
+		});
+	}
 
 	LinearLayout *rightColumnChoices = rightColumnItems;
 	if (vertical) {
