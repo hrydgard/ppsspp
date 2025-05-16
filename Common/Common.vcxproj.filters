@@ -1487,4 +1487,9 @@
       <Filter>ext\lua</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Data\Collections\FastVec.natvis">
+      <Filter>Data\Collections</Filter>
+    </Natvis>
+  </ItemGroup>
 </Project>
