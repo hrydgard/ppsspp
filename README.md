@@ -25,6 +25,66 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.19
+------------------
+
+- Audio
+	- Brand new sceAtrac implementation, fixing Flatout and multiple other long-standing issues! ([#20098], [#20136], [#20138], [#20162])
+	- More correctly implemented sceAtrac-through-sceSas functionality, fixing voice in Sol Trigger and multiple minis ([#20156])
+	- Better support for using sceAudiocodec directly, fixing music in some homebrew apps ([#20199], [#20246], [#20253], [#20209])
+
+- Rendering fixes and performance
+    - Software depth buffer rendering added to fix lens flares in multiple games efficiently (Midnight Club LA, Wipeout, Syphon Filter etc) ([#19748], [#19764], [#20231], [#19955], etc)
+	- Multiple rendering-related crash fixes ([#20270], [#20346], [#20344], ...)
+	- Texture replacement load speed corrected and can now be controlled ([#20286]), regression fix for zipped packs ([#19860])
+	- Additional assorted compatibility and other fixes ([#20070], [#19685])
+	- Persona 1/2 readback fixes ([#20067], [#20068])
+	- Other correctness fixes ([#20233], [#20255], [#19686])
+
+- Control and input
+	- Touch gliding ([#19983])
+
+- New ImGUI-based PSP debugger: ImDebugger
+	- Allows very rapid development of debugging features as-needed, and also implements a pretty good Ge debugger for stepping through draws.
+	- Unlike the old Win32 debugger (but similar to the unmaintained web debugger), works on all platforms (though cumbersome on touchscreens)
+	- ([#20242], [#20240], [#20294])
+
+- Multiplayer
+	- Added Infrastructure multiplayer support, with automatic DNS configuration ([#19865], [#19869], [#20221], [#20220], [#19875])
+	- Implement more of sceNet (prerequisite for the former feature).
+	- Socket re-mapping implemented ([#19827])
+	- Assorted bugfixes, thanks ANR2ME ([#20247], [#20245], [#19843], [#19849], [#19836])
+
+- UI
+	- Loading spinner now actually spins properly, the app no longer appears to hang
+	- Minor features: Asks for confirmation on exit in most scenarios ([#19996], [#20023]), DPI scaling ([#20013]), can pause without menu ([#19883])
+	- As usual a lot of tweaks, perf fixes, and fixes for hangs and crashes ([#20343], [#20332], [#20305], [#20303], [#20299], [#20163], [#20152], [#20143], [#20079])
+	- Two new color themes ([#20334], [#20335]), related themability fixes ([#20308])
+	- Allow simultaneous DInput and XInput input ([#20347])
+	- Add "Move to trash" deletion funcionality to multiple platforms ([#20230], [#20261])
+	- Add ability to take "raw" screenshots of gameplay ([#20029])
+	- More files can be loaded directly from ZIP ([#20243])
+	- Developer Settings are now tabbed for easier access ([#20033], [#20228])
+	- Switch to the full libpng API so we can disable gamma correction, like the real PSP ([])
+
+- Platform compatibility
+	- Exclude older Macs from using Vulkan (too many black screens, hangs) ([#20236])
+	- Use portable-file-dialogs to provide file-open dialogs on Linux ([#20175])
+	- "Cache full ISO in RAM" is now correctly hidden where it doesn't work ([#20165])
+	- Now rendering at proper resolution on newer Macs ([#20011])
+	- Mouse input improved on Android, including separate button mapping ([#19915])
+	- Use the correct font again on Mac/iOS ([#19874])
+	- Multiple file access optimizations made to make the most out of the flawed foundation called Android Scoped Storage ([#19668])
+
+- Emulation
+	- Allow disabling HLE on a per-module basis (if games ship the module so we can load it). Enabled for sceCcc ([#20218]), and more importantly scePsmf ([#20208]), fixing multiple issues.
+	- Fix smoke effects in Jak'n'Daxter by re-using the fix from Ratchet & Clank ([#20032])
+	- Additional module loading improvements ([#20114], ...)
+	- More precise sleep function on Windows ([#20054])
+	- More replacement texture improvements, allow replacing game icons ([#19975], [#19978])
+	- Disable certain features like fast-forward when networking is on, to avoid de-syncs ([])
+	- Fixes mono Atrac3 as video soundtrack ([#19800])
+
 What's new in 1.18.1
 --------------------
 - Crashfix in PBP reader ([#19580])
@@ -76,67 +136,6 @@ What's new in 1.18
 	- A lot of fixes by Lubos ([#19420], [#19416], [#19389], [#19390], [#19361], [#19092], ...)
 - Misc
 	- The CHD file format is better supported and performance has been drastically improved ([#18924], [#18931])
-
-What's new in 1.17.1
---------------------
-- Fixed green rendering errors on some PowerVR GPUs ([#18781])
-- Release all held keys on pause to avoid "stuck keys" after unpausing or in run-behind-pause ([#18786])
-- UI fixes ([#18785])
-- Update libchdr with zstd support, warn the user about bad CHDs ([#18824], [#18803])
-- Add workaround for AdHoc mode in Resistance ([#18821])
-- Fix graphics in Tokimeki Memorial 4 ([#18822])
-- Fix crash in UFC 2010 on Mali GPUs ([#18813])
-- Temporarily disable MSAA on Adreno GPUs due to crashing ([#18819])
-- Fixed some crashes and optimized the game metadata cache ([#18794], [#18775])
-- Additional crashfixes and similar ([#18777], [#18779], [#18823])
-- Fixed playback of frame dumps with Vulkan ([#18793])
-- Volume slider added for RetroAchievements sounds ([#18772])
-
-What's new in 1.17
-------------------
-- Rendering performance and fixes
-	- Fix for very old rendering issue in Tokimeki Memorial 4 ([#18650]) (didn't quite work, see 1.17.1)
-	- Performance improvement in Tactics Ogre by avoiding a readback ([#18599])
-	- Cull small draws that are quick to check that they are offscreen ([#18446])
-	- Assorted optimizations ([#18586], [#18573], [#18476], [#18413], [#18416], [#18219])
-	- Fix HUD in Tiger Woods 06 ([#18554])
-	- Adrenotools support added - you can now load custom Vulkan drivers on Adreno ([#18532], [#18548], [#18699])
-	- Fix rendering with bad Z parameters, fixes homebrew Zig example ([#18535])
-	- Fix Z problem in Hayate no Gotoku!! Nightmare Paradise [#18478]
-	- Fix frozen pitch meters in MLB games ([#18484])
-	- Enable MSAA on modern mobile devices (Vulkan-only) ([#18472])
-	- Fix video flicker in Naruto: Ultimate Ninja Heroes 2 ([#18454])
-- UI
-	- Track total time played per game ([#18442])
-	- When opening the pause menu, there's now an option to keep the game running behind the menu.
-	  This is enforced in multiplayer to avoid inadvertent desyncs ([#18517], [#18515])
-- ISO loading improvements
-	- The CHD file format is now fully supported (use `chdman createdvd`!), including with Remote ISO and Retroachievements
-	- Improvements to [remote ISO](https://www.ppsspp.org/docs/reference/disc-streaming/): optional tab on home screen, can now share whole folders ([#18627], [#18639], [#18640], [#18631], [#18632], [#18633],)
-- Controller and touchscreen fixes
-	- More control bindings, organize into categories ([#18635], [#18589])
-	- Fix inverse deadzone (low end) for joystick input
-	- Fix analog deadzones for XInput controllers ([#18407])
-	- Improved tilt control further ([#18533])
-	- Mouse input supported on Android ([#18551], [#18473])
-	- Customizable threshold for analog-trigger to button-press mapping, customizable delay for mouse-scroll key-up ([#18621], [#18585])
-	- Make it work better to bind an analog stick to four buttons, useful for camera control in some games
-	- Can now unpause with the key you bound to pause ([#18591])
-- Other fixes and updates
-	- More work on the IR JITs ([#18234], [#18235], [#18228], [#18227], [#18226], many more)
-	- Moving the memstick directory on Android is now faster and safer [#18744]
-	- Workaround problems in Add Doko Demo Issho, Driver 76, Harukanaru Toki no Naka, Ace Combat by slowing down the emulated UMD drive to match reality better ([#18436], [#18445])
-	- VR: Quest 3 rendering issues fixed ([#18677])
-	- Various bugfixes in texture replacement ([#18638], [#18610], [#18519], [#18466], [#18747])
-	- RetroAchievements: Rich presence, renamed Challenge Mode back to the recommended Hardcore Mode, various error handling improvements, configure per game ([#18468], [#18651], [#18488], [#18428], [#18425])
-	- HLE: Slice large-and-slow memcpy/memset operations, can help with some stalls. ([#18560])
-	- Other various minor fixes and optimizations ([#18558], [#18555], [#18538], [#18529], [#18450], [#18314], [#18233], [#18678], [#18749], [#18736], [#18704])
-	- SoftGPU fixes ([#18362])
-	- Fixed international fonts on Steam Deck ([#18732], [#18734])
-	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668], [#18669])
-	- SDL: Improve input latency in Vulkan mode by running rendering on a separate thread ([#18268])
-	- Assorted multiplayer fixes ([#18435])
-	- Support for emulating the infrared port of the original PSP through sceSircs ([#18684])
 
 [comment]: # (LINK_LIST_BEGIN_HERE)
 [#18228]: https://github.com/hrydgard/ppsspp/issues/18228 "unittest: Add jit compare for jit IR"
