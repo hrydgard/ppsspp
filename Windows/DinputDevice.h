@@ -18,12 +18,15 @@
 #pragma once
 
 #include <vector>
+#include <set>
 #include <InitGuid.h>
 #include <wrl/client.h>
 #define DIRECTINPUT_VERSION 0x0800
 #define DIRECTINPUT_RGBBUTTONS_MAX 128
 #include "InputDevice.h"
 #include <dinput.h>
+
+// TODO: This needs a major refactor into a DinputManager and individual devices inside.
 
 class DinputDevice final :
 	public InputDevice
@@ -39,6 +42,10 @@ public:
 		needsCheck_ = true;
 	}
 
+	static void SetDevicesToIgnore(std::set<u32> &&ignoreDevices) {
+		ignoreDevices_ = std::move(ignoreDevices);
+	}
+
 private:
 	void ApplyButtons(DIJOYSTATE2 &state);
 	//unfortunate and unclean way to keep only one DirectInput instance around
@@ -49,20 +56,19 @@ private:
 	//also, it excludes the devices that are compatible with XInput
 	static void getDevices(bool refresh);
 	//callback for the WinAPI to call
-	static BOOL CALLBACK DevicesCallback(
-	                LPCDIDEVICEINSTANCE lpddi,
-	                LPVOID pvRef
-	            );
-	static unsigned int     pInstances;
+	static BOOL CALLBACK DevicesCallback(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef);
+
+	static unsigned int pInstances;
 	static std::vector<DIDEVICEINSTANCE> devices;
 	static Microsoft::WRL::ComPtr<IDirectInput8>   pDI;
 	static bool needsCheck_;
+	static std::set<u32> ignoreDevices_;
 	int                     pDevNum;
 	Microsoft::WRL::ComPtr<IDirectInputDevice8>    pJoystick;
 	DIJOYSTATE2             pPrevState;
 	bool                    analog;
-	BYTE                    lastButtons_[128];
-	WORD                    lastPOV_[4];
+	BYTE                    lastButtons_[128]{};
+	WORD                    lastPOV_[4]{};
 	int                     last_lX_;
 	int                     last_lY_;
 	int                     last_lZ_;

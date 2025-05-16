@@ -48,26 +48,11 @@
 
 #include "Windows/main.h"
 
-void SetConsolePosition() {
-	HWND console = GetConsoleWindow();
-	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
-		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	}
-}
-
-void UpdateConsolePosition() {
-	RECT rc;
-	HWND console = GetConsoleWindow();
-	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console)) {
-		g_Config.iConsoleWindowX = rc.left;
-		g_Config.iConsoleWindowY = rc.top;
-	}
-}
-
 void WindowsInputManager::Init() {
 	//add first XInput device to respond
 	input.push_back(std::make_unique<XinputDevice>());
 #ifndef _M_ARM
+
 	//find all connected DInput devices of class GamePad
 	numDinputDevices_ = DinputDevice::getNumPads();
 	for (size_t i = 0; i < numDinputDevices_; i++) {

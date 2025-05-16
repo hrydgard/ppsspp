@@ -21,9 +21,6 @@
 #include "Common/CommonWindows.h"
 #include "Windows/InputDevice.h"
 
-void SetConsolePosition();
-void UpdateConsolePosition();
-
 class WindowsInputManager {
 public:
 	void Init();
