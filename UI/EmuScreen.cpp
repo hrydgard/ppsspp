@@ -1985,8 +1985,11 @@ void EmuScreen::AutoLoadSaveState() {
 	}
 
 	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
-		SaveState::LoadSlot(gamePath_, autoSlot, [this](SaveState::Status status, std::string_view message) {
+		SaveState::LoadSlot(gamePath_, autoSlot, [this, autoSlot](SaveState::Status status, std::string_view message) {
 			AfterSaveStateAction(status, message);
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			std::string msg = std::string(sy->T("Auto Load Savestate")) + ": " + StringFromFormat("%d", autoSlot);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, msg);
 			if (status == SaveState::Status::FAILURE) {
 				autoLoadFailed_ = true;
 			}
