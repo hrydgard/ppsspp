@@ -215,10 +215,13 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
-	PSP_BeginHostFrame();
+	if (gpu) {
+		gpu->BeginHostFrame();
+	}
 	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
-	if (draw)
+	if (draw) {
 		draw->BeginFrame(Draw::DebugFlags::NONE);
+	}
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
@@ -255,7 +258,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 			Core_Stop();
 		}
 	}
-	PSP_EndHostFrame();
+	if (gpu) {
+		gpu->EndHostFrame();
+	}
 
 	if (draw) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Headless");

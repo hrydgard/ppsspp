@@ -49,8 +49,6 @@ enum class CPUCore;
 
 // PSP_CoreParameter()
 struct CoreParameter {
-	CoreParameter() {}
-
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 

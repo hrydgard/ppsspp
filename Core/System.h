@@ -102,12 +102,10 @@ BootState PSP_Reboot(std::string *error_string);
 
 FileLoader *PSP_LoadedFile();
 
-void PSP_BeginHostFrame();
-void PSP_EndHostFrame();
 void PSP_RunLoopWhileState();
 void PSP_RunLoopFor(int cycles);
 
-// Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
+// Call before gpu->BeginHostFrame() in order to not miss any GPU stats.
 void PSP_UpdateDebugStats(bool collectStats);
 // Increments or decrements an internal counter.  Intended to be used by debuggers.
 void PSP_ForceDebugStats(bool enable);
