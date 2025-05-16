@@ -1,5 +1,65 @@
 This is history moved out from README.md, which was getting a bit long.
 
+What's new in 1.17.1
+--------------------
+- Fixed green rendering errors on some PowerVR GPUs ([#18781])
+- Release all held keys on pause to avoid "stuck keys" after unpausing or in run-behind-pause ([#18786])
+- UI fixes ([#18785])
+- Update libchdr with zstd support, warn the user about bad CHDs ([#18824], [#18803])
+- Add workaround for AdHoc mode in Resistance ([#18821])
+- Fix graphics in Tokimeki Memorial 4 ([#18822])
+- Fix crash in UFC 2010 on Mali GPUs ([#18813])
+- Temporarily disable MSAA on Adreno GPUs due to crashing ([#18819])
+- Fixed some crashes and optimized the game metadata cache ([#18794], [#18775])
+- Additional crashfixes and similar ([#18777], [#18779], [#18823])
+- Fixed playback of frame dumps with Vulkan ([#18793])
+- Volume slider added for RetroAchievements sounds ([#18772])
+
+What's new in 1.17
+------------------
+- Rendering performance and fixes
+	- Fix for very old rendering issue in Tokimeki Memorial 4 ([#18650]) (didn't quite work, see 1.17.1)
+	- Performance improvement in Tactics Ogre by avoiding a readback ([#18599])
+	- Cull small draws that are quick to check that they are offscreen ([#18446])
+	- Assorted optimizations ([#18586], [#18573], [#18476], [#18413], [#18416], [#18219])
+	- Fix HUD in Tiger Woods 06 ([#18554])
+	- Adrenotools support added - you can now load custom Vulkan drivers on Adreno ([#18532], [#18548], [#18699])
+	- Fix rendering with bad Z parameters, fixes homebrew Zig example ([#18535])
+	- Fix Z problem in Hayate no Gotoku!! Nightmare Paradise [#18478]
+	- Fix frozen pitch meters in MLB games ([#18484])
+	- Enable MSAA on modern mobile devices (Vulkan-only) ([#18472])
+	- Fix video flicker in Naruto: Ultimate Ninja Heroes 2 ([#18454])
+- UI
+	- Track total time played per game ([#18442])
+	- When opening the pause menu, there's now an option to keep the game running behind the menu.
+	  This is enforced in multiplayer to avoid inadvertent desyncs ([#18517], [#18515])
+- ISO loading improvements
+	- The CHD file format is now fully supported (use `chdman createdvd`!), including with Remote ISO and Retroachievements
+	- Improvements to [remote ISO](https://www.ppsspp.org/docs/reference/disc-streaming/): optional tab on home screen, can now share whole folders ([#18627], [#18639], [#18640], [#18631], [#18632], [#18633],)
+- Controller and touchscreen fixes
+	- More control bindings, organize into categories ([#18635], [#18589])
+	- Fix inverse deadzone (low end) for joystick input
+	- Fix analog deadzones for XInput controllers ([#18407])
+	- Improved tilt control further ([#18533])
+	- Mouse input supported on Android ([#18551], [#18473])
+	- Customizable threshold for analog-trigger to button-press mapping, customizable delay for mouse-scroll key-up ([#18621], [#18585])
+	- Make it work better to bind an analog stick to four buttons, useful for camera control in some games
+	- Can now unpause with the key you bound to pause ([#18591])
+- Other fixes and updates
+	- More work on the IR JITs ([#18234], [#18235], [#18228], [#18227], [#18226], many more)
+	- Moving the memstick directory on Android is now faster and safer [#18744]
+	- Workaround problems in Add Doko Demo Issho, Driver 76, Harukanaru Toki no Naka, Ace Combat by slowing down the emulated UMD drive to match reality better ([#18436], [#18445])
+	- VR: Quest 3 rendering issues fixed ([#18677])
+	- Various bugfixes in texture replacement ([#18638], [#18610], [#18519], [#18466], [#18747])
+	- RetroAchievements: Rich presence, renamed Challenge Mode back to the recommended Hardcore Mode, various error handling improvements, configure per game ([#18468], [#18651], [#18488], [#18428], [#18425])
+	- HLE: Slice large-and-slow memcpy/memset operations, can help with some stalls. ([#18560])
+	- Other various minor fixes and optimizations ([#18558], [#18555], [#18538], [#18529], [#18450], [#18314], [#18233], [#18678], [#18749], [#18736], [#18704])
+	- SoftGPU fixes ([#18362])
+	- Fixed international fonts on Steam Deck ([#18732], [#18734])
+	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668], [#18669])
+	- SDL: Improve input latency in Vulkan mode by running rendering on a separate thread ([#18268])
+	- Assorted multiplayer fixes ([#18435])
+	- Support for emulating the infrared port of the original PSP through sceSircs ([#18684])
 
 What's new in 1.16.6
 --------------------
