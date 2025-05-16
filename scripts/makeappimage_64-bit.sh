@@ -24,14 +24,14 @@ wget "$LIB4BN" -O ./lib4bin
 chmod +x ./lib4bin
 xvfb-run -d -- ./lib4bin -p -v -e -s -k \
 	~/ppsspp/build/PPSSPPSDL \
-	/usr/lib/libSDL* \
-	/usr/lib/lib*GL* \
-	/usr/lib/libvulkan* \
-	/usr/lib/dri/* \
-	/usr/lib/libXss.so* \
-	/usr/lib/pulseaudio/* \
-	/usr/lib/pipewire-0.3/* \
-	/usr/lib/spa-0.2/*/*
+	"$SYS_LIB_DIR"/libSDL* \
+	"$SYS_LIB_DIR"/lib*GL* \
+	"$SYS_LIB_DIR"/libvulkan* \
+	"$SYS_LIB_DIR"/dri/* \
+	"$SYS_LIB_DIR"/libXss.so* \
+	"$SYS_LIB_DIR"/pulseaudio/* \
+	"$SYS_LIB_DIR"/pipewire-0.3/* \
+	"$SYS_LIB_DIR"/spa-0.2/*/*
 
 # copy assets dir needs to be next oteh binary
 cp -vr ~/ppsspp/build/assets ./AppDir/bin
