@@ -159,7 +159,10 @@ void MainThreadFunc() {
 	// We'll start up a separate thread we'll call Emu
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
-	SetConsolePosition();
+	const HWND console = GetConsoleWindow();
+	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 
 	System_SetWindowTitle("");
 
@@ -333,7 +336,12 @@ void MainThreadFunc() {
 
 	delete g_graphicsContext;
 
-	UpdateConsolePosition();
+	RECT rc;
+	if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
+
 	NativeShutdown();
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
