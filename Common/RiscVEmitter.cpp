@@ -2497,7 +2497,7 @@ void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, float v, RiscVReg scratchReg)
 		QuickFLI(32, rd, (double)v, scratchReg);
 	} else if (bits == 32) {
 		LI(scratchReg, v);
-		FMV(FMv::D, FMv::X, rd, scratchReg);
+		FMV(FMv::W, FMv::X, rd, scratchReg);
 	} else {
 		_assert_msg_(false, "Unsupported QuickFLI bits");
 	}
