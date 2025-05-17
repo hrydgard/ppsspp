@@ -15,7 +15,7 @@ fi
 mkdir -p ./AppDir/bin
 cd ./AppDir
 
-cp -v  ~/ppsspp/SDL/PPSSPPSDL.desktop ./AppDir
+cp -v  ~/ppsspp/SDL/PPSSPPSDL.desktop ./
 cp -v  ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./
 cp -v  ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./.DirIcon
 
