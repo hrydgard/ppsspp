@@ -32,40 +32,56 @@ What's new in 1.19
 	- Brand new sceAtrac implementation, fixing Flatout and multiple other long-standing issues! ([#20098], [#20136], [#20138], [#20162])
 	- More correctly implemented sceAtrac-through-sceSas functionality, fixing voice in Sol Trigger and multiple minis ([#20156])
 	- Better support for using sceAudiocodec directly, fixing music in some homebrew apps ([#20199], [#20246], [#20253], [#20209])
-
+	- Volume control improvement ([#19969], [#19971])
+	
 - Rendering fixes and performance
+    - Important: This will be the last major version with D3D9 support. D3D11 will of course continue to be supported, along with Vulkan and OpenGL.
+	- Fix smoke effects in Jak'n'Daxter by re-using the fix from Ratchet & Clank ([#20032])
     - Software depth buffer rendering added to fix lens flares in multiple games efficiently (Midnight Club LA, Wipeout, Syphon Filter etc) ([#19748], [#19764], [#20231], [#19955], etc)
 	- Multiple rendering-related crash fixes ([#20270], [#20346], [#20344], ...)
 	- Texture replacement load speed corrected and can now be controlled ([#20286]), regression fix for zipped packs ([#19860])
-	- Additional assorted compatibility and other fixes ([#20070], [#19685])
+	- Additional assorted compatibility and other fixes ([#20376], [#20070], [#19685])
 	- Persona 1/2 readback fixes ([#20067], [#20068])
 	- Other correctness fixes ([#20233], [#20255], [#19686])
+	
+- General emulation
+	- Allow disabling HLE on a per-module basis (if games ship the module so we can load it). Enabled for sceCcc ([#20218]), and more importantly scePsmf ([#20208]), fixing multiple issues.
+	- Additional module loading improvements ([#20114], ...)
+	- More precise sleep function on Windows ([#20054])
+	- More replacement texture improvements, allow replacing game icons ([#19975], [#19978])
+	- Disable certain features like fast-forward when networking is on, to avoid de-syncs ([])
+	- Fixes mono Atrac3 as video soundtrack ([#19800])
+	- Improvements to RISC-V support ([#20352, ...])
 
 - Control and input
-	- Touch gliding ([#19983])
+	- Touch gliding support added ([#19983])
+	- Allow simultaneous DInput and XInput input ([#20347])
 
-- New ImGUI-based PSP debugger: ImDebugger
+- New "Dear ImGui"-based PSP debugger: ImDebugger
 	- Allows very rapid development of debugging features as-needed, and also implements a pretty good Ge debugger for stepping through draws.
 	- Unlike the old Win32 debugger (but similar to the unmaintained web debugger), works on all platforms (though cumbersome on touchscreens)
-	- ([#20242], [#20240], [#20294])
+	- Major commits (though there are many more): ([#20242], [#20240], [#20294])
 
 - Multiplayer
 	- Added Infrastructure multiplayer support, with automatic DNS configuration ([#19865], [#19869], [#20221], [#20220], [#19875])
+	    - Note: Only games that people have made "revival servers" for will work. See [here](https://www.ppsspp.org/docs/multiplayer/infrastructure-servers/).
 	- Implement more of sceNet (prerequisite for the former feature).
 	- Socket re-mapping implemented ([#19827])
 	- Assorted bugfixes, thanks ANR2ME ([#20247], [#20245], [#19843], [#19849], [#19836])
 
 - UI
-	- Loading spinner now actually spins properly, the app no longer appears to hang
+	- Loading spinner now actually spins properly, the app no longer appears to hang ([#20341])
 	- Minor features: Asks for confirmation on exit in most scenarios ([#19996], [#20023]), DPI scaling ([#20013]), can pause without menu ([#19883])
-	- As usual a lot of tweaks, perf fixes, and fixes for hangs and crashes ([#20343], [#20332], [#20305], [#20303], [#20299], [#20163], [#20152], [#20143], [#20079])
-	- Two new color themes ([#20334], [#20335]), related themability fixes ([#20308])
-	- Allow simultaneous DInput and XInput input ([#20347])
+	- As usual a lot of tweaks, perf fixes, and fixes for hangs and crashes ([#20343], [#20332], [#20305], [#20303], [#20299], [#20163], [#20152], [#20143], [#20079], [#20137], [#20374])
+	- Two new color themes ([#20334], [#20335]), related themability fixes ([#19984], [#19995], [#20308])
+	- Improvements and bug fixes in the savedata manager ([#19771], [#20170])
 	- Add "Move to trash" deletion funcionality to multiple platforms ([#20230], [#20261])
 	- Add ability to take "raw" screenshots of gameplay ([#20029])
 	- More files can be loaded directly from ZIP ([#20243])
 	- Developer Settings are now tabbed for easier access ([#20033], [#20228])
 	- Switch to the full libpng API so we can disable gamma correction, like the real PSP ([])
+	- Support displaying the battery percentage on more platforms ([#19973], [#19967])
+	- Allow picking a background image on iOS ([#20370])
 
 - Platform compatibility
 	- Exclude older Macs from using Vulkan (too many black screens, hangs) ([#20236])
@@ -75,15 +91,6 @@ What's new in 1.19
 	- Mouse input improved on Android, including separate button mapping ([#19915])
 	- Use the correct font again on Mac/iOS ([#19874])
 	- Multiple file access optimizations made to make the most out of the flawed foundation called Android Scoped Storage ([#19668])
-
-- Emulation
-	- Allow disabling HLE on a per-module basis (if games ship the module so we can load it). Enabled for sceCcc ([#20218]), and more importantly scePsmf ([#20208]), fixing multiple issues.
-	- Fix smoke effects in Jak'n'Daxter by re-using the fix from Ratchet & Clank ([#20032])
-	- Additional module loading improvements ([#20114], ...)
-	- More precise sleep function on Windows ([#20054])
-	- More replacement texture improvements, allow replacing game icons ([#19975], [#19978])
-	- Disable certain features like fast-forward when networking is on, to avoid de-syncs ([])
-	- Fixes mono Atrac3 as video soundtrack ([#19800])
 
 What's new in 1.18.1
 --------------------
