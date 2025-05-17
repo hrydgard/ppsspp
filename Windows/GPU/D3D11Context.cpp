@@ -196,7 +196,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	hr = dxgiFactory->CreateSwapChain(device_.Get(), &swapChainDesc_, &swapChain_);
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
 
-	draw_ = Draw::T3DCreateD3D11Context(device_.Get(), context_.Get(), device1_.Get(), context1_.Get(), swapChain_.Get(), featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, swapChain_, featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
 	_assert_msg_(success, "Failed to compile preset shaders");

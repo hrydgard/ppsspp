@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <D3Dcommon.h>
+#include <wrl/client.h>
 struct IDirect3DDevice9;
 struct IDirect3D9;
 struct IDirect3DDevice9Ex;
@@ -28,7 +29,7 @@ DrawContext *T3DCreateGLContext(bool canChangeSwapInterval);
 
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames);
+DrawContext *T3DCreateD3D11Context(Microsoft::WRL::ComPtr<ID3D11Device> device, Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Device1> device1, Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context1, Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool useRenderThread);
