@@ -512,6 +512,21 @@ void PSP_ForceDebugStats(bool enable) {
 	_assert_(coreCollectDebugStatsCounter >= 0);
 }
 
+static void InitGPU(std::string *error_string) {
+	if (!gpu) {  // should be!
+		INFO_LOG(Log::Loader, "Starting graphics...");
+		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
+		// This set the `gpu` global.
+		GPUCore gpuCore = PSP_CoreParameter().gpuCore;
+		bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
+		if (!success) {
+			*error_string = "Unable to initialize rendering engine.";
+			CPU_Shutdown(false);
+			g_bootState = BootState::Failed;
+		}
+	}
+}
+
 bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_bootState != BootState::Off) {
 		ERROR_LOG(Log::Loader, "Can't start loader thread - already on.");
@@ -576,20 +591,10 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		}
 
 		// Initialize the GPU as far as we can here (do things like load cache files).
-
-		if (!gpu) {  // should be!
-			INFO_LOG(Log::Loader, "Starting graphics...");
-			Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
-			// This set the `gpu` global.
-			GPUCore gpuCore = PSP_CoreParameter().gpuCore;
-			bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
-			if (!success) {
-				*error_string = "Unable to initialize rendering engine.";
-				CPU_Shutdown(false);
-				g_bootState = BootState::Failed;
-			}
-		}
-
+		_dbg_assert_(!gpu);
+#ifndef __LIBRETRO__
+		InitGPU(error_string);
+#endif
 		g_bootState = BootState::Complete;
 	});
 
@@ -618,6 +623,10 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		g_bootState = BootState::Off;
 		return BootState::Failed;
 	}
+
+#ifdef __LIBRETRO__
+	InitGPU(error_string);
+#endif
 
 	// Ok, async part of the boot completed, let's finish up things on the main thread.
 	if (gpu) {

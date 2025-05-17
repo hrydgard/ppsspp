@@ -1321,8 +1321,9 @@ namespace Libretro
    static void EmuFrame()
    {
       ctx->SetRenderTarget();
-      if (ctx->GetDrawContext())
+      if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
+      }
 
       if (gpu)
          gpu->BeginHostFrame();
@@ -1451,6 +1452,7 @@ bool retro_load_game(const struct retro_game_info *game)
    retro_check_backend();
 
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
+
    INFO_LOG(Log::System, "Using %s backend", ctx->Ident());
 
    Core_SetGraphicsContext(ctx);

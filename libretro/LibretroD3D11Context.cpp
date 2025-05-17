@@ -22,8 +22,13 @@ bool LibretroD3D11Context::Init() {
 
 void LibretroD3D11Context::CreateDrawContext() {
    retro_hw_render_interface_d3d11 *d3d11Interface = nullptr;
-   if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&d3d11Interface) || !d3d11Interface) {
+   if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&d3d11Interface)) {
       ERROR_LOG(Log::G3D, "Failed to get HW rendering interface!\n");
+      return;
+   }
+
+   if (!d3d11Interface) {
+      ERROR_LOG(Log::G3D, "D3D11 interface was null!\n");
       return;
    }
 
