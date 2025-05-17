@@ -22,7 +22,7 @@ cp -v  ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./.DirIcon
 # ADD LIBRARIES
 wget "$LIB4BN" -O ./lib4bin
 chmod +x ./lib4bin
-xvfb-run -d -- ./lib4bin -p -v -e -s -k \
+xvfb-run -a -- ./lib4bin -p -v -e -s -k \
 	~/ppsspp/build/PPSSPPSDL \
 	"$SYS_LIB_DIR"/libSDL* \
 	"$SYS_LIB_DIR"/lib*GL* \
