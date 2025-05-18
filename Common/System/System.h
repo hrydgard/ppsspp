@@ -100,6 +100,10 @@ enum class SystemRequestType {
 	RUN_CALLBACK_IN_WNDPROC,
 
 	MOVE_TO_TRASH,
+
+	// for iOS IAP support
+	IAP_RESTORE_PURCHASES,
+	IAP_MAKE_PURCHASE,
 };
 
 // Run a closure on the main thread. Used to safely implement UI that runs on another thread.
@@ -224,6 +228,8 @@ enum SystemProperty {
 
 	SYSPROP_ENOUGH_RAM_FOR_FULL_ISO,
 	SYSPROP_HAS_TRASH_BIN,
+
+	SYSPROP_USE_IAP,
 };
 
 enum class SystemNotification {

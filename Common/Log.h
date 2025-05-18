@@ -53,6 +53,7 @@ enum class Log {
 	TexReplacement,
 	GeDebugger,
 	UI,
+	IAP,
 
 	sceAudio,
 	sceCtrl,

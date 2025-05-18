@@ -1334,6 +1334,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
+		ios/IAPManager.mm
+		ios/IAPManager.h
 		ios/CameraHelper.mm
 		ios/CameraHelper.h
 		ios/LocationHelper.mm
@@ -1536,6 +1538,8 @@ list(APPEND NativeAppSource
 	UI/EmuScreen.cpp
 	UI/GameInfoCache.h
 	UI/GameInfoCache.cpp
+	UI/IAPScreen.cpp
+	UI/IAPScreen.h
 	UI/MainScreen.h
 	UI/MainScreen.cpp
 	UI/MiscScreens.h
@@ -3011,7 +3015,7 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
-			XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${BUNDLE_ENTITLEMENTS}
+			#XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${BUNDLE_ENTITLEMENTS}
 			XCODE_ATTRIBUTE_SKIP_INSTALL NO
 						XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 		)

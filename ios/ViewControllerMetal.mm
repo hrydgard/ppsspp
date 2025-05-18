@@ -61,13 +61,13 @@ public:
 	bool InitAPI();
 
 	bool InitFromRenderThread(CAMetalLayer *layer, int desiredBackbufferSizeX, int desiredBackbufferSizeY);
-	void ShutdownFromRenderThread();  // Inverses InitFromRenderThread.
+	void ShutdownFromRenderThread() override;  // Inverses InitFromRenderThread.
 
-	void Shutdown();
-	void Resize();
+	void Shutdown() override;
+	void Resize() override;
 
-	void *GetAPIContext() { return g_Vulkan; }
-	Draw::DrawContext *GetDrawContext() { return draw_; }
+	void *GetAPIContext() override { return g_Vulkan; }
+	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
 	VulkanContext *g_Vulkan = nullptr;
