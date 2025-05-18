@@ -15,9 +15,9 @@ fi
 mkdir -p ./AppDir/bin
 cd ./AppDir
 
-cp -v  ~/ppsspp/SDL/PPSSPPSDL.desktop ./
-cp -v  ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./
-cp -v  ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./.DirIcon
+cp -v  ../SDL/PPSSPPSDL.desktop ./
+cp -v  ../icons/hicolor/256x256/apps/ppsspp.png ./
+cp -v  ../icons/hicolor/256x256/apps/ppsspp.png ./.DirIcon
 
 # ADD LIBRARIES
 wget "$LIB4BN" -O ./lib4bin
@@ -34,7 +34,7 @@ xvfb-run -a -- ./lib4bin -p -v -e -s -k \
 	"$SYS_LIB_DIR"/spa-0.2/*/*
 
 # copy assets dir needs to be next oteh binary
-cp -vr ~/ppsspp/build/assets ./AppDir/bin
+cp -vr ../build/assets ./AppDir/bin
 
 # Prepare sharun
 echo "Preparing sharun..."
