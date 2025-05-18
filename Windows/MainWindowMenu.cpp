@@ -162,6 +162,7 @@ namespace MainWindow {
 		return initialMenuKeys[menuID];
 	}
 
+	// TODO: Why isn't this just defined in the resoucre
 	void CreateHelpMenu(HMENU menu) {
 		auto des = GetI18NCategory(I18NCat::DESKTOPUI);
 
@@ -178,7 +179,9 @@ namespace MainWindow {
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
+		if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
+		}
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_GITHUB, gitHub.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_DISCORD, discord.c_str());
 		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);

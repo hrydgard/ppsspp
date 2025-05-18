@@ -316,7 +316,6 @@ public:
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
-	bool bShowOnScreenMessages;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
 

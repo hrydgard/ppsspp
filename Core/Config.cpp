@@ -255,7 +255,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("StateUndoLastSaveSlot", &g_Config.iStateUndoLastSaveSlot, -5, CfgFlag::DEFAULT), // Start with an "invalid" value
 	ConfigSetting("RewindSnapshotInterval", &g_Config.iRewindSnapshotInterval, 0, CfgFlag::PER_GAME),
 
-	ConfigSetting("ShowOnScreenMessage", &g_Config.bShowOnScreenMessages, true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", &g_Config.bShowIDOnGameIcon, false, CfgFlag::DEFAULT),
 	ConfigSetting("GameGridScale", &g_Config.fGameGridScale, 1.0, CfgFlag::DEFAULT),

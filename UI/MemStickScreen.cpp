@@ -136,11 +136,11 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 		holder->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!"), flags, false))->SetBullet(true);
 #if !PPSSPP_PLATFORM(UWP)
-#if GOLD
-		holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
-#else
-		holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
-#endif
+		if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+			holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
+		} else {
+			holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
+		}
 #endif
 		break;
 	case MemStickScreen::CHOICE_SET_MANUAL:
