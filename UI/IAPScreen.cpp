@@ -1,6 +1,7 @@
-// NOTE: This is only used on iOS, to present the availablility of getting PPSSPP Gold through IAP.
+// NOTE: This currently only used on iOS, to present the availablility of getting PPSSPP Gold through IAP.
 
 #include "UI/IAPScreen.h"
+#include "UI/OnScreenDisplay.h"
 #include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
@@ -15,11 +16,17 @@ void IAPScreen::CreateViews() {
 	
 	const bool bought = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
-	if (bought) {
-		root_->Add(new TextView("You have PPSSPP Gold! Thank you!"));
-	} else {
-		root_->Add(new TextView("PPSSPP Gold", ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
-	}
+	// TODO: Support vertical layout!
+
+	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 330, 10));
+	root_->Add(leftColumnItems);
+
+	ViewGroup *appTitle = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	appTitle->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new LinearLayoutParams(64, 64)));
+	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, G_VCENTER)));
+	leftColumnItems->Add(appTitle);
+
+	leftColumnItems->Add(new TextView(di->T("GoldOverview", "Buy PPSSPP Gold to support development!")));
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
 	root_->Add(rightColumnItems);
@@ -31,6 +38,8 @@ void IAPScreen::CreateViews() {
 			INFO_LOG(Log::System, "Showing purchase UI...");
 			System_IAPMakePurchase(requesterToken, "org.ppsspp.gold", [this](const char *responseString, int intValue) {
 				INFO_LOG(Log::System, "Purchase successful!");
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Thank you for supporting the PPSSPP project!"), 3.0f);
 				RecreateViews();
 			}, []() {
 				WARN_LOG(Log::System, "Purchase failed or cancelled!");
