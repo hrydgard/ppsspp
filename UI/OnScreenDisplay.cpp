@@ -251,7 +251,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (!g_Config.bShowOnScreenMessages || g_TakeScreenshot) {
+	if (g_TakeScreenshot) {
 		return;
 	}
 
