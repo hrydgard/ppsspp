@@ -7,6 +7,7 @@
 #include "Core/Config.h"
 #include "UI/DiscordIntegration.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/System/System.h"
 
 #if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(UWP)
 
@@ -116,11 +117,7 @@ void Discord::SetPresenceGame(std::string_view gameTitle) {
 	discordPresence.details = sc->T_cstr("Playing");
 	discordPresence.startTimestamp = time(0);
 	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
-#ifdef GOLD
-	discordPresence.largeImageKey = "icon_gold_png";
-#else
-	discordPresence.largeImageKey = "icon_regular_png";
-#endif
+	discordPresence.largeImageKey = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "icon_gold_png" : "icon_regular_png";
 	Discord_UpdatePresence(&discordPresence);
 #endif
 }
@@ -141,12 +138,7 @@ void Discord::SetPresenceMenu() {
 	discordPresence.details = "";
 	discordPresence.startTimestamp = time(0);
 	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
-#ifdef GOLD
-	discordPresence.largeImageKey = "icon_gold_png";
-#else
-	discordPresence.largeImageKey = "icon_regular_png";
-#endif
-	Discord_UpdatePresence(&discordPresence);
+	discordPresence.largeImageKey = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "icon_gold_png" : "icon_regular_png";
 #endif
 }
 
