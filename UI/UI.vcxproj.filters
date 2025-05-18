@@ -19,6 +19,9 @@
     <ClCompile Include="MiscScreens.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+		<ClCompile Include="IAPScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="ControlMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -136,6 +139,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MiscScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+		<ClInclude Include="IAPScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="ControlMappingScreen.h">

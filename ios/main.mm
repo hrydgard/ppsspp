@@ -25,6 +25,7 @@
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 #import "iOSCoreAudio.h"
+#import "IAPManager.h"
 
 #include "Common/MemoryUtil.h"
 #include "Common/System/NativeApp.h"
@@ -372,11 +373,15 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			// If a hardware keyboard is connected, and we add support, we could return false here.
 			return true;
 		case SYSPROP_APP_GOLD:
+			// TODO: Check the IAP status.
 #ifdef GOLD
+			// This is deprecated.
 			return true;
 #else
-			return false;
+			return [[IAPManager sharedIAPManager] isGoldUnlocked];
 #endif
+		case SYSPROP_USE_IAP:
+			return true;
 		case SYSPROP_CAN_JIT:
 			return g_jitAvailable;
 		case SYSPROP_LIMITED_FILE_BROWSING:
@@ -426,7 +431,7 @@ void System_Notify(SystemNotification notification) {
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
-        dispatch_async(dispatch_get_main_queue(), ^{
+		dispatch_async(dispatch_get_main_queue(), ^{
 			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart:param1.c_str()];
 		});
 		return true;
@@ -511,6 +516,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::IAP_RESTORE_PURCHASES:
+	{
+		[[IAPManager sharedIAPManager] restorePurchasesWithRequestID:requestId];
+		return true;
+	}
+	case SystemRequestType::IAP_MAKE_PURCHASE:
+	{
+		[[IAPManager sharedIAPManager] buyGoldWithRequestID:requestId];
+		return true;
+	}
 /*
 	// Not 100% sure the threading is right
 	case SystemRequestType::COPY_TO_CLIPBOARD:
@@ -522,10 +537,10 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 */
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
-        dispatch_async(dispatch_get_main_queue(), ^{
-            INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
-            [[UIApplication sharedApplication] setIdleTimerDisabled: (param3 ? YES : NO)];
-        });
+		dispatch_async(dispatch_get_main_queue(), ^{
+			INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
+			[[UIApplication sharedApplication] setIdleTimerDisabled: (param3 ? YES : NO)];
+		});
 		return true;
 	default:
 		break;

@@ -8,6 +8,7 @@
 #import "Core/System.h"
 #import "Core/Config.h"
 #import "Common/Log.h"
+#import "IAPManager.h"
 
 #import <AVFoundation/AVFoundation.h>
 
@@ -88,6 +89,8 @@
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
+
+	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
 
 	return [self launchPPSSPP:argc argv:argv];
 }

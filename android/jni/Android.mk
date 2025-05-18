@@ -908,6 +908,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/TabbedDialogScreen.cpp \
   $(SRC)/UI/MemStickScreen.cpp \
+  $(SRC)/UI/IAPScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/RemoteISOScreen.cpp \
   $(SRC)/UI/ReportScreen.cpp \

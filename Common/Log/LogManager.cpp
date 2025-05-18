@@ -92,6 +92,7 @@ static const char * const g_logTypeNames[] = {
 	"TEXREPLACE",
 	"DEBUGGER",
 	"UI",
+	"IAP",
 	"SCEAUDIO",
 	"SCECTRL",
 	"SCEDISP",
