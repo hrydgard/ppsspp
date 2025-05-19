@@ -447,7 +447,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
 			{
 				const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-				RenderAchievement(dc, achievement, measuredEntry.style, b, alpha, entry.startTime, now, false);
+				if (achievement) {
+					RenderAchievement(dc, achievement, measuredEntry.style, b, alpha, entry.startTime, now, false);
+				}
 				break;
 			}
 			case OSDType::LEADERBOARD_TRACKER:
