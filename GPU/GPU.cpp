@@ -94,7 +94,7 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 }
 
 bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
-	_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
+	_dbg_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
 	GPUCommon *createdGPU = CreateGPUCore(gpuCore, ctx, draw);
 
 	// This can happen on some memory allocation failure, but can probably just be ignored in practice.
