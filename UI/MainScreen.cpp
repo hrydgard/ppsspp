@@ -1316,6 +1316,7 @@ void MainScreen::CreateViews() {
 				return UI::EVENT_DONE;
 			});
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+			gold->SetShine(true);
 		}
 	}
 
