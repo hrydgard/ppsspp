@@ -325,11 +325,16 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ALIGNMENT);
 	}
 
-
 	int numSamplesWritten = 0;
 	int finish = 0;
 	int remains = 0;
+	if (outAddr != 0 && !Memory::IsValidAddress(outAddr)) {
+		// Dunno what error code to return here, but we have to bail in this case to avoid crashing PPSSPP.
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_SIZE_TOO_SMALL);
+	}
+
 	u8 *outPtr = outAddr ? Memory::GetPointerWrite(outAddr) : nullptr;
+
 	int ret = atrac->DecodeData(outPtr, outAddr, &numSamplesWritten, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
