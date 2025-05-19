@@ -120,9 +120,6 @@
     <ClCompile Include="..\android\jni\Arm64EmitterTest.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
-    <ClCompile Include="..\android\jni\TestRunner.cpp">
-      <Filter>Other Platforms</Filter>
-    </ClCompile>
     <ClCompile Include="DinputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
@@ -337,9 +334,6 @@
       <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\Arm64EmitterTest.h">
-      <Filter>Other Platforms</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\TestRunner.h">
       <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="DinputDevice.h">

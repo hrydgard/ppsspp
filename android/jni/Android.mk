@@ -483,7 +483,6 @@ EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(GPU_VULKAN_FILES) \
   $(SRC)/ext/xxhash.c \
-  TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
   $(SRC)/Core/MIPS/MIPSDis.cpp \
