@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 ARCH="$(uname -m)"
 LIB4BN="https://raw.githubusercontent.com/VHSgunzo/sharun/refs/heads/main/lib4bin"
 URUNTIME="https://github.com/VHSgunzo/uruntime/releases/latest/download/uruntime-appimage-dwarfs-$ARCH"
@@ -23,7 +25,7 @@ cp -v  ../icons/hicolor/256x256/apps/ppsspp.png ./.DirIcon
 wget "$LIB4BN" -O ./lib4bin
 chmod +x ./lib4bin
 xvfb-run -a -- ./lib4bin -p -v -e -s -k \
-	~/ppsspp/build/PPSSPPSDL \
+	../build/PPSSPPSDL \
 	"$SYS_LIB_DIR"/libSDL* \
 	"$SYS_LIB_DIR"/lib*GL* \
 	"$SYS_LIB_DIR"/libvulkan* \
@@ -34,7 +36,7 @@ xvfb-run -a -- ./lib4bin -p -v -e -s -k \
 	"$SYS_LIB_DIR"/spa-0.2/*/*
 
 # copy assets dir needs to be next oteh binary
-cp -vr ../build/assets ./AppDir/bin
+cp -vr ../build/assets ./bin
 
 # Prepare sharun
 echo "Preparing sharun..."
