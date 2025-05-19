@@ -25,7 +25,6 @@ private:
 	void CreateGraphicsTab(UI::LinearLayout *list);
 	void CreateNetworkTab(UI::LinearLayout *list);
 
-	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnOpenTexturesIniFile(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);

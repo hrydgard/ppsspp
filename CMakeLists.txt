@@ -1506,7 +1506,6 @@ if(NOT LIBRETRO)
 endif()
 
 list(APPEND NativeAppSource
-	android/jni/TestRunner.cpp
 	UI/ImDebugger/ImDebugger.cpp
 	UI/ImDebugger/ImDebugger.h
 	UI/ImDebugger/ImGe.cpp

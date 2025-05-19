@@ -17,7 +17,6 @@
 
 #include <string>
 
-#include "android/jni/TestRunner.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/System/OSD.h"
@@ -210,11 +209,6 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 		return UI::EVENT_DONE;
 	});
 	frameDumpTests->SetEnabled(!PSP_IsInited());
-#if !PPSSPP_PLATFORM(UWP)
-	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
-	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-	cpuTests->SetEnabled(TestsAvailable() && !PSP_IsInited());
-#endif
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
 	// because the D3D drivers are generally solid enough to not need this type of investigation.
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
@@ -488,14 +482,6 @@ void DeveloperToolsScreen::onFinish(DialogResult result) {
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
-	// TODO: If game is loaded, don't do anything.
-#if !PPSSPP_PLATFORM(UWP)
-	RunTests();
-#endif
 	return UI::EVENT_DONE;
 }
 
