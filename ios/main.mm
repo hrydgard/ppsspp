@@ -358,6 +358,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return true;
 		case SYSPROP_HAS_FOLDER_BROWSER:
 			return true;
+		case SYSPROP_HAS_IMAGE_BROWSER:
+			return true;
 		case SYSPROP_HAS_OPEN_DIRECTORY:
 			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
@@ -460,6 +462,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		};
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		NSString *filename = [NSString stringWithUTF8String:param2.c_str()];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[sharedViewController pickPhoto:filename requestId:requestId];
+		});
 		return true;
 	}
 	case SystemRequestType::CAMERA_COMMAND:

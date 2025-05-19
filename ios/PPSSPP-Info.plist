@@ -12,6 +12,8 @@
 	<string>Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Your local network needs to be accessed by PPSSPP for network multiplayer support.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Access to your photos is needed to allow setting a background image.</string>
 	<key>CFBundleDisplayName</key>
 	<string>PPSSPP</string>
 	<key>CFBundleExecutable</key>

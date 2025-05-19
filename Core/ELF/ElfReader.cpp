@@ -98,7 +98,9 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 				continue;
 			}
 
-			relocOps[r] = Memory::ReadUnchecked_Instruction(addr, true).encoding;
+			// NOTE: During loading, we use plain reads instead of Memory::ReadUnchecked_Insruction.
+			// No blocks are created yet, so that's fine.
+			relocOps[r] = Memory::ReadUnchecked_U32(addr);
 		}
 
 		for (int r = 0; r < numRelocs; r++) {
