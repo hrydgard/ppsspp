@@ -1090,7 +1090,7 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	bool vertical = UseVerticalLayout();
+	const bool vertical = UseVerticalLayout();
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -1309,7 +1309,11 @@ void MainScreen::CreateViews() {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
 			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-			gold->OnClick.Handle(this, &MainScreen::OnSupport);
+			ScreenManager *sm = screenManager();
+			gold->OnClick.Add([sm](UI::EventParams &) {
+				LaunchBuyGold(sm);
+				return UI::EVENT_DONE;
+			});
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 		}
 	}
@@ -1575,7 +1579,7 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
+void LaunchBuyGold(ScreenManager *screenManager) {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
 #elif PPSSPP_PLATFORM(ANDROID)
@@ -1583,7 +1587,6 @@ UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
 #else
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {

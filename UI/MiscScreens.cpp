@@ -623,20 +623,33 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
+	const bool vertical = UseVerticalLayout();
+
 	root_ = new AnchorLayout();
+	ViewGroup *rightColumnItems;
 
-	root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
+	if (!vertical) {
+		// Horizontal layout.
+		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
+		rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
+		root_->Add(rightColumnItems);
+	} else {
+		// Vertical layout
+		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 55, NONE)))->SetClip(false);
+		// Leave space for the version at the bottom.
+		rightColumnItems = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(FILL_PARENT, WRAP_CONTENT, 15, NONE, 15, 65));
+		root_->Add(rightColumnItems);
+	}
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
-	root_->Add(rightColumnItems);
-
-	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
+	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
+	yesButton->SetCentered(vertical);
 	yesButton->OnClick.Add([this](UI::EventParams &e) {
 		TriggerFinish(DR_OK);
 		return UI::EVENT_DONE;
 	});
 	if (!noButtonText_.empty()) {
-		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_));
+		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
+		noButton->SetCentered(vertical);
 		noButton->OnClick.Add([this](UI::EventParams &e) {
 			TriggerFinish(DR_CANCEL);
 			return UI::EVENT_DONE;
@@ -644,7 +657,7 @@ void PromptScreen::CreateViews() {
 		root_->SetDefaultFocusView(noButton);
 	} else {
 		// This is an information screen, not a question.
-		// Sneak in the version of PPSSPP in the corner, for debug-reporting user screenshots.
+		// Sneak in the version of PPSSPP in the bottom left corner, for debug-reporting user screenshots.
 		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
 		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
 		root_->SetDefaultFocusView(yesButton);
@@ -907,7 +920,11 @@ void CreditsScreen::CreateViews() {
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+		ScreenManager *sm = screenManager();
+		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Add([sm](UI::EventParams) {
+			LaunchBuyGold(sm);
+			return UI::EVENT_DONE;
+		});
 		rightYOffset = 74;
 	}
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
@@ -924,15 +941,6 @@ void CreditsScreen::CreateViews() {
 	} else {
 		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 	}
-}
-
-UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
-#ifdef __ANDROID__
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
-#else
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
-#endif
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnX(UI::EventParams &e) {

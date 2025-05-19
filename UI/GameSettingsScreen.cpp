@@ -497,15 +497,17 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
-	tessellationHW->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
+	if (DoesBackendSupportHWTess()) {
+		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
+		tessellationHW->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
 
-	tessellationHW->SetEnabledFunc([]() {
-		return DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	});
+		tessellationHW->SetEnabledFunc([]() {
+			return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+		});
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
