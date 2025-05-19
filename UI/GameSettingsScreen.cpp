@@ -101,7 +101,7 @@ extern AndroidAudioState *g_audioState;
 #endif
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-static void SetMemStickDirDarwin(int requesterToken) {
+void SetMemStickDirDarwin(int requesterToken) {
 	auto initialPath = g_Config.memStickDirectory;
 	INFO_LOG(Log::System, "Current path: %s", initialPath.c_str());
 	System_BrowseForFolder(requesterToken, "", initialPath, [](const std::string &value, int) {
@@ -1129,7 +1129,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER) || System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
 	} else {
 		backgroundChoice_ = nullptr;
@@ -1516,48 +1516,53 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		// The button is in clear mode.
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
 		UIBackgroundShutdown();
 		RecreateViews();
-	} else {
-		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), [=](const std::string &value, int) {
-			if (!value.empty()) {
-				Path path(value);
-
-				// Check the file format. Don't rely on the file extension here due to scoped storage URLs.
-				FILE *f = File::OpenCFile(path, "rb");
-				uint8_t buffer[8];
-				ImageFileType type = ImageFileType::UNKNOWN;
-				if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
-					type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
-				}
-
-				std::string filename;
-				switch (type) {
-				case ImageFileType::JPEG:
-					filename = "background.jpg";
-					break;
-				case ImageFileType::PNG:
-					filename = "background.png";
-					break;
-				default:
-					break;
-				}
-
-				if (!filename.empty()) {
-					Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-					File::Copy(Path(value), dest);
-				} else {
-					g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
-				}
-			}
-			// It will init again automatically.  We can't init outside a frame on Vulkan.
-			UIBackgroundShutdown();
-			RecreateViews();
-		});
+		return UI::EVENT_DONE;
 	}
+
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [=](const std::string &value, int converted) {
+		if (converted == 1) {
+			// The platform code converted and saved the file to the desired path already.
+			INFO_LOG(Log::UI, "Converted file.");
+		} else if (!value.empty()) {
+			Path path(value);
+
+			// Check the file format. Don't rely on the file extension here due to scoped storage URLs.
+			FILE *f = File::OpenCFile(path, "rb");
+			uint8_t buffer[8];
+			ImageFileType type = ImageFileType::UNKNOWN;
+			if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
+				type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
+			}
+
+			std::string filename;
+			switch (type) {
+			case ImageFileType::JPEG:
+				filename = "background.jpg";
+				break;
+			case ImageFileType::PNG:
+				filename = "background.png";
+				break;
+			default:
+				break;
+			}
+
+			if (!filename.empty()) {
+				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
+				File::Copy(Path(value), dest);
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
+			}
+		}
+		// It will init again automatically.  We can't init outside a frame on Vulkan.
+		UIBackgroundShutdown();
+		RecreateViews();
+	});
 
 	// Change to a browse or clear button.
 	return UI::EVENT_DONE;

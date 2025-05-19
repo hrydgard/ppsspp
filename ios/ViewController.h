@@ -12,5 +12,6 @@
 
 @interface PPSSPPViewControllerGL : GLKViewController <
     iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
-    UIGestureRecognizerDelegate, UIKeyInput, PPSSPPViewController>
+    UIGestureRecognizerDelegate, UIKeyInput, PPSSPPViewController,
+	UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 @end

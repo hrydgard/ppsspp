@@ -22,6 +22,7 @@
 - (void)willResignActive;
 
 - (void)uiStateChanged;
+- (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId;
 
 @end
 

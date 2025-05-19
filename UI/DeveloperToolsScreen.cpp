@@ -37,6 +37,8 @@
 #include "UI/DevScreens.h"
 #include "UI/DriverManagerScreen.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/GameSettingsScreen.h"
+#include "UI/OnScreenDisplay.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -122,6 +124,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	list->Add(new ItemHeader(sy->T("CPU Core")));
 

@@ -210,3 +210,4 @@ private:
 };
 
 void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath);
+void SetMemStickDirDarwin(int requesterToken);

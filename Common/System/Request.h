@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "Common/System/System.h"
+#include "Common/File/Path.h"
 
 class Path;
 
@@ -91,9 +92,11 @@ inline void System_InputBoxGetString(RequesterToken token, std::string_view titl
 }
 
 // This one will pop up a special image browser if available. You can also pick
-// images with the file browser below.
-inline void System_BrowseForImage(RequesterToken token, std::string_view title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, token, callback, failedCallback, title, "", 0);
+// images with the file browser below. If you provide savePath, iOS will be able to
+// convert from HEIC as needed and then save to that path. If this happens, the intParam will
+// be set to 1. Other backends will probably ignore it and set the intParam to 0.
+inline void System_BrowseForImage(RequesterToken token, std::string_view title, Path savePath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, token, callback, failedCallback, title, savePath.ToString(), 0);
 }
 
 enum class BrowseFileType {
