@@ -2,6 +2,7 @@
 
 #include "UI/IAPScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/MiscScreens.h"
 #include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
@@ -22,7 +23,7 @@ void IAPScreen::CreateViews() {
 	root_->Add(leftColumnItems);
 
 	ViewGroup *appTitle = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	appTitle->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new LinearLayoutParams(64, 64)));
+	appTitle->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new LinearLayoutParams(64, 64)));
 	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, G_VCENTER)));
 	leftColumnItems->Add(appTitle);
 
