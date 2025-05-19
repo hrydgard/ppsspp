@@ -348,15 +348,19 @@ void DrawBuffer::DrawImageRotatedStretch(ImageID atlas_image, const Bounds &boun
 	}
 }
 
-void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
-	float angleDelta = PI * 2 / segments;
+void DrawBuffer::CircleSegment(float xc, float yc, float radius, float thickness, int segments, float startAngle, float endAngle, uint32_t color, float u_mul) {
+	if (endAngle < startAngle) {
+		std::swap(endAngle, startAngle);
+	}
+
+	float angleDelta = (endAngle - startAngle) / segments;
 	float uDelta = 1.0f / segments;
 	float t2 = thickness / 2.0f;
 	float r1 = radius + t2;
 	float r2 = radius - t2;
 	for (int i = 0; i < segments + 1; i++) {
-		float angle1 = i * angleDelta;
-		float angle2 = (i + 1) * angleDelta;
+		float angle1 = startAngle + i * angleDelta;
+		float angle2 = startAngle + (i + 1) * angleDelta;
 		float u1 = u_mul * i * uDelta;
 		float u2 = u_mul * (i + 1) * uDelta;
 		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
@@ -370,6 +374,10 @@ void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int s
 		V(x[3],	y[3], color, u2, 1.0f);
 		V(x[2],	y[2], color, u1, 1.0f);
 	}
+}
+
+void DrawBuffer::Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
+	CircleSegment(x, y, radius, thickness, segments, startAngle, startAngle + PI * 2.0, color, u_mul);
 }
 
 void DrawBuffer::FillCircle(float xc, float yc, float radius, int segments, uint32_t color) {

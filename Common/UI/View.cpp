@@ -1013,10 +1013,13 @@ void RadioButton::Draw(UIContext &dc) {
 
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
+	w *= scale_;
+	h *= scale_;
 	// TODO: involve sizemode
 }
 
 void ImageView::Draw(UIContext &dc) {
+	dc.Begin();
 	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(atlasImage_);
 	if (img) {
 		// TODO: involve sizemode

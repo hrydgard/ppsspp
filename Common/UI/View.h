@@ -1096,11 +1096,13 @@ public:
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return text_; }
+	void SetScale(float s) { scale_ = s; }  // Only used for measuring.
 
 private:
 	std::string text_;
 	ImageID atlasImage_;
 	ImageSizeMode sizeMode_;
+	float scale_ = 1.0f;
 };
 
 class ProgressBar : public InertView {
