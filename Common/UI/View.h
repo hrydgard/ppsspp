@@ -753,6 +753,9 @@ public:
 	void SetHideTitle(bool hide) {
 		hideTitle_ = hide;
 	}
+	void SetShine(bool shine) {
+		shine_ = true;
+	}
 
 protected:
 	// hackery
@@ -773,6 +776,7 @@ protected:
 	bool imgFlipH_ = false;
 	u32 drawTextFlags_ = 0;
 	bool hideTitle_ = false;
+	float shine_ = false;
 
 private:
 	bool selected_ = false;
@@ -1155,5 +1159,8 @@ bool IsEscapeKey(const KeyInput &key);
 bool IsInfoKey(const KeyInput &key);
 bool IsTabLeftKey(const KeyInput &key);
 bool IsTabRightKey(const KeyInput &key);
+
+// TODO: Doesn't really belong here.
+void DrawIconShine(UIContext &dc, const Bounds &bounds, bool animated);
 
 }  // namespace

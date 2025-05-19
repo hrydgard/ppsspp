@@ -939,7 +939,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
 
-	if (true || System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		root_->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	} else {
 		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
@@ -1228,31 +1228,6 @@ std::string SettingInfoMessage::GetText() const {
 }
 
 void ShinyIcon::Draw(UIContext &dc) {
-	static const float radius[6] = { 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f };
-	static const float startAngle[6] = { 0.3f, 0.5f, 0.1f, 0.9f, 0.7f, 0.4f };
-	static const float arcLength[6] = { 0.45f, 0.2f, 0.6f, 0.7f, 0.3f, 0.5f };
-	static const float speed[6] = { 0.4f, -0.9f, 0.2f, -0.6f, 0.7f, -0.1f };
-
-	dc.BeginNoTex();
-
-	const double t = time_now_d();
-	const int x = bounds_.centerX();
-	const int y = bounds_.centerY();
-	for (int i = 0; i < 6; i++) {
-		float radius = (i * 0.1f + 0.4f) * 1.3f;
-		float alpha = (5 - i) * (1.0f / 9.0f);
-
-		float angle = fmod(startAngle[i] + t * speed[i] * 0.7f, 1.0) * 2 * PI;
-		dc.Draw()->CircleSegment(x, y, radius * bounds_.w, 4.0f, 64.0f, angle, angle + arcLength[i] * 2 * PI, colorAlpha(0xFF3EC5FF, alpha), 0.0f);
-	}
-
-	dc.Flush();
-	dc.Begin();
-
-	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(ImageID("I_DROP_SHADOW"));
-	float scale = bounds_.w / img->w;
-	dc.Draw()->DrawImage(ImageID("I_DROP_SHADOW"), bounds_.centerX(), bounds_.centerY(), scale * 1.7f, 0xFF3EC5FF, ALIGN_CENTER);
-	dc.Flush();
-
+	UI::DrawIconShine(dc, bounds_, true);
 	UI::ImageView::Draw(dc);
 }

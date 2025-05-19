@@ -13,14 +13,18 @@ void IAPScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	const bool vertical = UseVerticalLayout();
+
+	root_ = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	
 	const bool bought = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
 	// TODO: Support vertical layout!
+	AnchorLayout *leftColumnContainer = new AnchorLayout(new LinearLayoutParams(1.0f, UI::Gravity::G_HCENTER));
 
-	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 330, 10));
-	root_->Add(leftColumnItems);
+	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(600, WRAP_CONTENT, NONE, 105, NONE, 15));
+	leftColumnContainer->Add(leftColumnItems);
+	root_->Add(leftColumnContainer);
 
 	ViewGroup *appTitle = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	appTitle->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new LinearLayoutParams(64, 64)));
@@ -29,11 +33,13 @@ void IAPScreen::CreateViews() {
 
 	leftColumnItems->Add(new TextView(di->T("GoldOverview", "Buy PPSSPP Gold to support development!")));
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, WRAP_CONTENT, UI::Margins(15,15)));
 	root_->Add(rightColumnItems);
 
 	if (!bought) {
 		Choice *buyButton = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+		buyButton->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+		buyButton->SetShine(true);
 		const int requesterToken = GetRequesterToken();
 		buyButton->OnClick.Add([this, requesterToken](UI::EventParams &) {
 			INFO_LOG(Log::System, "Showing purchase UI...");
