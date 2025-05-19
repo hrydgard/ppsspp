@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -e
+set -ex
 
 ARCH="$(uname -m)"
 LIB4BN="https://raw.githubusercontent.com/VHSgunzo/sharun/refs/heads/main/lib4bin"
@@ -56,7 +56,7 @@ echo "Generating AppImage..."
 ./uruntime --appimage-mkdwarfs -f \
 	--set-owner 0 --set-group 0 \
 	--no-history --no-create-timestamp \
-	--compression zstd:level=22 -S26 -B8 \
+	--compression zstd:level=22 -S25 -B8 \
 	--header uruntime \
 	-i ./AppDir -o PPSSPP-"$VERSION"-anylinux-"$ARCH".AppImage
 
