@@ -943,15 +943,6 @@ void CreditsScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
-#ifdef __ANDROID__
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
-#else
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
-#endif
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn CreditsScreen::OnX(UI::EventParams &e) {
 	// Not sure we should change to x.com here, given various platform URL handlers etc. We can probably change it soon.
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/PPSSPP_emu");

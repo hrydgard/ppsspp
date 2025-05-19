@@ -167,7 +167,6 @@ public:
 	const char *tag() const override { return "Credits"; }
 
 private:
-	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
 	UI::EventReturn OnPrivacy(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
