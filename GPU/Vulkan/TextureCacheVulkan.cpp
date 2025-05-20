@@ -270,6 +270,11 @@ static std::string ReadShaderSrc(const Path &filename) {
 }
 
 void TextureCacheVulkan::CompileScalingShader() {
+	if (!draw_) {
+		// Something is very wrong.
+		return;
+	}
+
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {
