@@ -366,9 +366,12 @@ bool VulkanRenderManager::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrier
 		return false;
 	}
 
+	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
+		res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
+		_dbg_assert_(res == VK_SUCCESS);
 
 		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 		color_image_view.format = vulkan_->GetSwapchainFormat();
@@ -481,6 +484,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 
 	for (auto &image : frameDataShared_.swapchainImages_) {
 		vulkan_->Delete().QueueDeleteImageView(image.view);
+		vkDestroySemaphore(vulkan_->GetDevice(), image.renderingCompleteSemaphore, nullptr);
 	}
 	frameDataShared_.swapchainImages_.clear();
 

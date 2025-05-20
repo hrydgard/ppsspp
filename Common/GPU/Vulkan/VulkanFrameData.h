@@ -56,6 +56,7 @@ struct CachedReadback {
 struct SwapchainImageData {
 	VkImage image;
 	VkImageView view;
+	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 };
 
 struct FrameDataShared {
@@ -87,7 +88,6 @@ struct FrameData {
 
 	VkFence fence = VK_NULL_HANDLE;
 	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
-	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
