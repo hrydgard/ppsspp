@@ -462,6 +462,8 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 		background = dc.theme->itemFocusedStyle.background;
 	}
 
+	_assert_(achievement);
+
 	// Set some alpha, if displayed in list.
 	if (style == AchievementRenderStyle::LISTED) {
 		background.color = colorAlpha(background.color, 0.6f);
@@ -717,14 +719,23 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 }
 
 void AchievementView::Draw(UIContext &dc) {
+	if (!achievement_) {
+		return;
+	}
 	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f, HasFocus());
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	if (!achievement_) {
+		return;
+	}
 	MeasureAchievement(dc, achievement_, AchievementRenderStyle::LISTED, &w, &h);
 }
 
 void AchievementView::Click() {
+	if (!achievement_) {
+		return;
+	}
 	// In debug builds, clicking achievements will show them being unlocked (which may be a lie).
 #ifdef _DEBUG
 	static int type = 0;
