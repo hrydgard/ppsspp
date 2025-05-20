@@ -66,7 +66,7 @@
 			]
 		},
 		{
-			"name": "Wipeout Pure",
+			"name": "WipEout Pure",
 			"comment": {
 				"en_US": "Web browser only, no multiplayer"
 			},
@@ -76,7 +76,9 @@
 			},
 			"dns": "147.135.213.57",
 			"domains": {
-				"hub.psnexus.net": "147.135.213.57"
+				"hub.psnexus.net": "147.135.213.57",
+				"ingame.scea.com": "147.135.213.57",
+				"wipeoutpurepsp.scej-online.jp": "147.135.213.57"
 			},
 			"other_ids": [
 				"UCUS98612",
@@ -87,7 +89,7 @@
 			]
 		},
 		{
-			"name": "Wipeout Pulse",
+			"name": "WipEout Pulse",
 			"comment": {
 				"en_US": "Great"
 			},
@@ -99,7 +101,9 @@
 			"score": 5,
 			"known_working_ids": [
 				"UCES00465",
-				"UCUS98712"
+				"UCUS98712",
+				"UCAS40179",
+				"WPCE02025"
 			],
 			"not_working_ids": [],
 			"other_ids": [
@@ -108,7 +112,7 @@
 			"not_working_platforms": []
 		},
 		{
-			"name": "Motorstorm: Artic Edge",
+			"name": "MotorStorm: Arctic Edge",
 			"comment": {
 				"en_US": "Works"
 			},
