@@ -1228,6 +1228,6 @@ std::string SettingInfoMessage::GetText() const {
 }
 
 void ShinyIcon::Draw(UIContext &dc) {
-	UI::DrawIconShine(dc, bounds_, true);
+	UI::DrawIconShine(dc, bounds_, 1.0f, true);
 	UI::ImageView::Draw(dc);
 }

@@ -29,9 +29,14 @@ void IAPScreen::CreateViews() {
 	ViewGroup *appTitle = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	appTitle->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new LinearLayoutParams(64, 64)));
 	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, G_VCENTER)));
-	leftColumnItems->Add(appTitle);
 
-	leftColumnItems->Add(new TextView(di->T("GoldOverview", "Buy PPSSPP Gold to support development!")));
+	leftColumnItems->Add(appTitle);
+	leftColumnItems->Add(new Spacer(20.0f));
+	leftColumnItems->Add(new TextView(di->T("GoldOverview1", "Buy PPSSPP Gold to support development!")))->SetAlign(FLAG_WRAP_TEXT);
+	leftColumnItems->Add(new Spacer(10.0f));
+	leftColumnItems->Add(new TextView(di->T("GoldOverview2", "It helps sustain development!")))->SetAlign(FLAG_WRAP_TEXT);
+	leftColumnItems->Add(new Spacer(20.0f));
+	leftColumnItems->Add(new TextView("Henrik Rydgård (hrydgard)"));
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, WRAP_CONTENT, UI::Margins(15,15)));
 	root_->Add(rightColumnItems);
@@ -46,7 +51,7 @@ void IAPScreen::CreateViews() {
 			System_IAPMakePurchase(requesterToken, "org.ppsspp.gold", [this](const char *responseString, int intValue) {
 				INFO_LOG(Log::System, "Purchase successful!");
 				auto di = GetI18NCategory(I18NCat::DIALOG);
-				g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Thank you for supporting the PPSSPP project!"), 3.0f);
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("GoldThankYou", "Thank you for supporting the PPSSPP project!"), 3.0f);
 				RecreateViews();
 			}, []() {
 				WARN_LOG(Log::System, "Purchase failed or cancelled!");
