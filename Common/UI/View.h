@@ -1016,6 +1016,7 @@ public:
 	void SetClip(bool clip) { clip_ = clip; }
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(float pad) { pad_ = pad; }
+	void SetAlign(int align) { textAlign_ = align; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -1159,6 +1160,6 @@ bool IsTabLeftKey(const KeyInput &key);
 bool IsTabRightKey(const KeyInput &key);
 
 // TODO: Doesn't really belong here.
-void DrawIconShine(UIContext &dc, const Bounds &bounds, bool animated);
+void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animated);
 
 }  // namespace
