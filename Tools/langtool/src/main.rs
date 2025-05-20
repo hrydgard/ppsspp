@@ -1,6 +1,7 @@
 use std::io;
 
 mod section;
+use section::{line_value, Section};
 
 mod inifile;
 use inifile::IniFile;
@@ -62,6 +63,11 @@ enum Command {
         key: String,
     },
     GetNewKeys,
+    ImportSingle {
+        filename: String,
+        section: String,
+        key: String,
+    },
 }
 
 fn copy_missing_lines(
@@ -237,6 +243,25 @@ fn main() {
         }
     }
 
+    let mut single_ini_section: Option<Section> = None;
+    if let Command::ImportSingle {
+        filename,
+        section,
+        key,
+    } = &opt.cmd
+    {
+        if let Ok(single_ini) = IniFile::parse(filename) {
+            if let Some(single_section) = single_ini.get_section("Single") {
+                single_ini_section = Some(single_section.clone());
+            } else {
+                println!("No section {} in {}", section, filename);
+            }
+        } else {
+            println!("Failed to parse {}", filename);
+            return;
+        }
+    }
+
     for filename in filenames {
         let reference_ini = &reference_ini;
         if filename == "langtool" {
@@ -307,6 +332,37 @@ fn main() {
                 ref key,
             } => {
                 remove_key(&mut target_ini, section, key).unwrap();
+            }
+            Command::ImportSingle {
+                filename: _,
+                ref section,
+                ref key,
+            } => {
+                let lang_id = filename.strip_suffix(".ini").unwrap();
+                if let Some(single_section) = &single_ini_section {
+                    if let Some(target_section) = target_ini.get_section_mut(&section) {
+                        if let Some(single_line) = single_section.get_line(&lang_id) {
+                            if let Some(value) = line_value(&single_line) {
+                                println!(
+                                    "Inserting value {} for key {} in section {} in {}",
+                                    value, key, section, target_ini_filename
+                                );
+                                if !target_section
+                                    .insert_line_if_missing(&format!("{} = {}", key, value))
+                                {
+                                    // Didn't insert it, so it exists. We need to replace it.
+                                    target_section.set_value(key, value);
+                                }
+                            }
+                        } else {
+                            println!("No lang_id {} in single section", lang_id);
+                        }
+                    } else {
+                        println!("No section {} in {}", section, target_ini_filename);
+                    }
+                } else {
+                    println!("No section {} in {}", section, filename);
+                }
             }
         }
 
