@@ -323,7 +323,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (!queueRunner_.CreateSwapchain(cmdInit, &postInitBarrier_)) {
+	if (!CreateSwapchain(cmdInit, &postInitBarrier_, frameDataShared_)) {
 		return false;
 	}
 
@@ -350,6 +350,58 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	// Start the thread(s).
 	if (HasBackbuffers()) {
 		StartThreads();
+	}
+	return true;
+}
+
+bool VulkanRenderManager::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
+	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
+	_dbg_assert_(res == VK_SUCCESS);
+
+	VkImage *swapchainImages = new VkImage[frameDataShared.swapchainImageCount_];
+	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages);
+	if (res != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
+		delete[] swapchainImages;
+		return false;
+	}
+
+	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
+		SwapchainImageData sc_buffer{};
+		sc_buffer.image = swapchainImages[i];
+		res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
+		_dbg_assert_(res == VK_SUCCESS);
+
+		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+		color_image_view.format = vulkan_->GetSwapchainFormat();
+		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		color_image_view.subresourceRange.baseMipLevel = 0;
+		color_image_view.subresourceRange.levelCount = 1;
+		color_image_view.subresourceRange.baseArrayLayer = 0;
+		color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
+		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		color_image_view.flags = 0;
+		color_image_view.image = sc_buffer.image;
+
+		// We leave the images as UNDEFINED, there's no need to pre-transition them as
+		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
+		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
+
+		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
+		vulkan_->SetDebugName(sc_buffer.view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
+		frameDataShared.swapchainImages_.push_back(sc_buffer);
+		_dbg_assert_(res == VK_SUCCESS);
+	}
+	delete[] swapchainImages;
+
+	// Must be before InitBackbufferRenderPass.
+	if (queueRunner_.InitDepthStencilBuffer(cmdInit, barriers)) {
+		queueRunner_.InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight(), frameDataShared);
 	}
 	return true;
 }
@@ -429,6 +481,12 @@ void VulkanRenderManager::StopThreads() {
 void VulkanRenderManager::DestroyBackbuffers() {
 	StopThreads();
 	vulkan_->WaitUntilQueueIdle();
+
+	for (auto &image : frameDataShared_.swapchainImages_) {
+		vulkan_->Delete().QueueDeleteImageView(image.view);
+		vkDestroySemaphore(vulkan_->GetDevice(), image.renderingCompleteSemaphore, nullptr);
+	}
+	frameDataShared_.swapchainImages_.clear();
 
 	queueRunner_.DestroyBackBuffers();
 }

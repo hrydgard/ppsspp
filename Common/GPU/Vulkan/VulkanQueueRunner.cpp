@@ -79,56 +79,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	renderPasses_.Clear();
 }
 
-bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers) {
-	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
-
-	VkImage *swapchainImages = new VkImage[swapchainImageCount_];
-	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
-		delete[] swapchainImages;
-		return false;
-	}
-
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		SwapchainImageData sc_buffer{};
-		sc_buffer.image = swapchainImages[i];
-
-		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-		color_image_view.format = vulkan_->GetSwapchainFormat();
-		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		color_image_view.subresourceRange.baseMipLevel = 0;
-		color_image_view.subresourceRange.levelCount = 1;
-		color_image_view.subresourceRange.baseArrayLayer = 0;
-		color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
-		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		color_image_view.flags = 0;
-		color_image_view.image = sc_buffer.image;
-
-		// We leave the images as UNDEFINED, there's no need to pre-transition them as
-		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
-		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
-
-		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
-		vulkan_->SetDebugName(sc_buffer.view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
-		swapchainImages_.push_back(sc_buffer);
-		_dbg_assert_(res == VK_SUCCESS);
-	}
-	delete[] swapchainImages;
-
-	// Must be before InitBackbufferRenderPass.
-	if (InitDepthStencilBuffer(cmdInit, barriers)) {
-		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	}
-	return true;
-}
-
-bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
+bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height, FrameDataShared &frameDataShared) {
 	VkResult res;
 	// We share the same depth buffer but have multiple color buffers, see the loop below.
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
@@ -141,10 +92,10 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	fb_info.height = height;
 	fb_info.layers = 1;
 
-	framebuffers_.resize(swapchainImageCount_);
+	framebuffers_.resize(frameDataShared.swapchainImageCount_);
 
-	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		attachments[0] = swapchainImages_[i].view;
+	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
+		attachments[0] = frameDataShared.swapchainImages_[i].view;
 		res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffers_[i]);
 		_dbg_assert_(res == VK_SUCCESS);
 		if (res != VK_SUCCESS) {
@@ -225,11 +176,6 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrie
 
 
 void VulkanQueueRunner::DestroyBackBuffers() {
-	for (auto &image : swapchainImages_) {
-		vulkan_->Delete().QueueDeleteImageView(image.view);
-	}
-	swapchainImages_.clear();
-
 	if (depth_.view) {
 		vulkan_->Delete().QueueDeleteImageView(depth_.view);
 	}
@@ -373,7 +319,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 				// So only acquire once.
 				if (!frameData.hasAcquired) {
 					frameData.AcquireNextImage(vulkan_);
-					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
+					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], frameDataShared.swapchainImages_[frameData.curSwapchainImage].image);
 				}
 
 				if (!frameData.hasPresentCommands) {
