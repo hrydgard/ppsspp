@@ -52,11 +52,20 @@ struct CachedReadback {
 	void Destroy(VulkanContext *vulkan);
 };
 
+// Swap chain management
+struct SwapchainImageData {
+	VkImage image;
+	VkImageView view;
+};
+
 struct FrameDataShared {
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
 	bool useMultiThreading = false;
 	bool measurePresentTime = false;
+
+	std::vector<SwapchainImageData> swapchainImages_;
+	uint32_t swapchainImageCount_ = 0;
 
 	void Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime);
 	void Destroy(VulkanContext *vulkan);

@@ -561,6 +561,7 @@ private:
 	void FlushDescriptors(int frame);
 
 	void SanityCheckPassesOnAdd();
+	bool CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared);
 
 	FrameDataShared frameDataShared_;
 
