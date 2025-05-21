@@ -153,8 +153,9 @@
 		dpi = diagonal * scale * 0.1f;
 	}
 
-	float dpi_scale = 240.0f / dpi;
-	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+	const float dpi_scale_x = 240.0f / dpi;
+	const float dpi_scale_y = 240.0f / dpi;
+	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale_x, dpi_scale_y, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	[[sharedViewController getView] setContentScaleFactor:scale];
 

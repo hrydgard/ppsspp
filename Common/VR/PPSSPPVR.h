@@ -36,7 +36,7 @@ void SetVRCallbacks(void(*axis)(const AxisInput *axis, size_t count), bool(*key)
 
 // VR input integration
 void SetVRAppMode(VRAppMode mode);
-void UpdateVRInput(bool haptics, float dp_scale);
+void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale);
 bool UpdateVRAxis(const AxisInput *axes, size_t count);
 bool UpdateVRKeys(const KeyInput &key);
 

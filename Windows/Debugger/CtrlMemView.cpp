@@ -35,7 +35,7 @@ CtrlMemView::CtrlMemView(HWND _wnd) {
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 
-	const float fontScale = 1.0f / g_display.dpi_scale_real;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	charWidth_ = g_Config.iFontWidth * fontScale;
 	rowHeight_ = g_Config.iFontHeight * fontScale;
 	offsetPositionY_ = offsetLine * rowHeight_;

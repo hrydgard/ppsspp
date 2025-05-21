@@ -171,7 +171,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1, 1, TRUE);
 
-	const float fontScale = 1.0f / g_display.dpi_scale_real;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	charWidth = g_Config.iFontWidth * fontScale;
 	rowHeight = (g_Config.iFontHeight + 2) * fontScale;
 	int scaledFontHeight = g_Config.iFontHeight * fontScale;

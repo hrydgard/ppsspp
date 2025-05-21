@@ -1021,8 +1021,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 			if (g_Config.bAnalogGesture) {
 				const float k = g_Config.fAnalogGestureSensibility * 0.02;
-				float dx = (input.x - downX_) * g_display.dpi_scale * k;
-				float dy = (input.y - downY_) * g_display.dpi_scale * k;
+				float dx = (input.x - downX_)*g_display.dpi_scale_x * k;
+				float dy = (input.y - downY_)*g_display.dpi_scale_y * k;
 				dx = std::min(1.0f, std::max(-1.0f, dx));
 				dy = std::min(1.0f, std::max(-1.0f, dy));
 				__CtrlSetAnalogXY(0, dx, -dy);
@@ -1062,8 +1062,8 @@ void GestureGamepad::Draw(UIContext &dc) {
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
-	float dx = deltaX_ * g_display.dpi_scale * g_Config.fSwipeSensitivity;
-	float dy = deltaY_ * g_display.dpi_scale * g_Config.fSwipeSensitivity;
+	float dx = deltaX_ * g_display.dpi_scale_x * g_Config.fSwipeSensitivity;
+	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);

@@ -882,8 +882,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	// - SDL gives us motion events in "system DPI" points
 	// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
 	// - The UI code expects motion events in "logical DPI" points
-	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale;
-	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale;
+	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
+	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
 
 	switch (event.type) {
 	case SDL_QUIT:
@@ -1036,8 +1036,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			SDL_GetWindowSize(window, &w, &h);
 			TouchInput input;
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1049,8 +1049,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			SDL_GetWindowSize(window, &w, &h);
 			TouchInput input;
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1068,8 +1068,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			SDL_GetWindowSize(window, &w, &h);
 			TouchInput input;
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
