@@ -53,6 +53,7 @@
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:theme="@style/ppsspp_style"
+			android:launchMode="singleInstance"
             android:exported="true">
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>
