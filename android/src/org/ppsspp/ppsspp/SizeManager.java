@@ -100,7 +100,11 @@ public class SizeManager implements SurfaceHolder.Callback {
 		getDesiredBackbufferSize(desiredSize);
 
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
-		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
+		if (desiredSize.x == 0) {
+			Log.d(TAG, "Setting auto surface size (not fixed)");
+		} else {
+			Log.d(TAG, "Setting fixed surface size " + desiredSize.x + " x " + desiredSize.y);
+		}
 		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 

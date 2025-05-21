@@ -111,7 +111,7 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
-	bool result = shaderManagerVulkan_->LoadCacheFlags(f, &drawEngine_);
+	bool result = ShaderManagerVulkan::LoadCacheFlags(f, &drawEngine_);
 	if (!result) {
 		WARN_LOG(Log::G3D, "ShaderManagerVulkan failed to load cache header.");
 	}

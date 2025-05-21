@@ -643,6 +643,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
 #if defined(_WIN32) || defined(__ANDROID__)
 						// Ignore and proceed.
+						boot_filename.clear();
 #else
 						// Bail.
 						exit(1);
