@@ -75,10 +75,36 @@ void ScreenManager::switchScreen(Screen *screen) {
 	}
 }
 
+void ScreenManager::cancelScreensAbove(Screen *screen) {
+	bool found = false;
+	for (int i = 0; i < stack_.size(); i++) {
+		if (stack_[i].screen == screen) {
+			found = true;
+		}
+	}
+
+	if (found) {
+		cancelScreensAbove_ = screen;
+	}
+}
+
 void ScreenManager::update() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!nextStack_.empty()) {
 		switchToNext();
+	}
+
+	if (cancelScreensAbove_) {
+		bool found = false;
+		for (int i = stack_.size() - 1; i >= 0; i--) {
+			if (stack_[i].screen == cancelScreensAbove_) {
+				break;
+			}
+			Layer temp = stack_.back();
+			stack_.pop_back();
+			delete temp.screen;
+		}
+		cancelScreensAbove_ = nullptr;
 	}
 
 	if (overlayScreen_) {
