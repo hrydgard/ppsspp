@@ -45,7 +45,7 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	instructionSize = 4;
 
 	// In small window mode, g_dpi_scale may have been adjusted.
-	const float fontScale = 1.0f / g_display.dpi_scale_real;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	int fontHeight = g_Config.iFontHeight * fontScale;
 	int charWidth = g_Config.iFontWidth * fontScale;
 

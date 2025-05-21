@@ -138,7 +138,7 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	int maxTasksSeen = rm->WaitForPipelines();
 	double seconds = time_now_d() - start;
-	INFO_LOG(Log::G3D, "Waited %0.1fms for at least %d pipeline tasks to finish compiling.", maxTasksSeen, seconds * 1000.0);
+	INFO_LOG(Log::G3D, "Waited %0.1fms for at least %d pipeline tasks to finish compiling.", seconds * 1000.0, maxTasksSeen);
 
 	if (!result) {
 		WARN_LOG(Log::G3D, "Incompatible Vulkan pipeline cache - rebuilding.");

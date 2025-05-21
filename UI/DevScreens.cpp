@@ -1374,13 +1374,13 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 	snprintf(buffer, sizeof(buffer),
 		"display_res: %dx%d\n"
 		"dp_res: %dx%d pixel_res: %dx%d\n"
-		"dpi_scale: %0.3f\n"
-		"dpi_scale_real: %0.3f\n"
+		"dpi_scale: %0.3fx%0.3f\n"
+		"dpi_scale_real: %0.3fx%0.3f\n"
 		"delta: %0.2f ms fps: %0.3f\n%s",
 		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
 		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi_scale,
-		g_display.dpi_scale_real,
+		g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y,
 		delta * 1000.0, 1.0 / delta,
 		extra_debug);
 

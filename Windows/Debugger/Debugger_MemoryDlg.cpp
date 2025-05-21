@@ -255,7 +255,7 @@ void CMemoryDlg::Goto(u32 addr)
 
 void CMemoryDlg::Size()
 {
-	const float fontScale = 1.0f / g_display.dpi_scale_real;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 
 	GetClientRect(m_hDlg,&winRect);
 	int dlg_w = winRect.right - winRect.left;

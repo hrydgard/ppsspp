@@ -588,15 +588,15 @@ bool MainUI::event(QEvent *e) {
 				break;
 			case Qt::TouchPointPressed:
 			case Qt::TouchPointReleased:
-				input.x = touchPoint.pos().x() * g_display.dpi_scale * xscale;
-				input.y = touchPoint.pos().y() * g_display.dpi_scale * yscale;
+				input.x = touchPoint.pos().x() * g_display.dpi_scale_x * xscale;
+				input.y = touchPoint.pos().y() * g_display.dpi_scale_y * yscale;
 				input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
 				input.id = touchPoint.id();
 				NativeTouch(input);
 				break;
 			case Qt::TouchPointMoved:
-				input.x = touchPoint.pos().x() * g_display.dpi_scale * xscale;
-				input.y = touchPoint.pos().y() * g_display.dpi_scale * yscale;
+				input.x = touchPoint.pos().x() * g_display.dpi_scale_x * xscale;
+				input.y = touchPoint.pos().y() * g_display.dpi_scale_y * yscale;
 				input.flags = TOUCH_MOVE;
 				input.id = touchPoint.id();
 				NativeTouch(input);
@@ -614,8 +614,8 @@ bool MainUI::event(QEvent *e) {
 	case QEvent::MouseButtonRelease:
 		switch(((QMouseEvent*)e)->button()) {
 		case Qt::LeftButton:
-			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale * xscale;
-			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale * yscale;
+			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
+			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
 			input.flags = ((e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP) | TOUCH_MOUSE;
 			input.id = 0;
 			NativeTouch(input);
@@ -637,8 +637,8 @@ bool MainUI::event(QEvent *e) {
 		}
 		break;
 	case QEvent::MouseMove:
-		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale * xscale;
-		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale * yscale;
+		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
+		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
 		input.flags = TOUCH_MOVE | TOUCH_MOUSE;
 		input.id = 0;
 		NativeTouch(input);
@@ -844,8 +844,9 @@ int main(int argc, char *argv[])
 		res.transpose();
 
 	// We assume physicalDotsPerInchY is the same as PerInchX.
-	float dpi_scale = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
-	g_display.Recalculate(res.width(), res.height(), dpi_scale, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+	float dpi_scale_x = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
+	float dpi_scale_y = screen->logicalDotsPerInchY() / screen->physicalDotsPerInchY();
+	g_display.Recalculate(res.width(), res.height(), dpi_scale_x, dpi_scale_y, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	refreshRate = screen->refreshRate();
 

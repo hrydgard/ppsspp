@@ -155,13 +155,16 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 		dpi *= 96.0f / 136.0f;
 	}
 
-	g_display.dpi_scale_real = 96.0f / dpi;
+	g_display.dpi_scale_real_x = 96.0f / dpi;
+	g_display.dpi_scale_real_y = 96.0f / dpi;
 
-	g_display.dpi_scale = g_display.dpi_scale_real;
-	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
+	g_display.dpi_scale_x = g_display.dpi_scale_real_x;
+	g_display.dpi_scale_y = g_display.dpi_scale_real_y;
+	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
+	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
 
-	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale;
-	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale;
+	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
 
 	context->RSSetViewports(1, &viewport);
 }
@@ -268,8 +271,8 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
 	float dpiFactor_y = dpiFactor_x;
-	dpiFactor_x /= g_display.pixel_in_dps;
-	dpiFactor_y /= g_display.pixel_in_dps;
+	dpiFactor_x /= g_display.pixel_in_dps_x;
+	dpiFactor_y /= g_display.pixel_in_dps_y;
 
 	TouchInput input{};
 	input.id = touchId;

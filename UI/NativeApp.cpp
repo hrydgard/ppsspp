@@ -1579,8 +1579,8 @@ bool Native_IsWindowHidden() {
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_display.dpi_scale_real);
-	int h = (int)(pixelHeight * g_display.dpi_scale_real);
+	int w = (int)(pixelWidth * g_display.dpi_scale_real_x);
+	int h = (int)(pixelHeight * g_display.dpi_scale_real_y);
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
@@ -1603,7 +1603,7 @@ bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customSca
 		customScale = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
 	}
 
-	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, customScale)) {
+	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, g_logical_dpi / dpi, customScale)) {
 		NativeResized();
 		return true;
 	} else {
