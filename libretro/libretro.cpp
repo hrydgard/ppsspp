@@ -1331,6 +1331,7 @@ namespace Libretro
       PSP_RunLoopWhileState();
       switch (coreState) {
       case CORE_NEXTFRAME:
+      case CORE_POWERDOWN:
          // Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
          coreState = CORE_RUNNING_CPU;
          break;
