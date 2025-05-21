@@ -294,7 +294,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 					instPtr++;
 				}
 #ifdef IR_PROFILING
-				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(offset));
+				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromIRArenaOffset(offset));
 				Instant start = Instant::Now();
 				mips->pc = IRInterpret(mips, instPtr);
 				int64_t elapsedNanos = start.ElapsedNanos();
