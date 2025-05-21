@@ -322,7 +322,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		TouchInput touch;
 		touch.id = mouseController;
 		touch.x = x * dp_xscale;
-		touch.y = (height - y - 1) * dp_yscale / VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		touch.y = (height - y - 1) * dp_yscale;
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {
