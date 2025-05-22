@@ -1015,6 +1015,9 @@ void RadioButton::Draw(UIContext &dc) {
 	}
 }
 
+ImageView::ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams)
+	: InertView(layoutParams), text_(text), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
+
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
 	w *= scale_;
@@ -1023,7 +1026,6 @@ void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) co
 }
 
 void ImageView::Draw(UIContext &dc) {
-	dc.Begin();
 	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(atlasImage_);
 	if (img) {
 		// TODO: involve sizemode
