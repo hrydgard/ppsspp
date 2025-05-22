@@ -1622,8 +1622,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (tag == "Store") {
 		backFromStore_ = true;
 		RecreateViews();
-	}
-	if (tag == "Game") {
+	} else if (tag == "Game") {
 		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			highlightedGamePath_ = restoreFocusGamePath_;
@@ -1641,12 +1640,14 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			// Not refocusing, so we need to stop the audio.
 			g_BackgroundAudio.SetGame(Path());
 		}
-	}
-	if (tag == "InstallZip") {
+	} else if (tag == "InstallZip") {
 		INFO_LOG(Log::System, "InstallZip finished, refreshing");
 		if (gameBrowsers_.size() >= 2) {
 			gameBrowsers_[1]->RequestRefresh();
 		}
+	} else if (tag == "IAP") {
+		// Gold status may have changed.
+		RecreateViews();
 	}
 }
 
