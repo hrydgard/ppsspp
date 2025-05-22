@@ -13,7 +13,7 @@
 - (void)restorePurchasesWithRequestID:(int)requestID;
 - (BOOL)isGoldUnlocked;
 - (void)startObserving;
-- (void)updateIcon;
+- (void)updateIcon:(bool)force;
 
 @end
 

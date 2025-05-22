@@ -1,5 +1,6 @@
 #import "IAPManager.h"
 #import <UIKit/UIKit.h>
+#import "ViewControllerCommon.h"
 #include "Common/System/Request.h"
 #include "Common/Log.h"
 
@@ -129,13 +130,17 @@
 	[[NSUserDefaults standardUserDefaults] synchronize];
 
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-		[self updateIcon];
+		[self updateIcon:true];
 	});
 
 	NSLog(@"[IAPManager] Gold unlocked!");
 }
 
-- (void)updateIcon {
+static bool SafeStringEqual(NSString *a, NSString *b) {
+    return (a == b) || [a isEqualToString:b];
+}
+
+- (void)updateIcon:(bool)force {
 	NSString *desiredIcon = nil;
 	if ([self isGoldUnlocked]) {
 		desiredIcon = @"GoldIcon";
@@ -151,24 +156,24 @@
 	NSLog(@"Current icon name: %@", [[UIApplication sharedApplication] alternateIconName]);
 
 	if (desiredIcon) {
-		NSLog(@"IAPManager about to update icon to %@", desiredIcon);
+		NSLog(@"IAPManager about to update icon to %@ (force=%d)", desiredIcon, (int)force);
 	} else {
-		NSLog(@"IAPManager about to reset the icon");
+		NSLog(@"IAPManager about to reset the icon (force=%d)", (int)force);
 	}
 
-	// Useful to set to true for debugging.
-	const bool force = false;
 	if ([[UIApplication sharedApplication] supportsAlternateIcons]) {
-		if (force || ![[UIApplication sharedApplication].alternateIconName isEqualToString:desiredIcon]) {
+		if (force || !SafeStringEqual([UIApplication sharedApplication].alternateIconName, desiredIcon)) {
 			// Name not matching, do the update.
 			[[UIApplication sharedApplication] setAlternateIconName:desiredIcon
 												  completionHandler:^(NSError * _Nullable error) {
 				if (error) {
 					NSLog(@"[IAPManager] Failed to set Gold icon to %@: %@", desiredIcon, error.localizedDescription);
+					[sharedViewController hideKeyboard];
 				} else {
 					NSLog(@"Icon update succeeded.");
 					NSLog(@"Current icon name: %@", [[UIApplication sharedApplication] alternateIconName]);
 					// Here we need to call hideKeyboard.
+					[sharedViewController hideKeyboard];
 				}
 			}];
 			NSLog(@"Icon update to %@ dispatched, waiting for response.", desiredIcon);

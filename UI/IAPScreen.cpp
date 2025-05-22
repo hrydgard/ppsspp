@@ -30,8 +30,8 @@ void IAPScreen::CreateViews() {
 	appTitle->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new LinearLayoutParams(64, 64)));
 	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, G_VCENTER)));
 
+	leftColumnItems->Add(appTitle);
 	if (!bought) {
-		leftColumnItems->Add(appTitle);
 		leftColumnItems->Add(new Spacer(20.0f));
 		leftColumnItems->Add(new TextView(di->T("GoldOverview1", "Buy PPSSPP Gold to support development!")))->SetAlign(FLAG_WRAP_TEXT);
 		leftColumnItems->Add(new Spacer(10.0f));
