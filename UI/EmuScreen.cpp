@@ -227,7 +227,12 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	}
 
 	std::string error_string = "(unknown error)";
-	BootState state = PSP_InitUpdate(&error_string);
+	const BootState state = PSP_InitUpdate(&error_string);
+
+	if (state == BootState::Off && screenManager()->topScreen() != this) {
+		// Don't kick off a new boot if we're not on top.
+		return;
+	}
 
 	switch (state) {
 	case BootState::Booting:

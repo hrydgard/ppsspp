@@ -1425,9 +1425,8 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 	UIScreenWithBackground::sendMessage(message, value);
 
 	if (message == UIMessage::REQUEST_GAME_BOOT) {
-		if (screenManager()->topScreen() == this) {
-			LaunchFile(screenManager(), Path(std::string(value)));
-		}
+		screenManager()->cancelScreensAbove(this);
+		LaunchFile(screenManager(), Path(std::string(value)));
 	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
 		RecreateViews();
 	} else if (message == UIMessage::RECENT_FILES_CHANGED) {
