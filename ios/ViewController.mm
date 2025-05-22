@@ -10,6 +10,7 @@
 #import "DisplayManager.h"
 #include "Controls.h"
 #import "iOSCoreAudio.h"
+#import "IAPManager.h"
 
 #import <GLKit/GLKit.h>
 #include <cassert>
@@ -237,6 +238,13 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::G3D, "viewDidAppear");
 	[self hideKeyboard];
 	[self updateGesture];
+
+	// This needs to be called really late during startup, unfortunately.
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
+	NSLog(@"GL: viewDidAppear. updating icon");
+	[[IAPManager sharedIAPManager] updateIcon];
+#endif  // IOS_APP_STORE
 }
 
 - (void)viewDidLoad {

@@ -3,6 +3,7 @@
 #import "DisplayManager.h"
 #include "Controls.h"
 #import "iOSCoreAudio.h"
+#import "IAPManager.h"
 
 #include "Common/Log.h"
 
@@ -485,6 +486,12 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	[self hideKeyboard];
 	[self updateGesture];
 
+	// This needs to be called really late during startup, unfortunately.
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
+	NSLog(@"Metal viewDidAppear. updating icon");
+	[[IAPManager sharedIAPManager] updateIcon];
+#endif  // IOS_APP_STORE
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {

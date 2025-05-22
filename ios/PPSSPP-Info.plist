@@ -34,12 +34,15 @@
 	<string>1.0</string>
 	<key>CFBundleIcons</key>
 	<dict>
-		<key>CFBundlePrimaryIcon</key>
+		<key>CFBundleAlternateIcons</key>
 		<dict>
-			<key>CFBundleIconFiles</key>
-			<array>
-			<string>assets</string>
-			</array>
+			<key>AppIconGold</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIconGold</string>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
 		</dict>
 	</dict>
 	<key>LSRequiresIPhoneOS</key>

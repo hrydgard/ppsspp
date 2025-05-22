@@ -377,11 +377,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #ifdef GOLD
 			// This is deprecated.
 			return true;
-#else
+#elif PPSSPP_PLATFORM(IOS_APP_STORE)
 			return [[IAPManager sharedIAPManager] isGoldUnlocked];
+#else
+			return false;
 #endif
 		case SYSPROP_USE_IAP:
+#if PPSSPP_PLATFORM(IOS_APP_STORE) && !defined(GOLD)
 			return true;
+#else
+			return false;
+#endif
 		case SYSPROP_CAN_JIT:
 			return g_jitAvailable;
 		case SYSPROP_LIMITED_FILE_BROWSING:
@@ -516,6 +522,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
 	case SystemRequestType::IAP_RESTORE_PURCHASES:
 	{
 		[[IAPManager sharedIAPManager] restorePurchasesWithRequestID:requestId];
@@ -526,6 +533,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		[[IAPManager sharedIAPManager] buyGoldWithRequestID:requestId];
 		return true;
 	}
+#endif
 /*
 	// Not 100% sure the threading is right
 	case SystemRequestType::COPY_TO_CLIPBOARD:

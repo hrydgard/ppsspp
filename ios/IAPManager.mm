@@ -3,6 +3,10 @@
 #include "Common/System/Request.h"
 #include "Common/Log.h"
 
+#include "../ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+
 // Only one operation can be in progress at once.
 @implementation IAPManager {
 	SKProduct *_goldProduct;
@@ -118,19 +122,54 @@
 }
 
 - (void)unlockGold {
+	INFO_LOG(Log::UI, "Unlocking gold reward!");
+
+	// Write to user defaults to store the status.
 	[[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"isGold"];
 	[[NSUserDefaults standardUserDefaults] synchronize];
 
-	if ([[UIApplication sharedApplication] supportsAlternateIcons]) {
-		[[UIApplication sharedApplication] setAlternateIconName:@"GoldIcon"
-											  completionHandler:^(NSError * _Nullable error) {
-			if (error) {
-				NSLog(@"[IAPManager] Failed to set Gold icon: %@", error.localizedDescription);
-			}
-		}];
-	}
+	[self updateIcon];
 
 	NSLog(@"[IAPManager] Gold unlocked!");
 }
+
+- (void)updateIcon {
+	NSString *icon = nil;
+	if ([self isGoldUnlocked]) {
+		icon = @"AppIconGold";
+	}
+
+	NSLog(@"updateIcon called with %@", icon);
+
+	if (![UIApplication sharedApplication]) {
+		NSLog(@"IAPManager: Application not initialized");
+		return;
+	}
+
+	NSLog(@"Current icon name: %@", [[UIApplication sharedApplication] alternateIconName]);
+
+	if (icon) {
+		NSLog(@"IAPManager about to update icon to %@", icon);
+	} else {
+		NSLog(@"IAPManager about to reset the icon");
+	}
+	NSLog(@"IAPManager: App state: %ld", (long)[UIApplication sharedApplication].applicationState);
+
+	if ([[UIApplication sharedApplication] supportsAlternateIcons]) {
+		[[UIApplication sharedApplication] setAlternateIconName:icon
+											  completionHandler:^(NSError * _Nullable error) {
+			if (error) {
+				NSLog(@"[IAPManager] Failed to set Gold icon to %@: %@", icon, error.localizedDescription);
+			} else {
+				NSLog(@"Icon update succeeded.");
+			}
+		}];
+		NSLog(@"Icon update to %@ dispatched, waiting for response.", icon);
+	} else {
+		NSLog(@"Application doesn't support alternate icons.");
+	}
+}
+
+#endif
 
 @end
