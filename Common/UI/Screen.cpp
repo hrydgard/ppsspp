@@ -90,13 +90,10 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 
 void ScreenManager::update() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!nextStack_.empty()) {
-		switchToNext();
-	}
 
 	if (cancelScreensAbove_) {
 		bool found = false;
-		for (int i = stack_.size() - 1; i >= 0; i--) {
+		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
 			if (stack_[i].screen == cancelScreensAbove_) {
 				break;
 			}
@@ -105,6 +102,10 @@ void ScreenManager::update() {
 			delete temp.screen;
 		}
 		cancelScreensAbove_ = nullptr;
+	}
+
+	if (!nextStack_.empty()) {
+		switchToNext();
 	}
 
 	if (overlayScreen_) {

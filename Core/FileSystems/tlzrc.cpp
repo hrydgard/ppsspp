@@ -215,13 +215,16 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len)
 
 	if(rc.lc&0x80){
 		/* plain text */
-		memcpy(rc.output, rc.input+5, rc.code);
-		return rc.code; 
+		int copySize = rc.code;
+		if (copySize > out_len) {
+			copySize = out_len;
+		}
+		memcpy(rc.output, rc.input+5, copySize);
+		return copySize;
 	}
 
 	rc_state = 0;
 	last_byte = 0;
-
 
 	while (1) {
 		round += 1;

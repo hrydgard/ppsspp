@@ -319,7 +319,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		VR_SetConfig(VR_CONFIG_CANVAS_6DOF, g_Config.bEnable6DoF);
 
 		//inform engine about the status
-		TouchInput touch;
+		TouchInput touch{};
 		touch.id = mouseController;
 		touch.x = x * dp_xscale;
 		touch.y = (height - y - 1) * dp_yscale;
