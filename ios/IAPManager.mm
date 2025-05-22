@@ -128,18 +128,20 @@
 	[[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"isGold"];
 	[[NSUserDefaults standardUserDefaults] synchronize];
 
-	[self updateIcon];
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		[self updateIcon];
+	});
 
 	NSLog(@"[IAPManager] Gold unlocked!");
 }
 
 - (void)updateIcon {
-	NSString *icon = nil;
+	NSString *desiredIcon = nil;
 	if ([self isGoldUnlocked]) {
-		icon = @"AppIconGold";
+		desiredIcon = @"AppIconGold";
 	}
 
-	NSLog(@"updateIcon called with %@", icon);
+	NSLog(@"updateIcon called with %@", desiredIcon);
 
 	if (![UIApplication sharedApplication]) {
 		NSLog(@"IAPManager: Application not initialized");
@@ -148,23 +150,30 @@
 
 	NSLog(@"Current icon name: %@", [[UIApplication sharedApplication] alternateIconName]);
 
-	if (icon) {
-		NSLog(@"IAPManager about to update icon to %@", icon);
+	if (desiredIcon) {
+		NSLog(@"IAPManager about to update icon to %@", desiredIcon);
 	} else {
 		NSLog(@"IAPManager about to reset the icon");
 	}
-	NSLog(@"IAPManager: App state: %ld", (long)[UIApplication sharedApplication].applicationState);
 
+	// Useful for debugging.
+	const bool force = false;
 	if ([[UIApplication sharedApplication] supportsAlternateIcons]) {
-		[[UIApplication sharedApplication] setAlternateIconName:icon
-											  completionHandler:^(NSError * _Nullable error) {
-			if (error) {
-				NSLog(@"[IAPManager] Failed to set Gold icon to %@: %@", icon, error.localizedDescription);
-			} else {
-				NSLog(@"Icon update succeeded.");
-			}
-		}];
-		NSLog(@"Icon update to %@ dispatched, waiting for response.", icon);
+		if (force || ![[UIApplication sharedApplication].alternateIconName isEqualToString:desiredIcon]) {
+			// Name not matching, do the update.
+			[[UIApplication sharedApplication] setAlternateIconName:desiredIcon
+												  completionHandler:^(NSError * _Nullable error) {
+				if (error) {
+					NSLog(@"[IAPManager] Failed to set Gold icon to %@: %@", desiredIcon, error.localizedDescription);
+				} else {
+					NSLog(@"Icon update succeeded.");
+					// Here we need to call hideKeyboard.
+				}
+			}];
+			NSLog(@"Icon update to %@ dispatched, waiting for response.", desiredIcon);
+		} else {
+			NSLog(@"Icon is already correct: %@", desiredIcon);
+		}
 	} else {
 		NSLog(@"Application doesn't support alternate icons.");
 	}

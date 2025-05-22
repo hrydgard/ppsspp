@@ -490,7 +490,10 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
 	NSLog(@"Metal viewDidAppear. updating icon");
-	[[IAPManager sharedIAPManager] updateIcon];
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		[[IAPManager sharedIAPManager] updateIcon];
+		[self hideKeyboard];
+	});
 #endif  // IOS_APP_STORE
 }
 
