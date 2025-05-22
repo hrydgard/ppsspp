@@ -1579,7 +1579,7 @@ void Config::DismissUpgrade() {
 // The GUID part changes on each launch.
 bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
-	INFO_LOG(Log::Loader, "Original path: %s", path->c_str());
+	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
 
 	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";

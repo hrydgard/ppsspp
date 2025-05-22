@@ -41,6 +41,16 @@
 			<string>assets</string>
 			</array>
 		</dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>AppIconGold</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIconGold</string>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+		</dict>
 	</dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>

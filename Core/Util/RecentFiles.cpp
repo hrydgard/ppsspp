@@ -240,7 +240,7 @@ void RecentFilesManager::PerformCleanMissing() {
 			if (!exists && TryUpdateSavedPath(&path)) {
 				// iOS only stuff
 				exists = File::Exists(path);
-				INFO_LOG(Log::UI, "Exists=%d when checking updated path: %s", exists, path.c_str());
+				VERBOSE_LOG(Log::UI, "Exists=%d when checking updated path: %s", exists, path.c_str());
 				if (exists) {
 					pathUpdated = true;
 				}
@@ -261,7 +261,7 @@ void RecentFilesManager::PerformCleanMissing() {
 				cleanedRecent.push_back(pathStr);
 			}
 		} else {
-			INFO_LOG(Log::UI, "Removed '%s' from recent (couldn't access)", path.ToVisualString().c_str());
+			DEBUG_LOG(Log::UI, "Removed '%s' from recent (couldn't access)", path.ToVisualString().c_str());
 		}
 	}
 
