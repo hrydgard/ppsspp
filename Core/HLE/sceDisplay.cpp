@@ -61,6 +61,12 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/Debugger/Record.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+#include <switch.h>
+// Missing usleep in the toolchain
+#define usleep(n) svcSleepThread((_s64)n * 1000)
+#endif
+
 struct FrameBufferState {
 	u32 topaddr;
 	GEBufferFormat fmt;

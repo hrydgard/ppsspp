@@ -5,6 +5,7 @@
 #include "Core/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
+#include <glsym/rglgen.h>
 #include "libretro/LibretroGLContext.h"
 
 bool LibretroGLContext::Init() {
@@ -15,23 +16,14 @@ bool LibretroGLContext::Init() {
 	return true;
 }
 
+extern const struct rglgen_sym_map rglgen_symbol_map_ppsspp;
 void LibretroGLContext::CreateDrawContext() {
-
-#ifndef USING_GLES2
-    // Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
-    // glewExperimental allows us to force GLEW to search for the pointers anyway.
-    if (gl_extensions.IsCoreContext)
-        glewExperimental = true;
-    if (GLEW_OK != glewInit()) {
-        printf("Failed to initialize glew!\n");
-    }
-    // Unfortunately, glew will generate an invalid enum error, ignore.
-    if (gl_extensions.IsCoreContext)
-        glGetError();
-#endif
-
-    CheckGLExtensions();
-    draw_ = Draw::T3DCreateGLContext(false);
+	if (!glewInitDone) {
+		rglgen_resolve_symbols_custom(&eglGetProcAddress, &rglgen_symbol_map_ppsspp);
+		CheckGLExtensions();
+        glewInitDone = true;
+	}
+    draw_ = Draw::T3DCreateGLContext();
     renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
     renderManager_->SetInflightFrames(g_Config.iInflightFrames);
     SetGPUBackend(GPUBackend::OPENGL);
