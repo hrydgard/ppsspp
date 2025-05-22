@@ -85,30 +85,46 @@ public class PpssppActivity extends NativeActivity {
 		// In case app launched from homescreen shortcut, get shortcut parameter
 		// using Intent extra string. Intent extra will be null if launch normal
 		// (from app drawer or file explorer).
-		Intent intent = getIntent();
+		String param = parseIntent(getIntent());
+		if (param != null) {
+			Log.i(TAG, "Found Shortcut Parameter in data, passing on: " + param);
+			super.setShortcutParam(param);
+		}
+		super.onCreate(savedInstanceState);
+	}
+
+	private static String parseIntent(Intent intent) {
 		// String action = intent.getAction();
 		Uri data = intent.getData();
 		if (data != null) {
 			String path = data.toString();
-			Log.i(TAG, "Found Shortcut Parameter in data: " + path);
-			String escaped = "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-			Log.i(TAG, "Escaped: " + escaped);
-			super.setShortcutParam(escaped);
+			// Do some unescaping. Not really sure why needed.
+			return "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
 			// Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
 		} else {
-			String param = getIntent().getStringExtra(SHORTCUT_EXTRA_KEY);
-			String args = getIntent().getStringExtra(ARGS_EXTRA_KEY);
+			String param = intent.getStringExtra(SHORTCUT_EXTRA_KEY);
+			String args = intent.getStringExtra(ARGS_EXTRA_KEY);
 			if (param != null) {
 				Log.i(TAG, "Found Shortcut Parameter in extra-data: " + param);
-				super.setShortcutParam("\"" + param.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
+				return "\"" + param.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
 			} else if (args != null) {
 				Log.i(TAG, "Found args parameter in extra-data: " + args);
-				super.setShortcutParam(args);
+				return args;
 			} else {
-				super.setShortcutParam("");
+				return null;
 			}
 		}
-		super.onCreate(savedInstanceState);
+	}
+
+	@Override
+	public void onNewIntent(Intent intent) {
+		String value = parseIntent(intent);
+		if (value != null) {
+			// TODO: Actually send a command to the native code to launch the new game.
+			Log.i(TAG, "NEW INTENT AT RUNTIME: " + value);
+			Log.i(TAG, "Posting a 'shortcutParam' message to the C++ code.");
+			NativeApp.sendMessageFromJava("shortcutParam", value);
+		}
 	}
 
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle

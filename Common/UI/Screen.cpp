@@ -44,15 +44,22 @@ ScreenManager::~ScreenManager() {
 void ScreenManager::switchScreen(Screen *screen) {
 	// TODO: inputLock_ ?
 
+	INFO_LOG(Log::UI, "ScreenManager::switchScreen('%s')", screen->tag());
+
 	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
 		ERROR_LOG(Log::UI, "Already switching to this screen");
 		return;
 	}
+
 	// Note that if a dialog is found, this will be a silent background switch that
 	// will only become apparent if the dialog is closed. The previous screen will stick around
 	// until that switch.
 	// TODO: is this still true?
 	if (!nextStack_.empty()) {
+		for (int i = 0; i < nextStack_.size(); i++) {
+			INFO_LOG(Log::UI, "NextStack contents[%d].screen->tag(): '%s'", i, nextStack_[i].screen->tag());
+		}
+
 		ERROR_LOG(Log::UI, "Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
 		delete screen;
 		return;
@@ -68,10 +75,36 @@ void ScreenManager::switchScreen(Screen *screen) {
 	}
 }
 
+void ScreenManager::cancelScreensAbove(Screen *screen) {
+	bool found = false;
+	for (int i = 0; i < stack_.size(); i++) {
+		if (stack_[i].screen == screen) {
+			found = true;
+		}
+	}
+
+	if (found) {
+		cancelScreensAbove_ = screen;
+	}
+}
+
 void ScreenManager::update() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!nextStack_.empty()) {
 		switchToNext();
+	}
+
+	if (cancelScreensAbove_) {
+		bool found = false;
+		for (int i = stack_.size() - 1; i >= 0; i--) {
+			if (stack_[i].screen == cancelScreensAbove_) {
+				break;
+			}
+			Layer temp = stack_.back();
+			stack_.pop_back();
+			delete temp.screen;
+		}
+		cancelScreensAbove_ = nullptr;
 	}
 
 	if (overlayScreen_) {

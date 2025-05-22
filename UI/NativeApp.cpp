@@ -643,6 +643,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
 #if defined(_WIN32) || defined(__ANDROID__)
 						// Ignore and proceed.
+						boot_filename.clear();
 #else
 						// Bail.
 						exit(1);
@@ -756,7 +757,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else if (gotoDeveloperTools) {
 		g_screenManager->switchScreen(new MainScreen());
 		g_screenManager->push(new DeveloperToolsScreen(Path()));
-	} else if (skipLogo) {
+	} else if (skipLogo && !boot_filename.empty()) {
+		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));

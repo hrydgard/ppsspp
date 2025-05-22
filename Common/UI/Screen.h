@@ -177,6 +177,8 @@ public:
 		return stack_.empty() ? nullptr : stack_.back().screen;
 	}
 
+	void cancelScreensAbove(Screen *screen);
+
 	void getFocusPosition(float &x, float &y, float &z);
 
 	// Will delete any existing overlay screen.
@@ -200,6 +202,8 @@ private:
 
 	Screen *backgroundScreen_ = nullptr;
 	Screen *overlayScreen_ = nullptr;
+
+	Screen *cancelScreensAbove_ = nullptr;
 
 	struct Layer {
 		Screen *screen;

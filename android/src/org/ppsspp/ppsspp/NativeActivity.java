@@ -977,7 +977,7 @@ public abstract class NativeActivity extends Activity {
 				buffer += input.getDebugString();
 			}
 			if (buffer.isEmpty()) {
-				buffer = "(no devices)";
+				return "(no devices)";
 			}
 			return buffer;
 		} else {

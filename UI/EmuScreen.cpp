@@ -551,6 +551,8 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			return;
 		}
 	} else if (message == UIMessage::REQUEST_GAME_BOOT) {
+		INFO_LOG(Log::Loader, "EmuScreen received REQUEST_GAME_BOOT: %s", value);
+
 		if (bootPending_) {
 			ERROR_LOG(Log::Loader, "Can't boot a new game during a pending boot");
 			return;
@@ -560,17 +562,27 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			WARN_LOG(Log::Loader, "Game already running, ignoring");
 			return;
 		}
-		const char *ext = strrchr(value, '.');
-		if (ext != nullptr && !strcmp(ext, ".ppst")) {
-			SaveState::Load(Path(value), -1, [](SaveState::Status status, std::string_view message) {
+
+		// TODO: Create a path first and
+		Path newGamePath(value);
+
+		if (newGamePath.GetFileExtension() == ".ppst") {
+			// TODO: Should verify that it's for the correct game....
+			INFO_LOG(Log::Loader, "New game is a save state - just load it.");
+			SaveState::Load(newGamePath, -1, [](SaveState::Status status, std::string_view message) {
 				Core_Resume();
 				System_Notify(SystemNotification::DISASSEMBLY);
 			});
 		} else {
 			PSP_Shutdown(true);
 			Achievements::UnloadGame();
+
+			// OK, now pop any open settings screens and stuff that are running above us.
+			// Otherwise, we can get strange results with game-specific settings.
+			screenManager()->cancelScreensAbove(this);
+
 			bootPending_ = true;
-			gamePath_ = Path(value);
+			gamePath_ = newGamePath;
 		}
 	} else if (message == UIMessage::CONFIG_LOADED) {
 		// In case we need to position touch controls differently.
