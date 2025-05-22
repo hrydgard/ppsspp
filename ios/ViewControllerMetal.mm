@@ -730,6 +730,7 @@ extern float g_safeInsetBottom;
 
 -(void) showKeyboard {
 	dispatch_async(dispatch_get_main_queue(), ^{
+		NSLog(@"becomeFirstResponder");
 		[self becomeFirstResponder];
 	});
 }

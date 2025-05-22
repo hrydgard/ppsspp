@@ -19,7 +19,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PPSSPP</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.ppsspp.ppsspp</string>
+	<string>org.ppsspp.ppsspp-free</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -34,12 +34,17 @@
 	<string>1.0</string>
 	<key>CFBundleIcons</key>
 	<dict>
+	  <key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconName</key>
+			<string>AppIcon</string>
+		</dict>
 		<key>CFBundleAlternateIcons</key>
 		<dict>
-			<key>AppIconGold</key>
+			<key>GoldIcon</key>
 			<dict>
 				<key>CFBundleIconName</key>
-				<string>AppIconGold</string>
+				<string>GoldIcon</string>
 				<key>UIPrerenderedIcon</key>
 				<false/>
 			</dict>

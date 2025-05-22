@@ -2887,7 +2887,7 @@ if(TargetBin)
 
 		if(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
 				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 			endif()
@@ -2958,7 +2958,7 @@ if(IOS AND NOT LIBRETRO)
 		else()
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppssppgold")
 		endif()
-		set(ICON_NAME "AppIconGold")
+		set(ICON_NAME "GoldIcon")
 		set(DISPLAY_NAME "PPSSPP Gold")
 	else()
 		if(IOS_APP_STORE)
@@ -2998,13 +2998,12 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
 			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
 			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME ""
 			BUILD_WITH_INSTALL_RPATH YES
 			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-				# Some sources say we should generate the PLIST. There's stuff in it that
-				# I don't know how to generate, though.
-				#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
-				#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+			# Some sources say we should generate the PLIST. There's stuff in it that
+			# I don't know how to generate, though.
+			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
 			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
 			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
 			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
@@ -3015,6 +3014,8 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+			# The following one was hallucinated by ChatGPT
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS "YES"
 			#XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${BUNDLE_ENTITLEMENTS}
 			XCODE_ATTRIBUTE_SKIP_INSTALL NO
 						XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"

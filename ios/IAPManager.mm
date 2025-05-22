@@ -138,7 +138,7 @@
 - (void)updateIcon {
 	NSString *desiredIcon = nil;
 	if ([self isGoldUnlocked]) {
-		desiredIcon = @"AppIconGold";
+		desiredIcon = @"GoldIcon";
 	}
 
 	NSLog(@"updateIcon called with %@", desiredIcon);
@@ -156,7 +156,7 @@
 		NSLog(@"IAPManager about to reset the icon");
 	}
 
-	// Useful for debugging.
+	// Useful to set to true for debugging.
 	const bool force = false;
 	if ([[UIApplication sharedApplication] supportsAlternateIcons]) {
 		if (force || ![[UIApplication sharedApplication].alternateIconName isEqualToString:desiredIcon]) {
@@ -167,6 +167,7 @@
 					NSLog(@"[IAPManager] Failed to set Gold icon to %@: %@", desiredIcon, error.localizedDescription);
 				} else {
 					NSLog(@"Icon update succeeded.");
+					NSLog(@"Current icon name: %@", [[UIApplication sharedApplication] alternateIconName]);
 					// Here we need to call hideKeyboard.
 				}
 			}];
