@@ -27,7 +27,8 @@ chmod +x ./lib4bin
 xvfb-run -a -- ./lib4bin -p -v -e -s -k \
 	../build/PPSSPPSDL \
 	"$SYS_LIB_DIR"/libSDL* \
-	"$SYS_LIB_DIR"/lib*GL* \
+	"$SYS_LIB_DIR"/libEGL* \
+	"$SYS_LIB_DIR"/libGL* \
 	"$SYS_LIB_DIR"/libvulkan* \
 	"$SYS_LIB_DIR"/dri/* \
 	"$SYS_LIB_DIR"/libXss.so* \
