@@ -1,49 +1,67 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-if [ ! -f appimagetool-x86_64.AppImage ]; then
-	APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
-	wget -q "$APPIMAGETOOL" -O ./appimagetool-x86_64.AppImage
-    chmod +x appimagetool-x86_64.AppImage
+set -ex
+
+ARCH="$(uname -m)"
+LIB4BN="https://raw.githubusercontent.com/VHSgunzo/sharun/refs/heads/main/lib4bin"
+URUNTIME="https://github.com/VHSgunzo/uruntime/releases/latest/download/uruntime-appimage-dwarfs-$ARCH"
+UPINFO="gh-releases-zsync|$(echo "$GITHUB_REPOSITORY" | tr '/' '|')|latest|*$ARCH.AppImage.zsync"
+VERSION=test
+
+SYS_LIB_DIR="/usr/lib"
+if [ -d /usr/lib/"$ARCH"-linux-gnu ]; then
+	SYS_LIB_DIR=/usr/lib/"$ARCH"-linux-gnu
 fi
 
-if [ ! -f linuxdeploy-x86_64.AppImage ]; then
-    wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-    chmod +x linuxdeploy-x86_64.AppImage
-fi
+# Prepare AppDir
+mkdir -p ./AppDir/bin
+cd ./AppDir
 
-mkdir ./AppDir/
-mkdir ./AppDir/usr/
-mkdir ./AppDir/usr/bin/
-mkdir ./AppDir/usr/share/
-mkdir ./AppDir/usr/share/applications/
-mkdir ./AppDir/usr/share/icons/
-mkdir ./AppDir/usr/share/icons/hicolor/
-mkdir ./AppDir/usr/share/icons/hicolor/256x256/
-mkdir ./AppDir/usr/share/icons/hicolor/256x256/apps/
+cp -v  ../SDL/PPSSPPSDL.desktop ./
+cp -v  ../icons/hicolor/256x256/apps/ppsspp.png ./
+cp -v  ../icons/hicolor/256x256/apps/ppsspp.png ./.DirIcon
 
-cp ~/ppsspp/SDL/PPSSPPSDL.desktop ./AppDir/
-cp ~/ppsspp/SDL/PPSSPPSDL.desktop ./AppDir/usr/share/applications/
-cp ~/ppsspp/build/PPSSPPSDL ./AppDir/usr/bin/
-cp -R ~/ppsspp/build/assets ./AppDir/usr/bin/
-cp ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./AppDir/usr/share/icons/hicolor/256x256/apps/
+# ADD LIBRARIES
+wget "$LIB4BN" -O ./lib4bin
+chmod +x ./lib4bin
+xvfb-run -a -- ./lib4bin -p -v -e -s -k \
+	../build/PPSSPPSDL \
+	"$SYS_LIB_DIR"/libSDL* \
+	"$SYS_LIB_DIR"/libEGL* \
+	"$SYS_LIB_DIR"/libGL* \
+	"$SYS_LIB_DIR"/libvulkan* \
+	"$SYS_LIB_DIR"/dri/* \
+	"$SYS_LIB_DIR"/libXss.so* \
+	"$SYS_LIB_DIR"/pulseaudio/* \
+	"$SYS_LIB_DIR"/pipewire-0.3/* \
+	"$SYS_LIB_DIR"/spa-0.2/*/*
 
-DESTDIR=AppDir make install
-./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir=AppDir \
-	--exclude-library="libX*" \
-	--exclude-library="libglib*" \
-	--exclude-library="libgobject*" \
-	--exclude-library="libgdk_pixbuf*" \
-	--exclude-library="libwayland*" \
-	--exclude-library="libgmodule*" \
-	--exclude-library="libgio*" \
-	--exclude-library="libxcb*" \
-	--exclude-library="libxkbcommon*" \
-	--exclude-library="libdb*"
+# copy assets dir needs to be next to the binary
+cp -vr ../build/assets ./bin
 
-rm AppDir/ppsspp.png
-pushd AppDir
-ln -s usr/share/icons/hicolor/256x256/apps/ppsspp.png
-chmod +x AppRun
-popd
-ARCH=x86_64
-VERSION=$(./AppDir/AppRun --version) ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir
+# Prepare sharun
+echo "Preparing sharun..."
+ln -s ./bin/PPSSPPSDL ./AppRun
+./sharun -g
+
+# Make AppImage with uruntime
+cd ..
+wget "$URUNTIME" -O ./uruntime
+chmod +x ./uruntime
+
+#Add udpate info to runtime
+echo "Adding update information \"$UPINFO\" to runtime..."
+./uruntime --appimage-addupdinfo "$UPINFO"
+
+echo "Generating AppImage..."
+./uruntime --appimage-mkdwarfs -f \
+	--set-owner 0 --set-group 0 \
+	--no-history --no-create-timestamp \
+	--compression zstd:level=22 -S26 -B8 \
+	--header uruntime \
+	-i ./AppDir -o PPSSPP-"$VERSION"-anylinux-"$ARCH".AppImage
+
+echo "Generating zsync file..."
+zsyncmake ./*.AppImage -u ./*.AppImage
+
+echo "All Done!"
