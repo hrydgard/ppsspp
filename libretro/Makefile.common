@@ -572,7 +572,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/GLES/TextureCacheGLES.cpp \
 	$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
 	$(GPUDIR)/GLES/StateMappingGLES.cpp \
-	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/preprocessor/Pp.cpp \
