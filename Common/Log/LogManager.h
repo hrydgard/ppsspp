@@ -95,6 +95,13 @@ public:
 		temp &= ~output;
 		SetOutputsEnabled(temp);
 	}
+	void EnableOutput(LogOutput output, bool enabled) {
+		if (enabled) {
+			EnableOutput(output);
+		} else {
+			DisableOutput(output);
+		}
+	}
 
 	static u32 GetMaxLevel() { return (u32)MAX_LOGLEVEL;	}
 	static int GetNumChannels() { return (int)Log::NUMBER_OF_LOGS; }
@@ -142,7 +149,8 @@ public:
 		externalUserData_ = userdata;
 	}
 
-	void ChangeFileLog(const Path &filename);
+	void SetFileLogPath(const Path &filename);
+	const Path &GetLogFilePath() const { return logFilename_; }
 
 	void SaveConfig(Section *section);
 	void LoadConfig(const Section *section, bool debugDefaults);

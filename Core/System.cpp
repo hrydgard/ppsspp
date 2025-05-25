@@ -39,6 +39,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/AndroidContentURI.h"
+#include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/GraphicsContext.h"
@@ -93,6 +94,7 @@ static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
+static bool g_fileLoggingWasEnabled;
 
 static BootState g_bootState = BootState::Off;
 
@@ -373,6 +375,15 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		return false;
 	}
 
+	// If it was forced on the command line. We don't want to override that.
+	g_fileLoggingWasEnabled = g_logManager.GetOutputsEnabled() & LogOutput::File;
+	g_logManager.EnableOutput(LogOutput::File, g_Config.bEnableFileLogging || g_fileLoggingWasEnabled);
+
+	if ((g_logManager.GetOutputsEnabled() & LogOutput::File) && !g_logManager.GetLogFilePath().empty()) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", dev->T("Log to file"), g_logManager.GetLogFilePath().ToVisualString()));
+	}
+
 	InitVFPU();
 
 	LoadSymbolsIfSupported();
@@ -482,6 +493,8 @@ void CPU_Shutdown(bool success) {
 	g_symbolMap = nullptr;
 
 	g_lua.Shutdown();
+
+	g_logManager.EnableOutput(LogOutput::File, g_fileLoggingWasEnabled);
 }
 
 // Used for UMD switching only.
