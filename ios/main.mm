@@ -373,17 +373,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			// If a hardware keyboard is connected, and we add support, we could return false here.
 			return true;
 		case SYSPROP_APP_GOLD:
-			// TODO: Check the IAP status.
 #ifdef GOLD
 			// This is deprecated.
 			return true;
 #elif PPSSPP_PLATFORM(IOS_APP_STORE)
+			// Check the IAP status.
 			return [[IAPManager sharedIAPManager] isGoldUnlocked];
 #else
 			return false;
 #endif
 		case SYSPROP_USE_IAP:
-#if PPSSPP_PLATFORM(IOS_APP_STORE) && !defined(GOLD)
+#if PPSSPP_PLATFORM(IOS_APP_STORE) && defined(USE_IAP)
 			return true;
 #else
 			return false;

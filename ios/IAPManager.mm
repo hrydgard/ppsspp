@@ -6,11 +6,11 @@
 
 #include "../ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-
 // Only one operation can be in progress at once.
 @implementation IAPManager {
+#ifdef USE_IAP
 	SKProduct *_goldProduct;
+#endif
 	int _pendingRequestID;
 }
 
@@ -24,21 +24,30 @@
 }
 
 - (instancetype)init {
+#ifdef USE_IAP
 	if (self = [super init]) {
 		[[SKPaymentQueue defaultQueue] addTransactionObserver:self];
 	}
+#endif
 	return self;
 }
 
 - (void)startObserving {
+#ifdef USE_IAP
 	[[SKPaymentQueue defaultQueue] addTransactionObserver:self];
+#endif
 }
 
 - (BOOL)isGoldUnlocked {
+#ifdef USE_IAP
 	return [[NSUserDefaults standardUserDefaults] boolForKey:@"isGold"];
+#else
+	return false;
+#endif
 }
 
 - (void)buyGoldWithRequestID:(int)requestID {
+#ifdef USE_IAP
 	if (_pendingRequestID) {
 		ERROR_LOG(Log::IAP, "A transaction is pending. Failing the new request.");
 		g_requestManager.PostSystemFailure(requestID);
@@ -55,9 +64,13 @@
 		NSLog(@"[IAPManager] In-App Purchases are disabled (requestID: %d)", requestID);
 		g_requestManager.PostSystemFailure(requestID);
 	}
+#else
+	g_requestManager.PostSystemFailure(requestID);
+#endif
 }
 
 - (void)restorePurchasesWithRequestID:(int)requestID {
+#ifdef USE_IAP
 	if (_pendingRequestID) {
 		ERROR_LOG(Log::IAP, "A transaction is pending. Failing the new request.");
 		g_requestManager.PostSystemFailure(requestID);
@@ -68,7 +81,12 @@
 	// NOTE: This is deprecated, but StoreKit 2 is swift only. We'll keep using it until
 	// there's a replacement.
 	[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
+#else
+	g_requestManager.PostSystemFailure(requestID);
+#endif
 }
+
+#ifdef USE_IAP
 
 - (void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue {
 	NSLog(@"Restore completed successfully (requestID: %d)", _pendingRequestID);
@@ -122,7 +140,10 @@
 	}
 }
 
+#endif
+
 - (void)unlockGold {
+#ifdef USE_IAP
 	INFO_LOG(Log::UI, "Unlocking gold reward!");
 
 	// Write to user defaults to store the status.
@@ -134,6 +155,7 @@
 	});
 
 	NSLog(@"[IAPManager] Gold unlocked!");
+#endif
 }
 
 static bool SafeStringEqual(NSString *a, NSString *b) {
@@ -184,7 +206,5 @@ static bool SafeStringEqual(NSString *a, NSString *b) {
 		NSLog(@"Application doesn't support alternate icons.");
 	}
 }
-
-#endif
 
 @end
