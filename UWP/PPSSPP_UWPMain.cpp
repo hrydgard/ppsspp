@@ -75,7 +75,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 
 		if (g_Config.bEnableLogging) {
-			g_logManager.ChangeFileLog(Path(GetLogFile()));
+			g_logManager.SetFileLogPath(Path(GetLogFile()));
 		}
 #endif
 

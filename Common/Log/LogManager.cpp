@@ -194,7 +194,7 @@ LogManager::~LogManager() {
 #endif
 }
 
-void LogManager::ChangeFileLog(const Path &filename) {
+void LogManager::SetFileLogPath(const Path &filename) {
 	if (fp_ && filename == logFilename_) {
 		// All good
 		return;
@@ -235,7 +235,7 @@ void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 void LogManager::SetOutputsEnabled(LogOutput outputs) {
 	outputs_ = outputs; 
 	if (outputs & LogOutput::File) {
-		ChangeFileLog(logFilename_);
+		SetFileLogPath(logFilename_);
 	}
 }
 
