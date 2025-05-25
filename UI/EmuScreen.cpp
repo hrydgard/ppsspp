@@ -343,7 +343,10 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 // Only call this on successful boot.
 void EmuScreen::bootComplete() {
-	__DisplayListenVblank([this]() {HandleVBlank(); });
+	__DisplayListenFlip([](void *userdata) {
+		EmuScreen *scr = (EmuScreen *)userdata;
+		scr->HandleFlip();
+	}, (void *)this);
 
 	// Initialize retroachievements, now that we're on the right thread.
 	if (g_Config.bAchievementsEnable) {
@@ -1513,8 +1516,15 @@ void EmuScreen::darken() {
 	}
 }
 
-// TODO: We probably shouldn't even handle frame dumping at vblank, we can just as well handle it directly in EmuScreen.
-void EmuScreen::HandleVBlank() {
+void EmuScreen::HandleFlip() {
+	static double lastFrame;
+	double now = time_now_d();
+	INFO_LOG(Log::System, "HandleFlip: %0.2f ms", (now - lastFrame) * 1000.0f);
+	lastFrame = now;
+
+	Achievements::FrameUpdate();
+
+	// This video dumping stuff is bad. Or at least completely broken with frameskip..
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && !startDumping_) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -1527,7 +1537,10 @@ void EmuScreen::HandleVBlank() {
 	} else if (!g_Config.bDumpFrames && startDumping_) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		avi.Stop();
-		g_OSD.Show(OSDType::MESSAGE_INFO, sy->T("AVI Dump stopped."), 1.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, sy->T("AVI Dump stopped."), 3.0f, "avi_dump");
+		g_OSD.SetClickCallback("avi_dump", [](bool, void *) {
+			System_ShowFileInFolder(avi.LastFilename());
+		}, nullptr);
 		startDumping_ = false;
 	}
 #endif
@@ -1677,7 +1690,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
 			coreState = frameStep_ ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
-			Achievements::FrameUpdate();
 			break;
 		case CORE_STEPPING_CPU:
 		case CORE_STEPPING_GE:
@@ -1711,7 +1723,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 			// However, let's not cause a UI sleep in the mainloop.
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
-			Achievements::FrameUpdate();
 			break;
 		}
 

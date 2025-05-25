@@ -538,7 +538,7 @@ void Choice::Draw(UIContext &dc) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
 				if (shine_) {
 					Bounds b = Bounds::FromCenter(bounds_.x2() - 32 - paddingX, bounds_.centerY(), bounds_.h * 0.4f);
-					DrawIconShine(dc, b, 0.8f, false);
+					DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 				}
 				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
