@@ -1517,11 +1517,6 @@ void EmuScreen::darken() {
 }
 
 void EmuScreen::HandleFlip() {
-	static double lastFrame;
-	double now = time_now_d();
-	INFO_LOG(Log::System, "HandleFlip: %0.2f ms", (now - lastFrame) * 1000.0f);
-	lastFrame = now;
-
 	Achievements::FrameUpdate();
 
 	// This video dumping stuff is bad. Or at least completely broken with frameskip..
