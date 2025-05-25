@@ -12,6 +12,8 @@
 #import <Foundation/NSObjCRuntime.h>
 #import <GLKit/GLKit.h>
 
+#import "ios/IAPManager.h"
+
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
@@ -112,6 +114,6 @@
     }
 }
 
-#endif  // IOS_APP_STORE
+#endif  // !IOS_APP_STORE
 
 @end

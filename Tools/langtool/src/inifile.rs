@@ -124,6 +124,12 @@ impl IniFile {
             .iter_mut()
             .find(|section| section.name == section_name)
     }
+
+    pub fn get_section(&self, section_name: &str) -> Option<&Section> {
+        self.sections
+            .iter()
+            .find(|section| section.name == section_name)
+    }
 }
 
 // Grabbed from a sample, a fast line reader iterator.

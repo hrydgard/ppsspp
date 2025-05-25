@@ -693,7 +693,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #ifdef GOLD
 		return true;
 #else
-		return false;
+		return true;
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
@@ -724,6 +724,10 @@ case SYSPROP_HAS_FILE_BROWSER:
 #else
 		return true;
 #endif
+
+	// hack for testing - do not commit
+	case SYSPROP_USE_IAP:
+		return false;
 	default:
 		return false;
 	}
@@ -999,6 +1003,15 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 					Core_Resume();
 				}
+				/*
+				// TODO: Enable this?
+				if (k == SDLK_F11) {
+#if !defined(MOBILE_DEVICE)
+					g_Config.bFullScreen = !g_Config.bFullScreen;
+					System_ToggleFullscreenState("");
+#endif
+				}
+				*/
 			}
 			break;
 		}

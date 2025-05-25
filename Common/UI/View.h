@@ -753,6 +753,9 @@ public:
 	void SetHideTitle(bool hide) {
 		hideTitle_ = hide;
 	}
+	void SetShine(bool shine) {
+		shine_ = true;
+	}
 
 protected:
 	// hackery
@@ -773,6 +776,7 @@ protected:
 	bool imgFlipH_ = false;
 	u32 drawTextFlags_ = 0;
 	bool hideTitle_ = false;
+	float shine_ = false;
 
 private:
 	bool selected_ = false;
@@ -1012,6 +1016,7 @@ public:
 	void SetClip(bool clip) { clip_ = clip; }
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(float pad) { pad_ = pad; }
+	void SetAlign(int align) { textAlign_ = align; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -1090,17 +1095,17 @@ enum ImageSizeMode {
 
 class ImageView : public InertView {
 public:
-	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
-
+	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = nullptr);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return text_; }
+	void SetScale(float s) { scale_ = s; }  // Only used for measuring.
 
 private:
 	std::string text_;
 	ImageID atlasImage_;
 	ImageSizeMode sizeMode_;
+	float scale_ = 1.0f;
 };
 
 class ProgressBar : public InertView {
@@ -1153,5 +1158,8 @@ bool IsEscapeKey(const KeyInput &key);
 bool IsInfoKey(const KeyInput &key);
 bool IsTabLeftKey(const KeyInput &key);
 bool IsTabRightKey(const KeyInput &key);
+
+// TODO: Doesn't really belong here.
+void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animated);
 
 }  // namespace

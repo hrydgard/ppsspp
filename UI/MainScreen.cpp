@@ -57,6 +57,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/IAPScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
@@ -1315,6 +1316,7 @@ void MainScreen::CreateViews() {
 				return UI::EVENT_DONE;
 			});
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+			gold->SetShine(true);
 		}
 	}
 
@@ -1579,13 +1581,17 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 }
 
 void LaunchBuyGold(ScreenManager *screenManager) {
+	if (System_GetPropertyBool(SYSPROP_USE_IAP)) {
+		screenManager->push(new IAPScreen());
+	} else {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
+	}
 }
 
 UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
@@ -1616,8 +1622,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (tag == "Store") {
 		backFromStore_ = true;
 		RecreateViews();
-	}
-	if (tag == "Game") {
+	} else if (tag == "Game") {
 		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			highlightedGamePath_ = restoreFocusGamePath_;
@@ -1635,12 +1640,14 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			// Not refocusing, so we need to stop the audio.
 			g_BackgroundAudio.SetGame(Path());
 		}
-	}
-	if (tag == "InstallZip") {
+	} else if (tag == "InstallZip") {
 		INFO_LOG(Log::System, "InstallZip finished, refreshing");
 		if (gameBrowsers_.size() >= 2) {
 			gameBrowsers_[1]->RequestRefresh();
 		}
+	} else if (tag == "IAP") {
+		// Gold status may have changed.
+		RecreateViews();
 	}
 }
 

@@ -916,6 +916,8 @@ void CreditsScreen::CreateViews() {
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 	root_->SetDefaultFocusView(back);
 
+	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
+
 	// Really need to redo this whole layout with some linear layouts...
 
 	int rightYOffset = 0;
@@ -936,10 +938,11 @@ void CreditsScreen::CreateViews() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
+
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+		root_->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	} else {
-		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	}
 }
 
@@ -1222,4 +1225,9 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 std::string SettingInfoMessage::GetText() const {
 	return (showing_ && text_) ? text_->GetText() : "";
+}
+
+void ShinyIcon::Draw(UIContext &dc) {
+	UI::DrawIconShine(dc, bounds_, 1.0f, true);
+	UI::ImageView::Draw(dc);
 }

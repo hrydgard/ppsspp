@@ -781,9 +781,6 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 
 	case VIRTKEY_PAUSE:
 		if (down) {
-			// Trigger on key-up to partially avoid repetition problems.
-			// This is needed whenever we pop up a menu since the mapper
-			// might miss  the key-up. Same as VIRTKEY_OPENCHAT.
 			// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
 			// running in the background of the menu.
 			pauseTrigger_ = true;

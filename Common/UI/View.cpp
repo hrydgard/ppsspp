@@ -536,6 +536,10 @@ void Choice::Draw(UIContext &dc) {
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
+				if (shine_) {
+					Bounds b = Bounds::FromCenter(bounds_.x2() - 32 - paddingX, bounds_.centerY(), bounds_.h * 0.4f);
+					DrawIconShine(dc, b, 0.8f, false);
+				}
 				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
@@ -1011,8 +1015,13 @@ void RadioButton::Draw(UIContext &dc) {
 	}
 }
 
+ImageView::ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams)
+	: InertView(layoutParams), text_(text), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
+
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
+	w *= scale_;
+	h *= scale_;
 	// TODO: involve sizemode
 }
 
@@ -1800,6 +1809,35 @@ void Spacer::Draw(UIContext &dc) {
 	if (drawAsSeparator_) {
 		dc.FillRect(UI::Drawable(dc.theme->itemDownStyle.background.color), bounds_);
 	}
+}
+
+void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animated) {
+	static const float radius[6] = { 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f };
+	static const float startAngle[6] = { 0.3f, 0.5f, 0.1f, 0.9f, 0.7f, 0.4f };
+	static const float arcLength[6] = { 0.45f, 0.2f, 0.6f, 0.7f, 0.3f, 0.5f };
+	static const float speed[6] = { 0.4f, -0.9f, 0.2f, -0.6f, 0.7f, -0.1f };
+	if (animated) {
+		dc.Flush();
+		dc.BeginNoTex();
+
+		const double t = time_now_d();
+		const int x = bounds.centerX();
+		const int y = bounds.centerY();
+		for (int i = 0; i < 6; i++) {
+			float radius = (i * 0.1f + 0.4f) * 1.3f;
+			float alpha = (5 - i) * (1.0f / 9.0f);
+
+			float angle = fmod(startAngle[i] + t * speed[i] * 0.7f, 1.0) * 2 * PI;
+			dc.Draw()->CircleSegment(x, y, radius * bounds.w, 4.0f, 64.0f, angle, angle + arcLength[i] * 2 * PI, colorAlpha(0xFF3EC5FF, alpha * shine), 0.0f);
+		}
+
+		dc.Flush();
+		dc.Begin();
+	}
+	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(ImageID("I_DROP_SHADOW"));
+	float scale = bounds.w / img->w;
+	dc.Draw()->DrawImage(ImageID("I_DROP_SHADOW"), bounds.centerX(), bounds.centerY(), scale * 1.7f, colorAlpha(0xFF3EC5FF, 0.75f * shine), ALIGN_CENTER);
+	dc.Flush();
 }
 
 }  // namespace
