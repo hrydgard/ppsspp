@@ -76,7 +76,7 @@ private:
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
 
-	void HandleVBlank();
+	void HandleFlip();
 	void ProcessGameBoot(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
 	void bootComplete();
