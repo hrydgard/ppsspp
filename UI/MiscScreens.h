@@ -197,6 +197,9 @@ class ShinyIcon : public UI::ImageView {
 public:
 	ShinyIcon(ImageID atlasImage, UI::LayoutParams *layoutParams = 0) : UI::ImageView(atlasImage, "", UI::IS_DEFAULT, layoutParams) {}
 	void Draw(UIContext &dc) override;
+	void SetAnimated(bool anim) { animated_ = anim; }
+private:
+	bool animated_ = true;
 };
 
 uint32_t GetBackgroundColorWithAlpha(const UIContext &dc);
