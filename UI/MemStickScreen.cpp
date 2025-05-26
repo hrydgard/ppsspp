@@ -545,7 +545,20 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
-		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Add([this](UI::EventParams &params) {
+			if (moveDataTask_ && !moveDataTask_->Poll()) {
+				return UI::EVENT_DONE;
+			}
+			if (newSpaceTask_ && !newSpaceTask_->Poll()) {
+				// TODO: we should detach/cancel the task somehow instead..
+				return UI::EVENT_DONE;
+			}
+			if (oldSpaceTask_ && !oldSpaceTask_->Poll()) {
+				// TODO: we should detach/cancel the task somehow instead..
+				return UI::EVENT_DONE;
+			}
+			return UIScreen::OnBack(params);
+		});
 	}
 }
 

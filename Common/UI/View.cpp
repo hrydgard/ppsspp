@@ -1428,6 +1428,13 @@ void Spinner::Draw(UIContext &dc) {
 		return;
 	double t = time_now_d() * 1.3f;
 	double angle = fmod(t, M_PI * 2.0);
+
+	if (!images_) {
+		// Simple.
+		dc.Draw()->CircleSegment(bounds_.centerX(), bounds_.centerY(), bounds_.radius(), 3.0f, 20.0f, angle, angle + PI * 3.0 / 2.0, dc.theme->itemStyle.fgColor, 0.0f);
+		return;
+	}
+
 	float r = bounds_.w * 0.5f;
 	double da = M_PI * 2.0 / numImages_;
 	for (int i = 0; i < numImages_; i++) {

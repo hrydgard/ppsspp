@@ -64,6 +64,9 @@ struct Bounds {
 	float y2() const { return y + h; }
 	float centerX() const { return x + w * 0.5f; }
 	float centerY() const { return y + h * 0.5f; }
+	float radius() const {
+		return ((w > h) ? w : h) * 0.5f;
+	}
 	Point2D Center() const {
 		return Point2D(centerX(), centerY());
 	}
