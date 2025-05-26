@@ -15,7 +15,7 @@
 	url = https://github.com/Kingcom/armips.git
 [submodule "ext/glslang"]
 	path = ext/glslang
-	url = https://github.com/KhronosGroup/glslang.git
+	url = https://github.com/hrydgard/glslang.git
 [submodule "ext/SPIRV-Cross"]
 	path = ext/SPIRV-Cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
