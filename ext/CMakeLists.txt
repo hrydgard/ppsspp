@@ -15,17 +15,14 @@ set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "let's not build binaries we don't ne
 set(SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS ON CACHE BOOL "let's not use exceptions" FORCE)
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "we don't need spvremapper" FORCE)
 
-# This is really a workaround for an NDK 20 compiler issue (PPSSPP issue #12105), but shouldn't hurt.
-if(ANDROID)
-set(ENABLE_HLSL OFF CACHE BOOL "let's not build HLSL support we don't need" FORCE)
-endif()
-
 # This works around a bug in cpu_features when ${CMAKE_BINARY_DIR} != ${CMAKE_CURRENT_BINRARY_DIR}.
 # We also disable the list_cpu_features binary.
 add_subdirectory(cmake/cpu_features EXCLUDE_FROM_ALL)
 
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
 set(ENABLE_GLSLANG_INSTALL OFF)
+set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
 add_subdirectory(glslang EXCLUDE_FROM_ALL)
 add_subdirectory(snappy)
 add_subdirectory(lua-build)
