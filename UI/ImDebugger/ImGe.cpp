@@ -33,7 +33,58 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 		return;
 	}
 
-	framebufferManager->DrawImGuiDebug(cfg.selectedFramebuffer);
+	ImGui::BeginTable("framebuffers", 4);
+	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+
+	ImGui::TableHeadersRow();
+
+	const std::vector<VirtualFramebuffer *> &vfbs = framebufferManager->GetVFBs();
+
+	for (int i = 0; i < (int)vfbs.size(); i++) {
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+
+		auto &vfb = vfbs[i];
+
+		const char *tag = vfb->fbo ? vfb->fbo->Tag() : "(no tag)";
+
+		ImGui::PushID(i);
+		if (ImGui::Selectable(tag, cfg.selectedFramebuffer == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+			cfg.selectedFramebuffer = i;
+		}
+		if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+			cfg.selectedFramebuffer = i;
+			ImGui::OpenPopup("framebufferPopup");
+		}
+		ImGui::TableNextColumn();
+		ImGui::Text("%08x", vfb->fb_address);
+		ImGui::TableNextColumn();
+		ImGui::Text("%08x", vfb->z_address);
+		ImGui::TableNextColumn();
+		ImGui::Text("%dx%d", vfb->width, vfb->height);
+		if (ImGui::BeginPopup("framebufferPopup")) {
+			ImGui::Text("Framebuffer: %s", tag);
+			ImGui::EndPopup();
+		}
+		ImGui::PopID();
+	}
+	ImGui::EndTable();
+
+	// Fix out-of-bounds issues when framebuffers are removed.
+	if (cfg.selectedFramebuffer >= vfbs.size()) {
+		cfg.selectedFramebuffer = -1;
+	}
+
+	if (cfg.selectedFramebuffer != -1) {
+		// Now, draw the image of the selected framebuffer.
+		Draw::Framebuffer *fb = vfbs[cfg.selectedFramebuffer]->fbo;
+		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
+	}
+
 	ImGui::End();
 }
 

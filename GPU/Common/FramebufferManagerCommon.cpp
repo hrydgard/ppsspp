@@ -19,9 +19,6 @@
 #include <sstream>
 #include <cmath>
 
-#include "ext/imgui/imgui.h"
-#include "ext/imgui/imgui_impl_thin3d.h"
-
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Convert/ColorConv.h"
@@ -3647,57 +3644,5 @@ static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, in
 	} else {
 		gstate_c.SetCurRTOffset(0, 0);
 		*drawing_width = 480;
-	}
-}
-
-void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
-	ImGui::BeginTable("framebuffers", 4);
-	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
-	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
-	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
-	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
-
-	ImGui::TableHeadersRow();
-
-	for (int i = 0; i < (int)vfbs_.size(); i++) {
-		ImGui::TableNextRow();
-		ImGui::TableNextColumn();
-
-		auto &vfb = vfbs_[i];
-
-		const char *tag = vfb->fbo ? vfb->fbo->Tag() : "(no tag)";
-
-		ImGui::PushID(i);
-		if (ImGui::Selectable(tag, selected == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
-			selected = i;
-		}
-		if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-			selected = i;
-			ImGui::OpenPopup("framebufferPopup");
-		}
-		ImGui::TableNextColumn();
-		ImGui::Text("%08x", vfb->fb_address);
-		ImGui::TableNextColumn();
-		ImGui::Text("%08x", vfb->z_address);
-		ImGui::TableNextColumn();
-		ImGui::Text("%dx%d", vfb->width, vfb->height);
-		if (ImGui::BeginPopup("framebufferPopup")) {
-			ImGui::Text("Framebuffer: %s", tag);
-			ImGui::EndPopup();
-		}
-		ImGui::PopID();
-	}
-	ImGui::EndTable();
-
-	// Fix out-of-bounds issues when framebuffers are removed.
-	if (selected >= vfbs_.size()) {
-		selected = -1;
-	}
-
-	if (selected != -1) {
-		// Now, draw the image of the selected framebuffer.
-		Draw::Framebuffer *fb = vfbs_[selected]->fbo;
-		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
 	}
 }
