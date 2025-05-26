@@ -1132,6 +1132,7 @@ private:
 	float progress_;
 };
 
+// If no images, we'll use a rotating arc.
 class Spinner : public InertView {
 public:
 	Spinner(const ImageID *images, int numImages, LayoutParams *layoutParams = 0)

@@ -458,7 +458,9 @@ void MemStickScreen::update() {
 
 ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup)
 	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
+	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
+	folderConflict_ = newMemstickFolder.StartsWithGlobal(oldMemstickFolder);
 	if (initialSetup_) {
 		moveData_ = false;
 	}
@@ -487,7 +489,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	Path &oldMemstickFolder = g_Config.memStickDirectory;
+	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
@@ -498,7 +500,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(ms->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
-		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("PPSSPP will restart after the change"), ""));
+		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("PPSSPP will restart after the change"), ""));
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 
@@ -516,6 +518,11 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 			leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("No data will be changed"), ""));
 		}
 	}
+
+	if (folderConflict_) {
+		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("The new folder is inside the previous one"), ""));
+	}
+
 	if (!error_.empty()) {
 		leftColumn->Add(new TextView(error_, ALIGN_LEFT, false));
 	}
@@ -545,7 +552,20 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
-		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Add([this](UI::EventParams &params) {
+			if (moveDataTask_ && !moveDataTask_->Poll()) {
+				return UI::EVENT_DONE;
+			}
+			if (newSpaceTask_ && !newSpaceTask_->Poll()) {
+				// TODO: we should detach/cancel the task somehow instead..
+				return UI::EVENT_DONE;
+			}
+			if (oldSpaceTask_ && !oldSpaceTask_->Poll()) {
+				// TODO: we should detach/cancel the task somehow instead..
+				return UI::EVENT_DONE;
+			}
+			return UIScreen::OnBack(params);
+		});
 	}
 }
 
