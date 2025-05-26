@@ -103,7 +103,7 @@ bool AVIDump::CreateAVI() {
 	s_format_context = avformat_alloc_context();
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58, 7, 0)
-	char *filename = av_strdup(video_file_name.c_str());
+	char *filename = av_strdup(g_filename.c_str());
 	// Freed when the context is freed.
 	s_format_context->url = filename;
 #else
