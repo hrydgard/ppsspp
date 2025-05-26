@@ -938,7 +938,11 @@ if(IOS)
 	target_compile_definitions(Common PUBLIC GLES_SILENCE_DEPRECATION)
 endif()
 
-target_link_libraries(Common Ext::Snappy cpu_features imgui)
+target_link_libraries(Common Ext::Snappy cpu_features)
+
+if(NOT LIBRETRO)
+    target_link_libraries(Common imgui)
+endif()
 
 if(ARM64)
 	if(ANDROID)
