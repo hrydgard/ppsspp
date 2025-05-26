@@ -793,10 +793,13 @@ public:
 	// Loadstore single structure
 	void LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn);
 	void LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Reg Rm);
+
+	// Replicate
 	void LD1R(u8 size, ARM64Reg Rt, ARM64Reg Rn);
 	void LD2R(u8 size, ARM64Reg Rt, ARM64Reg Rn);
 	void LD1R(u8 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
 	void LD2R(u8 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
+
 	void ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn);
 	void ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Reg Rm);
 

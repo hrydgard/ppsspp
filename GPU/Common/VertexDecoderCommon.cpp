@@ -943,9 +943,9 @@ void VertexDecoder::Step_PosS8Morph(const VertexDecoder *dec, const u8 *ptr, u8 
 // that it's 1.0 in that case, but that seems dangerous.
 void VertexDecoder::Step_PosS16Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	const int onesize = dec->onesize_;
+	const int morphcount = dec->morphcount;
 #ifdef CROSSSIMD_SLOW
 	float acc[3]{};
-	const int morphcount = dec->morphcount;
 	for (int n = 0; n < morphcount; n++) {
 		const float multiplier = 1.0f / 32768.0f;
 		const s16_le *sv = (const s16_le *)(ptr + onesize * n + dec->posoff);
@@ -957,7 +957,6 @@ void VertexDecoder::Step_PosS16Morph(const VertexDecoder *dec, const u8 *ptr, u8
 #else
 	Vec4F32 sum = Vec4F32::Zero();
 	const float *weights = gstate_c.morphWeights;
-	const int morphcount = dec->morphcount;
 	const s8 *bv = (const s8 *)(ptr + dec->posoff);
 	for (int n = 0; n < morphcount; n++) {
 		Vec4F32 w = Vec4F32::Splat(weights[n]);

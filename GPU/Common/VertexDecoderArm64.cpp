@@ -26,7 +26,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-alignas(16) static float bones[16 * 8];  // First four are kept in registers
+alignas(16) static float bones[16 * 8];  // First four are kept in registers Q16->Q31
 
 using namespace Arm64Gen;
 
@@ -69,7 +69,8 @@ static const ARM64Reg src[2] = {S2, S3};
 static const ARM64Reg srcD = D2;
 static const ARM64Reg srcQ = Q2;
 
-static const ARM64Reg srcNEON = Q8;
+static const ARM64Reg weightQ = Q3;
+
 static const ARM64Reg accNEON = Q9;
 
 static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };  // reverse order to prevent clash with neonScratchReg in Jit_WeightsU*Skin.
@@ -77,6 +78,7 @@ static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };  // reverse order to prev
 // Q4-Q7 is the generated matrix that we multiply things by.
 // Q8,Q9 are accumulators/scratch for matrix mul.
 // Q10, Q11 are more scratch for matrix mul.
+// Q12, Q13 are morph weights.
 // Q16+ are free-for-all for matrices. In 16 registers, we can fit 4 4x4 matrices.
 
 static const JitLookup jitLookup[] = {
@@ -125,7 +127,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
 	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
 
-	/*
 	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
 	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
 	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
@@ -134,10 +135,21 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS16Morph, &VertexDecoderJitCache::Jit_PosS16Morph},
 	{&VertexDecoder::Step_PosFloatMorph, &VertexDecoderJitCache::Jit_PosFloatMorph},
 
-	{&VertexDecoder::Step_Color8888Morph, &VertexDecoderJitCache::Jit_Color8888Morph},
+	/*
 	{&VertexDecoder::Step_Color4444Morph, &VertexDecoderJitCache::Jit_Color4444Morph},
 	{&VertexDecoder::Step_Color565Morph, &VertexDecoderJitCache::Jit_Color565Morph},
 	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
+	*/
+
+	{&VertexDecoder::Step_Color8888Morph, &VertexDecoderJitCache::Jit_Color8888Morph},
+
+	/*
+	{&VertexDecoder::Step_TcU8MorphToFloat, &VertexDecoderJitCache::Jit_TcU8MorphToFloat},
+	{&VertexDecoder::Step_TcU16MorphToFloat, &VertexDecoderJitCache::Jit_TcU16MorphToFloat},
+	{&VertexDecoder::Step_TcFloatMorph, &VertexDecoderJitCache::Jit_TcFloatMorph},
+	{&VertexDecoder::Step_TcU8PrescaleMorph, &VertexDecoderJitCache::Jit_TcU8PrescaleMorph},
+	{&VertexDecoder::Step_TcU16PrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
+	{&VertexDecoder::Step_TcFloatPrescaleMorph, &VertexDecoderJitCache::Jit_TcFloatPrescaleMorph},
 	*/
 };
 
@@ -246,6 +258,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LDRH(INDEX_UNSIGNED, boundsMaxUReg, scratchReg64, offsetof(KnownVertexBounds, maxU));
 		LDRH(INDEX_UNSIGNED, boundsMinVReg, scratchReg64, offsetof(KnownVertexBounds, minV));
 		LDRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
+	}
+
+	if (dec.morphcount != 0) {
+		MOVP2R(scratchReg64, &gstate_c.morphWeights);
+		// TODO: Only load the first 2 or 4 if morphWeights is small.
+		fp.LDP(128, INDEX_SIGNED, Q12, Q13, scratchReg64, 0);
 	}
 
 	const u8 *loopStart = NopAlignCode16();
@@ -490,6 +508,98 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	ORN(alphaNonFullReg, alphaNonFullReg, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
 
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color8888Morph() {
+	// The morph weights are pre-loaded into Q12, Q13.
+	// We accumulate into neonScratchRegQ2
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const ARM64Reg weightReg = n >= 4 ? Q13 : Q12;
+		const int weightIndex = n & 3;
+		// TODO: Does the offset grow too large?
+		fp.LDR(32, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->onesize_ * n + dec_->coloff); break;
+		fp.UXTL(8, neonScratchRegQ, neonScratchRegD);
+		fp.UXTL(16, neonScratchRegQ, neonScratchRegD);
+		fp.UCVTF(32, neonScratchRegQ, neonScratchRegQ, 7);
+		if (n == 0) {
+			fp.FMUL(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		} else {
+			fp.FMLA(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		}
+	}
+	Jit_WriteMorphColor(dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
+	// The morph weights are pre-loaded into Q12, Q13.
+	// We accumulate into neonScratchRegQ2
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const ARM64Reg weightReg = n >= 4 ? Q13 : Q12;
+		const int weightIndex = n & 3;
+		fp.LDR(32, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->onesize_ * n + srcoff); break;
+		fp.SXTL(8, neonScratchRegQ, neonScratchRegD);
+		fp.SXTL(16, neonScratchRegQ, neonScratchRegD);
+		fp.SCVTF(32, neonScratchRegQ, neonScratchRegQ, 7);
+		if (n == 0) {
+			fp.FMUL(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		} else {
+			fp.FMLA(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		}
+	}
+	fp.STUR(128, neonScratchReg2Q, dstReg, dstoff);
+}
+
+void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
+	// The morph weights are pre-loaded into Q12, Q13.
+	// We accumulate into neonScratchRegQ2
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const ARM64Reg weightReg = n >= 4 ? Q13 : Q12;
+		const int weightIndex = n & 3;
+		fp.LDR(64, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->onesize_ * n + srcoff); break;
+		fp.SXTL(16, neonScratchRegQ, neonScratchRegD);
+		fp.SCVTF(32, neonScratchRegQ, neonScratchRegQ, 7);
+		if (n == 0) {
+			fp.FMUL(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		} else {
+			fp.FMLA(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		}
+	}
+	fp.STUR(128, neonScratchReg2Q, dstReg, dstoff);
+}
+
+void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
+	// The morph weights are pre-loaded into Q12, Q13.
+	// We accumulate into neonScratchRegQ2
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const ARM64Reg weightReg = n >= 4 ? Q13 : Q12;
+		const int weightIndex = n & 3;
+		fp.LDR(128, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->onesize_ * n + srcoff); break;
+		if (n == 0) {
+			fp.FMUL(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		} else {
+			fp.FMLA(32, neonScratchReg2Q, neonScratchRegQ, weightReg, weightIndex);
+		}
+	}
+	fp.STUR(128, neonScratchReg2Q, dstReg, dstoff);
+}
+
+// Incoming value in 2Q
+void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
+	// TODO: Keep zero and 255 around?
+	fp.MOVI2FDUP(neonScratchRegQ, 0.0f, scratchReg);
+	fp.FMAX(neonScratchReg2Q, neonScratchReg2Q, neonScratchRegQ);
+	fp.MOVI2FDUP(neonScratchRegQ, 255.0f, scratchReg);
+	fp.FMIN(neonScratchReg2Q, neonScratchReg2Q, neonScratchRegQ);
+
+	fp.FCVTU(neonScratchRegQ, neonScratchReg2Q, RoundingMode::ROUND_Z);
+	fp.XTN(16, neonScratchRegQ, neonScratchRegQ);
+	fp.XTN(8, neonScratchRegQ, neonScratchRegQ);
+
+	fp.MOV(tempReg1, neonScratchRegD);
+
+	ORN(alphaNonFullReg, alphaNonFullReg, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, outOff);
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -783,6 +893,30 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 		fp.FADD(32, accNEON, accNEON, Q7);
 	}
 	fp.STUR(128, accNEON, dstReg, outOff);
+}
+
+void VertexDecoderJitCache::Jit_PosS8Morph() {
+	Jit_AnyS8Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Morph() {
+	Jit_AnyS16Morph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorph() {
+	Jit_AnyFloatMorph(dec_->posoff, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8Morph() {
+	Jit_AnyS8Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Morph() {
+	Jit_AnyS16Morph(dec_->nrmoff, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorph() {
+	Jit_AnyFloatMorph(dec_->nrmoff, dec_->decFmt.nrmoff);
 }
 
 #endif // PPSSPP_ARCH(ARM64)

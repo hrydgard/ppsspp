@@ -2080,6 +2080,7 @@ void ARM64FloatEmitter::EmitLoadStoreImmediate(u8 size, u32 opc, IndexType type,
 			imm >>= 3;
 		else if (size == 128)
 			imm >>= 4;
+		_dbg_assert_((imm & ~0xFFF) == 0);
 		encoded_imm = (imm & 0xFFF);
 	}
 	else
