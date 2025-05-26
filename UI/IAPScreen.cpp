@@ -83,7 +83,7 @@ void IAPScreen::CreateViews() {
 	restorePurchases->OnClick.Add([this, requesterToken, restorePurchases](UI::EventParams &) {
 		restorePurchases->SetEnabled(false);
 		INFO_LOG(Log::System, "Requesting purchase restore");
-		System_IAPRestorePurchases(requesterToken, [this, restorePurchases](const char *responseString, int) {
+		System_IAPRestorePurchases(requesterToken, [this](const char *responseString, int) {
 			INFO_LOG(Log::System, "Successfully restored purchases!");
 			RecreateViews();
 		}, []() {
