@@ -624,7 +624,7 @@ static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::MSG) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	ActivateDialog(UtilityDialogType::MSG);
 	return hleLogInfo(Log::sceUtility, msgDialog->Init(paramAddr));
 }
@@ -633,7 +633,7 @@ static int sceUtilityMsgDialogShutdownStart() {
 	if (currentDialogType != UtilityDialogType::MSG) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogDebug(Log::sceUtility, msgDialog->Shutdown());
 }
@@ -642,7 +642,7 @@ static int sceUtilityMsgDialogUpdate(int animSpeed) {
 	if (currentDialogType != UtilityDialogType::MSG) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	int ret = msgDialog->Update(animSpeed);
 	if (ret >= 0)
 		return hleDelayResult(hleLogDebug(Log::sceUtility, ret), "msgdialog update", 800);
@@ -668,7 +668,7 @@ static int sceUtilityMsgDialogAbort() {
 	if (currentDialogType != UtilityDialogType::MSG) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	return hleLogDebug(Log::sceUtility, msgDialog->Abort());
 }
 
@@ -678,7 +678,7 @@ static int sceUtilityOskInitStart(u32 oskPtr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::OSK) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	ActivateDialog(UtilityDialogType::OSK);
 	return hleLogInfo(Log::sceUtility, oskDialog->Init(oskPtr));
 }
@@ -687,7 +687,7 @@ static int sceUtilityOskShutdownStart() {
 	if (currentDialogType != UtilityDialogType::OSK) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogDebug(Log::sceUtility, oskDialog->Shutdown());
 }
@@ -696,7 +696,7 @@ static int sceUtilityOskUpdate(int animSpeed) {
 	if (currentDialogType != UtilityDialogType::OSK) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	// This is the vblank period, plus a little slack. Needed to fix timing bug in Ghost Recon: Predator.
 	// See issue #12044.
 	hleEatCycles(msToCycles(0.7315 + 0.1));
@@ -722,7 +722,7 @@ static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::NET) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	ActivateDialog(UtilityDialogType::NET);
 	return hleLogInfo(Log::sceUtility, netDialog->Init(paramsAddr));
 }
@@ -731,7 +731,7 @@ static int sceUtilityNetconfShutdownStart() {
 	if (currentDialogType != UtilityDialogType::NET) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogDebug(Log::sceUtility, netDialog->Shutdown());
 }
@@ -764,7 +764,7 @@ static int sceUtilityNetconfGetStatus() {
 *
 * @param id - id of net Configuration (1 to n)
 * @return 0 on success
-* 
+*
 * Note: some homebrew may only support a limited number of entries (ie. 10 entries)
 */
 static int sceUtilityCheckNetParam(int id)
@@ -1016,7 +1016,7 @@ static int sceUtilityScreenshotInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::SCREENSHOT) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	ActivateDialog(UtilityDialogType::SCREENSHOT);
 	return hleReportWarning(Log::sceUtility, screenshotDialog->Init(paramAddr));
 }
@@ -1025,7 +1025,7 @@ static int sceUtilityScreenshotShutdownStart() {
 	if (currentDialogType != UtilityDialogType::SCREENSHOT) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogWarning(Log::sceUtility, screenshotDialog->Shutdown());
 }
@@ -1034,7 +1034,7 @@ static int sceUtilityScreenshotUpdate(u32 animSpeed) {
 	if (currentDialogType != UtilityDialogType::SCREENSHOT) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	return hleLogWarning(Log::sceUtility, screenshotDialog->Update(animSpeed));
 }
 
@@ -1056,7 +1056,7 @@ static int sceUtilityScreenshotContStart(u32 paramAddr) {
 	if (currentDialogType != UtilityDialogType::SCREENSHOT) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	return hleLogWarning(Log::sceUtility, screenshotDialog->ContStart());
 }
 
@@ -1076,7 +1076,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Shutdown());
 }
@@ -1085,7 +1085,7 @@ static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Update(animSpeed));
 }
 
@@ -1105,7 +1105,7 @@ static int sceUtilityGamedataInstallAbort() {
 	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Abort());
 }
@@ -1163,10 +1163,10 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		param = g_Config.iWlanAdhocChannel;
 		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
-			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either, 
+			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either,
 			//        Not sure whether this error code only returned after Adhocctl Initialized (ie. netAdhocctlInited) or also before initialized.
-			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED), 
-			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING), 
+			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED),
+			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING),
 			//        or 0x60 early when in connected state (ie. adhocctlState == ADHOCCTL_STATE_CONNECTED) right after Creating a group, regardless the channel settings.
 			Memory::Write_U32(param, destaddr);
 			return 0x800ADF4;
@@ -1285,7 +1285,7 @@ static int sceUtilityGameSharingShutdownStart() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
-	
+
 	DeactivateDialog();
 	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
@@ -1339,7 +1339,7 @@ static u32 sceUtilityUnloadUsbModule(u32 module)
 	return hleNoLog(0);
 }
 
-const HLEFunction sceUtility[] = 
+const HLEFunction sceUtility[] =
 {
 	{0X1579A159, &WrapU_U<sceUtilityLoadNetModule>,                "sceUtilityLoadNetModule",                'x', "x"  },
 	{0X64D50C56, &WrapU_U<sceUtilityUnloadNetModule>,              "sceUtilityUnloadNetModule",              'x', "x"  },

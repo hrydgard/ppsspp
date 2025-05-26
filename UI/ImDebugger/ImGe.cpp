@@ -27,11 +27,62 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 		return;
 	}
 
-	if (framebufferManager) {
-		framebufferManager->DrawImGuiDebug(cfg.selectedFramebuffer);
-	} else {
-		// Although technically, we could track them...
+	if (!framebufferManager) {
 		ImGui::TextUnformatted("(Framebuffers not available in software mode)");
+		ImGui::End();
+		return;
+	}
+
+	ImGui::BeginTable("framebuffers", 4);
+	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+
+	ImGui::TableHeadersRow();
+
+	const std::vector<VirtualFramebuffer *> &vfbs = framebufferManager->GetVFBs();
+
+	for (int i = 0; i < (int)vfbs.size(); i++) {
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+
+		auto &vfb = vfbs[i];
+
+		const char *tag = vfb->fbo ? vfb->fbo->Tag() : "(no tag)";
+
+		ImGui::PushID(i);
+		if (ImGui::Selectable(tag, cfg.selectedFramebuffer == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+			cfg.selectedFramebuffer = i;
+		}
+		if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+			cfg.selectedFramebuffer = i;
+			ImGui::OpenPopup("framebufferPopup");
+		}
+		ImGui::TableNextColumn();
+		ImGui::Text("%08x", vfb->fb_address);
+		ImGui::TableNextColumn();
+		ImGui::Text("%08x", vfb->z_address);
+		ImGui::TableNextColumn();
+		ImGui::Text("%dx%d", vfb->width, vfb->height);
+		if (ImGui::BeginPopup("framebufferPopup")) {
+			ImGui::Text("Framebuffer: %s", tag);
+			ImGui::EndPopup();
+		}
+		ImGui::PopID();
+	}
+	ImGui::EndTable();
+
+	// Fix out-of-bounds issues when framebuffers are removed.
+	if (cfg.selectedFramebuffer >= vfbs.size()) {
+		cfg.selectedFramebuffer = -1;
+	}
+
+	if (cfg.selectedFramebuffer != -1) {
+		// Now, draw the image of the selected framebuffer.
+		Draw::Framebuffer *fb = vfbs[cfg.selectedFramebuffer]->fbo;
+		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
 	}
 
 	ImGui::End();
@@ -44,12 +95,135 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 		return;
 	}
 
-	if (textureCache) {
-		textureCache->DrawImGuiDebug(cfg.selectedTexAddr);
-	} else {
+	if (!textureCache) {
 		ImGui::TextUnformatted("Texture cache not available");
+		ImGui::End();
+		return;
 	}
 
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	auto &style = ImGui::GetStyle();
+	ImGui::BeginChild("left", ImVec2(140.0f, 0.0f), ImGuiChildFlags_ResizeX);
+	float window_visible_x2 = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+
+	// Global texture stats
+	int replacementStateCounts[(int)ReplacementState::COUNT]{};
+	if (!textureCache->SecondCache().empty()) {
+		ImGui::Text("Primary Cache");
+	}
+
+	for (auto &iter : textureCache->Cache()) {
+		u64 id = iter.first;
+		const TexCacheEntry *entry = iter.second.get();
+		void *nativeView = textureCache->GetNativeTextureView(iter.second.get(), true);
+		int w = 128;
+		int h = 128;
+
+		if (entry->replacedTexture) {
+			replacementStateCounts[(int)entry->replacedTexture->State()]++;
+		}
+
+		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+		float last_button_x2 = ImGui::GetItemRectMax().x;
+		float next_button_x2 = last_button_x2 + style.ItemSpacing.x + w; // Expected position if next button was on same line
+		if (next_button_x2 < window_visible_x2)
+			ImGui::SameLine();
+
+		float x = ImGui::GetCursorPosX();
+		if (ImGui::Selectable(("##Image" + std::to_string(id)).c_str(), cfg.selectedTexAddr == id, 0, ImVec2(w, h))) {
+			cfg.selectedTexAddr = id; // Update the selected index if clicked
+		}
+
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(x + 2.0f);
+		ImGui::Image(texId, ImVec2(128, 128));
+	}
+
+	if (!textureCache->SecondCache().empty()) {
+		ImGui::Text("Secondary Cache (%d): TODO", (int)textureCache->SecondCache().size());
+		// TODO
+	}
+
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	ImGui::BeginChild("right", ImVec2(0.f, 0.0f));
+	if (ImGui::CollapsingHeader("Texture", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (cfg.selectedTexAddr) {
+			auto iter = textureCache->Cache().find(cfg.selectedTexAddr);
+			if (iter != textureCache->Cache().end()) {
+				void *nativeView = textureCache->GetNativeTextureView(iter->second.get(), true);
+				ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+				const TexCacheEntry *entry = iter->second.get();
+				int dim = entry->dim;
+				int w = dimWidth(dim);
+				int h = dimHeight(dim);
+				ImGui::Image(texId, ImVec2(w, h));
+				ImGui::Text("%08x: %dx%d, %d mips, %s", (uint32_t)(cfg.selectedTexAddr & 0xFFFFFFFF), w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
+				ImGui::Text("Stride: %d", entry->bufw);
+				ImGui::Text("Status: %08x", entry->status);  // TODO: Show the flags
+				ImGui::Text("Hash: %08x", entry->fullhash);
+				ImGui::Text("CLUT Hash: %08x", entry->cluthash);
+				ImGui::Text("Minihash: %08x", entry->minihash);
+				ImGui::Text("MaxSeenV: %08x", entry->maxSeenV);
+				if (entry->replacedTexture) {
+					if (ImGui::CollapsingHeader("Replacement", ImGuiTreeNodeFlags_DefaultOpen)) {
+						const auto &desc = entry->replacedTexture->Desc();
+						ImGui::Text("State: %s", StateString(entry->replacedTexture->State()));
+						// ImGui::Text("Original: %dx%d (%dx%d)", desc.w, desc.h, desc.newW, desc.newH);
+						if (entry->replacedTexture->State() == ReplacementState::ACTIVE) {
+							int w, h;
+							entry->replacedTexture->GetSize(0, &w, &h);
+							int numLevels = entry->replacedTexture->NumLevels();
+							ImGui::Text("Replaced: %dx%d, %d mip levels", w, h, numLevels);
+							ImGui::Text("Level 0 size: %d bytes, format: %s", entry->replacedTexture->GetLevelDataSizeAfterCopy(0), Draw::DataFormatToString(entry->replacedTexture->Format()));
+						}
+						ImGui::Text("Key: %08x_%08x", (u32)(desc.cachekey >> 32), (u32)desc.cachekey);
+						ImGui::Text("Hashfiles: %s", desc.hashfiles.c_str());
+						ImGui::Text("Base: %s", desc.basePath.c_str());
+						ImGui::Text("Alpha status: %02x", entry->replacedTexture->AlphaStatus());
+					}
+				} else {
+					ImGui::Text("Not replaced");
+				}
+				ImGui::Text("Frames until next full hash: %08x", entry->framesUntilNextFullHash);  // TODO: Show the flags
+			} else {
+				cfg.selectedTexAddr = 0;
+			}
+		} else {
+			ImGui::Text("(no texture selected)");
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Texture Cache State", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Text("Cache: %d textures, size est %d", (int)textureCache->Cache().size(), (int)textureCache->CacheSizeEstimate());
+		if (!textureCache->SecondCache().empty()) {
+			ImGui::Text("Second: %d textures, size est %d", (int)textureCache->SecondCache().size(), (int)textureCache->SecondCacheSizeEstimate());
+		}
+		/*
+		ImGui::Text("Standard/shader scale factor: %d/%d", standardScaleFactor_, shaderScaleFactor_);
+		ImGui::Text("Texels scaled this frame: %d", texelsScaledThisFrame_);
+		ImGui::Text("Low memory mode: %d", (int)lowMemoryMode_);
+		*/
+		if (ImGui::CollapsingHeader("Texture Replacement", ImGuiTreeNodeFlags_DefaultOpen)) {
+			// ImGui::Text("Frame time/budget: %0.3f/%0.3f ms", replacementTimeThisFrame_ * 1000.0f, replacementFrameBudgetSeconds_ * 1000.0f);
+			ImGui::Text("UNLOADED: %d PENDING: %d NOT_FOUND: %d ACTIVE: %d CANCEL_INIT: %d",
+				replacementStateCounts[(int)ReplacementState::UNLOADED],
+				replacementStateCounts[(int)ReplacementState::PENDING],
+				replacementStateCounts[(int)ReplacementState::NOT_FOUND],
+				replacementStateCounts[(int)ReplacementState::ACTIVE],
+				replacementStateCounts[(int)ReplacementState::CANCEL_INIT]);
+		}
+		if (textureCache->Videos().size()) {
+			if (ImGui::CollapsingHeader("Tracked video playback memory")) {
+				for (auto &video : textureCache->Videos()) {
+					ImGui::Text("%08x: %d flips, size = %d", video.addr, video.flips, video.size);
+				}
+			}
+		}
+	}
+
+	ImGui::EndChild();
 	ImGui::End();
 }
 

@@ -719,7 +719,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
 			std::string deviceApiVersion = draw->GetInfoString(InfoField::DEVICE_API_VERSION);
-			versionInfo->Add(new InfoItem(si->T("Device API Version"), deviceApiVersion));
+			versionInfo->Add(new InfoItem(si->T("Device API version"), deviceApiVersion));
 		}
 	}
 	versionInfo->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));

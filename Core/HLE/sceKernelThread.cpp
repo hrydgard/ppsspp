@@ -1821,6 +1821,14 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		ERROR_LOG(Log::sceKernel, "__KernelCreateThread: NULL thread name");
 		return SCE_KERNEL_ERROR_ERROR;
 	}
+	for (int i = 0; i < 4; i++) {
+		if ((u8)threadName[i] >= 0xf0) {
+			WARN_LOG(Log::sceKernel, "Overriding bad thread name to badThreadName. first 4 bytes: %02x %02x %02x %02x", threadName[0], threadName[1], threadName[2], threadName[3]);
+			// Smash Court Tennis gives us an unprintable thread name, messing up logs.
+			threadName = "badThreadName";
+			break;
+		}
+	}
 
 	if ((u32)stacksize < 0x200) {
 		WARN_LOG_REPORT(Log::sceKernel, "bogus thread stack size %08x", stacksize);
