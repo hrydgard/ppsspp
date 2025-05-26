@@ -123,7 +123,11 @@ public:
 
 	bool FilePathContainsNoCase(std::string_view needle) const;
 
+	// WARNING: This can return wrong results if two ContentURI have different root paths.
 	bool StartsWith(const Path &other) const;
+
+	// This handles ContentURI with different paths "correctly".
+	bool StartsWithGlobal(const Path &other) const;
 
 	bool operator <(const Path &other) const {
 		return path_ < other.path_;

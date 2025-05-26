@@ -116,6 +116,8 @@ private:
 
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
+	bool folderConflict_;
+
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	bool moveData_ = false;
 #else

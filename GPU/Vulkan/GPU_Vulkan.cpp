@@ -454,7 +454,7 @@ void GPU_Vulkan::DeviceLost() {
 }
 
 void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
-	GPUCommonHW::DeviceRestore(draw);
+	GPUCommonHW::DeviceRestore(draw);  // this updates draw_.
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	pipelineManager_->DeviceRestore(vulkan);
