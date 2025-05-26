@@ -219,12 +219,15 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
 
+	// Not useful enough to be made visible.
+	/*
 	auto memmapTest = list->Add(new Choice(dev->T("Memory map test")));
 	memmapTest->OnClick.Add([this](UI::EventParams &e) {
 		MemoryMapTest();
 		return UI::EVENT_DONE;
 	});
 	memmapTest->SetEnabled(PSP_IsInited());
+	*/
 }
 
 void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {

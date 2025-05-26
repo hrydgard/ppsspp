@@ -196,9 +196,9 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 	}
 
 	if (ImGui::CollapsingHeader("Texture Cache State", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
-		ImGui::Text("Cache: %d textures, size est %d", (int)textureCache->Cache().size(), textureCache->CacheSizeEstimate());
+		ImGui::Text("Cache: %d textures, size est %d", (int)textureCache->Cache().size(), (int)textureCache->CacheSizeEstimate());
 		if (!textureCache->SecondCache().empty()) {
-			ImGui::Text("Second: %d textures, size est %d", (int)textureCache->SecondCache().size(), textureCache->SecondCacheSizeEstimate());
+			ImGui::Text("Second: %d textures, size est %d", (int)textureCache->SecondCache().size(), (int)textureCache->SecondCacheSizeEstimate());
 		}
 		/*
 		ImGui::Text("Standard/shader scale factor: %d/%d", standardScaleFactor_, shaderScaleFactor_);

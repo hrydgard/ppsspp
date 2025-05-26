@@ -373,7 +373,7 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteTab, ri->T("Show Remote tab on main screen")));
 
 	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-		static const char *shareTypes[] = { "Recent files", "Choose directory" };
+		static const char *shareTypes[] = { "Recent games", "Choose directory" };
 		remoteisoSettings->Add(new PopupMultiChoice(&g_Config.iRemoteISOShareType, ri->T("Files to share"), shareTypes, 0, ARRAY_SIZE(shareTypes), I18NCat::REMOTEISO, screenManager()));
 		FolderChooserChoice *folderChooser = remoteisoSettings->Add(new FolderChooserChoice(GetRequesterToken(), &g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
 		folderChooser->SetEnabledFunc([=]() {
