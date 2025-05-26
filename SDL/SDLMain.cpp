@@ -693,7 +693,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #ifdef GOLD
 		return true;
 #else
-		return true;
+		return false;
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
@@ -1047,7 +1047,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
@@ -1060,7 +1060,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
@@ -1068,7 +1068,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
-			KeyInput key;
+			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 			key.flags = KEY_DOWN;
@@ -1079,7 +1079,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
@@ -1147,7 +1147,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		break;
 	case SDL_MOUSEWHEEL:
 		{
-			KeyInput key;
+			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.flags = KEY_DOWN;
 #if SDL_VERSION_ATLEAST(2, 0, 18)

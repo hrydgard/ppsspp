@@ -858,7 +858,7 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_POINTER, "misaligned address");
 	}
 	if ((linesize & 0x3F) != 0 || (linesize == 0 && topaddr != 0)) {
-		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
 	}
 	if (pixelformat < 0 || pixelformat > GE_FORMAT_8888) {
 		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
@@ -866,7 +866,7 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		if ((GEBufferFormat)pixelformat != latchedFramebuf.fmt || linesize != latchedFramebuf.stride) {
-			return hleReportError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
+			return hleReportWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
 		}
 	}
 
