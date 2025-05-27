@@ -204,7 +204,9 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// Bypass Chinese translation patches, see comment above.
 	for (size_t i = 0; i < ARRAY_SIZE(altBootNames); i++) {
 		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
-			bootpath = altBootNames[i];			
+			WARN_LOG(Log::Boot, "Bypassing suspected translation patch. Booting '%s' instead of '%s'.", altBootNames[i], bootpath.c_str());
+			bootpath = altBootNames[i];
+			// break;  // should have a break here, but it would effectively reverse the evaluation order.
 		}
 	}
 
