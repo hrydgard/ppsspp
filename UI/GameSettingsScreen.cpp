@@ -1121,7 +1121,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	uiScale->SetZeroLabel(sy->T("Off"));
 	uiScale->OnChange.Add([](UI::EventParams &e) {
 		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
-		g_display.Recalculate(-1, -1, -1, dpiMul, dpiMul);
+		g_display.Recalculate(-1, -1, -1, -1, dpiMul);
 		NativeResized();
 		return UI::EVENT_DONE;
 	});
