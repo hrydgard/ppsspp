@@ -329,6 +329,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		BrowseFileType fileType = BrowseFileType::IMAGE;
+		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
@@ -342,6 +355,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #else
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		// TODO: Add non-blocking support.
+		const std::string &title = param1;
+		std::vector<std::string> filters;
+		InitializeFilters(filters, BrowseFileType::IMAGE);
+		std::vector<std::string> result = pfd::open_file(title, "", filters).result();
+		if (!result.empty()) {
+			g_requestManager.PostSystemSuccess(requestId, result[0]);
+		} else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FILE:
 	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
 	{
@@ -453,7 +480,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
+		INFO_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
+		return true;
 	default:
+		INFO_LOG(Log::UI, "Unhandled system request %s", RequestTypeAsString(type));
 		return false;
 	}
 }

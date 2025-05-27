@@ -1517,6 +1517,7 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		INFO_LOG(Log::UI, "Clearing background image.");
 		// The button is in clear mode.
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
