@@ -390,9 +390,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::System, "dealloc GL");
 }
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
-	return UIInterfaceOrientationMaskLandscape;
+	return UIInterfaceOrientationMaskAll;
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect

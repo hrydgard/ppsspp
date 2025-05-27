@@ -140,10 +140,6 @@
 - (void)updateResolution:(UIScreen *)screen {
 	float scale = screen.nativeScale;
 	CGSize size = screen.bounds.size;
-	
-	if (size.height > size.width) {
-		std::swap(size.height, size.width);
-	}
 
 	float dpi;
 	if (screen == [UIScreen mainScreen]) {

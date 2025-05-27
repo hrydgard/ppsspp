@@ -86,7 +86,6 @@ bool InitController(GCController *controller) {
 		analogTriggerPressed(JOYSTICK_AXIS_RTRIGGER, value);
 	};
 
-#if defined(__IPHONE_12_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
 	if ([extendedProfile respondsToSelector:@selector(leftThumbstickButton)] && extendedProfile.leftThumbstickButton != nil) {
 		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBL);
@@ -97,8 +96,7 @@ bool InitController(GCController *controller) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBR);
 		};
 	}
-#endif
-#if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
+
 	if ([extendedProfile respondsToSelector:@selector(buttonOptions)] && extendedProfile.buttonOptions != nil) {
 		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_SELECT);
@@ -109,7 +107,7 @@ bool InitController(GCController *controller) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_START);
 		};
 	}
-#endif
+
 #if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
 	if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
 		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {

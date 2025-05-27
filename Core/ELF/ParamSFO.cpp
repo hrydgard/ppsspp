@@ -132,8 +132,6 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 		return false;
 	}
 
-	const u8 *data_start = paramsfo + header->data_table_start;
-
 	auto readStringCapped = [paramsfo, size](size_t offset, size_t maxLen) -> std::string {
 		std::string str;
 		while (offset < size) {

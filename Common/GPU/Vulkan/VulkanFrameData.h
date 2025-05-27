@@ -8,9 +8,17 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Collections/Hashmaps.h"
 
+#if PPSSPP_PLATFORM(IOS)
+// iOS doesn't support a large number of timestamp queries natively.
+// We don't want MoltenVK to fall back to emulation.
+enum {
+	MAX_TIMESTAMP_QUERIES = 32,
+};
+#else
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
+#endif
 
 enum class VKRRunType {
 	SUBMIT,

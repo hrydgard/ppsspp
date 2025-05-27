@@ -107,4 +107,8 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 - (void)applicationWillTerminate:(UIApplication *)application {
 }
 
+- (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+    return UIInterfaceOrientationMaskAll; // or at least include Portrait
+}
+
 @end

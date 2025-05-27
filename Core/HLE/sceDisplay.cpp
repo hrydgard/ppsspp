@@ -614,7 +614,7 @@ void __DisplayFlip(int cyclesLate) {
 	const double fpsLimit = FrameTimingLimit();
 	bool throttle = fpsLimit != 0.0;
 
-	bool refreshRateNeedsSkip = fpsLimit != framerate && fpsLimit > refreshRate || !throttle;
+	bool refreshRateNeedsSkip = (fpsLimit != framerate && fpsLimit > refreshRate) || !throttle;
 
 	g_frameTiming.ComputePresentMode(draw, refreshRateNeedsSkip);
 

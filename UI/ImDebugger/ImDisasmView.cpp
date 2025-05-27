@@ -52,8 +52,10 @@ static ImColor scaleColor(ImColor color, float factor) {
 }
 
 bool ImDisasmView::getDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbreviateLabels, bool showData) {
-	if (PSP_GetBootState() != BootState::Complete)
+	if (PSP_GetBootState() != BootState::Complete) {
+		dest[0] = '\0';
 		return false;
+	}
 
 	return GetDisasmAddressText(address, dest, bufSize, abbreviateLabels, showData, displaySymbols_);
 }
