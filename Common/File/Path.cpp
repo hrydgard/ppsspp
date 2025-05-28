@@ -251,7 +251,7 @@ bool Path::StartsWith(const Path &other) const {
 	return startsWith(path_, other.path_);
 }
 
-bool Path::StartsWithGlobal(const Path &other) const {
+bool Path::StartsWithGlobalAndNotEqual(const Path &other) const {
 	if (other.empty()) {
 		return true;
 	}
@@ -262,9 +262,14 @@ bool Path::StartsWithGlobal(const Path &other) const {
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI a(path_);
 		AndroidContentURI b(other.path_);
-		return startsWith(a.GetLastPart(), b.GetLastPart());
+		std::string aLast = a.GetLastPart();
+		std::string bLast = b.GetLastPart();
+		if (aLast == bLast) {
+			return false;
+		}
+		return startsWith(aLast, bLast);
 	}
-	return StartsWith(other);
+	return *this != other && StartsWith(other);
 }
 
 const std::string &Path::ToString() const {

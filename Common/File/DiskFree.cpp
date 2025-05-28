@@ -22,6 +22,7 @@
 #include "Common/File/Path.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/TimeUtil.h"
 
 #if PPSSPP_PLATFORM(UWP)
 #include "UWP/UWPHelpers/StorageManager.h"
@@ -33,8 +34,7 @@ bool free_disk_space(const Path &path, int64_t &space) {
 #if PPSSPP_PLATFORM(UWP)
 	if (GetDriveFreeSpace(path, space)) {
 		return true;
-	}
-	else
+	} else
 #endif
 	if (GetDiskFreeSpaceExW(path.ToWString().c_str(), &free, nullptr, nullptr)) {
 		space = free.QuadPart;

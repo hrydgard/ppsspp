@@ -26,7 +26,7 @@ public:
 	virtual TaskType Type() const = 0;
 	virtual TaskPriority Priority() const = 0;
 	virtual void Run() = 0;
-	virtual bool Cancellable() { return false; }
+	virtual bool Cancellable() const { return false; }
 	virtual void Cancel() {}
 	virtual uint64_t id() { return 0; }
 	virtual void Release() { delete this; }
