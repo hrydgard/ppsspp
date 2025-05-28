@@ -44,8 +44,6 @@ public:
 
 protected:
 	void CreateViews() override;
-	void CallbackDeleteSaveData(bool yes);
-	void CallbackDeleteGame(bool yes);
 
 private:
 	UI::Choice *AddOtherChoice(UI::Choice *choice);

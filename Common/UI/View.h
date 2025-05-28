@@ -266,15 +266,15 @@ public:
 	// Call this from UI thread
 	EventReturn Dispatch(EventParams &e);
 
-	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
+	// This is now the suggested default way to bind a handler - just used a lambda, and if necessary call other functions.
+	void Add(std::function<EventReturn(EventParams &)> func);
+
+	// The old way of doing things.
 	template<class T>
-	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
+	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &)) {
 		Add(std::bind(theCallback, thiz, std::placeholders::_1));
 		return thiz;
 	}
-
-	// Sometimes you have an already-bound function<>, just use this then.
-	void Add(std::function<EventReturn(EventParams&)> func);
 
 private:
 	std::vector<HandlerRegistration> handlers_;
