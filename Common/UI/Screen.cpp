@@ -42,6 +42,10 @@ ScreenManager::~ScreenManager() {
 }
 
 void ScreenManager::switchScreen(Screen *screen) {
+	if (!screen) {
+		ERROR_LOG(Log::UI, "Can't switch to empty screen");
+		return;
+	}
 	// TODO: inputLock_ ?
 
 	INFO_LOG(Log::UI, "ScreenManager::switchScreen('%s')", screen->tag());
