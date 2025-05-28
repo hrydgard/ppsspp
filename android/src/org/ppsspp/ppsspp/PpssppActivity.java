@@ -2,6 +2,7 @@ package org.ppsspp.ppsspp;
 
 import android.annotation.TargetApi;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -9,6 +10,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
+import android.os.storage.StorageVolume;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.system.StructStatVfs;
@@ -20,6 +23,7 @@ import android.provider.DocumentsContract;
 import androidx.documentfile.provider.DocumentFile;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.io.File;
 
@@ -469,14 +473,13 @@ public class PpssppActivity extends NativeActivity {
 	// The example in Android documentation uses this.getFilesDir for path.
 	// There's also a way to beg the OS for more space, which might clear caches, but
 	// let's just not bother with that for now.
+	// NOTE: This is really super slow!
 	@TargetApi(Build.VERSION_CODES.M)
-
-	public long contentUriGetFreeStorageSpace(String fileName) {
+	public long contentUriGetFreeStorageSpaceSlow(Uri uri) {
 		try {
-			Uri uri = Uri.parse(fileName);
 			ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
 			if (pfd == null) {
-				Log.w(TAG, "Failed to get free storage space from URI: " + fileName);
+				Log.w(TAG, "Failed to get free storage space from URI: " + uri.toString());
 				return -1;
 			}
 			StructStatVfs stats = Os.fstatvfs(pfd.getFileDescriptor());
@@ -490,6 +493,22 @@ public class PpssppActivity extends NativeActivity {
 			return -1;
 		}
 	}
+
+	public long contentUriGetFreeStorageSpace(String str) {
+		Uri uri = Uri.parse(str);
+		if (uri == null) {
+			Log.e(TAG, "Failed to parse uri " + str);
+			return -1;
+		}
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			return contentUriGetFreeStorageSpaceSlow(uri);
+		}
+
+		// Too early Android version
+		return -1;
+	}
+
 	@TargetApi(Build.VERSION_CODES.O)
 	public long filePathGetFreeStorageSpace(String filePath) {
 		try {

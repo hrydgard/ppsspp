@@ -312,7 +312,7 @@ size_t encode_utf8_modified(uint32_t code_point, unsigned char* output) {
 // A function to convert regular UTF-8 to Java Modified UTF-8. Only used on Android.
 // Written by ChatGPT and corrected and modified.
 void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) {
-	output->resize(input.size() * 6); // worst case: every character is encoded as 6 bytes
+	output->resize(input.length() * 6); // worst case: every character is encoded as 6 bytes. shouldn't happen, though.
 	size_t out_idx = 0;
 	for (size_t i = 0; i < input.length(); ) {
 		unsigned char c = input[i];
@@ -332,7 +332,7 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 			uint16_t high_surrogate = ((code_point - 0x10000) / 0x400) + 0xD800;
 			uint16_t low_surrogate = ((code_point - 0x10000) % 0x400) + 0xDC00;
 
-			// Encode the surrogates in UTF-8
+			// Encode the surrogates in UTF-8. encode_utf8_modified outputs at most 3 bytes.
 			out_idx += encode_utf8_modified(high_surrogate, (unsigned char *)(output->data() + out_idx));
 			out_idx += encode_utf8_modified(low_surrogate, (unsigned char *)(output->data() + out_idx));
 

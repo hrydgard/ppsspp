@@ -460,24 +460,32 @@ ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFold
 	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
 	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
-	folderConflict_ = newMemstickFolder.StartsWithGlobal(oldMemstickFolder);
+	if (!oldMemstickFolder.empty()) {
+		folderConflict_ = newMemstickFolder != oldMemstickFolder && newMemstickFolder.StartsWithGlobalAndNotEqual(oldMemstickFolder);
+	} else {
+		folderConflict_ = false;
+	}
+	INFO_LOG(Log::System, "Old: '%s'", oldMemstickFolder.c_str());
+	INFO_LOG(Log::System, "New: '%s'", newMemstickFolder.c_str());
+
+	// TODO: If you reinstall the app and start by selecting a subfolder of the PSP folder, we don't detect and warn about that -
+	// we can only warn if there's a known previous folder :(
+
 	if (initialSetup_) {
 		moveData_ = false;
 	}
 }
 
 ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
+	// We should no longer end up blocking here since the back button is disabled until the tasks are done.
 	if (moveDataTask_) {
 		INFO_LOG(Log::System, "Move Data task still running, blocking on it");
 		moveDataTask_->BlockUntilReady();
 		delete moveDataTask_;
 	}
-	if (oldSpaceTask_) {
-		oldSpaceTask_->BlockUntilReady();
-		delete oldSpaceTask_;
-	}
+	// This we just cancel / leak.
 	if (newSpaceTask_) {
-		newSpaceTask_->BlockUntilReady();
+		newSpaceTask_->Cancel();
 		delete newSpaceTask_;
 	}
 }
@@ -504,11 +512,14 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 
-	newFreeSpaceView_ = leftColumn->Add(new TextView(ms->T("Free space"), ALIGN_LEFT, false));
+	// TODO: Add spinner
+	newFreeSpaceView_ = leftColumn->Add(new TextView(ApplySafeSubstitutions("%1: ...", ms->T("Free space")), ALIGN_LEFT, false));
 
-	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [&]() -> SpaceResult * {
+	Path newMemstickFolder = newMemstickFolder_;
+	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [newMemstickFolder]() -> SpaceResult * {
 		int64_t freeSpaceNew;
-		free_disk_space(newMemstickFolder_, freeSpaceNew);
+		INFO_LOG(Log::System, "Computing free space in %s", newMemstickFolder.c_str());
+		free_disk_space(newMemstickFolder, freeSpaceNew);
 		return new SpaceResult{ freeSpaceNew };
 	}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
@@ -528,15 +539,8 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 
 	if (!oldMemstickFolder.empty()) {
-		oldSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [&]() -> SpaceResult * {
-			int64_t freeSpaceOld;
-			free_disk_space(oldMemstickFolder, freeSpaceOld);
-			return new SpaceResult{ freeSpaceOld };
-		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
-
 		rightColumn->Add(new TextView(std::string(ms->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
-		oldFreeSpaceView_ = rightColumn->Add(new TextView(ms->T("Free space"), ALIGN_LEFT, false));
 	}
 
 	if (moveDataTask_) {
@@ -554,14 +558,6 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
 		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Add([this](UI::EventParams &params) {
 			if (moveDataTask_ && !moveDataTask_->Poll()) {
-				return UI::EVENT_DONE;
-			}
-			if (newSpaceTask_ && !newSpaceTask_->Poll()) {
-				// TODO: we should detach/cancel the task somehow instead..
-				return UI::EVENT_DONE;
-			}
-			if (oldSpaceTask_ && !oldSpaceTask_->Poll()) {
-				// TODO: we should detach/cancel the task somehow instead..
 				return UI::EVENT_DONE;
 			}
 			return UIScreen::OnBack(params);
@@ -608,14 +604,6 @@ void ConfirmMemstickMoveScreen::update() {
 			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
 			delete newSpaceTask_;
 			newSpaceTask_ = nullptr;
-		}
-	}
-	if (oldSpaceTask_ && oldFreeSpaceView_) {
-		SpaceResult *result = oldSpaceTask_->Poll();
-		if (result) {
-			oldFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
-			delete oldSpaceTask_;
-			oldSpaceTask_ = nullptr;
 		}
 	}
 }

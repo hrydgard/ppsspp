@@ -149,15 +149,6 @@ void LogManager::Shutdown() {
 
 	ringLog_.Clear();
 	initialized_ = false;
-
-	for (size_t i = 0; i < ARRAY_SIZE(g_log); i++) {
-		g_log[i].enabled = true;
-#if defined(_DEBUG)
-		g_log[i].level = LogLevel::LDEBUG;
-#else
-		g_log[i].level = LogLevel::LINFO;
-#endif
-	}
 }
 
 LogManager::LogManager() {

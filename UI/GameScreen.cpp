@@ -538,22 +538,21 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 		if (info->saveDataSize) {
 			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
+			Path gamePath = gamePath_;
 			screenManager()->push(
 				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
+					[gamePath](bool yes) {
+				if (yes) {
+					std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
+					info->DeleteAllSaveData();
+					info->saveDataSize = 0;
+					info->installDataSize = 0;
+				}
+			}));
 		}
 	}
 	RecreateViews();
 	return UI::EVENT_DONE;
-}
-
-void GameScreen::CallbackDeleteSaveData(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-		info->DeleteAllSaveData();
-		info->saveDataSize = 0;
-		info->installDataSize = 0;
-	}
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
@@ -564,20 +563,20 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
 		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+		Path gamePath = gamePath_;
+		ScreenManager *sm = screenManager();
 		screenManager()->push(
 			new PromptScreen(gamePath_, prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
+				[sm, gamePath](bool yes) {
+			if (yes) {
+				std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
+				info->Delete();
+				g_gameInfoCache->Clear();
+				sm->switchScreen(new MainScreen());
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
-}
-
-void GameScreen::CallbackDeleteGame(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-		info->Delete();
-		g_gameInfoCache->Clear();
-		screenManager()->switchScreen(new MainScreen());
-	}
 }
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
