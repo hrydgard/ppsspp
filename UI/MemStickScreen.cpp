@@ -483,11 +483,7 @@ ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 		moveDataTask_->BlockUntilReady();
 		delete moveDataTask_;
 	}
-	// These we just cancel / leak.
-	if (oldSpaceTask_) {
-		oldSpaceTask_->Cancel();
-		delete oldSpaceTask_;
-	}
+	// This we just cancel / leak.
 	if (newSpaceTask_) {
 		newSpaceTask_->Cancel();
 		delete newSpaceTask_;
@@ -543,16 +539,8 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 
 	if (!oldMemstickFolder.empty()) {
-		oldSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [oldMemstickFolder]() -> SpaceResult * {
-			int64_t freeSpaceOld;
-			INFO_LOG(Log::System, "Computing free space in %s", oldMemstickFolder.c_str());
-			free_disk_space(oldMemstickFolder, freeSpaceOld);
-			return new SpaceResult{ freeSpaceOld };
-		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
-
 		rightColumn->Add(new TextView(std::string(ms->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
-		oldFreeSpaceView_ = rightColumn->Add(new TextView(ApplySafeSubstitutions("%1: ...", ms->T("Free space")), ALIGN_LEFT, false));
 	}
 
 	if (moveDataTask_) {
@@ -616,14 +604,6 @@ void ConfirmMemstickMoveScreen::update() {
 			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
 			delete newSpaceTask_;
 			newSpaceTask_ = nullptr;
-		}
-	}
-	if (oldSpaceTask_ && oldFreeSpaceView_) {
-		SpaceResult *result = oldSpaceTask_->Poll();
-		if (result) {
-			oldFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
-			delete oldSpaceTask_;
-			oldSpaceTask_ = nullptr;
 		}
 	}
 }

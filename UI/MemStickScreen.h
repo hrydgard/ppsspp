@@ -128,10 +128,8 @@ private:
 	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
 	UI::TextView *newFreeSpaceView_ = nullptr;
-	UI::TextView *oldFreeSpaceView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;
-	Promise<SpaceResult *> *oldSpaceTask_ = nullptr;
 	Promise<SpaceResult *> *newSpaceTask_ = nullptr;
 
 	std::string error_;
