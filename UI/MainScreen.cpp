@@ -1253,7 +1253,7 @@ void MainScreen::CreateViews() {
 		if (versionString[0] == 'v' && isdigit(versionString[1])) {
 			versionString = versionString.substr(1);
 		}
-		if (countChar(versionString, '-') == 2) {
+		if (CountChar(versionString, '-') == 2) {
 			// Shorten the commit hash.
 			size_t cutPos = versionString.find_last_of('-') + 8;
 			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));

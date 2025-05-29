@@ -40,6 +40,7 @@ public:
 		return Instant();
 	}
 	double ElapsedSeconds() const;
+	double ElapsedMs() const { return ElapsedSeconds() * 1000.0; }
 	int64_t ElapsedNanos() const;
 private:
 	Instant();

@@ -267,7 +267,7 @@ bool Path::StartsWithGlobalAndNotEqual(const Path &other) const {
 		if (aLast == bLast) {
 			return false;
 		}
-		return startsWith(aLast, bLast);
+		return CountChar(aLast, '/') != CountChar(bLast, '/') && startsWith(aLast, bLast);
 	}
 	return *this != other && StartsWith(other);
 }
