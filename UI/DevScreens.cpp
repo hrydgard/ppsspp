@@ -946,8 +946,10 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 
 	internals->Add(new ItemHeader(si->T("Font cache")));
 	const TextDrawer *text = screenManager()->getUIContext()->Text();
-	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
-	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	if (text) {
+		internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+		internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	}
 
 	internals->Add(new ItemHeader(si->T("Slider test")));
 	internals->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
