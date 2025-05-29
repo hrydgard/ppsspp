@@ -474,6 +474,13 @@ ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFold
 	if (initialSetup_) {
 		moveData_ = false;
 	}
+
+	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [newMemstickFolder]() -> SpaceResult * {
+		int64_t freeSpaceNew;
+		INFO_LOG(Log::System, "Computing free space in '%s'", newMemstickFolder.c_str());
+		free_disk_space(newMemstickFolder, freeSpaceNew);
+		return new SpaceResult{ freeSpaceNew };
+	}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 }
 
 ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
@@ -514,14 +521,6 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	// TODO: Add spinner
 	newFreeSpaceView_ = leftColumn->Add(new TextView(ApplySafeSubstitutions("%1: ...", ms->T("Free space")), ALIGN_LEFT, false));
-
-	Path newMemstickFolder = newMemstickFolder_;
-	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [newMemstickFolder]() -> SpaceResult * {
-		int64_t freeSpaceNew;
-		INFO_LOG(Log::System, "Computing free space in %s", newMemstickFolder.c_str());
-		free_disk_space(newMemstickFolder, freeSpaceNew);
-		return new SpaceResult{ freeSpaceNew };
-	}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
 	if (existingFilesInNewFolder_) {
 		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
@@ -621,7 +620,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
 			MoveResult *result = MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_);
-			NOTICE_LOG(Log::System, "Move task finished: %b", result != nullptr);
+			NOTICE_LOG(Log::System, "Move task finished: %d", (int)(result != nullptr));
 			return result;
 		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
