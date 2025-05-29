@@ -189,7 +189,9 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 		return false;
 
 	case PERMISSION_STATUS_DENIED:
-		screenManager()->switchScreen(new MainScreen());
+		if (!bootPending_) {
+			screenManager()->switchScreen(new MainScreen());
+		}
 		return false;
 
 	case PERMISSION_STATUS_PENDING:
@@ -608,9 +610,11 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		if (gpu)
 			gpu->DumpNextFrame();
 	} else if (message == UIMessage::REQUEST_CLEAR_JIT) {
-		currentMIPS->ClearJitCache();
-		if (PSP_IsInited()) {
-			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
+		if (!bootPending_) {
+			currentMIPS->ClearJitCache();
+			if (PSP_IsInited()) {
+				currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
+			}
 		}
 	} else if (message == UIMessage::WINDOW_MINIMIZED) {
 		if (!strcmp(value, "true")) {
@@ -985,18 +989,20 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 
 	case VIRTKEY_EXIT_APP:
 	{
-		std::string confirmExitMessage = GetConfirmExitMessage();
-		if (!confirmExitMessage.empty()) {
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			confirmExitMessage += '\n';
-			confirmExitMessage += di->T("Are you sure you want to exit?");
-			screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
-				if (result) {
-					System_ExitApp();
-				}
-			}));
-		} else {
-			System_ExitApp();
+		if (!bootPending_) {
+			std::string confirmExitMessage = GetConfirmExitMessage();
+			if (!confirmExitMessage.empty()) {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				confirmExitMessage += '\n';
+				confirmExitMessage += di->T("Are you sure you want to exit?");
+				screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+					if (result) {
+						System_ExitApp();
+					}
+				}));
+			} else {
+				System_ExitApp();
+			}
 		}
 		break;
 	}
@@ -1464,7 +1470,7 @@ void EmuScreen::update() {
 
 bool EmuScreen::checkPowerDown() {
 	// This is for handling things like sceKernelExitGame().
-	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete) {
+	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete && !bootPending_) {
 		bool shutdown = false;
 		if (PSP_IsInited()) {
 			PSP_Shutdown(true);
@@ -1473,7 +1479,6 @@ bool EmuScreen::checkPowerDown() {
 		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
-		bootPending_ = false;
 		return shutdown;
 	}
 	return false;
