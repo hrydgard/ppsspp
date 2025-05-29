@@ -518,9 +518,6 @@ void DrawBuffer::MeasureText(FontID font, std::string_view text, float *w, float
 			continue;
 		} else if (cval == '\t') {
 			cval = ' ';
-		} else if (cval == '&' && utf.peek() != '&') {
-			// Ignore lone ampersands
-			continue;
 		}
 		const AtlasChar *c = atlasfont->getChar(cval);
 		if (c) {
@@ -659,9 +656,6 @@ void DrawBuffer::DrawText(FontID font, std::string_view text, float x, float y, 
 			continue;
 		} else if (cval == '\t') {
 			cval = ' ';
-		} else if (cval == '&' && utf.peek() != '&') {
-			// Ignore lone ampersands
-			continue;
 		}
 		const AtlasChar *ch = atlasfont->getChar(cval);
 		if (!ch)
