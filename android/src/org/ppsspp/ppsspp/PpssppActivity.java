@@ -20,6 +20,8 @@ import android.os.storage.StorageManager;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.provider.DocumentsContract;
+
+import androidx.annotation.RequiresApi;
 import androidx.documentfile.provider.DocumentFile;
 
 import java.util.ArrayList;
@@ -387,7 +389,10 @@ public class PpssppActivity extends NativeActivity {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri srcParentUri = Uri.parse(srcParentDirUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			return DocumentsContract.moveDocument(getContentResolver(), srcUri, srcParentUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
+			Log.i(TAG, "DocumentsContract.moveDocument");
+			int result = DocumentsContract.moveDocument(getContentResolver(), srcUri, srcParentUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
+			Log.i(TAG, "DocumentsContract.moveDocument done");
+			return result;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriMoveFile exception: " + e);
 			return STORAGE_ERROR_UNKNOWN;
@@ -474,7 +479,7 @@ public class PpssppActivity extends NativeActivity {
 	// There's also a way to beg the OS for more space, which might clear caches, but
 	// let's just not bother with that for now.
 	// NOTE: This is really super slow!
-	@TargetApi(Build.VERSION_CODES.M)
+	@RequiresApi(Build.VERSION_CODES.M)
 	public long contentUriGetFreeStorageSpaceSlow(Uri uri) {
 		try {
 			ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");

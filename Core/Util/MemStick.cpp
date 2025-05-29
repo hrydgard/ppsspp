@@ -4,7 +4,9 @@
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Common/System/System.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
@@ -115,13 +117,15 @@ bool MoveChildrenFast(const Path &moveSrc, const Path &moveDest, MoveProgressRep
 		Path fileSrc = file.fullName;
 		Path fileDest = moveDest / file.name;
 		progressReporter.SetProgress(file.name, i, files.size());
-		INFO_LOG(Log::System, "About to move PSP data from '%s' to '%s'", fileSrc.c_str(), fileDest.c_str());
+		INFO_LOG(Log::System, "Fast-moving PSP data from '%s' to '%s' (%d/%d)", fileSrc.c_str(), fileDest.c_str(), (int)i + 1, (int)files.size());
 		bool result = File::MoveIfFast(fileSrc, fileDest);
 		if (!result) {
 			// TODO: Should we try to move back anything that succeeded before this one?
+			INFO_LOG(Log::System, "Failed to fast-move '%s' to '%s'", fileSrc.c_str(), fileDest.c_str());
 			return false;
 		}
 	}
+	INFO_LOG(Log::System, "Done with fast-move.");
 	return true;
 }
 
@@ -130,15 +134,14 @@ std::string MoveProgressReporter::Format() {
 	{
 		std::lock_guard<std::mutex> guard(mutex_);
 		if (max_ > 0) {
-			str = StringFromFormat("(%d/%d) ", count_, max_);
+			str = StringFromFormat("(%d/%d) ", count_ + 1, max_);
 		} else if (max_ < 0) {
-			str = StringFromFormat("(%d) ", count_);
+			str = StringFromFormat("(%d/?) ", count_ + 1);
 		}
 		str += progress_;
 	}
 	return str;
 }
-
 
 MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter) {
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
@@ -152,14 +155,16 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	INFO_LOG(Log::System, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
 
+	Instant moveStart = Instant::Now();
+
 	// First, we try the cheapest and safest way to move: Can we move files directly within the same device?
 	// We loop through the files/dirs in the source directory and just try to move them, it should work.
 	if (MoveChildrenFast(moveSrc, moveDest, progressReporter)) {
-		INFO_LOG(Log::System, "Quick-move succeeded");
-		progressReporter.SetProgress(ms->T("Done!"));
-		return new MoveResult{
-			true, ""
-		};
+		INFO_LOG(Log::System, "Quick-move succeeded after %0.1f ms", moveStart.ElapsedMs());
+		progressReporter.SetProgress(StringFromFormat("%s (%0.3s)", ms->T_cstr("Done!"), moveStart.ElapsedSeconds()));
+		return new MoveResult{ true, "" };
+	} else {
+		INFO_LOG(Log::System, "Quick move denied after %0.1f ms, falling back to slow move.", moveStart.ElapsedMs());
 	}
 
 	// If this doesn't work, we'll fall back on a recursive *copy* (disk space is less of a concern when
@@ -179,7 +184,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		return new MoveResult{ false, error };
 	}
 
-	bool dryRun = false;  // Useful for debugging.
+	bool dryRun = false;  // Useful for debugging. Probably want to remove the MoveChildrenFast path above to test it.
 
 	size_t failedFileCount = 0;
 

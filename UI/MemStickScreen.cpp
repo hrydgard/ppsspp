@@ -589,7 +589,7 @@ void ConfirmMemstickMoveScreen::update() {
 				FinishFolderMove();
 			} else {
 				progressReporter_.SetProgress(ms->T("Failed to move some files!"));
-				INFO_LOG(Log::System, "Move data task failed!");
+				INFO_LOG(Log::System, "Move data task finished with failures!");
 				// What do we do here? We might be in the middle of a move... Bad.
 				RecreateViews();
 			}
@@ -620,7 +620,9 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
-			return MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_);
+			MoveResult *result = MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_);
+			NOTICE_LOG(Log::System, "Move task finished: %b", result != nullptr);
+			return result;
 		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
 		RecreateViews();
@@ -643,6 +645,8 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 		return;
 	}
 
+	INFO_LOG(Log::System, "Move from '%s' to '%s' complete. Updating config.", oldMemstickFolder.c_str(), newMemstickFolder_.c_str());
+
 	// If the chosen folder already had a config, reload it!
 	g_Config.Load();
 
@@ -655,14 +659,17 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	if (!initialSetup_) {
 		// We restart the app here, to get the new settings.
+		INFO_LOG(Log::System, "Not initial setup. Restarting!");
 		System_RestartApp("");
 	} else {
 		// This is initial setup, we now switch to the main screen, if we were successful
 		// (which we better have been...)
 		if (g_Config.Save("MemstickPathChanged")) {
+			INFO_LOG(Log::System, "Initial setup succeeded. Switching to main screen!");
 			// TriggerFinish(DialogResult::DR_OK);
 			screenManager()->switchScreen(new MainScreen());
 		} else {
+			INFO_LOG(Log::System, "Initial setup failed.");
 			error_ = ms->T("Failed to save config");
 			RecreateViews();
 		}

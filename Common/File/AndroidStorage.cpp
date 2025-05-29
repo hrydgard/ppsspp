@@ -4,6 +4,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/System/System.h"
 
 #include "android/jni/app-android.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -277,11 +278,17 @@ int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
 	return env->CallLongMethod(g_nativeActivity, contentUriGetFreeStorageSpace, param);
 }
 
+// Hm, this is never used? We use statvfs instead.
 int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 	if (!g_nativeActivity) {
 		return false;
 	}
 	auto env = getEnv();
+
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 26) {
+		// This is available from Android O.
+		return -1;
+	}
 
 	jstring param = env->NewStringUTF(filePath.c_str());
 	return env->CallLongMethod(g_nativeActivity, filePathGetFreeStorageSpace, param);
