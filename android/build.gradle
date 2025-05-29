@@ -48,11 +48,6 @@ android {
 
 	compileSdk 35
 	ndkVersion "21.4.7075529"
-	java {
-		toolchain {
-			languageVersion = JavaLanguageVersion.of(17)
-		}
-	}
 	defaultConfig {
 		/*
 		configurations.all {
