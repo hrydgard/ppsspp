@@ -1390,6 +1390,9 @@
     <ClCompile Include="..\ext\loongarch-disasm.cpp">
       <Filter>Ext</Filter>
     </ClCompile>
+    <ClCompile Include="HW\GranularMixer.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2243,6 +2246,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\Watch.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\GranularMixer.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

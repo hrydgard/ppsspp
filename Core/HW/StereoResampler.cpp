@@ -46,7 +46,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
-#include "Core/Util/AudioFormat.h"  // for clamp_u8
+#include "Core/Util/AudioFormat.h"  // for clamp_u16
 #include "Core/System.h"
 
 StereoResampler::StereoResampler() noexcept

@@ -528,6 +528,8 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
+
+	// Still hitting this somehow!
 	_dbg_assert_(vdata_ == nullptr);
 
 	// TODO: Could probably just switch to DrawUP, it's supported well by all backends now.
