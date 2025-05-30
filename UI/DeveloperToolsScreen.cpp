@@ -578,12 +578,18 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	System_BrowseForFile(GetRequesterToken(), dev->T("Select the log file"), BrowseFileType::ANY,
+	System_BrowseForFileSave(
+		GetRequesterToken(),
+		dev->T("Select the log file"),
+		"trace.txt",
+		BrowseFileType::ANY,
 		[this](const std::string &value, int) {
-		mipsTracer.set_logging_path(value);
-		MIPSTracerPath_ = value;
-		MIPSTracerPath->SetRightText(MIPSTracerPath_);
-	});
+			mipsTracer.set_logging_path(value);
+			MIPSTracerPath_ = value;
+			MIPSTracerPath->SetRightText(MIPSTracerPath_);
+		}
+	);
+
 	return UI::EVENT_DONE;
 }
 
