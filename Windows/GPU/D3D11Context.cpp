@@ -104,13 +104,13 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 
 	if (FAILED(hr)) {
-		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using Direct3D 9 instead?";
+		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using OpenGL instead?";
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 
 		std::wstring error;
 
 		if (result == LoadD3D11Error::FAIL_NO_COMPILER) {
-			error = ConvertUTF8ToWString(err->T("D3D11CompilerMissing", "D3DCompiler_47.dll not found. Please install. Or press Yes to try again using Direct3D9 instead."));
+			error = ConvertUTF8ToWString(err->T("D3D11CompilerMissing", "D3DCompiler_47.dll not found. Please install. Or press Yes to try again using OpenGL instead."));
 		} else if (result == LoadD3D11Error::FAIL_NO_D3D11) {
 			error = ConvertUTF8ToWString(err->T("D3D11Missing", "Your operating system version does not include D3D11. Please run Windows Update.\n\nPress Yes to try again using Direct3D9 instead."));
 		}
@@ -119,8 +119,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		std::wstring title = ConvertUTF8ToWString(err->T("D3D11InitializationError", "Direct3D 11 initialization error"));
 		bool yes = IDYES == MessageBox(hWnd_, error.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		if (yes) {
-			// Change the config to D3D9 and restart.
-			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
+			// Change the config to OpenGL and restart.
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			g_Config.sFailedGPUBackends.clear();
 			g_Config.Save("save_d3d9_fallback");
 

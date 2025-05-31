@@ -608,12 +608,6 @@ source_group(LOONGARCH64 FILES ${CommonLOONGARCH64})
 
 if(WIN32)
 	set(CommonD3D
-		Common/GPU/D3D9/D3D9ShaderCompiler.cpp
-		Common/GPU/D3D9/D3D9ShaderCompiler.h
-		Common/GPU/D3D9/D3D9StateCache.cpp
-		Common/GPU/D3D9/D3D9StateCache.h
-		Common/GPU/D3D9/thin3d_d3d9.cpp
-		Common/GPU/D3D9/D3DCompilerLoader.cpp
 		Common/GPU/D3D11/thin3d_d3d11.cpp
 		Common/GPU/D3D11/D3D11Loader.cpp
 		Common/GPU/D3D11/D3D11Loader.h
@@ -1520,7 +1514,7 @@ else()
 endif()
 
 if(WIN32)
-	target_link_libraries(Common winmm d3d9 dsound dxguid Version)
+	target_link_libraries(Common winmm dsound dxguid Version)
 endif()
 
 if(NOT LIBRETRO)
@@ -1878,21 +1872,6 @@ set(GPU_VULKAN
 	GPU/Vulkan/VulkanUtil.h
 )
 
-set(GPU_D3D9
-	GPU/Directx9/DrawEngineDX9.cpp
-	GPU/Directx9/DrawEngineDX9.h
-	GPU/Directx9/FramebufferManagerDX9.cpp
-	GPU/Directx9/FramebufferManagerDX9.h
-	GPU/Directx9/GPU_DX9.cpp
-	GPU/Directx9/GPU_DX9.h
-	GPU/Directx9/ShaderManagerDX9.cpp
-	GPU/Directx9/ShaderManagerDX9.h
-	GPU/Directx9/StateMappingDX9.cpp
-	GPU/Directx9/StateMappingDX9.h
-	GPU/Directx9/TextureCacheDX9.cpp
-	GPU/Directx9/TextureCacheDX9.h
-)
-
 set(GPU_D3D11
 	GPU/D3D11/DrawEngineD3D11.cpp
 	GPU/D3D11/DrawEngineD3D11.h
@@ -1913,7 +1892,7 @@ set(GPU_D3D11
 # We build Vulkan even on Apple to avoid annoying build differences.
 set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
 if(WIN32)
-	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
+	list(APPEND GPU_IMPLS ${GPU_D3D11})
 endif()
 
 set(GPU_SOURCES
@@ -2696,8 +2675,7 @@ set(WindowsFiles
 	Windows/DSoundStream.h
 	Windows/EmuThread.cpp
 	Windows/EmuThread.h
-	Windows/GPU/D3D9Context.cpp
-	Windows/GPU/D3D9Context.h
+	Windows/GeDebugger/GeDebugger.cpp
 	Windows/GPU/D3D11Context.cpp
 	Windows/GPU/D3D11Context.h
 	Windows/GPU/WindowsGLContext.cpp
@@ -2746,7 +2724,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
@@ -2803,8 +2781,6 @@ if(HEADLESS)
 		list(APPEND HeadlessSource
 			headless/WindowsHeadlessHost.cpp
 			headless/WindowsHeadlessHost.h
-			Windows/GPU/D3D9Context.cpp
-			Windows/GPU/D3D9Context.h
 			Windows/GPU/D3D11Context.cpp
 			Windows/GPU/D3D11Context.h
 			Windows/GPU/WindowsGLContext.cpp

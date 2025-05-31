@@ -203,7 +203,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*errorString = "Invalid flags - tess requires normal.";
 			return false;
 		}
-		if (compat.shaderLanguage == HLSL_D3D9 || compat.texelFetch == nullptr) {
+		if (compat.texelFetch == nullptr) {
 			*errorString = "Tess not supported on this shader language version";
 			return false;
 		}
@@ -288,83 +288,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 
 		WRITE(p, "invariant gl_Position;\n");
-	} else if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		// Note: These two share some code after this hellishly large if/else.
-		if (compat.shaderLanguage == HLSL_D3D11) {
-			WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
-			WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", ub_vs_lightsStr);
-			WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", ub_vs_bonesStr);
-		} else {
-			WRITE(p, "#pragma warning( disable : 3571 )\n");
-			if (isModeThrough) {
-				WRITE(p, "mat4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
-			} else if (useHWTransform) {
-				WRITE(p, "mat4 u_proj : register(c%i);\n", CONST_VS_PROJ);
-			} else {
-				WRITE(p, "float u_rotation : register(c%i);\n", CONST_VS_ROTATION);
-			}
-
-			if (useHWTransform)
-				WRITE(p, "vec2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
-			if (useHWTransform || !hasColor)
-				WRITE(p, "vec4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
-
-			if (useHWTransform) {
-				WRITE(p, "mat3x4 u_world : register(c%i);\n", CONST_VS_WORLD);
-				WRITE(p, "mat3x4 u_view : register(c%i);\n", CONST_VS_VIEW);
-				if (doTextureTransform)
-					WRITE(p, "mat3x4 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
-				if (enableBones) {
-#ifdef USE_BONE_ARRAY
-					WRITE(p, "mat3x4 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
-#else
-					for (int i = 0; i < numBoneWeights; i++) {
-						WRITE(p, "mat3x4 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 3);
-					}
-#endif
-				}
-				WRITE(p, "vec4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
-				// No need for light ubershader support here, D3D9 doesn't do it.
-				for (int i = 0; i < 4; i++) {
-					if (doLight[i] != LIGHT_OFF) {
-						// This is needed for shade mapping
-						WRITE(p, "vec3 u_lightpos%i : register(c%i);\n", i, CONST_VS_LIGHTPOS + i);
-					}
-					if (doLight[i] == LIGHT_FULL) {
-						GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-						GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-
-						if (type != GE_LIGHTTYPE_DIRECTIONAL)
-							WRITE(p, "vec3 u_lightatt%i : register(c%i);\n", i, CONST_VS_LIGHTATT + i);
-
-						if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) {
-							WRITE(p, "vec3 u_lightdir%i : register(c%i);\n", i, CONST_VS_LIGHTDIR + i);
-							WRITE(p, "vec4 u_lightangle_spotCoef%i : register(c%i);\n", i, CONST_VS_LIGHTANGLE_SPOTCOEF + i);
-						}
-						WRITE(p, "vec3 u_lightambient%i : register(c%i);\n", i, CONST_VS_LIGHTAMBIENT + i);
-						WRITE(p, "vec3 u_lightdiffuse%i : register(c%i);\n", i, CONST_VS_LIGHTDIFFUSE + i);
-
-						if (comp == GE_LIGHTCOMP_BOTH) {
-							WRITE(p, "vec3 u_lightspecular%i : register(c%i);\n", i, CONST_VS_LIGHTSPECULAR + i);
-						}
-					}
-				}
-				if (enableLighting) {
-					WRITE(p, "vec4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
-					if ((matUpdate & 2) == 0 || !hasColor)
-						WRITE(p, "vec3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
-					// if ((matUpdate & 4) == 0)
-					WRITE(p, "vec4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
-					WRITE(p, "vec3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
-				}
-			}
-
-			if (!isModeThrough) {
-				WRITE(p, "vec4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
-				WRITE(p, "vec4 u_cullRangeMin : register(c%i);\n", CONST_VS_CULLRANGEMIN);
-				WRITE(p, "vec4 u_cullRangeMax : register(c%i);\n", CONST_VS_CULLRANGEMAX);
-			}
-		}
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
+		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", ub_vs_lightsStr);
+		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", ub_vs_bonesStr);
 
 		// And the "varyings".
 		if (useHWTransform) {
@@ -417,9 +345,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
-		if (compat.shaderLanguage == HLSL_D3D9) {
-			WRITE(p, "  vec4 gl_Position   : POSITION;\n");
-		} else {
+		{
 			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
 			bool clipRange = vertexRangeCulling && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
 			if (clipClampedDepth && clipRange) {
@@ -647,8 +573,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "};\n");
 			WRITE(p, "StructuredBuffer<TessWeight> tess_weights_u : register(t1);\n");
 			WRITE(p, "StructuredBuffer<TessWeight> tess_weights_v : register(t2);\n");
-		} else if (compat.shaderLanguage == HLSL_D3D9) {
-
 		}
 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
@@ -669,7 +593,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
 			WRITE(p, "  return mat4(u * v[0], u * v[1], u * v[2], u * v[3]);\n");
 			WRITE(p, "}\n");
-		} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+		} else if (compat.shaderLanguage == HLSL_D3D11) {
 			WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
 			WRITE(p, "  return mul((float4x1)v, (float1x4)u);\n");
 			WRITE(p, "}\n");
@@ -683,7 +607,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec3 nrm;\n");
 		WRITE(p, "};\n");
 
-		if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+		if (compat.shaderLanguage == HLSL_D3D11) {
 			WRITE(p, "void tessellate(in VS_IN In, out Tess tess) {\n");
 			WRITE(p, "  vec3 position = In.position;\n");
 			WRITE(p, "  vec3 normal = In.normal;\n");
@@ -770,7 +694,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage) || compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "void main() {\n");
-	} else if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "VS_OUT main(VS_IN In) {\n");
 		WRITE(p, "  VS_OUT Out;\n");
 		if (hasTexcoord) {
@@ -851,7 +775,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (doBezier || doSpline) {
 				// Hardware tessellation
 				WRITE(p, "  Tess tess;\n");
-				if (compat.shaderLanguage == HLSL_D3D9 || compat.shaderLanguage == HLSL_D3D11) {
+				if (compat.shaderLanguage == HLSL_D3D11) {
 					WRITE(p, "  tessellate(In, tess);\n");
 				} else {
 					WRITE(p, "  tessellate(tess);\n");
@@ -1362,7 +1286,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
+	if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "  return Out;\n");
 	}
 	WRITE(p, "}\n");
