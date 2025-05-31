@@ -2,11 +2,7 @@
 
 #include <mutex>
 
-#ifdef SHARED_LIBZIP
-#include <zip.h>
-#else
-#include "ext/libzip/zip.h"
-#endif
+#include <ext/libzip/zip.h>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
