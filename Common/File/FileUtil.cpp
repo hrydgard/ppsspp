@@ -652,7 +652,9 @@ bool CreateFullPath(const Path &path) {
 	}
 
 	std::vector<std::string_view> parts;
-	SplitString(diff, '/', parts);
+	if (!diff.empty()) {
+		SplitString(diff, '/', parts);
+	}
 
 	// Probably not necessary sanity check, ported from the old code.
 	if (parts.size() > 100) {
