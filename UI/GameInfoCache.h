@@ -38,18 +38,6 @@ namespace Draw {
 
 // A GameInfo object can also represent a piece of savedata.
 
-// Guessed from GameID, not necessarily accurate
-enum GameRegion {
-	GAMEREGION_JAPAN,
-	GAMEREGION_USA,
-	GAMEREGION_EUROPE,
-	GAMEREGION_HONGKONG,
-	GAMEREGION_ASIA,
-	GAMEREGION_KOREA,
-	GAMEREGION_OTHER,
-	GAMEREGION_COUNT,
-};
-
 enum class GameInfoFlags {
 	FILE_TYPE = 0x01,  // Don't need to specify this, always included.
 	PARAM_SFO = 0x02,
@@ -158,7 +146,7 @@ public:
 	std::string id_version;
 	int disc_total = 0;
 	int disc_number = 0;
-	int region = -1;
+	GameRegion region = GameRegion::OTHER;
 	IdentifiedFileType fileType;
 	bool hasConfig = false;
 

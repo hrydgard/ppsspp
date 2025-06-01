@@ -41,8 +41,8 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
-#include "Common/Crypto/md5.h"
 #include "Common/UI/IconCache.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -945,7 +945,17 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
 			Achievements::DownloadImageIfMissing(cacheId, std::string(temp));
 		}
-		g_OSD.Show(OSDType::MESSAGE_INFO, std::string(gameInfo->title), GetGameAchievementSummary(), cacheId, 5.0f);
+
+		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());
+		auto ga = GetI18NCategory(I18NCat::GAME);
+		std::string_view regionStr = ga->T(GameRegionToString(region));
+		std::string title(gameInfo->title);
+		if (region != GameRegion::OTHER) {
+			title += " (";
+			title += regionStr;
+			title += ")";
+		}
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(), cacheId, 5.0f);
 		break;
 	}
 	case RC_NO_GAME_LOADED:
