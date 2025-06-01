@@ -33,7 +33,7 @@ public:
 	void SetValue(const std::string &key, const u8 *value, unsigned int size, int max_size);
 
 	int GetValueInt(std::string_view key) const;
-	std::string GetValueString(std::string_view key) const;
+	std::string GetValueString(std::string_view key) const;  // Common keys: "TITLE", "DISC_VERSION"
 	bool HasKey(std::string_view key) const;
 	const u8 *GetValueData(std::string_view key, unsigned int *size) const;
 

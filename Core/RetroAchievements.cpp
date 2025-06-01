@@ -959,9 +959,20 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		break;
 	}
 	case RC_NO_GAME_LOADED:
+	{
+		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());
+		auto ga = GetI18NCategory(I18NCat::GAME);
+		std::string_view regionStr = ga->T(GameRegionToString(region));
+		std::string title(g_paramSFO.GetValueString("TITLE"));
+		if (region != GameRegion::OTHER) {
+			title += " (";
+			title += regionStr;
+			title += ")";
+		}
 		// The current game does not support achievements.
-		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("RetroAchievements are not available for this game"), "", g_RAImageID, 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, ac->T("RetroAchievements are not available for this game"), g_RAImageID, 3.0f);
 		break;
+	}
 	case RC_NO_RESPONSE:
 		// We lost the internet connection at some point and can't report achievements.
 		ShowNotLoggedInMessage();
