@@ -134,7 +134,7 @@ void LuaContext::ExecuteConsoleCommand(std::string_view cmd) {
 			sol::error err = result;
 			lines_.push_back(LuaLogLine{ LogLineType::Error, std::string(err.what()) });
 		}
-	} catch (sol::error e) {
+	} catch (const sol::error& e) {
 		ERROR_LOG(Log::System, "Lua exception: %s", e.what());
 		lines_.push_back(LuaLogLine{ LogLineType::Error, std::string(e.what()) });
 	}

@@ -437,10 +437,6 @@ if(NOT MSVC)
 	endif()
 
 	include(CheckSymbolExists)
-	check_symbol_exists(_UCRT "windows.h" UCRT)
-	if (UCRT)
-		link_libraries("$<$<CONFIG:Debug>:ucrtbased>")
-	endif()
 
 	add_compile_definitions("$<$<CONFIG:Debug>:_DEBUG>")
 
