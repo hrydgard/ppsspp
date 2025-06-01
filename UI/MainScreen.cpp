@@ -958,7 +958,10 @@ void GameBrowser::Refresh() {
 }
 
 bool GameBrowser::IsCurrentPathPinned() {
-	const auto paths = g_Config.vPinnedPaths;
+	const auto &paths = g_Config.vPinnedPaths;
+	if (paths.empty()) {
+		return false;
+	}
 	std::string resolved = File::ResolvePath(path_.GetPath().ToString());
 	return std::find(paths.begin(), paths.end(), resolved) != paths.end();
 }
