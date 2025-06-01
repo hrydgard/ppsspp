@@ -191,6 +191,11 @@ public:
 	NativeModule nm{};
 	std::vector<ModuleWaitingThread> waitingThreads;
 
+	// From the plugin's perspective, this is the reference to the thread started by LoadExec
+	SceUID pluginWaitingThread = 0;
+	// Thread started by LoadExec is waiting for these plugins
+	std::vector<SceUID> startingPlugins;
+
 	// TODO: Should we store these grouped by moduleName instead? Seems more reasonable.
 	std::vector<FuncSymbolExport> exportedFuncs;
 	std::vector<FuncSymbolImport> importedFuncs;
