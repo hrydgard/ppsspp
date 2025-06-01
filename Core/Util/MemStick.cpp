@@ -161,7 +161,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	// We loop through the files/dirs in the source directory and just try to move them, it should work.
 	if (MoveChildrenFast(moveSrc, moveDest, progressReporter)) {
 		INFO_LOG(Log::System, "Quick-move succeeded after %0.1f ms", moveStart.ElapsedMs());
-		progressReporter.SetProgress(StringFromFormat("%s (%0.3s)", ms->T_cstr("Done!"), moveStart.ElapsedSeconds()));
+		progressReporter.SetProgress(StringFromFormat("%s (%0.3f)", ms->T_cstr("Done!"), moveStart.ElapsedSeconds()));
 		return new MoveResult{ true, "" };
 	} else {
 		INFO_LOG(Log::System, "Quick move denied after %0.1f ms, falling back to slow move.", moveStart.ElapsedMs());
@@ -178,9 +178,9 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
 	if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove, progressReporter)) {
 		// TODO: Handle failure listing files.
-		std::string error = "Failed to read old directory";
-		INFO_LOG(Log::System, "%s", error.c_str());
-		progressReporter.SetProgress(ms->T(error.c_str()));
+		const char *error = "Failed to read old directory";
+		INFO_LOG(Log::System, "%s", error);
+		progressReporter.SetProgress(ms->T(error));
 		return new MoveResult{ false, error };
 	}
 

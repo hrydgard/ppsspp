@@ -526,7 +526,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
-	_assert_(vdata_ == nullptr);
+	_dbg_assert_(vdata_ == nullptr);
 
 	// TODO: Could probably just switch to DrawUP, it's supported well by all backends now.
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 12, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
