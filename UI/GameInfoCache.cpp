@@ -366,34 +366,7 @@ void GameInfo::ParseParamSFO() {
 	disc_total = paramSFO.GetValueInt("DISC_TOTAL");
 	disc_number = paramSFO.GetValueInt("DISC_NUMBER");
 	// region = paramSFO.GetValueInt("REGION");  // Always seems to be 32768?
-
-	region = GAMEREGION_OTHER;
-	if (id_version.size() >= 4) {
-		std::string regStr = id_version.substr(0, 4);
-
-		// Guesswork
-		switch (regStr[2]) {
-		case 'E': region = GAMEREGION_EUROPE; break;
-		case 'U': region = GAMEREGION_USA; break;
-		case 'J': region = GAMEREGION_JAPAN; break;
-		case 'H': region = GAMEREGION_HONGKONG; break;
-		case 'A': region = GAMEREGION_ASIA; break;
-		case 'K': region = GAMEREGION_KOREA; break;
-		}
-		/*
-		if (regStr == "NPEZ" || regStr == "NPEG" || regStr == "ULES" || regStr == "UCES" ||
-			  regStr == "NPEX") {
-			region = GAMEREGION_EUROPE;
-		} else if (regStr == "NPUG" || regStr == "NPUZ" || regStr == "ULUS" || regStr == "UCUS") {
-			region = GAMEREGION_USA;
-		} else if (regStr == "NPJH" || regStr == "NPJG" || regStr == "ULJM"|| regStr == "ULJS") {
-			region = GAMEREGION_JAPAN;
-		} else if (regStr == "NPHG") {
-			region = GAMEREGION_HONGKONG;
-		} else if (regStr == "UCAS") {
-			region = GAMEREGION_CHINA;
-		}*/
-	}
+	region = DetectGameRegionFromID(id);
 }
 
 std::string GameInfo::GetTitle() {
@@ -601,7 +574,7 @@ public:
 							&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 							info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 							info_->id_version = info_->id + "_1.00";
-							info_->region = GAMEREGION_COUNT + 1; // Homebrew
+							info_->region = GameRegion::HOMEBREW; // Homebrew
 						}
 						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
@@ -664,7 +637,7 @@ handleELF:
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
 				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 				info_->id_version = info_->id + "_1.00";
-				info_->region = GAMEREGION_COUNT + 1; // Homebrew
+				info_->region = GameRegion::HOMEBREW; // Homebrew
 			}
 
 			if (flags_ & GameInfoFlags::ICON) {

@@ -294,7 +294,7 @@ void GameScreen::CreateViews() {
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
 
-	isHomebrew_ = info && info->region > GAMEREGION_COUNT;
+	isHomebrew_ = info && info->region == GameRegion::HOMEBREW;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
@@ -381,18 +381,10 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (tvRegion_) {
-		if (info->region >= 0 && info->region < GAMEREGION_COUNT && info->region != GAMEREGION_OTHER) {
-			static const char *regionNames[GAMEREGION_COUNT] = {
-				"Japan",
-				"USA",
-				"Europe",
-				"Hong Kong",
-				"Asia",
-				"Korea"
-			};
-			tvRegion_->SetText(ga->T(regionNames[info->region]));
-		} else if (info->region > GAMEREGION_COUNT) {
+		if (info->region == GameRegion::OTHER) {
 			tvRegion_->SetText(ga->T("Homebrew"));
+		} else {
+			tvRegion_->SetText(ga->T(GameRegionToString(info->region)));
 		}
 	}
 
