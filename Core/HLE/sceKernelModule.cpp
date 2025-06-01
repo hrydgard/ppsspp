@@ -2308,7 +2308,7 @@ void __KernelReturnFromModuleFunc() {
 	if (module->pluginWaitingThread) {
 		u32 error;
 		PSPThread *plugin_waiting_thread = kernelObjects.Get<PSPThread>(module->pluginWaitingThread, error);
-		if (plugin_waiting_thread) {
+		if (plugin_waiting_thread && HLEKernel::VerifyWait(module->pluginWaitingThread, WAITTYPE_PLUGIN, plugin_waiting_thread->moduleId)) {
 			PSPModule *plugin_waiting_module = kernelObjects.Get<PSPModule>(plugin_waiting_thread->moduleId, error);
 			if (plugin_waiting_module) {
 				for (auto it = plugin_waiting_module->startingPlugins.begin(), end = plugin_waiting_module->startingPlugins.end(); it < end; ++it) {
