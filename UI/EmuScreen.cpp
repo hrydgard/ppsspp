@@ -1240,7 +1240,7 @@ void EmuScreen::CreateViews() {
 	});
 	resumeButton_->SetVisibility(V_GONE);
 
-	resetButton_ = buttons->Add(new Button(dev->T("Reset")));
+	resetButton_ = buttons->Add(new Button(di->T("Reset")));
 	resetButton_->OnClick.Add([](UI::EventParams &) {
 		if (coreState == CoreState::CORE_RUNTIME_ERROR) {
 			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
@@ -1249,7 +1249,7 @@ void EmuScreen::CreateViews() {
 	});
 	resetButton_->SetVisibility(V_GONE);
 
-	backButton_ = buttons->Add(new Button(dev->T("Back")));
+	backButton_ = buttons->Add(new Button(di->T("Back")));
 	backButton_->OnClick.Add([this](UI::EventParams &) {
 		this->pauseTrigger_ = true;
 		return UI::EVENT_DONE;
