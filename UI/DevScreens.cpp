@@ -1022,6 +1022,13 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	internals->Add(new ItemHeader(ac->T("Notifications")));
 	internals->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
+#ifdef _DEBUG
+	// Untranslated string because this is debug mode only, only for PPSSPP developers.
+	internals->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
+		_dbg_assert_msg_(false, "Test assert message");
+		return UI::EVENT_DONE;
+	});
+#endif
 #if PPSSPP_PLATFORM(ANDROID)
 	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
 		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
