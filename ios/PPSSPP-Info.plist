@@ -39,16 +39,6 @@
 			<key>CFBundleIconName</key>
 			<string>AppIcon</string>
 		</dict>
-		<key>CFBundleAlternateIcons</key>
-		<dict>
-			<key>GoldIcon</key>
-			<dict>
-				<key>CFBundleIconName</key>
-				<string>GoldIcon</string>
-				<key>UIPrerenderedIcon</key>
-				<false/>
-			</dict>
-		</dict>
 	</dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
