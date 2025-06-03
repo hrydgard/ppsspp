@@ -69,7 +69,7 @@ jobs:
         path: ppsspp/
 
   build-uwp:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
       with:
