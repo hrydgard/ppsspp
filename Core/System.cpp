@@ -717,6 +717,7 @@ void PSP_Shutdown(bool success) {
 	IncrementDebugCounter(DebugCounter::GAME_SHUTDOWN);
 }
 
+// Do not use. Currently only used from the websocket debugger
 BootState PSP_Reboot(std::string *error_string) {
 	if (g_bootState != BootState::Complete) {
 		return g_bootState;

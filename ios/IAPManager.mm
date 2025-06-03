@@ -56,6 +56,7 @@
 	_pendingRequestID = requestID;
 
 	if ([SKPaymentQueue canMakePayments]) {
+		NSLog(@"[IAPManager] Starting buy request (requestID: %d)", requestID);
 		NSSet *productIds = [NSSet setWithObject:@"org.ppsspp.gold"];
 		SKProductsRequest *request = [[SKProductsRequest alloc] initWithProductIdentifiers:productIds];
 		request.delegate = self;
@@ -77,7 +78,8 @@
 		return;
 	}
 	_pendingRequestID = requestID;
-	INFO_LOG(Log::IAP, "Restoring purchases (id=%d)", requestID);
+
+	NSLog(@"Restoring purchases (id=%d)", requestID);
 	// NOTE: This is deprecated, but StoreKit 2 is swift only. We'll keep using it until
 	// there's a replacement.
 	[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
@@ -90,16 +92,22 @@
 
 - (void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue {
 	NSLog(@"Restore completed successfully (requestID: %d)", _pendingRequestID);
-	g_requestManager.PostSystemSuccess(_pendingRequestID, "", 0);
-	_pendingRequestID = 0;
+	// Probably not necessary, we already got the updatedTransactions notification
+	// and posted success. Though maybe we shouldn't do it there, but here instead.
+	if (_pendingRequestID != 0) {
+		g_requestManager.PostSystemSuccess(_pendingRequestID, "", 0);
+		_pendingRequestID = 0;
+	}
 	// Notify your app/UI here
 }
 
 - (void)paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error {
 	NSLog(@"Restore failed (requestID: %d): %@", _pendingRequestID, error.localizedDescription);
 	// Notify failure to game layer
-	g_requestManager.PostSystemFailure(_pendingRequestID);
-	_pendingRequestID = 0;
+	if (_pendingRequestID != 0) {
+		g_requestManager.PostSystemFailure(_pendingRequestID);
+		_pendingRequestID = 0;
+	}
 }
 
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response {
@@ -120,7 +128,7 @@
 		switch (transaction.transactionState) {
 			case SKPaymentTransactionStatePurchased:
 			case SKPaymentTransactionStateRestored:
-				INFO_LOG(Log::IAP, transaction.transactionState == SKPaymentTransactionStatePurchased ? "IAP Purchase" : "IAP Restore");
+				NSLog(transaction.transactionState == SKPaymentTransactionStatePurchased ? @"IAP Purchase" : @"IAP Restore");
 				// Perform the unlock (updaing the variable and switching the icon).
 				[self unlockGold];
 				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
@@ -165,7 +173,7 @@ static bool SafeStringEqual(NSString *a, NSString *b) {
 - (void)updateIcon:(bool)force {
 	NSString *desiredIcon = nil;
 	if ([self isGoldUnlocked]) {
-		desiredIcon = @"GoldIcon";
+		desiredIcon = @"PPSSPPGold";
 	}
 
 	NSLog(@"updateIcon called with %@", desiredIcon);

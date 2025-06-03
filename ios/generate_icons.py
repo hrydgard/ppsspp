@@ -9,7 +9,7 @@ icons = {
     "tinted": "tinted.png"
 }
 
-output_dir = "AppIconGold.appiconset"
+output_dir = "IconGold.appiconset"
 os.makedirs(output_dir, exist_ok=True)
 
 # Sizes and scales required by iOS
@@ -74,4 +74,4 @@ contents = {
 with open(os.path.join(output_dir, "Contents.json"), "w") as f:
     json.dump(contents, f, indent=4)
 
-print("✅ AppIconGold asset catalog with light, dark and tinted appearances generated.")
+print("✅ IconGold asset catalog with light, dark and tinted appearances generated.")
