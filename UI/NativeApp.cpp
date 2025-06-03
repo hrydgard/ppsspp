@@ -350,6 +350,8 @@ static void ClearFailedGPUBackends() {
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
+	IncrementDebugCounter(DebugCounter::APP_BOOT);
+
 	// Probably an excessive timeout. it only causes delays on shutdown, though.
 	__UPnPInit(2000);
 
