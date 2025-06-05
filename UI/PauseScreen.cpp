@@ -439,6 +439,9 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (showSavestateControls) {
+		if (PSP_CoreParameter().compat.flags().SaveStatesNotRecommended) {
+			leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Save states not recommended - can corrupt your saves in this game!"), ""));
+		}
 		CreateSavestateControls(leftColumnItems, vertical);
 	} else {
 		// Let's show the active challenges.
