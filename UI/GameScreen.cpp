@@ -564,6 +564,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 				std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
 				info->Delete();
 				g_gameInfoCache->Clear();
+				g_recentFiles.Remove(gamePath.c_str());
 				sm->switchScreen(new MainScreen());
 			}
 		}));

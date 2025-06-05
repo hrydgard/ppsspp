@@ -491,6 +491,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	queueRunner_.DestroyBackBuffers();
 }
 
+// Hm, I'm finding the occasional report of these asserts.
 void VulkanRenderManager::CheckNothingPending() {
 	_assert_(pipelinesToCheck_.empty());
 	{
