@@ -1,7 +1,7 @@
 #ifndef __RIJNDAEL_H
 #define __RIJNDAEL_H
 
-#include "kirk_engine.h"
+#include "kirk_common.h"
 
 #define AES_KEY_LEN_128	(128)
 #define AES_KEY_LEN_192	(192)

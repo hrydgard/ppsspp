@@ -244,7 +244,7 @@ static void point_mul(struct point *d, u8 *a, struct point *b)  // a is bignum
 // Modified from original to support kirk engine use - July 2011
 // Added call to Kirk Random number generator rather than /dev/random
 
-static void generate_ecdsa(u8 *outR, u8 *outS, const u8 *k, const u8 *hash)
+static void generate_ecdsa(KirkState *kirk, u8 *outR, u8 *outS, const u8 *k, const u8 *hash)
 {
   u8 e[21];
   u8 kk[21];
@@ -271,7 +271,7 @@ static void generate_ecdsa(u8 *outR, u8 *outS, const u8 *k, const u8 *hash)
   //  R = (mG).x
   
   // Added call back to kirk PRNG - July 2011
-  kirk_CMD14(m+1, 20);
+  kirk_CMD14(kirk, m+1, 20);
   m[0] = 0;
   
   point_mul(&mG, m, &ec_G);
@@ -424,9 +424,9 @@ int ecdsa_verify(u8 *hash, u8 *R, u8 *S)
   return check_ecdsa(&ec_Q, R, S, hash);
 }
 
-void ecdsa_sign(u8 *hash, u8 *R, u8 *S)
+void ecdsa_sign(KirkState *kirk, u8 *hash, u8 *R, u8 *S)
 {
-  generate_ecdsa(R, S, ec_k, hash);
+  generate_ecdsa(kirk, R, S, ec_k, hash);
 }
 
 int point_is_on_curve(u8 *p)
