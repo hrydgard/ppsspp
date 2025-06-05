@@ -426,7 +426,7 @@ int sceKernelPollSema(SceUID id, int wantedCount) {
 
 static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
 	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
-	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
+	u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerWriteUnchecked(inAddr) : nullptr;
 	int temp = kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd);
 	if (temp != 0) {
 		ERROR_LOG(Log::sceKernel, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
@@ -437,7 +437,7 @@ static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int
 // Note sure what difference there is between this and sceUtilsBufferCopyWithRange.
 static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
 	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
-	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
+	u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerWriteUnchecked(inAddr) : nullptr;
 	return hleNoLog(kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd));
 }
 

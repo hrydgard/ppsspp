@@ -428,6 +428,7 @@ int kirk_CMD12(u8 *outbuff, int outsize) {
   
   return KIRK_OPERATION_SUCCESS;
 }
+
 // Point multiplication
 // offset 0 = mulitplication value (0x14 len)
 // offset 0x14 = point to multiply (0x28 len)
@@ -651,7 +652,7 @@ int kirk_CMD16(u8 * outbuff, int outsize, u8 * inbuff, int insize) {
 // 28 = message hash (0x14 length)
 // 3C = signature R (0x14 length)
 // 50 = signature S (0x14 length)
-int kirk_CMD17(u8 * inbuff, int insize) {
+int kirk_CMD17(const u8 * inbuff, int insize) {
 	KIRK_CMD17_BUFFER * sig = (KIRK_CMD17_BUFFER *) inbuff;
   if(insize != 0x64) return KIRK_INVALID_SIZE;
   ecdsa_set_curve(ec_p,ec_a,ec_b2,ec_N2,Gx2,Gy2);
@@ -663,8 +664,6 @@ int kirk_CMD17(u8 * inbuff, int insize) {
     return KIRK_SIG_CHECK_INVALID;
   }
 }
-
-
 
 int kirk_init()
 {
@@ -710,7 +709,6 @@ int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
   
   //Set KIRK1 main key
   AES_set_key(&aes_kirk1, kirk1_key, 128);
-  
 
   is_kirk_initialized = 1;
   return 0;
@@ -734,21 +732,21 @@ int kirk_CMD1_ex(u8* outbuff, u8* inbuff, int size, KIRK_CMD1_HEADER* header)
   return ret;
 }
 
-int kirk_sceUtilsBufferCopyWithRange(u8* outbuff, int outsize, const u8* inbuff, int insize, int cmd)
+int kirk_sceUtilsBufferCopyWithRange(u8* outbuff, int outsize, u8* inbuff, int insize, int cmd)
 {
   // TODO: propagate const-correctness into all these functions.
   switch(cmd)
   {
-    case KIRK_CMD_DECRYPT_PRIVATE: return kirk_CMD1(outbuff, (u8 *)inbuff, insize); break;
-    case KIRK_CMD_ENCRYPT_IV_0: return kirk_CMD4(outbuff, (u8 *)inbuff, insize); break;
-    case KIRK_CMD_DECRYPT_IV_0: return kirk_CMD7(outbuff, (u8 *)inbuff, insize); break;
-    case KIRK_CMD_PRIV_SIGN_CHECK: return kirk_CMD10((u8 *)inbuff, insize); break;
-    case KIRK_CMD_SHA1_HASH: return kirk_CMD11(outbuff, (u8 *)inbuff, insize); break;
+    case KIRK_CMD_DECRYPT_PRIVATE: return kirk_CMD1(outbuff, inbuff, insize); break;  // NOTE: I think this actually trashes inbuff
+    case KIRK_CMD_ENCRYPT_IV_0: return kirk_CMD4(outbuff, inbuff, insize); break;
+    case KIRK_CMD_DECRYPT_IV_0: return kirk_CMD7(outbuff, inbuff, insize); break;
+    case KIRK_CMD_PRIV_SIGN_CHECK: return kirk_CMD10(inbuff, insize); break;
+    case KIRK_CMD_SHA1_HASH: return kirk_CMD11(outbuff, inbuff, insize); break;
     case KIRK_CMD_ECDSA_GEN_KEYS: return kirk_CMD12(outbuff, outsize); break;
-    case KIRK_CMD_ECDSA_MULTIPLY_POINT: return kirk_CMD13(outbuff, outsize, (u8 *)inbuff, insize); break;
+    case KIRK_CMD_ECDSA_MULTIPLY_POINT: return kirk_CMD13(outbuff, outsize, inbuff, insize); break;
     case KIRK_CMD_PRNG: return kirk_CMD14(outbuff, outsize); break;
-    case KIRK_CMD_ECDSA_SIGN: return kirk_CMD16(outbuff, outsize, (u8 *)inbuff, insize); break;
-    case KIRK_CMD_ECDSA_VERIFY: return kirk_CMD17((u8 *)inbuff, insize); break;
+    case KIRK_CMD_ECDSA_SIGN: return kirk_CMD16(outbuff, outsize, inbuff, insize); break;
+    case KIRK_CMD_ECDSA_VERIFY: return kirk_CMD17(inbuff, insize); break;
   }
   return -1;
 }

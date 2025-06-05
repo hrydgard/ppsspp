@@ -3,7 +3,6 @@
 // https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 // https://www.gnu.org/licenses/gpl-3.0.html
 
-
 // Modified for Kirk engine by setting single curve and internal function
 // to support Kirk elliptic curve options.- July 2011
 
@@ -27,9 +26,7 @@ struct point ec_G;  // mon
 struct point ec_Q;  // mon
 u8 ec_k[21];
 
-
-
-void hex_dump(char *str, u8 *buf, int size)
+void hex_dump(const char *str, const u8 *buf, int size)
 {
   int i;
 
@@ -45,7 +42,7 @@ void hex_dump(char *str, u8 *buf, int size)
   printf("\n\n");
 }
 
-static void elt_copy(u8 *d, u8 *a)
+static void elt_copy(u8 *d, const u8 *a)
 {
   memcpy(d, a, 20);
 }
@@ -55,7 +52,7 @@ static void elt_zero(u8 *d)
   memset(d, 0, 20);
 }
 
-static int elt_is_zero(u8 *d)
+static int elt_is_zero(const u8 *d)
 {
   u32 i;
 
@@ -66,27 +63,27 @@ static int elt_is_zero(u8 *d)
   return 1;
 }
 
-static void elt_add(u8 *d, u8 *a, u8 *b)
+static void elt_add(u8 *d, const u8 *a, const u8 *b)
 {
   bn_add(d, a, b, ec_p, 20);
 }
 
-static void elt_sub(u8 *d, u8 *a, u8 *b)
+static void elt_sub(u8 *d, const u8 *a, const u8 *b)
 {
   bn_sub(d, a, b, ec_p, 20);
 }
 
-static void elt_mul(u8 *d, u8 *a, u8 *b)
+static void elt_mul(u8 *d, const u8 *a, const u8 *b)
 {
   bn_mon_mul(d, a, b, ec_p, 20);
 }
 
-static void elt_square(u8 *d, u8 *a)
+static void elt_square(u8 *d, const u8 *a)
 {
   elt_mul(d, a, a);
 }
 
-static void elt_inv(u8 *d, u8 *a)
+static void elt_inv(u8 *d, const u8 *a)
 {
   u8 s[20];
   elt_copy(s, a);
@@ -178,7 +175,9 @@ static void point_double(struct point *r, struct point *p)
 static void point_add(struct point *r, struct point *p, struct point *q)
 {
   u8 s[20], t[20], u[20];
-  u8 *px, *py, *qx, *qy, *rx, *ry;
+  u8 *px, *py;
+  u8 *qx, *qy;
+  u8 *rx, *ry;
   struct point pp, qq;
 
   pp = *p;
@@ -245,7 +244,7 @@ static void point_mul(struct point *d, u8 *a, struct point *b)  // a is bignum
 // Modified from original to support kirk engine use - July 2011
 // Added call to Kirk Random number generator rather than /dev/random
 
-static void generate_ecdsa(u8 *outR, u8 *outS, u8 *k, u8 *hash)
+static void generate_ecdsa(u8 *outR, u8 *outS, const u8 *k, const u8 *hash)
 {
   u8 e[21];
   u8 kk[21];
@@ -308,7 +307,7 @@ static void generate_ecdsa(u8 *outR, u8 *outS, u8 *k, u8 *hash)
     // r/s * P = m/s * G
 
 // Slightly modified to support kirk compatible signature input - July 2011
-static int check_ecdsa(struct point *Q, u8 *inR, u8 *inS, u8 *hash)
+static int check_ecdsa(struct point *Q, const u8 *inR, const u8 *inS, const u8 *hash)
 {
   u8 Sinv[21];
   u8 e[21], R[21], S[21];

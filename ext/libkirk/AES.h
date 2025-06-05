@@ -42,7 +42,7 @@ void AES_encrypt(AES_ctx *ctx, const u8 *src, u8 *dst);
 void AES_decrypt(AES_ctx *ctx, const u8 *src, u8 *dst);
 void AES_cbc_encrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size);
 void AES_cbc_decrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size);
-void AES_CMAC(AES_ctx *ctx, unsigned char *input, int length, unsigned char *mac);
+void AES_CMAC(AES_ctx *ctx, const unsigned char *input, int length, unsigned char *mac);
 
 int	rijndaelKeySetupEnc(unsigned int [], const unsigned char [], int);
 int	rijndaelKeySetupDec(unsigned int [], const unsigned char [], int);

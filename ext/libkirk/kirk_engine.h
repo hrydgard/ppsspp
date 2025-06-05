@@ -203,7 +203,7 @@ int kirk_CMD12(u8* outbuff, int outsize);
 int kirk_CMD13(u8* outbuff, int outsize,u8* inbuff, int insize);
 int kirk_CMD14(u8* outbuff, int outsize);
 int kirk_CMD16(u8* outbuff, int outsize,u8* inbuff, int insize);
-int kirk_CMD17(u8* inbuff, int insize);
+int kirk_CMD17(const u8* inbuff, int insize);
 
 int kirk_init(); //CMD 0xF?
 int kirk_init2(u8 *, u32, u32, u32);
@@ -219,12 +219,12 @@ const u8* kirk_4_7_get_key(int key_type);
 int kirk_CMD1_ex(u8* outbuff, u8* inbuff, int size, KIRK_CMD1_HEADER* header);
 
 //sce-like func. sceUtilsBufferCopyWithRange is clearly intentionally confusingly named.
-int kirk_sceUtilsBufferCopyWithRange(u8* outbuff, int outsize, const u8* inbuff, int insize, int cmd);
+// Also, some commands do write to inbuff!
+int kirk_sceUtilsBufferCopyWithRange(u8* outbuff, int outsize, u8* inbuff, int insize, int cmd);
 void decrypt_kirk16_private(u8 *dA_out, u8 *dA_enc);
 void encrypt_kirk16_private(u8 *dA_out, u8 *dA_dec);
 
 // Prototypes for the Elliptic Curve and Big Number functions
-int ecdsa_get_params(u32 type, u8 *p, u8 *a, u8 *b, u8 *N, u8 *Gx, u8 *Gy);
 int ecdsa_set_curve(const u8* p, const u8* a, const u8* b, const u8* N, const u8* Gx, const u8* Gy);
 void ecdsa_set_pub(u8 *Q);
 void ecdsa_set_priv(u8 *k);
@@ -242,7 +242,7 @@ void bn_to_mon(u8 *d, const u8 *N, u32 n);
 void bn_from_mon(u8 *d, const u8 *N, u32 n);
 void bn_mon_mul(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n);
 void bn_mon_inv(u8 *d, const u8 *a, const u8 *N, u32 n);
-void hex_dump(char *str, u8 *buf, int size);
+void hex_dump(const char *str, const u8 *buf, int size);
 
 #define		round_up(x,n)	(-(-(x) & -(n)))
 
