@@ -102,8 +102,12 @@ void InstallZipScreen::CreateViews() {
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-			playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
-			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
+
+			// NOTE: We detect PBP isos (like demos) as game dirs currently. Can't play them directly.
+			if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+				playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
+				playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
+			}
 
 			returnToHomebrew_ = true;
 			showDeleteCheckbox = true;
