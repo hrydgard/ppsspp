@@ -38,7 +38,7 @@ What's new in 1.19
     - Important: This will be the last major version with D3D9 support. D3D11 will of course continue to be supported, along with Vulkan and OpenGL.
 	- Fix smoke effects in Jak'n'Daxter by re-using the fix from Ratchet & Clank ([#20032])
     - Software depth buffer rendering added to fix lens flares in multiple games efficiently (Midnight Club LA, Wipeout, Syphon Filter etc) ([#19748], [#19764], [#20231], [#19955], etc)
-	- Multiple rendering-related crash fixes ([#20270], [#20346], [#20344], ...)
+	- Multiple rendering-related crash fixes ([#20270], [#20346], [#20344])
 	- Texture replacement load speed corrected and can now be controlled ([#20286]), regression fix for zipped packs ([#19860])
 	- Additional assorted compatibility and other fixes ([#20376], [#20070], [#19685])
 	- Persona 1/2 readback fixes ([#20067], [#20068])
@@ -46,12 +46,12 @@ What's new in 1.19
 
 - General emulation
 	- Allow disabling HLE on a per-module basis (if games ship the module so we can load it). Enabled for sceCcc ([#20218]), and more importantly scePsmf ([#20208]), fixing multiple issues.
-	- Additional module loading improvements ([#20114], ...)
+	- Additional module loading improvements ([#20114])
 	- More precise sleep function on Windows ([#20054])
 	- More replacement texture improvements, allow replacing game icons ([#19975], [#19978])
-	- Disable certain features like fast-forward when networking is on, to avoid de-syncs ([])
+	- Disable certain features like fast-forward when networking is on, to avoid de-syncs ([#20311])
 	- Fixes mono Atrac3 as video soundtrack ([#19800])
-	- Improvements to RISC-V support ([#20352, ...])
+	- Improvements to RISC-V support ([#20352])
 
 - Control and input
 	- Touch gliding support added ([#19983])
@@ -78,8 +78,8 @@ What's new in 1.19
 	- Add "Move to trash" deletion funcionality to multiple platforms ([#20230], [#20261])
 	- Add ability to take "raw" screenshots of gameplay ([#20029])
 	- More files can be loaded directly from ZIP ([#20243])
-	- Developer Settings are now tabbed for easier access ([#20033], [#20228])
-	- Switch to the full libpng API so we can disable gamma correction, like the real PSP ([])
+	- Developer Settings are now tabbed for easier access ([#20228])
+	- Switch to the full libpng API so we can disable gamma correction, like the real PSP ([#20033])
 	- Support displaying the battery percentage on more platforms ([#19973], [#19967])
 	- Allow picking a background image on iOS ([#20370])
 
@@ -337,3 +337,4 @@ What's new in 1.18
 [#19915]: https://github.com/hrydgard/ppsspp/issues/19915 "Android: Improve mouse input"
 [#19874]: https://github.com/hrydgard/ppsspp/issues/19874 "macOS/iOS: register font with CoreText"
 [#19668]: https://github.com/hrydgard/ppsspp/issues/19668 "File system perf part 1: Remove some unnecessary file access"
+[#20311]: https://github.com/hrydgard/ppsspp/issues/20311 "Automatically disable fast forward feature when doing multiplayer."
