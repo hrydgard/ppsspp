@@ -214,6 +214,7 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	}
 	if (g_GameManager.InstallZipOnThread(task)) {
 		installStarted_ = true;
+		playChoice_->SetEnabled(false);  // need to exit this screen to played the installed one. We could make this smarter.
 		if (installChoice_) {
 			installChoice_->SetEnabled(false);
 		}
@@ -243,8 +244,9 @@ void InstallZipScreen::update() {
 			if (doneView_)
 				doneView_->SetText(iz->T(err));
 		} else if (installStarted_) {
-			if (doneView_)
+			if (doneView_) {
 				doneView_->SetText(iz->T("Installed!"));
+			}
 			MainScreen::showHomebrewTab = returnToHomebrew_;
 		}
 	}
