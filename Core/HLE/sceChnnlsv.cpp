@@ -21,13 +21,15 @@
 
 #include "Core/HLE/sceChnnlsv.h"
 #include "Core/HLE/sceKernel.h"
-extern "C"
-{
-#include "ext/libkirk/kirk_engine.h"
+
+static KirkState g_kirk;
+
+KirkState *__ChnnlsvKirkState() {
+	return &g_kirk;
 }
 
-u8 dataBuf[2048+20];
-u8* dataBuf2 = dataBuf + 20;
+static u8 dataBuf[2048+20];
+static u8 *dataBuf2 = dataBuf + 20;
 
 static const u8 hash198C[16] = {0xFA, 0xAA, 0x50, 0xEC, 0x2F, 0xDE, 0x54, 0x93, 0xAD, 0x14, 0xB2, 0xCE, 0xA5, 0x30, 0x05, 0xDF};
 static const u8 hash19BC[16] = {0xCB, 0x15, 0xF4, 0x07, 0xF9, 0x6A, 0x52, 0x3C, 0x04, 0xB9, 0xB2, 0xEE, 0x5C, 0x53, 0xFA, 0x86};
@@ -91,7 +93,7 @@ static int typeFromMode(int mode)
 	      ((mode == 3 || mode == 4) ? 87 : 100);	
 }
 
-static int kirkSendCmd(u8* data, int length, int num, bool encrypt)
+static int kirkSendCmd(KirkState *kirk, u8* data, int length, int num, bool encrypt)
 {
 	*(int*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
 	*(int*)(data+4) = 0;
@@ -99,13 +101,13 @@ static int kirkSendCmd(u8* data, int length, int num, bool encrypt)
 	*(int*)(data+12) = num;
 	*(int*)(data+16) = length;
 
-	if (kirk_sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_0 : KIRK_CMD_DECRYPT_IV_0))
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_0 : KIRK_CMD_DECRYPT_IV_0))
 		return -257;
 
 	return 0;
 }
 
-static int kirkSendFuseCmd(u8* data, int length, bool encrypt)
+static int kirkSendFuseCmd(KirkState *kirk, u8* data, int length, bool encrypt)
 {
 	*(int*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
 	*(int*)(data+4) = 0;
@@ -114,18 +116,18 @@ static int kirkSendFuseCmd(u8* data, int length, bool encrypt)
 	*(int*)(data+16) = length;
 
 	// Note: CMD 5 and 8 are not available, will always return -1
-	if (kirk_sceUtilsBufferCopyWithRange(data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_FUSE : KIRK_CMD_DECRYPT_IV_FUSE))
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, data, length + 20, data, length + 20, encrypt ? KIRK_CMD_ENCRYPT_IV_FUSE : KIRK_CMD_DECRYPT_IV_FUSE))
 		return -258;
 
 	return 0;
 }
 
-static int sub_15B0(u8* data, int alignedLen, u8* buf, int val)
+static int sub_15B0(KirkState *kirk, u8* data, int alignedLen, u8* buf, int val)
 {
 	u8 sp0[16];
 	memcpy(sp0, data+alignedLen+4, 16);
 
-	int res = kirkSendCmd(data, alignedLen, val, false);
+	int res = kirkSendCmd(kirk, data, alignedLen, val, false);
 	if (res)
 		return res;
 
@@ -134,7 +136,7 @@ static int sub_15B0(u8* data, int alignedLen, u8* buf, int val)
 	return 0;
 }
 
-static int sub_0000(u8* data_out, u8* data, int alignedLen, const u8* data2, int& data3, int mode)
+static int sub_0000(KirkState *kirk, u8* data_out, u8* data, int alignedLen, const u8* data2, int& data3, int mode)
 {
 	memcpy(data_out+20, data2, 16);
 	// Mode 1:2 is 83, 3:4 is 87, 5:6 is 100
@@ -149,9 +151,9 @@ static int sub_0000(u8* data_out, u8* data, int alignedLen, const u8* data2, int
 	// Odd is Cmd, Even is FuseCmd
 	switch(mode)
 	{
-	case 2: case 4:	case 6:	res = kirkSendFuseCmd(data_out, 16, false);
+	case 2: case 4:	case 6:	res = kirkSendFuseCmd(kirk, data_out, 16, false);
 	break;
-	case 1:	case 3:	default:res = kirkSendCmd(data_out, 16, numFromMode2(mode), false);
+	case 1:	case 3:	default:res = kirkSendCmd(kirk, data_out, 16, numFromMode2(mode), false);
 	break;
 	}
 
@@ -185,7 +187,7 @@ static int sub_0000(u8* data_out, u8* data, int alignedLen, const u8* data2, int
 		}
 	}
 
-	res = sub_15B0(data_out, alignedLen, sp0, type);
+	res = sub_15B0(kirk, data_out, alignedLen, sp0, type);
 	if (res)
 		return res;
 
@@ -195,11 +197,11 @@ static int sub_0000(u8* data_out, u8* data, int alignedLen, const u8* data2, int
 	return 0;
 }
 
-static int sub_1510(u8* data, int size, u8* result , int num)
+static int sub_1510(KirkState *kirk, u8* data, int size, u8* result , int num)
 {
 	memxor(data+20, result, 16);
 
-	int res = kirkSendCmd(data, size, num, true);
+	int res = kirkSendCmd(kirk, data, size, num, true);
 	if(res)
 		return res;
 
@@ -207,9 +209,9 @@ static int sub_1510(u8* data, int size, u8* result , int num)
 	return 0;
 }
 
-static int sub_17A8(u8* data)
+static int sub_17A8(KirkState *kirk, u8* data)
 {
-	if (kirk_sceUtilsBufferCopyWithRange(data, 20, 0, 0, 14) == 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, data, 20, 0, 0, 14) == 0)
 		return 0;
 	return -261;
 }
@@ -231,7 +233,7 @@ int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 
 	memset(dataBuf2, 0, 16);
 
-	int res = kirkSendCmd(dataBuf, 16, num, true);
+	int res = kirkSendCmd(&g_kirk, dataBuf, 16, num, true);
 	if(res)
 		return res;
 
@@ -279,7 +281,7 @@ int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 	memcpy(dataBuf2, ctx.key, 16);
 	memcpy(data2, ctx.result, 16);
 
-	int ret = sub_1510(dataBuf, 16, data2, num);
+	int ret = sub_1510(&g_kirk, dataBuf, 16, data2, num);
 	if(ret)
 		return ret;
 
@@ -292,11 +294,11 @@ int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 	if(cond != 0)
 	{
 		memcpy(dataBuf2, data2, 16);
-		int ret = kirkSendFuseCmd(dataBuf, 16, true);
+		int ret = kirkSendFuseCmd(&g_kirk, dataBuf, 16, true);
 		if(ret)
 			return ret;
 
-		int res = kirkSendCmd(dataBuf, 16, num, true);
+		int res = kirkSendCmd(&g_kirk, dataBuf, 16, num, true);
 		if(res)
 			return res;
 
@@ -312,7 +314,7 @@ int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 
 		memcpy(dataBuf2, data2, 16);
 
-		int res = kirkSendCmd(dataBuf, 16, num, true);
+		int res = kirkSendCmd(&g_kirk, dataBuf, 16, num, true);
 		if(res)
 			return res;
 
@@ -376,7 +378,7 @@ int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 	{
 		if(newSize == 2048)
 		{
-			int res = sub_1510(dataBuf, 2048, ctx.result, num);
+			int res = sub_1510(&g_kirk, dataBuf, 2048, ctx.result, num);
 			if(res)
 				return res;
 			newSize = 0;
@@ -385,7 +387,7 @@ int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 		newSize++;
 	}
 	if(newSize)
-		sub_1510(dataBuf, newSize, ctx.result, num);
+		sub_1510(&g_kirk, dataBuf, newSize, ctx.result, num);
 	// The RE code showed this always returning 0. I suspect it would want to return res instead.
 	return 0;
 }
@@ -416,7 +418,7 @@ int sceSdCipherInit(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, cons
 	{
 		u8 kirkHeader[37];
 		u8* kirkData = kirkHeader+20;
-		int res = sub_17A8(kirkHeader);
+		int res = sub_17A8(&g_kirk, kirkHeader);
 		if (res)
 			return res;
 
@@ -431,9 +433,9 @@ int sceSdCipherInit(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, cons
 
 		switch (mode)
 		{
-		case 2:	case 4:	case 6:	res = kirkSendFuseCmd(kirkHeader, 16, true);
+		case 2:	case 4:	case 6:	res = kirkSendFuseCmd(&g_kirk, kirkHeader, 16, true);
 		break;
-		case 1:	case 3:	default:res = kirkSendCmd(kirkHeader, 16, numFromMode2(mode), true);
+		case 1:	case 3:	default:res = kirkSendCmd(&g_kirk, kirkHeader, 16, numFromMode2(mode), true);
 		break;
 		}
 
@@ -480,7 +482,7 @@ int sceSdCipherUpdate(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 		for(i = 0; alignedLen >= 2048; i += 2048)
 		{
 			int ctx_unkn = ctx.unkn;
-			int res = sub_0000(kirkData, data + i, 2048, ctx.cryptedData, ctx_unkn, ctx.mode);
+			int res = sub_0000(&g_kirk, kirkData, data + i, 2048, ctx.cryptedData, ctx_unkn, ctx.mode);
 			ctx.unkn = ctx_unkn;
 			alignedLen -= 2048;
 			if (res)
@@ -492,7 +494,7 @@ int sceSdCipherUpdate(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 		return 0;
 	}
 	int ctx_unkn = ctx.unkn;
-	int res = sub_0000(kirkData, data + i, alignedLen, ctx.cryptedData, ctx_unkn, ctx.mode);
+	int res = sub_0000(&g_kirk, kirkData, data + i, alignedLen, ctx.cryptedData, ctx_unkn, ctx.mode);
 	ctx.unkn = ctx_unkn;
 	return res;
 }
@@ -526,5 +528,35 @@ const HLEFunction sceChnnlsv[] =
 void Register_sceChnnlsv()
 {
 	RegisterHLEModule("sceChnnlsv", ARRAY_SIZE(sceChnnlsv), sceChnnlsv);
-	kirk_init();
+	kirk_init(&g_kirk);
+}
+
+// The below functions don't really belong to sceKernelSemaphore. They are the core crypto functionality,
+// exposed through the confusingly named "sceUtilsBufferCopyWithRange" name, which Sony placed in the
+// not-at-all-suspicious "semaphore" library, which has nothing to do with semaphores.
+
+static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
+	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
+	u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerWriteUnchecked(inAddr) : nullptr;
+	int temp = kirk_sceUtilsBufferCopyWithRange(&g_kirk, outAddress, outSize, inAddress, inSize, cmd);
+	if (temp != 0) {
+		ERROR_LOG(Log::sceKernel, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
+	}
+	return hleNoLog(0);
+}
+
+// Note sure what difference there is between this and sceUtilsBufferCopyWithRange.
+static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
+	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
+	u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerWriteUnchecked(inAddr) : nullptr;
+	return hleNoLog(kirk_sceUtilsBufferCopyWithRange(&g_kirk, outAddress, outSize, inAddress, inSize, cmd));
+}
+
+const HLEFunction semaphore[] = {
+	{0x4C537C72, &WrapU_UIUII<sceUtilsBufferCopyWithRange>,          "sceUtilsBufferCopyWithRange",                   'x', "xixii" },
+	{0x77E97079, &WrapI_UIUII<sceUtilsBufferCopyByPollingWithRange>, "sceUtilsBufferCopyByPollingWithRange",          'i', "xixii"  },
+};
+
+void Register_semaphore() {
+	RegisterHLEModule("semaphore", ARRAY_SIZE(semaphore), semaphore);
 }

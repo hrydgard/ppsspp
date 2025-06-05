@@ -1674,6 +1674,7 @@ add_library(kirk STATIC
 	ext/libkirk/ec.c
 	ext/libkirk/kirk_engine.c
 	ext/libkirk/kirk_engine.h
+	ext/libkirk/kirk_common.h
 )
 target_include_directories(kirk PRIVATE ext/libkirk)
 

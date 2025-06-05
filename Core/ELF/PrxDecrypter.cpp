@@ -711,7 +711,7 @@ struct PRXType6
 };
 static_assert(sizeof(PRXType6) == 0x150, "inconsistent size of PRX Type 6");
 
-static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
@@ -757,7 +757,7 @@ static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type0.prxHeader, sizeof(type0.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type0.kirkBlock, xorbuf, pti->code);
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -765,7 +765,7 @@ static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
 	return decryptSize;
 }
 
-static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
@@ -812,7 +812,7 @@ static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type1.prxHeader, sizeof(type1.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type1.kirkBlock, xorbuf, pti->code);
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -820,7 +820,7 @@ static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
 	return decryptSize;
 }
 
-static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
@@ -876,7 +876,7 @@ static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -884,7 +884,7 @@ static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
 	return decryptSize;
 }
 
-static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
+static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 	{
 	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
@@ -940,7 +940,7 @@ static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -948,7 +948,7 @@ static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed
 	return decryptSize;
 	}
 
-static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
@@ -1007,7 +1007,7 @@ static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
 	header->mode = 1;
 	header->ecdsa_hash = 1;
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -1017,30 +1017,31 @@ static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
 
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 {
-	kirk_init();
+	KirkState kirk{};
+	kirk_init(&kirk);
 
 	// this would be significantly better if we had a log of the tags
 	// and their appropriate prx types
 	// since we don't know the PRX type we attempt a decrypt using all
-	auto res = pspDecryptType0(inbuf, outbuf, size);
+	auto res = pspDecryptType0(&kirk, inbuf, outbuf, size);
 
 	if (res >= 0)
 		return res;
 	
-	res = pspDecryptType1(inbuf, outbuf, size);
+	res = pspDecryptType1(&kirk, inbuf, outbuf, size);
 
 	if (res >= 0)
 		return res;
 	
-	res = pspDecryptType2(inbuf, outbuf, size);
+	res = pspDecryptType2(&kirk, inbuf, outbuf, size);
 
 	if (res >= 0)
 		return res;
 	
-	res = pspDecryptType5(inbuf, outbuf, size, seed);
+	res = pspDecryptType5(&kirk, inbuf, outbuf, size, seed);
 
 	if (res >= 0)
 		return res;
 	
-	return pspDecryptType6(inbuf, outbuf, size);
+	return pspDecryptType6(&kirk, inbuf, outbuf, size);
 }

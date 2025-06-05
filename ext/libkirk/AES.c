@@ -1359,7 +1359,7 @@ void AES_cbc_decrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size)
 
 /* AES-CMAC Generation Function */
 
-void leftshift_onebit(unsigned char *input,unsigned char *output)
+static void leftshift_onebit(const unsigned char *input,unsigned char *output)
 {
 	int i;
     unsigned char overflow = 0;
@@ -1401,7 +1401,7 @@ void generate_subkey(AES_ctx *ctx, unsigned char *K1, unsigned char *K2)
     }
 }
 
-void padding ( unsigned char *lastb, unsigned char *pad, int length )
+static void padding(const unsigned char *lastb, unsigned char *pad, int length )
 {
 	int j;
 	
@@ -1419,7 +1419,7 @@ void padding ( unsigned char *lastb, unsigned char *pad, int length )
 	}
 }
 
-void AES_CMAC (AES_ctx *ctx, unsigned char *input, int length, unsigned char *mac )
+void AES_CMAC (AES_ctx *ctx, const unsigned char *input, int length, unsigned char *mac )
 {
     unsigned char X[16],Y[16], M_last[16], padded[16];
     unsigned char K1[16], K2[16];
@@ -1444,7 +1444,7 @@ void AES_CMAC (AES_ctx *ctx, unsigned char *input, int length, unsigned char *ma
     if ( flag ) { /* last block is complete block */
         xor_128(&input[16*(n-1)],K1,M_last);
     } else {
-        padding(&input[16*(n-1)],padded,length%16);
+        padding(&input[16*(n-1)], padded, length%16);
         xor_128(padded,K2,M_last);
     }
 

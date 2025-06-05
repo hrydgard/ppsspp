@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ext/libkirk/kirk_engine.h"
+
 typedef struct _pspChnnlsvContext1 {
 	/** Cipher mode */
 	s32_le mode;
@@ -41,4 +43,8 @@ int sceSdCipherUpdate(pspChnnlsvContext2& ctx, u8* data, int alignedLen);
 int sceSdCipherFinal(pspChnnlsvContext2& ctx);
 int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key);
 
+KirkState *__ChnnlsvKirkState();
+
+// deceptively named.
 void Register_sceChnnlsv();
+void Register_semaphore();

@@ -287,6 +287,7 @@
   <ItemGroup>
     <ClInclude Include="AES.h" />
     <ClInclude Include="amctrl.h" />
+    <ClInclude Include="kirk_common.h" />
     <ClInclude Include="kirk_engine.h" />
     <ClInclude Include="SHA1.h" />
   </ItemGroup>
