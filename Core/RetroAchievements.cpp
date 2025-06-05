@@ -265,7 +265,7 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 	uint32_t orig_address = address;
 	address += PSP_MEMORY_OFFSET;
 
-	if (!Memory::ValidSize(address, num_bytes)) {
+	if (!Memory::IsValidRange(address, num_bytes)) {
 		// Some achievement packs are really, really spammy.
 		// So we'll just count the bad accesses.
 		Achievements::g_stats.badMemoryAccessCount++;
