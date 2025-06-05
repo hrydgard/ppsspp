@@ -218,7 +218,9 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	}
 	if (g_GameManager.InstallZipOnThread(task)) {
 		installStarted_ = true;
-		playChoice_->SetEnabled(false);  // need to exit this screen to played the installed one. We could make this smarter.
+		if (playChoice_) {
+			playChoice_->SetEnabled(false);  // need to exit this screen to played the installed one. We could make this smarter.
+		}
 		if (installChoice_) {
 			installChoice_->SetEnabled(false);
 		}
