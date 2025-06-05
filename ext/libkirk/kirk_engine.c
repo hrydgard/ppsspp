@@ -33,8 +33,7 @@
 #include "SHA1.h"
 
 /* ------------------------- KEY VAULT ------------------------- */
-unsigned char keyvault[0x80][0x10] =
-{
+static const unsigned char keyvault[0x80][0x10] = {
     {0x2C, 0x92, 0xE5, 0x90, 0x2B, 0x86, 0xC1, 0x06, 0xB7, 0x2E, 0xEA, 0x6C, 0xD4, 0xEC, 0x72, 0x48},
     {0x05, 0x8D, 0xC8, 0x0B, 0x33, 0xA5, 0xBF, 0x9D, 0x56, 0x98, 0xFA, 0xE0, 0xD3, 0x71, 0x5E, 0x1F},
     {0xB8, 0x13, 0xC3, 0x5E, 0xC6, 0x44, 0x41, 0xE3, 0xDC, 0x3C, 0x16, 0xF5, 0xB4, 0x5E, 0x64, 0x84},
@@ -165,8 +164,8 @@ unsigned char keyvault[0x80][0x10] =
     {0x5F, 0x8C, 0x17, 0x9F, 0xC1, 0xB2, 0x1D, 0xF1, 0xF6, 0x36, 0x7A, 0x9C, 0xF7, 0xD3, 0xD4, 0x7C},
 };
 
-u8 kirk1_key[]  = {0x98, 0xC9, 0x40, 0x97, 0x5C, 0x1D, 0x10, 0xE8, 0x7F, 0xE6, 0x0E, 0xA3, 0xFD, 0x03, 0xA8, 0xBA};
-u8 kirk16_key[] = {0x47, 0x5E, 0x09, 0xF4, 0xA2, 0x37, 0xDA, 0x9B, 0xEF, 0xFF, 0x3B, 0xC0, 0x77, 0x14, 0x3D, 0x8A};
+static const u8 kirk1_key[]  = {0x98, 0xC9, 0x40, 0x97, 0x5C, 0x1D, 0x10, 0xE8, 0x7F, 0xE6, 0x0E, 0xA3, 0xFD, 0x03, 0xA8, 0xBA};
+static const u8 kirk16_key[] = {0x47, 0x5E, 0x09, 0xF4, 0xA2, 0x37, 0xDA, 0x9B, 0xEF, 0xFF, 0x3B, 0xC0, 0x77, 0x14, 0x3D, 0x8A};
 
 /* ECC Curves for Kirk 1 and Kirk 0x11 */
 // Common Curve paramters p and a
@@ -312,7 +311,7 @@ int kirk_CMD1(u8* outbuff, u8* inbuff, int size)
 int kirk_CMD4(u8* outbuff, u8* inbuff, int size)
 {
   KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)inbuff;
-  u8* key;
+  const u8* key;
   AES_ctx aesKey;
   
   if(is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
@@ -332,7 +331,7 @@ int kirk_CMD4(u8* outbuff, u8* inbuff, int size)
 void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId)
 {
   AES_ctx aesKey;
-  u8* key = kirk_4_7_get_key(keyId);
+  const u8* key = kirk_4_7_get_key(keyId);
   AES_set_key(&aesKey, key, 128);
   AES_cbc_encrypt(&aesKey, inbuff, outbuff, (int)size);
 }
@@ -340,7 +339,7 @@ void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId)
 int kirk_CMD7(u8* outbuff, u8* inbuff, int size)
 {
   KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)inbuff;
-  u8* key;
+  const u8* key;
   AES_ctx aesKey;
   
   if(is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
@@ -360,11 +359,12 @@ int kirk_CMD7(u8* outbuff, u8* inbuff, int size)
 void kirk7(u8* outbuff, const u8* inbuff, size_t size, int keyId)
 {
   AES_ctx aesKey;
-  u8* key = kirk_4_7_get_key(keyId);
+  const u8* key = kirk_4_7_get_key(keyId);
   AES_set_key(&aesKey, key, 128);
   AES_cbc_decrypt(&aesKey, inbuff, outbuff, (int)size);
 }
 
+// This one works in-place.
 int kirk_CMD10(u8* inbuff, int insize)
 {
   KIRK_CMD1_HEADER* header = (KIRK_CMD1_HEADER*)inbuff;
@@ -713,9 +713,9 @@ int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
   is_kirk_initialized = 1;
   return 0;
 }
-u8* kirk_4_7_get_key(int key_type)
-{
-	if((key_type < 0) || (key_type >=0x80)) return (u8*)KIRK_INVALID_SIZE;
+
+const u8* kirk_4_7_get_key(int key_type){
+	if((key_type < 0) || (key_type >=0x80)) return (const u8*)KIRK_INVALID_SIZE;
 	return keyvault[key_type];
 }
 

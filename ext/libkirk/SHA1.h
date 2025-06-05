@@ -3,6 +3,7 @@
 
 /* POINTER defines a generic pointer type */
 typedef unsigned char *POINTER;
+typedef const unsigned char *CONST_POINTER;
 
 /* UINT4 defines a four byte word */
 typedef unsigned int UINT4;
@@ -37,7 +38,7 @@ typedef struct
 /* Message digest functions */
 
 void SHAInit(SHA_CTX *);
-void SHAUpdate(SHA_CTX *, BYTE *buffer, int count);
+void SHAUpdate(SHA_CTX *, const BYTE *buffer, int count);
 void SHAFinal(BYTE *output, SHA_CTX *);
 
 #endif /* end _SHA_H_ */

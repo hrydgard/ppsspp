@@ -40,7 +40,7 @@ effort (for example the reengineering of a great many Capstone chips).
 #include <stdio.h>
 #include <string.h>
 
-static void SHAtoByte(BYTE *output, UINT4 *input, unsigned int len);
+static void SHAtoByte(BYTE *output, const UINT4 *input, unsigned int len);
 
 /* The SHS block size and message digest sizes, in bytes */
 
@@ -264,7 +264,7 @@ static void longReverse(UINT4 *buffer, int byteCount, int Endianness )
 
 /* Update SHS for a block of data */
 
-void SHAUpdate(SHA_CTX *shsInfo, BYTE *buffer, int count)
+void SHAUpdate(SHA_CTX *shsInfo, const BYTE *buffer, int count)
 {
     UINT4 tmp;
     int dataCount;
@@ -299,7 +299,7 @@ void SHAUpdate(SHA_CTX *shsInfo, BYTE *buffer, int count)
     /* Process data in SHS_DATASIZE chunks */
     while( count >= SHS_DATASIZE )
         {
-        memcpy( (POINTER)shsInfo->data, (POINTER)buffer, SHS_DATASIZE );
+        memcpy( (POINTER)shsInfo->data, (CONST_POINTER)buffer, SHS_DATASIZE );
         longReverse( shsInfo->data, SHS_DATASIZE, shsInfo->Endianness );
         SHSTransform( shsInfo->digest, shsInfo->data );
         buffer += SHS_DATASIZE;
@@ -307,7 +307,7 @@ void SHAUpdate(SHA_CTX *shsInfo, BYTE *buffer, int count)
         }
 
     /* Handle any remaining bytes of data. */
-    memcpy( (POINTER)shsInfo->data, (POINTER)buffer, count );
+    memcpy( (POINTER)shsInfo->data, (CONST_POINTER)buffer, count );
     }
 
 /* Final wrapup - pad to SHS_DATASIZE-byte boundary with the bit pattern
@@ -359,7 +359,7 @@ void SHAFinal(BYTE *output, SHA_CTX *shsInfo)
 	memset((POINTER)shsInfo, 0, sizeof(*shsInfo));
 }
 
-static void SHAtoByte(BYTE *output, UINT4 *input, unsigned int len)
+static void SHAtoByte(BYTE *output, const UINT4 *input, unsigned int len)
 {	/* Output SHA digest in byte array */
 	unsigned int i, j;
 

@@ -213,7 +213,7 @@ void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId);
 void kirk7(u8* outbuff, const u8* inbuff, size_t size, int keyId);
 
 //helper funcs
-u8* kirk_4_7_get_key(int key_type);
+const u8* kirk_4_7_get_key(int key_type);
 
 //kirk "ex" functions
 int kirk_CMD1_ex(u8* outbuff, u8* inbuff, int size, KIRK_CMD1_HEADER* header);
