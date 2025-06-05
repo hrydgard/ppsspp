@@ -385,9 +385,8 @@ void ec_pub_mult(u8 *k, u8 *Q)
   memcpy(Q+20,ec_temp.y,20);
 }
 
-
 // Simplified for use by Kirk Engine - NO LONGER COMPATIABLE WITH ORIGINAL VERSION - July 2011
-int ecdsa_set_curve(u8* p,u8* a,u8* b,u8* N,u8* Gx,u8* Gy)
+int ecdsa_set_curve(const u8* p, const u8* a, const u8* b, const u8* N, const u8* Gx, const u8* Gy)
 {
 	memcpy(ec_p,p,20);
 	memcpy(ec_a,a,20);

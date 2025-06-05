@@ -192,13 +192,13 @@ typedef struct
 */
 
 //kirk-like funcs
-int kirk_CMD0(u8* outbuff, u8* inbuff, int size, int generate_trash);
+int kirk_CMD0(u8* outbuff, const u8* inbuff, int size, int generate_trash);
 int kirk_CMD1(u8* outbuff, u8* inbuff, int size);
 
-int kirk_CMD4(u8* outbuff, u8* inbuff, int size);
-int kirk_CMD7(u8* outbuff, u8* inbuff, int size);
+int kirk_CMD4(u8* outbuff, const u8* inbuff, int size);
+int kirk_CMD7(u8* outbuff, const u8* inbuff, int size);
 int kirk_CMD10(u8* inbuff, int insize);
-int kirk_CMD11(u8* outbuff, u8* inbuff, int size);
+int kirk_CMD11(u8* outbuff, const u8* inbuff, int size);
 int kirk_CMD12(u8* outbuff, int outsize);
 int kirk_CMD13(u8* outbuff, int outsize,u8* inbuff, int insize);
 int kirk_CMD14(u8* outbuff, int outsize);
@@ -225,7 +225,7 @@ void encrypt_kirk16_private(u8 *dA_out, u8 *dA_dec);
 
 // Prototypes for the Elliptic Curve and Big Number functions
 int ecdsa_get_params(u32 type, u8 *p, u8 *a, u8 *b, u8 *N, u8 *Gx, u8 *Gy);
-int ecdsa_set_curve(u8* p,u8* a,u8* b,u8* N,u8* Gx,u8* Gy);
+int ecdsa_set_curve(const u8* p, const u8* a, const u8* b, const u8* N, const u8* Gx, const u8* Gy);
 void ecdsa_set_pub(u8 *Q);
 void ecdsa_set_priv(u8 *k);
 int ecdsa_verify(u8 *hash, u8 *R, u8 *S);
