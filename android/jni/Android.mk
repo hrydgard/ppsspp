@@ -4,24 +4,20 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -D_7ZIP_ST -D__SWITCH__
+LOCAL_CFLAGS += -DZ7_ST -D__SWITCH__
 
 LZMA_FILES := \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Alloc.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bcj2.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bcj2Enc.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bra.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bra86.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/CpuArch.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Delta.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzFind.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzFindOpt.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzmaDec.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzmaEnc.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Lzma86Dec.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Lzma86Enc.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzmaLib.c \
-	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Sort.c
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Alloc.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra86.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/BraIA64.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/CpuArch.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Delta.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzFind.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaDec.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
+	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Sort.c
 
 CHDR_FILES := \
 	${LZMA_FILES} \
@@ -79,7 +75,7 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -D_7ZIP_ST
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -DZ7_ST
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 

@@ -35,27 +35,37 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Alloc.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bcj2.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bcj2Enc.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bra.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bra86.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\BraIA64.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\CpuArch.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Delta.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzFind.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzFindOpt.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Lzma86Dec.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Lzma86Enc.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaDec.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaEnc.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaLib.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Sort.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Alloc.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Bra.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Bra86.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\BraIA64.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\CpuArch.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Delta.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzFind.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Lzma86Dec.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzmaDec.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzmaEnc.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Sort.c" />
     <ClCompile Include="libchdr\src\libchdr_bitstream.c" />
     <ClCompile Include="libchdr\src\libchdr_cdrom.c" />
     <ClCompile Include="libchdr\src\libchdr_chd.c" />
     <ClCompile Include="libchdr\src\libchdr_flac.c" />
     <ClCompile Include="libchdr\src\libchdr_huffman.c" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\7zTypes.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\7zWindows.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Alloc.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Bra.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Compiler.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\CpuArch.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Delta.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzFind.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzHash.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Lzma86.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzmaDec.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzmaEnc.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Precomp.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\RotateDefs.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Sort.h" />
     <ClInclude Include="libchdr\include\dr_libs\dr_flac.h" />
     <ClInclude Include="libchdr\include\libchdr\bitstream.h" />
     <ClInclude Include="libchdr\include\libchdr\cdrom.h" />
@@ -190,14 +200,14 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -210,13 +220,13 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -228,13 +238,13 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -246,13 +256,13 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -267,7 +277,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnablePREfast>false</EnablePREfast>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -277,7 +287,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -295,7 +305,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
       <EnablePREfast>false</EnablePREfast>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -305,7 +315,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -322,7 +332,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
       <EnablePREfast>false</EnablePREfast>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -332,7 +342,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -349,7 +359,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_7ZIP_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>Z7_ST;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
       <EnablePREfast>false</EnablePREfast>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -359,7 +369,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-24.05\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
