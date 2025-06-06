@@ -1471,15 +1471,9 @@ void EmuScreen::update() {
 bool EmuScreen::checkPowerDown() {
 	// This is for handling things like sceKernelExitGame().
 	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete && !bootPending_) {
-		bool shutdown = false;
-		if (PSP_IsInited()) {
-			Achievements::UnloadGame();
-			PSP_Shutdown(true);
-			shutdown = true;
-		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
-		return shutdown;
+		return true;
 	}
 	return false;
 }

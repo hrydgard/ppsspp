@@ -72,7 +72,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 		callbackMap_[requestId] = { callback, failedCallback, token };
 	}
 
-	INFO_LOG(Log::System, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
+	DEBUG_LOG(Log::System, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
 	std::string p1(param1);
 	std::string p2(param2);
 	// TODO: Convert to string_view
