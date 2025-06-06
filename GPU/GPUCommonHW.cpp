@@ -1000,7 +1000,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		canExtend = false;
 	}
 
-	int bytesRead = 0;
 	gstate_c.UpdateUVScaleOffset();
 
 	// cull mode
@@ -1011,11 +1010,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
 	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
-		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, decoder, vertexType)) {
+		int bytesRead = 0;
+		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, decoder, vertexType, &bytesRead)) {
 			gpuStats.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.vertexGPUCycles += cycles;
 			cyclesExecuted += cycles;
+			// NOTE! We still have to advance vertex pointers!
+			gstate_c.vertexAddr += bytesRead;   // We know from the above check that it's not an indexed draw.
 			return;
 		}
 	}
@@ -1043,6 +1045,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			gpuStats.numCulledDraws++;
 		}
 	}
+
+	int bytesRead = 0;
 
 	// If the first one in a batch passes, let's assume the whole batch passes.
 	// Cuts down on checking, while not losing that much efficiency.
@@ -1357,7 +1361,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = surface.num_points_u * surface.num_points_v;
+	const int count = surface.num_points_u * surface.num_points_v;
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
