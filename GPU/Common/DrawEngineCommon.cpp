@@ -527,25 +527,21 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions.
-bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 16) {
 		return true;
 	}
-
-	float *verts = (float *)(decoded_ + 65536 * 18);
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
 		return true;
 
-	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
-	// and a large vertex format.
-	u8 *temp_buffer = decoded_ + 65536 * 24;
-	// Simple, most common case.
-	int stride = dec->VertexSize();
-	int offset = dec->posoff;
+	const int stride = dec->VertexSize();
+	const int posOffset = dec->posoff;
+
+	*bytesRead = stride * vertexCount;
 
 	bool allOutsideLeft = true;
 	bool allOutsideTop = true;
@@ -559,10 +555,11 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_FLOAT:
 	{
+		// TODO: This can be SIMD'd, with some trickery.
 		for (int i = 0; i < vertexCount; i++) {
-			float *pos = (float*)((const u8 *)vdata + stride * i + offset);
-			float x = pos[0];
-			float y = pos[1];
+			const float *pos = (const float*)((const u8 *)vdata + stride * i + posOffset);
+			const float x = pos[0];
+			const float y = pos[1];
 			if (x >= left) {
 				allOutsideLeft = false;
 			}
@@ -582,8 +579,9 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 		return true;
 	}
 	default:
+		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
-		return false;
+		return true;
 	}
 }
 

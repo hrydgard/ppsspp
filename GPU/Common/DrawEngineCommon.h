@@ -104,7 +104,7 @@ public:
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
 	bool TestBoundingBoxFast(const void *control_points, int vertexCount, const VertexDecoder *dec, u32 vertType);
-	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead);
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);
