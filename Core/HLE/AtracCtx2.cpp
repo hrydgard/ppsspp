@@ -1031,9 +1031,12 @@ int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, 
 	bool success = decoder_->Decode(srcData, info.sampleSize, bytesConsumed, channels, dstData, &outSamples);
 	if (!success) {
 		ERROR_LOG(Log::ME, "Low level decoding failed: sampleSize: %d bytesConsumed: %d", info.sampleSize, *bytesConsumed);
+		// We proceed anyway, see issue #20452
+		/*
 		*bytesConsumed = 0;
 		*bytesWritten = 0;
 		return SCE_ERROR_ATRAC_API_FAIL;  // need to check what return value we get here.
+		*/
 	}
 	*bytesWritten = outSamples * channels * sizeof(int16_t);
 	// TODO: Possibly return a decode error on bad data.
