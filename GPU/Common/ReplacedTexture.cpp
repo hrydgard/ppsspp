@@ -473,7 +473,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
 			WARN_LOG(Log::TexReplacement, "Error reading KTX file");
-			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -513,7 +512,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 		} else {
 			WARN_LOG(Log::TexReplacement, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
-			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 

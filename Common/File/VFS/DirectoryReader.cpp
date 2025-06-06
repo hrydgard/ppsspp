@@ -98,7 +98,9 @@ size_t DirectoryReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t leng
 void DirectoryReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
 	_dbg_assert_(openFile->file != nullptr);
-	fclose(openFile->file);
+	if (openFile->file) {
+		fclose(openFile->file);
+	}
 	openFile->file = nullptr;
 	delete openFile;
 }
