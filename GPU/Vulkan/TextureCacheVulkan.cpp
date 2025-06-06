@@ -232,8 +232,6 @@ void TextureCacheVulkan::DeviceLost() {
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 
-	_assert_(!allocator_);
-
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	_assert_(vulkan);
 

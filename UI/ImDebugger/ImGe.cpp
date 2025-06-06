@@ -1288,7 +1288,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
 				TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
 				if (tex) {
-					ImGui::Text("Texture: ");
+					ImGui::Text("Texture: %08x", tex->addr);
 					texcache->ApplyTexture(false);
 
 					void *nativeView = texcache->GetNativeTextureView(tex, true);
