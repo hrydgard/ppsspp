@@ -151,6 +151,11 @@ bool LoadParamSFOFromPBP(FileLoader *fileLoader) {
 					g_paramSFO.SetValue("TITLE", title, (int)title.size());
 				}
 
+				// Copy over the MEMSIZE flag for later inspection.
+				if (paramSFO.HasKey("MEMSIZE")) {
+					g_paramSFO.SetValue("MEMSIZE", paramSFO.GetValueInt("MEMSIZE"), 4);
+				}
+
 				std::string discID = paramSFO.GetValueString("DISC_ID");
 				std::string systemVer = paramSFO.GetValueString("PSP_SYSTEM_VER");
 				// Homebrew typically always leave this zero.

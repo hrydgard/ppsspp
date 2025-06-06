@@ -71,7 +71,7 @@ private:
 	class ValueData {
 	public:
 		ValueType type = VT_INT;
-		int max_size = 0;
+		int max_size = 0;  // Is this meaningful for non-strings?
 		std::string s_value;
 		int i_value = 0;
 
