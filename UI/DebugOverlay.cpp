@@ -304,7 +304,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 		if (Reporting::HasCRC(gamePath)) {
 			u32 crc = Reporting::RetrieveCRC(gamePath);
 			std::vector<GameDBInfo> dbInfos;
-			if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
+			if (discID.size() >= 9 && g_gameDB.GetGameInfos(discID, &dbInfos)) {
 				for (auto &dbInfo : dbInfos) {
 					if (dbInfo.crc == crc) {
 						isoOK = true;
@@ -329,9 +329,9 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	// TODO: Draw a lot more information. Full register set, and so on.
 
 #ifdef _DEBUG
-	char build[] = "debug";
+	const char * const build = "debug";
 #else
-	char build[] = "release";
+	const char * const build = "release";
 #endif
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
