@@ -418,7 +418,6 @@ void LogManager::StdioLog(const LogMessage &message) {
 		__android_log_print(mode, LOG_APP_NAME, "%.*s", (int)msg.size(), msg.data());
 	}
 #else
-	std::lock_guard<std::mutex> lock(stdioLock_);
 	char text[2048];
 	snprintf(text, sizeof(text), "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 	text[sizeof(text) - 2] = '\n';
@@ -449,6 +448,8 @@ void LogManager::StdioLog(const LogMessage &message) {
 			break;
 		}
 	}
+
+	std::lock_guard<std::mutex> lock(stdioLock_);
 	fprintf(stderr, "%s%s%s", colorAttr, text, resetAttr);
 #endif
 }

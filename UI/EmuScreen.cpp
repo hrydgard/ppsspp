@@ -539,9 +539,8 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			WARN_LOG(Log::Loader, "Can't stop during a pending boot");
 			return;
 		}
-		Achievements::UnloadGame();
-		PSP_Shutdown(true);
-		System_Notify(SystemNotification::DISASSEMBLY);
+		// The destructor will take care of shutting down.
+		screenManager()->switchScreen(new MainScreen());
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
 			WARN_LOG(Log::Loader, "Can't reset during a pending boot");
@@ -1470,7 +1469,8 @@ void EmuScreen::update() {
 
 bool EmuScreen::checkPowerDown() {
 	// This is for handling things like sceKernelExitGame().
-	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete && !bootPending_) {
+	// Also for REQUEST_STOP.
+	if (coreState == CORE_POWERDOWN && (PSP_GetBootState() == BootState::Complete || PSP_GetBootState() == BootState::Off) && !bootPending_) {
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		return true;

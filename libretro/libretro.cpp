@@ -473,14 +473,18 @@ static std::string map_psp_language_to_i18n_locale(int val)
    }
 }
 
-static void check_variables(CoreParameter &coreParam)
-{
+static void check_dynamic_variables(CoreParameter &coreParam) {
    if (g_Config.bForceLagSync)
    {
       bool isFastForwarding;
       if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
-          coreParam.fastForward = isFastForwarding;
+         coreParam.fastForward = isFastForwarding;
    }
+}
+
+static void check_variables(CoreParameter &coreParam)
+{
+   check_dynamic_variables(coreParam);
 
    struct retro_variable var = {0};
    std::string sTextureShaderName_prev;
@@ -1680,6 +1684,8 @@ void retro_run(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
       && updated)
       check_variables(PSP_CoreParameter());
+   else
+      check_dynamic_variables(PSP_CoreParameter());
 
    retro_input();
 
