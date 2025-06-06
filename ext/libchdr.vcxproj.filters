@@ -6,52 +6,37 @@
     <ClCompile Include="libchdr\src\libchdr_chd.c" />
     <ClCompile Include="libchdr\src\libchdr_flac.c" />
     <ClCompile Include="libchdr\src\libchdr_huffman.c" />
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Alloc.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Alloc.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bcj2.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Bra.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bcj2Enc.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Bra86.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bra.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\BraIA64.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bra86.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\CpuArch.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\BraIA64.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Delta.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\CpuArch.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzFind.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Delta.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Lzma86Dec.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzFind.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzmaDec.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzFindOpt.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzmaEnc.c">
       <Filter>LZMA</Filter>
     </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Lzma86Dec.c">
-      <Filter>LZMA</Filter>
-    </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Lzma86Enc.c">
-      <Filter>LZMA</Filter>
-    </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaDec.c">
-      <Filter>LZMA</Filter>
-    </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaEnc.c">
-      <Filter>LZMA</Filter>
-    </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaLib.c">
-      <Filter>LZMA</Filter>
-    </ClCompile>
-    <ClCompile Include="libchdr\deps\lzma-22.01\src\Sort.c">
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Sort.c">
       <Filter>LZMA</Filter>
     </ClCompile>
   </ItemGroup>
@@ -63,6 +48,51 @@
     <ClInclude Include="libchdr\include\libchdr\chdconfig.h" />
     <ClInclude Include="libchdr\include\libchdr\flac.h" />
     <ClInclude Include="libchdr\include\libchdr\huffman.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\7zTypes.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\7zWindows.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Alloc.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Bra.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Compiler.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\CpuArch.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Delta.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzFind.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzHash.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Lzma86.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzmaDec.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzmaEnc.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Precomp.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\RotateDefs.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Sort.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="LZMA">

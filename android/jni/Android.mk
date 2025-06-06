@@ -4,7 +4,7 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -D_7ZIP_ST -D__SWITCH__
+LOCAL_CFLAGS += -DZ7_ST -D__SWITCH__
 
 LZMA_FILES := \
 	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Alloc.c \
@@ -79,7 +79,7 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -D_7ZIP_ST
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -DZ7_ST
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 

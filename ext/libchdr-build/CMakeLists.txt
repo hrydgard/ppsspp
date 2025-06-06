@@ -9,7 +9,7 @@ include_directories(../libchdr/include)
 include_directories(../zlib)
 include_directories(../zstd/lib)
 
-add_definitions(-D_7ZIP_ST)
+add_definitions(-DZ7_ST)
 
 # Hack - CpuArch.c has a workaround that we reuse.
 add_definitions(-D__SWITCH__)
