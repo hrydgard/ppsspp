@@ -54,6 +54,7 @@
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HW/Display.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -409,6 +410,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	CoreTiming::Init();
 
+	DisplayHWInit();
+
 	// Init all the HLE modules
 	HLEInit();
 
@@ -495,6 +498,8 @@ void CPU_Shutdown(bool success) {
 	CoreTiming::Shutdown();
 	__KernelShutdown();
 	HLEShutdown();
+
+	DisplayHWShutdown();
 
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();

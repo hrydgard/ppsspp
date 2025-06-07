@@ -661,7 +661,7 @@ void SoftGPU::BeginHostFrame() {
 }
 
 bool SoftGPU::PresentedThisFrame() const {
-	return presentation_->PresentedThisFrame();
+	return presentation_ ? presentation_->PresentedThisFrame() : false;
 }
 
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {

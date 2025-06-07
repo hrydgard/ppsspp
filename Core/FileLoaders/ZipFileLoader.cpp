@@ -10,7 +10,7 @@
 ZipFileLoader::ZipFileLoader(FileLoader *sourceLoader)
 	: ProxiedFileLoader(sourceLoader), zipArchive_(nullptr) {
 	if (!backend_ || !backend_->Exists() || backend_->IsDirectory()) {
-		// bad
+		return;
 	}
 
 	zip_error_t error{};

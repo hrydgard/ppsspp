@@ -175,7 +175,7 @@ static void ScheduleLagSync(int over = 0) {
 
 void __DisplayInit() {
 	__DisplaySetFramerate();
-	DisplayHWInit();
+	DisplayHWReset();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
@@ -296,7 +296,6 @@ void __DisplayDoState(PointerWrap &p) {
 }
 
 void __DisplayShutdown() {
-	DisplayHWShutdown();
 	vblankWaitingThreads.clear();
 }
 

@@ -55,5 +55,6 @@ void DisplayFireActualFlip();
 int DisplayCalculateFrameSkip();
 
 void DisplayHWInit();
+void DisplayHWReset();
 void DisplayHWShutdown();
 void DisplayHWDoState(PointerWrap &p, int hleCompatV2);

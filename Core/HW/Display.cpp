@@ -308,7 +308,7 @@ int DisplayCalculateFrameSkip() {
 	return frameSkipNum;
 }
 
-void DisplayHWInit() {
+void DisplayHWReset() {
 	frameStartTicks = 0;
 	numVBlanks = 0;
 	isVblank = 0;
@@ -328,6 +328,8 @@ void DisplayHWInit() {
 	frameTimeHistoryPos = 0;
 	lastFrameTimeHistory = 0.0;
 }
+
+void DisplayHWInit() {}
 
 void DisplayHWShutdown() {
 	std::lock_guard<std::mutex> guard(listenersLock);
