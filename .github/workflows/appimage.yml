@@ -1,0 +1,238 @@
+name: Generate Linux AppImage
+on:
+  push:
+    branches:
+    - master
+    # For testing.
+    #- test_arch
+    tags:
+      - "v*.*"
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+  pull_request:
+    branches:
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+
+env:
+  SDL_AUDIODRIVER: "dummy" #"disk"
+  #SDL_VIDEODRIVER: "dummy"
+  #BUILD_CONFIGURATION: Release
+  
+jobs:
+
+  build:
+    name: Building AppImage
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-24.04
+          id: x86_64
+        - os: ubuntu-24.04-arm
+          id: aarch64
+        
+    runs-on: '${{ matrix.os }}'
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+    
+    steps:
+      - uses: actions/checkout@v1 # v2+ seems to have submodules issue with the archlinux container
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check Valid Version Tags
+        id: valid-tags
+        shell: bash
+        run: |
+          # The archlinux container doesn't seems to have git installed?
+          pacman -Syu --noconfirm git
+          # Fix dubious ownership issue when running git describe inside a container
+          git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+          
+      - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
+        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+          
+      #- name: Setup ccache # Doesn't support archlinux container?
+      #  uses: hendrikmuhs/ccache-action@v1.2
+      #  with:
+      #    key: "linux-appimage-${{ matrix.id }}"
+      #    create-symlink: true
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          #sudo su # Why sudo is needed?
+          #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
+
+          # Debian-based
+          #sudo apt-get update -y -qq
+          #sudo apt-get install -q -y zsync patchelf xvfb strace
+          #sudo apt-get install -q -y libstdc++6 ffmpeg libvulkan-dev libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils libglu1-mesa pulseaudio linux-modules-extra-$(uname -r) #build-essential #plocate
+          #sudo updatedb # to update locate database
+
+          # Archlinux
+          set -ex
+
+          sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
+
+          ARCH=$(uname -m)
+          if [[ "$ARCH" == "x86_64" ]]; then
+          	PKG_TYPE='x86_64.pkg.tar.zst'
+          else
+          	PKG_TYPE='aarch64.pkg.tar.xz'
+          fi
+          
+          LLVM_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/llvm-libs-nano-$PKG_TYPE"
+          LIBXML_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/libxml2-iculess-$PKG_TYPE"
+          OPUS_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/opus-nano-$PKG_TYPE"
+          
+          echo "Installing build dependencies..."
+          echo "---------------------------------------------------------------"
+          pacman -Syu --noconfirm \
+            base-devel \
+            curl \
+            desktop-file-utils \
+            git \
+            cmake \
+            clang \
+            llvm-libs \
+            llvm \
+            lld \
+            libxss \
+            mesa \
+            fontconfig \
+            gcc-libs \
+            glibc \
+            libc++ \
+            libc++abi \
+            glew \
+            sdl2 \
+            sdl2_ttf \
+            python \
+            patchelf \
+            pipewire-audio \
+            pulseaudio \
+            pulseaudio-alsa \
+            strace \
+            wget \
+            xorg-server-xvfb \
+            zsync \
+            vulkan-nouveau \
+            vulkan-radeon 
+
+          if [[ "$ARCH" == "x86_64" ]]; then
+            pacman -Syu --noconfirm vulkan-intel
+          fi
+          
+          echo "Installing debloated pckages..."
+          echo "---------------------------------------------------------------"
+          wget --retry-connrefused --tries=30 "$LLVM_URL" -O   ./llvm-libs.pkg.tar.zst
+          wget --retry-connrefused --tries=30 "$LIBXML_URL" -O ./libxml2.pkg.tar.zst
+          wget --retry-connrefused --tries=30 "$OPUS_URL" -O   ./opus-nano.pkg.tar.zst
+          
+          pacman -U --noconfirm ./*.pkg.tar.zst
+          rm -f ./*.pkg.tar.zst
+          
+          echo "All done!"
+          echo "---------------------------------------------------------------"
+      
+      - name: Build Release
+        id: version
+        env:
+          CC: gcc #clang
+          CXX: g++ #clang++
+          CPPFLAGS: -fno-pie -no-pie -static -Wl,-no_pie -Wl,-rpath,'$ORIGIN/../lib' -Wl,--disable-new-dtags -Wl,--no-undefined #-fno-unwind-tables -fno-exceptions -fno-threadsafe-statics -fno-rtti # -static-libgcc -static-libstdc++ # -fno-plt # -fPIC -D_XOPEN_SOURCE=700 #-D_GNU_SOURCE # -fno-split-stack
+          #CXXFLAGS: -stdlib=libc++ -lc++abi # clang only
+          LDFLAGS: -no-pie -static-libgcc -static-libstdc++ #-fuse-ld=lld #-static
+          USE_CCACHE: 1
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          echo "Building..."
+          uname -m
+          echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
+
+          # Export ccache env var(s)
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+
+          gcc --version
+          g++ --version
+          
+          #clang --version
+          #clang++ --version
+          
+          # Build ppsspp
+          #./b.sh --release --no-sdl2 --no-png
+          mkdir -p build
+          pushd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF .. 
+          make -j$(nproc)
+          popd
+
+      - name: Create AppImage
+        shell: bash
+        run: |
+          # Use dummy soundcard
+          #sudo locate snd-dummy
+          #sudo modprobe snd-dummy fake_buffer=0
+
+          # Test for missing modules
+          ldd ./build/PPSSPPSDL
+          
+          # Create AppImage package
+          echo "Creating AppImage..."
+          chmod +x ./build/PPSSPPSDL
+          chmod +x ./scripts/makeappimage_64-bit.sh
+          ./scripts/makeappimage_64-bit.sh
+
+      - name: Prepare artifacts
+        run: |
+          find . -name "PPSSPPSDL"
+          find . -name "PPSSPP*.AppImage" -exec chmod +x  {} \;
+          find . -name "PPSSPP*.AppBundle" -exec chmod +x  {} \;
+          find . -name "PPSSPP*.zsync"
+          mkdir artifacts
+          if [ -e ./PPSSPP*.AppImage ]; then
+            cp -a ./PPSSPP*.AppImage artifacts/
+          fi
+          if [ -e ./PPSSPP*.AppBundle ]; then
+            cp -a ./PPSSPP*.AppBundle artifacts/
+          fi
+          if [ -e ./PPSSPP*.zsync ]; then
+            cp ./PPSSPP*.zsync artifacts/
+          fi
+            
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ steps.version.outputs.tag }}-${{ matrix.id }} AppImage
+          path: artifacts/
+          
+      - name: Prepare release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd artifacts || exit 1
+          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'echo "$1" && mv "$1" "${1//PPSSPP-test-anylinux-/PPSSPPSDL-anylinux-${GITHUB_REF##*/}-}"' _ {} \;
+          
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            artifacts/*.AppImage
+            artifacts/*.AppImage.zsync
+        
