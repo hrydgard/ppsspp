@@ -305,8 +305,8 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		if (!MountGameISO(loadedFile)) {
-			error = "mounting the new ISO failed";
+		if (!MountGameISO(loadedFile, &error)) {
+			error = "mounting the replaced ISO failed: " + error;
 			return false;
 		}
 		break;

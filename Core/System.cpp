@@ -282,8 +282,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		// Doesn't seem to take ownership of fileLoader?
-		if (!MountGameISO(fileLoader)) {
-			*errorString = "Failed to mount ISO file - invalid format?";
+		if (!MountGameISO(fileLoader, errorString)) {
+			*errorString = "Failed to mount ISO file: " + *errorString;
 			return false;
 		}
 		if (LoadParamSFOFromDisc()) {

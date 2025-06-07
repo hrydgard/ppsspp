@@ -35,12 +35,15 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
-BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
+BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString) {
 	if (!fileLoader->Exists()) {
+		// Shouldn't get here really.
+		*errorString = "File doesn't exist";
 		return nullptr;
 	}
 	if (fileLoader->IsDirectory()) {
-		ERROR_LOG(Log::Loader, "Can't open directory directly as block device: %s", fileLoader->GetPath().c_str());
+		*errorString = "Can't open directory directly as block device: ";
+		*errorString += fileLoader->GetPath().ToString();
 		return nullptr;
 	}
 
@@ -48,23 +51,36 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
 	if (size != 8) {
 		// Bad or empty file
+		*errorString = "File is empty";
 		return nullptr;
 	}
 
+	BlockDevice *device = nullptr;
+
 	// Check for CISO
 	if (!memcmp(buffer, "CISO", 4)) {
-		return new CISOFileBlockDevice(fileLoader);
+		device = new CISOFileBlockDevice(fileLoader);
 	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
 		if (size == 4 && psarOffset < fileLoader->FileSize())
-			return new NPDRMDemoBlockDevice(fileLoader);
+			device = new NPDRMDemoBlockDevice(fileLoader);
 	} else if (!memcmp(buffer, "MComprHD", 8)) {
-		return new CHDFileBlockDevice(fileLoader);
+		device = new CHDFileBlockDevice(fileLoader);
 	}
 
-	// Should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
-	return new FileBlockDevice(fileLoader);
+	// No check above passed, should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
+	if (!device) {
+		device = new FileBlockDevice(fileLoader);
+	}
+
+	if (!device->IsOK()) {
+		*errorString = device->ErrorString();
+		delete device;
+		return nullptr;
+	}
+
+	return device;
 }
 
 void BlockDevice::NotifyReadError() {

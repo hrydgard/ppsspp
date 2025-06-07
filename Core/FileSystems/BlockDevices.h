@@ -55,9 +55,14 @@ public:
 
 	void NotifyReadError();
 
+	bool IsOK() const { return errorString_.empty(); }
+	const std::string &ErrorString() { return errorString_; }
+
 protected:
 	FileLoader *fileLoader_;
 	bool reportedError_ = false;
+
+	std::string errorString_;
 };
 
 class CISOFileBlockDevice : public BlockDevice {
@@ -163,4 +168,4 @@ private:
 	u32 numBlocks = 0;
 };
 
-BlockDevice *constructBlockDevice(FileLoader *fileLoader);
+BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString);

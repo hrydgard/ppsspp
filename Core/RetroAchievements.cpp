@@ -1037,9 +1037,10 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		//
 		// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here,
 		// we need a temporary blockdevice anyway since it gets consumed by ComputePSPISOHash.
-		BlockDevice *blockDevice(constructBlockDevice(fileLoader));
+		std::string errorString;
+		BlockDevice *blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 		if (!blockDevice) {
-			ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify", path.c_str());
+			ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 			g_isIdentifying = false;
 			return;
 		}
@@ -1100,9 +1101,10 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 		return;
 	}
 
-	BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+	std::string errorString;
+	BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
 	if (!blockDevice) {
-		ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify", path.c_str());
+		ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 		return;
 	}
 

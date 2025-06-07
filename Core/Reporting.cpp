@@ -135,11 +135,15 @@ namespace Reporting
 		AndroidJNIThreadContext jniContext;
 
 		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
-		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+
+		std::string errorString;
+		BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
 
 		u32 crc = 0;
 		if (blockDevice) {
 			crc = CalculateCRC(blockDevice, &crcCancel);
+		} else {
+			ERROR_LOG(Log::Loader, "Failed to read from block device for CRC: %s", errorString.c_str());
 		}
 
 		delete blockDevice;
