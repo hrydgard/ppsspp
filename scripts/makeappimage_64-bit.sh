@@ -6,7 +6,7 @@ ARCH="$(uname -m)"
 LIB4BN="https://raw.githubusercontent.com/VHSgunzo/sharun/refs/heads/main/lib4bin"
 URUNTIME="https://github.com/VHSgunzo/uruntime/releases/latest/download/uruntime-appimage-dwarfs-$ARCH"
 UPINFO="gh-releases-zsync|$(echo "$GITHUB_REPOSITORY" | tr '/' '|')|latest|*$ARCH.AppImage.zsync"
-VERSION=test
+VERSION=${1:-test}
 
 SYS_LIB_DIR="/usr/lib"
 if [ -d /usr/lib/"$ARCH"-linux-gnu ]; then
