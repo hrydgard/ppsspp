@@ -35,6 +35,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/System/OSD.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -200,7 +201,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	ERROR_LOG(Log::sceNet, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	if (g_Config.bEnableUPnP) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Unable to find UPnP device"));
+		g_OSD.Show(OSDType::MESSAGE_ERROR, StringFromFormat("%s (%d)", n->T_cstr("Unable to find UPnP device"), error), 0.0f, "upnp_warning");
 	}
 	m_InitState = UPNP_INITSTATE_NONE;
 #endif // WITH_UPNP
