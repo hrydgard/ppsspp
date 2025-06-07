@@ -84,6 +84,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_MICINPUT,        "Microphone input"},
 	{ WAITTYPE_NET,             "Network"},
 	{ WAITTYPE_USB,             "USB" },
+	{ WAITTYPE_PLUGIN,          "Initial plugin load" },
 };
 
 const char *WaitTypeToString(WaitType type) {
