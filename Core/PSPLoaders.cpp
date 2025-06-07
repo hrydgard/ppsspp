@@ -60,7 +60,7 @@ static void UseLargeMem(int memsize) {
 	}
 }
 
-bool MountGameISO(FileLoader *fileLoader) {
+bool MountGameISO(FileLoader *fileLoader, std::string *errorString) {
 	std::shared_ptr<IFileSystem> fileSystem;
 	std::shared_ptr<IFileSystem> blockSystem;
 
@@ -68,7 +68,7 @@ bool MountGameISO(FileLoader *fileLoader) {
 		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
-		auto bd = constructBlockDevice(fileLoader);
+		auto bd = ConstructBlockDevice(fileLoader, errorString);
 		if (!bd) {
 			// Can only fail if the ISO is bad.
 			return false;
@@ -297,14 +297,16 @@ static Path NormalizePath(const Path &path) {
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
-		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
-		if (bd != NULL) {
+		auto bd = ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string);
+		if (bd) {
 			auto umd2 = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
 			auto blockSystem = std::make_shared<ISOBlockSystem>(umd2);
 
 			pspFileSystem.Mount("umd1:", blockSystem);
 			pspFileSystem.Mount("disc0:", umd2);
 			pspFileSystem.Mount("umd:", blockSystem);
+		} else {
+			ERROR_LOG(Log::Loader, "mountIso failed: %s", error_string->c_str());
 		}
 	}
 

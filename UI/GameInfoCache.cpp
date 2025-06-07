@@ -198,7 +198,8 @@ u64 GameInfo::GetSizeUncompressedInBytes() {
 		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
 	default:
 	{
-		BlockDevice *blockDevice = constructBlockDevice(GetFileLoader().get());
+		std::string errorString;
+		BlockDevice *blockDevice = ConstructBlockDevice(GetFileLoader().get(), &errorString);
 		if (blockDevice) {
 			u64 size = blockDevice->GetUncompressedSize();
 			delete blockDevice;
@@ -762,9 +763,9 @@ handleELF:
 					info_->MarkReadyNoLock(flags_);
 					return;
 				}
-				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
+				BlockDevice *bd = ConstructBlockDevice(info_->GetFileLoader().get(), &errorString);
 				if (!bd) {
-					ERROR_LOG(Log::Loader, "Failed constructing block device for ISO %s", info_->GetFilePath().ToVisualString().c_str());
+					ERROR_LOG(Log::Loader, "Failed constructing block device for ISO %s: %s", info_->GetFilePath().ToVisualString().c_str(), errorString.c_str());
 					std::unique_lock<std::mutex> lock(info_->lock);
 					info_->MarkReadyNoLock(flags_);
 					return;
