@@ -24,6 +24,7 @@
 #include "Common/Swap.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "libchdr/chd.h"
@@ -96,8 +97,7 @@ FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
 	filesize_ = fileLoader->FileSize();
 }
 
-FileBlockDevice::~FileBlockDevice() {
-}
+FileBlockDevice::~FileBlockDevice() {}
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
@@ -106,7 +106,6 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 		DEBUG_LOG(Log::FileSystem, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}
-
 	return true;
 }
 
@@ -157,17 +156,22 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	CISO_H hdr;
 	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
 	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0) {
-		WARN_LOG(Log::Loader, "Invalid CSO!");
+		errorString_ = "Invalid CSO!";
+		return;
 	}
 	if (hdr.ver > 1) {
-		WARN_LOG(Log::Loader, "CSO version too high!");
+		errorString_ = "CSO version too high!";
+		return;
 	}
 
 	frameSize = hdr.block_size;
-	if ((frameSize & (frameSize - 1)) != 0)
-		ERROR_LOG(Log::Loader, "CSO block size %i unsupported, must be a power of two", frameSize);
-	else if (frameSize < 0x800)
-		ERROR_LOG(Log::Loader, "CSO block size %i unsupported, must be at least one sector", frameSize);
+	if ((frameSize & (frameSize - 1)) != 0) {
+		errorString_ = StringFromFormat("CSO block size %i unsupported, must be a power of two", frameSize);
+		return;
+	} else if (frameSize < 0x800) {
+		errorString_ = StringFromFormat("CSO block size %i unsupported, must be at least one sector", frameSize);
+		return;
+	}
 
 	// Determine the translation from block to frame.
 	blockShift = 0;
@@ -219,10 +223,12 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
 	u64 expectedFileSize = lastIndexPos << indexShift;
 	if (expectedFileSize > fileSize) {
-		ERROR_LOG(Log::Loader, "Expected CSO to at least be %lld bytes, but file is %lld bytes. File: '%s'",
-			expectedFileSize, fileSize, fileLoader->GetPath().c_str());
-		NotifyReadError();
+		errorString_ = StringFromFormat("Expected CSO to at least be %lld bytes, but file is %lld bytes", expectedFileSize, fileSize);
+		return;
 	}
+
+	// all ok.
+	_dbg_assert_(errorString_.empty());
 }
 
 CISOFileBlockDevice::~CISOFileBlockDevice()
@@ -405,7 +411,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
 	if (readSize != 256){
-		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG header!");
+		errorString_ = "Invalid NPUMDIMG header!";
+		return;
 	}
 
 	u32 psar_id;
@@ -416,6 +423,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	if (psar_id == 'SISP') {
 		lbaSize_ = 0;  // Mark invalid
 		ERROR_LOG(Log::Loader, "PSX not supported! Should have been caught earlier.");
+		errorString_ = "PSX ISOs not supported!";
 		return;
 	}
 
@@ -448,8 +456,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	// When we remove the above assert, let's just try to survive.
 	if (blockLBAs_ > 4096) {
-		ERROR_LOG(Log::Loader, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
-		// We'll end up displaying an error message since ReadBlock will fail.
+		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 		return;
 	}
 
@@ -466,7 +473,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
 	if (readSize != tableSize_){
-		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG table!");
+		errorString_ = "Invalid NPUMDIMG table!";
+		return;
 	}
 
 	u32 *p = (u32*)table_;
@@ -484,6 +492,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	}
 
 	currentBlock_ = -1;
+	_dbg_assert_(errorString_.empty());
 }
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice() {
@@ -670,8 +679,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	chd_file *file = nullptr;
 	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
 	if (err != CHDERR_NONE) {
-		ERROR_LOG(Log::Loader, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
-		NotifyReadError();
+		errorString_ = StringFromFormat("CHD error: %s", paths[depth].c_str(), chd_error_string(err));
 		return;
 	}
 
@@ -682,6 +690,8 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	currentHunk = -1;
 	blocksPerHunk = impl_->header->hunkbytes / impl_->header->unitbytes;
 	numBlocks = impl_->header->unitcount;
+
+	_dbg_assert_(errorString_.empty());
 }
 
 CHDFileBlockDevice::~CHDFileBlockDevice() {
