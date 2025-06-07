@@ -24,7 +24,7 @@ on:
 env:
   SDL_AUDIODRIVER: "dummy" #"disk"
   #SDL_VIDEODRIVER: "dummy"
-  #BUILD_CONFIGURATION: Release
+  #BUILD_CONFIGURATION: Release #RelWithDebInfo
   
 jobs:
 
@@ -163,6 +163,7 @@ jobs:
           echo "Building..."
           uname -m
           echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
+          echo "isTag=${{ startsWith(github.ref, 'refs/tags/') }}" >> $GITHUB_OUTPUT
 
           # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
@@ -178,7 +179,7 @@ jobs:
           #./b.sh --release --no-sdl2 --no-png
           mkdir -p build
           pushd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF .. 
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF .. 
           make -j$(nproc)
           popd
 
@@ -196,7 +197,9 @@ jobs:
           echo "Creating AppImage..."
           chmod +x ./build/PPSSPPSDL
           chmod +x ./scripts/makeappimage_64-bit.sh
-          ./scripts/makeappimage_64-bit.sh
+          VERSION=$([ "${{ steps.version.outputs.isTag }}" == "true" ] && echo "${GITHUB_REF##*/}" || echo "${{ steps.version.outputs.tag }}")
+          echo "Version = $VERSION"
+          ./scripts/makeappimage_64-bit.sh "$VERSION"
 
       - name: Prepare artifacts
         run: |
@@ -220,12 +223,6 @@ jobs:
         with:
           name: linux-${{ steps.version.outputs.tag }}-${{ matrix.id }} AppImage
           path: artifacts/
-          
-      - name: Prepare release
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          cd artifacts || exit 1
-          find . -type f -name "PPSSPP-test-anylinux-*" -exec sh -c 'echo "$1" && mv "$1" "${1//PPSSPP-test-anylinux-/PPSSPP-anylinux-${GITHUB_REF##*/}-}"' _ {} \;
           
       - name: Upload release
         uses: softprops/action-gh-release@v2
