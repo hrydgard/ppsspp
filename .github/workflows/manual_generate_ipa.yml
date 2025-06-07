@@ -57,7 +57,7 @@ jobs:
           find . -name "Version.txt"
           
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@main
+        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
         with:
           key: ios
           create-symlink: true
