@@ -1354,6 +1354,9 @@
     <ClCompile Include="FileLoaders\ZipFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="HW\GranularMixer.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2189,6 +2192,9 @@
     </ClInclude>
     <ClInclude Include="FileLoaders\ZipFileLoader.h">
       <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\GranularMixer.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
