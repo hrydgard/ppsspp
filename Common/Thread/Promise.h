@@ -164,9 +164,11 @@ public:
 	void Cancel() {
 		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (!ready_) {
-			_dbg_assert_(task_);
 			ready_ = true;
-			task_->Cancel();
+			_dbg_assert_(task_);
+			if (task_) {
+				task_->Cancel();
+			}
 			rx_->Release();
 			rx_ = nullptr;
 		}

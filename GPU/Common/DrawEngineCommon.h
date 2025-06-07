@@ -111,7 +111,7 @@ public:
 	}
 
 	void FlushSkin() {
-		if (dec_->skinInDecode) {
+		if (dec_ && dec_->skinInDecode) {
 			FlushPartialDecode();
 		}
 	}

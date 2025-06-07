@@ -1323,10 +1323,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		bool insertSymbols = scan && !reader.LoadSymbols();
 		std::vector<SectionID> codeSections = reader.GetCodeSections();
 		for (SectionID id : codeSections) {
-			u32 start = reader.GetSectionAddr(id);
+			const u32 start = reader.GetSectionAddr(id);
 			// Note: scan end is inclusive.
-			u32 end = start + reader.GetSectionSize(id) - 4;
-			u32 len = end + 4 - start;
+			const u32 end = start + reader.GetSectionSize(id) - 4;
+			const u32 len = end + 4 - start;
 			if (len == 0) {
 				// Seen in WWE: Smackdown vs Raw 2009. See #17435.
 				continue;

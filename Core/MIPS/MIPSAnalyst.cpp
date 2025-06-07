@@ -1023,7 +1023,7 @@ skip:
 	}
 
 	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
-		_assert_(((startAddr | endAddr) & 3) == 0);
+		_assert_((startAddr & 3) == 0);
 
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
