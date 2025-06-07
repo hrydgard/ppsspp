@@ -150,6 +150,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "UseFFMPEGFindStreamInfo", &flags_.UseFFMPEGFindStreamInfo);
 	CheckSetting(iniFile, gameID, "SoftwareRasterDepth", &flags_.SoftwareRasterDepth);
 	CheckSetting(iniFile, gameID, "DisableHLESceFont", &flags_.DisableHLESceFont);
+	CheckSetting(iniFile, gameID, "ForceHLEPsmf", &flags_.ForceHLEPsmf);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
