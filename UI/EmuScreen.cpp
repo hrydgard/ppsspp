@@ -293,9 +293,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		coreParam.gpuCore = GPUCORE_GLES;
 		break;
 #endif
-	case GPUBackend::DIRECT3D9:
-		coreParam.gpuCore = GPUCORE_DIRECTX9;
-		break;
 	case GPUBackend::VULKAN:
 		coreParam.gpuCore = GPUCORE_VULKAN;
 		break;
