@@ -20,7 +20,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/armips \
   $(LOCAL_PATH)/../../ext/armips/ext/filesystem/include \
   $(LOCAL_PATH)/../../ext/armips/ext/tinyformat \
-  $(LOCAL_PATH)/../../ext/libchdr/deps/lzma-22.01/include \
+  $(LOCAL_PATH)/../../ext/libchdr/deps/lzma-24.05/include \
   $(LOCAL_PATH)/../../ext/libchdr/include \
   $(LOCAL_PATH)/../../ext/cpu_features/include \
   $(LOCAL_PATH)/../../ext/rcheevos/include \

@@ -268,25 +268,21 @@ SOURCES_C += \
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 COREFLAGS += -DHTTPS_NOT_AVAILABLE
 
-COREFLAGS += -D_7ZIP_ST
-INCFLAGS += -I$(EXTDIR)/libchdr/deps/lzma-22.01/include
+COREFLAGS += -DZ7_ST
+INCFLAGS += -I$(EXTDIR)/libchdr/deps/lzma-24.05/include
 
 SOURCES_C += \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Alloc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bcj2.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bcj2Enc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bra.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bra86.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/CpuArch.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Delta.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzFind.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzFindOpt.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzmaDec.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzmaEnc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Lzma86Dec.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Lzma86Enc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzmaLib.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Sort.c
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Alloc.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra86.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/BraIA64.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/CpuArch.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Delta.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzFind.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaDec.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Sort.c
 
 INCFLAGS += -I$(EXTDIR)/libchdr/include
 
