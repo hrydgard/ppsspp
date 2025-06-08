@@ -31,7 +31,7 @@ jobs:
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
-        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        if: steps.valid-tags.outputs.count == '0'
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
@@ -50,18 +50,18 @@ jobs:
           mkdir build-ios/PPSSPP.app
           echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
           # Testing values ...
-          echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
+          echo "Content of [GITHUB_REF_NAME] = ${GITHUB_REF_NAME}"
           echo "count=${{steps.valid-tags.outputs.count}}"
           echo $(echo $GIT_VERSION | cut -c 2-)
           # Testing file location ...
           find . -name "Version.txt"
-          
+
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@main
+        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
         with:
           key: ios
           create-symlink: true
-      
+
       - name: Execute build
         env:
           CC: clang
@@ -85,10 +85,10 @@ jobs:
             mkdir ppsspp/Payload
             cp -a build*/PPSSPP.app ppsspp/Payload
             # GitHub Actions zipping kills symlinks and permissions.
-            cd ppsspp
+            pushd ppsspp
             zip -qry PPSSPP.ipa Payload
             rm -rf Payload
-            cd -
+            popd
           fi
 
       - name: Upload artifact

@@ -11,21 +11,19 @@ on:
 
 jobs:
   build:
-    name: build
     runs-on: ubuntu-latest
     steps:
-
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
-    - name: archive
+    - name: Archive
       id: archive
       run: |
-        VERSION=${GITHUB_REF##*/}
+        VERSION=$GITHUB_REF_NAME
         test -z "$VERSION" && VERSION=${{ github.event.release.tag_name }}
         VERSION=$(printf "%s\n" "$VERSION" | sed 's/^v//')
-        PKGNAME="ppsspp-$VERSION"
+        PKGNAME=ppsspp-$VERSION
         mkdir -p /tmp/$PKGNAME
         mv * /tmp/$PKGNAME
         mv /tmp/$PKGNAME .
@@ -42,8 +40,8 @@ jobs:
         tar cJf $TARBALL $PKGNAME
         echo "tarball=$TARBALL" >> $GITHUB_OUTPUT
 
-    - name: upload tarball
-      uses: softprops/action-gh-release@v1
+    - name: Upload tarball
+      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
       with:
         files: ${{ steps.archive.outputs.tarball }}
         token: ${{ secrets.GITHUB_TOKEN }}

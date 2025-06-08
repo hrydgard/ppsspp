@@ -25,11 +25,10 @@ env:
   SDL_AUDIODRIVER: "dummy" #"disk"
   #SDL_VIDEODRIVER: "dummy"
   #BUILD_CONFIGURATION: Release #RelWithDebInfo
-  
-jobs:
 
+jobs:
   build:
-    name: Building AppImage
+    name: build (${{ matrix.id }})
     strategy:
       fail-fast: false
       matrix:
@@ -38,10 +37,10 @@ jobs:
           id: x86_64
         - os: ubuntu-24.04-arm
           id: aarch64
-        
-    runs-on: '${{ matrix.os }}'
+
+    runs-on: ${{ matrix.os }}
     container: ghcr.io/pkgforge-dev/archlinux:latest
-    
+
     steps:
       - uses: actions/checkout@v1 # v2+ seems to have submodules issue with the archlinux container
         with:
@@ -57,14 +56,14 @@ jobs:
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
-          
+
       - name: Fetch upstream tags # required for git describe to return a valid version and to preevnt androidGitVersion from crashing on a new fork
-        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        if: steps.valid-tags.outputs.count == '0'
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
-          
+
       #- name: Setup ccache # Doesn't support archlinux container?
       #  uses: hendrikmuhs/ccache-action@v1.2
       #  with:
@@ -94,11 +93,11 @@ jobs:
           else
           	PKG_TYPE='aarch64.pkg.tar.xz'
           fi
-          
+
           LLVM_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/llvm-libs-nano-$PKG_TYPE"
           LIBXML_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/libxml2-iculess-$PKG_TYPE"
           OPUS_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/opus-nano-$PKG_TYPE"
-          
+
           echo "Installing build dependencies..."
           echo "---------------------------------------------------------------"
           pacman -Syu --noconfirm \
@@ -136,19 +135,19 @@ jobs:
           if [[ "$ARCH" == "x86_64" ]]; then
             pacman -Syu --noconfirm vulkan-intel
           fi
-          
+
           echo "Installing debloated pckages..."
           echo "---------------------------------------------------------------"
           wget --retry-connrefused --tries=30 "$LLVM_URL" -O   ./llvm-libs.pkg.tar.zst
           wget --retry-connrefused --tries=30 "$LIBXML_URL" -O ./libxml2.pkg.tar.zst
           wget --retry-connrefused --tries=30 "$OPUS_URL" -O   ./opus-nano.pkg.tar.zst
-          
+
           pacman -U --noconfirm ./*.pkg.tar.zst
           rm -f ./*.pkg.tar.zst
-          
+
           echo "All done!"
           echo "---------------------------------------------------------------"
-      
+
       - name: Build Release
         id: version
         env:
@@ -163,7 +162,6 @@ jobs:
           echo "Building..."
           uname -m
           echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
-          echo "isTag=${{ startsWith(github.ref, 'refs/tags/') }}" >> $GITHUB_OUTPUT
 
           # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
@@ -171,10 +169,10 @@ jobs:
 
           gcc --version
           g++ --version
-          
+
           #clang --version
           #clang++ --version
-          
+
           # Build ppsspp
           #./b.sh --release --no-sdl2 --no-png
           mkdir -p build
@@ -192,20 +190,20 @@ jobs:
 
           # Test for missing modules
           ldd ./build/PPSSPPSDL
-          
+
           # Create AppImage package
           echo "Creating AppImage..."
           chmod +x ./build/PPSSPPSDL
           chmod +x ./scripts/makeappimage_64-bit.sh
-          VERSION=$([ "${{ steps.version.outputs.isTag }}" == "true" ] && echo "${GITHUB_REF##*/}" || echo "${{ steps.version.outputs.tag }}")
+          VERSION=$([[ ${GITHUB_REF_TYPE} == tag ]] && echo "$GITHUB_REF_NAME" || echo "${{ steps.version.outputs.tag }}")
           echo "Version = $VERSION"
           ./scripts/makeappimage_64-bit.sh "$VERSION"
 
       - name: Prepare artifacts
         run: |
           find . -name "PPSSPPSDL"
-          find . -name "PPSSPP*.AppImage" -exec chmod +x  {} \;
-          find . -name "PPSSPP*.AppBundle" -exec chmod +x  {} \;
+          find . -name "PPSSPP*.AppImage" -exec chmod +x '{}' \;
+          find . -name "PPSSPP*.AppBundle" -exec chmod +x '{}' \;
           find . -name "PPSSPP*.zsync"
           mkdir artifacts
           if [ -e ./PPSSPP*.AppImage ]; then
@@ -217,19 +215,18 @@ jobs:
           if [ -e ./PPSSPP*.zsync ]; then
             cp ./PPSSPP*.zsync artifacts/
           fi
-            
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ steps.version.outputs.tag }}-${{ matrix.id }} AppImage
           path: artifacts/
-          
+
       - name: Upload release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        if: github.ref_type == 'tag'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             artifacts/*.AppImage
             artifacts/*.AppImage.zsync
-        

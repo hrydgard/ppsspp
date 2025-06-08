@@ -39,7 +39,7 @@ jobs:
         submodules: recursive
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
 
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -76,7 +76,7 @@ jobs:
         submodules: recursive
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
 
     - name: Build UWP
       working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -111,6 +111,7 @@ jobs:
       run: python test.py -g --graphics=software
 
   build:
+    name: build (${{ matrix.id }})
     strategy:
       fail-fast: false
       matrix:
@@ -203,13 +204,14 @@ jobs:
         git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
 
     - name: Install Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@d325aaf2a8baeeda41ad0b5d39f84a6af9bcf005 # v4.3.0
       if: matrix.extra == 'qt'
       with:
         cache: true
         version: 5.15.2
 
-    - uses: nttld/setup-ndk@v1
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@afb4c9964b521afb97c864b7d40b11e6911bd410 # v1.5.0
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
@@ -218,18 +220,18 @@ jobs:
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && matrix.extra != 'android'
       run: |
-        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe restricted multiverse"
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
     - name: Create macOS git-version.cpp for tagged release
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
       run: |
-        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
+        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF_NAME}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@v1.2
+      uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
       # Disable ccache on macos for now, it's become buggy for some reason.
       if: matrix.id != 'macos'
       with:
@@ -266,10 +268,10 @@ jobs:
         elif [ -e build*/PPSSPPSDL.app ]; then
           cp -a build*/PPSSPPSDL.app ppsspp/
           # GitHub Actions zipping kills symlinks and permissions.
-          cd ppsspp
+          pushd ppsspp
           zip -qry PPSSPPSDL.zip PPSSPPSDL.app
           rm -rf PPSSPPSDL.app
-          cd -
+          popd
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
@@ -293,14 +295,13 @@ jobs:
         path: ppsspp/
 
     - name: Create macOS release
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
-      run: |
-        cd ppsspp || exit 1
-        mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF##*/}.zip || exit 1
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
+      working-directory: ppsspp
+      run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS release
-      uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
       with:
         files: ppsspp/*.zip
         body: >
@@ -332,7 +333,7 @@ jobs:
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
       run: |
-        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe restricted multiverse"
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
@@ -364,7 +365,7 @@ jobs:
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
 
-  build_test_headless_alpine:
+  test-headless-alpine:
     runs-on: ubuntu-latest
     container: 
       image: alpine:latest
@@ -383,8 +384,8 @@ jobs:
         chown -R $(id -u):$(id -g) $PWD
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@v1.2
-    
+      uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
+
     - name: Compile ffmpeg
       run: |
         cd ffmpeg && ./linux_x86-64.sh
