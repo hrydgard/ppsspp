@@ -56,6 +56,7 @@ struct JNIEnv {};
 #include "Common/LogReporting.h"
 
 #include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
 #include "android/jni/AndroidAudio.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
