@@ -42,7 +42,7 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
 
     steps:
-      - uses: actions/checkout@v1 # v2+ seems to have submodules issue with the archlinux container
+      - uses: actions/checkout@v4 # v2+ seems to have submodules issue with the archlinux container
         with:
           fetch-depth: 0
           submodules: recursive
