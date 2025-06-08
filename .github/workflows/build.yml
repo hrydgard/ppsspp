@@ -111,6 +111,7 @@ jobs:
       run: python test.py -g --graphics=software
 
   build:
+    name: build (${{ matrix.id }})
     strategy:
       fail-fast: false
       matrix:
@@ -219,14 +220,14 @@ jobs:
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && matrix.extra != 'android'
       run: |
-        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe restricted multiverse"
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
     - name: Create macOS git-version.cpp for tagged release
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
       run: |
-        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF##*/}\";" > git-version.cpp
+        echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF_NAME}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Setup ccache
@@ -267,10 +268,10 @@ jobs:
         elif [ -e build*/PPSSPPSDL.app ]; then
           cp -a build*/PPSSPPSDL.app ppsspp/
           # GitHub Actions zipping kills symlinks and permissions.
-          cd ppsspp
+          pushd ppsspp
           zip -qry PPSSPPSDL.zip PPSSPPSDL.app
           rm -rf PPSSPPSDL.app
-          cd -
+          popd
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
@@ -294,14 +295,13 @@ jobs:
         path: ppsspp/
 
     - name: Create macOS release
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
-      run: |
-        cd ppsspp || exit 1
-        mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF##*/}.zip || exit 1
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
+      working-directory: ppsspp
+      run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS release
       uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
-      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
       with:
         files: ppsspp/*.zip
         body: >
@@ -333,7 +333,7 @@ jobs:
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
       run: |
-        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe restricted multiverse"
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
@@ -365,7 +365,7 @@ jobs:
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
 
-  build_test_headless_alpine:
+  test-headless-alpine:
     runs-on: ubuntu-latest
     container: 
       image: alpine:latest

@@ -11,7 +11,6 @@ on:
 
 jobs:
   build:
-    name: build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -21,10 +20,10 @@ jobs:
     - name: Archive
       id: archive
       run: |
-        VERSION=${GITHUB_REF##*/}
+        VERSION=$GITHUB_REF_NAME
         test -z "$VERSION" && VERSION=${{ github.event.release.tag_name }}
         VERSION=$(printf "%s\n" "$VERSION" | sed 's/^v//')
-        PKGNAME="ppsspp-$VERSION"
+        PKGNAME=ppsspp-$VERSION
         mkdir -p /tmp/$PKGNAME
         mv * /tmp/$PKGNAME
         mv /tmp/$PKGNAME .
