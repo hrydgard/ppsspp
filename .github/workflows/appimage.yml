@@ -42,7 +42,10 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
 
     steps:
-      - uses: actions/checkout@v1 # v2+ seems to have submodules issue with the archlinux container
+      - name: Install git
+        run: pacman -Syu --noconfirm git
+
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -51,8 +54,6 @@ jobs:
         id: valid-tags
         shell: bash
         run: |
-          # The archlinux container doesn't seems to have git installed?
-          pacman -Syu --noconfirm git
           # Fix dubious ownership issue when running git describe inside a container
           git config --global --add safe.directory "$PWD" # Alternatively, chown -R $(id -u):$(id -g) $PWD
           echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
