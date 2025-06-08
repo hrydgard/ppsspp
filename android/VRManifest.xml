@@ -16,7 +16,7 @@
         android:preserveLegacyExternalStorage="true">
 
         <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>
-        <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2"/>
+        <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s"/>
         <meta-data android:name="pvr.app.type" android:value="vr" />
     </application>
 </manifest>
