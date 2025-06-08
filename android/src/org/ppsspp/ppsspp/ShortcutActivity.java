@@ -87,8 +87,7 @@ public class ShortcutActivity extends Activity {
 		// homescreen. Set our app as target Context. Set Main activity as
 		// target class. Add any parameter as data.
 		Intent shortcutIntent = new Intent(getApplicationContext(), PpssppActivity.class);
-		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		Log.i(TAG, "Shortcut URI: " + uri.toString());
 		shortcutIntent.setData(uri);
 		String path = uri.toString();

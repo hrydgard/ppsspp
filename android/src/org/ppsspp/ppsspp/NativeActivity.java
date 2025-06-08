@@ -1241,15 +1241,20 @@ public abstract class NativeActivity extends Activity {
 		Log.i(TAG, "onActivityResult: requestCode=" + requestCode + " requestId = " + requestId + " resultCode = " + resultCode);
 
 		if (resultCode != RESULT_OK || data == null) {
+			if (data == null) {
+				Log.i(TAG, "Intent data == null");
+			}
 			NativeApp.sendRequestResult(requestId, false, "", resultCode);
 			return;
 		}
 
 		try {
 			if (requestCode == RESULT_LOAD_IMAGE) {
+				Log.i(TAG, "data: " + data.toString());
 				Uri selectedImage = data.getData();
 				if (selectedImage != null) {
 					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+						Log.i(TAG, "Selected image: " + selectedImage.toString());
 						NativeApp.sendRequestResult(requestId, true, selectedImage.toString(), 0);
 					} else {
 						String[] filePathColumn = {MediaStore.Images.Media.DATA};
@@ -1259,9 +1264,12 @@ public abstract class NativeActivity extends Activity {
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
+							Log.i(TAG, "Selected picture path: " + selectedImage.toString());
 							NativeApp.sendRequestResult(requestId, true, picturePath, 0);
 						}
 					}
+				} else {
+					Log.i(TAG, "No image data received");
 				}
 			} else if (requestCode == RESULT_OPEN_DOCUMENT) {
 				Uri selectedFile = data.getData();

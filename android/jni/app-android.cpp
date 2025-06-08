@@ -56,6 +56,7 @@ struct JNIEnv {};
 #include "Common/LogReporting.h"
 
 #include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
 #include "android/jni/AndroidAudio.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -1404,6 +1405,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 			return;
 		}
 		INFO_LOG(Log::System, "shortcutParam received: %s", prm.c_str());
+		
+		prm = StripQuotes(prm);
+		// NOTE: The parameter can be a file:// URL, which we need to take care of here. Similar to in NativeApp.cpp, search for file://
+		if (startsWith(prm, "file:///")) {
+			std::string param = prm;
+			prm = UriDecode(prm.substr(7));
+			INFO_LOG(Log::IO, "Decoding '%s' to '%s'", param.c_str(), prm.c_str());
+		}
 		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, StripQuotes(prm));
 	} else {
 		ERROR_LOG(Log::System, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());

@@ -190,6 +190,12 @@ enum class ShowStatusFlags {
 	BATTERY_PERCENT = 1 << 3,
 };
 
+enum class SplineQuality {
+	LOW_QUALITY = 0,
+	MEDIUM_QUALITY = 1,
+	HIGH_QUALITY = 2,
+};
+
 enum class DumpFileType {
 	EBOOT = (1 << 0),
 	PRX = (1 << 1),
