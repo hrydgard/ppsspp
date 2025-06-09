@@ -25,6 +25,18 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.19.1
+--------------------
+
+- Fix selecting background image on Android ([#20477])
+- Fix RetroAchievements regression for multi-executable games ([#20469])
+- Possible fix for Mac audio device selection issue ([#20482])
+- Add workaround for Dragon's Lair not working with LLE scePsmf ([#20468])
+- Prevent trying to load obviously-corrupt CSO/CHD files ([#20466])
+- Fix regression for homebrew apps that request extra memory ([#20457])
+- Fix grid drawing in the various Robot Taisen games ([#20456])
+- Fix crash in UI when viewing a directory with multiple NPDRM ISOs ([#20453])
+
 What's new in 1.19
 ------------------
 
@@ -338,3 +350,11 @@ What's new in 1.18
 [#19874]: https://github.com/hrydgard/ppsspp/issues/19874 "macOS/iOS: register font with CoreText"
 [#19668]: https://github.com/hrydgard/ppsspp/issues/19668 "File system perf part 1: Remove some unnecessary file access"
 [#20311]: https://github.com/hrydgard/ppsspp/issues/20311 "Automatically disable fast forward feature when doing multiplayer."
+[#20477]: https://github.com/hrydgard/ppsspp/issues/20477 "Fix background image selection on Android"
+[#20469]: https://github.com/hrydgard/ppsspp/issues/20469 "Fix RetroAchievements for multi-exe games, add some sanity checks"
+[#20482]: https://github.com/hrydgard/ppsspp/issues/20482 "SDL audio: Improve logging, don't auto-switch device during the first 3 seconds of execution"
+[#20468]: https://github.com/hrydgard/ppsspp/issues/20468 "Add workaround for scePsmf LLE not working with Dragon's Lair"
+[#20466]: https://github.com/hrydgard/ppsspp/issues/20466 "ISO loading: Check CSO and CHD files \"early\""
+[#20457]: https://github.com/hrydgard/ppsspp/issues/20457 "Fix homebrew apps that request large memory"
+[#20456]: https://github.com/hrydgard/ppsspp/issues/20456 "Fix grid drawing in Robot Taisen games."
+[#20453]: https://github.com/hrydgard/ppsspp/issues/20453 "libkirk concurrency fixes"
