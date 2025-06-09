@@ -335,6 +335,7 @@ void MainThreadFunc() {
 	g_graphicsContext->Shutdown();
 
 	delete g_graphicsContext;
+	g_graphicsContext = nullptr;
 
 	RECT rc;
 	if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
