@@ -69,7 +69,7 @@ void IAPScreen::CreateViews() {
 
 	Choice *moreInfo = rightColumnItems->Add(new Choice(di->T("More info")));
 	moreInfo->OnClick.Add([](UI::EventParams &) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/whygold/");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");
 		return UI::EVENT_DONE;
 	});
 
