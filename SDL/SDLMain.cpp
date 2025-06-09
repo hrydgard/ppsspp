@@ -105,7 +105,7 @@ static SDL_AudioSpec g_retFmt;
 
 static bool g_textFocusChanged;
 static bool g_textFocus;
-
+double g_audioStartTime = 0.0;
 
 // Window state to be transferred to the main SDL thread.
 static std::mutex g_mutexWindow;
@@ -155,21 +155,36 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		startDevice = g_Config.sAudioDevice;
 	}
 
+	// List available audio devices before trying to open, for debugging purposes.
+	const int deviceCount = SDL_GetNumAudioDevices(0);
+	if (deviceCount > 0) {
+		INFO_LOG(Log::Audio, "Available audio devices:");
+		for (int i = 0; i < deviceCount; i++) {
+			const char *deviceName = SDL_GetAudioDeviceName(i, 0);
+			INFO_LOG(Log::Audio, " * '%s'", deviceName);
+		}
+	} else {
+		INFO_LOG(Log::Audio, "Failed to list audio devices: retval=%d", deviceCount);
+	}
+
 	audioDev = 0;
 	if (!startDevice.empty()) {
+		INFO_LOG(Log::Audio, "Opening audio device: '%s'", startDevice.c_str());
 		audioDev = SDL_OpenAudioDevice(startDevice.c_str(), 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 		if (audioDev <= 0) {
-			WARN_LOG(Log::Audio, "Failed to open audio device: %s", startDevice.c_str());
+			WARN_LOG(Log::Audio, "Failed to open audio device '%s'", startDevice.c_str());
 		}
 	}
 	if (audioDev <= 0) {
 		if (audioDev < 0) {
-			INFO_LOG(Log::Audio, "SDL: Error: %s. Trying a different audio device", SDL_GetError());
+			WARN_LOG(Log::Audio, "SDL: Error: '%s'. Trying the default audio device", SDL_GetError());
+		} else {
+			INFO_LOG(Log::Audio, "Opening default audio device");
 		}
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
-		ERROR_LOG(Log::Audio, "Failed to open audio device: %s", SDL_GetError());
+		ERROR_LOG(Log::Audio, "Failed to open audio device '%s', second try. Giving up.", SDL_GetError());
 	} else {
 		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
 			ERROR_LOG(Log::Audio, "Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
@@ -1276,12 +1291,20 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		if (event.adevice.iscapture == 0) {
 			const char *name = SDL_GetAudioDeviceName(event.adevice.which, 0);
 			if (!name) {
+				INFO_LOG(Log::Audio, "Got bogus new audio device notification");
 				break;
 			}
-			// Don't start auto switching for a second, because some devices init on start.
-			bool doAutoSwitch = g_Config.bAutoAudioDevice && time_now_d() > 1.0f;
+			// Don't start auto switching for a couple of seconds, because some devices init on start.
+			bool doAutoSwitch = g_Config.bAutoAudioDevice;
+			if ((time_now_d() - g_audioStartTime) < 3.0) {
+				INFO_LOG(Log::Audio, "Ignoring new audio device: %s (current: %s)", name, g_Config.sAudioDevice.c_str());
+				doAutoSwitch = false;
+			}
 			if (doAutoSwitch || g_Config.sAudioDevice == name) {
 				StopSDLAudioDevice();
+
+				INFO_LOG(Log::Audio, "!!! Auto-switching to new audio device: '%s'", name);
+
 				InitSDLAudioDevice(name ? name : "");
 			}
 		}
@@ -1289,6 +1312,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_AUDIODEVICEREMOVED:
 		if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
 			StopSDLAudioDevice();
+			INFO_LOG(Log::Audio, "Audio device removed, reselecting");
 			InitSDLAudioDevice();
 		}
 		break;
@@ -1657,6 +1681,7 @@ int main(int argc, char *argv[]) {
 	SDL_StopTextInput();
 
 	InitSDLAudioDevice();
+	g_audioStartTime = time_now_d();
 
 	if (joystick_enabled) {
 		joystick = new SDLJoystick();
