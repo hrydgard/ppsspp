@@ -256,6 +256,19 @@ void D3D11Context::Shutdown() {
 	}
 #endif
 
+#ifdef _DEBUG
+	d3dDebug_ = nullptr;
+	d3dInfoQueue_ = nullptr;
+#endif
+
+	// Important that we release before we unload the DLL, otherwise we may crash on shutdown.
+	bbRenderTargetTex_ = nullptr;
+	bbRenderTargetView_ = nullptr;
+	context1_ = nullptr;
+	context_ = nullptr;
+	device1_ = nullptr;
+	device_ = nullptr;
 	hWnd_ = nullptr;
+
 	UnloadD3D11();
 }
