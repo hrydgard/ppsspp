@@ -224,16 +224,20 @@ jobs:
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
+    - name: Create iOS Version.txt file
+      if: runner.os == 'macOS' && matrix.extra == 'ios'
+      run: |
+        # Create Version.txt file (should probably do this during building process)
+        mkdir build-ios
+        mkdir build-ios/PPSSPP.app
+        GIT_VERSION=$(git describe --always --tags)
+        echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
+
     - name: Create macOS & iOS git-version.cpp for tagged release
       if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
       run: |
         echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF_NAME}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
-
-        # Create Version.txt file (should probably do this during building process)
-        mkdir build-ios
-        mkdir build-ios/PPSSPP.app
-        echo $(echo $GITHUB_REF_NAME | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
