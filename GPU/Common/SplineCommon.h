@@ -64,6 +64,8 @@ struct SurfaceInfo {
 			if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
 			if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
 			break;
+		default:
+			break;
 		}
 	}
 };
