@@ -44,17 +44,19 @@ public:
 	void setHighlightType(MemBlockFlags flags);
 
 	void toggleDrawZeroDark(bool toggle);
-
+	void doSearch();
 	const std::string &StatusMessage() const {
 		return statusMessage_;
 	}
 
 private:
+	enum etypes  {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT, STRING, STRING_16,  BYTESEQ};
 	void ProcessKeyboardShortcuts(bool focused);
 
-	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
+	bool ParseSearchString(const char* query, int mode);
 	void updateStatusBarText();
-	void search(bool continueSearch);
+	enum SearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND, SEARCH_CANCEL};
+	SearchStatus search(bool continueSearch);
 
 	enum class GotoMode {
 		RESET,
@@ -70,6 +72,18 @@ private:
 	void ScrollCursor(int bytes, GotoMode mdoe);
 	void PopupMenu();
 
+	struct MemorySearch{
+		// keep search related variables grouped
+		std::vector<u8> data;
+		uint8_t* fast_data;
+		size_t fast_size;
+		u32 searchAddress;
+		u32 matchAddress;
+		u32 segmentStart;
+		u32 segmentEnd;
+		bool searching;
+		SearchStatus status;
+	} memSearch_;
 	static wchar_t szClassName[];
 	MIPSDebugInterface *debugger_ = nullptr;
 
@@ -112,13 +126,6 @@ private:
 	int visibleRows_ = 0;
 
 	bool drawZeroDark_ = false;
-
-	// Last used search query, used when continuing a search.
-	std::string searchQuery_;
-	// Address of last match when continuing search.
-	uint32_t matchAddress_ = 0xFFFFFFFF;
-	// Whether a search is in progress.
-	bool searching_ = false;
 
 	std::string statusMessage_;
 };
