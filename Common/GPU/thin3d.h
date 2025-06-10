@@ -172,7 +172,7 @@ enum class CullMode : uint8_t {
 	NONE,
 	FRONT,
 	BACK,
-	FRONT_AND_BACK,  // Not supported on D3D9
+	FRONT_AND_BACK,
 };
 
 enum class Facing {
@@ -797,11 +797,6 @@ public:
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}
-
-	// deprecated, only used by D3D9
-	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, Aspect aspect, int attachment) {
-		return 0;
-	}
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 

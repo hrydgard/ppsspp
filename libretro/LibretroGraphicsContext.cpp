@@ -140,12 +140,6 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 			return ctx;
 		}
 		delete ctx;
-
-		ctx = new LibretroD3D9Context();
-		if (ctx->Init()) {
-			return ctx;
-		}
-		delete ctx;
 	}
 #endif
 
