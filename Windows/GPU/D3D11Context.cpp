@@ -264,6 +264,7 @@ void D3D11Context::Shutdown() {
 	// Important that we release before we unload the DLL, otherwise we may crash on shutdown.
 	bbRenderTargetTex_ = nullptr;
 	bbRenderTargetView_ = nullptr;
+	swapChain_ = nullptr;
 	context1_ = nullptr;
 	context_ = nullptr;
 	device1_ = nullptr;

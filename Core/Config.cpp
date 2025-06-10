@@ -456,7 +456,11 @@ static int DefaultGPUBackend() {
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
+	// On Win11, there's a good chance Vulkan will work by default.
+	if (IsWin11OrHigher()) {
+		return (int)GPUBackend::VULKAN;
+	}
+	// On older Windows, to be safe, use Direct3D 11.
 	if (IsWin8OrHigher()) {
 		return (int)GPUBackend::DIRECT3D11;
 	}
