@@ -188,6 +188,7 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache .. 
           make -j$(nproc)
           popd
+          ccache -s -v
 
       - name: Create AppImage
         shell: bash
