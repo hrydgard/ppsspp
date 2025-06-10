@@ -14,4 +14,8 @@ allprojects {
         google()
         mavenCentral()
     }
+    // The below can be used to show more deprecated stuff in the build output.
+    // tasks.withType(JavaCompile).configureEach {
+    //   options.compilerArgs << "-Xlint:deprecation"
+    // }
 }

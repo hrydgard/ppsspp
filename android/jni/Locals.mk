@@ -68,4 +68,6 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/include
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/lib/linkernsbypass
+
+  LOCAL_LDFLAGS += "-Wl,-z,max-page-size=16384"
 endif
