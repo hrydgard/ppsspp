@@ -2276,9 +2276,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		!(texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551);  // socom
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
-	case ShaderLanguage::HLSL_D3D9:
-		useShaderDepal = false;
-		break;
 	case ShaderLanguage::GLSL_1xx:
 		// Force off for now, in case <= GLSL 1.20 or GLES 2, which don't support switch-case.
 		useShaderDepal = false;
@@ -3037,7 +3034,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			if (decPitch != stride) {
 				// Rearrange in place to match the requested pitch.
 				// (it can only be larger than w * bpp, and a match is likely.)
-				// Note! This is bad because it reads the mapped memory! TODO: Look into if DX9 does this right.
+				// Note! This is bad because it reads the mapped memory!
 				for (int y = scaledH - 1; y >= 0; --y) {
 					memcpy((u8 *)data + stride * y, (u8 *)data + decPitch * y, scaledW *4);
 				}

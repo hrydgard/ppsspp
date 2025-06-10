@@ -126,9 +126,5 @@
 #endif
 
 #if PPSSPP_PLATFORM(WINDOWS)
-#if !PPSSPP_PLATFORM(UWP)
-#define PPSSPP_API_D3D9 1
-#endif
 #define PPSSPP_API_D3D11 1
 #endif
-
