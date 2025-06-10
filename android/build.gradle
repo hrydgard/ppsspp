@@ -46,7 +46,7 @@ android {
 		}
 	}
 
-	compileSdk 35
+	compileSdk 36
 
 	ndkVersion "27.2.12479018"
 
@@ -79,7 +79,7 @@ android {
 		file("versioncode.txt").text = androidGitVersion.code().toString()
 
 		minSdk 21
-		targetSdk 35
+		targetSdk 36
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
@@ -208,7 +208,6 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
 							'-DOPENXR=TRUE',
 							'-DANDROID_LEGACY=TRUE',
 							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
