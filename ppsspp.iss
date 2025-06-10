@@ -102,8 +102,6 @@ Source: "assets\debugger\*"; DestDir: "{app}\assets\debugger"; Flags: recursesub
 Source: "assets\lang\*.ini"; DestDir: "{app}\assets\lang"
 Source: "assets\flash0\font\*.*"; DestDir: "{app}\assets\flash0\font"
 Source: "assets\vfpu\*.*"; DestDir: "{app}\assets\vfpu"
-Source: "dx9sdk\8.1\Redist\D3D\x64\d3dcompiler_47.dll"; DestDir: "{app}"
-Source: "dx9sdk\8.1\Redist\D3D\x86\d3dcompiler_47.dll"; DestName: "d3dcompiler_47.x86.dll"; DestDir: "{app}"
 
 [Run]
 Filename: {app}\PPSSPPWindows.exe; Description: {cm:LaunchProgram,{#ApplicationName}}; Flags: nowait postinstall skipifsilent; Check: not IsWin64
