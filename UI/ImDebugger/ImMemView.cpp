@@ -21,7 +21,6 @@
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImMemView.h"
 
-// this can move later
 static const char* searchtypes[] = {"u8", "u16", "u32", "u64", "float", "string", "string16","bytesequence"};
 
 ImMemView::ImMemView() {
@@ -31,7 +30,7 @@ ImMemView::ImMemView() {
 	lastSelectReset_ = curAddress_;
 	memSearch_.matchAddress = 0xFFFFFFFF;
 	memSearch_.searching = false;
-	memSearch_.status = ImMemView::SEARCH_INITIAL;
+	memSearch_.status = SEARCH_INITIAL;
 }
 
 ImMemView::~ImMemView() {}
@@ -674,13 +673,13 @@ void ImMemView::ScrollCursor(int bytes, GotoMode mode) {
 }
 
 
-bool ImMemView::ParseSearchString(const char* query, int mode) {
+bool ImMemView::ParseSearchString(const char* query, MemorySearchType mode) {
 	memSearch_.data.clear();
-	switch(mode){
+	switch(mode) {
 		case FLOAT:{
 			float flt = std::strtof(query, nullptr);
 			uint32_t* tmp = (uint32_t*)&flt;
-			for (int i=0; i<4;i++){
+			for (int i=0; i<4;i++) {
 				memSearch_.data.push_back((uint8_t)*tmp&0xff);
 				*tmp>>=8;
 			}
@@ -692,17 +691,29 @@ bool ImMemView::ParseSearchString(const char* query, int mode) {
 		case BITS_64:{
 			long long ll = std::strtoll(query, nullptr, 0);
 			int bytes = 1<<mode;
-			for(int i=0; i<=bytes;i++){
+			for(int i=0; i<=bytes;i++) {
 				memSearch_.data.push_back((uint8_t)(ll&0xff));
 				ll>>=8;
 			}
 		}
 			break;
 		case STRING:{
-			while(*query!=0){this->memSearch_.data.push_back(*query); query++;}
+			while(*query!=0) {
+				memSearch_.data.push_back(*query);
+				query++;
+			}
 		}
 			break;
 		case STRING_16:{
+			// for now limited to ascii.
+			while(*query!=0) {
+				char c = *query;
+				if (c>0x1f && c<0x7f) {
+					memSearch_.data.push_back(*query);
+					memSearch_.data.push_back(0);
+				}
+				query++;
+			}
 		}break;
 		case BYTESEQ:{
 			char* s = strdup(query);
@@ -773,7 +784,7 @@ std::vector<u32> ImMemView::searchString(const std::string &searchQuery) {
 	return searchResAddrs;
 };
 */
-ImMemView::SearchStatus ImMemView::search(bool continueSearch) {
+MemorySearchStatus ImMemView::search(bool continueSearch) {
 	if (!PSP_IsInited())
 		return SEARCH_PSP_NOT_INIT;
 	if (continueSearch == false /*|| searchQuery_.empty()*/) {
@@ -832,42 +843,16 @@ ImMemView::SearchStatus ImMemView::search(bool continueSearch) {
 	return SEARCH_NOTFOUND;
 }
 
-void ImMemView::doSearch(){
-	ImGui::Text("Memory Search");
-	static int type=0;
-	ImGui::Combo("type", &type, searchtypes, IM_ARRAYSIZE(searchtypes));
-	static char str[512];
-	ImGui::InputText("data: ", &str[0], IM_ARRAYSIZE(str));
-
-	if(ImGui::Button("Search")){
-		// only setup the MemorySearch when search.
+// for now type as int
+void ImMemView::initSearch(const char* str, MemorySearchType type) {
 		memSearch_.status = SEARCH_INITIAL;
 		ParseSearchString(str, type);
 		memSearch_.status = search(false);
-	}
-	ImGui::SameLine();
-
-	bool isEmpty = memSearch_.data.empty();
-	if(isEmpty)
-		ImGui::BeginDisabled(true);
-	if(ImGui::Button("Next")){
+}
+void ImMemView::continueSearch() {
 		memSearch_.status = SEARCH_INITIAL;
 		memSearch_.status = search(true);
-	}
-	if(isEmpty)
-		ImGui::EndDisabled();
-	if(memSearch_.status!=0)
-		ImGui::SameLine();
-	switch(memSearch_.status){
-		case SEARCH_OK:
-			ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "match found 0x%x", memSearch_.matchAddress);
-			break;
-		case SEARCH_NOTFOUND:
-			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "no match found");
-			break;
-		default:
-			break;
-	}
+
 }
 void ImMemView::drawOffsetScale(ImDrawList *drawList) {
 	int currentX = addressStartX_;
@@ -905,6 +890,16 @@ void ImMemView::setHighlightType(MemBlockFlags flags) {
 
 void ImMemView::toggleDrawZeroDark(bool toggle) {
 	drawZeroDark_ = toggle;
+}
+
+MemorySearchStatus ImMemView::SearchStatus() {
+	return memSearch_.status;
+}
+uint32_t ImMemView::SearchMatchAddress() {
+	return memSearch_.matchAddress;
+}
+bool ImMemView::SearchEmpty() {
+	return memSearch_.data.empty();
 }
 
 void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
@@ -994,7 +989,38 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 		ImGui::EndPopup();
 	}
 	ImGui::Separator();
-	memView_.doSearch();
+	ImGui::Text("Memory Search");
+	static MemorySearchType type[4]={BITS_8};
+	ImGui::Combo("type", reinterpret_cast<int*>(&type[index]), searchtypes, IM_ARRAYSIZE(searchtypes));
+	static char str[4][512];
+	ImGui::InputText("data: ", &(str[index][0]), IM_ARRAYSIZE(str[index]));
+
+	if(ImGui::Button("Search")) {
+		memView_.initSearch(str[index], type[index]);
+	}
+	ImGui::SameLine();
+
+	bool isEmpty = memView_.SearchEmpty();
+	if(isEmpty)
+		ImGui::BeginDisabled(true);
+	if(ImGui::Button("Next")) {
+		memView_.continueSearch();
+	}
+	if(isEmpty)
+		ImGui::EndDisabled();
+	int searchStatus = memView_.SearchStatus();
+	if(searchStatus!=0)
+		ImGui::SameLine();
+	switch(searchStatus) {
+		case SEARCH_OK:
+			ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "match found 0x%x", memView_.SearchMatchAddress());
+			break;
+		case SEARCH_NOTFOUND:
+			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "no match found");
+			break;
+		default:
+			break;
+	}
 	ImGui::Separator();
 
 	ImVec2 size(0, -ImGui::GetFrameHeightWithSpacing());

@@ -18,6 +18,8 @@ enum CommonToggles {
 	Off,
 };
 
+enum MemorySearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND, SEARCH_CANCEL};
+enum MemorySearchType {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT, STRING, STRING_16,  BYTESEQ};
 class ImMemView {
 public:
 	ImMemView();
@@ -44,19 +46,22 @@ public:
 	void setHighlightType(MemBlockFlags flags);
 
 	void toggleDrawZeroDark(bool toggle);
-	void doSearch();
+	void initSearch(const char* str, MemorySearchType type);
+	void continueSearch();
+	MemorySearchStatus SearchStatus();
+	bool SearchEmpty();
+	uint32_t SearchMatchAddress();
+
 	const std::string &StatusMessage() const {
 		return statusMessage_;
 	}
 
 private:
-	enum etypes  {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT, STRING, STRING_16,  BYTESEQ};
 	void ProcessKeyboardShortcuts(bool focused);
 
-	bool ParseSearchString(const char* query, int mode);
+	bool ParseSearchString(const char* query, MemorySearchType mode);
 	void updateStatusBarText();
-	enum SearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND, SEARCH_CANCEL};
-	SearchStatus search(bool continueSearch);
+	MemorySearchStatus search(bool continueSearch);
 
 	enum class GotoMode {
 		RESET,
@@ -82,7 +87,7 @@ private:
 		u32 segmentStart;
 		u32 segmentEnd;
 		bool searching;
-		SearchStatus status;
+		MemorySearchStatus status;
 	} memSearch_;
 	static wchar_t szClassName[];
 	MIPSDebugInterface *debugger_ = nullptr;
