@@ -318,12 +318,15 @@ jobs:
         name: ${{ matrix.id }} build
         path: ppsspp/
 
-    - name: Create macOS & iOS release
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
+    - name: Create iOS release
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'ios'
       working-directory: ppsspp
-      run: |
-        mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
-        mv PPSSPP.ipa PPSSPP-iOS-${GITHUB_REF_NAME}.ipa
+      run: mv PPSSPP.ipa PPSSPP-iOS-${GITHUB_REF_NAME}.ipa
+
+    - name: Create macOS release
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
+      working-directory: ppsspp
+      run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS & iOS release
       uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
