@@ -224,11 +224,16 @@ jobs:
         sudo apt-get update -y -qq
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
-    - name: Create macOS git-version.cpp for tagged release
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
+    - name: Create macOS & iOS git-version.cpp for tagged release
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
       run: |
         echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF_NAME}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
+
+        # Create Version.txt file (should probably do this during building process)
+        mkdir build-ios
+        mkdir build-ios/PPSSPP.app
+        echo $(echo $GITHUB_REF_NAME | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
@@ -260,7 +265,7 @@ jobs:
         ${{ matrix.args }}
 
     - name: Package build
-      if: matrix.extra == 'test'
+      if: matrix.extra == 'test' || matrix.extra == 'ios'
       run: |
         mkdir ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
@@ -271,6 +276,14 @@ jobs:
           pushd ppsspp
           zip -qry PPSSPPSDL.zip PPSSPPSDL.app
           rm -rf PPSSPPSDL.app
+          popd
+        elif [ -e build*/PPSSPP.app ]; then
+          mkdir ppsspp/Payload
+          cp -a build*/PPSSPP.app ppsspp/Payload
+          # GitHub Actions zipping kills symlinks and permissions.
+          pushd ppsspp
+          zip -qry PPSSPP.ipa Payload
+          rm -rf Payload
           popd
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
@@ -294,16 +307,27 @@ jobs:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
-    - name: Create macOS release
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
-      working-directory: ppsspp
-      run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
-
-    - name: Upload macOS release
-      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
+    - name: Upload iOS build
+      uses: actions/upload-artifact@v4
+      if: matrix.extra == 'ios'
       with:
-        files: ppsspp/*.zip
+        name: ${{ matrix.id }} build
+        path: ppsspp/
+
+    - name: Create macOS & iOS release
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
+      working-directory: ppsspp
+      run: |
+        mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
+        mv PPSSPP.ipa PPSSPP-iOS-${GITHUB_REF_NAME}.ipa
+
+    - name: Upload macOS & iOS release
+      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+      if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
+      with:
+        files: |
+          ppsspp/*.zip
+          ppsspp/*.ipa
         body: >
           PPSSPP is a cross-platform PSP emulator.
           Visit PPSSPP [official website](https://ppsspp.org)
