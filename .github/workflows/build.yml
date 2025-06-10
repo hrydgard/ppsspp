@@ -268,7 +268,7 @@ jobs:
         ${{ matrix.args }}
 
     - name: Package build
-      if: matrix.extra == 'test' || matrix.extra == 'ios'
+      if: matrix.extra == 'test' || matrix.id == 'ios'
       run: |
         mkdir ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
