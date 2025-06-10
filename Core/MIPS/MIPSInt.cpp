@@ -715,11 +715,7 @@ namespace MIPSInt
 			}
 			else if (_RS == 1) //rotr
 			{
-#ifdef __MINGW32__
-				R(rd) = _rotr(R(rt), sa);
-#else
 				R(rd) = __rotr(R(rt), sa);
-#endif
 				break;
 			}
 			else
@@ -735,11 +731,7 @@ namespace MIPSInt
 			}
 			else if (_FD == 1) // rotrv
 			{
-#ifdef __MINGW32__
-				R(rd) = _rotr(R(rt), R(rs));
-#else
 				R(rd) = __rotr(R(rt), R(rs));
-#endif
 				break;
 			}
 			else goto wrong;
