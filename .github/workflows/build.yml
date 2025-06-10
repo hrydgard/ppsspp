@@ -225,16 +225,15 @@ jobs:
         sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
     - name: Create iOS Version.txt file
-      if: runner.os == 'macOS' && matrix.extra == 'ios'
+      if: matrix.id == 'ios'
       run: |
         # Create Version.txt file (should probably do this during building process)
-        mkdir build-ios
-        mkdir build-ios/PPSSPP.app
+        mkdir -p build-ios/PPSSPP.app
         GIT_VERSION=$(git describe --always --tags)
-        echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
+        echo ${GIT_VERSION#v} > build-ios/PPSSPP.app/Version.txt
 
     - name: Create macOS & iOS git-version.cpp for tagged release
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
+      if: github.ref_type == 'tag' && (matrix.id == 'macos' || matrix.id == 'ios')
       run: |
         echo "const char *PPSSPP_GIT_VERSION = \"${GITHUB_REF_NAME}\";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
@@ -313,24 +312,24 @@ jobs:
 
     - name: Upload iOS build
       uses: actions/upload-artifact@v4
-      if: matrix.extra == 'ios'
+      if: matrix.id == 'ios'
       with:
         name: ${{ matrix.id }} build
         path: ppsspp/
 
     - name: Create iOS release
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'ios'
+      if: github.ref_type == 'tag' && matrix.id == 'ios'
       working-directory: ppsspp
       run: mv PPSSPP.ipa PPSSPP-iOS-${GITHUB_REF_NAME}.ipa
 
     - name: Create macOS release
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && matrix.extra == 'test'
+      if: github.ref_type == 'tag' && matrix.id == 'macos'
       working-directory: ppsspp
       run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS & iOS release
       uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
-      if: github.ref_type == 'tag' && runner.os == 'macOS' && (matrix.extra == 'test' || matrix.extra == 'ios')
+      if: github.ref_type == 'tag' && (matrix.id == 'macos' || matrix.id == 'ios')
       with:
         files: |
           ppsspp/*.zip
