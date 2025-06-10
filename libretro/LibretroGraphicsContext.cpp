@@ -133,7 +133,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 #endif
 
 #ifdef _WIN32
-	if (preferred == RETRO_HW_CONTEXT_DUMMY) {
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_DIRECT3D) {
 		ctx = new LibretroD3D11Context();
 
 		if (ctx->Init()) {
