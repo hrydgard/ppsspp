@@ -20,7 +20,6 @@ on:
     - 'Tools/**'
     - '.{editorconfig,gitattributes,gitignore}'
     - 'appveyor.yml'
-  workflow_dispatch: {}
 
 env:
   SDL_AUDIODRIVER: "dummy" #"disk"
