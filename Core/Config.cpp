@@ -210,6 +210,14 @@ static float DefaultUISaturation() {
 	return IsVREnabled() ? 1.5f : 1.0f;
 }
 
+static int DefaultUIScaleFactor() {
+#if PPSSPP_PLATFORM(WINDOWS)
+	return -1;
+#else
+	return 0;
+#endif
+}
+
 static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", &g_Config.bFirstRun, true, CfgFlag::DEFAULT),
 	ConfigSetting("RunCount", &g_Config.iRunCount, 0, CfgFlag::DEFAULT),
@@ -333,7 +341,7 @@ static const ConfigSetting generalSettings[] = {
 
 	ConfigSetting("ShowGPOLEDs", &g_Config.bShowGPOLEDs, false, CfgFlag::PER_GAME),
 
-	ConfigSetting("UIScaleFactor", &g_Config.iUIScaleFactor, false, CfgFlag::DEFAULT),
+	ConfigSetting("UIScaleFactor", &g_Config.iUIScaleFactor, &DefaultUIScaleFactor, CfgFlag::DEFAULT),
 
 	ConfigSetting("VulkanDisableImplicitLayers", &g_Config.bVulkanDisableImplicitLayers, false, CfgFlag::DEFAULT),
 };
