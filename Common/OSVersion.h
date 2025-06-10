@@ -8,6 +8,7 @@
 bool IsVistaOrHigher();
 bool IsWin7OrHigher();
 bool IsWin8OrHigher();
+bool IsWin11OrHigher();
 bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, uint32_t build, bool acceptGreater);
 bool GetVersionFromKernel32(uint32_t& major, uint32_t& minor, uint32_t& build);
 
