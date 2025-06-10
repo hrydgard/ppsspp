@@ -40,7 +40,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     container: ghcr.io/pkgforge-dev/archlinux:latest
-
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
     steps:
       - name: Install git
         run: pacman -Syu --noconfirm git
@@ -65,11 +68,13 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
-      #- name: Setup ccache # Doesn't support archlinux container?
-      #  uses: hendrikmuhs/ccache-action@v1.2
-      #  with:
-      #    key: "linux-appimage-${{ matrix.id }}"
-      #    create-symlink: true
+      - name: Set up ccache for ${{ matrix.id }}
+        uses: actions/cache@v4.2.3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ matrix.id }}-
 
       - name: Install dependencies
         shell: bash
@@ -108,6 +113,7 @@ jobs:
             git \
             cmake \
             clang \
+            ccache \
             llvm-libs \
             llvm \
             lld \
@@ -178,9 +184,10 @@ jobs:
           #./b.sh --release --no-sdl2 --no-png
           mkdir -p build
           pushd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF .. 
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_SYSTEM_LIBSDL2=OFF -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache .. 
           make -j$(nproc)
           popd
+          ccache -s -v
 
       - name: Create AppImage
         shell: bash
