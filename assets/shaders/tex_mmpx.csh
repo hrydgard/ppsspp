@@ -46,6 +46,108 @@ bool none_eq4(ABGR8 B, ABGR8 A0, ABGR8 A1, ABGR8 A2, ABGR8 A3) {
     return B != A0 && B != A1 && B != A2 && B != A3;
 }
 
+// Calculate the RGB distance between two ABGR8 colors
+float rgb_distance(ABGR8 a, ABGR8 b)
+{
+    vec4 ca = unpackUnorm4x8(a);
+    vec4 cb = unpackUnorm4x8(b);
+    return distance(ca.rgb, cb.rgb);
+}
+
+// Calculate the normalized luminance difference between two ABGR8 colors. In practice, luma values range from 0.001 to 0.9998.
+float luma_distance(ABGR8 a, ABGR8 b)
+{
+    return abs(luma(a) - luma(b)) * 0.00000509f;  // Multiplicative substitute for division by (255.0 * 256.0);
+}
+
+/*=============================================================================
+Auxiliary function for 4-pixel cross determination: Scores the number of matches at specific positions in the pattern. Three pattern conditions must be met to achieve 6 points.
+                ┌───┬───┬───┐                ┌───┬───┬───┐
+                │ A │ B │ C │                │ A │ B │ 1 │
+                ├───┼───┼───┤                ├───┼───┼───┤
+                │ D │ E │ F │       =>   L   │ B │ A │ 2 │
+                ├───┼───┼───┤                ├───┼───┼───┤
+                │ G │ H │ I │                │ 5 │ 4 │ 3 │
+                └───┴───┴───┘                └───┴───┴───┘
+=============================================================================*/
+
+bool countPatternMatches(ABGR8 LA, ABGR8 LB, ABGR8 L1, ABGR8 L2, ABGR8 L3, ABGR8 L4, ABGR8 L5) {
+
+    int score1 = 0; // Diagonal pattern 1
+    int score2 = 0; // Diagonal pattern 2
+    int score3 = 0; // Horizontal/vertical line pattern
+    int scoreBonus = 0;
+    
+    // Jointly determine the perceptual difference between two pixels using RGB distance and luminance distance
+    float pixelDist = rgb_distance(LA, LB)*0.356822 + luma_distance(LA, LB)*0.382; // Proportions follow the golden ratio
+
+    // Add details for very similar colors, reduce details for highly different colors (font edges)
+    if (pixelDist < 0.12) { // Colors are quite similar
+        scoreBonus += 1;
+    } else if (pixelDist > 0.9) { // High contrast (e.g., black and white)
+        scoreBonus -= 1;
+    } 
+
+    // Diagonals use a penalty system: deduct points for crosses, add back if conditions are met  
+    // 1. Diagonal pattern ╲ (Condition: B = 2 or 4)
+    if (LB == L2 || LB == L4) {
+        score1 -= int(LB == L2 && LA == L1) * 1;    	// A-1 and B-2 form a cross: deduct points
+        score1 -= int(LB == L4 && LA == L5) * 1;   		// A-5 and B-4 form a cross: deduct points
+
+        // Add points if the following triangular patterns are satisfied (canceling previous cross deductions)		
+        score1 += int(LB == L1 && L1 == L2) * 1;   		// B-1-2 form a triangle: add points
+        score1 += int(LB == L4 && L4 == L5) * 1;   		// B-4-5 form a triangle: add points
+        score1 += int(L2 == L3 && L3 == L4) * 1;   		// 2-3-4 form a triangle: add points
+        
+        score1 += scoreBonus + 6;
+    } 
+
+    // 2. Diagonal pattern ╱ (Condition: A = 1 or 5)
+    if (LA == L1 || LA == L5) {
+        score2 -= int(LB == L2 && LA == L1) * 1;    	// A-1 and B-2 cross: deduct points
+        score2 -= int(LB == L4 && LA == L5) * 1;   		// A-5 and B-4 cross: deduct points
+        score2 -= int(LA == L3) * 1;    					// A-3 forms a cross: deduct points				
+
+        // Add points if the following triangular patterns are satisfied (canceling previous cross deductions)
+        score2 += int(LB == L1 && L1 == L2) * 1;   		// B-1-2 form a triangle: add points
+        score2 += int(LB == L4 && L4 == L5) * 1;   		// B-4-5 form a triangle: add points
+        score2 += int(L2 == L3 && L3 == L4) * 1;   		// 2-3-4 form a triangle: add points
+    
+        score2 += scoreBonus + 6;
+    } 
+
+    // 3. Horizontal/vertical line patterns (Condition: horizontal continuity) use a scoring system; pass only if conditions are met
+    if (LA == L2 || LB == L1 || LA == L4 || LB == L5 || (L1 == L2 && L2 == L3) || (L3 == L4 && L4 == L5)) {
+        score3 += int(LA == L2);    	// A matches 2	+1
+        score3 += int(LB == L1);    	// B matches 1	+1
+        score3 += int(L3 == L4);    	// 3 matches 4	+1
+        score3 += int(L4 == L5);    	// 4 matches 5	+1
+        score3 += int(L3 == L4 && L4 == L5) ; // 3-4-5 continuous
+
+        score3 += int(LB == L5);    	// B matches 5	+1
+        score3 += int(LA == L4);    	// A matches 4	+1
+        score3 += int(L2 == L3);    	// 2 matches 3	+1
+        score3 += int(L1 == L2);    	// 1 matches 2	+1
+        score3 += int(L1 == L2 && L2 == L3) ; // 1-2-3 continuous
+
+        // A x 4 square	
+        score3 += int(LA == L2 && L2 == L3 && L3 == L4) * 2;
+
+        // Patch for the above rule to avoid bubble-like cross patterns in large grids. Some games use single-side patterns, so bilateral checks are preferred (work in progress)
+        score3 -= int(LB == L1 && L1 == L5 && LA == L2 && L2 == L4)*3 ; 
+
+        score3 -= int(LA == L1 && LA == L5) ; // Deduct points if L1 and L5 are both A to avoid excessive scoring and diagonal pattern misidentification
+        
+        // Bonus points
+        score3 += scoreBonus;	// Experience: Even with very similar colors, avoid over-scoring to prevent bubbles in Z-shaped crosses
+    } 
+
+    // Take the maximum of the four scores
+    int score = max(max(score1, score2), score3);
+    
+    return score < 6; // Requires a minimum of 6 points
+}
+
 void applyScaling(uvec2 xy) {
     int srcX = int(xy.x);
     int srcY = int(xy.y);
@@ -60,6 +162,37 @@ void applyScaling(uvec2 xy) {
         ABGR8 P = src(srcX, srcY - 2), S = src(srcX, srcY + 2);
         ABGR8 Q = src(srcX - 2, srcY), R = src(srcX + 2, srcY);
         ABGR8 Bl = luma(B), Dl = luma(D), El = luma(E), Fl = luma(F), Hl = luma(H);
+
+
+        // Default output (to avoid code duplication)
+        ivec2 destXY = ivec2(xy) * 2;
+        ABGR8 defaultColor = E;
+        writeColorf(destXY, unpackUnorm4x8(defaultColor));
+        writeColorf(destXY + ivec2(1, 0), unpackUnorm4x8(defaultColor));
+        writeColorf(destXY + ivec2(0, 1), unpackUnorm4x8(defaultColor));
+        writeColorf(destXY + ivec2(1, 1), unpackUnorm4x8(defaultColor));
+
+        // Check for "convex" shapes to avoid single-pixel spikes on long straight edges
+        if (A == B && B == C && E == H && A != D && C != F && rgb_distance(D, F) < 0.2 && rgb_distance(B, E) > 0.6) return;
+
+        if (A == D && D == G && E == F && A != B && G != H && rgb_distance(B, H) < 0.2 && rgb_distance(D, E) > 0.6) return;
+
+        if (C == F && F == I && E == D && B != C && H != I && rgb_distance(B, H) < 0.2 && rgb_distance(E, F) > 0.6) return;
+
+        if (G == H && H == I && B == E && D != G && F != I && rgb_distance(D, F) < 0.2 && rgb_distance(E, H) > 0.6) return;
+
+
+        // Check each 4-pixel cross in "田" (field) shape and pass five surrounding pixels for pattern judgment
+        if (A == E && B == D && A != B && countPatternMatches(A, B, C, F, I, H, G)) return;
+
+        if (C == E && B == F && C != B && countPatternMatches(C, B, A, D, G, H, I)) return;
+
+        if (G == E && D == H && G != H && countPatternMatches(G, H, I, F, C, B, A)) return;
+
+        if (I == E && F == H && I != H && countPatternMatches(I, H, G, D, A, B, C)) return;
+       
+
+        // Original MMPX logic
 
         // 1:1 slope rules
         if ((D == B && D != H && D != F) && (El >= Dl || E == A) && any_eq3(E, A, C, G) && ((El < Dl) || A != D || E != P || E != Q)) J = D;
