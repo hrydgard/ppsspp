@@ -334,11 +334,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr)) {
 		// If preloading, flush - this block will likely be fixed later.
-		if (js.preloading) {
-			js.cancel = true;
-		} else {
-			ERROR_LOG(Log::JIT, "Jump to invalid address: %08x", targetAddr);
-		}
+		ERROR_LOG(Log::JIT, "Jump to invalid address: %08x", targetAddr);
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		// Continue so the block gets completed and crashes properly.
 	}
