@@ -287,11 +287,13 @@ void ImMemView::ProcessKeyboardShortcuts(bool focused) {
 			return;
 			*/
 		}
+		/*
 		if (ImGui::IsKeyPressed(ImGuiKey_F)) {
-			search(false);
-		}
-		if (ImGui::IsKeyPressed(ImGuiKey_C)) {
-			search(true);
+			initSearch();
+			memSearch_.status = search(false);
+		}*/
+		if (ImGui::IsKeyPressed(ImGuiKey_N)) {
+			continueSearch();
 		}
 	} else {
 		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
@@ -993,7 +995,7 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 	static MemorySearchType type[4]={BITS_8};
 	ImGui::Combo("type", reinterpret_cast<int*>(&type[index]), searchtypes, IM_ARRAYSIZE(searchtypes));
 	static char str[4][512];
-	ImGui::InputText("data: ", &(str[index][0]), IM_ARRAYSIZE(str[index]));
+	ImGui::InputText("data", &(str[index][0]), IM_ARRAYSIZE(str[index]));
 
 	if(ImGui::Button("Search")) {
 		memView_.initSearch(str[index], type[index]);
