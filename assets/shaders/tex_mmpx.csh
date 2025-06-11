@@ -19,7 +19,7 @@ ABGR8 src(int x, int y) {
 
 uint luma(ABGR8 C) {
     uint alpha = (C & 0xFF000000u) >> 24;
-    return (((C & 0x00FF0000u) >> 16) + ((C & 0x0000FF00u) >> 8) + (C & 0x000000FFu) + 1u) * (256u - alpha);
+    return (((C & 0x00FF0000u) >> 16) + ((C & 0x0000FF00u) >> 8) + (C & 0x000000FFu)) + (255u - alpha) * 3;
 }
 
 bool all_eq2(ABGR8 B, ABGR8 A0, ABGR8 A1) {
@@ -57,7 +57,7 @@ float rgb_distance(ABGR8 a, ABGR8 b)
 // Calculate the normalized luminance difference between two ABGR8 colors. In practice, luma values range from 0.001 to 0.9998.
 float luma_distance(ABGR8 a, ABGR8 b)
 {
-    return abs(luma(a) - luma(b)) * 0.00000509f;  // Multiplicative substitute for division by (255.0 * 256.0);
+    return abs(luma(a) - luma(b)) * 0.000653594f;  // Multiplicative substitute for division by (255 * 6);
 }
 
 /*=============================================================================
@@ -142,7 +142,7 @@ bool countPatternMatches(ABGR8 LA, ABGR8 LB, ABGR8 L1, ABGR8 L2, ABGR8 L3, ABGR8
         score3 += scoreBonus;	// Experience: Even with very similar colors, avoid over-scoring to prevent bubbles in Z-shaped crosses
     } 
 
-    // Take the maximum of the four scores
+    // Take the maximum of the 3 scores
     int score = max(max(score1, score2), score3);
     
     return score < 6; // Requires a minimum of 6 points
