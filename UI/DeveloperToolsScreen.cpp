@@ -135,7 +135,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	static const char *cpuCores[] = { "Interpreter", "Dynarec/JIT (recommended)", "IR Interpreter", "JIT using IR" };
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, sy->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), I18NCat::SYSTEM, screenManager()));
-	core->OnChoice.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
 	core->OnChoice.Add([](UI::EventParams &) {
 		g_Config.NotifyUpdatedCpuCore();
 		return UI::EVENT_DONE;
@@ -527,11 +526,6 @@ UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
 	screenManager()->push(new TouchTestScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
-	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 	return UI::EVENT_DONE;
 }
 

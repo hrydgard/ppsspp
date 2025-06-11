@@ -28,7 +28,6 @@ private:
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnOpenTexturesIniFile(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
-	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 	UI::EventReturn OnJitDebugTools(UI::EventParams &e);
 	UI::EventReturn OnRemoteDebugger(UI::EventParams &e);
 	UI::EventReturn OnMIPSTracerEnabled(UI::EventParams &e);

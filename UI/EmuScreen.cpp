@@ -606,11 +606,8 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		if (gpu)
 			gpu->DumpNextFrame();
 	} else if (message == UIMessage::REQUEST_CLEAR_JIT) {
-		if (!bootPending_) {
+		if (!bootPending_ && currentMIPS) {
 			currentMIPS->ClearJitCache();
-			if (PSP_IsInited()) {
-				currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
-			}
 		}
 	} else if (message == UIMessage::WINDOW_MINIMIZED) {
 		if (!strcmp(value, "true")) {

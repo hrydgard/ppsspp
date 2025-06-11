@@ -32,6 +32,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -330,6 +331,8 @@ void MIPSState::SingleStep() {
 
 // returns 1 if reached ticks limit
 int MIPSState::RunLoopUntil(u64 globalTicks) {
+	currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
+
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:

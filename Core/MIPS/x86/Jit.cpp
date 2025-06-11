@@ -97,12 +97,14 @@ static u32 JitMemCheck(u32 addr, u32 pc) {
 		return 0;
 
 	// Did we already hit one?
-	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
+	CoreState state = coreState;
+	if (state != CORE_RUNNING_CPU && state != CORE_NEXTFRAME)
 		return 1;
 
 	// Note: pc may be the delay slot.
 	g_breakpoints.ExecOpMemCheck(addr, pc);
-	return coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME ? 0 : 1;
+	state = coreState;
+	return state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME ? 0 : 1;
 }
 
 static void JitLogMiss(MIPSOpcode op)
@@ -136,6 +138,7 @@ Jit::Jit(MIPSState *mipsState)
 }
 
 Jit::~Jit() {
+	// The main thing that happens here is the destruction of the block cache.
 }
 
 void Jit::DoState(PointerWrap &p) {

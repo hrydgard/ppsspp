@@ -317,7 +317,6 @@ private:
 
 	MIPSState *mips_;
 
-
 	const u8 *enterDispatcher;
 
 	const u8 *outerLoop;

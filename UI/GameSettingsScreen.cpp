@@ -1278,7 +1278,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ItemHeader(sy->T("Emulation")));
 
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory")))->OnClick.Add([](UI::EventParams &) {
+		System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
+		return UI::EVENT_DONE;
+	});
+
 	systemSettings->Add(new CheckBox(&g_Config.bIgnoreBadMemAccess, sy->T("Ignore bad memory accesses")));
 
 	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays", "Simulate UMD slow reading speed"};
@@ -1435,11 +1439,6 @@ UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventParams &e) {
 	System_Notify(SystemNotification::SUSTAINED_PERF_CHANGE);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
-	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 	return UI::EVENT_DONE;
 }
 

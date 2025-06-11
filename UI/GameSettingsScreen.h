@@ -101,7 +101,6 @@ private:
 	UI::EventReturn OnCameraDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnAudioDevice(UI::EventParams &e);
-	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 	UI::EventReturn OnShowMemstickScreen(UI::EventParams &e);
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	UI::EventReturn OnMemoryStickMyDoc(UI::EventParams &e);
