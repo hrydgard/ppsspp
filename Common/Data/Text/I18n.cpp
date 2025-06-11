@@ -7,6 +7,7 @@
 
 #include "Common/StringUtils.h"
 
+// Don't forget to update the constants in the header file if you change this.
 static const char * const g_categoryNames[(size_t)I18NCat::CATEGORY_COUNT] = {
 	"Audio",
 	"Controls",
@@ -38,7 +39,6 @@ static const char * const g_categoryNames[(size_t)I18NCat::CATEGORY_COUNT] = {
 	"TextureShaders",
 	"Themes",
 	"UI Elements",
-	"Upgrade",
 	"VR",
 	"Achievements",
 	"PSPSettings",

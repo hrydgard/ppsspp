@@ -1349,31 +1349,6 @@ void MainScreen::CreateViews() {
 	}
 
 	root_->SetTag("mainroot");
-
-	upgradeBar_ = nullptr;
-	if (!g_Config.upgradeMessage.empty()) {
-		auto u = GetI18NCategory(I18NCat::UPGRADE);
-		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-
-		UI::Margins textMargins(10, 5);
-		UI::Margins buttonMargins(0, 0);
-		UI::Drawable solid(0xFFbd9939);
-		upgradeBar_->SetBG(solid);
-		upgradeBar_->Add(new TextView(std::string(u->T("New version of PPSSPP available")) + std::string(": ") + g_Config.upgradeVersion, new LinearLayoutParams(1.0f, textMargins)));
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(WINDOWS)
-		upgradeBar_->Add(new Button(u->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
-#else
-		upgradeBar_->Add(new Button(u->T("Details"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
-#endif
-		upgradeBar_->Add(new Button(u->T("Dismiss"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDismissUpgrade);
-
-		// Slip in under root_
-		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
-		newRoot->Add(root_);
-		newRoot->Add(upgradeBar_);
-		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
-		root_ = newRoot;
-	}
 }
 
 bool MainScreen::key(const KeyInput &touch) {
@@ -1397,30 +1372,6 @@ bool MainScreen::key(const KeyInput &touch) {
 
 UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
 	System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(ANDROID)
-	// Go to app store
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
-	} else {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppsspp");
-	}
-#elif PPSSPP_PLATFORM(WINDOWS)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/download");
-#else
-	// Go directly to ppsspp.org and let the user sort it out
-	// (for details and in case downloads doesn't have their platform.)
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
-#endif
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn MainScreen::OnDismissUpgrade(UI::EventParams &e) {
-	g_Config.DismissUpgrade();
-	upgradeBar_->SetVisibility(UI::V_GONE);
 	return UI::EVENT_DONE;
 }
 
