@@ -76,11 +76,14 @@
 
 bool MainScreen::showHomebrewTab = false;
 
-static void LaunchFile(ScreenManager *screenManager, const Path &path) {
+static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, const Path &path) {
 	if (path.GetFileExtension() == ".zip") {
 		// If it's a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
 	} else {
+		if (currentScreen) {
+			screenManager->cancelScreensAbove(currentScreen);
+		}
 		// Otherwise let the EmuScreen take care of it, including error handling.
 		screenManager->switchScreen(new EmuScreen(path));
 	}
@@ -1429,8 +1432,7 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 	UIScreenWithBackground::sendMessage(message, value);
 
 	if (message == UIMessage::REQUEST_GAME_BOOT) {
-		screenManager()->cancelScreensAbove(this);
-		LaunchFile(screenManager(), Path(std::string(value)));
+		LaunchFile(screenManager(), this, Path(std::string(value)));
 	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
 		RecreateViews();
 	} else if (message == UIMessage::RECENT_FILES_CHANGED) {
@@ -1568,7 +1570,7 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 	ScreenManager *screen = screenManager();
-	LaunchFile(screen, Path(e.s));
+	LaunchFile(screen, nullptr, Path(e.s));
 	return UI::EVENT_DONE;
 }
 
