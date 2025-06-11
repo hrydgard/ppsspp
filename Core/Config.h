@@ -487,6 +487,7 @@ public:
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
 	bool bInfrastructureAutoDNS;
 	bool bAllowSavestateWhileConnected;  // Developer option, ini-only. No normal users need this, it's always wrong to save/load state when online.
+	bool bAllowSpeedControlWhileConnected;  // Useful in some games but not recommended.
 
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias;  // Local DNS database stored in ini file
@@ -623,8 +624,6 @@ public:
 	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
-
-	void DismissUpgrade();
 
 	void ResetControlLayout();
 

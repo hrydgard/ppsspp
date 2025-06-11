@@ -968,6 +968,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("InfrastructureUsername", &g_Config.sInfrastructureUsername, &DefaultInfrastructureUsername, CfgFlag::PER_GAME),
 	ConfigSetting("InfrastructureAutoDNS", &g_Config.bInfrastructureAutoDNS, true, CfgFlag::PER_GAME),
 	ConfigSetting("AllowSavestateWhileConnected", &g_Config.bAllowSavestateWhileConnected, false, CfgFlag::DONT_SAVE),
+	ConfigSetting("AllowSpeedControlWhileConnected", &g_Config.bAllowSpeedControlWhileConnected, false, CfgFlag::PER_GAME),
 	ConfigSetting("DontDownloadInfraJson", &g_Config.bDontDownloadInfraJson, false, CfgFlag::DONT_SAVE),
 
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, CfgFlag::PER_GAME),
