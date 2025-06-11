@@ -1031,12 +1031,6 @@ static const ConfigSetting jitSettings[] = {
 	ConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, CfgFlag::DONT_SAVE | CfgFlag::REPORT),
 };
 
-static const ConfigSetting upgradeSettings[] = {
-	ConfigSetting("UpgradeMessage", &g_Config.upgradeMessage, "", CfgFlag::DEFAULT),
-	ConfigSetting("UpgradeVersion", &g_Config.upgradeVersion, "", CfgFlag::DEFAULT),
-	ConfigSetting("DismissedVersion", &g_Config.dismissedVersion, "", CfgFlag::DEFAULT),
-};
-
 static const ConfigSetting themeSettings[] = {
 	ConfigSetting("ThemeName", &g_Config.sThemeName, "Default", CfgFlag::DEFAULT),
 };
@@ -1072,7 +1066,6 @@ static const ConfigSectionSettings sections[] = {
 	{"Network", networkSettings, ARRAY_SIZE(networkSettings)},
 	{"Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
 	{"JIT", jitSettings, ARRAY_SIZE(jitSettings)},
-	{"Upgrade", upgradeSettings, ARRAY_SIZE(upgradeSettings)},
 	{"Theme", themeSettings, ARRAY_SIZE(themeSettings)},
 	{"VR", vrSettings, ARRAY_SIZE(vrSettings)},
 	{"Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
@@ -1315,28 +1308,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	const char *gitVer = PPSSPP_GIT_VERSION;
-	Version installed(gitVer);
-	Version upgrade(upgradeVersion);
-	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
-
-	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
-	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
-	// even if said newer version is >= the upgrade found online.
-	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
-		upgradeMessage.clear();
-	}
-
-	// Check for new version on every 10 runs.
-	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
-	// splash screen quickly), but then we'll just show the notification next time instead, we store the
-	// upgrade number in the ini.
-	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
-		const char *versionUrl = "http://www.ppsspp.org/version.json";
-		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::RequestFlags::Default, &DownloadCompletedCallback, "version", acceptMime);
-	}
-
 	INFO_LOG(Log::Loader, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
@@ -1520,66 +1491,6 @@ void Config::NotifyUpdatedCpuCore() {
 		// No longer forced off, the user set it to IR jit.
 		jitForcedOff = false;
 	}
-}
-
-// Use for debugging the version check without messing with the server
-#if 0
-#define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
-#endif
-
-void Config::DownloadCompletedCallback(http::Request &download) {
-	if (download.ResultCode() != 200) {
-		ERROR_LOG(Log::Loader, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
-		return;
-	}
-	std::string data;
-	download.buffer().TakeAll(&data);
-	if (data.empty()) {
-		ERROR_LOG(Log::Loader, "Version check: Empty data from server!");
-		return;
-	}
-
-	json::JsonReader reader(data.c_str(), data.size());
-	const json::JsonGet root = reader.root();
-	if (!root) {
-		ERROR_LOG(Log::Loader, "Failed to parse json");
-		return;
-	}
-
-	std::string version;
-	root.getString("version", &version);
-
-	const char *gitVer = PPSSPP_GIT_VERSION;
-	Version installed(gitVer);
-	Version upgrade(version);
-	Version dismissed(g_Config.dismissedVersion);
-
-	if (!installed.IsValid()) {
-		ERROR_LOG(Log::Loader, "Version check: Local version string invalid. Build problems? %s", PPSSPP_GIT_VERSION);
-		return;
-	}
-	if (!upgrade.IsValid()) {
-		ERROR_LOG(Log::Loader, "Version check: Invalid server version: %s", version.c_str());
-		return;
-	}
-
-	if (installed >= upgrade) {
-		INFO_LOG(Log::Loader, "Version check: Already up to date, erasing any upgrade message");
-		g_Config.upgradeMessage.clear();
-		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion.clear();
-		return;
-	}
-
-	if (installed < upgrade && dismissed != upgrade) {
-		g_Config.upgradeMessage = "New version of PPSSPP available!";
-		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion.clear();
-	}
-}
-
-void Config::DismissUpgrade() {
-	g_Config.dismissedVersion = g_Config.upgradeVersion;
 }
 
 // On iOS, the path to the app documents directory changes on each launch.

@@ -24,6 +24,7 @@ class I18NRepo;
 class IniFile;
 class Section;
 
+// Don't forget to update the string array in the cpp file if you change this.
 enum class I18NCat : uint8_t {
 	AUDIO = 0,
 	CONTROLS,
@@ -55,7 +56,6 @@ enum class I18NCat : uint8_t {
 	TEXTURESHADERS,
 	THEMES,
 	UI_ELEMENTS,
-	UPGRADE,
 	VR,
 	ACHIEVEMENTS,
 	PSPSETTINGS,
