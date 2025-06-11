@@ -168,6 +168,27 @@
     <Image Include="..\Assets\debugger\favicon.ico">
       <Filter>Content\debugger</Filter>
     </Image>
+    <Image Include="..\Assets\*.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="..\Assets\*.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="..\Assets\*.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="..\Assets\*.zim">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="..\Assets\*.zim">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="..\Assets\*.zim">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="..\Assets\*.zim">
+      <Filter>Content</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
@@ -192,7 +213,13 @@
     <None Include="..\Assets\redump.csv">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\Assets\*.zim">
+    <None Include="..\Assets\font_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\ppge_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\ui_atlas.zim">
       <Filter>Content</Filter>
     </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
@@ -263,5 +290,388 @@
     <Font Include="..\Assets\Roboto-Condensed.ttf">
       <Filter>Content</Filter>
     </Font>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\vfpu\*.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="..\Assets\debugger\*.json">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="..\Assets\*.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\themes\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\themes\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\themes\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\themes\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\themes\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\*.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\*.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\flash0\font\*.pgf">
+      <Filter>Content\flash0\font</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\lang\*.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\Assets\shaders\*.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
