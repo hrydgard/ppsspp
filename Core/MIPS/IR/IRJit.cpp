@@ -116,48 +116,28 @@ void IRJit::Compile(u32 em_address) {
 
 	PROFILE_THIS_SCOPE("jitc");
 
-	if (g_Config.bPreloadFunctions) {
-		// Look to see if we've preloaded this block.
-		int block_num = blocks_.FindPreloadBlock(em_address);
-		if (block_num != -1) {
-			IRBlock *block = blocks_.GetBlock(block_num);
-			// Okay, let's link and finalize the block now.
-			int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
-			block->Finalize(cookie);
-			if (block->IsValid()) {
-				// Success, we're done.
-				FinalizeNativeBlock(&blocks_, block_num);
-				return;
-			}
-		}
-	}
-
 	std::vector<IRInst> instructions;
 	u32 mipsBytes;
-	if (!CompileBlock(em_address, instructions, mipsBytes, false)) {
+	if (!CompileBlock(em_address, instructions, mipsBytes)) {
 		// Ran out of block numbers - need to reset.
 		ERROR_LOG(Log::JIT, "Ran out of block numbers, clearing cache");
 		ClearCache();
-		CompileBlock(em_address, instructions, mipsBytes, false);
+		CompileBlock(em_address, instructions, mipsBytes);
 	}
 
 	if (frontend_.CheckRounding(em_address)) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
-		CompileBlock(em_address, instructions, mipsBytes, false);
+		CompileBlock(em_address, instructions, mipsBytes);
 	}
 }
 
 // WARNING! This can be called from IRInterpret / the JIT, through the function preload stuff!
-bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
+bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
 	_dbg_assert_(compilerEnabled_);
 
-	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
-	if (instructions.empty()) {
-		_dbg_assert_(preload);
-		// We return true when preloading so it doesn't abort.
-		return preload;
-	}
+	frontend_.DoJit(em_address, instructions, mipsBytes);
+	_dbg_assert_(!instructions.empty());
 
 	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
 	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
@@ -167,13 +147,13 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	}
 
 	IRBlock *b = blocks_.GetBlock(block_num);
-	if (preload || mipsTracer.tracing_enabled) {
+	if (mipsTracer.tracing_enabled) {
 		// Hash, then only update page stats, don't link yet.
 		// TODO: Should we always hash?  Then we can reuse blocks.
 		b->UpdateHash();
 	}
 
-	if (!CompileNativeBlock(&blocks_, block_num, preload))
+	if (!CompileNativeBlock(&blocks_, block_num))
 		return false;
 
 	if (mipsTracer.tracing_enabled) {
@@ -181,86 +161,9 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	}
 
 	// Updates stats, also patches the first MIPS instruction into an emuhack if 'preload == false'
-	blocks_.FinalizeBlock(block_num, preload);
-	if (!preload)
-		FinalizeNativeBlock(&blocks_, block_num);
+	blocks_.FinalizeBlock(block_num);
+	FinalizeNativeBlock(&blocks_, block_num);
 	return true;
-}
-
-void IRJit::CompileFunction(u32 start_address, u32 length) {
-	_dbg_assert_(compilerEnabled_);
-
-	PROFILE_THIS_SCOPE("jitc");
-
-	// Note: we don't actually write emuhacks yet, so we can validate hashes.
-	// This way, if the game changes the code afterward, we'll catch even without icache invalidation.
-
-	// We may go up and down from branches, so track all block starts done here.
-	std::set<u32> doneAddresses;
-	std::vector<u32> pendingAddresses;
-	pendingAddresses.reserve(16);
-	pendingAddresses.push_back(start_address);
-	while (!pendingAddresses.empty()) {
-		u32 em_address = pendingAddresses.back();
-		pendingAddresses.pop_back();
-
-		// To be safe, also check if a real block is there.  This can be a runtime module load.
-		u32 inst = Memory::ReadUnchecked_U32(em_address);
-		if (MIPS_IS_RUNBLOCK(inst) || doneAddresses.find(em_address) != doneAddresses.end()) {
-			// Already compiled this address.
-			continue;
-		}
-
-		std::vector<IRInst> instructions;
-		u32 mipsBytes;
-		if (!CompileBlock(em_address, instructions, mipsBytes, true)) {
-			// Ran out of block numbers - let's hope there's no more code it needs to run.
-			// Will flush when actually compiling.
-			ERROR_LOG(Log::JIT, "Ran out of block numbers while compiling function");
-			return;
-		}
-
-		doneAddresses.insert(em_address);
-
-		for (const IRInst &inst : instructions) {
-			u32 exit = 0;
-
-			switch (inst.op) {
-			case IROp::ExitToConst:
-			case IROp::ExitToConstIfEq:
-			case IROp::ExitToConstIfNeq:
-			case IROp::ExitToConstIfGtZ:
-			case IROp::ExitToConstIfGeZ:
-			case IROp::ExitToConstIfLtZ:
-			case IROp::ExitToConstIfLeZ:
-			case IROp::ExitToConstIfFpTrue:
-			case IROp::ExitToConstIfFpFalse:
-				exit = inst.constant;
-				break;
-
-			case IROp::ExitToPC:
-			case IROp::Break:
-				// Don't add any, we'll do block end anyway (for jal, etc.)
-				exit = 0;
-				break;
-
-			default:
-				exit = 0;
-				break;
-			}
-
-			// Only follow jumps internal to the function.
-			if (exit != 0 && exit >= start_address && exit < start_address + length) {
-				// Even if it's a duplicate, we check at loop start.
-				pendingAddresses.push_back(exit);
-			}
-		}
-
-		// Also include after the block for jal returns.
-		if (em_address + mipsBytes < start_address + length) {
-			pendingAddresses.push_back(em_address + mipsBytes);
-		}
-	}
 }
 
 void IRJit::RunLoopUntil(u64 globalticks) {
@@ -430,13 +333,11 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 	return found;
 }
 
-void IRBlockCache::FinalizeBlock(int blockIndex, bool preload) {
+void IRBlockCache::FinalizeBlock(int blockIndex) {
 	// TODO: What's different about preload blocks?
 	IRBlock &block = blocks_[blockIndex];
-	if (!preload) {
-		int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
-		block.Finalize(cookie);
-	}
+	int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
+	block.Finalize(cookie);
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);

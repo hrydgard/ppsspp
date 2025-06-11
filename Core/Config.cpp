@@ -387,7 +387,6 @@ static const ConfigSetting cpuSettings[] = {
 	ConfigSetting("FunctionReplacements", &g_Config.bFuncReplacements, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, CfgFlag::DEFAULT),
 	ConfigSetting("HideStateWarnings", &g_Config.bHideStateWarnings, false, CfgFlag::DEFAULT),
-	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, CfgFlag::PER_GAME),
 	ConfigSetting("JitDisableFlags", &g_Config.uJitDisableFlags, (uint32_t)0, CfgFlag::PER_GAME),
 	ConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 };
