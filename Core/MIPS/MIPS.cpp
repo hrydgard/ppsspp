@@ -228,39 +228,39 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		return;
 	}
 
-	PSP_CoreParameter().cpuCore = desired;
-	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
-	MIPSComp::JitInterface *newjit = nullptr;
+	IncrementDebugCounter(DebugCounter::CPUCORE_SWITCHES);
 
+	// Get rid of the old JIT first, before switching.
+	{
+		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+		if (MIPSComp::jit) {
+			delete MIPSComp::jit;
+			MIPSComp::jit = nullptr;
+		}
+	}
+
+	PSP_CoreParameter().cpuCore = desired;
+
+	MIPSComp::JitInterface *newjit = nullptr;
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:
 		INFO_LOG(Log::CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
-		if (oldjit) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-			MIPSComp::jit = nullptr;
-			delete oldjit;
-		}
 		newjit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
 		break;
 
 	case CPUCore::IR_INTERPRETER:
 		INFO_LOG(Log::CPU, "Switching to IR interpreter");
-		if (oldjit) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-			MIPSComp::jit = nullptr;
-			delete oldjit;
-		}
 		newjit = new MIPSComp::IRJit(this, false);
 		break;
 
 	case CPUCore::INTERPRETER:
 		INFO_LOG(Log::CPU, "Switching to interpreter");
-		if (oldjit) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-			MIPSComp::jit = nullptr;
-			delete oldjit;
-		}
+		// Leaving newjit as null.
+		break;
+
+	default:
+		WARN_LOG(Log::CPU, "Invalid value for cpuCore, falling back to interpreter");
 		break;
 	}
 
