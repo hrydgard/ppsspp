@@ -101,7 +101,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	DEBUG_LOG(Log::JIT, "Invalidating IR block cache at %08x (%d bytes): %d blocks", em_address, length, (int)numbers.size());
 
 	for (int block_num : numbers) {
-		auto block = blocks_.GetBlock(block_num);
+		IRBlock *block = blocks_.GetBlock(block_num);
 		// TODO: We are invalidating a lot of blocks that are already invalid (yu gi oh).
 		// INFO_LOG(Log::JIT, "Block at %08x invalidated: valid: %d", block->GetOriginalStart(), block->IsValid());
 		// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
@@ -272,7 +272,7 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 		arena_.push_back(insts[i]);
 	}
 	int newBlockIndex = (int)blocks_.size();
-	blocks_.push_back(IRBlock(emAddr, origSize, offset, (u32)insts.size()));
+	blocks_.emplace_back(emAddr, origSize, offset, (u32)insts.size());
 	return newBlockIndex;
 }
 
@@ -334,7 +334,6 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 }
 
 void IRBlockCache::FinalizeBlock(int blockIndex) {
-	// TODO: What's different about preload blocks?
 	IRBlock &block = blocks_[blockIndex];
 	int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
 	block.Finalize(cookie);

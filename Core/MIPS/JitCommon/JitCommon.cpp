@@ -54,8 +54,11 @@
 #endif
 
 namespace MIPSComp {
-	JitInterface *jit;
-	std::recursive_mutex jitLock;
+
+JitInterface *jit;
+
+// I don't think this is actually needed.
+std::recursive_mutex jitLock;
 
 	void JitAt() {
 		// TODO: We could probably check for a bad pc here, and fire an exception. Could spare us from some crashes.
@@ -99,9 +102,9 @@ namespace MIPSComp {
 				ERROR_LOG_REPORT(Log::JIT, "Branch in branch delay slot at %08x with different target", branchInfo.compilerPC);
 			if (isJump && branchInfo.likely && (branchInfo.delaySlotInfo & (OUT_RA | OUT_RD)) != 0)
 				ERROR_LOG_REPORT(Log::JIT, "Jump in likely branch delay slot with link at %08x", branchInfo.compilerPC);
-	}
+		}
 		return notTakenTarget;
-}
+	}
 
 	JitInterface *CreateNativeJit(MIPSState *mipsState, bool useIR) {
 #if PPSSPP_ARCH(ARM)
@@ -123,7 +126,8 @@ namespace MIPSComp {
 #endif
 	}
 
-}
+}  // namespace
+
 #if PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__)
 #define DISASM_ALL 1
 #endif

@@ -51,6 +51,8 @@ public:
 	IRBlock() {}
 	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
 		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numIRInstructions_(numInstructions) {}
+	IRBlock(const IRBlock &b) = delete;
+	void operator=(const IRBlock &b) = delete;
 	IRBlock(IRBlock &&b) noexcept {
 		arenaOffset_ = b.arenaOffset_;
 		hash_ = b.hash_;
@@ -59,9 +61,14 @@ public:
 		origFirstOpcode_ = b.origFirstOpcode_;
 		nativeOffset_ = b.nativeOffset_;
 		numIRInstructions_ = b.numIRInstructions_;
+		// Invalidate the old block.
 		b.arenaOffset_ = 0xFFFFFFFF;
+		b.origAddr_ = 0;
+		b.origSize_ = 0;
+		b.origFirstOpcode_.encoding = 0;
+		b.hash_ = 0;
+		b.nativeOffset_ = -1;
 	}
-
 	~IRBlock() {}
 
 	u32 GetIRArenaOffset() const { return arenaOffset_; }
@@ -69,7 +76,7 @@ public:
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
-	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
+	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != BAD_EMUHACK_OP; }
 	void SetNativeOffset(int offset) {
 		nativeOffset_ = offset;
 	}
@@ -105,6 +112,10 @@ public:
 private:
 	u64 CalculateHash() const;
 
+	enum : u32 {
+		BAD_EMUHACK_OP = 0x68FFFFFF
+	};
+
 	// Offset into the block cache's Arena
 	u32 arenaOffset_ = 0;
 	// Offset into the native code buffer.
@@ -112,7 +123,7 @@ private:
 	u64 hash_ = 0;
 	u32 origAddr_ = 0;
 	u32 origSize_ = 0;
-	MIPSOpcode origFirstOpcode_ = MIPSOpcode(0x68FFFFFF);
+	MIPSOpcode origFirstOpcode_ = MIPSOpcode(BAD_EMUHACK_OP);  // Placeholder for bad emuhack
 	u32 numIRInstructions_ = 0;
 };
 
