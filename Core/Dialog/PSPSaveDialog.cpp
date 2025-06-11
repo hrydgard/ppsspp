@@ -41,6 +41,7 @@
 
 static double g_lastSaveTime = -1.0;
 
+// Actually this should be called on both saves and loads, since just after a load it's safe to exit.
 void ResetSecondsSinceLastGameSave() {
 	g_lastSaveTime = time_now_d();
 }
@@ -204,8 +205,7 @@ int PSPSaveDialog::Init(int paramAddr) {
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
 			DEBUG_LOG(Log::sceUtility, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
-			if (param.GetFileInfo(0).size != 0)
-			{
+			if (param.GetFileInfo(0).size != 0) {
 				yesnoChoice = 0;
 				display = DS_SAVE_CONFIRM_OVERWRITE;
 			}
@@ -1108,6 +1108,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		} else {
 			display = DS_LOAD_FAILED;
 		}
+		ResetSecondsSinceLastGameSave();
 		break;
 	case DS_SAVE_SAVING:
 		SaveState::NotifySaveData();
@@ -1117,6 +1118,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		} else {
 			display = DS_SAVE_FAILED;
 		}
+		ResetSecondsSinceLastGameSave();
 		break;
 	case DS_DELETE_DELETING:
 		if (param.Delete(param.GetPspParam(), currentSelectedSave)) {
