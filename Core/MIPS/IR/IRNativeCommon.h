@@ -71,7 +71,7 @@ public:
 	int OffsetFromCodePtr(const u8 *ptr);
 
 	virtual void GenerateFixedCode(MIPSState *mipsState) = 0;
-	virtual bool CompileBlock(IRBlockCache *irBlockCache, int block_num, bool preload) = 0;
+	virtual bool CompileBlock(IRBlockCache *irBlockCache, int block_num) = 0;
 	virtual void ClearAllBlocks() = 0;
 	virtual void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) = 0;
 	void FinalizeBlock(IRBlockCache *irBlockCache, int block_num, const JitOptions &jo);
@@ -198,7 +198,7 @@ public:
 
 protected:
 	void Init(IRNativeBackend &backend);
-	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
+	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 	void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 	IRNativeBackend *backend_ = nullptr;

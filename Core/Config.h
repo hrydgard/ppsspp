@@ -115,7 +115,6 @@ public:
 	bool bFuncReplacements;
 	bool bHideSlowWarnings;
 	bool bHideStateWarnings;
-	bool bPreloadFunctions;
 	uint32_t uJitDisableFlags;
 
 	bool bDisableHTTPS;
