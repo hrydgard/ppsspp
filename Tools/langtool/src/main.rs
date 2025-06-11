@@ -247,7 +247,7 @@ fn main() {
     if let Command::ImportSingle {
         filename,
         section,
-        key,
+        key: _,
     } = &opt.cmd
     {
         if let Ok(single_ini) = IniFile::parse(filename) {
