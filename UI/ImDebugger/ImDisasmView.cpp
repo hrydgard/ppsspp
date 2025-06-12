@@ -1205,7 +1205,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::Text("Step: ");
 	ImGui::SameLine();
 
-	if (ImGui::SmallButton("Into")) {
+	if (ImGui::RepeatButtonShift("Into")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
 		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
@@ -1237,12 +1237,6 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (ImGui::SmallButton("Syscall")) {
 		hleDebugBreak();
 		Core_Resume();
-	}
-
-	ImGui::SameLine();
-	if (ImGui::RepeatButton("Skim")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
 
 	ImGui::EndDisabled();
