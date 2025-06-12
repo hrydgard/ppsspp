@@ -1283,9 +1283,11 @@ static int Hook_omertachinmokunookitethelegacy_download_frame() {
 // Function at 0886665C in US version (Persona 1)
 // Function at 08807DC4 in EU version (Persona 2)
 static int Hook_persona_download_frame() {
-	const u32 fb_address = 0x04088000;  // hardcoded at 088666D8
-	// const u32 dest_address = currentMIPS->r[MIPS_REG_A1];   // not relevant
-	if (Memory::IsVRAMAddress(fb_address)) {
+	// Depending on a global (curframe kind of thing), this either reads from
+	// 0x04088000 or 0x04000000 (the two addresses are hardcoded).
+	// We'd have to do some gnarly stuff to get this address, so let's just download both.
+	for (int i = 0; i < 2; i++) {
+		const u32 fb_address = i == 0 ? 0x04000000 : 0x04088000;
 		gpu->PerformReadbackToMemory(fb_address, 0x00088000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "persona1_download_frame");
 	}

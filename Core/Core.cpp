@@ -426,7 +426,12 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 void Core_Break(BreakReason reason, u32 relatedAddress) {
 	const CoreState state = coreState;
 	if (state != CORE_RUNNING_CPU) {
-		ERROR_LOG(Log::CPU, "Core_Break(%s) only works in the CORE_RUNNING_CPU state (was in state %s)", BreakReasonToString(reason), CoreStateToString(state));
+		if (state == CORE_STEPPING_CPU) {
+			// Already stepping.
+			INFO_LOG(Log::CPU, "Core_Break(%s), already in break mode", BreakReasonToString(reason));
+			return;
+		}
+		WARN_LOG(Log::CPU, "Core_Break(%s) only works in the CORE_RUNNING_CPU state (was in state %s)", BreakReasonToString(reason), CoreStateToString(state));
 		return;
 	}
 
