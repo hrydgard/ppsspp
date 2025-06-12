@@ -120,10 +120,11 @@ void JitBlockCache::Shutdown() {
 // This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
 // is full and when saving and loading states.
 void JitBlockCache::Clear() {
+	for (int i = 0; i < num_blocks_; i++) {
+		DestroyBlock(i, DestroyType::CLEAR);
+	}
 	block_map_.clear();
 	proxyBlockMap_.clear();
-	for (int i = 0; i < num_blocks_; i++)
-		DestroyBlock(i, DestroyType::CLEAR);
 	links_to_.clear();
 	num_blocks_ = 0;
 
