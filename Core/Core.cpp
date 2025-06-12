@@ -158,21 +158,25 @@ void Core_Stop() {
 }
 
 void Core_UpdateState(CoreState newState) {
-	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
+	const CoreState state = coreState;
+	if ((state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
 		coreStatePending = true;
 	coreState = newState;
 }
 
 bool Core_IsStepping() {
-	return coreState == CORE_STEPPING_CPU || coreState == CORE_POWERDOWN;
+	const CoreState state = coreState;
+	return state == CORE_STEPPING_CPU || state == CORE_STEPPING_GE || state == CORE_POWERDOWN;
 }
 
 bool Core_IsActive() {
-	return coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME || coreStatePending;
+	const CoreState state = coreState;
+	return state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME || coreStatePending;
 }
 
 bool Core_IsInactive() {
-	return coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && !coreStatePending;
+	const CoreState state = coreState;
+	return state != CORE_RUNNING_CPU && state != CORE_NEXTFRAME && !coreStatePending;
 }
 
 void Core_StateProcessed() {
@@ -422,7 +426,12 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 void Core_Break(BreakReason reason, u32 relatedAddress) {
 	const CoreState state = coreState;
 	if (state != CORE_RUNNING_CPU) {
-		ERROR_LOG(Log::CPU, "Core_Break(%s) only works in the CORE_RUNNING_CPU state (was in state %s)", BreakReasonToString(reason), CoreStateToString(state));
+		if (state == CORE_STEPPING_CPU) {
+			// Already stepping.
+			INFO_LOG(Log::CPU, "Core_Break(%s), already in break mode", BreakReasonToString(reason));
+			return;
+		}
+		WARN_LOG(Log::CPU, "Core_Break(%s) only works in the CORE_RUNNING_CPU state (was in state %s)", BreakReasonToString(reason), CoreStateToString(state));
 		return;
 	}
 
