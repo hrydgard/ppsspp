@@ -158,21 +158,25 @@ void Core_Stop() {
 }
 
 void Core_UpdateState(CoreState newState) {
-	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
+	const CoreState state = coreState;
+	if ((state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
 		coreStatePending = true;
 	coreState = newState;
 }
 
 bool Core_IsStepping() {
-	return coreState == CORE_STEPPING_CPU || coreState == CORE_POWERDOWN;
+	const CoreState state = coreState;
+	return state == CORE_STEPPING_CPU || state == CORE_STEPPING_GE || state == CORE_POWERDOWN;
 }
 
 bool Core_IsActive() {
-	return coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME || coreStatePending;
+	const CoreState state = coreState;
+	return state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME || coreStatePending;
 }
 
 bool Core_IsInactive() {
-	return coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && !coreStatePending;
+	const CoreState state = coreState;
+	return state != CORE_RUNNING_CPU && state != CORE_NEXTFRAME && !coreStatePending;
 }
 
 void Core_StateProcessed() {
