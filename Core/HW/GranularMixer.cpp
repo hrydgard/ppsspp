@@ -16,11 +16,6 @@
 #include "Core/System.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u16
 
-using Clock = std::chrono::steady_clock;
-using TimePoint = Clock::time_point;
-using DT = Clock::duration;
-using DT_s = std::chrono::duration<double, std::ratio<1>>;
-
 // Something like a gaussian.
 static const float g_GranuleWindow[256] = {
 	0.0000016272f, 0.0000050749f, 0.0000113187f, 0.0000216492f, 0.0000377350f, 0.0000616906f,
@@ -79,13 +74,14 @@ GranularMixer::GranularMixer() {
 }
 
 // Executed from sound stream thread
-std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
+void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
+	_dbg_assert_(samples);
 	if (!samples)
-		return 0;
+		return;
 	memset(samples, 0, num_samples * 2 * sizeof(s16));
 	constexpr u32 INDEX_HALF = 0x80000000;
-	constexpr DT_s FADE_IN_RC = DT_s(0.008);
-	constexpr DT_s FADE_OUT_RC = DT_s(0.064);
+	constexpr double FADE_IN_RC = 0.008;
+	constexpr double FADE_OUT_RC = 0.064;
 
 	// We need at least a double because the index jump has 24 bits of fractional precision.
 	const double out_sample_rate = outSampleRate;
@@ -100,8 +96,8 @@ std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate)
 
 	// These fade in / out multiplier are tuned to match a constant
 	// fade speed regardless of the input or the output sample rate.
-	const float fade_in_mul = -std::expm1(-DT_s(1.0) / (out_sample_rate * FADE_IN_RC));
-	const float fade_out_mul = -std::expm1(-DT_s(1.0) / (out_sample_rate * FADE_OUT_RC));
+	const float fade_in_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_IN_RC));
+	const float fade_out_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_OUT_RC));
 
 	// Calculate the ideal length of the granule queue.
 	const u32 buffer_size_ms = 40;  // TODO: Actually take from the audio backend.
@@ -112,8 +108,15 @@ std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate)
 		std::clamp((buffer_size_samples) / (GRANULE_SIZE >> 1), static_cast<u32>(4),
 			static_cast<u32>(MAX_GRANULE_QUEUE_SIZE));
 
+	if (buffer_size_granules != m_granule_queue_size.load(std::memory_order_relaxed)) {
+		INFO_LOG(Log::Audio, "Granule buffer size changed to %d", buffer_size_granules);
+	}
+
 	m_granule_queue_size.store(buffer_size_granules, std::memory_order_relaxed);
 
+	// TODO: The performance of this could be greatly enhanced with SIMD but it won't be easy
+	// due to wrapping of various buffers.
+	bool queue_looping = m_queue_looping.load(std::memory_order_relaxed);
 	while (num_samples-- > 0) {
 		// The indexes for the front and back buffers are offset by 50% of the granule size.
 		// We use the modular nature of 32-bit integers to wrap around the granule size.
@@ -129,8 +132,8 @@ std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate)
 			Dequeue(&m_back);
 
 		// The Granules are pre-windowed, so we can just add them together
-		const std::size_t ft = front_index >> GRANULE_FRAC_BITS;
-		const std::size_t bt = back_index >> GRANULE_FRAC_BITS;
+		const u32 ft = front_index >> GRANULE_FRAC_BITS;
+		const u32 bt = back_index >> GRANULE_FRAC_BITS;
 		const StereoPair s0 = m_front[(ft - 2) & GRANULE_MASK] + m_back[(bt - 2) & GRANULE_MASK];
 		const StereoPair s1 = m_front[(ft - 1) & GRANULE_MASK] + m_back[(bt - 1) & GRANULE_MASK];
 		const StereoPair s2 = m_front[(ft + 0) & GRANULE_MASK] + m_back[(bt + 0) & GRANULE_MASK];
@@ -156,8 +159,13 @@ std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate)
 			s5 * ((+0.0f + 0.0f * t1 + 1.0f * t2 - 1.0f * t3) * (1.0f / 12.0f))
 		);
 
+		// Update the looping flag occasionally.
+		if (!(num_samples & 31)) {
+			queue_looping = m_queue_looping.load(std::memory_order_relaxed);
+		}
+
 		// Apply Fade In / Fade Out depending on if we are looping
-		if (m_queue_looping.load(std::memory_order_relaxed))
+		if (queue_looping)
 			m_fade_volume += fade_out_mul * (0.0f - m_fade_volume);
 		else
 			m_fade_volume += fade_in_mul * (1.0f - m_fade_volume);
@@ -165,19 +173,11 @@ std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate)
 		// Apply the fade volume to the sample
 		sample = sample * m_fade_volume;
 
-		// This quantization method prevents accumulated error but does not do noise shaping.
-		sample.l += samples[0] - m_quantization_error.l;
-		sample.r += samples[1] - m_quantization_error.r;
-
 		samples[0] = (int16_t)clamp_value(sample.l, -32767.0f, 32767.0f);
 		samples[1] = (int16_t)clamp_value(sample.r, -32767.0f, 32767.0f);
 
-		m_quantization_error.l = clamp_value(samples[0] - sample.l, -1.0f, 1.0f);
-		m_quantization_error.r = clamp_value(samples[1] - sample.r, -1.0f, 1.0f);
-
 		samples += 2;
 	}
-	return num_samples;
 }
 
 void GranularMixer::PushSamples(const s32 *samples, u32 num_samples, float volume) {
@@ -206,10 +206,10 @@ void GranularMixer::Enqueue() {
 	// elements = ", ".join([f"{x:.10f}f" for x in window])
 	// print(f'constexpr std::array<StereoPair, GRANULE_SIZE> GRANULE_WINDOW = {{ {elements}
 	// }};')
-	const std::size_t head = m_queue_head.load(std::memory_order_acquire);
+	const u32 head = m_queue_head.load(std::memory_order_acquire);
 
 	// Check if we run out of space in the circular queue. (rare)
-	std::size_t next_head = (head + 1) & GRANULE_QUEUE_MASK;
+	u32 next_head = (head + 1) & GRANULE_QUEUE_MASK;
 	if (next_head == m_queue_tail.load(std::memory_order_acquire)) {
 		WARN_LOG(Log::Audio,
 			"Granule Queue has completely filled and audio samples are being dropped. "
@@ -218,8 +218,8 @@ void GranularMixer::Enqueue() {
 	}
 
 	// The compiler (at least MSVC) fails at optimizing this loop using SIMD instructions.
-	const std::size_t start_index = m_next_buffer_index;
-	for (std::size_t i = 0; i < GRANULE_SIZE; ++i) {
+	const u32 start_index = m_next_buffer_index;
+	for (u32 i = 0; i < GRANULE_SIZE; ++i) {
 		m_queue[head][i] = m_next_buffer[(i + start_index) & GRANULE_MASK] * g_GranuleWindow[i];
 	}
 
@@ -228,19 +228,19 @@ void GranularMixer::Enqueue() {
 }
 
 void GranularMixer::Dequeue(Granule* granule) {
-	const std::size_t granule_queue_size = m_granule_queue_size.load(std::memory_order_relaxed);
-	const std::size_t head = m_queue_head.load(std::memory_order_acquire);
-	std::size_t tail = m_queue_tail.load(std::memory_order_acquire);
+	const u32 granule_queue_size = m_granule_queue_size.load(std::memory_order_relaxed);
+	const u32 head = m_queue_head.load(std::memory_order_acquire);
+	u32 tail = m_queue_tail.load(std::memory_order_acquire);
 
 	// Checks to see if the queue has gotten too long.
 	if (granule_queue_size < ((head - tail) & GRANULE_QUEUE_MASK)) {
 		// Jump the playhead to half the queue size behind the head.
-		const std::size_t gap = (granule_queue_size >> 1) + 1;
+		const u32 gap = (granule_queue_size >> 1) + 1;
 		tail = (head - gap) & GRANULE_QUEUE_MASK;
 	}
 
 	// Checks to see if the queue is empty.
-	std::size_t next_tail = (tail + 1) & GRANULE_QUEUE_MASK;
+	u32 next_tail = (tail + 1) & GRANULE_QUEUE_MASK;
 	if (next_tail == head) {
 		// Only fill gaps when running to prevent stutter on pause.
 		CoreState state = coreState;
@@ -248,7 +248,7 @@ void GranularMixer::Dequeue(Granule* granule) {
 		if (g_Config.bFillAudioGaps && is_running) {
 			// Jump the playhead to half the queue size behind the head.
 			// This provides smoother audio playback than suddenly stopping.
-			const std::size_t gap = std::max<std::size_t>(2, granule_queue_size >> 1) - 1;
+			const u32 gap = std::max<u32>(2, granule_queue_size >> 1) - 1;
 			next_tail = (head - gap) & GRANULE_QUEUE_MASK;
 			m_queue_looping.store(true, std::memory_order_relaxed);
 		} else {

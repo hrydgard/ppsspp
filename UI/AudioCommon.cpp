@@ -30,7 +30,7 @@ GranularMixer g_granular;
 void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userdata) {
 	// Mix UI sound effects on top.
 	if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
-		(int)g_granular.Mix(outStereo, numFrames, sampleRateHz);
+		g_granular.Mix(outStereo, numFrames, sampleRateHz);
 	} else {
 		g_resampler.Mix(outStereo, numFrames, false, sampleRateHz);
 	}

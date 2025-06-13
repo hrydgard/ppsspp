@@ -14,8 +14,8 @@
 class PointerWrap;
 
 // Replacement for std::countr_one from a later version of C++
-constexpr std::size_t countr_one_replacement(std::size_t x) {
-	std::size_t count = 0;
+constexpr u32 countr_one_replacement(u32 x) {
+	u32 count = 0;
 	while (x & 1) {
 		++count;
 		x >>= 1;
@@ -28,7 +28,7 @@ public:
 	explicit GranularMixer();
 
 	// Called from audio threads
-	std::size_t Mix(s16* samples, u32 numSamples, int outSampleRate);
+	void Mix(s16* samples, u32 numSamples, int outSampleRate);
 
 	// Called from emulation thread
 	void PushSamples(const s32* samples, u32 num_samples, float volume);
@@ -85,6 +85,4 @@ private:
 
 	void Enqueue();
 	void Dequeue(Granule* granule);
-
-	StereoPair m_quantization_error;
 };
