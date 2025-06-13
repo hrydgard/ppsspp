@@ -413,7 +413,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
 	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+#if PPSSPP_ARCH(64BIT)
 		return true;
+#else
+		return false;
+#endif
 	default:
 		return false;
 	}
