@@ -79,7 +79,10 @@ GranularMixer::GranularMixer() {
 }
 
 // Executed from sound stream thread
-void GranularMixer::MixerFifo::Mix(s16* samples, u32 num_samples, int outSampleRate) {
+std::size_t GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
+	if (!samples)
+		return 0;
+	memset(samples, 0, num_samples * 2 * sizeof(s16));
 	constexpr u32 INDEX_HALF = 0x80000000;
 	constexpr DT_s FADE_IN_RC = DT_s(0.008);
 	constexpr DT_s FADE_OUT_RC = DT_s(0.064);
@@ -101,13 +104,13 @@ void GranularMixer::MixerFifo::Mix(s16* samples, u32 num_samples, int outSampleR
 	const float fade_out_mul = -std::expm1(-DT_s(1.0) / (out_sample_rate * FADE_OUT_RC));
 
 	// Calculate the ideal length of the granule queue.
-	const std::size_t buffer_size_ms = 40;  // TODO: Actually take from the audio backend.
-	const std::size_t buffer_size_samples = std::llround(buffer_size_ms * in_sample_rate / 1000.0);
+	const u32 buffer_size_ms = 40;  // TODO: Actually take from the audio backend.
+	const u32 buffer_size_samples = std::llround(buffer_size_ms * in_sample_rate / 1000.0);
 
 	// Limit the possible queue sizes to any number between 4 and 64.
 	const u32 buffer_size_granules =
-		std::clamp((buffer_size_samples) / (GRANULE_SIZE >> 1), static_cast<std::size_t>(4),
-			static_cast<std::size_t>(MAX_GRANULE_QUEUE_SIZE));
+		std::clamp((buffer_size_samples) / (GRANULE_SIZE >> 1), static_cast<u32>(4),
+			static_cast<u32>(MAX_GRANULE_QUEUE_SIZE));
 
 	m_granule_queue_size.store(buffer_size_granules, std::memory_order_relaxed);
 
@@ -174,17 +177,10 @@ void GranularMixer::MixerFifo::Mix(s16* samples, u32 num_samples, int outSampleR
 
 		samples += 2;
 	}
-}
-
-std::size_t GranularMixer::Mix(s16* samples, u32 num_samples, int outSampleRate) {
-	if (!samples)
-		return 0;
-	memset(samples, 0, num_samples * 2 * sizeof(s16));
-	m_dma_mixer.Mix(samples, num_samples, outSampleRate);
 	return num_samples;
 }
 
-void GranularMixer::MixerFifo::PushSamples(const s32 *samples, u32 num_samples, float volume) {
+void GranularMixer::PushSamples(const s32 *samples, u32 num_samples, float volume) {
 	// TODO: This can be massively sped up. Although hardly likely to be a bottleneck.
 	while (num_samples-- > 0) {
 		const s16 l = clampfloat_s16(samples[0] * volume);
@@ -202,11 +198,7 @@ void GranularMixer::MixerFifo::PushSamples(const s32 *samples, u32 num_samples, 
 	}
 }
 
-void GranularMixer::PushSamples(const s32 *samples, u32 num_samples, float volume) {
-	m_dma_mixer.PushSamples(samples, num_samples, volume);
-}
-
-void GranularMixer::MixerFifo::Enqueue() {
+void GranularMixer::Enqueue() {
 	// import numpy as np
 	// import scipy.signal as signal
 	// window = np.convolve(np.ones(128), signal.windows.dpss(128 + 1, 4))
@@ -235,7 +227,7 @@ void GranularMixer::MixerFifo::Enqueue() {
 	m_queue_looping.store(false, std::memory_order_relaxed);
 }
 
-void GranularMixer::MixerFifo::Dequeue(Granule* granule) {
+void GranularMixer::Dequeue(Granule* granule) {
 	const std::size_t granule_queue_size = m_granule_queue_size.load(std::memory_order_relaxed);
 	const std::size_t head = m_queue_head.load(std::memory_order_acquire);
 	std::size_t tail = m_queue_tail.load(std::memory_order_acquire);
