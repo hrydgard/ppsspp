@@ -1396,7 +1396,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			continue;
 		}
 
-		u32 variableCount = ent->size <= 4 ? ent->vcount : std::max((u32)ent->vcount , (u32)ent->vcountNew);
+		const u32 variableCount = ent->size <= 4 ? ent->vcount : std::max((u32)ent->vcount , (u32)ent->vcountNew);
 		const char *name;
 		if (Memory::IsValidAddress(ent->name)) {
 			name = Memory::GetCharPointer(ent->name);
@@ -1427,8 +1427,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 		for (u32 j = 0; j < ent->fcount; j++) {
-			u32 nid = residentPtr[j];
-			u32 exportAddr = exportPtr[j];
+			const u32 nid = residentPtr[j];
+			const u32 exportAddr = exportPtr[j];
+
+			if (exportAddr & 3) {
+				ERROR_LOG(Log::Loader, "Bad fn export address %08x", exportAddr);
+				// We should probably reject it, but risky.
+			}
 
 			switch (nid) {
 			case NID_MODULE_START:
@@ -1461,13 +1466,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 		for (u32 j = 0; j < variableCount; j++) {
-			u32 nid = residentPtr[ent->fcount + j];
-			u32 exportAddr = exportPtr[ent->fcount + j];
-
-			if (exportAddr & 3) {
-				ERROR_LOG(Log::Loader, "Bad export address %08x", exportAddr);
-				continue;
-			}
+			const u32 nid = residentPtr[ent->fcount + j];
+			const u32 exportAddr = exportPtr[ent->fcount + j];  // These can be unaligned (small varables or char arrays).
 
 			int size;
 			switch (nid) {
