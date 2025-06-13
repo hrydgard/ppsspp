@@ -1461,13 +1461,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 		for (u32 j = 0; j < variableCount; j++) {
-			u32 nid = residentPtr[ent->fcount + j];
-			u32 exportAddr = exportPtr[ent->fcount + j];
-
-			if (exportAddr & 3) {
-				ERROR_LOG(Log::Loader, "Bad export address %08x", exportAddr);
-				continue;
-			}
+			const u32 nid = residentPtr[ent->fcount + j];
+			const u32 exportAddr = exportPtr[ent->fcount + j];  // These can be unaligned (small varables or char arrays).
 
 			int size;
 			switch (nid) {
