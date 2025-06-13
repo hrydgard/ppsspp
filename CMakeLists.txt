@@ -336,6 +336,9 @@ endif()
 
 include_directories("${CMAKE_SOURCE_DIR}")
 
+if(ANDROID_LEGACY)
+	add_compile_definitions(ANDROID_LEGACY)
+endif()
 if(USING_EGL)
 	add_compile_definitions(USING_EGL)
 endif()

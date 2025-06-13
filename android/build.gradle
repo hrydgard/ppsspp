@@ -178,6 +178,7 @@ android {
 		legacy {
 			applicationId 'org.ppsspp.ppsspplegacy'
 			dimension "variant"
+			minSdkVersion 17  // To be compatible as far back as possible. This does cause build warnings.
 			targetSdkVersion 29  // This is the point of legacy.
 			externalNativeBuild {
 				cmake {
