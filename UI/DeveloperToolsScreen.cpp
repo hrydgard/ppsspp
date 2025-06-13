@@ -251,11 +251,26 @@ void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
 	for (int i = 0; i < (int)DisableHLEFlags::Count; i++) {
 		DisableHLEFlags flag = (DisableHLEFlags)(1 << i);
 
-		// Show a checkbox, unless the setting has graduated to always on.
+		// Show a checkbox, unless the setting has graduated to always disabled.
 		if (!(flag & AlwaysDisableHLEFlags())) {
 			const HLEModuleMeta *meta = GetHLEModuleMetaByFlag(flag);
 			if (meta) {
 				BitCheckBox *checkBox = list->Add(new BitCheckBox(&g_Config.iDisableHLE, (int)flag, meta->modname));
+				checkBox->SetEnabled(!PSP_IsInited());
+			}
+		}
+	}
+
+	list->Add(new ItemHeader(dev->T("Force-enable HLE")));
+
+	for (int i = 0; i < (int)DisableHLEFlags::Count; i++) {
+		DisableHLEFlags flag = (DisableHLEFlags)(1 << i);
+
+		// Show a checkbox, only if the setting has graduated to always disabled (and thus it makes sense to force-enable it).
+		if (flag & AlwaysDisableHLEFlags()) {
+			const HLEModuleMeta *meta = GetHLEModuleMetaByFlag(flag);
+			if (meta) {
+				BitCheckBox *checkBox = list->Add(new BitCheckBox(&g_Config.iForceEnableHLE, (int)flag, meta->modname));
 				checkBox->SetEnabled(!PSP_IsInited());
 			}
 		}
