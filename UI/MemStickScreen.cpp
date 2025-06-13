@@ -144,11 +144,11 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 #endif
 		break;
 	case MemStickScreen::CHOICE_SET_MANUAL:
+		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP"), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+		break;
 	default:
 		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
-		// What more?
-
-		// Should we have a special text here? It'll popup a text window for editing.
 		break;
 	}
 }
@@ -206,10 +206,16 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, ms->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 
 		// TODO: Show current folder here if we have one set.
-	} else {
+	}
+
+#ifdef ANDROID_LEGACY
+	constexpr bool legacy = true;
+#else
+	constexpr bool legacy = false;
+#endif
+
+	if (!storageBrowserWorking_ || legacy) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_SET_MANUAL, ms->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
-		leftColumn->Add(new TextView(ms->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-		leftColumn->Add(new TextView(ms->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		// TODO: Show current folder here if we have one set.
 	}
 	errorNoticeView_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("Cancelled - try again"), ""));
