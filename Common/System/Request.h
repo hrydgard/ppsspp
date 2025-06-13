@@ -123,8 +123,8 @@ inline void System_BrowseForFileSave(RequesterToken token, std::string_view titl
 void System_BrowseForFolder(RequesterToken token, std::string_view title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr);
 
 // The returned string is username + '\n' + password.
-inline void System_AskUsernamePassword(RequesterToken token, std::string_view title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::ASK_USERNAME_PASSWORD, token, callback, failedCallback, title, "", 0);
+inline void System_AskUsernamePassword(RequesterToken token, std::string_view title, std::string_view defaultUsername, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::ASK_USERNAME_PASSWORD, token, callback, failedCallback, title, defaultUsername, 0);
 }
 
 inline void System_CopyStringToClipboard(std::string_view string) {
