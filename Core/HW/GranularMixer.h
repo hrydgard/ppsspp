@@ -23,6 +23,13 @@ constexpr u32 countr_one_replacement(u32 x) {
 	return count;
 }
 
+struct GranularStats {
+	int queuedGranules;
+	int targetQueueSize;
+	int maxQueuedGranules;
+	float fadeVolume;
+};
+
 class GranularMixer final {
 public:
 	explicit GranularMixer();
@@ -32,6 +39,10 @@ public:
 
 	// Called from emulation thread
 	void PushSamples(const s32* samples, u32 num_samples, float volume);
+
+	void GetStats(GranularStats *stats);
+
+	static constexpr u32 GRANULE_SIZE = 256;
 
 private:
 	static constexpr std::size_t MAX_GRANULE_QUEUE_SIZE = 128;
@@ -60,7 +71,6 @@ private:
 		}
 	};
 
-	static constexpr u32 GRANULE_SIZE = 256;
 	static constexpr u32 GRANULE_OVERLAP = GRANULE_SIZE / 2;
 	static constexpr u32 GRANULE_MASK = GRANULE_SIZE - 1;
 	static constexpr u32 GRANULE_BITS = countr_one_replacement(GRANULE_MASK);

@@ -64,6 +64,7 @@
 
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImGe.h"
+#include "UI/AudioCommon.h"
 
 extern bool g_TakeScreenshot;
 static ImVec4 g_normalTextColor;
@@ -1339,6 +1340,27 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 	ImGui::End();
 }
 
+
+void DrawAudioOut(ImConfig &cfg, ImControl &control) {
+	if (!ImGui::Begin("Audio output", &cfg.audioOutOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
+		// Show granular stats
+		GranularStats stats;
+		g_granular.GetStats(&stats);
+		ImGui::Text("Granules");
+		ImGui::Text("Queued: %d", stats.queuedGranules);
+		ImGui::Text("Target: %d", stats.targetQueueSize);
+		ImGui::Text("Max: %d", stats.maxQueuedGranules);
+		ImGui::Text("Computed queue latency: %d ms", stats.queuedGranules * GranularMixer::GRANULE_SIZE * 1000 / 44100);
+	}
+
+	ImGui::End();
+}
+
 void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("Raw audio channels", &cfg.audioChannelsOpen)) {
 		ImGui::End();
@@ -2261,6 +2283,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
 			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
 			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
+			ImGui::Separator();
+			ImGui::MenuItem("Audio output / buffer", nullptr, &cfg_.audioOutOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Network")) {
@@ -2338,6 +2362,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.audioChannelsOpen) {
 		DrawAudioChannels(cfg_, control);
+	}
+
+	if (cfg_.audioOutOpen) {
+		DrawAudioOut(cfg_, control);
 	}
 
 	if (cfg_.sasAudioOpen) {
@@ -2589,6 +2617,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("filesystemBrowserOpen", &filesystemBrowserOpen, false);
 	sync.Sync("kernelObjectsOpen", &kernelObjectsOpen, false);
 	sync.Sync("audioChannelsOpen", &audioChannelsOpen, false);
+	sync.Sync("audioOutOpen", &audioOutOpen, false);
 	sync.Sync("texturesOpen", &texturesOpen, false);
 	sync.Sync("debugStatsOpen", &debugStatsOpen, false);
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);

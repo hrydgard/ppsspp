@@ -100,7 +100,11 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
 	const float fade_out_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_OUT_RC));
 
 	// Calculate the ideal length of the granule queue.
-	const u32 buffer_size_ms = 40;  // TODO: Actually take from the audio backend.
+	// NOTE: We must have enough room here for 20fps games, generating all their audio
+	// in a burst each frame (since we can't force real clock sync). That means 16*3 = 48 or rather 50ms.
+	// However, in case of faster framerates, we should apply some pressure to reduce this. And if real clock sync
+	// is on, we should also be able to get away with a shorter buffer here.
+	const u32 buffer_size_ms = 55;
 	const u32 buffer_size_samples = std::llround(buffer_size_ms * in_sample_rate / 1000.0);
 
 	// Limit the possible queue sizes to any number between 4 and 64.
@@ -233,7 +237,7 @@ void GranularMixer::Dequeue(Granule* granule) {
 	u32 tail = m_queue_tail.load(std::memory_order_acquire);
 
 	// Checks to see if the queue has gotten too long.
-	if (granule_queue_size < ((head - tail) & GRANULE_QUEUE_MASK)) {
+	if (((head - tail) & GRANULE_QUEUE_MASK) > granule_queue_size) {
 		// Jump the playhead to half the queue size behind the head.
 		const u32 gap = (granule_queue_size >> 1) + 1;
 		tail = (head - gap) & GRANULE_QUEUE_MASK;
@@ -260,4 +264,15 @@ void GranularMixer::Dequeue(Granule* granule) {
 
 	*granule = m_queue[tail];
 	m_queue_tail.store(next_tail, std::memory_order_release);
+}
+
+void GranularMixer::GetStats(GranularStats *stats) {
+	int queuedGranules = ((int)m_queue_head.load() - (int)m_queue_tail.load()) & (MAX_GRANULE_QUEUE_SIZE - 1);
+	if (queuedGranules < 0) {
+		queuedGranules = 0;
+	}
+	stats->queuedGranules = queuedGranules;
+	stats->targetQueueSize = m_granule_queue_size.load(std::memory_order_relaxed);
+	stats->maxQueuedGranules = MAX_GRANULE_QUEUE_SIZE;
+	stats->fadeVolume = m_fade_volume;
 }
