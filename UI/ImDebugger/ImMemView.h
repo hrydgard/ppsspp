@@ -19,7 +19,7 @@ enum CommonToggles {
 };
 
 enum MemorySearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND, SEARCH_CANCEL};
-enum MemorySearchType {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT, STRING, STRING_16,  BYTESEQ};
+enum MemorySearchType {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT_32, STRING, STRING_16,  BYTE_SEQ};
 class ImMemView {
 public:
 	ImMemView();
