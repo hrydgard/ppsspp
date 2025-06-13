@@ -496,18 +496,25 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 		ERROR_LOG(Log::Achievements, "Callback: Failure logging in via token: %d, %s", result, error_message);
 		if (isInitialAttempt) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), "", g_RAImageID);
+			char message[512];
+			snprintf(message, sizeof(message), "%d: %s", result, error_message);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), message, g_RAImageID);
 		}
 
-		// Clear the token.
-		if (result == RC_INVALID_CREDENTIALS || result == RC_EXPIRED_TOKEN) {
-			g_Config.sAchievementsUserName.clear();
+		// Take some action.
+		switch (result) {
+		case RC_INVALID_CREDENTIALS:
+			g_loginResult = RC_OK;  // why?
+			break;
+		case RC_EXPIRED_TOKEN:
+			WARN_LOG(Log::Achievements, "Clearing token since it was expired");
 			NativeClearSecret(RA_TOKEN_SECRET_NAME);
-			g_loginResult = RC_OK;
-		} else {
+			g_loginResult = RC_OK;  // why?
+			break;
+		default:
 			g_loginResult = result;
+			break;
 		}
-
 		OnAchievementsLoginStateChange();
 		g_isLoggingIn = false;
 		return;
@@ -722,8 +729,7 @@ bool LoginAsync(const char *username, const char *password) {
 
 void Logout() {
 	rc_client_logout(g_rcClient);
-	// remove from config
-	g_Config.sAchievementsUserName.clear();
+	// remove secret from config
 	NativeClearSecret(RA_TOKEN_SECRET_NAME);
 	g_Config.Save("Achievements logout");
 	g_activeChallenges.clear();

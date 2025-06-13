@@ -319,7 +319,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
 			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
-				System_AskUsernamePassword(GetRequesterToken(), title, [](const std::string &value, int) {
+				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](const std::string &value, int) {
 					std::vector<std::string> parts;
 					SplitString(value, '\n', parts);
 					if (parts.size() == 2 && !parts[0].empty() && !parts[1].empty()) {
@@ -330,19 +330,19 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			});
 		} else {
 			// Hack up a temporary quick login-form-ish-thing
-			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &username_, di->T("Username"), "", 128, screenManager()));
+			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
 			Choice *loginButton = viewGroup->Add(new Choice(di->T("Log in")));
 			loginButton->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
-				if (!username_.empty() && !password_.empty()) {
-					Achievements::LoginAsync(username_.c_str(), password_.c_str());
+				if (!g_Config.sAchievementsUserName.empty() && !password_.empty()) {
+					Achievements::LoginAsync(g_Config.sAchievementsUserName.c_str(), password_.c_str());
 					memset(&password_[0], 0, password_.size());
 					password_.clear();
 				}
 				return UI::EVENT_DONE;
 			});
 			loginButton->SetEnabledFunc([&]() {
-				return !username_.empty() && !password_.empty();
+				return !g_Config.sAchievementsUserName.empty() && !password_.empty();
 			});
 		}
 		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
