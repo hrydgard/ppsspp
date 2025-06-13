@@ -8,7 +8,6 @@
 
 struct DialogBoxParams {
 	std::wstring textBoxContents;
-	std::wstring passwordContents;
 	std::wstring out;
 	std::wstring windowTitle;
 	bool defaultSelected;
@@ -117,22 +116,25 @@ static INT_PTR CALLBACK UserPasswordBoxFunc(HWND hDlg, UINT message, WPARAM wPar
 {
 	switch (message) {
 	case WM_INITDIALOG:
-		SetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), L"");
+		SetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), g_params.textBoxContents.c_str());
 		SetWindowText(GetDlgItem(hDlg, IDC_PASSWORDBOX), L"");
 		SetWindowText(hDlg, g_params.windowTitle.c_str());
 		PostMessage(GetDlgItem(hDlg, IDC_INPUTBOX), EM_SETSEL, -1, -1);
 		PostMessage(GetDlgItem(hDlg, IDC_PASSWORDBOX), EM_SETSEL, -1, -1);
 		W32Util::CenterWindow(hDlg);
+		if (!g_params.textBoxContents.empty()) {
+			SetFocus(GetDlgItem(hDlg, IDC_PASSWORDBOX));
+			return FALSE;  // We don't want the caller to set the focus for us.
+		}
 		return TRUE;
 	case WM_COMMAND:
-		switch (wParam)
-		{
+		switch (wParam) {
 		case IDOK:
 		{
 			wchar_t temp[256];
-			GetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), temp, sizeof(temp));
+			GetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), temp, ARRAY_SIZE(temp));
 			g_params.userName = ConvertWStringToUTF8(temp);
-			GetWindowText(GetDlgItem(hDlg, IDC_PASSWORDBOX), temp, sizeof(temp));
+			GetWindowText(GetDlgItem(hDlg, IDC_PASSWORDBOX), temp, ARRAY_SIZE(temp));
 			g_params.passWord = ConvertWStringToUTF8(temp);
 			EndDialog(hDlg, IDOK);
 			return TRUE;
@@ -149,9 +151,9 @@ static INT_PTR CALLBACK UserPasswordBoxFunc(HWND hDlg, UINT message, WPARAM wPar
 }
 
 bool UserPasswordBox_GetStrings(HINSTANCE hInst, HWND hParent, const wchar_t *title, std::string *username, std::string *password) {
-	g_params.windowTitle = title;
+	g_params.textBoxContents = ConvertUTF8ToWString(*username);
+	g_params.userName = *username;
 	INT_PTR value = DialogBox(hInst, (LPCWSTR)IDD_USERPASSWORDBOX, hParent, UserPasswordBoxFunc);
-
 	if (value == IDOK) {
 		*username = g_params.userName;
 		*password = g_params.passWord;

@@ -619,7 +619,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::ASK_USERNAME_PASSWORD:
 		std::thread([=] {
-			std::string username;
+			std::string username = param2;
 			std::string password;
 			if (UserPasswordBox_GetStrings(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), &username, &password)) {
 				g_requestManager.PostSystemSuccess(requestId, (username + '\n' + password).c_str());
