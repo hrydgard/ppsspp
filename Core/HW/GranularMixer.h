@@ -13,7 +13,7 @@
 
 class PointerWrap;
 
-// Replacement for std::countr_one
+// Replacement for std::countr_one from a later version of C++
 constexpr std::size_t countr_one_replacement(std::size_t x) {
 	std::size_t count = 0;
 	while (x & 1) {
@@ -28,16 +28,16 @@ public:
 	explicit GranularMixer();
 
 	// Called from audio threads
-	std::size_t Mix(s16* samples, std::size_t numSamples, int outSampleRate);
+	std::size_t Mix(s16* samples, u32 numSamples, int outSampleRate);
 
 	// Called from emulation thread
-	void PushSamples(const s32* samples, std::size_t num_samples, float volume);
+	void PushSamples(const s32* samples, u32 num_samples, float volume);
 
 private:
 	const std::size_t SURROUND_CHANNELS = 6;
 
 	class MixerFifo final {
-		static constexpr std::size_t MAX_GRANULE_QUEUE_SIZE = 256;
+		static constexpr std::size_t MAX_GRANULE_QUEUE_SIZE = 128;
 		static constexpr std::size_t GRANULE_QUEUE_MASK = MAX_GRANULE_QUEUE_SIZE - 1;
 
 		struct StereoPair final {
@@ -54,14 +54,12 @@ private:
 			constexpr StereoPair(float left, float right) : l(left), r(right) {}
 			constexpr StereoPair(s16 left, s16 right) : l(left), r(right) {}
 
-			StereoPair operator+(const StereoPair& other) const
-			{
+			StereoPair operator+(const StereoPair& other) const {
 				return StereoPair(l + other.l, r + other.r);
 			}
 
-			StereoPair operator*(const StereoPair& other) const
-			{
-				return StereoPair(l * other.l, r * other.r);
+			StereoPair operator*(float f) const {
+				return StereoPair(l * f, r * f);
 			}
 		};
 
@@ -75,22 +73,24 @@ private:
 
 	public:
 		MixerFifo(GranularMixer* mixer, bool little_endian) : m_mixer(mixer) {}
-		void PushSamples(const s32* samples, std::size_t num_samples, float volume);
-		void Mix(s16* samples, std::size_t num_samples, int outSampleRate);
+		void PushSamples(const s32* samples, u32 num_samples, float volume);
+		void Mix(s16* samples, u32 num_samples, int outSampleRate);
 
 	private:
 		GranularMixer* m_mixer;
 
 		Granule m_next_buffer{};
-		std::size_t m_next_buffer_index = 0;
+		u32 m_next_buffer_index = 0;
 
 		u32 m_current_index = 0;
-		Granule m_front, m_back;
+		Granule m_front;
+		Granule m_back;
 
-		std::atomic<std::size_t> m_granule_queue_size{ 20 };
-		std::array<Granule, MAX_GRANULE_QUEUE_SIZE> m_queue;
-		std::atomic<std::size_t> m_queue_head{ 0 };
-		std::atomic<std::size_t> m_queue_tail{ 0 };
+		std::atomic<u32> m_granule_queue_size{ 20 };
+		Granule m_queue[MAX_GRANULE_QUEUE_SIZE];
+
+		std::atomic<u32> m_queue_head{};
+		std::atomic<u32> m_queue_tail{};
 		std::atomic<bool> m_queue_looping{ false };
 		float m_fade_volume = 1.0;
 
@@ -100,9 +100,5 @@ private:
 		StereoPair m_quantization_error;
 	};
 
-	void RefreshConfig();
-
 	MixerFifo m_dma_mixer{ this, false };
-
-	//int m_config_audio_buffer_ms;
 };
