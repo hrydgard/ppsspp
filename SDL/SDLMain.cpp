@@ -765,12 +765,11 @@ case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
 	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
-#if defined(MOBILE_DEVICE)
-		return false;
-#else
+#if PPSSPP_ARCH(64BIT) && !defined(MOBILE_DEVICE)
 		return true;
+#else
+		return false;
 #endif
-
 	// hack for testing - do not commit
 	case SYSPROP_USE_IAP:
 		return false;
