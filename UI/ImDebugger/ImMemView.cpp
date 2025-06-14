@@ -319,8 +319,42 @@ void ImMemView::ProcessKeyboardShortcuts(bool focused) {
 		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
 			ScrollWindow(-visibleRows_, GotoModeFromModifiers(false));
 		}
+
+		if(editableMemory_){
+			if(!asciiSelected_){
+				for(int i = ImGuiKey_0; i!=ImGuiKey_G; i++){
+					if(ImGui::IsKeyPressed(static_cast<ImGuiKey>(i))){
+						EditMemory(i-ImGuiKey_0);
+						return;
+					}
+				}
+				for(int i = ImGuiKey_Keypad0; i!=ImGuiKey_KeypadDecimal; i++){
+					if(ImGui::IsKeyPressed(static_cast<ImGuiKey>(i))){
+						EditMemory(i-ImGuiKey_Keypad0);
+						return;
+					}
+				}
+			}
+		}
 	}
 }
+
+void ImMemView::EditMemory(int newNibble){
+	uint8_t og= Memory::ReadUnchecked_U8(curAddress_);
+	u8 out;
+	if(selectedNibble_){
+		out = og ^((og^newNibble)&0xf);
+	}else{
+		out = og^((og^(newNibble<<4))&0xf0);
+	}
+	Memory::WriteUnchecked_U8((u8)out, curAddress_);
+	ScrollCursor(1, GotoMode::RESET);
+}
+
+void ImMemView::toggleEditableMemory(bool toggle){
+	editableMemory_ = toggle;
+}
+
 
 void ImMemView::onChar(int c) {
 	ImGuiIO& io = ImGui::GetIO();
@@ -992,6 +1026,9 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 	if (ImGui::BeginPopup("disSettings")) {
 		if(ImGui::Checkbox("Darken Zeros", &drawZeroDark_)) {
 			memView_.toggleDrawZeroDark(drawZeroDark_);
+		}
+		if(ImGui::Checkbox("Edit Memory", &editableMemory_)){
+			memView_.toggleEditableMemory(editableMemory_);
 		}
 		ImGui::EndPopup();
 	}

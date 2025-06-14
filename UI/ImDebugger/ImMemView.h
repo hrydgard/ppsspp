@@ -45,6 +45,7 @@ public:
 	void toggleOffsetScale(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
 
+	void toggleEditableMemory(bool toggle);
 	void toggleDrawZeroDark(bool toggle);
 	void initSearch(const char* str, MemorySearchType type);
 	void continueSearch();
@@ -77,6 +78,7 @@ private:
 	void ScrollCursor(int bytes, GotoMode mdoe);
 	void PopupMenu();
 
+	void EditMemory(int i);
 	struct MemorySearch{
 		// keep search related variables grouped
 		std::vector<u8> data;
@@ -89,6 +91,7 @@ private:
 		bool searching;
 		MemorySearchStatus status;
 	} memSearch_;
+
 	static wchar_t szClassName[];
 	MIPSDebugInterface *debugger_ = nullptr;
 
@@ -131,6 +134,7 @@ private:
 	int visibleRows_ = 0;
 
 	bool drawZeroDark_ = false;
+	bool editableMemory_ = false;
 
 	std::string statusMessage_;
 };
@@ -194,6 +198,7 @@ private:
 	char selectedSymbolName_[128];
 
 	bool drawZeroDark_ = false;
+	bool editableMemory_ = false;
 
 	ImMemView memView_;
 	char searchTerm_[64]{};
