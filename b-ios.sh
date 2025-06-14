@@ -94,7 +94,7 @@ sudo -S chown -R 1004:3 Payload
 #cp -a build/PPSSPP.xcarchive ../build/
 
 echo "Making ipa ..."
-zip -r9 ../build/PPSSPP_v${version_number}.ipa Payload/PPSSPP.app
+zip -r9 ../build/PPSSPP-iOS-v${version_number}.ipa Payload/PPSSPP.app
 echo "IPA DONE :)"
 
 echo "Making deb ..."
