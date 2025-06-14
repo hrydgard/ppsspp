@@ -339,7 +339,6 @@ jobs:
           ppsspp/*.zip
           ppsspp/*.ipa
           ppsspp/*.deb
-          ppsspp/*.xcarchive
         body: >
           PPSSPP is a cross-platform PSP emulator.
           Visit PPSSPP [official website](https://ppsspp.org)
