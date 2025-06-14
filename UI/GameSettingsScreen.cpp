@@ -629,6 +629,8 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	});
 	mixWithOthers->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
+	audioSettings->Add(new ItemHeader(a->T("Audio")));
+	audioSettings->Add(new CheckBox(&g_Config.bFillAudioGaps, a->T("Fill audio gaps")));
 
 	audioSettings->Add(new ItemHeader(a->T("Game volume")));
 
