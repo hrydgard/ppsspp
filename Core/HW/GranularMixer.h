@@ -88,6 +88,7 @@ private:
 	std::atomic<u32> m_granule_queue_size{ 20 };
 	Granule m_queue[MAX_GRANULE_QUEUE_SIZE];
 
+	// These are permitted to grow indefinitely and masked on use.
 	std::atomic<u32> m_queue_head{};
 	std::atomic<u32> m_queue_tail{};
 	std::atomic<bool> m_queue_looping{ false };

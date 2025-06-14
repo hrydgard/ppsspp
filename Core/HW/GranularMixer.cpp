@@ -213,7 +213,7 @@ void GranularMixer::Enqueue() {
 	const u32 head = m_queue_head.load(std::memory_order_acquire);
 
 	// Check if we run out of space in the circular queue. (rare)
-	u32 next_head = (head + 1) & GRANULE_QUEUE_MASK;
+	u32 next_head = head + 1;
 	if (next_head == m_queue_tail.load(std::memory_order_acquire)) {
 		WARN_LOG(Log::Audio,
 			"Granule Queue has completely filled and audio samples are being dropped. "
@@ -223,8 +223,10 @@ void GranularMixer::Enqueue() {
 
 	// The compiler (at least MSVC) fails at optimizing this loop using SIMD instructions.
 	const u32 start_index = m_next_buffer_index;
+
+	const u32 maskedHead = head & GRANULE_QUEUE_MASK;
 	for (u32 i = 0; i < GRANULE_SIZE; ++i) {
-		m_queue[head][i] = m_next_buffer[(i + start_index) & GRANULE_MASK] * g_GranuleWindow[i];
+		m_queue[maskedHead][i] = m_next_buffer[(i + start_index) & GRANULE_MASK] * g_GranuleWindow[i];
 	}
 
 	m_queue_head.store(next_head, std::memory_order_release);
@@ -237,14 +239,14 @@ void GranularMixer::Dequeue(Granule* granule) {
 	u32 tail = m_queue_tail.load(std::memory_order_acquire);
 
 	// Checks to see if the queue has gotten too long.
-	if (((head - tail) & GRANULE_QUEUE_MASK) > granule_queue_size) {
+	if ((head - tail) > granule_queue_size) {
 		// Jump the playhead to half the queue size behind the head.
 		const u32 gap = (granule_queue_size >> 1) + 1;
-		tail = (head - gap) & GRANULE_QUEUE_MASK;
+		tail = (head - gap);
 	}
 
 	// Checks to see if the queue is empty.
-	u32 next_tail = (tail + 1) & GRANULE_QUEUE_MASK;
+	u32 next_tail = tail + 1;
 	if (next_tail == head) {
 		// Only fill gaps when running to prevent stutter on pause.
 		CoreState state = coreState;
@@ -253,7 +255,7 @@ void GranularMixer::Dequeue(Granule* granule) {
 			// Jump the playhead to half the queue size behind the head.
 			// This provides smoother audio playback than suddenly stopping.
 			const u32 gap = std::max<u32>(2, granule_queue_size >> 1) - 1;
-			next_tail = (head - gap) & GRANULE_QUEUE_MASK;
+			next_tail = head - gap;
 			m_queue_looping.store(true, std::memory_order_relaxed);
 		} else {
 			std::fill(granule->begin(), granule->end(), StereoPair{ 0.0f, 0.0f });
@@ -262,7 +264,7 @@ void GranularMixer::Dequeue(Granule* granule) {
 		}
 	}
 
-	*granule = m_queue[tail];
+	*granule = m_queue[tail & GRANULE_QUEUE_MASK];
 	m_queue_tail.store(next_tail, std::memory_order_release);
 }
 
