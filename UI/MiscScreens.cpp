@@ -1191,7 +1191,9 @@ void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {
 			}
 		}
 	}
-	text_->SetText(text);
+	if (text_) {
+		text_->SetText(text);
+	}
 	timeShown_ = time_now_d();
 }
 
