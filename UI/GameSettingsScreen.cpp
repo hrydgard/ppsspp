@@ -925,6 +925,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -961,7 +962,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	if (g_Config.sInfrastructureUsername.empty()) {
 		networkingSettings->Add(new NoticeView(NoticeLevel::WARN, n->T("To play in Infrastructure Mode, you must enter a username"), ""));
 	}
-	PopupTextInputChoice *usernameChoice = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sInfrastructureUsername, n->T("Username"), "", 16, screenManager()));
+	PopupTextInputChoice *usernameChoice = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sInfrastructureUsername, di->T("Username"), "", 16, screenManager()));
 	usernameChoice->SetRestriction(StringRestriction::AlphaNumDashUnderscore, 3);
 	usernameChoice->OnChange.Add([this](UI::EventParams &e) {
 		RecreateViews();
@@ -1022,8 +1023,6 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 	}
 #endif
-
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
