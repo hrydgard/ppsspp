@@ -1352,10 +1352,15 @@ void DrawAudioOut(ImConfig &cfg, ImControl &control) {
 		GranularStats stats;
 		g_granular.GetStats(&stats);
 		ImGui::Text("Granules");
-		ImGui::Text("Queued: %d", stats.queuedGranules);
+		ImGui::Text("Read size: %0.2f", stats.smoothedReadSize);
+		ImGui::Text("Queued min/max: %d / %d", stats.queuedGranulesMin, stats.queuedGranulesMax);
+		ImGui::Text("Queued (smooth): %0.3f", stats.smoothedQueuedGranules);
 		ImGui::Text("Target: %d", stats.targetQueueSize);
 		ImGui::Text("Max: %d", stats.maxQueuedGranules);
-		ImGui::Text("Computed queue latency: %d ms", stats.queuedGranules * GranularMixer::GRANULE_SIZE * 1000 / 44100);
+		ImGui::Text("Computed queue latency: %d ms", (int)(stats.smoothedQueuedGranules * (GranularMixer::GRANULE_SIZE * 1000.0 / 44100.0)));
+		ImGui::Text("Fade volume: %0.2f", stats.fadeVolume);
+		ImGui::Text("Looping: %s", BoolStr(stats.looping));
+		ImGui::Text("Under/Over: %d / %d", stats.underruns, stats.overruns);
 	}
 
 	ImGui::End();

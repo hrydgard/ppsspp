@@ -24,10 +24,16 @@ constexpr u32 countr_one_replacement(u32 x) {
 }
 
 struct GranularStats {
-	int queuedGranules;
+	int queuedGranulesMin;
+	int queuedGranulesMax;
+	float smoothedQueuedGranules;
 	int targetQueueSize;
 	int maxQueuedGranules;
 	float fadeVolume;
+	bool looping;
+	int overruns;
+	int underruns;
+	float smoothedReadSize;
 };
 
 class GranularMixer final {
@@ -86,13 +92,20 @@ private:
 	Granule m_back;
 
 	std::atomic<u32> m_granule_queue_size{ 20 };
+	float smoothedQueueSize_ = 0.0f;
 	Granule m_queue[MAX_GRANULE_QUEUE_SIZE];
 
 	// These are permitted to grow indefinitely and masked on use.
 	std::atomic<u32> m_queue_head{};
 	std::atomic<u32> m_queue_tail{};
-	std::atomic<bool> m_queue_looping{ false };
+	std::atomic<bool> m_queue_looping{};
+
 	float m_fade_volume = 1.0;
+	int underruns_ = 0;
+	int overruns_ = 0;
+	int queuedGranulesMin_ = 10000;
+	int queuedGranulesMax_ = 0;
+	float smoothedReadSize_ = 0.0f;
 
 	void Enqueue();
 	void Dequeue(Granule* granule);

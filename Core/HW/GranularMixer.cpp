@@ -12,6 +12,7 @@
 #include "Common/Log.h"
 #include "Common/Math/math_util.h"
 #include "Common/Swap.h"
+#include "Core/HW/Display.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u16
@@ -79,6 +80,9 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
 	if (!samples)
 		return;
 	memset(samples, 0, num_samples * 2 * sizeof(s16));
+
+	smoothedReadSize_ = smoothedReadSize_ == 0 ? num_samples : (smoothedReadSize_ * 0.95f + num_samples * 0.05f);
+
 	constexpr u32 INDEX_HALF = 0x80000000;
 	constexpr double FADE_IN_RC = 0.008;
 	constexpr double FADE_OUT_RC = 0.064;
@@ -104,7 +108,7 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
 	// in a burst each frame (since we can't force real clock sync). That means 16*3 = 48 or rather 50ms.
 	// However, in case of faster framerates, we should apply some pressure to reduce this. And if real clock sync
 	// is on, we should also be able to get away with a shorter buffer here.
-	const u32 buffer_size_ms = 55;
+	const u32 buffer_size_ms = 100;
 	const u32 buffer_size_samples = std::llround(buffer_size_ms * in_sample_rate / 1000.0);
 
 	// Limit the possible queue sizes to any number between 4 and 64.
@@ -117,6 +121,20 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
 	}
 
 	m_granule_queue_size.store(buffer_size_granules, std::memory_order_relaxed);
+
+	int actualQueueSize = m_queue_head - m_queue_tail;
+	if (smoothedQueueSize_ == 0) {
+		smoothedQueueSize_ = actualQueueSize;
+	} else {
+		constexpr float factor = 0.95f;
+		smoothedQueueSize_ = factor * smoothedQueueSize_ + (1.0f - factor) * (float)actualQueueSize;
+	}
+	if (actualQueueSize < queuedGranulesMin_) {
+		queuedGranulesMin_ = actualQueueSize;
+	}
+	if (actualQueueSize > queuedGranulesMax_) {
+		queuedGranulesMax_ = actualQueueSize;
+	}
 
 	// TODO: The performance of this could be greatly enhanced with SIMD but it won't be easy
 	// due to wrapping of various buffers.
@@ -135,7 +153,8 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
 		else if (back_index < index_jump)
 			Dequeue(&m_back);
 
-		// The Granules are pre-windowed, so we can just add them together
+		// The Granules are pre-windowed, so we can just add them together. A bit of accidental wrapping doesn't matter
+		// either since the tails are so weak.
 		const u32 ft = front_index >> GRANULE_FRAC_BITS;
 		const u32 bt = back_index >> GRANULE_FRAC_BITS;
 		const StereoPair s0 = m_front[(ft - 2) & GRANULE_MASK] + m_back[(bt - 2) & GRANULE_MASK];
@@ -174,11 +193,8 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate) {
 		else
 			m_fade_volume += fade_in_mul * (1.0f - m_fade_volume);
 
-		// Apply the fade volume to the sample
-		sample = sample * m_fade_volume;
-
-		samples[0] = (int16_t)clamp_value(sample.l, -32767.0f, 32767.0f);
-		samples[1] = (int16_t)clamp_value(sample.r, -32767.0f, 32767.0f);
+		samples[0] = (int16_t)clamp_value(sample.l * m_fade_volume, -32767.0f, 32767.0f);
+		samples[1] = (int16_t)clamp_value(sample.r * m_fade_volume, -32767.0f, 32767.0f);
 
 		samples += 2;
 	}
@@ -203,18 +219,11 @@ void GranularMixer::PushSamples(const s32 *samples, u32 num_samples, float volum
 }
 
 void GranularMixer::Enqueue() {
-	// import numpy as np
-	// import scipy.signal as signal
-	// window = np.convolve(np.ones(128), signal.windows.dpss(128 + 1, 4))
-	// window /= (window[:len(window) // 2] + window[len(window) // 2:]).max()
-	// elements = ", ".join([f"{x:.10f}f" for x in window])
-	// print(f'constexpr std::array<StereoPair, GRANULE_SIZE> GRANULE_WINDOW = {{ {elements}
-	// }};')
 	const u32 head = m_queue_head.load(std::memory_order_acquire);
 
 	// Check if we run out of space in the circular queue. (rare)
 	u32 next_head = head + 1;
-	if (next_head == m_queue_tail.load(std::memory_order_acquire)) {
+	if ((next_head & GRANULE_QUEUE_MASK) == (m_queue_tail.load(std::memory_order_acquire) & GRANULE_QUEUE_MASK)) {
 		WARN_LOG(Log::Audio,
 			"Granule Queue has completely filled and audio samples are being dropped. "
 			"This should not happen unless the audio backend has stopped requesting audio.");
@@ -233,7 +242,7 @@ void GranularMixer::Enqueue() {
 	m_queue_looping.store(false, std::memory_order_relaxed);
 }
 
-void GranularMixer::Dequeue(Granule* granule) {
+void GranularMixer::Dequeue(Granule *granule) {
 	const u32 granule_queue_size = m_granule_queue_size.load(std::memory_order_relaxed);
 	const u32 head = m_queue_head.load(std::memory_order_acquire);
 	u32 tail = m_queue_tail.load(std::memory_order_acquire);
@@ -243,21 +252,31 @@ void GranularMixer::Dequeue(Granule* granule) {
 		// Jump the playhead to half the queue size behind the head.
 		const u32 gap = (granule_queue_size >> 1) + 1;
 		tail = (head - gap);
+		overruns_++;
 	}
 
 	// Checks to see if the queue is empty.
 	u32 next_tail = tail + 1;
-	if (next_tail == head) {
+
+	bool looping = m_queue_looping.load();
+
+	/*if (!looping && !smoothedQueueSize_ < granule_queue_size / 2) {
+		// Repeat a single block occasionally to make sure we have a reasonably sized queue.
+		next_tail = tail;
+	} else*/ if (next_tail == head) {
 		// Only fill gaps when running to prevent stutter on pause.
 		CoreState state = coreState;
 		const bool is_running = state == CORE_RUNNING_CPU || state == CORE_RUNNING_GE;
 		if (g_Config.bFillAudioGaps && is_running) {
 			// Jump the playhead to half the queue size behind the head.
+			// This will repeat a few past granules I guess? They still contain sensible data.
 			// This provides smoother audio playback than suddenly stopping.
 			const u32 gap = std::max<u32>(2, granule_queue_size >> 1) - 1;
 			next_tail = head - gap;
+			underruns_++;
 			m_queue_looping.store(true, std::memory_order_relaxed);
 		} else {
+			// Send a zero granule.
 			std::fill(granule->begin(), granule->end(), StereoPair{ 0.0f, 0.0f });
 			m_queue_looping.store(false, std::memory_order_relaxed);
 			return;
@@ -269,12 +288,16 @@ void GranularMixer::Dequeue(Granule* granule) {
 }
 
 void GranularMixer::GetStats(GranularStats *stats) {
-	int queuedGranules = ((int)m_queue_head.load() - (int)m_queue_tail.load()) & (MAX_GRANULE_QUEUE_SIZE - 1);
-	if (queuedGranules < 0) {
-		queuedGranules = 0;
-	}
-	stats->queuedGranules = queuedGranules;
+	stats->queuedGranulesMin = queuedGranulesMin_;
+	stats->queuedGranulesMax = queuedGranulesMax_;
+	stats->smoothedQueuedGranules = smoothedQueueSize_;
 	stats->targetQueueSize = m_granule_queue_size.load(std::memory_order_relaxed);
 	stats->maxQueuedGranules = MAX_GRANULE_QUEUE_SIZE;
 	stats->fadeVolume = m_fade_volume;
+	stats->looping = m_queue_looping;
+	stats->overruns = overruns_;
+	stats->underruns = underruns_;
+	stats->smoothedReadSize = smoothedReadSize_;
+	queuedGranulesMin_ = 10000;
+	queuedGranulesMax_ = 0;
 }
