@@ -16,15 +16,15 @@ private:
 	// Uses the current ListType
 	void FillBlockList();
 
-	UI::LinearLayout *comparisonView_;
-	UI::LinearLayout *leftDisasm_;
-	UI::LinearLayout *rightDisasm_;
+	UI::LinearLayout *comparisonView_ = nullptr;
+	UI::LinearLayout *leftDisasm_ = nullptr;
+	UI::LinearLayout *rightDisasm_ = nullptr;
 
-	UI::LinearLayout *blockListView_;
-	UI::LinearLayout *blockListContainer_;
+	UI::LinearLayout *blockListView_ = nullptr;
+	UI::LinearLayout *blockListContainer_ = nullptr;
 
-	UI::LinearLayout *statsView_;
-	UI::LinearLayout *statsContainer_;
+	UI::LinearLayout *statsView_ = nullptr;
+	UI::LinearLayout *statsContainer_ = nullptr;
 
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
@@ -60,9 +60,9 @@ private:
 	int64_t sumExecutions_ = 0;
 	std::vector<int> blockList_;  // for BLOCK_LIST mode
 
-	UI::TextView *blockName_;
-	UI::TextEdit *blockAddr_;
-	UI::TextView *blockStats_;
+	UI::TextView *blockName_ = nullptr;
+	UI::TextEdit *blockAddr_ = nullptr;
+	UI::TextView *blockStats_ = nullptr;
 };
 
 class AddressPromptScreen : public PopupScreen {

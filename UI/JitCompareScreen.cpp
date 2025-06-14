@@ -9,6 +9,9 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 JitCompareScreen::JitCompareScreen() : UIDialogScreenWithBackground() {
+	if (!MIPSComp::jit) {
+		return;
+	}
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 	// The only defaults that make sense.
 	if (blockCacheDebug->SupportsProfiling()) {
