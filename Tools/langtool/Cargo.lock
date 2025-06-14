@@ -149,9 +149,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
-version = "2.0.102"
+version = "2.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6397daf94fa90f058bd0fd88429dd9e5738999cca8d701813c80723add80462"
+checksum = "e4307e30089d6fd6aff212f2da3a1f9e32f3223b1f010fb09b7c95f90f3ca1e8"
 dependencies = [
  "proc-macro2",
  "quote",
