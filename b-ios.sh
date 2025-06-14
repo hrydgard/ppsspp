@@ -121,8 +121,13 @@ Version: 0v${version_number}
 chmod 0755 ${package_name}/DEBIAN/control
 mkdir ${package_name}/Library
 mkdir ${package_name}/Library/PPSSPPRepoIcons
+# Seems to be 120x120 pixels (ie. 60x60@2x ?)
 if [ -e ../ios/org.ppsspp.ppsspp.png ]; then
-	cp ../ios/org.ppsspp.ppsspp.png ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png # 120x120 pixels? (ie. 60x60@2x)
+	cp ../ios/org.ppsspp.ppsspp.png ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
+ 	chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
+# Let's use AppIcon60x60@2x.png as alternative
+elif [ -e 'PPSSPP.app/AppIcon60x60@2x.png' ]; then
+	cp 'PPSSPP.app/AppIcon60x60@2x.png' ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
  	chmod 0755 ${package_name}/Library/PPSSPPRepoIcons/org.ppsspp.ppsspp-dev-latest.png
 fi
 mkdir ${package_name}/Library/PreferenceLoader
