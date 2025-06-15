@@ -25,6 +25,16 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.19.2
+--------------------
+
+- In-game save/load not properly detected for saving reminder ([#20500])
+- Install savedata from ZIP was partially broken ([#20498])
+- Fixed module loader bug affecting a few games ([#20513])
+- Fixed some hangs in the Windows debugger ([#20510])
+- Fix performance problem in texture replacement ([#20520])
+- Assorted fixes ([#20518], [#20514], [#20502], [#20515])
+
 What's new in 1.19.1
 --------------------
 
@@ -358,3 +368,12 @@ What's new in 1.18
 [#20457]: https://github.com/hrydgard/ppsspp/issues/20457 "Fix homebrew apps that request large memory"
 [#20456]: https://github.com/hrydgard/ppsspp/issues/20456 "Fix grid drawing in Robot Taisen games."
 [#20453]: https://github.com/hrydgard/ppsspp/issues/20453 "libkirk concurrency fixes"
+[#20500]: https://github.com/hrydgard/ppsspp/issues/20500 "Correct save/load detection for the reminder."
+[#20498]: https://github.com/hrydgard/ppsspp/issues/20498 "Install savedata from zip seems to have regressed"
+[#20513]: https://github.com/hrydgard/ppsspp/issues/20513 "ELF loader: Revert bad export check"
+[#20510]: https://github.com/hrydgard/ppsspp/issues/20510 "Fix bug in Win32 debugger, misc fixes"
+[#20520]: https://github.com/hrydgard/ppsspp/issues/20520 "Replacement textures: Don't spend frame time waiting for a texture to be finished"
+[#20518]: https://github.com/hrydgard/ppsspp/issues/20518 "Disable the Cache full ISO in RAM feature on 32-bit builds"
+[#20514]: https://github.com/hrydgard/ppsspp/issues/20514 "Developer tools: Add UI to force-enable HLE of modules that we have disabled HLE of"
+[#20502]: https://github.com/hrydgard/ppsspp/issues/20502 "Switching from IR Interpreter to JIT in-game crashes"
+[#20515]: https://github.com/hrydgard/ppsspp/issues/20515 "Additional fixes for 1.19.2"
