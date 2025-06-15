@@ -699,7 +699,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		std::string_view backendSwitchError = err->T("GenericBackendSwitchCrash", "PPSSPP crashed while starting. This usually means a graphics driver problem. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
-		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, param1.c_str()));
+		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%.*s %s", (int)backendSwitchError.size(), backendSwitchError.data(), param1.c_str()));
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
 		return true;

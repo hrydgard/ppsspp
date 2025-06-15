@@ -160,7 +160,10 @@ void ControlMapper::SetCallbacks(
 }
 
 void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
-	int axisId = axis == 'X' ? 0 : 1;
+	const int axisId = axis == 'X' ? 0 : 1;
+	if (stick != 0 && stick != 1) {
+		return;
+	}
 
 	float position[2];
 	position[0] = history_[stick][0];

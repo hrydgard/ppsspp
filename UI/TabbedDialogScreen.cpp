@@ -116,8 +116,10 @@ void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
 }
 
 void TabbedUIDialogScreenWithGameBackground::EnsureTabs() {
-	_assert_(tabHolder_);
-	tabHolder_->EnsureAllCreated();
+	_dbg_assert_(tabHolder_);
+	if (tabHolder_) {
+		tabHolder_->EnsureAllCreated();
+	}
 }
 
 void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {

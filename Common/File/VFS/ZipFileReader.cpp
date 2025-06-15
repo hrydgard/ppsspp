@@ -338,10 +338,12 @@ bool ReadSingleFileFromZip(Path zipFile, const char *path, std::string *data, st
 
 	struct zip_stat zstat;
 	if (zip_stat(zip, path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat) != 0) {
+		zip_close(zip);
 		return false;
 	}
 	zip_file *file = zip_fopen_index(zip, zstat.index, ZIP_FL_UNCHANGED);
 	if (!file) {
+		zip_close(zip);
 		return false;
 	}
 	if (mutex) {
