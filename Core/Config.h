@@ -289,6 +289,9 @@ public:
 	bool bEnableSound;
 	int iAudioBackend;
 	int iSDLAudioBufferSize;
+	int iAudioBufferSize;
+	bool bFillAudioGaps;
+	int iAudioSyncMode;
 
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;
