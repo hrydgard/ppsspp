@@ -322,6 +322,10 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 			output[out_idx++] = (char)0x80;
 			i++;
 		} else if ((c & 0xF0) == 0xF0) { // 4-byte sequence (U+10000 to U+10FFFF)
+			if (i + 4 > input.length()) {
+				// Bad.
+				break;
+			}
 			// Decode the Unicode code point from the UTF-8 sequence
 			uint32_t code_point = ((input[i] & 0x07) << 18) |
 				((input[i + 1] & 0x3F) << 12) |
@@ -344,6 +348,9 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 				utf8_len = 2; // 2-byte sequence
 			} else if ((c & 0xF0) == 0xE0) {
 				utf8_len = 3; // 3-byte sequence
+			}
+			if (i + utf8_len > input.length()) {
+				break;
 			}
 			memcpy(output->data() + out_idx, input.data() + i, utf8_len);
 			out_idx += utf8_len;

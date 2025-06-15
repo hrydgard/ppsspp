@@ -30,9 +30,9 @@ public:
 			return true;
 
 		uint32_t us = budget_s > 0 ? (uint32_t)(budget_s * 1000000.0) : 0;
-		if (us == 0)
+		if (us == 0) {
 			return false;
-
+		}
 		std::unique_lock<std::mutex> lock(mutex_);
 		return cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return triggered_.load(); });
 	}
