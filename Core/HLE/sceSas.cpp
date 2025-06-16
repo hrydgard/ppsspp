@@ -344,7 +344,7 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 
 	u32 prevVagAddr = v.vagAddr;
 	bool reset = false;
-	if (v.type != VOICETYPE_VAG || v.vagAddr != vagAddr || v.vagSize != size || v.loop != loop) {
+	if (v.type != VOICETYPE_VAG || v.vagAddr != vagAddr || v.vagSize != size || v.loop != (loop != 0)) {
 		v.type = VOICETYPE_VAG;
 		reset = true;
 	}

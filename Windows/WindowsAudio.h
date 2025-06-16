@@ -11,8 +11,9 @@ typedef int (*StreamCallback)(short *buffer, int numSamples, int rate);
 class WindowsAudioBackend {
 public:
 	virtual ~WindowsAudioBackend() {}
-	virtual bool Init(HWND window, StreamCallback _callback, int sampleRate) = 0;
+	virtual bool Init(StreamCallback _callback, void *userdata = nullptr) = 0;
 	virtual int GetSampleRate() const = 0;
+	virtual int PeriodFrames() const = 0;
 };
 
 // Factory

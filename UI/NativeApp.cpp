@@ -842,9 +842,9 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 #if PPSSPP_PLATFORM(UWP)
-	winAudioBackend->Init(0, &NativeMix, 44100);
+	winAudioBackend->Init(&NativeMix);
 #else
-	winAudioBackend->Init(MainWindow::GetHWND(), &NativeMix, 44100);
+	winAudioBackend->Init(&NativeMix);
 #endif
 #endif
 

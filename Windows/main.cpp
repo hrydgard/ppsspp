@@ -325,6 +325,8 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		return (int64_t)MainWindow::GetHWND();
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
+		return winAudioBackend ? winAudioBackend->PeriodFrames() : -1;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_DESKTOP;
 	case SYSPROP_DISPLAY_COUNT:

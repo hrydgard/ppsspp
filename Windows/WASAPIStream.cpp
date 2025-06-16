@@ -186,8 +186,7 @@ private:
 #define REFTIMES_PER_SEC  (10000000/200)
 #define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC / 1000)
 
-WASAPIAudioBackend::WASAPIAudioBackend() : threadData_(0) {
-}
+WASAPIAudioBackend::WASAPIAudioBackend() : threadData_(0) { }
 
 WASAPIAudioBackend::~WASAPIAudioBackend() {
 	if (threadData_ == 0) {
@@ -210,10 +209,10 @@ unsigned int WINAPI WASAPIAudioBackend::soundThread(void *param) {
 	return backend->RunThread();
 }
 
-bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRate) {
+bool WASAPIAudioBackend::Init(StreamCallback callback, void *userdata) {
 	threadData_ = 0;
+	userdata_ = userdata;
 	callback_ = callback;
-	sampleRate_ = sampleRate;
 	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
 	if (!hThread_)
 		return false;

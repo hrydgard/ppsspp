@@ -10,8 +10,9 @@ public:
 	WASAPIAudioBackend();
 	~WASAPIAudioBackend();
 
-	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
+	bool Init(StreamCallback callback, void *userdata) override;  // If fails, can safely delete the object
 	int GetSampleRate() const override { return sampleRate_; }
+	int PeriodFrames() const override { return periodFrames_; }  // amount of frames normally requested
 
 private:
 	int RunThread();
@@ -20,5 +21,7 @@ private:
 	HANDLE hThread_ = nullptr;
 	StreamCallback callback_ = nullptr;
 	int sampleRate_ = 0;
-	std::atomic<int> threadData_;
+	int periodFrames_ = 0;
+	void *userdata_ = 0;
+	std::atomic<int> threadData_{};
 };
