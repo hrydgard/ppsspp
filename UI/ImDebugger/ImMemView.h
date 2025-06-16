@@ -92,6 +92,10 @@ private:
 		MemorySearchStatus status;
 	} memSearch_;
 
+	std::vector<u8> byteClipboard_;
+	void CopyToByteClipboard();
+	void PasteFromByteClipboard();
+
 	static wchar_t szClassName[];
 	MIPSDebugInterface *debugger_ = nullptr;
 
