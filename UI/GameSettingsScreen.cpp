@@ -676,14 +676,6 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	});
 	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
-	// Hide the backend selector in UWP builds (we only support XAudio2 there).
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	if (IsVistaOrHigher()) {
-		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
-		audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), I18NCat::AUDIO, screenManager()));
-	}
-#endif
-
 	bool sdlAudio = false;
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
