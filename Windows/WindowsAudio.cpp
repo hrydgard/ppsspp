@@ -3,5 +3,5 @@
 #include "WASAPIContext.h"
 
 AudioBackend *System_CreateAudioBackend() {
-	return new WASAPIAudioBackend();
+	return new WASAPIContext();
 }

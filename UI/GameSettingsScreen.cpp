@@ -21,6 +21,7 @@
 #include <set>
 
 #include "Common/Net/Resolve.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
@@ -677,6 +678,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
 	bool sdlAudio = false;
+
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
@@ -695,12 +697,45 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 #endif
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+
+	extern AudioBackend *g_audioBackend;
+
+	std::vector<std::string> audioDeviceNames;
+	std::vector<std::string> audioDeviceIds;
+
+	std::vector<AudioDeviceDesc> deviceDescs;
+	g_audioBackend->EnumerateDevices(&deviceDescs);
+	for (auto &desc : deviceDescs) {
+		audioDeviceNames.push_back(desc.name);
+		audioDeviceIds.push_back(desc.uniqueId);
+	}
+
+	audioDeviceNames.insert(audioDeviceNames.begin(), std::string(a->T("Auto")));
+	audioDeviceIds.insert(audioDeviceIds.begin(), "");
+
+	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceNames, I18NCat::NONE, screenManager(), &audioDeviceIds));
+	audioDevice->OnChoice.Add([this](UI::EventParams &) {
+		bool reverted;
+		if (g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted)) {
+			if (reverted) {
+				WARN_LOG(Log::Audio, "Unexpected: After a direct choice, audio device reverted to default. '%s'", g_Config.sAudioDevice.c_str());
+			}
+		} else {
+			WARN_LOG(Log::Audio, "InitOutputDevice failed");
+		}
+		return UI::EVENT_DONE;
+	});
+	CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+	autoAudio->SetEnabledFunc([]()->bool {
+		return g_Config.sAudioDevice.empty();
+	});
+
 	const bool isWindows = true;
 #else
 	const bool isWindows = false;
 #endif
 
-	if (sdlAudio || isWindows) {
+	if (sdlAudio) {
 		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
 	}
 
