@@ -70,6 +70,8 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
     <true/>
     <key>com.apple.private.security.storage.AppDataContainers</key>
     <true/>
+    <key>com.apple.private.security.container-required</key>
+    <false/>
     <key>com.apple.private.security.no-container</key>
     <true/>
     <key>com.apple.private.security.no-sandbox</key>
