@@ -842,6 +842,7 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text_win.h
 	Common/Render/Text/draw_text_uwp.cpp
 	Common/Render/Text/draw_text_uwp.h
+	Common/Audio/AudioBackend.h
 	Common/System/Display.cpp
 	Common/System/Display.h
 	Common/System/System.h

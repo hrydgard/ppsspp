@@ -15,6 +15,7 @@ struct KeyInput;
 struct AxisInput;
 
 class GraphicsContext;
+class AudioBackend;
 
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
@@ -92,3 +93,4 @@ bool Native_IsWindowHidden();
 // TODO: Feels like this belongs elsewhere.
 bool Native_UpdateScreenScale(int width, int height, float customScale);
 
+AudioBackend *System_CreateAudioBackend();

@@ -694,7 +694,13 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	});
 #endif
 
-	if (sdlAudio || g_Config.iAudioBackend == AUDIO_BACKEND_WASAPI) {
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	const bool isWindows = true;
+#else
+	const bool isWindows = false;
+#endif
+
+	if (sdlAudio || isWindows) {
 		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
 	}
 

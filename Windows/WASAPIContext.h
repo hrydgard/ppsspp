@@ -5,13 +5,13 @@
 
 // This should only be included from WindowsAudio.cpp and WASAPIStream.cpp.
 
-class WASAPIAudioBackend : public WindowsAudioBackend {
+class WASAPIAudioBackend : public AudioBackend {
 public:
 	WASAPIAudioBackend();
 	~WASAPIAudioBackend();
 
 	bool Init(StreamCallback callback, void *userdata) override;  // If fails, can safely delete the object
-	int GetSampleRate() const override { return sampleRate_; }
+	int SampleRate() const override { return sampleRate_; }
 	int PeriodFrames() const override { return periodFrames_; }  // amount of frames normally requested
 	void FrameUpdate() override {}
 

@@ -2,6 +2,6 @@
 #include "WindowsAudio.h"
 #include "WASAPIContext.h"
 
-WindowsAudioBackend *CreateAudioBackend(AudioBackendType type) {
+AudioBackend *System_CreateAudioBackend() {
 	return new WASAPIAudioBackend();
 }

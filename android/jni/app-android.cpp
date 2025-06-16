@@ -820,6 +820,11 @@ retry:
 	}
 }
 
+AudioBackend *System_CreateAudioBackend() {
+	// Use legacy mechanisms.
+	return nullptr;
+}
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	sampleRate = optimalSampleRate;
 	if (optimalSampleRate == 0) {

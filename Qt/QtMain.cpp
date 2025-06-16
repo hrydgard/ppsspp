@@ -33,6 +33,7 @@
 #include "SDL_keyboard.h"
 #endif
 
+#include "Common/Audio/AudioBackend.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -442,6 +443,11 @@ void System_Vibrate(int length_ms) {
 void System_LaunchUrl(LaunchUrlType urlType, const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
+}
+
+AudioBackend *System_CreateAudioBackend() {
+	// Use legacy mechanisms.
+	return nullptr;
 }
 
 static int mainInternal(QApplication &a) {

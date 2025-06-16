@@ -771,7 +771,6 @@ static int DefaultAchievementVolume() {
 
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, CfgFlag::PER_GAME),
-	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, CfgFlag::DEFAULT),
 	ConfigSetting("AudioBufferSize", &g_Config.iSDLAudioBufferSize, 256, CfgFlag::DEFAULT),
 

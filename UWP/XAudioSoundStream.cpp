@@ -7,19 +7,19 @@
 
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Audio/AudioBackend.h"
 #include "XAudioSoundStream.h"
-
 #include <process.h>
 
 const size_t BUFSIZE = 32 * 1024;
 
-class XAudioBackend : public WindowsAudioBackend {
+class XAudioBackend : public AudioBackend {
 public:
 	XAudioBackend();
 	~XAudioBackend() override;
 
 	bool Init(StreamCallback callback, void *userdata = nullptr) override;  // If fails, can safely delete the object
-	int GetSampleRate() const override { return sampleRate_; }
+	int SampleRate() const override { return sampleRate_; }
 	int PeriodFrames() const override { return 0; }
 
 private:
@@ -159,7 +159,7 @@ void XAudioBackend::PollLoop() {
 		// take ownership of the data. It needs to be big enough to fit the max number of buffers we check for
 		// above, which it is, easily.
 
-		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_);
+		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_, userdata_);
 		int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
 
 		XAUDIO2_BUFFER xaudioBuffer{};
@@ -180,7 +180,7 @@ void XAudioBackend::PollLoop() {
 	SetEvent(exitEvent_);
 }
 
-WindowsAudioBackend *CreateAudioBackend(AudioBackendType type) {
+AudioBackend *System_CreateAudioBackend() {
 	// Only one type available on UWP.
 	return new XAudioBackend();
 }
