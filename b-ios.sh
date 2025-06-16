@@ -80,6 +80,8 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
     <true/>
     <key>com.apple.developer.kernel.extended-virtual-addressing</key>
     <true/>
+    <key>com.apple.developer.kernel.increased-memory-limit</key>
+    <true/>
     <key>com.apple.security.iokit-user-client-class</key>
     <array>
         <string>AGXDeviceUserClient</string>
