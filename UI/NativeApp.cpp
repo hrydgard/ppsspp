@@ -1071,6 +1071,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
 
+	System_Notify(SystemNotification::POLL_AUDIO_DEVICE);
+
 	SetOverrideScreenFrame(nullptr);
 
 	// it's ok to call this redundantly with DoFrame from EmuScreen

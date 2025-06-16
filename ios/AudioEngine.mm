@@ -19,7 +19,7 @@ static volatile BOOL done = 0;
 #define SAMPLE_SIZE 44100
 static short stream[SAMPLE_SIZE];
 
-int NativeMix(short *audio, int numSamples, int sampleRateHz);
+int NativeMix(short *audio, int numSamples, int sampleRateHz, void *userdata);
 
 @interface AudioEngine ()
 
@@ -125,7 +125,7 @@ int NativeMix(short *audio, int numSamples, int sampleRateHz);
         {
             size_t frames_ready;
             if (![self playing])
-                frames_ready = NativeMix(stream, SAMPLE_SIZE / 2, sampleRateHz);
+                frames_ready = NativeMix(stream, SAMPLE_SIZE / 2, sampleRateHz, 0);
             else
                 frames_ready = 0;
 

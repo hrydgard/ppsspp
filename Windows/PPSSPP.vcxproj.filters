@@ -181,7 +181,7 @@
     <ClCompile Include="WindowsAudio.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="WASAPIStream.cpp">
+    <ClCompile Include="WASAPIContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
     <ClCompile Include="CaptureDevice.cpp">
@@ -390,7 +390,7 @@
     <ClInclude Include="WindowsAudio.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="WASAPIStream.h">
+    <ClInclude Include="WASAPIContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="..\ppsspp_config.h" />

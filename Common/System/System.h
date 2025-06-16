@@ -254,6 +254,7 @@ enum class SystemNotification {
 	UI_STATE_CHANGED,
 	AUDIO_MODE_CHANGED,
 	APP_SWITCH_MODE_CHANGED,
+	POLL_AUDIO_DEVICE,
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of

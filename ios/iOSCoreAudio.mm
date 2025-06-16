@@ -74,7 +74,7 @@ void iOSCoreAudioSetDisplayConnected(bool connected) {
 	iOSCoreAudioUpdateSession();
 }
 
-int NativeMix(short *audio, int numSamples, int sampleRate);
+int NativeMix(short *audio, int numSamples, int sampleRate, void *userdata);
 
 OSStatus iOSCoreAudioCallback(void *inRefCon,
 							  AudioUnitRenderActionFlags *ioActionFlags,
@@ -85,7 +85,7 @@ OSStatus iOSCoreAudioCallback(void *inRefCon,
 {
 	// see if we have any sound to play
 	short *output = (short *)ioData->mBuffers[0].mData;
-	UInt32 framesReady = NativeMix(output, inNumberFrames, SAMPLE_RATE);
+	UInt32 framesReady = NativeMix(output, inNumberFrames, SAMPLE_RATE, nullptr);
 	
 	if (framesReady == 0) {
 		// oops, we don't currently have any sound, so return silence

@@ -718,7 +718,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="W32Util\UAHMenuBar.cpp" />
-    <ClCompile Include="WASAPIStream.cpp" />
+    <ClCompile Include="WASAPIContext.cpp" />
     <ClCompile Include="WindowsAudio.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
     <ClCompile Include="main.cpp" />
@@ -1166,7 +1166,7 @@
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="GPU\WindowsGLContext.h" />
     <ClInclude Include="W32Util\UAHMenuBar.h" />
-    <ClInclude Include="WASAPIStream.h" />
+    <ClInclude Include="WASAPIContext.h" />
     <ClInclude Include="WindowsAudio.h" />
     <ClInclude Include="WindowsHost.h" />
     <ClInclude Include="main.h" />

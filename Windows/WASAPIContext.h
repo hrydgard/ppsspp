@@ -13,6 +13,7 @@ public:
 	bool Init(StreamCallback callback, void *userdata) override;  // If fails, can safely delete the object
 	int GetSampleRate() const override { return sampleRate_; }
 	int PeriodFrames() const override { return periodFrames_; }  // amount of frames normally requested
+	void FrameUpdate() override {}
 
 private:
 	int RunThread();

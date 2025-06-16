@@ -2,7 +2,7 @@
 
 #include <initguid.h>
 #include "WindowsAudio.h"
-#include "WASAPIStream.h"
+#include "WASAPIContext.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
@@ -492,7 +492,7 @@ void WASAPIAudioThread::Run() {
 			int chans = deviceFormat_->Format.nChannels;
 			switch (format_) {
 			case Format::IEEE_FLOAT:
-				callback_(shortBuf_, pNumAvFrames, sampleRate_);
+				callback_(shortBuf_, pNumAvFrames, sampleRate_, nullptr);
 				if (chans == 1) {
 					float *ptr = (float *)pData;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
@@ -511,7 +511,7 @@ void WASAPIAudioThread::Run() {
 				}
 				break;
 			case Format::PCM16:
-				callback_((short *)pData, pNumAvFrames, sampleRate_);
+				callback_((short *)pData, pNumAvFrames, sampleRate_, nullptr);
 				break;
 			case Format::UNKNOWN:
 				break;

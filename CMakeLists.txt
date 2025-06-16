@@ -2625,8 +2625,8 @@ add_dependencies(${CoreLibName} GitVersion)
 set(WindowsFiles
 	Windows/WindowsAudio.cpp
 	Windows/WindowsAudio.h
-	Windows/WASAPIStream.cpp
-	Windows/WASAPIStream.h
+	Windows/WASAPIContext.cpp
+	Windows/WASAPIContext.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h
 	Windows/Debugger/DumpMemoryWindow.cpp

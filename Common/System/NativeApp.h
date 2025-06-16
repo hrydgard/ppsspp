@@ -64,7 +64,7 @@ void NativeFrame(GraphicsContext *graphicsContext);
 // the rest of the game, so be careful with synchronization.
 // Returns the number of samples actually output. The app should do everything it can
 // to fill the buffer completely.
-int NativeMix(short *audio, int num_samples, int sampleRateHz);
+int NativeMix(short *audio, int num_samples, int sampleRateHz, void *userdata);
 
 // Called when it's time to shutdown. After this has been called,
 // no more calls to any other function will be made from the framework

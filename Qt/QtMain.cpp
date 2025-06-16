@@ -78,7 +78,7 @@ SDL_AudioSpec g_retFmt;
 static SDL_AudioDeviceID audioDev = 0;
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4, AUDIO_FREQ);
+	NativeMix((short *)stream, len / 4, AUDIO_FREQ, userdata);
 }
 
 static void InitSDLAudioDevice() {

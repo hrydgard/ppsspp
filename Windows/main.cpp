@@ -460,6 +460,12 @@ void System_Notify(SystemNotification notification) {
 			PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
 		break;
 
+	case SystemNotification::POLL_AUDIO_DEVICE:
+		if (winAudioBackend) {
+			winAudioBackend->FrameUpdate();
+		}
+		break;
+
 	case SystemNotification::DISASSEMBLY:
 		if (disasmWindow)
 			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
@@ -487,6 +493,7 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::POLL_CONTROLLERS:
 		g_inputManager.PollControllers();
+		// Also poll the audio backend for changes.
 		break;
 
 	case SystemNotification::TOGGLE_DEBUG_CONSOLE:

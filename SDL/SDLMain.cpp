@@ -134,7 +134,7 @@ int getDisplayNumber(void) {
 }
 
 void sdl_mixaudio_callback(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / (2 * 2), g_sampleRate);
+	NativeMix((short *)stream, len / (2 * 2), g_sampleRate, userdata);
 }
 
 static SDL_AudioDeviceID audioDev = 0;
