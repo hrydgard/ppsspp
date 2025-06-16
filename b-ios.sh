@@ -68,6 +68,8 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 <dict>
     <key>platform-application</key>
     <true/>
+    <key>com.apple.private.security.storage.AppDataContainers</key>
+    <true/>
     <key>com.apple.private.security.no-container</key>
     <true/>
     <key>com.apple.private.security.no-sandbox</key>
