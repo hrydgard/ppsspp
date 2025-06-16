@@ -86,6 +86,7 @@
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
+#include "Common/Audio/AudioBackend.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -193,9 +194,7 @@ static int g_restartGraphics;
 static bool g_windowHidden = false;
 std::vector<std::function<void()>> g_pendingClosures;
 
-#ifdef _WIN32
-WindowsAudioBackend *winAudioBackend;
-#endif
+AudioBackend *g_audioBackend = nullptr;
 
 std::thread *graphicsLoadThread;
 
@@ -839,14 +838,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
 	g_screenManager->deviceRestored(g_draw);
 
-#ifdef _WIN32
-	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
-#if PPSSPP_PLATFORM(UWP)
-	winAudioBackend->Init(0, &NativeMix, 44100);
-#else
-	winAudioBackend->Init(MainWindow::GetHWND(), &NativeMix, 44100);
-#endif
-#endif
+	g_audioBackend = System_CreateAudioBackend();
+	if (g_audioBackend) {
+		g_audioBackend->Init(&NativeMix);
+	}
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (IsWin7OrHigher()) {
@@ -932,11 +927,6 @@ void NativeShutdownGraphics() {
 	if (gpu)
 		gpu->DeviceLost();
 
-#if PPSSPP_PLATFORM(WINDOWS)
-	delete winAudioBackend;
-	winAudioBackend = nullptr;
-#endif
-
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
 		winCamera->waitShutDown();
@@ -949,6 +939,11 @@ void NativeShutdownGraphics() {
 		winMic = nullptr;
 	}
 #endif
+
+	if (g_audioBackend) {
+		delete g_audioBackend;
+		g_audioBackend = nullptr;
+	}
 
 	UIBackgroundShutdown();
 
@@ -1096,6 +1091,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	g_screenManager->update();
+
+	if (g_audioBackend) {
+		g_audioBackend->FrameUpdate();
+	}
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
@@ -1534,8 +1533,9 @@ void NativeShutdown() {
 	ShaderTranslationShutdown();
 
 	// Avoid shutting this down when restarting core.
-	if (!restarting)
+	if (!restarting) {
 		g_logManager.Shutdown();
+	}
 
 	g_threadManager.Teardown();
 

@@ -7,19 +7,20 @@
 
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Audio/AudioBackend.h"
 #include "XAudioSoundStream.h"
-
 #include <process.h>
 
 const size_t BUFSIZE = 32 * 1024;
 
-class XAudioBackend : public WindowsAudioBackend {
+class XAudioBackend : public AudioBackend {
 public:
 	XAudioBackend();
 	~XAudioBackend() override;
 
-	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
-	int GetSampleRate() const override { return sampleRate_; }
+	bool Init(StreamCallback callback, void *userdata = nullptr) override;  // If fails, can safely delete the object
+	int SampleRate() const override { return sampleRate_; }
+	int PeriodFrames() const override { return 0; }
 
 private:
 	bool RunSound();
@@ -32,7 +33,10 @@ private:
 	IXAudio2MasteringVoice *xaudioMaster = nullptr;
 	IXAudio2SourceVoice *xaudioVoice = nullptr;
 
-	int sampleRate_ = 0;
+	void *userdata_ = nullptr;
+
+	int sampleRate_ = 44100;
+	int periodFrames_ = 0;
 
 	char realtimeBuffer_[BUFSIZE]{};
 	uint32_t cursor_ = 0;
@@ -126,9 +130,9 @@ XAudioBackend::~XAudioBackend() {
 	xaudioDevice->Release();
 }
 
-bool XAudioBackend::Init(HWND window, StreamCallback _callback, int sampleRate) {
+bool XAudioBackend::Init(StreamCallback _callback, void *userdata) {
 	callback_ = _callback;
-	sampleRate_ = sampleRate;
+	userdata_ = userdata;
 	return RunSound();
 }
 
@@ -155,7 +159,7 @@ void XAudioBackend::PollLoop() {
 		// take ownership of the data. It needs to be big enough to fit the max number of buffers we check for
 		// above, which it is, easily.
 
-		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_);
+		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_, userdata_);
 		int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
 
 		XAUDIO2_BUFFER xaudioBuffer{};
@@ -170,12 +174,13 @@ void XAudioBackend::PollLoop() {
 			cursor_ = 0;
 			bytesLeftInBuffer = BUFSIZE;
 		}
+		periodFrames_ = stereoSamplesRendered;
 	}
 
 	SetEvent(exitEvent_);
 }
 
-WindowsAudioBackend *CreateAudioBackend(AudioBackendType type) {
+AudioBackend *System_CreateAudioBackend() {
 	// Only one type available on UWP.
 	return new XAudioBackend();
 }

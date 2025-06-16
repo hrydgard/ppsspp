@@ -277,7 +277,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 }
 
 // Ugly!
-extern WindowsAudioBackend *winAudioBackend;
+extern AudioBackend *winAudioBackend;
 
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
@@ -319,12 +319,16 @@ static float ScreenRefreshRateHz() {
 	return rate;
 }
 
+extern AudioBackend *g_audioBackend;
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_MAIN_WINDOW_HANDLE:
 		return (int64_t)MainWindow::GetHWND();
 	case SYSPROP_AUDIO_SAMPLE_RATE:
-		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+		return g_audioBackend ? g_audioBackend->SampleRate() : -1;
+	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
+		return g_audioBackend ? g_audioBackend->PeriodFrames() : -1;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_DESKTOP;
 	case SYSPROP_DISPLAY_COUNT:
@@ -485,6 +489,7 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::POLL_CONTROLLERS:
 		g_inputManager.PollControllers();
+		// Also poll the audio backend for changes.
 		break;
 
 	case SystemNotification::TOGGLE_DEBUG_CONSOLE:

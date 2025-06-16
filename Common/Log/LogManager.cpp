@@ -164,15 +164,16 @@ LogManager::LogManager() {
 	stdioUseColor_ = isatty(fileno(stdout));
 #endif
 
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(WINDOWS)
 	if (IsDebuggerPresent()) {
 		outputs_ |= LogOutput::DebugString;
 	}
-
+#if !PPSSPP_PLATFORM(UWP)
 	if (!consoleLog_) {
 		consoleLog_ = new ConsoleListener();
 	}
 	outputs_ |= LogOutput::WinConsole;
+#endif
 #endif
 }
 

@@ -28,6 +28,7 @@
 #import "IAPManager.h"
 
 #include "Common/MemoryUtil.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -610,6 +611,11 @@ void System_Vibrate(int mode) {
 		AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
 #endif
 	}
+}
+
+AudioBackend *System_CreateAudioBackend() {
+	// Use legacy mechanisms.
+	return nullptr;
 }
 
 int main(int argc, char *argv[])

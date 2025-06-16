@@ -685,6 +685,9 @@
     <ClInclude Include="..\ext\imgui\imgui_extras.h">
       <Filter>ext\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="Audio\AudioBackend.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1409,6 +1412,9 @@
     </Filter>
     <Filter Include="ext\sol">
       <UniqueIdentifier>{ec7d8691-bb7f-4689-b66a-cb60c1f48afd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Audio">
+      <UniqueIdentifier>{92746a51-33a9-4a00-af10-3538322f04f0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

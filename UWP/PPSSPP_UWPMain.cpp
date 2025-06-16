@@ -11,6 +11,7 @@
 #include "Common/GPU/thin3d_create.h"
 
 #include "Common/Common.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -51,8 +52,6 @@ using namespace Windows::ApplicationModel::DataTransfer;
 using namespace Windows::Devices::Enumeration;
 using namespace Concurrency;
 
-// UGLY!
-extern WindowsAudioBackend *winAudioBackend;
 std::list<std::unique_ptr<InputDevice>> g_input;
 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
@@ -362,10 +361,12 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+extern AudioBackend *g_audioBackend;
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
-		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+		return g_audioBackend ? g_audioBackend->SampleRate() : -1;
 
 	case SYSPROP_DEVICE_TYPE:
 	{

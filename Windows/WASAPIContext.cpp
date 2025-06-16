@@ -2,7 +2,7 @@
 
 #include <initguid.h>
 #include "WindowsAudio.h"
-#include "WASAPIStream.h"
+#include "WASAPIContext.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
@@ -186,8 +186,7 @@ private:
 #define REFTIMES_PER_SEC  (10000000/200)
 #define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC / 1000)
 
-WASAPIAudioBackend::WASAPIAudioBackend() : threadData_(0) {
-}
+WASAPIAudioBackend::WASAPIAudioBackend() : threadData_(0) { }
 
 WASAPIAudioBackend::~WASAPIAudioBackend() {
 	if (threadData_ == 0) {
@@ -210,10 +209,10 @@ unsigned int WINAPI WASAPIAudioBackend::soundThread(void *param) {
 	return backend->RunThread();
 }
 
-bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRate) {
+bool WASAPIAudioBackend::Init(StreamCallback callback, void *userdata) {
 	threadData_ = 0;
+	userdata_ = userdata;
 	callback_ = callback;
-	sampleRate_ = sampleRate;
 	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
 	if (!hThread_)
 		return false;
@@ -493,7 +492,7 @@ void WASAPIAudioThread::Run() {
 			int chans = deviceFormat_->Format.nChannels;
 			switch (format_) {
 			case Format::IEEE_FLOAT:
-				callback_(shortBuf_, pNumAvFrames, sampleRate_);
+				callback_(shortBuf_, pNumAvFrames, sampleRate_, nullptr);
 				if (chans == 1) {
 					float *ptr = (float *)pData;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
@@ -512,7 +511,7 @@ void WASAPIAudioThread::Run() {
 				}
 				break;
 			case Format::PCM16:
-				callback_((short *)pData, pNumAvFrames, sampleRate_);
+				callback_((short *)pData, pNumAvFrames, sampleRate_, nullptr);
 				break;
 			case Format::UNKNOWN:
 				break;

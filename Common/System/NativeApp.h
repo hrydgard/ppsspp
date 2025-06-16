@@ -15,6 +15,7 @@ struct KeyInput;
 struct AxisInput;
 
 class GraphicsContext;
+class AudioBackend;
 
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
@@ -64,7 +65,7 @@ void NativeFrame(GraphicsContext *graphicsContext);
 // the rest of the game, so be careful with synchronization.
 // Returns the number of samples actually output. The app should do everything it can
 // to fill the buffer completely.
-int NativeMix(short *audio, int num_samples, int sampleRateHz);
+int NativeMix(short *audio, int num_samples, int sampleRateHz, void *userdata);
 
 // Called when it's time to shutdown. After this has been called,
 // no more calls to any other function will be made from the framework
@@ -92,3 +93,4 @@ bool Native_IsWindowHidden();
 // TODO: Feels like this belongs elsewhere.
 bool Native_UpdateScreenScale(int width, int height, float customScale);
 
+AudioBackend *System_CreateAudioBackend();

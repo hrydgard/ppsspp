@@ -361,6 +361,7 @@
     <ClInclude Include="Arm64Emitter.h" />
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="ArmEmitter.h" />
+    <ClInclude Include="Audio\AudioBackend.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />

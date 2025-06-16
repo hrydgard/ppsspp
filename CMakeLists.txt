@@ -842,6 +842,7 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text_win.h
 	Common/Render/Text/draw_text_uwp.cpp
 	Common/Render/Text/draw_text_uwp.h
+	Common/Audio/AudioBackend.h
 	Common/System/Display.cpp
 	Common/System/Display.h
 	Common/System/System.h
@@ -2625,8 +2626,8 @@ add_dependencies(${CoreLibName} GitVersion)
 set(WindowsFiles
 	Windows/WindowsAudio.cpp
 	Windows/WindowsAudio.h
-	Windows/WASAPIStream.cpp
-	Windows/WASAPIStream.h
+	Windows/WASAPIContext.cpp
+	Windows/WASAPIContext.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h
 	Windows/Debugger/DumpMemoryWindow.cpp
