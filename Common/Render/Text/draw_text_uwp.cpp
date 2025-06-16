@@ -184,7 +184,7 @@ uint32_t TextDrawerUWP::SetFont(const char *fontName, int size, int flags) {
 		fname = L"Tahoma";
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
-	font->weight = DWRITE_FONT_WEIGHT_LIGHT;
+	font->weight = DWRITE_FONT_WEIGHT_NORMAL;
 	font->height = size;
 	font->fname = fname;
 	font->dpiScale = dpiScale_;

@@ -675,11 +675,11 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		PlayUISound(UI::UISound::CONFIRM);
 		return UI::EVENT_DONE;
 	});
-	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
 	bool sdlAudio = false;
 
 #if defined(SDL)
+	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
 	audioDeviceList.insert(audioDeviceList.begin(), a->T_cstr("Auto"));
@@ -696,8 +696,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	});
 #endif
 
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-
+#if PPSSPP_PLATFORM(WINDOWS)
 	extern AudioBackend *g_audioBackend;
 
 	std::vector<std::string> audioDeviceNames;
@@ -705,35 +704,38 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 
 	std::vector<AudioDeviceDesc> deviceDescs;
 	g_audioBackend->EnumerateDevices(&deviceDescs);
-	for (auto &desc : deviceDescs) {
-		audioDeviceNames.push_back(desc.name);
-		audioDeviceIds.push_back(desc.uniqueId);
-	}
-
-	audioDeviceNames.insert(audioDeviceNames.begin(), std::string(a->T("Auto")));
-	audioDeviceIds.insert(audioDeviceIds.begin(), "");
-
-	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceNames, I18NCat::NONE, screenManager(), &audioDeviceIds));
-	audioDevice->OnChoice.Add([this](UI::EventParams &) {
-		bool reverted;
-		if (g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted)) {
-			if (reverted) {
-				WARN_LOG(Log::Audio, "Unexpected: After a direct choice, audio device reverted to default. '%s'", g_Config.sAudioDevice.c_str());
-			}
-		} else {
-			WARN_LOG(Log::Audio, "InitOutputDevice failed");
+	if (!deviceDescs.empty()) {
+		audioSettings->Add(new ItemHeader(a->T("Audio backend")));
+		for (auto &desc : deviceDescs) {
+			audioDeviceNames.push_back(desc.name);
+			audioDeviceIds.push_back(desc.uniqueId);
 		}
-		return UI::EVENT_DONE;
-	});
-	CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
-	autoAudio->SetEnabledFunc([]()->bool {
-		return g_Config.sAudioDevice.empty();
-	});
+
+		audioDeviceNames.insert(audioDeviceNames.begin(), std::string(a->T("Auto")));
+		audioDeviceIds.insert(audioDeviceIds.begin(), "");
+
+		PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceNames, I18NCat::NONE, screenManager(), &audioDeviceIds));
+		audioDevice->OnChoice.Add([this](UI::EventParams &) {
+			bool reverted;
+			if (g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted)) {
+				if (reverted) {
+					WARN_LOG(Log::Audio, "Unexpected: After a direct choice, audio device reverted to default. '%s'", g_Config.sAudioDevice.c_str());
+				}
+			} else {
+				WARN_LOG(Log::Audio, "InitOutputDevice failed");
+			}
+			return UI::EVENT_DONE;
+		});
+		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+		autoAudio->SetEnabledFunc([]()->bool {
+			return g_Config.sAudioDevice.empty();
+		});
+	}
 
 	const bool isWindows = true;
 #else
 	const bool isWindows = false;
-#endif
+	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
 	if (sdlAudio) {
 		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
@@ -747,6 +749,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	if (!audioErrorStr.empty()) {
 		audioSettings->Add(new InfoItem(a->T("Audio Error"), audioErrorStr));
 	}
+#endif
 #endif
 
 	std::vector<std::string> micList = Microphone::getDeviceList();
