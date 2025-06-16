@@ -2623,8 +2623,6 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 add_dependencies(${CoreLibName} GitVersion)
 
 set(WindowsFiles
-	Windows/DSoundStream.cpp
-	Windows/DSoundStream.h
 	Windows/WindowsAudio.cpp
 	Windows/WindowsAudio.h
 	Windows/WASAPIStream.cpp
@@ -2671,8 +2669,6 @@ set(WindowsFiles
 	Windows/CaptureDevice.h
 	Windows/DinputDevice.cpp
 	Windows/DinputDevice.h
-	Windows/DSoundStream.cpp
-	Windows/DSoundStream.h
 	Windows/EmuThread.cpp
 	Windows/EmuThread.h
 	Windows/GeDebugger/GeDebugger.cpp

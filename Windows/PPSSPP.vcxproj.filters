@@ -94,9 +94,6 @@
     <ClCompile Include="InputBox.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>
-    <ClCompile Include="DSoundStream.cpp">
-      <Filter>Windows\System</Filter>
-    </ClCompile>
     <ClCompile Include="WindowsHost.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -305,9 +302,6 @@
     </ClInclude>
     <ClInclude Include="InputBox.h">
       <Filter>Windows\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="DSoundStream.h">
-      <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="WindowsHost.h">
       <Filter>Windows\System</Filter>
