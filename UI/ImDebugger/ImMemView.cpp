@@ -351,6 +351,18 @@ void ImMemView::EditMemory(int newNibble) {
 	ScrollCursor(1, GotoMode::RESET);
 }
 
+void ImMemView::CopyToByteClipboard() {
+	byteClipboard_.clear();
+	uint32_t size = selectRangeEnd_ - selectRangeStart_;
+	byteClipboard_.resize(size);
+	Memory::MemcpyUnchecked(byteClipboard_.data(), curAddress_, size);
+}
+
+void ImMemView::PasteFromByteClipboard() {
+	if (editableMemory_)
+		Memory::MemcpyUnchecked(curAddress_, byteClipboard_.data(), byteClipboard_.size());
+}
+
 void ImMemView::toggleEditableMemory(bool toggle) {
 	editableMemory_ = toggle;
 }
@@ -426,7 +438,14 @@ void ImMemView::PopupMenu() {
 			break;
 		}
 		*/
-
+		ImGui::SeparatorText("Internal clipboard");
+		if (ImGui::MenuItem("Copy bytes")) {
+			CopyToByteClipboard();
+		}
+		if (ImGui::MenuItem("Paste bytes")) {
+			PasteFromByteClipboard();
+		}
+		ImGui::SeparatorText("System clipboard");
 		if (ImGui::MenuItem("Copy value (8-bit)")) {
 			size_t tempSize = 3 * selectedSize + 1;
 			char *temp = new char[tempSize];
@@ -524,7 +543,7 @@ void ImMemView::PopupMenu() {
 			snprintf(temp, sizeof(temp), "0x%08X", curAddress_);
 			System_CopyStringToClipboard(temp);
 		}
-
+		ImGui::SeparatorText("Misc");
 		if (ImGui::MenuItem("Goto in disasm")) {
 			/*
 			if (disasmWindow) {
