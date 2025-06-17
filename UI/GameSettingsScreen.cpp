@@ -674,6 +674,10 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	mixWithOthers->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
 	audioSettings->Add(new ItemHeader(a->T("Audio")));
+
+	static const char *syncModes[] = { "Smooth", "Classic" };
+
+	audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioSyncMode, a->T("Audio sync mode"), syncModes, 0, ARRAY_SIZE(syncModes), I18NCat::AUDIO, screenManager()));
 	audioSettings->Add(new CheckBox(&g_Config.bFillAudioGaps, a->T("Fill audio gaps")));
 
 	audioSettings->Add(new ItemHeader(a->T("Game volume")));

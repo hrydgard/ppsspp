@@ -1361,6 +1361,11 @@ void DrawAudioOut(ImConfig &cfg, ImControl &control) {
 		ImGui::Text("Fade volume: %0.2f", stats.fadeVolume);
 		ImGui::Text("Looping: %s", BoolStr(stats.looping));
 		ImGui::Text("Under/Over: %d / %d", stats.underruns, stats.overruns);
+	} else {
+		ImGui::Text("StereoResampler classic");
+		char buf[1024];
+		g_resampler.GetAudioDebugStats(buf, sizeof(buf));
+		ImGui::Text("%s", buf);
 	}
 
 	ImGui::End();
