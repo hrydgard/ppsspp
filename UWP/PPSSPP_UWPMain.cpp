@@ -17,7 +17,6 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
-#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
@@ -173,7 +172,7 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 bool PPSSPP_UWPMain::Render() {
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
-		SetCurrentThreadName("UWPRenderThread");
+		SetCurrentThreadName("EmuThread");
 		hasSetThreadName = true;
 	}
 

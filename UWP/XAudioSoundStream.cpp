@@ -4,12 +4,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <thread>
 
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Audio/AudioBackend.h"
 #include "XAudioSoundStream.h"
-#include <process.h>
 
 const size_t BUFSIZE = 32 * 1024;
 
@@ -18,69 +18,85 @@ public:
 	XAudioBackend();
 	~XAudioBackend() override;
 
-	bool Init(StreamCallback callback, void *userdata = nullptr) override;  // If fails, can safely delete the object
+	void EnumerateDevices(std::vector<AudioDeviceDesc> *outputDevices, bool captureDevices = false) {
+		// Do nothing! Auto is the only option.
+	}
+	void SetRenderCallback(RenderCallback callback, void *userdata) override {
+		callback_ = callback;
+		userdata_ = userdata;
+	}
+
+	bool InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *reverted) override;
 	int SampleRate() const override { return sampleRate_; }
-	int PeriodFrames() const override { return 0; }
+	int PeriodFrames() const override { return samplesPerBuffer; }
+	int BufferSize() const override { return samplesPerBuffer * bufferCount; }
 
 private:
-	bool RunSound();
-	bool CreateBuffer();
-	void PollLoop();
+	void Start();
+	void Stop();
 
-	StreamCallback callback_ = nullptr;
+	RenderCallback callback_ = nullptr;
 
 	IXAudio2 *xaudioDevice = nullptr;
-	IXAudio2MasteringVoice *xaudioMaster = nullptr;
-	IXAudio2SourceVoice *xaudioVoice = nullptr;
+	IXAudio2MasteringVoice *masterVoice_ = nullptr;
+	IXAudio2SourceVoice *sourceVoice_ = nullptr;
 
 	void *userdata_ = nullptr;
+
+	WAVEFORMATEX format_;
 
 	int sampleRate_ = 44100;
 	int periodFrames_ = 0;
 
-	char realtimeBuffer_[BUFSIZE]{};
+	enum {
+		samplesPerBuffer = 480, // 10 ms @ 48kHz. maybe we can tweak this using latency mode.
+		bufferCount = 3,
+		channels = 2,
+	};
+	float audioBuffer_[samplesPerBuffer * channels];
+
 	uint32_t cursor_ = 0;
 
-	HANDLE thread_ = 0;
-	HANDLE exitEvent_ = 0;
-
-	bool exit = false;
+	std::thread thread_;
+	std::atomic<bool> running_{};
 };
 
 // TODO: Get rid of this
 static XAudioBackend *g_dsound;
 
 XAudioBackend::XAudioBackend() {
-	exitEvent_ = CreateEvent(nullptr, true, true, L"");
+	format_.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+	format_.nChannels = channels;
+	format_.nSamplesPerSec = 48000;
+	format_.wBitsPerSample = 32;
+	format_.nBlockAlign = format_.nChannels * format_.wBitsPerSample / 8;
+	format_.nAvgBytesPerSec = format_.nSamplesPerSec * format_.nBlockAlign;
+	format_.cbSize = 0;
 }
 
-inline int RoundDown128(int x) {
-	return x & (~127);
+XAudioBackend::~XAudioBackend() {
+	Stop();
 }
 
-bool XAudioBackend::CreateBuffer() {
-	if FAILED(xaudioDevice->CreateMasteringVoice(&xaudioMaster, 2, sampleRate_, 0, 0, NULL))
-		return false;
+void XAudioBackend::Stop() {
+	running_ = false;
+	if (thread_.joinable()) {
+		thread_.join();
+	}
 
-	WAVEFORMATEX waveFormat;
-	waveFormat.cbSize = sizeof(waveFormat);
-	waveFormat.nAvgBytesPerSec = sampleRate_ * 4;
-	waveFormat.nBlockAlign = 4;
-	waveFormat.nChannels = 2;
-	waveFormat.nSamplesPerSec = sampleRate_;
-	waveFormat.wBitsPerSample = 16;
-	waveFormat.wFormatTag = WAVE_FORMAT_PCM;
-
-	if FAILED(xaudioDevice->CreateSourceVoice(&xaudioVoice, &waveFormat, 0, 1.0, nullptr, nullptr, nullptr))
-		return false;
-
-	xaudioVoice->SetFrequencyRatio(1.0);
-	return true;
+	if (xaudioDevice) {
+		xaudioDevice->Release();
+		xaudioDevice = nullptr;
+		sourceVoice_ = nullptr;
+	}
 }
 
-bool XAudioBackend::RunSound() {
+bool XAudioBackend::InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *reverted) {
+	Stop();
+
+	*reverted = false;
 	if FAILED(XAudio2Create(&xaudioDevice, 0, XAUDIO2_DEFAULT_PROCESSOR)) {
-		xaudioDevice = NULL;
+		xaudioDevice = nullptr;
 		return false;
 	}
 
@@ -90,94 +106,48 @@ bool XAudioBackend::RunSound() {
 	//dbgCfg.BreakMask = XAUDIO2_LOG_ERRORS;
 	xaudioDevice->SetDebugConfiguration(&dbgCfg);
 
-	if (!CreateBuffer()) {
+	if FAILED(xaudioDevice->CreateMasteringVoice(&masterVoice_, 2, sampleRate_, 0, 0, nullptr)) {
 		xaudioDevice->Release();
-		xaudioDevice = NULL;
+		xaudioDevice = nullptr;
 		return false;
 	}
+
+	if FAILED(xaudioDevice->CreateSourceVoice(&sourceVoice_, &format_, 0, 1.0, nullptr, nullptr, nullptr)) {
+		xaudioDevice->Release();
+		xaudioDevice = nullptr;
+		return false;
+	}
+
+	sourceVoice_->SetFrequencyRatio(1.0);
 
 	cursor_ = 0;
 
-	if FAILED(xaudioVoice->Start(0, XAUDIO2_COMMIT_NOW)) {
+	if FAILED(sourceVoice_->Start(0, XAUDIO2_COMMIT_NOW)) {
 		xaudioDevice->Release();
-		xaudioDevice = NULL;
+		xaudioDevice = nullptr;
 		return false;
 	}
 
-	thread_ = (HANDLE)_beginthreadex(0, 0, [](void* param)
-	{
-		SetCurrentThreadName("XAudio2");
-		XAudioBackend *backend = (XAudioBackend *)param;
-		backend->PollLoop();
-		return 0U;
-	}, (void *)this, 0, 0);
-	SetThreadPriority(thread_, THREAD_PRIORITY_ABOVE_NORMAL);
+	running_ = true;
+	thread_ = std::thread([this]() {
+		while (running_) {
+			XAUDIO2_VOICE_STATE state = {};
+			sourceVoice_->GetState(&state);
+			if (state.BuffersQueued < bufferCount) {
+				// Fill buffer with audio
+				callback_(audioBuffer_, samplesPerBuffer, channels, format_.nSamplesPerSec, userdata_);
 
+				XAUDIO2_BUFFER buf = {};
+				buf.AudioBytes = samplesPerBuffer * channels * sizeof(float);
+				buf.pAudioData = reinterpret_cast<BYTE*>(audioBuffer_);
+				buf.Flags = 0;
+				sourceVoice_->SubmitSourceBuffer(&buf);
+			} else {
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
+		}
+	});
 	return true;
-}
-
-XAudioBackend::~XAudioBackend() {
-	if (!xaudioDevice)
-		return;
-
-	if (!xaudioVoice)
-		return;
-
-	exit = true;
-	WaitForSingleObject(exitEvent_, INFINITE);
-	CloseHandle(exitEvent_);
-
-	xaudioDevice->Release();
-}
-
-bool XAudioBackend::Init(StreamCallback _callback, void *userdata) {
-	callback_ = _callback;
-	userdata_ = userdata;
-	return RunSound();
-}
-
-void XAudioBackend::PollLoop() {
-	ResetEvent(exitEvent_);
-
-	while (!exit) {
-		XAUDIO2_VOICE_STATE state;
-		xaudioVoice->GetState(&state);
-
-		// TODO: Still plenty of tuning to do here.
-		// 4 seems to work fine.
-		if (state.BuffersQueued > 4) {
-			Sleep(1);
-			continue;
-		}
-
-		uint32_t bytesRequired = (sampleRate_ * 4) / 100;
-
-		uint32_t bytesLeftInBuffer = BUFSIZE - cursor_;
-		uint32_t readCount = std::min(bytesRequired, bytesLeftInBuffer);
-
-		// realtimeBuffer_ is just used as a ring of scratch space to be submitted, since SubmitSourceBuffer doesn't
-		// take ownership of the data. It needs to be big enough to fit the max number of buffers we check for
-		// above, which it is, easily.
-
-		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_, userdata_);
-		int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
-
-		XAUDIO2_BUFFER xaudioBuffer{};
-		xaudioBuffer.pAudioData = (const BYTE*)&realtimeBuffer_[cursor_];
-		xaudioBuffer.AudioBytes = numBytesRendered;
-
-		if FAILED(xaudioVoice->SubmitSourceBuffer(&xaudioBuffer, NULL)) {
-			WARN_LOG(Log::Audio, "XAudioBackend: Failed writing bytes");
-		}
-		cursor_ += numBytesRendered;
-		if (cursor_ >= BUFSIZE) {
-			cursor_ = 0;
-			bytesLeftInBuffer = BUFSIZE;
-		}
-		periodFrames_ = stereoSamplesRendered;
-	}
-
-	SetEvent(exitEvent_);
 }
 
 AudioBackend *System_CreateAudioBackend() {

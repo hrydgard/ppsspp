@@ -4,16 +4,31 @@
 #include <string_view>
 #include <vector>
 
-// Always 2 channels, 16-bit audio.
-typedef int (*StreamCallback)(short *buffer, int numSamples, int rate, void *userdata);
+// For absolute minimal latency, we do not use std::function. Might be overthinking, but...
+typedef void (*RenderCallback)(float *dest, int framesToWrite, int channels, int sampleRateHz, void *userdata);
 
-// Note that the backend may override the passed in sample rate. The actual sample rate
-// should be returned by SampleRate though.
+enum class LatencyMode {
+	Safe,
+	Aggressive
+};
+
+struct AudioDeviceDesc {
+	std::string name;      // User-friendly name
+	std::string uniqueId;  // store-able ID for settings.
+};
+
+inline float FramesToMs(int frames, int sampleRate) {
+	return 1000.0f * (float)frames / (float)sampleRate;
+}
+
 class AudioBackend {
 public:
 	virtual ~AudioBackend() {}
-	virtual bool Init(StreamCallback _callback, void *userdata = nullptr) = 0;
+	virtual void EnumerateDevices(std::vector<AudioDeviceDesc> *outputDevices, bool captureDevices = false) = 0;
+	virtual void SetRenderCallback(RenderCallback callback, void *userdata) = 0;
+	virtual bool InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *revertedToDefault) = 0;
 	virtual int SampleRate() const = 0;
+	virtual int BufferSize() const = 0;
 	virtual int PeriodFrames() const = 0;
-	virtual void FrameUpdate() {}
+	virtual void FrameUpdate(bool allowAutoChange) {}
 };

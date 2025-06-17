@@ -803,6 +803,22 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 void CallbackPostRender(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
+void NativeMixWrapper(float *dest, int framesToWrite, int channels, int sampleRateHz, void *userdata) {
+	static int16_t *buffer;
+	static int bufSize;
+	if (bufSize < framesToWrite * channels) {
+		buffer = new int16_t[framesToWrite * channels];
+		bufSize = framesToWrite * channels;
+	}
+
+	NativeMix(buffer, framesToWrite, sampleRateHz, userdata);
+
+	for (int i = 0; i < framesToWrite * channels; i++) {
+		int16_t value = buffer[i];
+		dest[i] = (float)value * (float)(1.0f / 32767.0f);
+	}
+}
+
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeInitGraphics");
 
@@ -840,7 +856,12 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_audioBackend = System_CreateAudioBackend();
 	if (g_audioBackend) {
-		g_audioBackend->Init(&NativeMix);
+		g_audioBackend->SetRenderCallback(&NativeMixWrapper, nullptr);
+		bool reverted = false;
+		g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted);
+		if (reverted) {
+			g_Config.sAudioDevice.clear();
+		}
 	}
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -1093,7 +1114,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_screenManager->update();
 
 	if (g_audioBackend) {
-		g_audioBackend->FrameUpdate();
+		g_audioBackend->FrameUpdate(g_Config.bAutoAudioDevice);
 	}
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
