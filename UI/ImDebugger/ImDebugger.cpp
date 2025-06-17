@@ -1353,6 +1353,8 @@ void DrawAudioOut(ImConfig &cfg, ImControl &control) {
 		g_granular.GetStats(&stats);
 		ImGui::Text("Granules");
 		ImGui::Text("Read size: %0.2f", stats.smoothedReadSize);
+		ImGui::Text("Frame time estimate: %0.1f ms", stats.frameTimeEstimate * 1000.0f);
+		ImGui::Text("Queued samples target: %d", stats.queuedSamplesTarget);
 		ImGui::Text("Queued min/max: %d / %d", stats.queuedGranulesMin, stats.queuedGranulesMax);
 		ImGui::Text("Queued (smooth): %0.3f", stats.smoothedQueuedGranules);
 		ImGui::Text("Target: %d", stats.targetQueueSize);

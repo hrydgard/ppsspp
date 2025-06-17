@@ -26,6 +26,7 @@ constexpr u32 countr_one_replacement(u32 x) {
 struct GranularStats {
 	int queuedGranulesMin;
 	int queuedGranulesMax;
+	int queuedSamplesTarget;
 	float smoothedQueuedGranules;
 	int targetQueueSize;
 	int maxQueuedGranules;
@@ -34,6 +35,7 @@ struct GranularStats {
 	int overruns;
 	int underruns;
 	float smoothedReadSize;
+	float frameTimeEstimate;
 };
 
 class GranularMixer final {
@@ -41,10 +43,10 @@ public:
 	explicit GranularMixer();
 
 	// Called from audio threads
-	void Mix(s16* samples, u32 numSamples, int outSampleRate);
+	void Mix(s16 *samples, u32 numSamples, int outSampleRate, float vpsEstimate);
 
 	// Called from emulation thread
-	void PushSamples(const s32* samples, u32 num_samples, float volume);
+	void PushSamples(const s32 *samples, u32 num_samples, float volume);
 
 	void GetStats(GranularStats *stats);
 
@@ -105,7 +107,9 @@ private:
 	int overruns_ = 0;
 	int queuedGranulesMin_ = 10000;
 	int queuedGranulesMax_ = 0;
+	int queuedSamplesTarget_ = 0;
 	float smoothedReadSize_ = 0.0f;
+	float frameTimeEstimate_ = 0.0f;
 
 	void Enqueue();
 	void Dequeue(Granule* granule);

@@ -21,6 +21,7 @@
 #include "Core/HW/GranularMixer.h"
 #include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
+#include "Core/HW/Display.h"
 
 StereoResampler g_resampler;
 GranularMixer g_granular;
@@ -30,7 +31,13 @@ GranularMixer g_granular;
 void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userdata) {
 	// Mix UI sound effects on top.
 	if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
-		g_granular.Mix(outStereo, numFrames, sampleRateHz);
+		// We use the FPS estimate, because to maintain smooth audio even though our
+		// frame execution is very front (or back) heavy (as we can't count on "real time clock sync"
+		// to be enabled), we need at least one whole frame buffered, plus a bit of extra.
+		float fpsEstimate, vps, actualFps;
+		__DisplayGetFPS(&vps, &fpsEstimate, &actualFps);
+
+		g_granular.Mix(outStereo, numFrames, sampleRateHz, fpsEstimate);
 	} else {
 		g_resampler.Mix(outStereo, numFrames, false, sampleRateHz);
 	}
