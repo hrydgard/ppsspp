@@ -42,7 +42,7 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize);
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
 void __DisplayGetVPS(float *out_vps);
-double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep);
+float *__DisplayGetFrameTimes(int *out_valid, int *out_pos, float **out_sleep);
 int DisplayGetSleepPos();
 void DisplayNotifySleep(double t, int pos = -1);
 bool DisplayIsRunningSlow();

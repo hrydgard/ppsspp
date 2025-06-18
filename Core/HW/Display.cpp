@@ -63,8 +63,8 @@ static int fpsHistoryPos = 0;
 static int fpsHistoryValid = 0;
 
 // Frame time stats.
-static double frameTimeHistory[600];
-static double frameSleepHistory[600];
+static float frameTimeHistory[600];
+static float frameSleepHistory[600];
 static constexpr int frameTimeHistorySize = (int)ARRAY_SIZE(frameTimeHistory);
 static int frameTimeHistoryPos = 0;
 static int frameTimeHistoryValid = 0;
@@ -93,13 +93,13 @@ static void CalculateFPS() {
 	}
 
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
-		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
+		frameTimeHistory[frameTimeHistoryPos++] = (float)(now - lastFrameTimeHistory);
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
 		if (frameTimeHistoryValid < frameTimeHistorySize) {
 			++frameTimeHistoryValid;
 		}
-		frameSleepHistory[frameTimeHistoryPos] = 0.0;
+		frameSleepHistory[frameTimeHistoryPos] = 0.0f;
 	}
 }
 
@@ -169,7 +169,7 @@ void DisplayAdjustAccumulatedHcount(uint32_t diff) {
 	hCountBase += diff;
 }
 
-double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep) {
+float *__DisplayGetFrameTimes(int *out_valid, int *out_pos, float **out_sleep) {
 	*out_valid = frameTimeHistoryValid;
 	*out_pos = frameTimeHistoryPos;
 	*out_sleep = frameSleepHistory;
