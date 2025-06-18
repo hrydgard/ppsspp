@@ -3,7 +3,7 @@
 #include <string>
 #include <mutex>
 
-typedef int (*AndroidAudioCallback)(short *buffer, int numSamples, int sampleRateHz, void *userdata);
+typedef void (*AndroidAudioCallback)(short *buffer, int numSamples, int sampleRateHz, void *userdata);
 
 class AudioContext {
 public:
