@@ -53,7 +53,8 @@ private:
 		bufferCount = 3,
 		channels = 2,
 	};
-	float audioBuffer_[samplesPerBuffer * channels];
+	float audioBuffer_[bufferCount][samplesPerBuffer * channels];
+	int curBuffer_ = 0;
 
 	uint32_t cursor_ = 0;
 
@@ -135,13 +136,17 @@ bool XAudioBackend::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			sourceVoice_->GetState(&state);
 			if (state.BuffersQueued < bufferCount) {
 				// Fill buffer with audio
-				callback_(audioBuffer_, samplesPerBuffer, channels, format_.nSamplesPerSec, userdata_);
+				callback_(audioBuffer_[curBuffer_], samplesPerBuffer, channels, format_.nSamplesPerSec, userdata_);
 
 				XAUDIO2_BUFFER buf = {};
 				buf.AudioBytes = samplesPerBuffer * channels * sizeof(float);
-				buf.pAudioData = reinterpret_cast<BYTE*>(audioBuffer_);
+				buf.pAudioData = reinterpret_cast<BYTE*>(audioBuffer_[curBuffer_]);
 				buf.Flags = 0;
 				sourceVoice_->SubmitSourceBuffer(&buf);
+				curBuffer_ += 1;
+				if (curBuffer_ >= bufferCount) {
+					curBuffer_ = 0;
+				}
 			} else {
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			}

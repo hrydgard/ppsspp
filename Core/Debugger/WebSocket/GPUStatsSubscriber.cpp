@@ -26,8 +26,8 @@ struct CollectedStats {
 	float fps;
 	float actual_fps;
 	char statbuf[4096];
-	std::vector<double> frameTimes;
-	std::vector<double> sleepTimes;
+	std::vector<float> frameTimes;
+	std::vector<float> sleepTimes;
 	int frameTimePos;
 };
 
@@ -123,8 +123,8 @@ void WebSocketGPUStatsState::FlipListener() {
 	__DisplayGetDebugStats(stats.statbuf, sizeof(stats.statbuf));
 
 	int valid;
-	double *sleepHistory;
-	double *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
+	float *sleepHistory;
+	float *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
 
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
