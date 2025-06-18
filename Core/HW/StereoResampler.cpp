@@ -160,9 +160,9 @@ inline int16_t MixSingleSample(int16_t s1, int16_t s2, uint16_t frac) {
 }
 
 // Executed from sound stream thread, pulling sound out of the buffer.
-unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sample_rate) {
+void StereoResampler::Mix(s16 *samples, unsigned int numSamples, bool consider_framelimit, int sample_rate) {
 	if (!samples)
-		return 0;
+		return;
 
 	unsigned int currentSample;
 
@@ -242,9 +242,6 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 
 	// Flush cached variable
 	indexR_.store(indexR);
-
-	// TODO: What should we actually return here?
-	return currentSample / 2;
 }
 
 // Executes on the emulator thread, pushing sound into the buffer.

@@ -32,7 +32,7 @@ public:
 	~StereoResampler();
 
 	// Called from audio threads
-	unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sampleRate);
+	void Mix(s16 *samples, unsigned int numSamples, bool consider_framelimit, int sampleRate);
 
 	// Called from main thread
 	// This clamps the samples to 16-bit before starting to work on them.

@@ -10,11 +10,12 @@
 #include <vector>
 #include <string_view>
 
+#include "Common/Log.h"
 #include "WASAPIContext.h"
 
 static std::string ConvertWStringToUTF8(const std::wstring &wstr) {
-	int len = (int)wstr.size();
-	int size = (int)WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), len, 0, 0, NULL, NULL);
+	const int len = (int)wstr.size();
+	const int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), len, 0, 0, NULL, NULL);
 	std::string s;
 	s.resize(size);
 	if (size > 0) {
@@ -24,8 +25,8 @@ static std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 }
 
 static std::wstring ConvertUTF8ToWString(const std::string_view source) {
-	int len = (int)source.size();
-	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
+	const int len = (int)source.size();
+	const int size = MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
 	std::wstring str;
 	str.resize(size);
 	if (size > 0) {
@@ -57,6 +58,11 @@ WASAPIContext::~WASAPIContext() {
 void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool captureDevices) {
 	IMMDeviceCollection *collection = nullptr;
 	enumerator_->EnumAudioEndpoints(captureDevices ? eCapture : eRender, DEVICE_STATE_ACTIVE, &collection);
+
+	if (!collection) {
+		ERROR_LOG(Log::Audio, "Failed to enumerate devices");
+		return;
+	}
 
 	UINT count = 0;
 	collection->GetCount(&count);
@@ -124,7 +130,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		audioClient3_->GetMixFormat(&format_);
 		audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
 
-		printf("default: %d fundamental: %d min: %d max: %d\n", defaultPeriodFrames, fundamentalPeriodFrames, minPeriodFrames, maxPeriodFrames);
+		printf("default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
 		printf("initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
 
 		audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -218,7 +224,7 @@ void WASAPIContext::FrameUpdate(bool allowAutoChange) {
 
 void WASAPIContext::AudioLoop() {
 	DWORD taskID = 0;
-	HANDLE mmcssHandle = NULL;
+	HANDLE mmcssHandle = nullptr;
 	if (latencyMode_ == LatencyMode::Aggressive) {
 		mmcssHandle = AvSetMmThreadCharacteristics(L"Pro Audio", &taskID);
 	}
@@ -244,7 +250,7 @@ void WASAPIContext::AudioLoop() {
 		else
 			audioClient_->GetCurrentPadding(&padding), audioClient_->GetBufferSize(&available);
 
-		UINT32 framesToWrite = available - padding;
+		const UINT32 framesToWrite = available - padding;
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
 			callback_((float *)buffer, framesToWrite, 2, format_->nSamplesPerSec, userdata_);
