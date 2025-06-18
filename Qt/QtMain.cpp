@@ -792,9 +792,8 @@ void MainAudio::run() {
 
 void MainAudio::timerEvent(QTimerEvent *) {
 	memset(mixbuf, 0, mixlen);
-	size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES, AUDIO_FREQ);
-	if (frames > 0)
-		feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
+	NativeMix((short *)mixbuf, AUDIO_BUFFERS * AUDIO_SAMPLES, AUDIO_FREQ);
+	feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
 }
 
 #endif
