@@ -295,8 +295,10 @@ void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
 
 	double effective_input_sample_rate = (double)inputSampleCount_ / elapsed;
 	double effective_output_sample_rate = (double)outputSampleCount_ / elapsed;
+
+	double bufferLatencyMs = 1000.0 * (double)lastBufSize_ / (double)inputSampleRateHz_;
 	snprintf(buf, bufSize,
-		"Audio buffer: %d/%d (target: %d)\n"
+		"Audio buffer: %d/%d (%0.1fms, target: %d)\n"
 		"Filtered: %0.2f\n"
 		"Underruns: %d\n"
 		"Overruns: %d\n"
@@ -307,6 +309,7 @@ void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
 		"Ratio: %0.6f\n",
 		lastBufSize_,
 		maxBufsize_,
+		bufferLatencyMs,
 		targetBufsize_,
 		numLeftI_,
 		underrunCountTotal_,
