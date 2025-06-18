@@ -117,6 +117,11 @@ enum class DepthRasterMode {
 	FORCE_ON = 3,
 };
 
+enum class AudioSyncMode {
+	GRANULAR = 0,
+	CLASSIC_PITCH = 1,
+};
+
 enum class RestoreSettingsBits : int {
 	SETTINGS = 1,
 	CONTROLS = 2,

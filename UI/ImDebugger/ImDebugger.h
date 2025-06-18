@@ -86,6 +86,7 @@ struct ImConfig {
 	bool atracToolOpen;
 	bool memViewOpen[4];
 	bool luaConsoleOpen;
+	bool audioOutOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
