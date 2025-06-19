@@ -35,6 +35,7 @@ struct PostShaderUniforms {
 	float timeDelta[4];
 	float setting[4];
 	float video; float pad[3];
+	float vr;
 	// Used on Direct3D9.
 	float gl_HalfPixel[4];
 };
