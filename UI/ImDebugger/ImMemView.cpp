@@ -1039,7 +1039,7 @@ void ImMemWindow::ProcessKeyboardShortcuts() {
 		selectedSearchType_ = STRING;
 		return;
 	}
-	/*
+
 	if (ImGui::IsKeyPressed(ImGuiKey_B)) {
 		OPEN_SEARCH_FORM();
 		selectedSearchType_ = BITS_8;
@@ -1047,7 +1047,7 @@ void ImMemWindow::ProcessKeyboardShortcuts() {
 		// SDL/SDLMain.cpp
 		return;
 	}
-	*/
+
 	if (ImGui::IsKeyPressed(ImGuiKey_H)) {
 		OPEN_SEARCH_FORM();
 		selectedSearchType_ = BITS_16;

@@ -1043,11 +1043,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 					// since SDL does not have a separate
 					// UI thread.
 				}
-				if (ctrl && (k == SDLK_b))
-				{
-					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-					Core_Resume();
-				}
+
 				/*
 				// TODO: Enable this?
 				if (k == SDLK_F11) {
