@@ -229,31 +229,33 @@ void WASAPIContext::AudioLoop() {
 		mmcssHandle = AvSetMmThreadCharacteristics(L"Pro Audio", &taskID);
 	}
 
+	UINT32 available;
 	if (audioClient3_) {
 		audioClient3_->Start();
+		audioClient3_->GetBufferSize(&available);
 	} else {
 		audioClient_->Start();
+		audioClient_->GetBufferSize(&available);
 	}
 
-	double phase = 0.0;
-
 	while (running_) {
-		DWORD result = WaitForSingleObject(audioEvent_, INFINITE);
-		if (result != WAIT_OBJECT_0) {
+		const DWORD waitResult = WaitForSingleObject(audioEvent_, INFINITE);
+		if (waitResult != WAIT_OBJECT_0) {
 			// Something bad happened.
 			break;
 		}
 
-		UINT32 padding = 0, available = 0;
-		if (audioClient3_)
-			audioClient3_->GetCurrentPadding(&padding), audioClient3_->GetBufferSize(&available);
-		else
-			audioClient_->GetCurrentPadding(&padding), audioClient_->GetBufferSize(&available);
+		UINT32 padding = 0;
+		if (audioClient3_) {
+			audioClient3_->GetCurrentPadding(&padding);
+		} else {
+			audioClient_->GetCurrentPadding(&padding);
+		}
 
 		const UINT32 framesToWrite = available - padding;
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
-			callback_((float *)buffer, framesToWrite, 2, format_->nSamplesPerSec, userdata_);
+			callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nChannels, format_->nSamplesPerSec, userdata_);
 			renderClient_->ReleaseBuffer(framesToWrite, 0);
 		}
 
@@ -272,4 +274,22 @@ void WASAPIContext::AudioLoop() {
 	if (mmcssHandle) {
 		AvRevertMmThreadCharacteristics(mmcssHandle);
 	}
+}
+
+void WASAPIContext::DescribeOutputFormat(char *buffer, size_t bufferSize) const {
+	const int numChannels = format_->nChannels;
+	const int sampleBits = format_->wBitsPerSample;
+	const int sampleRateHz = format_->nSamplesPerSec;
+	const char *fmt = "N/A";
+	if (format_->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+		const WAVEFORMATEXTENSIBLE *ex = (const WAVEFORMATEXTENSIBLE *)format_;
+		if (ex->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT) {
+			fmt = "float";
+		} else {
+			fmt = "PCM";
+		}
+	} else {
+		fmt = "PCM";  // probably
+	}
+	snprintf(buffer, bufferSize, "%d Hz %s %d-bit, %d ch", sampleRateHz, fmt, sampleBits, numChannels);
 }

@@ -63,6 +63,8 @@ public:
 		WASAPIContext *engine_;
 	};
 
+	void DescribeOutputFormat(char *buffer, size_t bufferSize) const override;
+
 private:
 	void Start();
 	void Stop();

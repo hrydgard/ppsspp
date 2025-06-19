@@ -30,5 +30,6 @@ public:
 	virtual int SampleRate() const = 0;
 	virtual int BufferSize() const = 0;
 	virtual int PeriodFrames() const = 0;
+	virtual void DescribeOutputFormat(char *buffer, size_t bufferSize) const { buffer[0] = '-'; buffer[1] = '\0'; }
 	virtual void FrameUpdate(bool allowAutoChange) {}
 };
