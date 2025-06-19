@@ -225,11 +225,11 @@ void Atrac::WriteContextToPSPMem() {
 }
 
 void Track::DebugLog() const {
-	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
+	DEBUG_LOG(Log::Atrac, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
 		codecType == PSP_CODEC_AT3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
-	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
-	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
-	DEBUG_LOG(Log::ME, "sampleSize: %d (%03x", bytesPerFrame, bytesPerFrame);
+	DEBUG_LOG(Log::Atrac, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
+	DEBUG_LOG(Log::Atrac, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
+	DEBUG_LOG(Log::Atrac, "sampleSize: %d (%03x", bytesPerFrame, bytesPerFrame);
 }
 
 int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
@@ -291,7 +291,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
 		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
-			ERROR_LOG_REPORT(Log::ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
+			ERROR_LOG_REPORT(Log::Atrac, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
 			first_.offset = 0;
 			first_.writableBytes = bufferMaxSize_;
 		}
@@ -417,7 +417,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	first_._filesize_dontuse = track_.fileSize;
 
 	if (outputChannels != track_.channels) {
-		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
+		WARN_LOG(Log::Atrac, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
 	}
 
 	first_.addr = buffer;
@@ -438,7 +438,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	if (track_.codecType != PSP_CODEC_AT3 && track_.codecType != PSP_CODEC_AT3PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
-		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track_.codecType);
+		ERROR_LOG(Log::Atrac, "unexpected codec type %d in set data", track_.codecType);
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
@@ -467,7 +467,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
-	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
+	INFO_LOG(Log::Atrac, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
 
 	if (track_.channels == 2 && outputChannels == 1) {
 		// We still do all the tasks, we just return this error.
@@ -979,9 +979,9 @@ void Atrac::NotifyGetContextAddress() {
 		context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID_).c_str());
 		if (context_.IsValid())
 			Memory::Memset(context_.ptr, 0, contextSize, "AtracContextClear");
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", context_.ptr, atracID_);
+		WARN_LOG(Log::Atrac, "%08x=_sceAtracGetContextAddress(%i): allocated new context", context_.ptr, atracID_);
 	} else {
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", context_.ptr, atracID_);
+		WARN_LOG(Log::Atrac, "%08x=_sceAtracGetContextAddress(%i)", context_.ptr, atracID_);
 	}
 	WriteContextToPSPMem();
 }

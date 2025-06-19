@@ -40,6 +40,8 @@ enum class Log {
 	HLE,
 	JIT,
 	Loader,
+	Mpeg,
+	Atrac,
 	ME,
 	MemMap,
 	SasMix,

@@ -79,7 +79,9 @@ static const char * const g_logTypeNames[] = {
 	"HLE",
 	"JIT",
 	"LOADER",
-	"ME",  // Media Engine
+	"MPEG",
+	"ATRAC",
+	"ME",  // Rest of the media Engine
 	"MEMMAP",
 	"SASMIX",
 	"SAVESTATE",
