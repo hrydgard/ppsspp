@@ -240,6 +240,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->timeDelta[2] = time[2] - previousUniforms_.time[2];
 	uniforms->timeDelta[3] = time[3] != previousUniforms_.time[3] ? 1.0f : 0.0f;
 	uniforms->video = hasVideo_ ? 1.0f : 0.0f;
+	uniforms->vr = IsVREnabled() && IsBigScreenVRMode() ? 1.0f : 0.0f;
 
 	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
@@ -367,6 +368,7 @@ bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::P
 		{ "u_timeDelta", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, timeDelta) },
 		{ "u_setting", 5, 5, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
 		{ "u_video", 6, 6, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+		{ "u_vr", 7, 7, UniformType::FLOAT1, offsetof(PostShaderUniforms, vr) },
 	} };
 
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);

@@ -82,6 +82,7 @@ cbuffer data : register(b0) {
 	float4 u_timeDelta;
 	float4 u_setting;
 	float u_video;
+	float u_vr;
 };
 )";
 
@@ -99,6 +100,7 @@ layout (std140, set = 0, binding = 0) uniform Data {
 	vec4 u_timeDelta;
 	vec4 u_setting;
 	float u_video;
+	float u_vr;
 };
 )";
 

@@ -8,9 +8,10 @@ precision mediump int;
 #endif
 
 uniform sampler2D sampler0;
-varying vec2 v_texcoord0;	
+varying vec2 v_texcoord0;
 
 uniform vec4 u_setting;
+uniform float u_vr;
 
 void main()
 {
@@ -19,15 +20,18 @@ void main()
   float gray = (color.r + color.g + color.b) / 3.0;
   float saturation = (abs(color.r - gray) + abs(color.g - gray) + abs(color.b - gray)) / 3.0;
 
+  //the effect is dependent on size of the viewport, u_vr is 1 when it is rendered in VR
+  float scale = 1.0 + u_vr;
+
   //persistent random offset to hide that the reflection is wrong
-  float rndx = mod(v_texcoord0.x + gray, 0.03) + mod(v_texcoord0.y + saturation, 0.05);
-  float rndy = mod(v_texcoord0.y + saturation, 0.03) + mod(v_texcoord0.x + gray, 0.05);
+  float rndx = mod(v_texcoord0.x + gray, 0.03 * scale) + mod(v_texcoord0.y + saturation, 0.05 * scale);
+  float rndy = mod(v_texcoord0.y + saturation, 0.03 * scale) + mod(v_texcoord0.x + gray, 0.05 * scale);
 
   //show the effect mainly on the bottom part of the screen
   float step = (max(gray, saturation) + 0.1) * v_texcoord0.y;
 
   //the fake reflection is just a watered copy of the frame moved slightly lower
-  vec3 reflection = texture2D(sampler0, v_texcoord0 + vec2(rndx, rndy - min(v_texcoord0.y, 0.25)) * step).rgb;
+  vec3 reflection = texture2D(sampler0, v_texcoord0 + vec2(rndx, rndy - min(v_texcoord0.y, 0.25) * scale) * step).rgb;
 
   //apply parameters and mix the colors
   reflection *= 4.0 * (1.0 - gray) * u_setting.x;
