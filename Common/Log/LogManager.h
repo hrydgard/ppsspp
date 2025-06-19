@@ -153,7 +153,7 @@ public:
 	const Path &GetLogFilePath() const { return logFilename_; }
 
 	void SaveConfig(Section *section);
-	void LoadConfig(const Section *section, bool debugDefaults);
+	void LoadConfig(const Section *section);
 
 	static const char *GetLogTypeName(Log type);
 
