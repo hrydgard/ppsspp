@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <string>
 #include "Common/Input/KeyCodes.h"
+#include "Core/HLE/sceKernelModule.h"
 
 class PointerWrap;
 
@@ -28,7 +29,7 @@ namespace HLEPlugins {
 void Init();
 void Shutdown();
 
-bool Load();
+bool Load(PSPModule *pluginWaitingModule, SceUID threadID);
 void Unload();
 
 void DoState(PointerWrap &p);
