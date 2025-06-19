@@ -331,7 +331,8 @@ u32 Atrac2::ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int
 }
 
 // This is basically sceAtracGetBufferInfoForResetting.
-int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bool *delay) {
+// NOTE: Not const! This can cause SkipFrames!
+int Atrac2::GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int seekPos, bool *delay) {
 	const SceAtracIdInfo &info = context_->info;
 
 	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
@@ -354,7 +355,7 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bo
 	return retval;
 }
 
-void Atrac2::GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int seekPos) {
+void Atrac2::GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int seekPos) const {
 	const SceAtracIdInfo &info = context_->info;
 
 	switch (info.state) {
@@ -666,6 +667,8 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
+	DEBUG_LOG(Log::Atrac, "Decode(%08x): samplesToDecode: %d nextFileOff: %d", outbufAddr, samplesToDecode, nextFileOff);
+
 	// Check for streaming buffer run-out.
 	if (AtracStatusIsStreaming(info.state) && info.streamDataByte < info.sampleSize) {
 		*finish = 0;
@@ -899,6 +902,17 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
 	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
+	INFO_LOG(Log::Atrac,
+		"Atrac: sampleSize: %d buffer: %08x bufferByte: %d firstValidSample: %d\n"
+		"endSample: %d loopStart: %d loopEnd: %d\n"
+		"dataOff: %d curFileOff: %d streamOff: %d streamDataByte: %d\n"
+		"fileDataEnd: %d decodePos: %d numSkipFrames: %d",
+		info.sampleSize, info.buffer, info.bufferByte, info.firstValidSample,
+		info.endSample, info.loopStart, info.loopEnd,
+		info.dataOff, info.curFileOff, info.streamOff, info.streamDataByte,
+		info.fileDataEnd, info.decodePos, info.numSkipFrames
+	);
+
 	int skipCount = 0;  // TODO: use for delay
 	u32 retval = SkipFrames(&skipCount);
 
@@ -949,9 +963,12 @@ u32 Atrac2::SkipFrames(int *skipCount) {
 		u32 retval = DecodeInternal(0, 0, &finishIgnored);
 		if (retval != 0) {
 			if (retval == SCE_ERROR_ATRAC_API_FAIL) {
+				WARN_LOG(Log::Atrac, "Failed during skip-frame, ignoring: %08x", retval);
 				(*skipCount)++;
 			}
 			return retval;
+		} else {
+			DEBUG_LOG(Log::Atrac, "Frame correctly decoded during skip. numSkipFrames == %d", info.numSkipFrames);
 		}
 		(*skipCount)++;
 	}
@@ -959,7 +976,7 @@ u32 Atrac2::SkipFrames(int *skipCount) {
 }
 
 // Where to read from to fill the second buffer.
-int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *readSize) {
+int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *readSize) const {
 	const SceAtracIdInfo &info = context_->info;
 	if (info.state != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		// No second buffer needed in this state.

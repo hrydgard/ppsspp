@@ -124,18 +124,18 @@ public:
 	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
 
-	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
+	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;  // This should be const, but the legacy impl stops it (it's wrong).
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
-	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) = 0;
+	virtual int GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) = 0;  // NOTE: Not const! This can cause SkipFrames!
 	virtual int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
 
-	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) = 0;
+	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) const = 0;
 	virtual int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) = 0;
 	virtual int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) = 0;
 
-	virtual u32 GetNextSamples() = 0;
+	virtual u32 GetNextSamples() = 0;  // This should be const, but the legacy impl stops it (it's wrong).
 	virtual void InitLowLevel(const Atrac3LowLevelParams &params, int codecType) = 0;
 
 	virtual void CheckForSas() = 0;
@@ -224,9 +224,9 @@ public:
 	// Notify the player that the user has written some new data.
 	int AddStreamData(u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
-	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
+	int GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;  // NOTE: Not const! This can cause SkipFrames! (although only in the AtracCtx2)
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
-	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
+	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) const override;
 	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
