@@ -31,7 +31,6 @@ public:
 	MIPSDebugInterface *getDebugger() {
 		return debugger_;
 	}
-	std::vector<u32> searchString(const std::string &searchQuery);
 	void Draw(ImDrawList *drawList);
 	// void onVScroll(WPARAM wParam, LPARAM lParam);
 	// void onKeyDown(WPARAM wParam, LPARAM lParam);
@@ -194,7 +193,7 @@ private:
 	enum {
 		INVALID_ADDR = 0xFFFFFFFF,
 	};
-
+	void ProcessKeyboardShortcuts();
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
 	bool symsDirty_ = true;
@@ -204,6 +203,11 @@ private:
 	bool drawZeroDark_ = false;
 	bool editableMemory_ = false;
 
+	int searchFormFlags_=0;
+	bool focusSearchValueInput_ = false;
+	MemorySearchType selectedSearchType_ = BITS_8;
+	char searchStr_[512];
+	// store the state of the search form
 	ImMemView memView_;
 	char searchTerm_[64]{};
 

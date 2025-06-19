@@ -292,32 +292,39 @@ void ImMemView::ProcessKeyboardShortcuts(bool focused) {
 			return;
 			*/
 		}
-		/*
-		if (ImGui::IsKeyPressed(ImGuiKey_F)) {
-			initSearch();
-			memSearch_.status = search(false);
-		}*/
-		if (ImGui::IsKeyPressed(ImGuiKey_N)) {
-			continueSearch();
+
+		if (ImGui::IsKeyPressed(ImGuiKey_P)) {
+			PasteFromByteClipboard();
+			return;
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_C)) {
+			CopyToByteClipboard();
+			return;
 		}
 	} else {
 		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
 			ScrollCursor(rowSize_, GotoModeFromModifiers(false));
+			return;
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
 			ScrollCursor(-rowSize_, GotoModeFromModifiers(false));
+			return;
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
 			ScrollCursor(-1, GotoModeFromModifiers(false));
+			return;
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
 			ScrollCursor(1, GotoModeFromModifiers(false));
+			return;
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
 			ScrollWindow(visibleRows_, GotoModeFromModifiers(false));
+			return;
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
 			ScrollWindow(-visibleRows_, GotoModeFromModifiers(false));
+			return;
 		}
 
 		if (editableMemory_) {
@@ -1021,6 +1028,47 @@ void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
 	ImGui::End();
 }
 
+#define OPEN_SEARCH_FORM() \
+	if (!(searchFormFlags_ & ImGuiTreeNodeFlags_DefaultOpen)) \
+		searchFormFlags_ ^= ImGuiTreeNodeFlags_DefaultOpen; \
+	focusSearchValueInput_ = true
+
+void ImMemWindow::ProcessKeyboardShortcuts() {
+	if (ImGui::IsKeyPressed(ImGuiKey_F)) {
+		OPEN_SEARCH_FORM();
+		selectedSearchType_ = STRING;
+		return;
+	}
+	/*
+	if (ImGui::IsKeyPressed(ImGuiKey_B)) {
+		OPEN_SEARCH_FORM();
+		selectedSearchType_ = BITS_8;
+		// XXX: ctrl+b already restarts the emulation
+		// SDL/SDLMain.cpp
+		return;
+	}
+	*/
+	if (ImGui::IsKeyPressed(ImGuiKey_H)) {
+		OPEN_SEARCH_FORM();
+		selectedSearchType_ = BITS_16;
+		return;
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_U)) {
+		OPEN_SEARCH_FORM();
+		selectedSearchType_ = BITS_32;
+		return;
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+		OPEN_SEARCH_FORM();
+		selectedSearchType_ = BYTE_SEQ;
+		return;
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_N)) {
+		memView_.continueSearch();
+		return;
+	}
+}
+
 void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Title(index), &cfg.memViewOpen[index])) {
@@ -1052,14 +1100,16 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 		ImGui::EndPopup();
 	}
 	ImGui::Separator();
-	if (ImGui::CollapsingHeader("Memory Search")) {
-		static MemorySearchType type[4] = {BITS_8};
-		ImGui::Combo("type", reinterpret_cast<int*>(&type[index]), searchtypes, IM_ARRAYSIZE(searchtypes));
-		static char str[4][512];
-		ImGui::InputText("data", &(str[index][0]), IM_ARRAYSIZE(str[index]));
+	if (ImGui::CollapsingHeader("Memory Search", searchFormFlags_)) {
+		ImGui::Combo("type", reinterpret_cast<int*>(&selectedSearchType_), searchtypes, IM_ARRAYSIZE(searchtypes));
 
-		if (ImGui::Button("Search")) {
-			memView_.initSearch(str[index], type[index]);
+		if (focusSearchValueInput_) {
+			ImGui::SetKeyboardFocusHere(0);
+			focusSearchValueInput_ = false;
+		}
+		if (ImGui::InputText("data", searchStr_, IM_ARRAYSIZE(searchStr_), ImGuiInputTextFlags_EnterReturnsTrue) || ImGui::Button("Search")) {
+			memView_.initSearch(searchStr_, selectedSearchType_);
+			// TODO: transfer focus on the memview.
 		}
 		ImGui::SameLine();
 
@@ -1124,6 +1174,7 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 	ImGui::EndChild();
 
 	ImGui::SameLine();
+
 	if (ImGui::BeginChild("memview", size)) {
 		memView_.Draw(ImGui::GetWindowDrawList());
 	}
@@ -1132,6 +1183,7 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 	StatusBar(memView_.StatusMessage());
 
 	ImGui::End();
+	ProcessKeyboardShortcuts();
 }
 
 const char *ImMemWindow::Title(int index) {
