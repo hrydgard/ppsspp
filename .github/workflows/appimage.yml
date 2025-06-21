@@ -94,6 +94,7 @@ jobs:
           sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
 
           ARCH=$(uname -m)
+          echo "ARCH=$ARCH" >> $GITHUB_ENV # Export ARCH to be reused on other steps
           if [[ "$ARCH" == "x86_64" ]]; then
           	PKG_TYPE='x86_64.pkg.tar.zst'
           else
@@ -112,6 +113,7 @@ jobs:
             desktop-file-utils \
             git \
             cmake \
+            ninja \
             clang \
             ccache \
             llvm-libs \
@@ -125,10 +127,10 @@ jobs:
             libc++ \
             libc++abi \
             glew \
-            sdl2 \
             sdl2_ttf \
             python \
             patchelf \
+            pipewire \
             pipewire-audio \
             pulseaudio \
             pulseaudio-alsa \
@@ -137,8 +139,12 @@ jobs:
             xorg-server-xvfb \
             zsync \
             vulkan-nouveau \
-            vulkan-radeon 
-
+            vulkan-radeon \
+            vulkan-headers \
+            alsa-lib sndio hidapi ibus jack libdecor libgl libpulse libusb \
+            libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
+            wayland wayland-protocols
+          
           if [[ "$ARCH" == "x86_64" ]]; then
             pacman -Syu --noconfirm vulkan-intel
           fi
@@ -179,6 +185,17 @@ jobs:
 
           #clang --version
           #clang++ --version
+
+          # Install SDL2 from AUR
+          sed -i 's|EUID == 0|EUID == 69|g' /usr/bin/makepkg # because the docker image is ran as root this is needed lol
+          git clone https://aur.archlinux.org/sdl2.git
+          pushd sdl2
+          sed -i "s|x86_64|$ARCH|" ./PKGBUILD
+          makepkg -f
+          pacman --noconfirm -Rsndd sdl2-compat
+          pacman --noconfirm -U *.pkg.tar.*
+          popd
+          # End of Install SDL2 from AUR
 
           # Build ppsspp
           #./b.sh --release --no-sdl2 --no-png
