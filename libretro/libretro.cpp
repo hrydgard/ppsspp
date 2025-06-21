@@ -94,6 +94,9 @@ static bool show_upnp_port_option = true;
 static bool show_detect_frame_rate_option = true;
 static std::string changeProAdhocServer;
 
+void* unserialize_data = NULL;
+size_t unserialize_size = 0;
+
 namespace Libretro
 {
    LibretroGraphicsContext *ctx;
@@ -643,7 +646,7 @@ static void check_variables(CoreParameter &coreParam)
    var.key = "ppsspp_analog_sensitivity";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.fAnalogSensitivity = atof(var.value);
-   
+
    var.key = "ppsspp_memstick_inserted";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -1669,6 +1672,13 @@ void retro_run(void)
       coreState = CORE_RUNNING_CPU;
       g_bootErrorString.clear();
       g_pendingBoot = false;
+
+      if (unserialize_data) {
+         retro_unserialize(unserialize_data, unserialize_size);
+
+         free(unserialize_data);
+         unserialize_data = NULL;
+      }
    }
 
    // TODO: This seems dubious.
@@ -1767,8 +1777,13 @@ bool retro_serialize(void *data, size_t size)
 
 bool retro_unserialize(const void *data, size_t size)
 {
-   if (!gpu) // The HW renderer isn't ready on first pass.
-      return false;
+   // The HW renderer isn't ready on first pass.
+   // So we save the data until we are ready to use it.
+   if (!gpu) {
+      unserialize_data = malloc(size);
+      memcpy(unserialize_data, data, size);
+      return true;
+   }
 
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
