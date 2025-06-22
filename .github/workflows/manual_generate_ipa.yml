@@ -30,7 +30,7 @@ jobs:
         run: |
           echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
         
-      - name: Create macOS git-version.cpp & Version.txt
+      - name: Create git-version.cpp & Version.txt
         run: |
           echo "const char *PPSSPP_GIT_VERSION = \"${GIT_VERSION}\";" > git-version.cpp
           echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
@@ -57,7 +57,7 @@ jobs:
           export CCACHE_COMPILERCHECK=content
           ./b-ios.sh
       
-      - name: Package build
+      - name: Prepare artifacts
         run: |
           # Testing file location ...
           find . -name "*.app"
@@ -70,8 +70,15 @@ jobs:
             find build -name 'org.ppsspp*.deb' -exec cp -a '{}' ppsspp/ \;
           fi
 
-      - name: Upload artifact
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iOS-${{ github.event.inputs.buildVariant }} build
-          path: ppsspp/
+          name: iOS-IPA build
+          path: ppsspp/*.ipa
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-DEB build
+          path: ppsspp/*.deb
+      
