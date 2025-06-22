@@ -22,9 +22,9 @@ public:
 		userdata_ = userdata;
 	}
 
-	void EnumerateDevices(std::vector<AudioDeviceDesc> *outputDevices, bool captureDevices = false);
+	void EnumerateDevices(std::vector<AudioDeviceDesc> *outputDevices, bool captureDevices = false) override;
 
-	bool InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *revertedToDefault);
+	bool InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *revertedToDefault) override;
 
 	void FrameUpdate(bool allowAutoChange) override;
 

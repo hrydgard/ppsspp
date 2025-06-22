@@ -6,7 +6,6 @@
 #include <comdef.h>
 #include <atomic>
 #include <thread>
-#include <iostream>
 #include <vector>
 #include <string_view>
 
@@ -141,7 +140,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			nullptr
 		);
 		if (FAILED(result)) {
-			printf("Error initializing shared audio stream: %08x", result);
+			printf("Error initializing shared audio stream: %08lx", result);
 			audioClient3_->Release();
 			device->Release();
 			audioClient3_ = nullptr;
