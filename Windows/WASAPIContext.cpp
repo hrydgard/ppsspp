@@ -8,9 +8,12 @@
 #include <thread>
 #include <vector>
 #include <string_view>
+#include <wrl/client.h>
 
 #include "Common/Log.h"
 #include "WASAPIContext.h"
+
+using Microsoft::WRL::ComPtr;
 
 static std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 	const int len = (int)wstr.size();
@@ -35,7 +38,7 @@ static std::wstring ConvertUTF8ToWString(const std::string_view source) {
 }
 
 WASAPIContext::WASAPIContext() : notificationClient_(this) {
-	HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&enumerator_);
+	HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumerator_));
 	if (FAILED(hr)) {
 		// Bad!
 		enumerator_ = nullptr;
@@ -51,11 +54,10 @@ WASAPIContext::~WASAPIContext() {
 	}
 	Stop();
 	enumerator_->UnregisterEndpointNotificationCallback(&notificationClient_);
-	enumerator_->Release();
 }
 
 void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool captureDevices) {
-	IMMDeviceCollection *collection = nullptr;
+	ComPtr<IMMDeviceCollection> collection;
 	enumerator_->EnumAudioEndpoints(captureDevices ? eCapture : eRender, DEVICE_STATE_ACTIVE, &collection);
 
 	if (!collection) {
@@ -67,10 +69,10 @@ void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool 
 	collection->GetCount(&count);
 
 	for (UINT i = 0; i < count; ++i) {
-		IMMDevice *device = nullptr;
+		ComPtr<IMMDevice> device;
 		collection->Item(i, &device);
 
-		IPropertyStore *props = nullptr;
+		ComPtr<IPropertyStore> props;
 		device->OpenPropertyStore(STGM_READ, &props);
 
 		PROPVARIANT nameProp;
@@ -87,11 +89,7 @@ void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool 
 		}
 
 		PropVariantClear(&nameProp);
-		props->Release();
-		device->Release();
 	}
-
-	collection->Release();
 }
 
 bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *revertedToDefault) {
@@ -99,7 +97,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	*revertedToDefault = false;
 
-	IMMDevice *device = nullptr;
+	ComPtr<IMMDevice> device;
 	if (uniqueId.empty()) {
 		// Use the default device.
 		if (FAILED(enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device))) {
@@ -141,17 +139,14 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		);
 		if (FAILED(result)) {
 			printf("Error initializing shared audio stream: %08lx", result);
-			audioClient3_->Release();
-			device->Release();
-			audioClient3_ = nullptr;
-			device = nullptr;
+			audioClient3_.Reset();
 			return false;
 		}
 		actualPeriodFrames_ = minPeriodFrames;
 
 		audioClient3_->GetBufferSize(&reportedBufferSize_);
 		audioClient3_->SetEventHandle(audioEvent_);
-		audioClient3_->GetService(__uuidof(IAudioRenderClient), (void**)&renderClient_);
+		audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
 	} else {
 		// Fallback to IAudioClient (older OS)
 		device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
@@ -176,23 +171,19 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 		if (FAILED(hr)) {
 			printf("ERROR: Failed to initialize audio with all attempted buffer sizes\n");
-			audioClient_->Release();
-			device->Release();
-			audioClient_ = nullptr;
-			device = nullptr;
+			audioClient_.Reset();
 			return false;
 		}
 		audioClient_->GetBufferSize(&reportedBufferSize_);
 		actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
 		audioClient_->SetEventHandle(audioEvent_);
-		audioClient_->GetService(__uuidof(IAudioRenderClient), (void**)&renderClient_);
+		audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
 	}
 
 	latencyMode_ = latencyMode;
 
 	Start();
 
-	device->Release();
 	return true;
 }
 
@@ -207,8 +198,8 @@ void WASAPIContext::Stop() {
 	if (audioEvent_) SetEvent(audioEvent_);
 	if (audioThread_.joinable()) audioThread_.join();
 
-	if (renderClient_) { renderClient_->Release(); renderClient_ = nullptr; }
-	if (audioClient_) { audioClient_->Release(); audioClient_ = nullptr; }
+	renderClient_.Reset();
+	audioClient_.Reset();
 	if (audioEvent_) { CloseHandle(audioEvent_); audioEvent_ = nullptr; }
 	if (format_) { CoTaskMemFree(format_); format_ = nullptr; }
 }
