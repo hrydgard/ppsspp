@@ -506,7 +506,7 @@ int main(int argc, const char* argv[])
 	g_Config.iDumpFileTypes = 0;
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
-	g_Config.bIgnoreBadMemAccess = false;
+	g_Config.bIgnoreBadMemAccess = true;  // NOTE: A few tests rely on this, which is BAD: threads/mbx/refer/refer , threads/mbx/send/send, threads/vtimers/interrupt
 	// Never report from tests.
 	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
