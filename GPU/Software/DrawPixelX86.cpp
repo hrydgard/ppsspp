@@ -149,7 +149,7 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 
 			// Now add the pointer for the color buffer.
 			if (loadDepthOff) {
-				_assert_(Accessible(&fb.data, &depthbuf.data));
+				_assert_msg_(Accessible(&fb.data, &depthbuf.data), "fb.data and depthbuf.data too far apart: %p %p (fb=%08x d=%08x)", fb.data, depthbuf.data, gstate.getFrameBufAddress(), gstate.getDepthBufAddress());
 				depthTemp = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
 				if (RipAccessible(&fb.data) && RipAccessible(&depthbuf.data)) {
 					MOV(PTRBITS, R(argYReg), M(&fb.data));

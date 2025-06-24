@@ -1028,7 +1028,12 @@ void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 	// We assume fb.data won't change while we're drawing.
 	if (diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
-		fb.data = Memory::GetPointerWrite(gstate.getFrameBufAddress());
+		if (gstate.getFrameBufAddress() != 0) {
+			_dbg_assert_msg_(Memory::IsValidAddress(gstate.getFrameBufAddress()), "Invalid framebuffer address %08x", gstate.getFrameBufAddress());
+			fb.data = Memory::GetPointerWriteUnchecked(gstate.getFrameBufAddress());
+		} else {
+			fb.data = nullptr;
+		}
 	}
 }
 
@@ -1049,7 +1054,12 @@ void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "depthbuf");
 		// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
 		// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
-		depthbuf.data = Memory::GetPointerWrite(gstate.getDepthBufAddress() & 0x041FFFF0);
+		if (gstate.getDepthBufAddress() != 0) {
+			_dbg_assert_msg_(Memory::IsValidAddress(gstate.getDepthBufAddress()), "Invalid depthbuffer address %08x", gstate.getDepthBufAddress());
+			depthbuf.data = Memory::GetPointerWriteUnchecked(gstate.getDepthBufAddress() & 0x041FFFF0);
+		} else {
+			depthbuf.data = nullptr;
+		}
 	}
 }
 
