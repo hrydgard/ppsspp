@@ -55,6 +55,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Buffer.h"
 #include "Common/File/Path.h"
+#include "Common/Log/LogManager.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/CrossSIMD.h"
 // Get some more instructions for testing
@@ -1311,6 +1312,7 @@ int main(int argc, const char *argv[]) {
 	cpu_info.bVFPv3 = true;
 	cpu_info.bVFPv4 = true;
 	g_Config.bEnableLogging = true;
+	g_logManager.DisableOutput(LogOutput::DebugString);  // not really needed
 
 	bool allTests = false;
 	TestFunc testFunc = nullptr;
@@ -1329,7 +1331,8 @@ int main(int argc, const char *argv[]) {
 	if (allTests) {
 		int passes = 0;
 		int fails = 0;
-		for (auto f : availableTests) {
+		for (const auto &f : availableTests) {
+			printf("\n**** Running test %s ****\n", f.name);
 			if (f.func()) {
 				++passes;
 			} else {
@@ -1344,7 +1347,7 @@ int main(int argc, const char *argv[]) {
 			printf("%d tests failed!\n", fails);
 			return 2;
 		}
-	} else if (testFunc == nullptr) {
+	} else if (!testFunc) {
 		fprintf(stderr, "You may select a test to run by passing an argument, either \"all\" or one or more of the below.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Available tests:\n");
