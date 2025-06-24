@@ -919,7 +919,12 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	info.buffer = bufferAddr;
 	info.bufferByte = bufferSize;
 	info.firstValidSample = track.FirstSampleOffsetFull();
-	info.endSample = track.endSample + info.firstValidSample;
+	if (track.codecType == PSP_CODEC_AT3) {
+		// NOTE: There's something weird going on with AT3 (non-plus) files.
+		info.firstValidSample += track.SamplesPerFrame();
+	}
+
+	info.endSample = track.endSample + track.FirstSampleOffsetFull();
 	if (track.loopStartSample != 0xFFFFFFFF) {
 		info.loopStart = track.loopStartSample;
 		info.loopEnd = track.loopEndSample;
@@ -930,7 +935,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	info.streamOff = track.dataByteOffset;
 	info.streamDataByte = readSize - info.dataOff;
 	info.fileDataEnd = track.fileSize;
-	info.decodePos = track.FirstSampleOffsetFull();
+	info.decodePos = info.firstValidSample;
 	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
 	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
