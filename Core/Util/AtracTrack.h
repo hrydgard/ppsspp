@@ -54,6 +54,8 @@ struct Track {
 	// Does not take firstSampleOffset into account.
 	int endSample = -1;
 
+	int waveDataSize = 0;
+
 	// NOTE: The below CAN be written.
 	// Loop configuration. The PSP only supports one loop but we store them all.
 	std::vector<AtracLoopInfo> loopinfo;

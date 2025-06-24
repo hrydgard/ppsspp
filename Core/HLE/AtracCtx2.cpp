@@ -934,7 +934,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	info.curFileOff = track.dataByteOffset;
 	info.streamOff = track.dataByteOffset;
 	info.streamDataByte = readSize - info.dataOff;
-	info.fileDataEnd = track.fileSize;
+	info.fileDataEnd = track.dataByteOffset + track.waveDataSize;
 	info.decodePos = info.firstValidSample;
 	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
 	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...

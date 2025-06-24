@@ -213,6 +213,7 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 				WARN_LOG(Log::ME, "Atrac data chunk extends beyond riff chunk");
 				track->fileSize = offset + chunkSize;
 			}
+			track->waveDataSize = dataChunkSize;
 		}
 		break;
 		}
@@ -319,5 +320,6 @@ int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 fileSize, Track *track, std:
 		track->endSample = ((track->fileSize - track->dataByteOffset) / track->bytesPerFrame) * track->SamplesPerFrame();
 	}
 	track->endSample -= 1;
+	track->waveDataSize = track->fileSize - track->dataByteOffset;  // No other way to determine this in the AA3 format?
 	return 0;
 }
