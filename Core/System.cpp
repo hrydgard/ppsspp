@@ -950,7 +950,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 	fwrite(dataPtr, sizeof(u8), lengthToWrite, file);
 	fclose(file);
 
-	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", DumpFileTypeToString(type), fullPath.c_str());
+	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", DumpFileTypeToString(type), fullPath.ToVisualString().c_str());
 
 	char *path = new char[strlen(fullPath.c_str()) + 1];
 	strcpy(path, fullPath.c_str());

@@ -10,6 +10,9 @@
 #include "Core/System.h"
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/HW/Atrac3Standalone.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Common/File/FileUtil.h"
 
 // Convenient command line:
 // Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --new-atrac --timeout=30 --graphics=software pspautotests/tests/audio/atrac/stream.prx
@@ -181,6 +184,24 @@ Atrac2::Atrac2(u32 contextAddr, int codecType) {
 	} else {
 		// We're loading state, we'll restore the context in DoState.
 	}
+}
+
+Atrac2::~Atrac2() {
+	DumpBufferToFile();
+	// Nothing else to do here, the context is freed by the HLE.
+}
+
+void Atrac2::DumpBufferToFile() {
+	if (dumped_) {
+		// Already dumped, no need to dump again.
+		return;
+	}
+	if (!dumpBuffer_.empty()) {
+		std::string filename = StringFromFormat("atrac3_%08x_incomplete.at3", context_->info.endSample);
+		DumpFileIfEnabled(dumpBuffer_.data(), (u32)dumpBuffer_.size(), filename, DumpFileType::Atrac3);
+		dumpBuffer_.clear();
+	}
+	dumped_ = true;
 }
 
 void Atrac2::DoState(PointerWrap &p) {
@@ -837,6 +858,11 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		char filename[512];
 		snprintf(filename, sizeof(filename), "%s_%d%s", track.codecType == PSP_CODEC_AT3 ? "at3" : "at3plus", track.endSample, track.channels == 1 ? "_mono" : "");
 		DumpFileIfEnabled(Memory::GetPointer(bufferAddr), readSize, filename, DumpFileType::Atrac3);
+	} else if (false && (int)g_Config.iDumpFileTypes & (int)DumpFileType::Atrac3) {
+		// TODO: This is disabled (using the false above) until we can properly append streamed data to the dump.
+		// Still can be useful for debugging by dumping the start of the file, so leaving it here.
+		dumpBuffer_.resize(readSize);
+		Memory::Memcpy(dumpBuffer_.data(), bufferAddr, readSize);
 	}
 
 	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);

@@ -486,6 +486,8 @@ const KeyValue ROOT[] = {
 	{ "SYSPROFILE", ValueType::DIR, "", ARRAY_SIZE(tree_SYSPROFILE), tree_SYSPROFILE },
 };
 
+// Updater checks for CONFIG/SYSTEM/XMB.
+
 void __RegInit() {
 	g_openRegistryMode = 0;
 	g_handleGen = 1337;
@@ -522,7 +524,7 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 			}
 		}
 		if (!found) {
-			WARN_LOG(Log::sceReg, "Path not found: %.*s", (int)path.size(), path.data());
+			WARN_LOG(Log::sceReg, "LookupCategory: Path not found: %.*s", (int)path.size(), path.data());
 			return nullptr;
 		}
 	}

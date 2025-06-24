@@ -8,9 +8,7 @@ class Atrac2 : public AtracBase {
 public:
 	// The default values are only used during save state load, in which case they get restored by DoState.
 	Atrac2(u32 contextAddr = 0, int codecType = 0);
-	~Atrac2() {
-		delete[] decodeTemp_;
-	}
+	~Atrac2();
 
 	AtracStatus BufferState() const override {
 		return context_->info.state;
@@ -68,6 +66,8 @@ private:
 	u32 SkipFrames(int *skippedCount);
 	void WrapLastPacket();
 
+	void DumpBufferToFile();
+
 	// Just the current decoded frame, in order to be able to cut off the first part of it
 	// to write the initial partial frame.
 	// Does not need to be saved.
@@ -76,4 +76,7 @@ private:
 	// This is hidden state inside sceSas, really. Not visible in the context.
 	// But it doesn't really matter whether it's here or there.
 	AtracSasStreamState sas_;
+
+	std::vector<u8> dumpBuffer_;  // Used for dumping audio data to files.
+	bool dumped_ = false;  // Whether we already dumped the audio data to a file.
 };
