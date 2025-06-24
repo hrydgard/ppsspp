@@ -578,6 +578,12 @@ static void ComputeStreamBufferDataInfo(const SceAtracIdInfo &info, u32 *writePt
 	const int loopStartFileOffset = ComputeFileOffset(info, info.loopStart);
 	const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
 
+	if (spaceLeftInBuffer < 0) {
+		// Most likely, the file was truncated.
+		WARN_LOG(Log::Atrac, "File corruption detected: spaceLeftInBuffer < 0: %d. Stumbling along.", spaceLeftInBuffer);
+		spaceLeftInBuffer = 0;
+	}
+
 	switch (info.state) {
 	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
 	{
