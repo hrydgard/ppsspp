@@ -281,7 +281,10 @@ inline OpArg MRegSum(X64Reg base, X64Reg offset)
 template <typename T>
 inline bool Accessible(const T *t1, const T *t2) {
 	ptrdiff_t diff = (const uint8_t *)t1 - (const uint8_t *)t2;
-	return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
+	if (diff < 0) {
+		diff = -diff;
+	}
+	return diff < (ptrdiff_t)0x7FFFFFE0;
 }
 
 template <typename T>
