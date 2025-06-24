@@ -68,6 +68,22 @@ jobs:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
 
+    - name: Create release
+      if: github.ref_type == 'tag'
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: |
+        rm ppsspp/PPSSPPHeadless*
+        rm ppsspp/UnitTest*
+        rm ppsspp/*.pdb
+        mkdir releases
+        Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ github.ref_name }}-Windows-${{ matrix.platform }}.zip"
+
+    - name: Upload release
+      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+      if: github.ref_type == 'tag'
+      with:
+        files: releases/*.zip
+
   build-uwp:
     runs-on: windows-latest
     steps:
