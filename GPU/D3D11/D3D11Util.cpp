@@ -28,7 +28,7 @@ std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeS
 	HRESULT result = ptr_D3DCompile(code, codeSize, nullptr, nullptr, nullptr, "main", target, flags, 0, &compiledCode, &errorMsgs);
 	std::string errors;
 	if (errorMsgs) {
-		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
+		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize() > 1 ? (errorMsgs->GetBufferSize() - 1) : 0);
 		std::string numberedCode = LineNumberString(code);
 		if (SUCCEEDED(result)) {
 			std::vector<std::string_view> lines;
@@ -45,9 +45,9 @@ std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeS
 			}
 		} else {
 			ERROR_LOG(Log::G3D, "%s: %s\n\n%s", "errors", errors.c_str(), numberedCode.c_str());
+			OutputDebugStringA(errors.c_str());
+			OutputDebugStringA(numberedCode.c_str());
 		}
-		OutputDebugStringA(errors.c_str());
-		OutputDebugStringA(numberedCode.c_str());
 	}
 	if (compiledCode) {
 		// Success!
