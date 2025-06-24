@@ -1028,7 +1028,7 @@ void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 	// We assume fb.data won't change while we're drawing.
 	if (diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
-		fb.data = Memory::GetPointerWrite(gstate.getFrameBufAddress());
+		fb.data = Memory::GetPointerWriteUnchecked(gstate.getFrameBufAddress());
 	}
 }
 
