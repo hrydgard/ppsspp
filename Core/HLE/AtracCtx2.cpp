@@ -10,6 +10,9 @@
 #include "Core/System.h"
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/HW/Atrac3Standalone.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Common/File/FileUtil.h"
 
 // Convenient command line:
 // Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --new-atrac --timeout=30 --graphics=software pspautotests/tests/audio/atrac/stream.prx
@@ -183,6 +186,24 @@ Atrac2::Atrac2(u32 contextAddr, int codecType) {
 	}
 }
 
+Atrac2::~Atrac2() {
+	DumpBufferToFile();
+	// Nothing else to do here, the context is freed by the HLE.
+}
+
+void Atrac2::DumpBufferToFile() {
+	if (dumped_) {
+		// Already dumped, no need to dump again.
+		return;
+	}
+	if (!dumpBuffer_.empty()) {
+		std::string filename = StringFromFormat("atrac3_%08x_incomplete.at3", context_->info.endSample);
+		DumpFileIfEnabled(dumpBuffer_.data(), (u32)dumpBuffer_.size(), filename, DumpFileType::Atrac3);
+		dumpBuffer_.clear();
+	}
+	dumped_ = true;
+}
+
 void Atrac2::DoState(PointerWrap &p) {
 	auto s = p.Section("Atrac2", 1, 3);
 	if (!s)
@@ -331,7 +352,8 @@ u32 Atrac2::ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int
 }
 
 // This is basically sceAtracGetBufferInfoForResetting.
-int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bool *delay) {
+// NOTE: Not const! This can cause SkipFrames!
+int Atrac2::GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int seekPos, bool *delay) {
 	const SceAtracIdInfo &info = context_->info;
 
 	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
@@ -354,7 +376,7 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bo
 	return retval;
 }
 
-void Atrac2::GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int seekPos) {
+void Atrac2::GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int seekPos) const {
 	const SceAtracIdInfo &info = context_->info;
 
 	switch (info.state) {
@@ -556,6 +578,12 @@ static void ComputeStreamBufferDataInfo(const SceAtracIdInfo &info, u32 *writePt
 	const int loopStartFileOffset = ComputeFileOffset(info, info.loopStart);
 	const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
 
+	if (spaceLeftInBuffer < 0) {
+		// Most likely, the file was truncated.
+		WARN_LOG(Log::Atrac, "File corruption detected: spaceLeftInBuffer < 0: %d. Stumbling along.", spaceLeftInBuffer);
+		spaceLeftInBuffer = 0;
+	}
+
 	switch (info.state) {
 	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
 	{
@@ -666,6 +694,8 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
+	DEBUG_LOG(Log::Atrac, "Decode(%08x): samplesToDecode: %d nextFileOff: %d", outbufAddr, samplesToDecode, nextFileOff);
+
 	// Check for streaming buffer run-out.
 	if (AtracStatusIsStreaming(info.state) && info.streamDataByte < info.sampleSize) {
 		*finish = 0;
@@ -710,7 +740,7 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	context_->codec.outBuf = outbufAddr;
 
 	if (!Memory::IsValidAddress(inAddr)) {
-		ERROR_LOG(Log::ME, "DecodeInternal: Bad inAddr %08x", inAddr);
+		ERROR_LOG(Log::Atrac, "DecodeInternal: Bad inAddr %08x", inAddr);
 		return SCE_ERROR_ATRAC_API_FAIL;
 	}
 
@@ -821,19 +851,24 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	if (track.codecType != PSP_CODEC_AT3 && track.codecType != PSP_CODEC_AT3PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
-		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track.codecType);
+		ERROR_LOG(Log::Atrac, "unexpected codec type %d in set data", track.codecType);
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
 	if (outputChannels != track.channels) {
-		INFO_LOG(Log::ME, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
+		INFO_LOG(Log::Atrac, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
 	}
 
 	if (readSize >= track.fileSize) {
-		INFO_LOG(Log::ME, "The full file was set directly - we can dump it.");
+		INFO_LOG(Log::Atrac, "The full file was set directly - we can dump it.");
 		char filename[512];
 		snprintf(filename, sizeof(filename), "%s_%d%s", track.codecType == PSP_CODEC_AT3 ? "at3" : "at3plus", track.endSample, track.channels == 1 ? "_mono" : "");
 		DumpFileIfEnabled(Memory::GetPointer(bufferAddr), readSize, filename, DumpFileType::Atrac3);
+	} else if (false && (int)g_Config.iDumpFileTypes & (int)DumpFileType::Atrac3) {
+		// TODO: This is disabled (using the false above) until we can properly append streamed data to the dump.
+		// Still can be useful for debugging by dumping the start of the file, so leaving it here.
+		dumpBuffer_.resize(readSize);
+		Memory::Memcpy(dumpBuffer_.data(), bufferAddr, readSize);
 	}
 
 	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
@@ -853,7 +888,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	context_->codec.inBuf = bufferAddr;
 
 	if (readSize > track.fileSize) {
-		INFO_LOG(Log::ME, "readSize (%d) > track_.fileSize (%d)", readSize, track.fileSize);
+		INFO_LOG(Log::Atrac, "readSize (%d) > track_.fileSize (%d)", readSize, track.fileSize);
 	}
 
 	if (bufferSize >= track.fileSize) {
@@ -875,7 +910,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		}
 	}
 
-	DEBUG_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
+	DEBUG_LOG(Log::Atrac, "Atrac mode setup: %s", AtracStatusToString(info.state));
 
 	// Copy parameters into state struct.
 	info.codec = track.codecType;
@@ -899,14 +934,25 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
 	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
+	INFO_LOG(Log::Atrac,
+		"Atrac: sampleSize: %d buffer: %08x bufferByte: %d firstValidSample: %d\n"
+		"endSample: %d loopStart: %d loopEnd: %d\n"
+		"dataOff: %d curFileOff: %d streamOff: %d streamDataByte: %d\n"
+		"fileDataEnd: %d decodePos: %d numSkipFrames: %d",
+		info.sampleSize, info.buffer, info.bufferByte, info.firstValidSample,
+		info.endSample, info.loopStart, info.loopEnd,
+		info.dataOff, info.curFileOff, info.streamOff, info.streamDataByte,
+		info.fileDataEnd, info.decodePos, info.numSkipFrames
+	);
+
 	int skipCount = 0;  // TODO: use for delay
 	u32 retval = SkipFrames(&skipCount);
 
 	// Seen in Mui Mui house. Things go very wrong after this..
 	if (retval == SCE_ERROR_ATRAC_API_FAIL) {
-		ERROR_LOG(Log::ME, "Bad frame during initial skip");
+		ERROR_LOG(Log::Atrac, "Bad frame during initial skip");
 	} else if (retval != 0) {
-		ERROR_LOG(Log::ME, "SkipFrames during InitContext returned an error: %08x", retval);
+		ERROR_LOG(Log::Atrac, "SkipFrames during InitContext returned an error: %08x", retval);
 	}
 	WrapLastPacket();
 	return retval;
@@ -921,7 +967,7 @@ void Atrac2::WrapLastPacket() {
 		int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
 		if (info.streamDataByte < distanceToEnd) {
 			// There's space left without wrapping. Don't do anything.
-			// INFO_LOG(Log::ME, "Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
+			// INFO_LOG(Log::Atrac, "Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
 			// In this case, seems we need to zero some bytes. In one test, this seems to be 336.
 			// Maybe there's a logical bug and the copy happens even when not needed, it's just that it'll
 			// copy zeroes. Either way, let's just copy some bytes to make our sanity check hexdump pass.
@@ -931,7 +977,7 @@ void Atrac2::WrapLastPacket() {
 			const int copyStart = info.streamOff + distanceToEnd;
 			const int copyLen = info.bufferByte - copyStart;
 			// Then, let's copy it.
-			DEBUG_LOG(Log::ME, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
+			DEBUG_LOG(Log::Atrac, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
 				copyLen, info.sampleSize - copyLen, info.sampleSize);
 			Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
 		}
@@ -949,9 +995,12 @@ u32 Atrac2::SkipFrames(int *skipCount) {
 		u32 retval = DecodeInternal(0, 0, &finishIgnored);
 		if (retval != 0) {
 			if (retval == SCE_ERROR_ATRAC_API_FAIL) {
+				WARN_LOG(Log::Atrac, "Failed during skip-frame, ignoring: %08x", retval);
 				(*skipCount)++;
 			}
 			return retval;
+		} else {
+			DEBUG_LOG(Log::Atrac, "Frame correctly decoded during skip. numSkipFrames == %d", info.numSkipFrames);
 		}
 		(*skipCount)++;
 	}
@@ -959,7 +1008,7 @@ u32 Atrac2::SkipFrames(int *skipCount) {
 }
 
 // Where to read from to fill the second buffer.
-int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *readSize) {
+int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *readSize) const {
 	const SceAtracIdInfo &info = context_->info;
 	if (info.state != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		// No second buffer needed in this state.
@@ -1030,7 +1079,7 @@ int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, 
 	int outSamples = 0;
 	bool success = decoder_->Decode(srcData, info.sampleSize, bytesConsumed, channels, dstData, &outSamples);
 	if (!success) {
-		ERROR_LOG(Log::ME, "Low level decoding failed: sampleSize: %d bytesConsumed: %d", info.sampleSize, *bytesConsumed);
+		ERROR_LOG(Log::Atrac, "Low level decoding failed: sampleSize: %d bytesConsumed: %d", info.sampleSize, *bytesConsumed);
 		// We proceed anyway, see issue #20452
 		/*
 		*bytesConsumed = 0;
@@ -1046,16 +1095,16 @@ int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, 
 void Atrac2::CheckForSas() {
 	SceAtracIdInfo &info = context_->info;
 	if (info.numChan != 1) {
-		WARN_LOG(Log::ME, "Caller forgot to set channels to 1");
+		WARN_LOG(Log::Atrac, "Caller forgot to set channels to 1");
 	}
 	if (info.state != 0x10) {
-		WARN_LOG(Log::ME, "Caller forgot to set state to 0x10");
+		WARN_LOG(Log::Atrac, "Caller forgot to set state to 0x10");
 	}
 	sas_.isStreaming = info.fileDataEnd > (s32)info.bufferByte;
 	if (sas_.isStreaming) {
-		INFO_LOG(Log::ME, "SasAtrac stream mode");
+		INFO_LOG(Log::Atrac, "SasAtrac stream mode");
 	} else {
-		INFO_LOG(Log::ME, "SasAtrac non-streaming mode");
+		INFO_LOG(Log::Atrac, "SasAtrac non-streaming mode");
 	}
 }
 
@@ -1068,10 +1117,10 @@ int Atrac2::EnqueueForSas(u32 address, u32 ptr) {
 	}
 
 	if (address == 0 && ptr == 0) {
-		WARN_LOG(Log::ME, "Caller tries to send us a zero buffer. Something went wrong.");
+		WARN_LOG(Log::Atrac, "Caller tries to send us a zero buffer. Something went wrong.");
 	}
 
-	DEBUG_LOG(Log::ME, "EnqueueForSas: Second buffer updated to %08x, sz: %08x", address, ptr);
+	DEBUG_LOG(Log::Atrac, "EnqueueForSas: Second buffer updated to %08x, sz: %08x", address, ptr);
 	info.secondBuffer = address;
 	info.secondBufferByte = ptr;
 	return 0;
@@ -1101,12 +1150,12 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		int bytesConsumed = 0;
 		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
 		if (!decodeResult) {
-			ERROR_LOG(Log::ME, "SAS failed to decode regular packet");
+			ERROR_LOG(Log::Atrac, "SAS failed to decode regular packet");
 		}
 		sas_.streamOffset += bytesConsumed;
 	} else if (sas_.isStreaming) {
 		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
-		DEBUG_LOG(Log::ME, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
+		DEBUG_LOG(Log::Atrac, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
 
 		// Compute the part sizes using the current size.
 		int part1Size = sas_.bufSize[sas_.curBuffer] - sas_.streamOffset;
@@ -1119,7 +1168,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 		// Check if we hit the end.
 		if (sas_.fileOffset >= info.fileDataEnd) {
-			DEBUG_LOG(Log::ME, "Streaming and hit the file end.");
+			DEBUG_LOG(Log::Atrac, "Streaming and hit the file end.");
 			*bytesWritten = 0;
 			*finish = 1;
 			return;
@@ -1127,14 +1176,14 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 		// Check that a new buffer actually exists
 		if (info.secondBuffer == sas_.bufPtr[sas_.curBuffer]) {
-			ERROR_LOG(Log::ME, "Can't enqueue the same buffer twice in a row!");
+			ERROR_LOG(Log::Atrac, "Can't enqueue the same buffer twice in a row!");
 			*bytesWritten = 0;
 			*finish = 1;
 			return;
 		}
 
 		if ((int)info.secondBuffer < 0) {
-			ERROR_LOG(Log::ME, "AtracSas streaming ran out of data, no secondbuffer pending");
+			ERROR_LOG(Log::Atrac, "AtracSas streaming ran out of data, no secondbuffer pending");
 			*bytesWritten = 0;
 			*finish = 1;
 			return;
@@ -1153,13 +1202,13 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		if (sas_.fileOffset >= info.fileDataEnd) {
 			// We've reached the end.
 			info.secondBuffer = 0;
-			DEBUG_LOG(Log::ME, "%08x >= %08x: Reached the end.", sas_.fileOffset, info.fileDataEnd);
+			DEBUG_LOG(Log::Atrac, "%08x >= %08x: Reached the end.", sas_.fileOffset, info.fileDataEnd);
 		} else {
 			// Signal to the caller that we accept a new next buffer.
 			info.secondBuffer = 0xFFFFFFFF;
 		}
 
-		DEBUG_LOG(Log::ME, "Switching over to buffer %d, updating buffer to %08x, sz: %08x. %s", sas_.curBuffer, info.secondBuffer, info.secondBufferByte, info.secondBuffer == 0xFFFFFFFF ? "Signalling for more data." : "");
+		DEBUG_LOG(Log::Atrac, "Switching over to buffer %d, updating buffer to %08x, sz: %08x. %s", sas_.curBuffer, info.secondBuffer, info.secondBufferByte, info.secondBuffer == 0xFFFFFFFF ? "Signalling for more data." : "");
 
 		// Copy the second half (or if part1Size == 0, the whole packet) to the assembly buffer.
 		Memory::Memcpy(assembly + part1Size, sas_.bufPtr[sas_.curBuffer], part2Size);
@@ -1168,7 +1217,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		int bytesConsumed = 0;
 		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
 		if (!decodeResult) {
-			ERROR_LOG(Log::ME, "SAS failed to decode assembled packet");
+			ERROR_LOG(Log::Atrac, "SAS failed to decode assembled packet");
 		}
 	}
 }

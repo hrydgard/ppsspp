@@ -503,9 +503,10 @@ int main(int argc, const char* argv[])
 	coreParameter.pixelHeight = 272;
 	coreParameter.fastForward = true;
 
+	g_Config.iDumpFileTypes = 0;
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
-	g_Config.bIgnoreBadMemAccess = true;
+	g_Config.bIgnoreBadMemAccess = true;  // NOTE: A few tests rely on this, which is BAD: threads/mbx/refer/refer , threads/mbx/send/send, threads/vtimers/interrupt
 	// Never report from tests.
 	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
@@ -542,6 +543,7 @@ int main(int argc, const char* argv[])
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
 	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
+	// g_Config.bUseOldAtrac = true;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";

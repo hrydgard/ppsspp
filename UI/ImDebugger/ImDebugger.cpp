@@ -1096,6 +1096,14 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 					ImGui::Checkbox("", mutePtr);
 				}
 				ImGui::TableNextColumn();
+
+				const AtracBase *ctx = __AtracGetCtx(i, &codecType);
+				if (!ctx) {
+					// Nothing more we can display about uninitialized contexts.
+					ImGui::PopID();
+					continue;
+				}
+
 				switch (codecType) {
 				case 0:
 					ImGui::TextUnformatted("-");  // Uninitialized
@@ -1111,12 +1119,6 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 					break;
 				}
 
-				const AtracBase *ctx = __AtracGetCtx(i, &codecType);
-				if (!ctx) {
-					// Nothing more we can display about uninitialized contexts.
-					ImGui::PopID();
-					continue;
-				}
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(AtracStatusToString(ctx->BufferState()));
 				ImGui::TableNextColumn();

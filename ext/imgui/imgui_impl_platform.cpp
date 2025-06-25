@@ -247,6 +247,10 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_EXT_PRINTSCREEN:
 		return ImGuiKey_PrintScreen;
 
+	case NKCODE_EXT_PIPE:
+		// No valid mapping exists.
+		return ImGuiKey_None;
+
 	default:
 		WARN_LOG(Log::System, "Unmapped ImGui keycode conversion from %d", keyCode);
 	 	return ImGuiKey_None;
