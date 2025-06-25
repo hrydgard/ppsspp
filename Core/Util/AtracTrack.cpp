@@ -2,18 +2,20 @@
 #include "Common/StringUtils.h"
 #include "Core/Util/AtracTrack.h"
 #include "Core/HLE/ErrorCodes.h"
+#include "Common/Data/Format/RIFF.h"
 #include "Core/MemMap.h"
 
 // Atrac file parsing constants
-#define AT3_MAGIC           0x0270
-#define AT3_PLUS_MAGIC      0xFFFE  // This is normally a marker for WAVE_FORMAT_EXTENSIBLE
 
-const int RIFF_CHUNK_MAGIC = 0x46464952;
-const int RIFF_WAVE_MAGIC = 0x45564157;
-const int FMT_CHUNK_MAGIC = 0x20746D66;
-const int DATA_CHUNK_MAGIC = 0x61746164;
-const int SMPL_CHUNK_MAGIC = 0x6C706D73;
-const int FACT_CHUNK_MAGIC = 0x74636166;
+constexpr int RIFF_CHUNK_MAGIC = 0x46464952;
+constexpr int RIFF_WAVE_MAGIC = 0x45564157;
+constexpr int FMT_CHUNK_MAGIC = 0x20746D66;
+constexpr int DATA_CHUNK_MAGIC = 0x61746164;
+constexpr int SMPL_CHUNK_MAGIC = 0x6C706D73;
+constexpr int FACT_CHUNK_MAGIC = 0x74636166;
+
+constexpr u32 WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
+constexpr u32 WAVE_FORMAT_AT3 = 0x270;
 
 static u16 Read16(const u8 *buffer, int offset) {
 	u16 value;
@@ -27,6 +29,7 @@ static u32 Read32(const u8 *buffer, int offset) {
 	return value;
 }
 
+// Old WAVE parser.
 int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *error) {
 	// 72 is about the size of the minimum required data to even be valid.
 	if (size < 72) {
@@ -108,14 +111,14 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			}
 
 			auto at3fmt = (const RIFFFmtChunk *)(buffer + offset);
-			if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
+			if (chunkSize < 32 || (at3fmt->fmtTag == WAVE_FORMAT_EXTENSIBLE && chunkSize < 52)) {
 				*error = "AnalyzeTrack: fmt definition too small(%d)";
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 
-			if (at3fmt->fmtTag == AT3_MAGIC)
+			if (at3fmt->fmtTag == WAVE_FORMAT_AT3)
 				track->codecType = PSP_CODEC_AT3;
-			else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
+			else if (at3fmt->fmtTag == WAVE_FORMAT_EXTENSIBLE)
 				track->codecType = PSP_CODEC_AT3PLUS;
 			else {
 				*error = "AnalyzeTrack: invalid fmt magic: %04x";
@@ -140,13 +143,12 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			// TODO: There are some format specific bytes here which seem to have fixed values?
 			// Probably don't need them.
 
-			if (at3fmt->fmtTag == AT3_MAGIC) {  // 0x270
+			if (at3fmt->fmtTag == WAVE_FORMAT_AT3) {  // 0x270
 				// This is the offset to the jointStereo_ field.
 				track->jointStereo = Read16(buffer, offset + 24);
 				// Then there are more fields here.
 				u16 unknown1_2 = Read16(buffer, offset + 30);
-			} else if (at3fmt->fmtTag == AT3_PLUS_MAGIC) {
-				_dbg_assert_(at3fmt->fmtTag == 0xFFFE);
+			} else if (at3fmt->fmtTag == WAVE_FORMAT_EXTENSIBLE) {
 				// It's in an "Extensible" wave format. Let's read some more.
 			}
 			if (chunkSize > 16) {
@@ -320,4 +322,218 @@ int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 fileSize, Track *track, std:
 	}
 	track->endSample -= 1;
 	return 0;
+}
+
+static inline u32 Read16(const u8 *base, int *offset) {
+	// Little-endian reliance.
+	u32 value = 0;
+	memcpy(&value, base + *offset, 2);
+	*offset += 2;
+	return value;
+}
+
+static inline u32 Read32(const u8 *base, int *offset) {
+	// Little-endian reliance.
+	u32 value = 0;
+	memcpy(&value, base + *offset, 4);
+	*offset += 4;
+	return value;
+}
+
+static const u8 g_atrac3Checkbytes[] = {
+	0xBF, 0xAA, 0x23, 0xE9, 0x58, 0xCB, 0x71, 0x44,
+	0xA1, 0x19, 0xFF, 0xFA, 0x01, 0xE4, 0xCE, 0x62,
+};
+
+static inline int RoundUpToEven(int size) {
+	// Round up to the next even number.
+	return (size + 1) & ~1;
+}
+
+int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
+	track->loopStart = 0xFFFFFFFF;
+	track->loopEnd = 0xFFFFFFFF;
+	track->firstSampleOffset = 0;
+	track->endSample = 0;
+	track->waveDataSize = 0;
+
+	int retval = SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+	int offset = 0;  // byte offset into the data array. Is kept even.
+
+	// Scan RIFF chunks for the RIFFWAVE header. Normally we find this immediately.
+	while (true) {
+		if (offset + 0xC >= dataLength) {
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+		}
+		const u32 blockID = Read32(data, &offset);
+		if (blockID != RIFF_CHUNK_MAGIC) {
+			return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+		}
+		const u32 blockSize = RoundUpToEven(Read32(data, &offset));
+		const u32 waveID = Read32(data, &offset);
+		if (waveID == RIFF_WAVE_MAGIC) {
+			// We found the WAVE header.
+			break;
+		}
+		offset += blockSize - 4;
+	}
+
+	// Now that we have the header, loop through the rest of the chunks.
+	bool modifiedSampleOffset = false;
+	while (true) {
+		if (offset + 8 >= dataLength) {
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+		}
+		const u32 chunkID = Read32(data, &offset);
+		const int chunkSize = RoundUpToEven(Read32(data, &offset));
+		const int nextOffset = offset + chunkSize;
+		// We allow the data chunk to be bigger than readSize, as we may not have read the whole file.
+		if (offset + chunkSize > dataLength && chunkID != DATA_CHUNK_MAGIC) {
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+		}
+		int remainingBytes = 0;
+		switch (chunkID) {
+		case DATA_CHUNK_MAGIC:
+		{
+			// This should be the last chunk we find, it lasts to the end of the file.
+			// I guess another order is possible, but not if streaming.
+			track->waveDataSize = chunkSize;
+			track->dataOff = offset;
+			if (!track->firstSampleOffset) {
+				INFO_LOG(Log::Atrac, "DATA chunk found at offset %d with size %d", offset, chunkSize);
+				track->firstSampleOffset = retval == PSP_CODEC_AT3 ? 0x400 : 0x800;
+			}
+			if (modifiedSampleOffset && retval == PSP_CODEC_AT3PLUS) {
+				track->firstSampleOffset -= 0xb8;
+				if (track->loopEnd != 0xFFFFFFFF) {
+					track->loopEnd -= 0xb8;
+					track->loopStart -= 0xb8;
+				}
+			}
+			return retval;
+		}
+		case FMT_CHUNK_MAGIC:
+		{
+			if (retval != SCE_ERROR_ATRAC_UNKNOWN_FORMAT) {
+				// This means dual FMT chunks, which is not valid.
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			if (chunkSize < 0x20) {
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			const u16 fmtTag = Read16(data, &offset);
+			const u16 chans = Read16(data, &offset);
+			track->numChans = chans;
+			if (chans != 1 && chans != 2) {
+				// Only stereo and mono are supported.
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			const int sampleRate = Read32(data, &offset);
+			if (sampleRate != 44100) {
+				// Only a single sample rate is supported.
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			offset += 4;  // skip avgBytesPerSec
+			track->blockAlign = (u16)Read16(data, &offset);
+			if (track->blockAlign == 0) {
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			if (fmtTag == WAVE_FORMAT_AT3) {
+				// Atrac3 format.
+				offset += 4;  // skip the extra bytes
+				const u16 jointStereo = Read16(data, &offset);
+				if (jointStereo != 1) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				offset += 4;
+				const u16 sampleSizeTailFlag = Read16(data, &offset);
+				track->sampleSizeMaybe = (u8)sampleSizeTailFlag;
+				track->tailFlag = (u8)(sampleSizeTailFlag >> 8);
+				const u16 unknown2 = Read16(data, &offset);
+				if ((sampleSizeTailFlag & 0xffff) != unknown2) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				// Don't what this is, but it seems to be always 1.
+				const u32 supposedToBeOne = Read32(data, &offset);
+				if (supposedToBeOne != 1) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				retval = PSP_CODEC_AT3;  // ATRAC3
+				remainingBytes = chunkSize - 0x20;
+			} else if (fmtTag == WAVE_FORMAT_EXTENSIBLE) {
+				// Atrac3+ format, probably.
+				if (chunkSize < 0x34) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				if (memcmp(data + offset + 10, g_atrac3Checkbytes, sizeof(g_atrac3Checkbytes)) != 0) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				track->sampleSizeMaybe = data[offset + 0x1c];
+				track->tailFlag = data[offset + 0x1d];
+				if ((track->sampleSizeMaybe << 27) >> 29 != track->numChans) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				offset += 0x26;  // Or, use the blocksize?
+				retval = PSP_CODEC_AT3PLUS;
+				remainingBytes = chunkSize - 0x34;
+			} else {
+				// Unsupported fmtTag.
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			if (remainingBytes) {
+				INFO_LOG(Log::Atrac, "FMT chunk has %d extra bytes", remainingBytes);
+			}
+			break;
+		}
+		case SMPL_CHUNK_MAGIC:
+		{
+			if ((int)track->loopStart < 0) {
+				if (chunkSize < 0x20) {
+					return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+				}
+				offset += 0x1c;
+				const int numLoops = Read32(data, &offset);
+				if (numLoops != 0) {
+					if (chunkSize < 0x34) {
+						return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+					}
+					offset += 0xc;
+					track->loopStart = Read32(data, &offset);
+					track->loopEnd = Read32(data, &offset);
+					if (track->loopEnd <= (int)track->loopStart) {
+						return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
+					}
+				}
+			}
+			break;
+		}
+		case FACT_CHUNK_MAGIC:
+		{
+			if (chunkSize < 4) {
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			track->endSample = Read32(data, &offset);
+			remainingBytes = chunkSize - 4;
+			if (remainingBytes == 4) {
+				track->firstSampleOffset = Read32(data, &offset);
+				remainingBytes = 0;
+			} else if (remainingBytes >= 8) {
+				// Extended FACT format.
+				offset += 4;
+				track->firstSampleOffset = Read32(data, &offset);
+				modifiedSampleOffset = true;
+				remainingBytes -= 8;
+			}
+			break;
+		}
+		default:
+			// Skip the unknown block.
+			INFO_LOG(Log::Atrac, "Skipping unknown block ID %08x at offset %d with size %d", chunkID, offset - 8, chunkSize);
+			break;
+		}
+		if (remainingBytes) {
+			INFO_LOG(Log::Atrac, "%08x chunk has %d extra bytes", chunkID, remainingBytes);
+		}
+		offset = nextOffset;
+	}
 }

@@ -88,6 +88,15 @@ struct SceAtracIdInfo {
 		// These first samples are skipped, after first possibly skipping 0-2 full frames, it seems.
 		return codec == 0x1000 ? 0x170 : 0x45;
 	}
+	int BitRate() const {
+		int bitrate = (sampleSize * 352800) / 1000;
+		if (codec == PSP_CODEC_AT3PLUS) {
+			bitrate = ((bitrate >> 11) + 8) & 0xFFFFFFF0;
+		} else {
+			bitrate = (bitrate + 511) >> 10;
+		}
+		return bitrate;
+	}
 };
 
 // One of these structs is allocated for each Atrac context.
