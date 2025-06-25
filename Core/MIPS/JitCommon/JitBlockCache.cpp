@@ -235,6 +235,7 @@ void JitBlockCache::RemoveBlockMap(int block_num) {
 		block_map_.erase(it);
 	} else {
 		// It wasn't in there, or it has the wrong key.  Let's search...
+		// TODO: This is O(n), so O(n^2) when called for every block.
 		for (auto it = block_map_.begin(); it != block_map_.end(); ++it) {
 			if (it->second == (u32)block_num) {
 				block_map_.erase(it);

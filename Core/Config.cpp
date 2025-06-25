@@ -1223,11 +1223,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
 
-	bool debugDefaults = false;
-#ifdef _DEBUG
-	debugDefaults = true;
-#endif
-	g_logManager.LoadConfig(log, debugDefaults);
+	g_logManager.LoadConfig(log);
 
 	Section *recent = iniFile.GetOrCreateSection("Recent");
 	recent->Get("MaxRecent", &iMaxRecent, 60);
