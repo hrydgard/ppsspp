@@ -41,6 +41,25 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
 
+    - name: Fetch tags
+      # This is required for git describe --always to work for git-version.cpp.
+      run: git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
+
+    - name: Create git-version.cpp for Windows # Not sure why the one at git-version-gen.cmd couldn't get the version properly.
+      #if: github.ref_type == 'tag'
+      run: |
+        $GIT_VERSION=git describe --always --tags
+        echo "Test GitVer = ${{ github.ref_name }} / $GIT_VERSION / ${GITHUB_REF_NAME}"
+        echo "const char *PPSSPP_GIT_VERSION = `"$GIT_VERSION`";" > git-version.cpp
+        echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
+        
+        # Generate Windows/win-version.h too.
+        $WIN_VERSION_COMMA=$GIT_VERSION -replace '^v', '' -replace '-g[0-9a-f]+$', '' -replace '[-\.]', ','
+        echo "Test WinVer = $WIN_VERSION_COMMA"
+        echo "#define PPSSPP_WIN_VERSION_STRING `"$GIT_VERSION`"" > Windows/win-version.h
+        echo "#define PPSSPP_WIN_VERSION_COMMA $WIN_VERSION_COMMA" >> Windows/win-version.h
+        echo "#define PPSSPP_WIN_VERSION_NO_UPDATE 1" >> Windows/win-version.h
+        
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ matrix.platform }} Windows/PPSSPP.sln
@@ -67,6 +86,22 @@ jobs:
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
+
+    - name: Create release
+      if: github.ref_type == 'tag'
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: |
+        rm ppsspp/PPSSPPHeadless*
+        rm ppsspp/UnitTest*
+        rm ppsspp/*.pdb
+        mkdir releases
+        Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ github.ref_name }}-Windows-${{ matrix.platform }}.zip"
+
+    - name: Upload release
+      uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+      if: github.ref_type == 'tag'
+      with:
+        files: releases/*.zip
 
   build-uwp:
     runs-on: windows-latest
