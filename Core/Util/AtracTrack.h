@@ -6,9 +6,7 @@
 #include <string>
 
 #include "Core/HLE/sceAudiocodec.h"
-
-constexpr u32 ATRAC3_MAX_SAMPLES = 0x400;  // 1024
-constexpr u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;   // 2048
+#include "Core/HLE/AtracBase.h"
 
 struct AtracLoopInfo {
 	int cuePointID;

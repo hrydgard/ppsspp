@@ -9,6 +9,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/System.h"
 #include "Core/HLE/AtracCtx2.h"
+#include "Core/Util/AtracTrack.h"
 #include "Core/HW/Atrac3Standalone.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
