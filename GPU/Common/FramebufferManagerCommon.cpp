@@ -2070,9 +2070,9 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		if (!ignoreDstBuffer && dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
 			const u32 offset = dst - vfb_address;
 			const u32 yOffset = offset / vfb_byteStride;
-			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0)) {
+			if ((offset % vfb_byteStride) == 0 && (size <= vfb_byteWidth || (size % vfb_byteStride) == 0)) {
 				dstCandidate.y = yOffset;
-				dstCandidate.h = (size == vfb_byteWidth) ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
+				dstCandidate.h = (size <= vfb_byteWidth) ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
 				dstCandidates.push_back(dstCandidate);
 			}
 		}
