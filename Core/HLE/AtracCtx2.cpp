@@ -29,9 +29,6 @@
 // cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac>copy /Y ..\..\..\__testoutput.txt stream.expected
 // Then run the test, see above.
 
-// TODO: Add an AT3 dumping facility (and/or replacement?). Although the old implementation could do it more easily...
-
-
 struct AT3BitrateMeta {
 	u16 sampleSize;
 	u8 dataByte;
