@@ -6,9 +6,7 @@
 #include <string>
 
 #include "Core/HLE/sceAudiocodec.h"
-
-constexpr u32 ATRAC3_MAX_SAMPLES = 0x400;  // 1024
-constexpr u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;   // 2048
+#include "Core/HLE/AtracBase.h"
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -108,3 +106,19 @@ struct Track {
 
 int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 filesize, Track *track, std::string *error);
 int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *error);
+
+struct TrackInfo {
+	u16 numChans;
+	u16 blockAlign;
+	u8 sampleSizeMaybe;
+	u8 tailFlag;
+	u8 unused[2];
+	u32 dataOff;
+	u32 endSample;
+	u32 waveDataSize;
+	u32 firstSampleOffset;
+	u32 loopStart;
+	u32 loopEnd;
+};
+
+int ParseWaveAT3(const u8 *data, int length, TrackInfo *track);

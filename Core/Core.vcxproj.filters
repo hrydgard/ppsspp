@@ -2190,6 +2190,9 @@
     <ClInclude Include="FileLoaders\ZipFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\AtracBase.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE.TXT" />
