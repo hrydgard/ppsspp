@@ -1244,6 +1244,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	modinfo = (const PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
 
+	// OK, even if it's an ELF module, it might be one we shouldn't fully load and execute!
+	// This is seen with mpeg.prx in Tony Hawk's Underground 2, see #20568.
+	if (ShouldHLEModule(modinfo->name)) {
+		// We load it, but at least we don't run any part of it.
+		module->isFake = true;
+	}
+
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
 	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
