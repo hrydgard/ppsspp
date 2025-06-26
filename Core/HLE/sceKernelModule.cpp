@@ -2074,7 +2074,7 @@ static u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 retu
 			module->nm.status = MODULE_STATUS_STARTING;
 			module->waitingThreads.push_back(mwt);
 		}
-		return hleLogInfo(Log::sceModule, ret);
+		return hleLogInfo(Log::sceModule, ret, "'%.*s'", (int)sizeof(module->nm.name), module->nm.name);
 	}
 }
 
