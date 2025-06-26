@@ -2186,6 +2186,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAdler.cpp
 	Core/HLE/sceAdler.h
+	Core/HLE/AtracBase.h
 	Core/HLE/AtracCtx.cpp
 	Core/HLE/AtracCtx.h
 	Core/HLE/AtracCtx2.cpp

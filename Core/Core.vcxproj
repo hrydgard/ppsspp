@@ -1190,6 +1190,7 @@
     <ClInclude Include="FileLoaders\ZipFileLoader.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
     <ClInclude Include="FrameTiming.h" />
+    <ClInclude Include="HLE\AtracBase.h" />
     <ClInclude Include="HLE\AtracCtx.h" />
     <ClInclude Include="HLE\AtracCtx2.h" />
     <ClInclude Include="HLE\ErrorCodes.h" />

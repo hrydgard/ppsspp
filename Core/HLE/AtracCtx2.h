@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "Core/HLE/AtracCtx.h"
+#include "Core/HLE/AtracBase.h"
 
 class Atrac2 : public AtracBase {
 public:

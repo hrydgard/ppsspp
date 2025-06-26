@@ -9,6 +9,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/System.h"
 #include "Core/HLE/AtracCtx2.h"
+#include "Core/Util/AtracTrack.h"
 #include "Core/HW/Atrac3Standalone.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -28,7 +29,19 @@
 // cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac>copy /Y ..\..\..\__testoutput.txt stream.expected
 // Then run the test, see above.
 
-// TODO: Add an AT3 dumping facility (and/or replacement?). Although the old implementation could do it more easily...
+struct AT3BitrateMeta {
+	u16 sampleSize;
+	u8 dataByte;
+	u8 jointStereo;  // I think?
+};
+
+static const AT3BitrateMeta g_at3BitrateMeta[5] = {
+	{0x180, 0x04, 0},
+	{0x130, 0x06, 0},
+	{0x0C0, 0x0B, 1},
+	{0x0C0, 0x0E, 0},
+	{0x098, 0x0F, 0},
+};
 
 // Needs to support negative numbers, and to handle non-powers-of-two.
 static int RoundDownToMultiple(int size, int grain) {
@@ -128,6 +141,118 @@ static int ComputeRemainFrameLooped(const SceAtracIdInfo &info) {
 		}
 	}
 	return remainFrames;
+}
+
+static void InitLengthAndLoop(SceAtracIdInfo *ctx, int endSample, int waveDataSize, int firstSampleOffset, int loopBegin, int loopEnd) {
+	const int off = ctx->codec == 0x1001 ? 0x45 : 0x170;
+	const int blockShift = 0x100b - ctx->codec;
+	const int firstValidSample = firstSampleOffset + off;
+	int numSamplesInFile;
+	if (endSample == 0) {
+		numSamplesInFile = waveDataSize / ctx->sampleSize << (blockShift & 0x1f);
+	} else {
+		numSamplesInFile = endSample + firstValidSample;
+	}
+	ctx->decodePos = firstValidSample;
+	ctx->loopNum = 0;
+	ctx->endSample = numSamplesInFile - 1;
+	ctx->numSkipFrames = (char)(firstValidSample >> (blockShift & 0x1f));
+	if (-1 < loopBegin) {
+		ctx->loopEnd = loopEnd + off;
+		ctx->loopStart = loopBegin + off;
+		return;
+	}
+	ctx->loopEnd = 0;
+	ctx->loopStart = 0;
+	return;
+}
+
+static int ComputeAtracStateAndInitSecondBuffer(SceAtracIdInfo *info, u32 readSize, u32 bufferSize) {
+	AtracStatus state;
+	int loopEndFileOffset;
+	int loopEnd;
+
+	if (bufferSize < (u32)info->fileDataEnd) {
+		if (info->streamDataByte < (s32)info->sampleSize * 3) {
+			return 0x80630011;
+		}
+		loopEnd = info->loopEnd;
+		state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
+		if ((loopEnd != 0) && (state = ATRAC_STATUS_STREAMED_LOOP_FROM_END, loopEnd != info->endSample)) {
+			loopEndFileOffset = ComputeLoopEndFileOffset(*info, loopEnd);
+			loopEnd = (loopEndFileOffset - info->dataOff) + 1;
+			info->state = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
+			if (loopEnd < info->streamDataByte) {
+				info->streamDataByte = loopEnd;
+			}
+			info->secondStreamOff = 0;
+			info->secondBuffer = 0;
+			info->secondBufferByte = 0;
+			return 0;
+		}
+	} else {
+		state = ATRAC_STATUS_HALFWAY_BUFFER;
+		if (readSize >= (u32)info->fileDataEnd) {
+			state = ATRAC_STATUS_ALL_DATA_LOADED;
+		}
+	}
+	info->state = state;
+	return 0;
+}
+
+int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bufferAddr, int readSize, int bufferSize) {
+	(ctx->info).numChan = (char)wave->numChans;
+	const int extraSamples = (ctx->info).codec == 0x1001 ? 0x45 : 0x170;
+	(ctx->info).firstValidSample = extraSamples + wave->firstSampleOffset;
+	int endSample3 = wave->endSample;
+	(ctx->info).sampleSize = wave->blockAlign;
+	InitLengthAndLoop(&ctx->info, endSample3, wave->waveDataSize, wave->firstSampleOffset, wave->loopStart,
+		wave->loopEnd);
+	const int dataOff = wave->dataOff;
+	const int endSample = (ctx->info).endSample;
+	(ctx->info).streamDataByte = readSize - dataOff;
+	(ctx->info).buffer = bufferAddr;
+	(ctx->info).curFileOff = dataOff;
+	(ctx->info).dataOff = dataOff;
+	(ctx->info).fileDataEnd = wave->waveDataSize + dataOff;
+	(ctx->info).curBuffer = 0;
+	(ctx->info).bufferByte = bufferSize;
+	(ctx->info).streamOff = dataOff;
+	if ((ctx->info).loopEnd > endSample) {
+		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
+	}
+
+	const int numChunks = (endSample >> (0x100b - (ctx->info).codec & 0x1f));
+
+	if ((numChunks * (u32)(ctx->info).sampleSize < (wave->waveDataSize + dataOff) - dataOff)) {
+		int retval = ComputeAtracStateAndInitSecondBuffer(&ctx->info, readSize, bufferSize);
+		if (retval < 0) {
+			return retval;
+		}
+		if ((ctx->info).codec != PSP_CODEC_AT3) {
+			// At3plus
+			// Configure the codec for the sample size, or whatever that data is.
+			(ctx->codec).unk40 = wave->sampleSizeMaybe;
+			(ctx->codec).unk48 = 0;
+			(ctx->codec).unk41 = wave->tailFlag;
+			return 0;
+		}
+		// At3. Set up the hardware codec (hopefully we can correctly support this in sceAudiocodec and thus sceAtrac LLE in the future)
+		// This is not actually necessary since we don't use the actual hardware codec.
+		for (int counter = 4; counter >= 0; counter--) {
+			if ((g_at3BitrateMeta[counter].sampleSize == (ctx->info).sampleSize) &&
+				((int)g_at3BitrateMeta[counter].dataByte == wave->sampleSizeMaybe)) {
+				(ctx->codec).unk40 = (char)g_at3BitrateMeta[counter].jointStereo;
+				(ctx->codec).unk41 = 0;
+				(ctx->codec).unk42 = 0;
+				(ctx->codec).unk43 = 0;
+				return 0;
+			}
+		}
+		return 0;
+	} else {
+		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
+	}
 }
 
 int Atrac2::RemainingFrames() const {
@@ -835,104 +960,26 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 }
 
 int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, int outputChannels) {
-	// 72 is about the size of the minimum required data to even be valid.
-	if (readSize < 72) {
-		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+	TrackInfo trackInfo{};
+	if (bufferAddr) {
+		int retval = ParseWaveAT3(Memory::GetPointerRange(bufferAddr, bufferSize), readSize, &trackInfo);
+		if (retval < 0) {
+			ERROR_LOG(Log::Atrac, "Atrac2::SetData: ParseWaveAT3 failed with %08x", retval);
+			return retval;
+		}
 	}
 
-	// TODO: Check the range (addr, size) instead.
-	if (!Memory::IsValidAddress(bufferAddr)) {
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	int retval = InitContextFromTrackInfo(context_, &trackInfo, bufferAddr, readSize, bufferSize);
+	if (retval < 0) {
+		ERROR_LOG(Log::Atrac, "Atrac2::SetData: InitContextFromTrackInfo failed with %08x", retval);
+		return retval;
 	}
-
-	track.DebugLog();
 
 	SceAtracIdInfo &info = context_->info;
 
-	if (track.codecType != PSP_CODEC_AT3 && track.codecType != PSP_CODEC_AT3PLUS) {
-		// Shouldn't have gotten here, Analyze() checks this.
-		ERROR_LOG(Log::Atrac, "unexpected codec type %d in set data", track.codecType);
-		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
-	}
-
-	if (outputChannels != track.channels) {
-		INFO_LOG(Log::Atrac, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
-	}
-
-	if (readSize >= track.fileSize) {
-		INFO_LOG(Log::Atrac, "The full file was set directly - we can dump it.");
-		char filename[512];
-		snprintf(filename, sizeof(filename), "%s_%d%s", track.codecType == PSP_CODEC_AT3 ? "at3" : "at3plus", track.endSample, track.channels == 1 ? "_mono" : "");
-		DumpFileIfEnabled(Memory::GetPointer(bufferAddr), readSize, filename, DumpFileType::Atrac3);
-	} else if (false && (int)g_Config.iDumpFileTypes & (int)DumpFileType::Atrac3) {
-		// TODO: This is disabled (using the false above) until we can properly append streamed data to the dump.
-		// Still can be useful for debugging by dumping the start of the file, so leaving it here.
-		dumpBuffer_.resize(readSize);
-		Memory::Memcpy(dumpBuffer_.data(), bufferAddr, readSize);
-	}
-
-	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
+	CreateDecoder(info.codec, info.sampleSize, info.numChan);
 
 	outputChannels_ = outputChannels;
-
-	if (!track.loopinfo.empty()) {
-		info.loopNum = track.loopinfo[0].playCount;
-		info.loopStart = track.loopStartSample;
-		info.loopEnd = track.loopEndSample;
-	} else {
-		info.loopNum = 0;
-		info.loopStart = 0;
-		info.loopEnd = 0;
-	}
-
-	context_->codec.inBuf = bufferAddr;
-
-	if (readSize > track.fileSize) {
-		INFO_LOG(Log::Atrac, "readSize (%d) > track_.fileSize (%d)", readSize, track.fileSize);
-	}
-
-	if (bufferSize >= track.fileSize) {
-		// Buffer is big enough to fit the whole track.
-		if (readSize < bufferSize) {
-			info.state = ATRAC_STATUS_HALFWAY_BUFFER;
-		} else {
-			info.state = ATRAC_STATUS_ALL_DATA_LOADED;
-		}
-	} else {
-		// Streaming cases with various looping types.
-		if (track.loopEndSample <= 0) {
-			// There's no looping, but we need to stream the data in our buffer.
-			info.state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-		} else if (track.loopEndSample == track.endSample + track.FirstSampleOffsetFull()) {
-			info.state = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
-		} else {
-			info.state = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
-		}
-	}
-
-	DEBUG_LOG(Log::Atrac, "Atrac mode setup: %s", AtracStatusToString(info.state));
-
-	// Copy parameters into state struct.
-	info.codec = track.codecType;
-	info.numChan = track.channels;
-	info.sampleSize = track.bytesPerFrame;
-	info.buffer = bufferAddr;
-	info.bufferByte = bufferSize;
-	info.firstValidSample = track.FirstSampleOffsetFull();
-	info.endSample = track.endSample + info.firstValidSample;
-	if (track.loopStartSample != 0xFFFFFFFF) {
-		info.loopStart = track.loopStartSample;
-		info.loopEnd = track.loopEndSample;
-		// Sanity check the loop points, useful for testing.
-	}
-	info.dataOff = track.dataByteOffset;
-	info.curFileOff = track.dataByteOffset;
-	info.streamOff = track.dataByteOffset;
-	info.streamDataByte = readSize - info.dataOff;
-	info.fileDataEnd = track.fileSize;
-	info.decodePos = track.FirstSampleOffsetFull();
-	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
-	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
 	INFO_LOG(Log::Atrac,
 		"Atrac: sampleSize: %d buffer: %08x bufferByte: %d firstValidSample: %d\n"
@@ -946,7 +993,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	);
 
 	int skipCount = 0;  // TODO: use for delay
-	u32 retval = SkipFrames(&skipCount);
+	retval = SkipFrames(&skipCount);
 
 	// Seen in Mui Mui house. Things go very wrong after this..
 	if (retval == SCE_ERROR_ATRAC_API_FAIL) {
@@ -961,26 +1008,28 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 void Atrac2::WrapLastPacket() {
 	SceAtracIdInfo &info = context_->info;
 
-	// We need to handle wrapping the overshot partial packet at the end.
-	if (AtracStatusIsStreaming(info.state)) {
-		// This logic is similar to GetStreamDataInfo.
-		int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
-		if (info.streamDataByte < distanceToEnd) {
-			// There's space left without wrapping. Don't do anything.
-			// INFO_LOG(Log::Atrac, "Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
-			// In this case, seems we need to zero some bytes. In one test, this seems to be 336.
-			// Maybe there's a logical bug and the copy happens even when not needed, it's just that it'll
-			// copy zeroes. Either way, let's just copy some bytes to make our sanity check hexdump pass.
-			Memory::Memset(info.buffer, 0, 128);
-		} else {
-			// Wraps around.
-			const int copyStart = info.streamOff + distanceToEnd;
-			const int copyLen = info.bufferByte - copyStart;
-			// Then, let's copy it.
-			DEBUG_LOG(Log::Atrac, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
-				copyLen, info.sampleSize - copyLen, info.sampleSize);
-			Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
-		}
+	// If streaming, we need to handle wrapping the overshot partial packet at the end. If not we don't.
+	if (!AtracStatusIsStreaming(info.state)) {
+		return;
+	}
+
+	// This logic is similar to GetStreamDataInfo.
+	int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
+	if (info.streamDataByte < distanceToEnd) {
+		// There's space left without wrapping. Don't do anything.
+		// INFO_LOG(Log::Atrac, "Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
+		// In this case, seems we need to zero some bytes. In one test, this seems to be 336.
+		// Maybe there's a logical bug and the copy happens even when not needed, it's just that it'll
+		// copy zeroes. Either way, let's just copy some bytes to make our sanity check hexdump pass.
+		Memory::Memset(info.buffer, 0, 128);
+	} else {
+		// Wraps around.
+		const int copyStart = info.streamOff + distanceToEnd;
+		const int copyLen = info.bufferByte - copyStart;
+		// Then, let's copy it.
+		DEBUG_LOG(Log::Atrac, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
+			copyLen, info.sampleSize - copyLen, info.sampleSize);
+		Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
 	}
 }
 
@@ -1051,13 +1100,7 @@ u32 Atrac2::GetInternalCodecError() const {
 
 int Atrac2::Bitrate() const {
 	const SceAtracIdInfo &info = context_->info;
-
-	int bitrate = (info.sampleSize * 352800) / 1000;
-	if (info.codec == PSP_CODEC_AT3PLUS)
-		bitrate = ((bitrate >> 11) + 8) & 0xFFFFFFF0;
-	else
-		bitrate = (bitrate + 511) >> 10;
-	return bitrate;
+	return info.BitRate();
 }
 
 void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
