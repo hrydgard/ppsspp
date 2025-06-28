@@ -33,6 +33,8 @@
 #include "Common/System/NativeApp.h"
 #include "Core/KeyMap.h"
 #include "Windows/DinputDevice.h"
+#include "Windows/HidInputDevice.h"
+
 #pragma comment(lib,"dinput8.lib")
 
 // static members of DinputDevice
@@ -105,6 +107,7 @@ void DinputDevice::getDevices(bool refresh) {
 	if (refresh) {
 		// We don't want duplicate reporting from XInput devices through DInput.
 		ignoreDevices_ = DetectXInputVIDPIDs();
+		HidInputDevice::AddSupportedDevices(&ignoreDevices_);
 		getPDI()->EnumDevices(DI8DEVCLASS_GAMECTRL, &DinputDevice::DevicesCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
 }

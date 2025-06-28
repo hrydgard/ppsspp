@@ -69,6 +69,7 @@
 #include "Windows/resource.h"
 #include "Windows/DinputDevice.h"
 #include "Windows/XinputDevice.h"
+#include "Windows/HidInputDevice.h"
 #include "Windows/MainWindow.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -1132,7 +1133,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//add first XInput device to respond
 	g_InputManager.AddDevice(new XinputDevice());
 	g_InputManager.AddDevice(new DInputMetaDevice());
-
+	g_InputManager.AddDevice(new HidInputDevice());
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
 	// manages its own render thread.

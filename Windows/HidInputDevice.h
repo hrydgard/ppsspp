@@ -1,0 +1,45 @@
+#pragma once
+
+#include "Windows/InputDevice.h"
+#include <set>
+
+enum PSSubType {
+	TYPE_DS4,
+	TYPE_DS5
+};
+
+enum InputDeviceID;
+
+// Supports a few specific HID input devices, namely DualShock and DualSense.
+// More may be added later. Just picks the first one available, for now.
+class HidInputDevice : public InputDevice {
+public:
+	void Init();
+	int UpdateState();
+	void Shutdown();
+
+	static void AddSupportedDevices(std::set<u32> *deviceVIDPIDs);
+private:
+	struct PSControllerState {
+		// Analog sticks
+		s8 lx;
+		s8 ly;
+		s8 rx;
+		s8 ry;
+		// Buttons
+		u32 buttons;  // Bitmask, PSButton enum
+	};
+	bool ReadDS4Input(HANDLE handle, PSControllerState *state);
+	void ReleaseAllKeys();
+	InputDeviceID DeviceID(int pad);
+	PSControllerState prevState_{};
+
+	PSSubType subType_{};
+	HANDLE controller_;
+	int pad_ = 0;
+	int pollCount_ = 0;
+
+	enum {
+		POLL_FREQ = 69,
+	};
+};
