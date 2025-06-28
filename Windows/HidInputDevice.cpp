@@ -169,6 +169,10 @@ HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
 
 					*reportSize = caps.InputReportByteLength;
 
+					if (*reportSize > 128) {
+						WARN_LOG(Log::UI, "Warning: HID access to this bluetooth device will probably fail (GATT)");
+					}
+
 					SetupDiDestroyDeviceInfoList(deviceInfoSet);
 					return handle;
 				}
@@ -204,69 +208,73 @@ struct PSInputReportHeader {
 HidInputDevice::ReadResult HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
 	BYTE inputReport[64]{}; // 64-byte input report for DS4
 	DWORD bytesRead = 0;
-	if (ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
-		PSInputReportHeader hdr{};
-		static_assert(sizeof(hdr) < sizeof(inputReport));
-		if (bytesRead < 14) {
-			return ReadResult::Failed;
-		}
-
-		// OK, check the first byte to figure out what we're dealing with here.
-		int offset = 1;
-		int reportId;
-		if (inputReport[0] == 0xA1) {
-			// 2-byte bluetooth frame
-			offset = 2;
-			reportId = inputReport[1];
-		} else {
-			offset = 1;
-			reportId = inputReport[0];
-		}
-		// const bool isBluetooth = (reportId == 0x11 || reportId == 0x31);
-
-		memcpy(&hdr, inputReport + offset, sizeof(hdr));
-
-		// Center the sticks.
-		state->stickAxes[PS_STICK_LX] = hdr.lx - 128;
-		state->stickAxes[PS_STICK_LY] = hdr.ly - 128;
-		state->stickAxes[PS_STICK_RX] = hdr.rx - 128;
-		state->stickAxes[PS_STICK_RY] = hdr.ry - 128;
-
-		// Copy over the triggers.
-		state->triggerAxes[PS_TRIGGER_L2] = hdr.l2_analog;
-		state->triggerAxes[PS_TRIGGER_R2] = hdr.r2_analog;
-
-		u32 buttons{};
-		hdr.buttons[2] &= 3;  // Remove noise
-		memcpy(&buttons, &hdr.buttons[0], 3);
-
-		// Clear out and re-fill the DPAD, it works differently somehow
-		buttons &= ~0xF;
-
-		const u8 dpad = hdr.buttons[0] & 0xF;
-		if (dpad == 0 || dpad == 1 || dpad == 7) {
-			buttons |= PS_DPAD_UP;
-		}
-		if (dpad == 1 || dpad == 2 || dpad == 3) {
-			buttons |= PS_DPAD_RIGHT;
-		}
-		if (dpad == 3 || dpad == 4 || dpad == 5) {
-			buttons |= PS_DPAD_DOWN;
-		}
-		if (dpad == 5 || dpad == 6 || dpad == 7) {
-			buttons |= PS_DPAD_LEFT;
-		}
-
-		state->buttons = buttons;
-		return ReadResult::Success;
-	} else {
+	if (!ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
 		DWORD err = GetLastError();
 		if (err == ERROR_DEVICE_NOT_CONNECTED) {
 			return ReadResult::Disconnected;
+		} else if (err == ERROR_INVALID_USER_BUFFER) {
+			// HidD_GetInputReport doesn't work either in this case.
+			// This is a result of GATT. Very annoying.
+			return ReadResult::Failed;
 		} else {
 			return ReadResult::Failed;
 		}
 	}
+
+	PSInputReportHeader hdr{};
+	static_assert(sizeof(hdr) < sizeof(inputReport));
+	if (bytesRead < 14) {
+		return ReadResult::Failed;
+	}
+
+	// OK, check the first byte to figure out what we're dealing with here.
+	int offset = 1;
+	int reportId;
+	if (inputReport[0] == 0xA1) {
+		// 2-byte bluetooth frame
+		offset = 2;
+		reportId = inputReport[1];
+	} else {
+		offset = 1;
+		reportId = inputReport[0];
+	}
+	// const bool isBluetooth = (reportId == 0x11 || reportId == 0x31);
+
+	memcpy(&hdr, inputReport + offset, sizeof(hdr));
+
+	// Center the sticks.
+	state->stickAxes[PS_STICK_LX] = hdr.lx - 128;
+	state->stickAxes[PS_STICK_LY] = hdr.ly - 128;
+	state->stickAxes[PS_STICK_RX] = hdr.rx - 128;
+	state->stickAxes[PS_STICK_RY] = hdr.ry - 128;
+
+	// Copy over the triggers.
+	state->triggerAxes[PS_TRIGGER_L2] = hdr.l2_analog;
+	state->triggerAxes[PS_TRIGGER_R2] = hdr.r2_analog;
+
+	u32 buttons{};
+	hdr.buttons[2] &= 3;  // Remove noise
+	memcpy(&buttons, &hdr.buttons[0], 3);
+
+	// Clear out and re-fill the DPAD, it works differently somehow
+	buttons &= ~0xF;
+
+	const u8 dpad = hdr.buttons[0] & 0xF;
+	if (dpad == 0 || dpad == 1 || dpad == 7) {
+		buttons |= PS_DPAD_UP;
+	}
+	if (dpad == 1 || dpad == 2 || dpad == 3) {
+		buttons |= PS_DPAD_RIGHT;
+	}
+	if (dpad == 3 || dpad == 4 || dpad == 5) {
+		buttons |= PS_DPAD_DOWN;
+	}
+	if (dpad == 5 || dpad == 6 || dpad == 7) {
+		buttons |= PS_DPAD_LEFT;
+	}
+
+	state->buttons = buttons;
+	return ReadResult::Success;
 }
 
 void HidInputDevice::Init() {}
