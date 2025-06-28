@@ -1,3 +1,4 @@
+// This file in particular along with its header is public domain, use it for whatever you want.
 
 #include <windows.h>
 #include <hidsdi.h>
@@ -22,8 +23,8 @@ enum PSButton : u32 {
 	PS_BTN_CIRCLE = 128,
 
 	PS_BTN_L1 = (1 << 8),
-	PS_BTN_L2 = (1 << 9),
-	PS_BTN_R1 = (1 << 10),
+	PS_BTN_R1 = (1 << 9),
+	PS_BTN_L2 = (1 << 10),
 	PS_BTN_R2 = (1 << 11),
 	PS_BTN_SHARE = (1 << 12),
 	PS_BTN_OPTIONS = (1 << 13),
@@ -53,19 +54,54 @@ static const PSInputMapping g_psInputMappings[] = {
 	{PS_DPAD_DOWN, NKCODE_DPAD_DOWN},
 	{PS_DPAD_LEFT, NKCODE_DPAD_LEFT},
 	{PS_DPAD_RIGHT, NKCODE_DPAD_RIGHT},
-	{PS_BTN_SQUARE, NKCODE_BUTTON_X},
-	{PS_BTN_TRIANGLE, NKCODE_BUTTON_Y},
-	{PS_BTN_CIRCLE, NKCODE_BUTTON_B},
-	{PS_BTN_CROSS, NKCODE_BUTTON_A},
+	{PS_BTN_SQUARE, NKCODE_BUTTON_4},
+	{PS_BTN_TRIANGLE, NKCODE_BUTTON_3},
+	{PS_BTN_CIRCLE, NKCODE_BUTTON_1},
+	{PS_BTN_CROSS, NKCODE_BUTTON_2},
 	{PS_BTN_PS_BUTTON, NKCODE_HOME},
-	{PS_BTN_SHARE, NKCODE_BUTTON_START},
-	{PS_BTN_OPTIONS, NKCODE_BUTTON_SELECT},
-	{PS_BTN_L1, NKCODE_BUTTON_L1},
-	{PS_BTN_R1, NKCODE_BUTTON_R1},
-	{PS_BTN_L2, NKCODE_BUTTON_L2},
-	{PS_BTN_R2, NKCODE_BUTTON_R2},
+	{PS_BTN_SHARE, NKCODE_BUTTON_9},
+	{PS_BTN_OPTIONS, NKCODE_BUTTON_10},
+	{PS_BTN_L1, NKCODE_BUTTON_7},
+	{PS_BTN_R1, NKCODE_BUTTON_8},
+	// {PS_BTN_L2, NKCODE_BUTTON_L2},  // These are done by the analog triggers.
+	// {PS_BTN_R2, NKCODE_BUTTON_R2},
 	{PS_BTN_L3, NKCODE_BUTTON_THUMBL},
 	{PS_BTN_R3, NKCODE_BUTTON_THUMBR},
+};
+
+enum PSStickAxis : u32 {
+	PS_STICK_LX = 0,
+	PS_STICK_LY = 1,
+	PS_STICK_RX = 2,
+	PS_STICK_RY = 3,
+};
+
+struct PSStickMapping {
+	PSStickAxis stickAxis;
+	InputAxis inputAxis;
+};
+
+// This is the same mapping as DInput etc.
+static const PSStickMapping g_psStickMappings[] = {
+	{PS_STICK_LX, JOYSTICK_AXIS_X},
+	{PS_STICK_LY, JOYSTICK_AXIS_Y},
+	{PS_STICK_RX, JOYSTICK_AXIS_Z},
+	{PS_STICK_RY, JOYSTICK_AXIS_RX},
+};
+
+enum PSTriggerAxis : u32 {
+	PS_TRIGGER_L2 = 0,
+	PS_TRIGGER_R2 = 1,
+};
+
+struct PSTriggerMapping {
+	PSTriggerAxis triggerAxis;
+	InputAxis inputAxis;
+};
+
+static const PSTriggerMapping g_psTriggerMappings[] = {
+	{PS_TRIGGER_L2, JOYSTICK_AXIS_LTRIGGER},
+	{PS_TRIGGER_R2, JOYSTICK_AXIS_RTRIGGER},
 };
 
 struct PSControllerInfo {
@@ -98,7 +134,7 @@ static bool IsSonyGamepad(HANDLE handle, USHORT *pidOut, PSSubType *subType) {
 	return false;
 }
 
-HANDLE OpenFirstDualShockOrSense(PSSubType *subType) {
+HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
 	GUID hidGuid;
 	HidD_GetHidGuid(&hidGuid);
 
@@ -124,6 +160,15 @@ HANDLE OpenFirstDualShockOrSense(PSSubType *subType) {
 				USHORT pid;
 				if (IsSonyGamepad(handle, &pid, subType)) {
 					INFO_LOG(Log::UI, "Found Sony gamepad. PID: %04x", pid);
+					HIDP_CAPS caps;
+					PHIDP_PREPARSED_DATA preparsedData;
+
+					HidD_GetPreparsedData(handle, &preparsedData);
+					HidP_GetCaps(preparsedData, &caps);
+					HidD_FreePreparsedData(preparsedData);
+
+					*reportSize = caps.InputReportByteLength;
+
 					SetupDiDestroyDeviceInfoList(deviceInfoSet);
 					return handle;
 				}
@@ -144,7 +189,6 @@ void HidInputDevice::AddSupportedDevices(std::set<u32> *deviceVIDPIDs) {
 }
 
 struct PSInputReportHeader {
-	u8 id; // not sure if useful.
 	u8 lx;
 	u8 ly;
 	u8 rx;
@@ -158,18 +202,39 @@ struct PSInputReportHeader {
 };
 
 bool HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
-	BYTE inputReport[64] = {0}; // 64-byte input report for DS4
+	BYTE inputReport[64]{}; // 64-byte input report for DS4
 	DWORD bytesRead = 0;
 	if (ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
 		PSInputReportHeader hdr{};
 		static_assert(sizeof(hdr) < sizeof(inputReport));
-		memcpy(&hdr, inputReport, sizeof(hdr));
+		if (bytesRead < 14) {
+			return false;
+		}
+
+		// OK, check the first byte to figure out what we're dealing with here.
+		int offset = 1;
+		int reportId;
+		if (inputReport[0] == 0xA1) {
+			// 2-byte bluetooth frame
+			offset = 2;
+			reportId = inputReport[1];
+		} else {
+			offset = 1;
+			reportId = inputReport[0];
+		}
+		// const bool isBluetooth = (reportId == 0x11 || reportId == 0x31);
+
+		memcpy(&hdr, inputReport + offset, sizeof(hdr));
 
 		// Center the sticks.
-		state->lx = hdr.lx - 128;
-		state->rx = hdr.rx - 128;
-		state->ly = hdr.ly - 128;
-		state->ry = hdr.ry - 128;
+		state->stickAxes[PS_STICK_LX] = hdr.lx - 128;
+		state->stickAxes[PS_STICK_LY] = hdr.ly - 128;
+		state->stickAxes[PS_STICK_RX] = hdr.rx - 128;
+		state->stickAxes[PS_STICK_RY] = hdr.ry - 128;
+
+		// Copy over the triggers.
+		state->triggerAxes[PS_TRIGGER_L2] = hdr.l2_analog;
+		state->triggerAxes[PS_TRIGGER_R2] = hdr.r2_analog;
 
 		u32 buttons{};
 		hdr.buttons[2] &= 3;  // Remove noise
@@ -226,7 +291,7 @@ int HidInputDevice::UpdateState() {
 		// Poll for controllers from time to time.
 		if (pollCount_ == 0) {
 			pollCount_ = POLL_FREQ;
-			HANDLE newController = OpenFirstDualShockOrSense(&subType_);
+			HANDLE newController = OpenFirstDualShockOrSense(&subType_, &reportSize_);
 			if (newController) {
 				controller_ = newController;
 			}
@@ -260,7 +325,28 @@ int HidInputDevice::UpdateState() {
 				}
 			}
 
+			for (const auto &mapping : g_psStickMappings) {
+				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis]) {
+					AxisInput axis;
+					axis.deviceId = deviceID;
+					axis.axisId = mapping.inputAxis;
+					axis.value = (float)state.stickAxes[mapping.stickAxis] * (1.0f / 128.0f);
+					NativeAxis(&axis, 1);
+				}
+			}
+
+			for (const auto &mapping : g_psTriggerMappings) {
+				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis]) {
+					AxisInput axis;
+					axis.deviceId = deviceID;
+					axis.axisId = mapping.inputAxis;
+					axis.value = (float)state.triggerAxes[mapping.triggerAxis] * (1.0f / 255.0f);
+					NativeAxis(&axis, 1);
+				}
+			}
+
 			prevState_ = state;
+			return UPDATESTATE_NO_SLEEP;  // The ReadFile sleeps for us, effectively.
 		} else {
 			// might have been disconnected. retry later.
 			ReleaseAllKeys();
