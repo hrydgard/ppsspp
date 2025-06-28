@@ -36,17 +36,24 @@ void InputManager::InputThread() {
 
 	// NOTE: The keyboard and mouse buttons are handled via raw input, not here.
 	// This is mainly for controllers which need to be polled, instead of generating events.
+	bool noSleep = false;
 	while (runThread_.load(std::memory_order_relaxed)) {
 		if (focused_.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused) {
 			System_Notify(SystemNotification::POLL_CONTROLLERS);
 			for (const auto &device : devices_) {
-				if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
+				int state = device->UpdateState();
+				if (state == InputDevice::UPDATESTATE_SKIP_PAD)
 					break;
+				if (state == InputDevice::UPDATESTATE_NO_SLEEP) {
+					// Sleep was handled automatically.
+					noSleep = true;
+				}
 			}
 		}
 
 		// Try to update 250 times per second.
-		Sleep(4);
+		if (!noSleep)
+			Sleep(4);
 	}
 
 	for (auto &device : devices_) {
