@@ -201,14 +201,14 @@ struct PSInputReportHeader {
 	// Then there's motion and all kinds of stuff.
 };
 
-bool HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
+HidInputDevice::ReadResult HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
 	BYTE inputReport[64]{}; // 64-byte input report for DS4
 	DWORD bytesRead = 0;
 	if (ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
 		PSInputReportHeader hdr{};
 		static_assert(sizeof(hdr) < sizeof(inputReport));
 		if (bytesRead < 14) {
-			return false;
+			return ReadResult::Failed;
 		}
 
 		// OK, check the first byte to figure out what we're dealing with here.
@@ -258,9 +258,14 @@ bool HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
 		}
 
 		state->buttons = buttons;
-		return true;
+		return ReadResult::Success;
 	} else {
-		return false;
+		DWORD err = GetLastError();
+		if (err == ERROR_DEVICE_NOT_CONNECTED) {
+			return ReadResult::Disconnected;
+		} else {
+			return ReadResult::Failed;
+		}
 	}
 }
 
@@ -294,6 +299,7 @@ int HidInputDevice::UpdateState() {
 			HANDLE newController = OpenFirstDualShockOrSense(&subType_, &reportSize_);
 			if (newController) {
 				controller_ = newController;
+				readFailed_ = false;
 			}
 		} else {
 			pollCount_--;
@@ -302,7 +308,8 @@ int HidInputDevice::UpdateState() {
 
 	if (controller_) {
 		PSControllerState state{};
-		if (ReadDS4Input(controller_, &state)) {
+		const ReadResult result = ReadDS4Input(controller_, &state);\
+		if (result == ReadResult::Success) {
 			const InputDeviceID deviceID = DeviceID(pad_);
 			// Process the input and generate input events.
 			const u32 downMask = state.buttons & (~prevState_.buttons);
@@ -346,8 +353,15 @@ int HidInputDevice::UpdateState() {
 			}
 
 			prevState_ = state;
+			readFailed_ = false;
 			return UPDATESTATE_NO_SLEEP;  // The ReadFile sleeps for us, effectively.
-		} else {
+		} else if (result == ReadResult::Failed) {
+			if (!readFailed_) {
+				ERROR_LOG(Log::sceCtrl, "Failed to read input. Switch to USB if possible.");
+				readFailed_ = true;
+			}
+			// Retry, although this may also mean that we're screwed, if it's an USB device.
+		} else if (result == ReadResult::Disconnected) {
 			// might have been disconnected. retry later.
 			ReleaseAllKeys();
 			CloseHandle(controller_);

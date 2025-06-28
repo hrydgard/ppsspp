@@ -30,7 +30,12 @@ private:
 		// Buttons
 		u32 buttons;  // Bitmask, PSButton enum
 	};
-	bool ReadDS4Input(HANDLE handle, PSControllerState *state);
+	enum class ReadResult {
+		Success,
+		Failed,  // This may mean we can't use the controller over bluetooth (GATT) :(
+		Disconnected,
+	};
+	ReadResult ReadDS4Input(HANDLE handle, PSControllerState *state);
 	void ReleaseAllKeys();
 	InputDeviceID DeviceID(int pad);
 	PSControllerState prevState_{};
@@ -40,6 +45,7 @@ private:
 	int pad_ = 0;
 	int pollCount_ = 0;
 	int reportSize_ = 0;
+	int readFailed_ = false;
 	enum {
 		POLL_FREQ = 69,
 	};
