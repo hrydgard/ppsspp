@@ -403,7 +403,7 @@ namespace MainWindow
 
 	void Minimize() {
 		ShowWindow(hwndMain, SW_MINIMIZE);
-		InputDevice::LoseFocus();
+		g_InputManager.LoseFocus();
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -926,7 +926,7 @@ namespace MainWindow
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					WindowsRawInput::GainFocus();
 					if (!IsIconic(GetHWND())) {
-						InputDevice::GainFocus();
+						g_InputManager.GainFocus();
 					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
@@ -956,7 +956,7 @@ namespace MainWindow
 				if (wParam == WA_INACTIVE) {
 					System_PostUIMessage(UIMessage::LOST_FOCUS);
 					WindowsRawInput::LoseFocus();
-					InputDevice::LoseFocus();
+					g_InputManager.LoseFocus();
 					hasFocus = false;
 					trapMouse = false;
 				}
@@ -994,7 +994,7 @@ namespace MainWindow
 					HandleSizeChange(wParam);
 				}
 				if (hasFocus) {
-					InputDevice::GainFocus();
+					g_InputManager.GainFocus();
 				}
 				break;
 
@@ -1003,7 +1003,7 @@ namespace MainWindow
 				if (!g_Config.bPauseWhenMinimized) {
 					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
 				}
-				InputDevice::LoseFocus();
+				g_InputManager.LoseFocus();
 				break;
 			default:
 				break;
@@ -1133,7 +1133,9 @@ namespace MainWindow
 		}
 
 		case WM_DESTROY:
-			InputDevice::StopPolling();
+			g_InputManager.StopPolling();
+			g_InputManager.Shutdown();
+
 			MainThread_Stop();
 			WindowsRawInput::Shutdown();
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
@@ -1164,11 +1166,11 @@ namespace MainWindow
 
 		case WM_USER_RESTART_EMUTHREAD:
 			NativeSetRestarting();
-			InputDevice::StopPolling();
+			g_InputManager.StopPolling();
 			MainThread_Stop();
 			UpdateUIState(UISTATE_MENU);
 			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
-			InputDevice::BeginPolling();
+			g_InputManager.BeginPolling();
 			break;
 
 		case WM_USER_SWITCHUMD_UPDATED:

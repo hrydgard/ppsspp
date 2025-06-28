@@ -7,6 +7,7 @@
 
 #include "Common/GraphicsContext.h"
 #include "Common/DeviceResources.h"
+#include "Windows/InputDevice.h"
 
 // Renders Direct2D and 3D content on the screen.
 namespace UWP {

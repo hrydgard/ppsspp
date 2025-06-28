@@ -122,8 +122,6 @@ static std::string restartArgs;
 int g_activeWindow = 0;
 int g_lastNumInstances = 0;
 
-std::list<std::unique_ptr<InputDevice>> g_inputDevices;
-
 float mouseDeltaX_ = 0;
 float mouseDeltaY_ = 0;
 
@@ -152,11 +150,6 @@ static void AddDebugRestartArgs() {
 }
 
 static void PollControllers() {
-	for (const auto &device : g_inputDevices) {
-		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
-			break;
-	}
-
 	// Disabled by default, needs a workaround to map to psp keys.
 	if (g_Config.bMouseControl) {
 		NativeMouseDelta(mouseDeltaX_, mouseDeltaY_);
@@ -1137,23 +1130,22 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	//add first XInput device to respond
-	g_inputDevices.push_back(std::make_unique<XinputDevice>());
-	g_inputDevices.push_back(std::make_unique<DInputMetaDevice>());
+	g_InputManager.AddDevice(new XinputDevice());
+	g_InputManager.AddDevice(new DInputMetaDevice());
 
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
 	// manages its own render thread.
 	MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
-	InputDevice::BeginPolling();
+
+	g_InputManager.BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	HACCEL hDebugAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_DEBUGACCELS);
 
 	//so.. we're at the message pump of the GUI thread
-	for (MSG msg; GetMessage(&msg, NULL, 0, 0); )	// for no quit
-	{
-		if (msg.message == WM_KEYDOWN)
-		{
+	for (MSG msg; GetMessage(&msg, NULL, 0, 0); ) { // for no quit
+		if (msg.message == WM_KEYDOWN) {
 			//hack to enable/disable menu command accelerate keys
 			MainWindow::UpdateCommands();
 
@@ -1162,11 +1154,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				BringWindowToTop(hwndMain);
 		}
 
-		//Translate accelerators and dialog messages...
+		// Translate accelerators and dialog messages...
 		HWND wnd;
 		HACCEL accel;
-		switch (g_activeWindow)
-		{
+		switch (g_activeWindow) {
 		case WINDOW_MAINWINDOW:
 			wnd = hwndMain;
 			accel = g_Config.bSystemControls ? hAccelTable : NULL;
@@ -1192,6 +1183,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	g_VFS.Clear();
+
+	// g_InputManager.StopPolling() is called in WM_DESTROY
 
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
