@@ -28,15 +28,13 @@
 
 // TODO: This needs a major refactor into a DinputManager and individual devices inside.
 
-class DinputDevice final :
-	public InputDevice
-{
+class DinputDevice {
 public:
 	//instantiates device number devnum as explored by the first call to
 	//getDevices(), enumerates all devices if not done yet
 	DinputDevice(int devnum);
 	~DinputDevice();
-	int UpdateState() override;
+	int UpdateState();
 	static size_t getNumPads();
 	static void CheckDevices() {
 		needsCheck_ = true;
@@ -75,4 +73,14 @@ private:
 	int                     last_lRx_;
 	int                     last_lRy_;
 	int                     last_lRz_;
+};
+
+struct DInputMetaDevice : public InputDevice {
+public:
+	DInputMetaDevice();
+	int UpdateState() override;
+private:
+	std::vector<std::unique_ptr<DinputDevice>> devices_;
+	size_t numDinputDevices_ = 0;
+	int checkCounter_ = 0;
 };

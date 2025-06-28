@@ -41,9 +41,7 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
-#ifndef _M_ARM
 #include "Windows/DinputDevice.h"
-#endif
 #include "Windows/XinputDevice.h"
 
 #include "Windows/main.h"
@@ -51,32 +49,10 @@
 void WindowsInputManager::Init() {
 	//add first XInput device to respond
 	input.push_back(std::make_unique<XinputDevice>());
-#ifndef _M_ARM
-
-	//find all connected DInput devices of class GamePad
-	numDinputDevices_ = DinputDevice::getNumPads();
-	for (size_t i = 0; i < numDinputDevices_; i++) {
-		input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
-	}
-#endif
+	input.push_back(std::make_unique<DInputMetaDevice>());
 }
 
 void WindowsInputManager::PollControllers() {
-	static const int CHECK_FREQUENCY = 71;  // Just an arbitrary prime to try to not collide with other periodic checks.
-	if (checkCounter_++ > CHECK_FREQUENCY) {
-#ifndef _M_ARM
-		size_t newCount = DinputDevice::getNumPads();
-		if (newCount > numDinputDevices_) {
-			INFO_LOG(Log::System, "New controller device detected");
-			for (size_t i = numDinputDevices_; i < newCount; i++) {
-				input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
-			}
-			numDinputDevices_ = newCount;
-		}
-#endif
-		checkCounter_ = 0;
-	}
-
 	for (const auto &device : input) {
 		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
 			break;

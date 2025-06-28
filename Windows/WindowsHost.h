@@ -27,13 +27,10 @@ public:
 	void PollControllers();
 
 private:
-	size_t numDinputDevices_ = 0;
 	std::list<std::unique_ptr<InputDevice>> input;
 
 	float mouseDeltaX_ = 0;
 	float mouseDeltaY_ = 0;
-
-	int checkCounter_ = 0;
 };
 
 extern WindowsInputManager g_inputManager;
