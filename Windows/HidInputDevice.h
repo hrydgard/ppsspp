@@ -1,3 +1,5 @@
+// This file in particular along with its cpp file is public domain, use it for whatever you want.
+
 #pragma once
 
 #include "Windows/InputDevice.h"
@@ -22,10 +24,9 @@ public:
 private:
 	struct PSControllerState {
 		// Analog sticks
-		s8 lx;
-		s8 ly;
-		s8 rx;
-		s8 ry;
+		s8 stickAxes[4];  // LX LY RX RY
+		// Analog triggers
+		u8 triggerAxes[2];
 		// Buttons
 		u32 buttons;  // Bitmask, PSButton enum
 	};
@@ -38,7 +39,7 @@ private:
 	HANDLE controller_;
 	int pad_ = 0;
 	int pollCount_ = 0;
-
+	int reportSize_ = 0;
 	enum {
 		POLL_FREQ = 69,
 	};
