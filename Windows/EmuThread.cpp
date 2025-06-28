@@ -18,7 +18,6 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
 #include "Windows/resource.h"
-#include "Windows/WindowsHost.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"

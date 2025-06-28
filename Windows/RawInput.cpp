@@ -25,7 +25,6 @@
 #include "Common/Log.h"
 #include "Windows/RawInput.h"
 #include "Windows/MainWindow.h"
-#include "Windows/WindowsHost.h"
 #include "Common/CommonFuncs.h"
 #include "Common/SysError.h"
 #include "Core/Config.h"

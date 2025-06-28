@@ -23,23 +23,22 @@
 #include <cmath>
 #include <functional>
 
-#include "Common/CommonWindows.h"
-#include "Common/File/FileUtil.h"
-#include "Common/OSVersion.h"
-#include "Common/GPU/Vulkan/VulkanLoader.h"
-#include "ppsspp_config.h"
-
 #include <mmsystem.h>
 #include <shellapi.h>
 #include <Wbemidl.h>
 #include <ShlObj.h>
 #include <wrl/client.h>
 
+#include "Common/CommonWindows.h"
+#include "Common/File/FileUtil.h"
+#include "Common/OSVersion.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "ppsspp_config.h"
+
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
-#include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Text/I18n.h"
@@ -55,6 +54,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/SaveState.h"
 #include "Core/Instance.h"
+#include "Core/HLE/Plugins.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
@@ -67,7 +67,8 @@
 
 #include "UI/GameInfoCache.h"
 #include "Windows/resource.h"
-
+#include "Windows/DinputDevice.h"
+#include "Windows/XinputDevice.h"
 #include "Windows/MainWindow.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -84,8 +85,6 @@
 #include "Windows/Debugger/CtrlRegisterList.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/InputBox.h"
-
-#include "Windows/WindowsHost.h"
 #include "Windows/main.h"
 
 #ifdef _MSC_VER
@@ -121,10 +120,12 @@ static std::string gpuDriverVersion;
 static std::string restartArgs;
 
 int g_activeWindow = 0;
-
-WindowsInputManager g_inputManager;
-
 int g_lastNumInstances = 0;
+
+std::list<std::unique_ptr<InputDevice>> g_inputDevices;
+
+float mouseDeltaX_ = 0;
+float mouseDeltaY_ = 0;
 
 static double g_lastActivity = 0.0;
 static double g_lastKeepAwake = 0.0;
@@ -148,6 +149,24 @@ void System_Vibrate(int length_ms) {
 static void AddDebugRestartArgs() {
 	if (g_logManager.GetConsoleListener()->IsOpen())
 		restartArgs += " -l";
+}
+
+static void PollControllers() {
+	for (const auto &device : g_inputDevices) {
+		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
+			break;
+	}
+
+	// Disabled by default, needs a workaround to map to psp keys.
+	if (g_Config.bMouseControl) {
+		NativeMouseDelta(mouseDeltaX_, mouseDeltaY_);
+	}
+
+	mouseDeltaX_ *= g_Config.fMouseSmoothing;
+	mouseDeltaY_ *= g_Config.fMouseSmoothing;
+
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = mouseDeltaX_;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = mouseDeltaY_;
 }
 
 // Adapted mostly as-is from http://www.gamedev.net/topic/495075-how-to-retrieve-info-about-videocard/?view=findpost&p=4229170
@@ -488,7 +507,7 @@ void System_Notify(SystemNotification notification) {
 		break;
 
 	case SystemNotification::POLL_CONTROLLERS:
-		g_inputManager.PollControllers();
+		PollControllers();
 		// Also poll the audio backend for changes.
 		break;
 
@@ -1117,7 +1136,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::Minimize();
 	}
 
-	g_inputManager.Init();
+	//add first XInput device to respond
+	g_inputDevices.push_back(std::make_unique<XinputDevice>());
+	g_inputDevices.push_back(std::make_unique<DInputMetaDevice>());
 
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
