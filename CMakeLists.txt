@@ -2699,8 +2699,6 @@ set(WindowsFiles
 	Windows/W32Util/DarkMode.cpp
 	Windows/W32Util/UAHMenuBar.h
 	Windows/W32Util/UAHMenuBar.cpp
-	Windows/WindowsHost.cpp
-	Windows/WindowsHost.h
 	Windows/MainWindow.cpp
 	Windows/MainWindow.h
 	Windows/MainWindowMenu.cpp

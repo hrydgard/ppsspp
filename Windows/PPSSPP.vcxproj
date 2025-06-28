@@ -720,7 +720,6 @@
     <ClCompile Include="W32Util\UAHMenuBar.cpp" />
     <ClCompile Include="WASAPIContext.cpp" />
     <ClCompile Include="WindowsAudio.cpp" />
-    <ClCompile Include="WindowsHost.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -1168,7 +1167,6 @@
     <ClInclude Include="W32Util\UAHMenuBar.h" />
     <ClInclude Include="WASAPIContext.h" />
     <ClInclude Include="WindowsAudio.h" />
-    <ClInclude Include="WindowsHost.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />

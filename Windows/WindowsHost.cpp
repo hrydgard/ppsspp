@@ -48,19 +48,6 @@
 
 #include "Windows/main.h"
 
-void WindowsInputManager::Init() {
-	//add first XInput device to respond
-	input.push_back(std::make_unique<XinputDevice>());
-#ifndef _M_ARM
-
-	//find all connected DInput devices of class GamePad
-	numDinputDevices_ = DinputDevice::getNumPads();
-	for (size_t i = 0; i < numDinputDevices_; i++) {
-		input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
-	}
-#endif
-}
-
 void WindowsInputManager::PollControllers() {
 	static const int CHECK_FREQUENCY = 71;  // Just an arbitrary prime to try to not collide with other periodic checks.
 	if (checkCounter_++ > CHECK_FREQUENCY) {

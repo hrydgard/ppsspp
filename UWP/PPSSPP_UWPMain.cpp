@@ -41,6 +41,7 @@
 #include "UWPHelpers/StorageAsync.h"
 #include "UWPHelpers/LaunchItem.h"
 #include "UWPHelpers/InputHelpers.h"
+#include "Windows/InputDevice.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
@@ -50,8 +51,6 @@ using namespace Windows::System::Threading;
 using namespace Windows::ApplicationModel::DataTransfer;
 using namespace Windows::Devices::Enumeration;
 using namespace Concurrency;
-
-std::list<std::unique_ptr<InputDevice>> g_input;
 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
@@ -87,16 +86,17 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
 
 	// add first XInput device to respond
-	g_input.push_back(std::make_unique<XinputDevice>());
-
-	InputDevice::BeginPolling();
+	g_InputManager.AddDevice(new XinputDevice());
+	g_InputManager.BeginPolling();
 
 	// Prepare input pane (for Xbox & touch devices)
 	PrepareInputPane();
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
-	InputDevice::StopPolling();
+	g_InputManager.StopPolling();
+	g_InputManager.Shutdown();
+
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
@@ -453,21 +453,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
-void System_Notify(SystemNotification notification) {
-	switch (notification) {
-	case SystemNotification::POLL_CONTROLLERS:
-	{
-		for (const auto &device : g_input)
-		{
-			if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
-				break;
-		}
-		break;
-	}
-	default:
-		break;
-	}
-}
+void System_Notify(SystemNotification notification) {}
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {

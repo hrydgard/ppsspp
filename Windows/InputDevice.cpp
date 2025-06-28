@@ -25,45 +25,43 @@
 #include "Core/Config.h"
 #include "Windows/InputDevice.h"
 
-static std::atomic_flag threadRunningFlag;
-static std::thread inputThread;
-static std::atomic_bool focused = ATOMIC_VAR_INIT(true);
+InputManager g_InputManager;
 
-inline static void ExecuteInputPoll() {
-	if (focused.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused) {
-		System_Notify(SystemNotification::POLL_CONTROLLERS);
-	}
-}
-
-static void RunInputThread() {
+void InputManager::InputThread() {
 	SetCurrentThreadName("Input");
+
+	for (auto &device : devices_) {
+		device->Init();
+	}
 
 	// NOTE: The keyboard and mouse buttons are handled via raw input, not here.
 	// This is mainly for controllers which need to be polled, instead of generating events.
-
-	while (threadRunningFlag.test_and_set(std::memory_order_relaxed)) {
-		ExecuteInputPoll();
+	while (runThread_.load(std::memory_order_relaxed)) {
+		if (focused_.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused) {
+			System_Notify(SystemNotification::POLL_CONTROLLERS);
+			for (const auto &device : devices_) {
+				if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
+					break;
+			}
+		}
 
 		// Try to update 250 times per second.
 		Sleep(4);
 	}
+
+	for (auto &device : devices_) {
+		device->Shutdown();
+	}
 }
 
-void InputDevice::BeginPolling() {
-	threadRunningFlag.test_and_set(std::memory_order_relaxed);
-	inputThread = std::thread(&RunInputThread);
+void InputManager::BeginPolling() {
+	runThread_.store(true, std::memory_order_relaxed);
+	inputThread_ = std::thread([this]() {
+		InputThread();
+	});
 }
 
-void InputDevice::StopPolling() {
-	threadRunningFlag.clear(std::memory_order_relaxed);
-
-	inputThread.join();
-}
-
-void InputDevice::GainFocus() {
-	focused.store(true, std::memory_order_relaxed);
-}
-
-void InputDevice::LoseFocus() {
-	focused.store(false, std::memory_order_relaxed);
+void InputManager::StopPolling() {
+	runThread_.store(false, std::memory_order_relaxed);
+	inputThread_.join();
 }
