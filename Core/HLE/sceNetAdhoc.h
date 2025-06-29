@@ -102,7 +102,6 @@ void Register_sceNetAdhocDiscover();
 void Register_sceNetAdhocctl();
 
 
-u32_le __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
@@ -110,6 +109,7 @@ void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 
 bool __NetAdhocConnected();
 
+// TODO: expose these via "sceNetAdhocctl.h"
 // Called from netdialog (and from sceNetApctl)
 // NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocctlGetState(u32 ptrToStatus);
@@ -125,6 +125,7 @@ int sceNetAdhocctlTerm();
 int NetAdhocctl_Term();
 int NetAdhocctl_GetState();
 int NetAdhocctl_Create(const char* groupName);
+
 int NetAdhoc_Term();
 
 // May need to use these from sceNet.cpp
@@ -144,8 +145,7 @@ extern int adhocEventDelay; //1000000
 extern std::recursive_mutex adhocEvtMtx;
 extern int IsAdhocctlInCB;
 
-extern u32 dummyThreadHackAddr;
-extern u32_le dummyThreadCode[3];
+
 extern u32 matchingThreadHackAddr;
 extern u32_le matchingThreadCode[3];
 

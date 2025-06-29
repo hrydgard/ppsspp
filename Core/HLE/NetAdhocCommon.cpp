@@ -16,3 +16,20 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/NetAdhocCommon.h"
+
+#include "sceKernelMemory.h"
+#include "Core/MemMapHelpers.h"
+
+u32 dummyThreadHackAddr = 0;
+u32_le dummyThreadCode[3];
+
+
+void netAdhocValidateLoopMemory() {
+    // Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
+    if (!dummyThreadHackAddr || strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0) {
+        u32 blockSize = sizeof(dummyThreadCode);
+        dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
+        if (dummyThreadHackAddr)
+            Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
+    }
+}

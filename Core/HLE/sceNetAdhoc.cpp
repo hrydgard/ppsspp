@@ -52,6 +52,7 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/HLE/NetAdhocCommon.h"
 
 #ifdef _WIN32
 #undef errno
@@ -100,8 +101,6 @@ std::map<u64, AdhocSendTargets> sendTargetPeers;
 
 int gameModeNotifyEvent = -1;
 
-u32 dummyThreadHackAddr = 0;
-u32_le dummyThreadCode[3];
 u32 matchingThreadHackAddr = 0;
 u32_le matchingThreadCode[3];
 
@@ -1092,16 +1091,6 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	return ERROR_NET_ADHOC_TIMEOUT;
 }
 
-void netAdhocValidateLoopMemory() {
-	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
-	if (!dummyThreadHackAddr || strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0) {
-		u32 blockSize = sizeof(dummyThreadCode);
-		dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
-		if (dummyThreadHackAddr)
-			Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
-	}
-}
-
 void __NetAdhocDoState(PointerWrap &p) {
 	auto s = p.Section("sceNetAdhoc", 1, 8);
 	if (!s)
@@ -1206,19 +1195,6 @@ void __NetAdhocDoState(PointerWrap &p) {
 void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	adhocctlEvents.push_back({ flag, error });
-}
-
-u32_le __CreateHLELoop(u32_le *loopAddr, const char *sceFuncName, const char *hleFuncName, const char *tagName) {
-	if (loopAddr == NULL || sceFuncName == NULL || hleFuncName == NULL)
-		return 0;
-
-	loopAddr[0] = MIPS_MAKE_SYSCALL(sceFuncName, hleFuncName);
-	loopAddr[1] = MIPS_MAKE_B(-2);
-	loopAddr[2] = MIPS_MAKE_NOP();
-	u32 blockSize = sizeof(u32_le)*3;
-	u32_le dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, tagName); // blockSize will be rounded to 256 granularity
-	Memory::Memcpy(dummyThreadHackAddr, loopAddr, sizeof(u32_le) * 3); // This area will be cleared again after loading an old savestate :(
-	return dummyThreadHackAddr;
 }
 
 void __AdhocNotifInit() {

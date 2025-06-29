@@ -17,3 +17,10 @@
 
 #pragma once
 
+#include "CommonTypes.h"
+#include "Swap.h"
+
+extern u32 dummyThreadHackAddr;
+extern u32_le dummyThreadCode[3];
+
+void netAdhocValidateLoopMemory();
