@@ -627,6 +627,7 @@
     <ClCompile Include="HLE\sceMpeg.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
     <ClCompile Include="HLE\sceNet_lib.cpp" />
+    <ClCompile Include="HLE\NetAdhocCommon.cpp" />
     <ClCompile Include="HLE\sceNetAdhoc.cpp" />
     <ClCompile Include="HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="HLE\sceNp.cpp" />
@@ -1140,6 +1141,7 @@
     <ClInclude Include="HLE\sceMpeg.h" />
     <ClInclude Include="HLE\sceNet.h" />
     <ClInclude Include="HLE\sceNet_lib.h" />
+    <ClInclude Include="HLE\NetAdhocCommon.h" />
     <ClInclude Include="HLE\sceNetAdhoc.h" />
     <ClInclude Include="HLE\sceNetAdhocMatching.h" />
     <ClInclude Include="HLE\sceNp.h" />

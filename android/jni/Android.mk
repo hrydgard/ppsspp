@@ -708,6 +708,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceNet_lib.cpp \
   $(SRC)/Core/HLE/proAdhoc.cpp \
   $(SRC)/Core/HLE/proAdhocServer.cpp \
+  $(SRC)/Core/HLE/NetAdhocCommon.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
   $(SRC)/Core/HLE/sceNetApctl.cpp \

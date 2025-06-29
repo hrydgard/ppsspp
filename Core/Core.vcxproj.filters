@@ -520,6 +520,9 @@
     <ClCompile Include="HLE\sceHeap.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\NetAdhocCommon.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNetAdhoc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -1756,6 +1759,9 @@
       <Filter>HLE\Kernel</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceHeap.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\NetAdhocCommon.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNetAdhoc.h">
