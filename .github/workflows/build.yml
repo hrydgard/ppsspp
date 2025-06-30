@@ -41,9 +41,20 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
 
-    - name: Fetch tags
-      # This is required for git describe --always to work for git-version.cpp.
-      run: git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
+    - name: Check Valid Version Tags
+      id: valid-tags
+      shell: bash
+      run: |
+        # This is required for git describe --always to work for git-version.cpp.
+        git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
+        echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT # $env:GITHUB_OUTPUT on pwsh
+
+    - name: Fetch upstream tags # Fallback to fetching tags from upstream
+      if: steps.valid-tags.outputs.count == '0'
+      run: |
+        # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+        git remote add upstream https://github.com/hrydgard/ppsspp.git
+        git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
     - name: Create git-version.cpp for Windows # Not sure why the one at git-version-gen.cmd couldn't get the version properly.
       #if: github.ref_type == 'tag'
