@@ -99,12 +99,16 @@ class PointerWrap;
 
 void Register_sceNetAdhoc();
 void Register_sceNetAdhocDiscover();
+
+// TODO: expose it via "sceNetAdhocctl.h"
 void Register_sceNetAdhocctl();
 
 
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
+
+// TODO: expose it via "sceNetAdhocctl.h"
 void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 
 bool __NetAdhocConnected();
@@ -134,16 +138,6 @@ extern bool netAdhocctlInited;
 extern bool g_adhocServerConnected;
 extern bool netAdhocGameModeEntered;
 extern s32 netAdhocDiscoverStatus;
-
-extern int netAdhocEnterGameModeTimeout;
-extern int adhocDefaultTimeout; //3000000 usec
-extern int adhocDefaultDelay; //10000
-extern int adhocExtraDelay; //20000
-extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
-extern int adhocMatchingEventDelay; //30000
-extern int adhocEventDelay; //1000000
-extern std::recursive_mutex adhocEvtMtx;
-extern int IsAdhocctlInCB;
 
 
 extern u32 matchingThreadHackAddr;

@@ -18,6 +18,7 @@
 
 #include "Core/HLE/sceNetAdhocMatching.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/NetAdhocCommon.h"
 
 #include <deque>
 #include <algorithm>
@@ -43,6 +44,8 @@ std::vector<SceUID> matchingThreads;
 std::deque<MatchingArgs> matchingEvents;
 
 bool netAdhocMatchingInited;
+int adhocMatchingEventDelay = 30000; //30000
+
 static bool savedNetAdhocMatchingInited; // the storage to use during the savestating routine in sceNetAdhoc.cpp
 
 void DoNetAdhocMatchingInited(PointerWrap &p) {

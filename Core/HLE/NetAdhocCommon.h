@@ -20,7 +20,20 @@
 #include "CommonTypes.h"
 #include "Swap.h"
 
+#include <mutex>
+
 extern u32 dummyThreadHackAddr;
 extern u32_le dummyThreadCode[3];
 
 void netAdhocValidateLoopMemory();
+
+extern int netAdhocEnterGameModeTimeout;
+extern int adhocDefaultTimeout; //3000000 usec
+extern int adhocDefaultDelay; //10000
+extern int adhocExtraDelay; //20000
+extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
+extern int adhocEventDelay; //1000000
+extern std::recursive_mutex adhocEvtMtx;
+
+// TODO: this one is broken, perhaps delete it entirely?
+extern int IsAdhocctlInCB;

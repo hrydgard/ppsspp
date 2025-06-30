@@ -33,3 +33,14 @@ void netAdhocValidateLoopMemory() {
             Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
     }
 }
+
+int netAdhocEnterGameModeTimeout = 15000000; // 15 sec as default timeout, to wait for all players to join
+int adhocDefaultTimeout = 5000000; //2000000 usec // For some unknown reason, sometimes it tooks more than 2 seconds for Adhocctl Init to connect to AdhocServer on localhost (normally only 10 ms), and sometimes it tooks more than 1 seconds for built-in AdhocServer to be ready (normally only 1 ms)
+
+int adhocDefaultDelay = 10000; //10000
+int adhocExtraDelay = 20000; //20000
+int adhocEventPollDelay = 100000; //100000; // Same timings with PSP_ADHOCCTL_RECV_TIMEOUT ?
+int adhocEventDelay = 2000000; //2000000 on real PSP ?
+std::recursive_mutex adhocEvtMtx;
+
+int IsAdhocctlInCB = 0;
