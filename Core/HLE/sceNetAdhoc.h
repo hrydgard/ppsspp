@@ -23,12 +23,6 @@
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
-typedef struct SceNetAdhocDiscoverParam {
-	u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
-	char   groupName[ADHOCCTL_GROUPNAME_LEN];
-	u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
-	u32_le result; // inited to 0?
-} PACK SceNetAdhocDiscoverParam;
 
 typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
 	s32_le unknown; // Unknown, set to 0 // Product Type ?
@@ -78,6 +72,14 @@ enum AdhocSocketRequestType : int
 	PDP_RECV = 6,
 	ADHOC_POLL_SOCKET = 7,
 };
+
+// TODO: maybe move these to sceNetAdhocDiscover?
+typedef struct SceNetAdhocDiscoverParam {
+    u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
+    char   groupName[ADHOCCTL_GROUPNAME_LEN];
+    u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
+    u32_le result; // inited to 0?
+} PACK SceNetAdhocDiscoverParam;
 
 enum AdhocDiscoverStatus : int
 {
@@ -133,15 +135,11 @@ int NetAdhocctl_Create(const char* groupName);
 int NetAdhoc_Term();
 
 // May need to use these from sceNet.cpp
-extern bool netAdhocInited;
-extern bool netAdhocctlInited;
+extern bool netAdhocInited; // TODO: keep here
+extern bool netAdhocctlInited; // TODO: move to sceNetAdhocctl
 extern bool g_adhocServerConnected;
 extern bool netAdhocGameModeEntered;
-extern s32 netAdhocDiscoverStatus;
-
-
-extern u32 matchingThreadHackAddr;
-extern u32_le matchingThreadCode[3];
+extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
 
 // Exposing those for the matching routines
 // NOTE: use hleCall for sceNet* ones!

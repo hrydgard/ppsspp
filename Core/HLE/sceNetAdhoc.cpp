@@ -78,10 +78,8 @@ constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games p
 
 SceUID threadAdhocID;
 
-// TODO: move to "sceNetAdhocctl.h/.cpp"
 std::deque<std::pair<u32, u32>> adhocctlEvents;
 std::map<int, AdhocctlHandler> adhocctlHandlers;
-
 int adhocctlNotifyEvent = -1;
 int adhocctlStateEvent = -1;
 int adhocSocketNotifyEvent = -1;
@@ -90,9 +88,6 @@ std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 
 int gameModeNotifyEvent = -1;
-
-u32 matchingThreadHackAddr = 0;
-u32_le matchingThreadCode[3];
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);

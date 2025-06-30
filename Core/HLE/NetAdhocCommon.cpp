@@ -44,3 +44,7 @@ int adhocEventDelay = 2000000; //2000000 on real PSP ?
 std::recursive_mutex adhocEvtMtx;
 
 int IsAdhocctlInCB = 0;
+
+
+u32 matchingThreadHackAddr = 0;
+u32_le matchingThreadCode[3];

@@ -37,3 +37,7 @@ extern std::recursive_mutex adhocEvtMtx;
 
 // TODO: this one is broken, perhaps delete it entirely?
 extern int IsAdhocctlInCB;
+
+
+extern u32 matchingThreadHackAddr;
+extern u32_le matchingThreadCode[3];
