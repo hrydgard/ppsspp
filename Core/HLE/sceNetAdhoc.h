@@ -137,7 +137,7 @@ int NetAdhoc_Term();
 // May need to use these from sceNet.cpp
 extern bool netAdhocInited; // TODO: keep here
 extern bool netAdhocctlInited; // TODO: move to sceNetAdhocctl
-extern bool g_adhocServerConnected;
+
 extern bool netAdhocGameModeEntered;
 extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
 

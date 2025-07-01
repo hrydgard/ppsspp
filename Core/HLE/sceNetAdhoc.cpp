@@ -63,7 +63,6 @@
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
-bool g_adhocServerConnected = false;
 
 #define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
 u64 netAdhocDiscoverStartTime = 0;

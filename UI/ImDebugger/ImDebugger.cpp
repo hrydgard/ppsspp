@@ -36,6 +36,7 @@
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhocMatching.h"
+#include "Core/HLE/NetAdhocCommon.h"
 #include "Common/System/Request.h"
 
 #include "Core/Util/AtracTrack.h"

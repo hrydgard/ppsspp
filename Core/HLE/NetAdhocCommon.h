@@ -28,11 +28,14 @@ extern u32_le dummyThreadCode[3];
 void netAdhocValidateLoopMemory();
 
 extern int netAdhocEnterGameModeTimeout;
+
+// TODO: constify
 extern int adhocDefaultTimeout; //3000000 usec
 extern int adhocDefaultDelay; //10000
 extern int adhocExtraDelay; //20000
 extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
 extern int adhocEventDelay; //1000000
+
 extern std::recursive_mutex adhocEvtMtx;
 
 // TODO: this one is broken, perhaps delete it entirely?
@@ -41,3 +44,5 @@ extern int IsAdhocctlInCB;
 
 extern u32 matchingThreadHackAddr;
 extern u32_le matchingThreadCode[3];
+
+extern bool g_adhocServerConnected;
