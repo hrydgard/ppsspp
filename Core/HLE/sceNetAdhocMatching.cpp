@@ -72,8 +72,6 @@ void RestoreNetAdhocMatchingInited() {
 
 int netAdhocMatchingStarted = 0;
 
-constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
-
 
 void __UpdateMatchingHandler(const MatchingArgs &ArgsPtr) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);

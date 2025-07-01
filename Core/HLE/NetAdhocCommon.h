@@ -52,3 +52,5 @@ extern u32 matchingThreadHackAddr;
 extern u32_le matchingThreadCode[3];
 
 extern bool g_adhocServerConnected;
+
+constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)

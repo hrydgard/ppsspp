@@ -73,8 +73,6 @@ u32 netAdhocDiscoverBufAddr = 0;
 
 bool netAdhocGameModeEntered = false;
 
-constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
-
 SceUID threadAdhocID;
 
 std::deque<std::pair<u32, u32>> adhocctlEvents;
