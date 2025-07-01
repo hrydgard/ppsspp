@@ -29,12 +29,18 @@ void netAdhocValidateLoopMemory();
 
 extern int netAdhocEnterGameModeTimeout;
 
-// TODO: constify
-extern int adhocDefaultTimeout; //3000000 usec
-extern int adhocDefaultDelay; //10000
-extern int adhocExtraDelay; //20000
-extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
-extern int adhocEventDelay; //1000000
+// Old comments regarding the value of adhocDefaultTimeout:
+// 3000000 usec
+//2000000 usec // For some unknown reason, sometimes it tooks more than 2 seconds for Adhocctl Init to connect to AdhocServer on localhost (normally only 10 ms), and sometimes it tooks more than 1 seconds for built-in AdhocServer to be ready (normally only 1 ms)
+constexpr int adhocDefaultTimeout = 5000000;
+
+constexpr int adhocDefaultDelay = 10000; //10000
+constexpr int adhocExtraDelay = 20000; //20000
+constexpr int adhocEventPollDelay = 100000; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
+
+// Old comments regarding the value of adhocEventDelay:
+//1000000
+constexpr int adhocEventDelay = 2000000; //2000000 on real PSP ?
 
 extern std::recursive_mutex adhocEvtMtx;
 
