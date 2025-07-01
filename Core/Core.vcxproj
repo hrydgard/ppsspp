@@ -428,6 +428,7 @@
     <ClCompile Include="..\ext\libzip\zip_unchange_archive.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange_data.c" />
     <ClCompile Include="..\ext\libzip\zip_utf-8.c" />
+    <ClCompile Include="..\ext\loongarch-disasm.cpp" />
     <ClCompile Include="..\ext\riscv-disas.cpp" />
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\sha1\sha1.cpp" />
@@ -518,6 +519,15 @@
     <ClCompile Include="MIPS\IR\IRNativeCommon.cpp" />
     <ClCompile Include="MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="MIPS\IR\IRRegCache.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64Asm.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompALU.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompBranch.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompFPU.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompLoadStore.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompSystem.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompVec.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64Jit.cpp" />
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64RegCache.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVCompALU.cpp" />
@@ -967,6 +977,7 @@
     <ClInclude Include="..\ext\libzip\zip_source_file.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_stdio.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_win32.h" />
+    <ClInclude Include="..\ext\loongarch-disasm.h" />
     <ClInclude Include="..\ext\riscv-disas.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
@@ -1053,6 +1064,8 @@
     <ClInclude Include="MIPS\IR\IRNativeCommon.h" />
     <ClInclude Include="MIPS\IR\IRPassSimplify.h" />
     <ClInclude Include="MIPS\IR\IRRegCache.h" />
+    <ClInclude Include="MIPS\LoongArch64\LoongArch64Jit.h" />
+    <ClInclude Include="MIPS\LoongArch64\LoongArch64RegCache.h" />
     <ClInclude Include="MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />

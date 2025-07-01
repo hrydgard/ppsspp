@@ -1244,6 +1244,7 @@ bool TestArmEmitter();
 bool TestArm64Emitter();
 bool TestX64Emitter();
 bool TestRiscVEmitter();
+bool TestLoongArch64Emitter();
 bool TestShaderGenerators();
 bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
@@ -1262,6 +1263,9 @@ TestItem availableTests[] = {
 #endif
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(RISCV64)
 	TEST_ITEM(RiscVEmitter),
+#endif
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(LOONGARCH64)
+	TEST_ITEM(LoongArch64Emitter),
 #endif
 	TEST_ITEM(VertexJit),
 	TEST_ITEM(Asin),

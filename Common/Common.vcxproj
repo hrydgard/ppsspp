@@ -440,6 +440,7 @@
     <ClInclude Include="Input\GestureDetector.h" />
     <ClInclude Include="Input\InputState.h" />
     <ClInclude Include="Input\KeyCodes.h" />
+    <ClInclude Include="LoongArch64Emitter.h" />
     <ClInclude Include="Math\CrossSIMD.h" />
     <ClInclude Include="Math\curves.h" />
     <ClInclude Include="Math\expression_parser.h" />
@@ -897,6 +898,7 @@
     <ClCompile Include="Input\InputState.cpp" />
     <ClCompile Include="GhidraClient.cpp" />
     <ClCompile Include="Log.cpp" />
+    <ClCompile Include="LoongArch64Emitter.cpp" />
     <ClCompile Include="Math\curves.cpp" />
     <ClCompile Include="Math\expression_parser.cpp" />
     <ClCompile Include="Math\fast\fast_matrix.c" />

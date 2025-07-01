@@ -762,6 +762,8 @@ JitBlockDebugInfo IRNativeBlockCacheDebugInterface::GetBlockDebugInfo(int blockN
 	debugInfo.targetDisasm = DisassembleX86(blockStart, codeSize);
 #elif PPSSPP_ARCH(RISCV64)
 	debugInfo.targetDisasm = DisassembleRV64(blockStart, codeSize);
+#elif PPSSPP_ARCH(LOONGARCH64)
+	debugInfo.targetDisasm = DisassembleLA64(blockStart, codeSize);
 #endif
 	return debugInfo;
 }

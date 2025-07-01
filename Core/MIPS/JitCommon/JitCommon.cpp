@@ -22,6 +22,7 @@
 #include "ext/disarm.h"
 #include "ext/riscv-disas.h"
 #include "ext/udis86/udis86.h"
+#include "ext/loongarch-disasm.h"
 
 #include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
@@ -49,6 +50,8 @@
 #include "../MIPS/MipsJit.h"
 #elif PPSSPP_ARCH(RISCV64)
 #include "../RiscV/RiscVJit.h"
+#elif PPSSPP_ARCH(LOONGARCH64)
+#include "../LoongArch64/LoongArch64Jit.h"
 #else
 #include "../fake/FakeJit.h"
 #endif
@@ -118,6 +121,8 @@ namespace MIPSComp {
 		return new MIPSComp::MipsJit(mipsState);
 #elif PPSSPP_ARCH(RISCV64)
 		return new MIPSComp::RiscVJit(mipsState);
+#elif PPSSPP_ARCH(LOONGARCH64)
+		return new MIPSComp::LoongArch64Jit(mipsState);
 #else
 		return new MIPSComp::FakeJit(mipsState);
 #endif
@@ -352,6 +357,33 @@ std::vector<std::string> DisassembleRV64(const u8 *data, int size) {
 		lines.push_back(ReplaceAll(temp, "\t", "  "));
 
 		i += (int)len;
+	}
+
+	invalid_flush();
+	return lines;
+}
+#endif
+
+#if PPSSPP_ARCH(LOONGARCH64) || defined(DISASM_ALL)
+std::vector<std::string> DisassembleLA64(const u8 *data, int size) {
+	std::vector<std::string> lines;
+
+	int invalid_count = 0;
+	auto invalid_flush = [&]() {
+		if (invalid_count != 0) {
+			lines.push_back(StringFromFormat("(%d invalid bytes)", invalid_count));
+			invalid_count = 0;
+		}
+	};
+
+	char temp[512];
+	Ins ins;
+	for (int i = 0; i < size; i += 4) {
+		const u32 *codePtr = (const u32 *)(data + i);
+		invalid_flush();
+		la_disasm(*codePtr, &ins);
+		sprint_ins(&ins, temp);
+		lines.push_back(ReplaceAll(temp, "\t", "  "));
 	}
 
 	invalid_flush();

@@ -94,6 +94,9 @@
     <Filter Include="MIPS\RiscV">
       <UniqueIdentifier>{067e3128-3aaf-4ed1-b19e-bab11606abe7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\LoongArch64">
+      <UniqueIdentifier>{1ef9e44d-2e76-4984-a6e5-5f6f143acfc8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -1354,6 +1357,36 @@
     <ClCompile Include="FileLoaders\ZipFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64Asm.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompALU.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompBranch.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompFPU.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompLoadStore.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompSystem.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64CompVec.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64Jit.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\LoongArch64\LoongArch64RegCache.cpp">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\loongarch-disasm.cpp">
+      <Filter>Ext</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2192,6 +2225,15 @@
     </ClInclude>
     <ClInclude Include="HLE\AtracBase.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\LoongArch64\LoongArch64Jit.h">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\LoongArch64\LoongArch64RegCache.h">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\loongarch-disasm.h">
+      <Filter>Ext</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

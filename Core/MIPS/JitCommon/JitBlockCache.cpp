@@ -662,6 +662,9 @@ int JitBlockCache::GetBlockExitSize() {
 #elif PPSSPP_ARCH(RISCV64)
 	// Will depend on the sequence found to encode the destination address.
 	return 0;
+#elif PPSSPP_ARCH(LOONGARCH64)
+	// Will depend on the sequence found to encode the destination address.
+	return 0;
 #else
 #warning GetBlockExitSize unimplemented
 	return 0;
@@ -715,6 +718,8 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(RISCV64)
 	debugInfo.targetDisasm = DisassembleRV64(block->normalEntry, block->codeSize);
+#elif PPSSPP_ARCH(LOONGARCH64)
+	debugInfo.targetDisasm = DisassembleLA64(block->normalEntry, block->codeSize);
 #endif
 	return debugInfo;
 }
