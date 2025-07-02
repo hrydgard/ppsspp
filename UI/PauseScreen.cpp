@@ -47,6 +47,7 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/NetAdhocCommon.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"

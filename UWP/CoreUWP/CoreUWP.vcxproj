@@ -214,6 +214,7 @@
     <ClInclude Include="..\..\Core\HLE\sceMt19937.h" />
     <ClInclude Include="..\..\Core\HLE\sceNet.h" />
     <ClInclude Include="..\..\Core\HLE\sceNet_lib.h" />
+    <ClInclude Include="..\..\Core\HLE\NetAdhocCommon.h" />
     <ClInclude Include="..\..\Core\HLE\sceNetAdhoc.h" />
     <ClInclude Include="..\..\Core\HLE\sceNetAdhocMatching.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp.h" />
@@ -478,6 +479,7 @@
     <ClCompile Include="..\..\Core\HLE\sceMt19937.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNet.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNet_lib.cpp" />
+    <ClCompile Include="..\..\Core\HLE\NetAdhocCommon.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhoc.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp.cpp" />

@@ -52,6 +52,7 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/HLE/NetAdhocCommon.h"
 
 #ifdef _WIN32
 #undef errno
@@ -62,7 +63,6 @@
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
-bool g_adhocServerConnected = false;
 
 #define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
 u64 netAdhocDiscoverStartTime = 0;
@@ -72,25 +72,11 @@ SceNetAdhocDiscoverParam* netAdhocDiscoverParam = nullptr;
 u32 netAdhocDiscoverBufAddr = 0;
 
 bool netAdhocGameModeEntered = false;
-int netAdhocEnterGameModeTimeout = 15000000; // 15 sec as default timeout, to wait for all players to join
-
-int adhocDefaultTimeout = 5000000; //2000000 usec // For some unknown reason, sometimes it tooks more than 2 seconds for Adhocctl Init to connect to AdhocServer on localhost (normally only 10 ms), and sometimes it tooks more than 1 seconds for built-in AdhocServer to be ready (normally only 1 ms)
-int adhocDefaultDelay = 10000; //10000
-int adhocExtraDelay = 20000; //20000
-int adhocEventPollDelay = 100000; //100000; // Same timings with PSP_ADHOCCTL_RECV_TIMEOUT ?
-int adhocMatchingEventDelay = 30000; //30000
-int adhocEventDelay = 2000000; //2000000 on real PSP ?
-
-constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
 
 SceUID threadAdhocID;
 
-std::recursive_mutex adhocEvtMtx;
 std::deque<std::pair<u32, u32>> adhocctlEvents;
 std::map<int, AdhocctlHandler> adhocctlHandlers;
-
-int IsAdhocctlInCB = 0;
-
 int adhocctlNotifyEvent = -1;
 int adhocctlStateEvent = -1;
 int adhocSocketNotifyEvent = -1;
@@ -99,11 +85,6 @@ std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 
 int gameModeNotifyEvent = -1;
-
-u32 dummyThreadHackAddr = 0;
-u32_le dummyThreadCode[3];
-u32 matchingThreadHackAddr = 0;
-u32_le matchingThreadCode[3];
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
@@ -1092,16 +1073,6 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	return ERROR_NET_ADHOC_TIMEOUT;
 }
 
-void netAdhocValidateLoopMemory() {
-	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
-	if (!dummyThreadHackAddr || strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0) {
-		u32 blockSize = sizeof(dummyThreadCode);
-		dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
-		if (dummyThreadHackAddr)
-			Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
-	}
-}
-
 void __NetAdhocDoState(PointerWrap &p) {
 	auto s = p.Section("sceNetAdhoc", 1, 8);
 	if (!s)
@@ -1206,19 +1177,6 @@ void __NetAdhocDoState(PointerWrap &p) {
 void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	adhocctlEvents.push_back({ flag, error });
-}
-
-u32_le __CreateHLELoop(u32_le *loopAddr, const char *sceFuncName, const char *hleFuncName, const char *tagName) {
-	if (loopAddr == NULL || sceFuncName == NULL || hleFuncName == NULL)
-		return 0;
-
-	loopAddr[0] = MIPS_MAKE_SYSCALL(sceFuncName, hleFuncName);
-	loopAddr[1] = MIPS_MAKE_B(-2);
-	loopAddr[2] = MIPS_MAKE_NOP();
-	u32 blockSize = sizeof(u32_le)*3;
-	u32_le dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, tagName); // blockSize will be rounded to 256 granularity
-	Memory::Memcpy(dummyThreadHackAddr, loopAddr, sizeof(u32_le) * 3); // This area will be cleared again after loading an old savestate :(
-	return dummyThreadHackAddr;
 }
 
 void __AdhocNotifInit() {

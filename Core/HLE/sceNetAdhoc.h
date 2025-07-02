@@ -23,12 +23,6 @@
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
-typedef struct SceNetAdhocDiscoverParam {
-	u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
-	char   groupName[ADHOCCTL_GROUPNAME_LEN];
-	u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
-	u32_le result; // inited to 0?
-} PACK SceNetAdhocDiscoverParam;
 
 typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
 	s32_le unknown; // Unknown, set to 0 // Product Type ?
@@ -79,6 +73,14 @@ enum AdhocSocketRequestType : int
 	ADHOC_POLL_SOCKET = 7,
 };
 
+// TODO: maybe move these to sceNetAdhocDiscover?
+typedef struct SceNetAdhocDiscoverParam {
+    u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
+    char   groupName[ADHOCCTL_GROUPNAME_LEN];
+    u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
+    u32_le result; // inited to 0?
+} PACK SceNetAdhocDiscoverParam;
+
 enum AdhocDiscoverStatus : int
 {
 	NET_ADHOC_DISCOVER_STATUS_NONE = 0,
@@ -99,17 +101,21 @@ class PointerWrap;
 
 void Register_sceNetAdhoc();
 void Register_sceNetAdhocDiscover();
+
+// TODO: expose it via "sceNetAdhocctl.h"
 void Register_sceNetAdhocctl();
 
 
-u32_le __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
+
+// TODO: expose it via "sceNetAdhocctl.h"
 void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 
 bool __NetAdhocConnected();
 
+// TODO: expose these via "sceNetAdhocctl.h"
 // Called from netdialog (and from sceNetApctl)
 // NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocctlGetState(u32 ptrToStatus);
@@ -125,29 +131,15 @@ int sceNetAdhocctlTerm();
 int NetAdhocctl_Term();
 int NetAdhocctl_GetState();
 int NetAdhocctl_Create(const char* groupName);
+
 int NetAdhoc_Term();
 
 // May need to use these from sceNet.cpp
-extern bool netAdhocInited;
-extern bool netAdhocctlInited;
-extern bool g_adhocServerConnected;
+extern bool netAdhocInited; // TODO: keep here
+extern bool netAdhocctlInited; // TODO: move to sceNetAdhocctl
+
 extern bool netAdhocGameModeEntered;
-extern s32 netAdhocDiscoverStatus;
-
-extern int netAdhocEnterGameModeTimeout;
-extern int adhocDefaultTimeout; //3000000 usec
-extern int adhocDefaultDelay; //10000
-extern int adhocExtraDelay; //20000
-extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
-extern int adhocMatchingEventDelay; //30000
-extern int adhocEventDelay; //1000000
-extern std::recursive_mutex adhocEvtMtx;
-extern int IsAdhocctlInCB;
-
-extern u32 dummyThreadHackAddr;
-extern u32_le dummyThreadCode[3];
-extern u32 matchingThreadHackAddr;
-extern u32_le matchingThreadCode[3];
+extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
 
 // Exposing those for the matching routines
 // NOTE: use hleCall for sceNet* ones!

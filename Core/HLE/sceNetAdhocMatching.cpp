@@ -18,6 +18,7 @@
 
 #include "Core/HLE/sceNetAdhocMatching.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/NetAdhocCommon.h"
 
 #include <deque>
 #include <algorithm>
@@ -43,6 +44,8 @@ std::vector<SceUID> matchingThreads;
 std::deque<MatchingArgs> matchingEvents;
 
 bool netAdhocMatchingInited;
+int adhocMatchingEventDelay = 30000; //30000
+
 static bool savedNetAdhocMatchingInited; // the storage to use during the savestating routine in sceNetAdhoc.cpp
 
 void DoNetAdhocMatchingInited(PointerWrap &p) {
@@ -68,8 +71,6 @@ void RestoreNetAdhocMatchingInited() {
 }
 
 int netAdhocMatchingStarted = 0;
-
-constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
 
 
 void __UpdateMatchingHandler(const MatchingArgs &ArgsPtr) {
