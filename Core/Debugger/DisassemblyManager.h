@@ -228,4 +228,4 @@ bool isInInterval(u32 start, u32 size, u32 value);
 bool IsLikelyStringAt(uint32_t addr);
 
 std::string DisassembleRange(u32 start, u32 size, bool displaySymbols, MIPSDebugInterface *debugger);
-bool GetDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData, bool displaySymbols);
+bool GetDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbreviateLabels, bool showData, bool displaySymbols);

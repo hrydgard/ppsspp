@@ -109,14 +109,14 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int al
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
 	// Round Y to the closest full pixel, since we're making it 1-pixel-thin.
-	y -= fmodf(y, g_display.pixel_in_dps);
-	Rect(x1, y, x2 - x1, g_display.pixel_in_dps, color);
+	y -= fmodf(y, g_display.pixel_in_dps_y);
+	Rect(x1, y, x2 - x1, g_display.pixel_in_dps_y, color);
 }
 
 void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
 	// Round X to the closest full pixel, since we're making it 1-pixel-thin.
-	x -= fmodf(x, g_display.pixel_in_dps);
-	Rect(x, y1, g_display.pixel_in_dps, y2 - y1, color);
+	x -= fmodf(x, g_display.pixel_in_dps_x);
+	Rect(x, y1, g_display.pixel_in_dps_x, y2 - y1, color);
 }
 
 void DrawBuffer::RectVGradient(float x1, float y1, float x2, float y2, uint32_t colorTop, uint32_t colorBottom) {
@@ -129,11 +129,11 @@ void DrawBuffer::RectVGradient(float x1, float y1, float x2, float y2, uint32_t 
 }
 
 void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color, int align) {
-	hLine(x, y, x + w + g_display.pixel_in_dps, color);
-	hLine(x, y + h, x + w + g_display.pixel_in_dps, color);
+	hLine(x, y, x + w + g_display.pixel_in_dps_x, color);
+	hLine(x, y + h, x + w + g_display.pixel_in_dps_x, color);
 
-	vLine(x, y, y + h + g_display.pixel_in_dps, color);
-	vLine(x + w, y, y + h + g_display.pixel_in_dps, color);
+	vLine(x, y, y + h + g_display.pixel_in_dps_y, color);
+	vLine(x + w, y, y + h + g_display.pixel_in_dps_y, color);
 }
 
 void DrawBuffer::MultiVGradient(float x, float y, float w, float h, const GradientStop *stops, int numStops) {
@@ -348,15 +348,19 @@ void DrawBuffer::DrawImageRotatedStretch(ImageID atlas_image, const Bounds &boun
 	}
 }
 
-void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
-	float angleDelta = PI * 2 / segments;
+void DrawBuffer::CircleSegment(float xc, float yc, float radius, float thickness, int segments, float startAngle, float endAngle, uint32_t color, float u_mul) {
+	if (endAngle < startAngle) {
+		std::swap(endAngle, startAngle);
+	}
+
+	float angleDelta = (endAngle - startAngle) / segments;
 	float uDelta = 1.0f / segments;
 	float t2 = thickness / 2.0f;
 	float r1 = radius + t2;
 	float r2 = radius - t2;
 	for (int i = 0; i < segments + 1; i++) {
-		float angle1 = i * angleDelta;
-		float angle2 = (i + 1) * angleDelta;
+		float angle1 = startAngle + i * angleDelta;
+		float angle2 = startAngle + (i + 1) * angleDelta;
 		float u1 = u_mul * i * uDelta;
 		float u2 = u_mul * (i + 1) * uDelta;
 		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
@@ -370,6 +374,10 @@ void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int s
 		V(x[3],	y[3], color, u2, 1.0f);
 		V(x[2],	y[2], color, u1, 1.0f);
 	}
+}
+
+void DrawBuffer::Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
+	CircleSegment(x, y, radius, thickness, segments, startAngle, startAngle + PI * 2.0, color, u_mul);
 }
 
 void DrawBuffer::FillCircle(float xc, float yc, float radius, int segments, uint32_t color) {
@@ -510,9 +518,6 @@ void DrawBuffer::MeasureText(FontID font, std::string_view text, float *w, float
 			continue;
 		} else if (cval == '\t') {
 			cval = ' ';
-		} else if (cval == '&' && utf.peek() != '&') {
-			// Ignore lone ampersands
-			continue;
 		}
 		const AtlasChar *c = atlasfont->getChar(cval);
 		if (c) {
@@ -651,9 +656,6 @@ void DrawBuffer::DrawText(FontID font, std::string_view text, float x, float y, 
 			continue;
 		} else if (cval == '\t') {
 			cval = ' ';
-		} else if (cval == '&' && utf.peek() != '&') {
-			// Ignore lone ampersands
-			continue;
 		}
 		const AtlasChar *ch = atlasfont->getChar(cval);
 		if (!ch)

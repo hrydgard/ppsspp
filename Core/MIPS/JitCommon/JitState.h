@@ -68,7 +68,6 @@ namespace MIPSComp {
 		int numInstructions;
 		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 		bool hadBreakpoints;
-		bool preloading = false;
 		JitBlock *curBlock;
 
 		u8 hasSetRounding = 0;

@@ -267,9 +267,9 @@ public:
 		hacksEnabled_ = hacks;
 	}
 
-private:
-	bool InitBackbufferFramebuffers(int width, int height);
+	bool InitBackbufferFramebuffers(int width, int height, FrameDataShared &frameDataShared);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
+private:
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile);
@@ -316,14 +316,7 @@ private:
 
 	VulkanBarrierBatch recordBarrier_;
 
-	// Swap chain management
-	struct SwapchainImageData {
-		VkImage image;
-		VkImageView view;
-	};
 	std::vector<VkFramebuffer> framebuffers_;
-	std::vector<SwapchainImageData> swapchainImages_;
-	uint32_t swapchainImageCount_ = 0;
 	struct DepthBufferInfo {
 		VkFormat format = VK_FORMAT_UNDEFINED;
 		VkImage image = VK_NULL_HANDLE;

@@ -499,7 +499,7 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
 	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
 
-	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
+	return b1->GamePath() < b2->GamePath();
 }
 
 void SavedataBrowser::PrepSize(UI::View *v) {
@@ -517,7 +517,7 @@ bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 		return true;
 	else if (size1 < size2)
 		return false;
-	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
+	return b1->GamePath() < b2->GamePath();
 }
 
 void SavedataBrowser::PrepDate(UI::View *v) {
@@ -535,7 +535,7 @@ bool SavedataBrowser::ByDate(const UI::View *v1, const UI::View *v2) {
 		return true;
 	if (time1 < time2)
 		return false;
-	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
+	return b1->GamePath() < b2->GamePath();
 }
 
 void SavedataBrowser::Refresh() {

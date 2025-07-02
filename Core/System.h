@@ -96,20 +96,16 @@ BootState PSP_InitUpdate(std::string *error_string);
 // Should be avoided/removed eventually.
 // Returns either BootState::Complete or BootState::Failed.
 BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
-// Call this after handling BootState::Failed from PSP_Init.
-void PSP_CancelBoot();
 
 void PSP_Shutdown(bool success);
 BootState PSP_Reboot(std::string *error_string);
 
 FileLoader *PSP_LoadedFile();
 
-void PSP_BeginHostFrame();
-void PSP_EndHostFrame();
 void PSP_RunLoopWhileState();
 void PSP_RunLoopFor(int cycles);
 
-// Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
+// Call before gpu->BeginHostFrame() in order to not miss any GPU stats.
 void PSP_UpdateDebugStats(bool collectStats);
 // Increments or decrements an internal counter.  Intended to be used by debuggers.
 void PSP_ForceDebugStats(bool enable);

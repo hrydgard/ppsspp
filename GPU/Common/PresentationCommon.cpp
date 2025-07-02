@@ -66,10 +66,10 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 
 	if (applyInset) {
 		// Remove the DPI scale to get back to pixels.
-		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale;
-		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale;
-		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale;
-		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale;
+		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
+		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
+		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
+		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
 
 		// Adjust left edge to compensate for cutouts (notches) if any.
 		rc.x += left;
@@ -240,6 +240,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->timeDelta[2] = time[2] - previousUniforms_.time[2];
 	uniforms->timeDelta[3] = time[3] != previousUniforms_.time[3] ? 1.0f : 0.0f;
 	uniforms->video = hasVideo_ ? 1.0f : 0.0f;
+	uniforms->vr = IsVREnabled() && IsBigScreenVRMode() ? 1.0f : 0.0f;
 
 	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
@@ -367,6 +368,7 @@ bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::P
 		{ "u_timeDelta", 4, 4, UniformType::FLOAT4, offsetof(PostShaderUniforms, timeDelta) },
 		{ "u_setting", 5, 5, UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
 		{ "u_video", 6, 6, UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+		{ "u_vr", 7, 7, UniformType::FLOAT1, offsetof(PostShaderUniforms, vr) },
 	} };
 
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
@@ -493,7 +495,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 	Semantic pos = SEM_POSITION;
 	Semantic tc = SEM_TEXCOORD0;
 	// Shader translation marks these both as "TEXCOORDs" on HLSL...
-	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D9)) {
+	if (postShader && lang_ == HLSL_D3D11) {
 		pos = SEM_TEXCOORD0;
 		tc = SEM_TEXCOORD1;
 	}
@@ -526,7 +528,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
-	_assert_(vdata_ == nullptr);
+	_dbg_assert_(vdata_ == nullptr);
 
 	// TODO: Could probably just switch to DrawUP, it's supported well by all backends now.
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 12, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
@@ -680,12 +682,6 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	}
 	FRect rc;
 	CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
-
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		rc.x -= 0.5f;
-		// This is plus because the top is larger y.
-		rc.y += 0.5f;
-	}
 
 	// To make buffer updates easier, we use one array of verts.
 	int postVertsOffset = (int)sizeof(Vertex) * 4;

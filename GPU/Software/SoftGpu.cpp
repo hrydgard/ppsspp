@@ -634,7 +634,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	case GPUBackend::OPENGL:
 		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
 		break;
-	case GPUBackend::DIRECT3D9:
 	case GPUBackend::DIRECT3D11:
 		outputFlags |= OutputFlags::POSITION_FLIPPED;
 		break;
@@ -661,7 +660,7 @@ void SoftGPU::BeginHostFrame() {
 }
 
 bool SoftGPU::PresentedThisFrame() const {
-	return presentation_->PresentedThisFrame();
+	return presentation_ ? presentation_->PresentedThisFrame() : false;
 }
 
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {
@@ -1029,7 +1028,7 @@ void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 	// We assume fb.data won't change while we're drawing.
 	if (diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
-		fb.data = Memory::GetPointerWrite(gstate.getFrameBufAddress());
+		fb.data = Memory::GetPointerWriteUnchecked(gstate.getFrameBufAddress());
 	}
 }
 

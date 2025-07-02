@@ -20,6 +20,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
+#include "Core/ConfigValues.h"
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TransformCommon.h"
@@ -33,12 +34,6 @@ class SimpleBufferManager;
 namespace Spline {
 
 void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0);
-
-enum SplineQuality {
-	LOW_QUALITY = 0,
-	MEDIUM_QUALITY = 1,
-	HIGH_QUALITY = 2,
-};
 
 class Bezier3DWeight;
 class Spline3DWeight;
@@ -59,15 +54,17 @@ struct SurfaceInfo {
 		if (tess_u < 1) tess_u = 1;
 		if (tess_v < 1) tess_v = 1;
 
-		switch (g_Config.iSplineBezierQuality) {
-		case LOW_QUALITY:
+		switch ((SplineQuality)g_Config.iSplineBezierQuality) {
+		case SplineQuality::LOW_QUALITY:
 			tess_u = 2;
 			tess_v = 2;
 			break;
-		case MEDIUM_QUALITY:
+		case SplineQuality::MEDIUM_QUALITY:
 			// Don't cut below 2, though.
 			if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
 			if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
+			break;
+		default:
 			break;
 		}
 	}

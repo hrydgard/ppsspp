@@ -419,33 +419,3 @@ int sceKernelPollSema(SceUID id, int wantedCount) {
 		return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_SEMA_ZERO);
 	}
 }
-
-// The below functions don't really belong to sceKernelSemaphore. They are the core crypto functionality,
-// exposed through the confusingly named "sceUtilsBufferCopyWithRange" name, which Sony placed in the
-// not-at-all-suspicious "semaphore" library, which has nothing to do with semaphores.
-
-static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
-	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
-	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
-	int temp = kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd);
-	if (temp != 0) {
-		ERROR_LOG(Log::sceKernel, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
-	}
-	return hleNoLog(0);
-}
-
-// Note sure what difference there is between this and sceUtilsBufferCopyWithRange.
-static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
-	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
-	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
-	return hleNoLog(kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd));
-}
-
-const HLEFunction semaphore[] = {
-	{0x4C537C72, &WrapU_UIUII<sceUtilsBufferCopyWithRange>,          "sceUtilsBufferCopyWithRange",                   'x', "xixii" },
-	{0x77E97079, &WrapI_UIUII<sceUtilsBufferCopyByPollingWithRange>, "sceUtilsBufferCopyByPollingWithRange",          'i', "xixii"  },
-};
-
-void Register_semaphore() {
-	RegisterHLEModule("semaphore", ARRAY_SIZE(semaphore), semaphore);
-}

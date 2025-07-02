@@ -64,6 +64,7 @@ static int s_current_width;
 static int s_current_height;
 static int s_file_index = 0;
 static GPUDebugBuffer buf;
+static Path g_filename;
 
 static void InitAVCodec() {
 	static bool first_run = true;
@@ -97,26 +98,26 @@ bool AVIDump::CreateAVI() {
 
 	// Use gameID_EmulatedTimestamp for filename
 	std::string discID = g_paramSFO.GetDiscID();
-	Path video_file_name = GetSysDirectory(DIRECTORY_VIDEO) / StringFromFormat("%s_%s.avi", discID.c_str(), KernelTimeNowFormatted().c_str());
+	g_filename = GetSysDirectory(DIRECTORY_VIDEO) / StringFromFormat("%s_%s.avi", discID.c_str(), KernelTimeNowFormatted().c_str());
 
 	s_format_context = avformat_alloc_context();
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58, 7, 0)
-	char *filename = av_strdup(video_file_name.c_str());
+	char *filename = av_strdup(g_filename.c_str());
 	// Freed when the context is freed.
 	s_format_context->url = filename;
 #else
 	const char *filename = s_format_context->filename;
-	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", video_file_name.c_str());
+	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", g_filename.c_str());
 #endif
-	INFO_LOG(Log::Common, "Recording Video to: %s", video_file_name.ToVisualString().c_str());
+	INFO_LOG(Log::Common, "Recording Video to: %s", g_filename.ToVisualString().c_str());
 
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
 		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO));
 
-	if (File::Exists(video_file_name))
-		File::Delete(video_file_name);
+	if (File::Exists(g_filename))
+		File::Delete(g_filename);
 
 	s_format_context->oformat = av_guess_format("avi", nullptr, nullptr);
 	if (!s_format_context->oformat)
@@ -168,9 +169,9 @@ bool AVIDump::CreateAVI() {
 		return false;
 #endif
 
-	NOTICE_LOG(Log::G3D, "Opening file %s for dumping", filename);
+	NOTICE_LOG(Log::G3D, "Opening file '%s' for dumping", g_filename.ToVisualString().c_str());
 	if (avio_open(&s_format_context->pb, filename, AVIO_FLAG_WRITE) < 0 || avformat_write_header(s_format_context, nullptr)) {
-		WARN_LOG(Log::G3D, "Could not open %s", filename);
+		WARN_LOG(Log::G3D, "Could not open %s", g_filename.ToVisualString().c_str());
 		return false;
 	}
 
@@ -273,14 +274,17 @@ void AVIDump::AddFrame() {
 	delete[] flipbuffer;
 }
 
+Path AVIDump::LastFilename() {
+	return g_filename;
+}
+
 void AVIDump::Stop() {
 #ifdef USE_FFMPEG
-
 	av_write_trailer(s_format_context);
 	CloseFile();
 	s_file_index = 0;
 #endif
-	NOTICE_LOG(Log::G3D, "Stopping frame dump");
+	NOTICE_LOG(Log::G3D, "Stopping frame dump to '%s'", g_filename.ToVisualString().c_str());
 }
 
 void AVIDump::CloseFile() {

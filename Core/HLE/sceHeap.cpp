@@ -75,7 +75,7 @@ void __HeapInit() {
 }
 
 void __HeapShutdown() {
-	for (auto it : heapList) {
+	for (const auto &it : heapList) {
 		delete it.second;
 	}
 	heapList.clear();

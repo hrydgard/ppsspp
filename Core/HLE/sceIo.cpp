@@ -45,6 +45,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUmd.h"
+#include "Core/HLE/sceChnnlsv.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/MemoryStick.h"
@@ -63,7 +64,6 @@ extern "C" {
 
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/sceRtc.h"
-#include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -141,7 +141,7 @@ static MemStickFatState lastMemStickFatState;
 
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
-static std::thread *ioManagerThread;
+static std::thread ioManagerThread;
 
 // TODO: Is it better to just put all on the thread?
 // Let's try. (was 256)
@@ -692,7 +692,7 @@ void __IoInit() {
 	ioManagerThreadEnabled = true;
 	ioManager.SetThreadEnabled(true);
 	Core_ListenLifecycle(&__IoWakeManager);
-	ioManagerThread = new std::thread(&__IoManagerThread);
+	ioManagerThread = std::thread(&__IoManagerThread);
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
@@ -774,10 +774,8 @@ void __IoShutdown() {
 	ioManagerThreadEnabled = false;
 	ioManager.SyncThread();
 	ioManager.FinishEventLoop();
-	if (ioManagerThread != nullptr) {
-		ioManagerThread->join();
-		delete ioManagerThread;
-		ioManagerThread = nullptr;
+	if (ioManagerThread.joinable()) {
+		ioManagerThread.join();
 		ioManager.Shutdown();
 	}
 
@@ -1011,13 +1009,15 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 		size = (int)pgd->data_size;
 	remain_size = size;
 
+	KirkState *kirk = __ChnnlsvKirkState();
+
 	while(remain_size){
 	
 		if(pgd->current_block!=block){
 			blockPos = block*pgd->block_size;
 			pspFileSystem.SeekFile(f->handle, (s32)pgd->data_offset+blockPos, FILEMOVE_BEGIN);
 			pspFileSystem.ReadFile(f->handle, pgd->block_buf, pgd->block_size);
-			pgd_decrypt_block(pgd, block);
+			pgd_decrypt_block(kirk, pgd, block);
 			pgd->current_block = block;
 		}
 
@@ -2582,7 +2582,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		DEBUG_LOG(Log::sceIo, "Decrypting PGD DRM files");
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
-		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);
+		KirkState *kirk = __ChnnlsvKirkState();
+		f->pgdInfo = pgd_open(kirk, pgd_header, 2, key_ptr);
 		if (!f->pgdInfo) {
 			f->npdrm = false;
 			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);

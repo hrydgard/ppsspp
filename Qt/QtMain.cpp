@@ -33,6 +33,7 @@
 #include "SDL_keyboard.h"
 #endif
 
+#include "Common/Audio/AudioBackend.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -78,7 +79,7 @@ SDL_AudioSpec g_retFmt;
 static SDL_AudioDeviceID audioDev = 0;
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4, AUDIO_FREQ);
+	NativeMix((short *)stream, len / 4, AUDIO_FREQ, userdata);
 }
 
 static void InitSDLAudioDevice() {
@@ -444,6 +445,11 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url)
 	QDesktopServices::openUrl(QUrl(url));
 }
 
+AudioBackend *System_CreateAudioBackend() {
+	// Use legacy mechanisms.
+	return nullptr;
+}
+
 static int mainInternal(QApplication &a) {
 #ifdef MOBILE_DEVICE
 	emugl = new MainUI();
@@ -588,15 +594,15 @@ bool MainUI::event(QEvent *e) {
 				break;
 			case Qt::TouchPointPressed:
 			case Qt::TouchPointReleased:
-				input.x = touchPoint.pos().x() * g_display.dpi_scale * xscale;
-				input.y = touchPoint.pos().y() * g_display.dpi_scale * yscale;
+				input.x = touchPoint.pos().x() * g_display.dpi_scale_x * xscale;
+				input.y = touchPoint.pos().y() * g_display.dpi_scale_y * yscale;
 				input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
 				input.id = touchPoint.id();
 				NativeTouch(input);
 				break;
 			case Qt::TouchPointMoved:
-				input.x = touchPoint.pos().x() * g_display.dpi_scale * xscale;
-				input.y = touchPoint.pos().y() * g_display.dpi_scale * yscale;
+				input.x = touchPoint.pos().x() * g_display.dpi_scale_x * xscale;
+				input.y = touchPoint.pos().y() * g_display.dpi_scale_y * yscale;
 				input.flags = TOUCH_MOVE;
 				input.id = touchPoint.id();
 				NativeTouch(input);
@@ -614,8 +620,8 @@ bool MainUI::event(QEvent *e) {
 	case QEvent::MouseButtonRelease:
 		switch(((QMouseEvent*)e)->button()) {
 		case Qt::LeftButton:
-			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale * xscale;
-			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale * yscale;
+			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
+			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
 			input.flags = ((e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP) | TOUCH_MOUSE;
 			input.id = 0;
 			NativeTouch(input);
@@ -637,8 +643,8 @@ bool MainUI::event(QEvent *e) {
 		}
 		break;
 	case QEvent::MouseMove:
-		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale * xscale;
-		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale * yscale;
+		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
+		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
 		input.flags = TOUCH_MOVE | TOUCH_MOUSE;
 		input.id = 0;
 		NativeTouch(input);
@@ -786,9 +792,8 @@ void MainAudio::run() {
 
 void MainAudio::timerEvent(QTimerEvent *) {
 	memset(mixbuf, 0, mixlen);
-	size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES, AUDIO_FREQ);
-	if (frames > 0)
-		feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
+	NativeMix((short *)mixbuf, AUDIO_BUFFERS * AUDIO_SAMPLES, AUDIO_FREQ);
+	feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
 }
 
 #endif
@@ -844,8 +849,9 @@ int main(int argc, char *argv[])
 		res.transpose();
 
 	// We assume physicalDotsPerInchY is the same as PerInchX.
-	float dpi_scale = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
-	g_display.Recalculate(res.width(), res.height(), dpi_scale, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+	float dpi_scale_x = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
+	float dpi_scale_y = screen->logicalDotsPerInchY() / screen->physicalDotsPerInchY();
+	g_display.Recalculate(res.width(), res.height(), dpi_scale_x, dpi_scale_y, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	refreshRate = screen->refreshRate();
 

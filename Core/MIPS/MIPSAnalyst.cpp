@@ -906,33 +906,6 @@ skip:
 		}
 	}
 
-	void PrecompileFunction(u32 startAddr, u32 length) {
-		// Direct calls to this ignore the bPreloadFunctions flag, since it's just for stubs.
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-		if (MIPSComp::jit) {
-			MIPSComp::jit->CompileFunction(startAddr, length);
-		}
-	}
-
-	void PrecompileFunctions() {
-		if (!g_Config.bPreloadFunctions) {
-			return;
-		}
-		std::lock_guard<std::recursive_mutex> guard(functions_lock);
-
-		// TODO: Load from cache file if available instead.
-
-		double st = time_now_d();
-		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
-			const AnalyzedFunction &f = *iter;
-
-			PrecompileFunction(f.start, f.end - f.start + 4);
-		}
-		double et = time_now_d();
-
-		NOTICE_LOG(Log::JIT, "Precompiled %d MIPS functions in %0.2f milliseconds", (int)functions.size(), (et - st) * 1000.0);
-	}
-
 	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
 		snprintf(buffer, 256, "z_un_%08x", startAddr);
 		return buffer;
@@ -1023,6 +996,8 @@ skip:
 	}
 
 	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
+		_assert_((startAddr & 3) == 0);
+
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		FunctionsVector new_functions;
@@ -1204,6 +1179,8 @@ skip:
 	}
 
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
+		_assert_((startAddr & 3) == 0);
+
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		// Check if we have this already
@@ -1237,6 +1214,8 @@ skip:
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
+		_assert_(((startAddr | endAddr) & 3) == 0);
+
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		// It makes sense to forget functions as modules are unloaded but it breaks

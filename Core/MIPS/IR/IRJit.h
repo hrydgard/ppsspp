@@ -119,10 +119,13 @@ private:
 class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
 	IRBlockCache(bool compileToNative);
+	~IRBlockCache() {
+		Clear();
+	}
 
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
-	void FinalizeBlock(int blockNum, bool preload = false);
+	void FinalizeBlock(int blockNum);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst);
 	IRBlock *GetBlock(int blockNum) {
@@ -212,7 +215,6 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
-	void CompileFunction(u32 start_address, u32 length) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	// Not using a regular block cache.
@@ -238,8 +240,8 @@ public:
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 protected:
-	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
-	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) { return true; }
+	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
+	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) { return true; }
 	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
 
 	bool compileToNative_;

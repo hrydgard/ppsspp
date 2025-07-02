@@ -85,6 +85,8 @@ public:
 	bool bDumpAudio;
 	bool bSaveLoadResetsAVdumping;
 	bool bEnableLogging;
+	bool bEnableFileLogging;
+	int iLogOutputTypes;  // enum class LogOutput
 	int iDumpFileTypes;  // DumpFileType bitflag enum
 	bool bFullscreenOnDoubleclick;
 
@@ -113,7 +115,6 @@ public:
 	bool bFuncReplacements;
 	bool bHideSlowWarnings;
 	bool bHideStateWarnings;
-	bool bPreloadFunctions;
 	uint32_t uJitDisableFlags;
 
 	bool bDisableHTTPS;
@@ -230,6 +231,7 @@ public:
 	int bHighQualityDepth;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
+	int iReplacementTextureLoadSpeed;
 	bool bIgnoreTextureFilenames;
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
@@ -285,7 +287,6 @@ public:
 
 	// Sound
 	bool bEnableSound;
-	int iAudioBackend;
 	int iSDLAudioBufferSize;
 
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
@@ -315,7 +316,6 @@ public:
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
-	bool bShowOnScreenMessages;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
 
@@ -485,6 +485,7 @@ public:
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
 	bool bInfrastructureAutoDNS;
 	bool bAllowSavestateWhileConnected;  // Developer option, ini-only. No normal users need this, it's always wrong to save/load state when online.
+	bool bAllowSpeedControlWhileConnected;  // Useful in some games but not recommended.
 
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias;  // Local DNS database stored in ini file
@@ -588,7 +589,7 @@ public:
 	std::string sAchievementsUnlockAudioFile;
 	std::string sAchievementsLeaderboardSubmitAudioFile;
 
-	// Achivements login info. Note that password is NOT stored, only a login token.
+	// Achievements login info. Note that password is NOT stored, only a login token.
 	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
 	std::string sAchievementsUserName;
 	std::string sAchievementsToken;  // Not saved, to be used if you want to manually make your RA login persistent. See Native_SaveSecret for the normal case.
@@ -601,11 +602,6 @@ public:
 	Path flash0Directory;
 	Path internalDataDirectory;
 	Path appCacheDirectory;
-
-	// Data for upgrade prompt
-	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
-	std::string upgradeVersion;
-	std::string dismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
@@ -626,9 +622,6 @@ public:
 	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
-
-	static void DownloadCompletedCallback(http::Request &download);
-	void DismissUpgrade();
 
 	void ResetControlLayout();
 

@@ -10,6 +10,18 @@ pub struct Section {
     pub lines: Vec<String>,
 }
 
+pub fn line_value<'a>(line: &'a str) -> Option<&'a str> {
+    let line = line.trim();
+    if let Some(pos) = line.find(" =") {
+        let value = &line[pos + 2..];
+        if value.is_empty() {
+            return None;
+        }
+        return Some(value.trim());
+    }
+    None
+}
+
 impl Section {
     pub fn remove_line(&mut self, key: &str) -> Option<String> {
         let mut remove_index = None;
@@ -33,7 +45,7 @@ impl Section {
         }
     }
 
-    pub fn get_line(&mut self, key: &str) -> Option<String> {
+    pub fn get_line(&self, key: &str) -> Option<String> {
         for line in self.lines.iter() {
             let prefix = if let Some(pos) = line.find(" =") {
                 &line[0..pos]
@@ -207,5 +219,29 @@ impl Section {
             }
         }
         missing_lines
+    }
+
+    // Returns true if the key was found and updated.
+    pub fn set_value(&mut self, key: &str, value: &str) -> bool {
+        let mut found_index = None;
+        for (index, line) in self.lines.iter().enumerate() {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos]
+            } else {
+                continue;
+            };
+
+            if prefix.eq_ignore_ascii_case(key) {
+                found_index = Some(index);
+                break;
+            }
+        }
+
+        if let Some(found_index) = found_index {
+            self.lines[found_index] = format!("{} = {}", key, value);
+            true
+        } else {
+            false
+        }
     }
 }

@@ -259,7 +259,7 @@ bool IsRootForAccessibleItems(Path path, std::list<std::string>& subRoot, bool b
 			if (!endsWith(sub, ":")) {
 				bool alreadyAdded = false;
 				for each (auto sItem in subRoot) {
-					if (!strcmp(sItem.c_str(), sub.c_str())) {
+					if (sItem == sub) {
 						alreadyAdded = true;
 						break;
 					}

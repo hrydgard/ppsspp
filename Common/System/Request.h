@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "Common/System/System.h"
+#include "Common/File/Path.h"
 
 class Path;
 
@@ -91,9 +92,11 @@ inline void System_InputBoxGetString(RequesterToken token, std::string_view titl
 }
 
 // This one will pop up a special image browser if available. You can also pick
-// images with the file browser below.
-inline void System_BrowseForImage(RequesterToken token, std::string_view title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, token, callback, failedCallback, title, "", 0);
+// images with the file browser below. If you provide savePath, iOS will be able to
+// convert from HEIC as needed and then save to that path. If this happens, the intParam will
+// be set to 1. Other backends will probably ignore it and set the intParam to 0.
+inline void System_BrowseForImage(RequesterToken token, std::string_view title, Path savePath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, token, callback, failedCallback, title, savePath.ToString(), 0);
 }
 
 enum class BrowseFileType {
@@ -120,8 +123,8 @@ inline void System_BrowseForFileSave(RequesterToken token, std::string_view titl
 void System_BrowseForFolder(RequesterToken token, std::string_view title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr);
 
 // The returned string is username + '\n' + password.
-inline void System_AskUsernamePassword(RequesterToken token, std::string_view title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::ASK_USERNAME_PASSWORD, token, callback, failedCallback, title, "", 0);
+inline void System_AskUsernamePassword(RequesterToken token, std::string_view title, std::string_view defaultUsername, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::ASK_USERNAME_PASSWORD, token, callback, failedCallback, title, defaultUsername, 0);
 }
 
 inline void System_CopyStringToClipboard(std::string_view string) {
@@ -187,6 +190,14 @@ inline bool System_SendDebugOutput(std::string_view string) {
 
 inline void System_SendDebugScreenshot(std::string_view data, int height) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, NO_REQUESTER_TOKEN, nullptr, nullptr, data, "", height);
+}
+
+inline void System_IAPRestorePurchases(RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::IAP_RESTORE_PURCHASES, token, callback, failedCallback, "", "", 0);
+}
+
+inline void System_IAPMakePurchase(RequesterToken token, std::string_view productID, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::IAP_MAKE_PURCHASE, token, callback, failedCallback, productID, "", 0);
 }
 
 void System_MoveToTrash(const Path &path);

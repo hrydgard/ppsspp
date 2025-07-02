@@ -54,6 +54,9 @@
 #include "Core/HLE/sceNp2.h"
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
+#include "Core/HLE/NetAdhocCommon.h"
+
+#include "Core/MIPS/MIPSCodeUtils.h" // for macros to implement __CreateHLELoop
 
 // These are all public. Should probably add accessors around these.
 bool g_netInited;
@@ -119,7 +122,7 @@ std::string InfraDNSConfig::ToString() const {
 	}
 	if (!fixedDNS.empty()) {
 		w.C("Fixed DNS").endl();
-		for (auto iter : fixedDNS) {
+		for (const auto &iter : fixedDNS) {
 			w.F("%s -> %s", iter.first.c_str(), iter.second.c_str()).endl();
 		}
 	}
@@ -147,7 +150,7 @@ bool NetworkWarnUserIfOnlineAndCantSavestate() {
 }
 
 bool NetworkWarnUserIfOnlineAndCantSpeed() {
-	if (IsNetworkConnected()) {
+	if (IsNetworkConnected() && !g_Config.bAllowSpeedControlWhileConnected) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Speed controls are not available when online"), 3.0f, "speedonline");
 		return true;
@@ -290,7 +293,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 		dns->connectAdHocForGrouping = game.getBool("connect_adhoc_for_grouping", dns->connectAdHocForGrouping);
 		if (game.hasChild("domains", JSON_OBJECT)) {
 			const JsonGet domains = game.getDict("domains");
-			for (auto iter : domains.value_) {
+			for (const auto &iter : domains.value_) {
 				std::string domain = std::string(iter->key);
 				std::string ipAddr = std::string(iter->value.toString());
 				dns->fixedDNS[domain] = ipAddr;
@@ -522,6 +525,19 @@ static void __ResetInitNetLib() {
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
 	memset(&parameter, 0, sizeof(parameter));
+}
+
+u32_le __CreateHLELoop(u32_le *loopAddr, const char *sceFuncName, const char *hleFuncName, const char *tagName) {
+    if (loopAddr == NULL || sceFuncName == NULL || hleFuncName == NULL)
+        return 0;
+
+    loopAddr[0] = MIPS_MAKE_SYSCALL(sceFuncName, hleFuncName);
+    loopAddr[1] = MIPS_MAKE_B(-2);
+    loopAddr[2] = MIPS_MAKE_NOP();
+    u32 blockSize = sizeof(u32_le)*3;
+    u32_le threadHackAddress = kernelMemory.Alloc(blockSize, false, tagName); // blockSize will be rounded to 256 granularity
+    Memory::Memcpy(threadHackAddress, loopAddr, sizeof(u32_le) * 3); // This area will be cleared again after loading an old savestate :(
+    return threadHackAddress;
 }
 
 void __NetCallbackInit() {

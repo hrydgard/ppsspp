@@ -11,6 +11,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.DisplayCutout;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -39,6 +40,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 	private Point desiredSize = new Point();
 	private int badOrientationCount = 0;
 
+	// Used to fix a race condition on some Android versions.
+	private Surface earlySurface = null;
 
 	private boolean paused = false;
 
@@ -46,9 +49,19 @@ public class SizeManager implements SurfaceHolder.Callback {
 		activity = a;
 	}
 
+	public void onResume() {
+		if (earlySurface != null) {
+			Log.i(TAG, "Applying deferred surface");
+			activity.notifySurface(earlySurface);
+			earlySurface = null;
+		}
+		paused = false;
+	}
 
-	public void setPaused(boolean p) {
-		paused = p;
+	public void onPause() {
+		paused = true;
+		// Make sure.
+		earlySurface = null;
 	}
 
 	@TargetApi(Build.VERSION_CODES.P)
@@ -100,7 +113,11 @@ public class SizeManager implements SurfaceHolder.Callback {
 		getDesiredBackbufferSize(desiredSize);
 
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
-		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
+		if (desiredSize.x == 0) {
+			Log.d(TAG, "Setting auto surface size (not fixed)");
+		} else {
+			Log.d(TAG, "Setting fixed surface size " + desiredSize.x + " x " + desiredSize.y);
+		}
 		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
@@ -122,7 +139,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 		if (!paused) {
 			activity.notifySurface(holder.getSurface());
 		} else {
-			Log.i(TAG, "Skipping notifySurface while paused");
+			earlySurface = holder.getSurface();
+			Log.i(TAG, "Skipping notifySurface while paused - deferring to resume");
 		}
 	}
 

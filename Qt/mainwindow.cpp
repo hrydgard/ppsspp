@@ -149,7 +149,7 @@ void MainWindow::openmsAct()
 	QDesktopServices::openUrl(QUrl(memorystick));
 }
 
-static void SaveStateActionFinished(SaveState::Status status, std::string_view message, void *userdata)
+static void SaveStateActionFinished(SaveState::Status status, std::string_view message)
 {
 	// TODO: Improve messaging?
 	if (status == SaveState::Status::FAILURE)
@@ -165,13 +165,13 @@ static void SaveStateActionFinished(SaveState::Status status, std::string_view m
 void MainWindow::qlstateAct()
 {
 	Path gamePath = PSP_CoreParameter().fileToStart;
-	SaveState::LoadSlot(gamePath, 0, SaveStateActionFinished, this);
+	SaveState::LoadSlot(gamePath, 0, SaveStateActionFinished);
 }
 
 void MainWindow::qsstateAct()
 {
 	Path gamePath = PSP_CoreParameter().fileToStart;
-	SaveState::SaveSlot(gamePath, 0, SaveStateActionFinished, this);
+	SaveState::SaveSlot(gamePath, 0, SaveStateActionFinished);
 }
 
 void MainWindow::lstateAct()
@@ -185,7 +185,7 @@ void MainWindow::lstateAct()
 	if (dialog.exec())
 	{
 		QStringList fileNames = dialog.selectedFiles();
-		SaveState::Load(Path(fileNames[0].toStdString()), -1, SaveStateActionFinished, this);
+		SaveState::Load(Path(fileNames[0].toStdString()), -1, SaveStateActionFinished);
 	}
 }
 
@@ -200,7 +200,7 @@ void MainWindow::sstateAct()
 	if (dialog.exec())
 	{
 		QStringList fileNames = dialog.selectedFiles();
-		SaveState::Save(Path(fileNames[0].toStdString()), -1, SaveStateActionFinished, this);
+		SaveState::Save(Path(fileNames[0].toStdString()), -1, SaveStateActionFinished);
 	}
 }
 

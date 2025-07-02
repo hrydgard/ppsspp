@@ -1687,6 +1687,7 @@ void ComputedPipelineState::Convert(bool shaderBitOpsSupported, bool fbReadAllow
 	// Note: If the blend state decided it had to use framebuffer reads,
 	// we need to make sure that both mask and logic also use it, otherwise things will go wrong.
 	if (blendState.applyFramebufferRead || logicState.applyFramebufferRead) {
+		_dbg_assert_(fbReadAllowed);
 		maskState.ConvertToShaderBlend();
 		logicState.ConvertToShaderBlend();
 	} else {

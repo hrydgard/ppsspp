@@ -50,7 +50,14 @@ static_assert(sizeof(SceAudiocodecCodec) == 128);
 // Known byte values.
 
 // Atrac3 (0x1001)
-// ------------------------------------------------
+//
+// Frame size          data byte           JointStereo?
+// -------------------------------------------------
+// 0x180               0x04                0
+// 0x130               0x06                0
+// 0x0C0               0x0B                1
+// 0x0C0               0x0E                0
+// 0x098               0x0F                0
 
 // AAC (0x1003)
 // ------------------------------------------------
@@ -147,7 +154,8 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	// Special actions for some codecs.
 	switch (audioType) {
 	case PSP_CODEC_MP3:
-		_dbg_assert_(ctx->inited == 1);
+		// Not seeing inited in Kurok (homebrew)
+		// _dbg_assert_(ctx->inited == 1);
 		ctx->mp3_9999 = 9999;
 		break;
 	case PSP_CODEC_AAC:

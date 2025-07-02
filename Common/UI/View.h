@@ -116,6 +116,8 @@ struct Theme {
 
 	uint32_t backgroundColor;
 	uint32_t scrollbarColor;
+	uint32_t popupSliderColor;
+	uint32_t popupSliderFocusedColor;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -264,15 +266,15 @@ public:
 	// Call this from UI thread
 	EventReturn Dispatch(EventParams &e);
 
-	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
+	// This is now the suggested default way to bind a handler - just used a lambda, and if necessary call other functions.
+	void Add(std::function<EventReturn(EventParams &)> func);
+
+	// The old way of doing things.
 	template<class T>
-	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
+	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &)) {
 		Add(std::bind(theCallback, thiz, std::placeholders::_1));
 		return thiz;
 	}
-
-	// Sometimes you have an already-bound function<>, just use this then.
-	void Add(std::function<EventReturn(EventParams&)> func);
 
 private:
 	std::vector<HandlerRegistration> handlers_;
@@ -610,10 +612,7 @@ private:
 
 class Slider : public Clickable {
 public:
-	Slider(int *value, int minValue, int maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), step_(1), repeat_(-1) {}
-
-	Slider(int *value, int minValue, int maxValue, int step = 1, LayoutParams *layoutParams = 0)
+	Slider(int *value, int minValue, int maxValue, int step = 1, LayoutParams *layoutParams = nullptr)
 		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), repeat_(-1) {
 		step_ = step <= 0 ? 1 : step;
 	}
@@ -754,6 +753,9 @@ public:
 	void SetHideTitle(bool hide) {
 		hideTitle_ = hide;
 	}
+	void SetShine(bool shine) {
+		shine_ = true;
+	}
 
 protected:
 	// hackery
@@ -774,6 +776,7 @@ protected:
 	bool imgFlipH_ = false;
 	u32 drawTextFlags_ = 0;
 	bool hideTitle_ = false;
+	float shine_ = false;
 
 private:
 	bool selected_ = false;
@@ -1013,6 +1016,7 @@ public:
 	void SetClip(bool clip) { clip_ = clip; }
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(float pad) { pad_ = pad; }
+	void SetAlign(int align) { textAlign_ = align; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -1091,17 +1095,17 @@ enum ImageSizeMode {
 
 class ImageView : public InertView {
 public:
-	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
-
+	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = nullptr);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return text_; }
+	void SetScale(float s) { scale_ = s; }  // Only used for measuring.
 
 private:
 	std::string text_;
 	ImageID atlasImage_;
 	ImageSizeMode sizeMode_;
+	float scale_ = 1.0f;
 };
 
 class ProgressBar : public InertView {
@@ -1128,6 +1132,7 @@ private:
 	float progress_;
 };
 
+// If no images, we'll use a rotating arc.
 class Spinner : public InertView {
 public:
 	Spinner(const ImageID *images, int numImages, LayoutParams *layoutParams = 0)
@@ -1154,5 +1159,8 @@ bool IsEscapeKey(const KeyInput &key);
 bool IsInfoKey(const KeyInput &key);
 bool IsTabLeftKey(const KeyInput &key);
 bool IsTabRightKey(const KeyInput &key);
+
+// TODO: Doesn't really belong here.
+void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animated);
 
 }  // namespace

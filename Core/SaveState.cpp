@@ -80,14 +80,13 @@ double g_lastSaveTime = -1.0;
 
 	struct Operation {
 		// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
-		Operation(OperationType t, const Path &f, int slot_, Callback cb, void *cbUserData_)
-			: type(t), filename(f), callback(cb), slot(slot_), cbUserData(cbUserData_) {}
+		Operation(OperationType t, const Path &f, int slot_, Callback cb)
+			: type(t), filename(f), callback(cb), slot(slot_) {}
 
 		OperationType type;
 		Path filename;
 		Callback callback;
 		int slot;
-		void *cbUserData;
 	};
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
@@ -427,8 +426,7 @@ double g_lastSaveTime = -1.0;
 		needsProcess = true;
 	}
 
-	void Load(const Path &filename, int slot, Callback callback, void *cbUserData)
-	{
+	void Load(const Path &filename, int slot, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return;
 		}
@@ -436,11 +434,10 @@ double g_lastSaveTime = -1.0;
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateLoad, 0);
-		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback));
 	}
 
-	void Save(const Path &filename, int slot, Callback callback, void *cbUserData)
-	{
+	void Save(const Path &filename, int slot, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return;
 		}
@@ -448,27 +445,25 @@ double g_lastSaveTime = -1.0;
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateSave, 0);
-		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback));
 	}
 
-	void Verify(Callback callback, void *cbUserData)
-	{
-		Enqueue(Operation(SAVESTATE_VERIFY, Path(), -1, callback, cbUserData));
+	void Verify(Callback callback) {
+		Enqueue(Operation(SAVESTATE_VERIFY, Path(), -1, callback));
 	}
 
-	void Rewind(Callback callback, void *cbUserData)
-	{
+	void Rewind(Callback callback) {
 		if (g_netInited) {
 			return;
 		}
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateRewind, 0);
-		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback));
 	}
 
 	static void SaveScreenshot(const Path &filename) {
 		screenshotFailures = 0;
-		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, nullptr, nullptr));
+		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, nullptr));
 	}
 
 	bool CanRewind() {
@@ -588,7 +583,7 @@ double g_lastSaveTime = -1.0;
 		}
 	}
 
-	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
+	void LoadSlot(const Path &gameFilename, int slot, Callback callback)
 	{
 		if (!NetworkAllowSaveState()) {
 			return;
@@ -600,7 +595,7 @@ double g_lastSaveTime = -1.0;
 			if (g_Config.bEnableStateUndo) {
 				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
 				
-				auto saveCallback = [=](Status status, std::string_view message, void *data) {
+				auto saveCallback = [=](Status status, std::string_view message) {
 					if (status != Status::FAILURE) {
 						DeleteIfExists(backup);
 						File::Rename(backup.WithExtraExtension(".tmp"), backup);
@@ -609,28 +604,27 @@ double g_lastSaveTime = -1.0;
 					} else {
 						ERROR_LOG(Log::SaveState, "Saving load undo state failed: %.*s", (int)message.size(), message.data());
 					}
-					Load(fn, slot, callback, cbUserData);
+					Load(fn, slot, callback);
 				};
 
 				if (!backup.empty()) {
-					Save(backup.WithExtraExtension(".tmp"), LOAD_UNDO_SLOT, saveCallback, cbUserData);
+					Save(backup.WithExtraExtension(".tmp"), LOAD_UNDO_SLOT, saveCallback);
 				} else {
 					ERROR_LOG(Log::SaveState, "Saving load undo state failed. Error in the file system.");
-					Load(fn, slot, callback, cbUserData);
+					Load(fn, slot, callback);
 				}
 			} else {
-				Load(fn, slot, callback, cbUserData);
+				Load(fn, slot, callback);
 			}
 		} else {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
+				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."));
 			}
 		}
 	}
 
-	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData)
-	{
+	bool UndoLoad(const Path &gameFilename, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return false;
 		}
@@ -638,26 +632,25 @@ double g_lastSaveTime = -1.0;
 		if (g_Config.sStateLoadUndoGame != GenerateFullDiscId(gameFilename)) {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"), cbUserData);
+				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"));
 			}
 			return false;
 		}
 
 		Path fn = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
 		if (!fn.empty()) {
-			Load(fn, LOAD_UNDO_SLOT, callback, cbUserData);
+			Load(fn, LOAD_UNDO_SLOT, callback);
 			return true;
 		} else {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."), cbUserData);
+				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."));
 			}
 			return false;
 		}
 	}
 
-	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
-	{
+	void SaveSlot(const Path &gameFilename, int slot, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return;
 		}
@@ -666,7 +659,7 @@ double g_lastSaveTime = -1.0;
 		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
 			Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
-			auto renameCallback = [=](Status status, std::string_view message, void *data) {
+			auto renameCallback = [=](Status status, std::string_view message) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
@@ -680,7 +673,7 @@ double g_lastSaveTime = -1.0;
 					File::Rename(fn.WithExtraExtension(".tmp"), fn);
 				}
 				if (callback) {
-					callback(status, message, data);
+					callback(status, message);
 				}
 			};
 			// Let's also create a screenshot.
@@ -690,11 +683,11 @@ double g_lastSaveTime = -1.0;
 				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot);
-			Save(fn.WithExtraExtension(".tmp"), slot, renameCallback, cbUserData);
+			Save(fn.WithExtraExtension(".tmp"), slot, renameCallback);
 		} else {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."), cbUserData);
+				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."));
 			}
 		}
 	}
@@ -720,7 +713,6 @@ double g_lastSaveTime = -1.0;
 		return false;
 	}
 
-
 	bool UndoLastSave(const Path &gameFilename) {
 		if (!NetworkAllowSaveState()) {
 			return false;
@@ -732,7 +724,7 @@ double g_lastSaveTime = -1.0;
 		return UndoSaveSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
 	}
 
-	bool HasSaveInSlot(const Path &gameFilename, int slot)
+	bool HasSaveInSlot(const Path &gameFilename, int slot) 
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn);
@@ -1130,8 +1122,9 @@ double g_lastSaveTime = -1.0;
 				break;
 			}
 
-			if (op.callback)
-				op.callback(callbackResult, callbackMessage, op.cbUserData);
+			if (op.callback) {
+				op.callback(callbackResult, callbackMessage);
+			}
 		}
 		if (operations.size()) {
 			// Avoid triggering frame skipping due to slowdown
@@ -1146,15 +1139,12 @@ double g_lastSaveTime = -1.0;
 		lastSaveDataGeneration = saveDataGeneration;
 	}
 
-	void Cleanup() {
-		// TODO: Handle this better.
+	bool PollRestartNeeded() {
 		if (needsRestart) {
-			std::string error_string;
-			PSP_Reboot(&error_string);
-			System_Notify(SystemNotification::BOOT_DONE);
-			System_Notify(SystemNotification::DISASSEMBLY);
 			needsRestart = false;
+			return true;
 		}
+		return false;
 	}
 
 	void Init()

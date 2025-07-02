@@ -160,7 +160,7 @@ std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
 }
 
 void RequestManager::Update() {
-	for (auto iter : newDownloads_) {
+	for (auto &iter : newDownloads_) {
 		downloads_.push_back(iter);
 	}
 	newDownloads_.clear();

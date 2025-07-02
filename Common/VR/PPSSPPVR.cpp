@@ -153,6 +153,7 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PASSTHROUGH, true);
 		VR_SetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING, 1.0f);
 	} else {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
@@ -202,7 +203,7 @@ void SetVRAppMode(VRAppMode mode) {
 	appMode = mode;
 }
 
-void UpdateVRInput(bool haptics, float dp_scale) {
+void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
 	if (pspKeys[(int)VIRTKEY_VR_CAMERA_ADJUST]) {
 		AxisInput axis[2] = {};
@@ -319,10 +320,10 @@ void UpdateVRInput(bool haptics, float dp_scale) {
 		VR_SetConfig(VR_CONFIG_CANVAS_6DOF, g_Config.bEnable6DoF);
 
 		//inform engine about the status
-		TouchInput touch;
+		TouchInput touch{};
 		touch.id = mouseController;
-		touch.x = x * dp_scale;
-		touch.y = (height - y - 1) * dp_scale / VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		touch.x = x * dp_xscale;
+		touch.y = (height - y - 1) * dp_yscale;
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {

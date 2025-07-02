@@ -99,6 +99,7 @@ static std::condition_variable opFinishWait;
 static Operation g_opToExec;
 static u32 g_retVal;
 static bool g_opDone = true;
+static bool g_cancelled = false;
 
 // Runs on operation thread
 u32 ExecuteOnMain(Operation opToExec) {
@@ -114,7 +115,7 @@ u32 ExecuteOnMain(Operation opToExec) {
 	// overwrite it next time.
 	{
 		std::unique_lock<std::mutex> lock(opFinishLock);
-		opFinishWait.wait(lock, []() { return g_opDone; });
+		opFinishWait.wait(lock, []() { return g_opDone || g_cancelled; });
 	}
 	return g_retVal;
 }
@@ -500,7 +501,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::SubmitListEnd() {
-	if (execListPos == 0) {
+	if (execListPos == 0 || g_cancelled) {
 		return;
 	}
 
@@ -735,6 +736,10 @@ ReplayResult DumpExecute::Run() {
 
 	int start = resumeIndex_ >= 0 ? resumeIndex_ : 0;
 	for (size_t i = start; i < commands_.size(); i++) {
+		if (g_cancelled) {
+			break;
+		}
+
 		const Command &cmd = commands_[i];
 		switch (cmd.type) {
 		case CommandType::INIT:
@@ -844,6 +849,8 @@ static u32 LoadReplay(const std::string &filename) {
 
 	NOTICE_LOG(Log::GeDebugger, "LoadReplay %s", filename.c_str());
 
+	g_cancelled = false;
+
 	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 	Header header;
 	pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
@@ -903,9 +910,10 @@ void Replay_Unload() {
 	// We might be paused inside a replay - in this case, the thread is still running and we need to tell it to stop.
 	if (replayThread.joinable()) {
 		{
-			std::unique_lock<std::mutex> waitLock(opFinishLock);
-			// Just override the next op to bail.
-			g_opToExec = Operation{ OpType::Done };
+			// We just finish processing the commands until done.
+			g_cancelled = true;
+
+			std::unique_lock<std::mutex> lock(opFinishLock);
 			opFinishWait.notify_one();
 		}
 		replayThread.join();
@@ -951,7 +959,9 @@ void WriteRunDumpCode(u32 codeStart) {
 	}
 }
 
-// This is called by the syscall.
+// This is called by the syscall. It spawns a "replayThread" which parses the file and sends the commands.
+// A long term goal is inversion of control here, but it's tricky for a number of reasons that you'll find
+// out if you try.
 ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!gpuDebug->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
 

@@ -18,7 +18,6 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
 #include "Windows/resource.h"
-#include "Windows/WindowsHost.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
@@ -30,7 +29,6 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 #include "Windows/GPU/WindowsVulkanContext.h"
-#include "Windows/GPU/D3D9Context.h"
 #include "Windows/GPU/D3D11Context.h"
 
 enum class EmuThreadState {
@@ -132,9 +130,6 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 		graphicsContext = new WindowsGLContext();
 		break;
 #endif
-	case (int)GPUBackend::DIRECT3D9:
-		graphicsContext = new D3D9Context();
-		break;
 	case (int)GPUBackend::DIRECT3D11:
 		graphicsContext = new D3D11Context();
 		break;
@@ -159,7 +154,10 @@ void MainThreadFunc() {
 	// We'll start up a separate thread we'll call Emu
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
-	SetConsolePosition();
+	const HWND console = GetConsoleWindow();
+	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 
 	System_SetWindowTitle("");
 
@@ -226,19 +224,15 @@ void MainThreadFunc() {
 		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
 		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		std::string_view genericError;
-		GPUBackend nextBackend = GPUBackend::DIRECT3D9;
+		GPUBackend nextBackend = GPUBackend::VULKAN;
 		switch (g_Config.iGPUBackend) {
-		case (int)GPUBackend::DIRECT3D9:
-			nextBackend = GPUBackend::OPENGL;
-			genericError = err->T("GenericDirect3D9Error", defaultErrorDirect3D9);
-			break;
 		case (int)GPUBackend::VULKAN:
 			nextBackend = GPUBackend::OPENGL;
 			genericError = err->T("GenericVulkanError", defaultErrorVulkan);
 			break;
 		case (int)GPUBackend::OPENGL:
 		default:
-			nextBackend = GPUBackend::DIRECT3D9;
+			nextBackend = GPUBackend::DIRECT3D11;
 			genericError = err->T("GenericOpenGLError", defaultErrorOpenGL);
 			break;
 		}
@@ -255,11 +249,6 @@ void MainThreadFunc() {
 			g_Config.Save("save_graphics_fallback");
 
 			W32Util::ExitAndRestart();
-		} else {
-			if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D9) {
-				// Allow the user to download the DX9 runtime.
-				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.microsoft.com/en-us/download/details.aspx?id=34429");
-			}
 		}
 
 		// No safe way out without graphics.
@@ -297,7 +286,7 @@ void MainThreadFunc() {
 		while (GetUIState() != UISTATE_EXIT) {  //  && GetUIState() != UISTATE_EXCEPTION
 			// We're here again, so the game quit.  Restart Run() which controls the UI.
 			// This way they can load a new game.
-			if (!Core_IsActive())
+			if (!(Core_IsActive() || Core_IsStepping()))
 				UpdateUIState(UISTATE_MENU);
 			Core_StateProcessed();
 			NativeFrame(graphicsContext);
@@ -332,8 +321,14 @@ void MainThreadFunc() {
 	g_graphicsContext->Shutdown();
 
 	delete g_graphicsContext;
+	g_graphicsContext = nullptr;
 
-	UpdateConsolePosition();
+	RECT rc;
+	if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
+
 	NativeShutdown();
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);

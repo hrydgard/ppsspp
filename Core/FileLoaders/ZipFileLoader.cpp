@@ -1,4 +1,8 @@
-#include <ext/libzip/zip.h>
+#ifdef SHARED_LIBZIP
+#include <zip.h>
+#else
+#include "ext/libzip/zip.h"
+#endif
 
 #include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/FileLoaders/ZipFileLoader.h"
@@ -6,7 +10,7 @@
 ZipFileLoader::ZipFileLoader(FileLoader *sourceLoader)
 	: ProxiedFileLoader(sourceLoader), zipArchive_(nullptr) {
 	if (!backend_ || !backend_->Exists() || backend_->IsDirectory()) {
-		// bad
+		return;
 	}
 
 	zip_error_t error{};
@@ -61,16 +65,16 @@ size_t ZipFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags fl
 		return 0;
 	}
 
-	if (absolutePos + bytes > dataFileSize_) {
+	if (absolutePos + (s64)bytes > dataFileSize_) {
 		// TODO: This could go negative..
 		bytes = dataFileSize_ - absolutePos;
 	}
 
 	// Decompress until the requested point, filling up data_ as we go. TODO: Do on thread.
-	while (dataReadPos_ < absolutePos + bytes) {
+	while (dataReadPos_ < absolutePos + (s64)bytes) {
 		int remaining = BLOCK_SIZE;
 		if (dataReadPos_ + remaining > dataFileSize_) {
-			remaining = dataFileSize_ - dataReadPos_;
+			remaining = (int)(dataFileSize_ - dataReadPos_);
 		}
 		zip_int64_t retval = zip_fread(dataFile_, data_ + dataReadPos_, remaining);
 		_dbg_assert_(retval == remaining);

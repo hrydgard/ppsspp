@@ -11,12 +11,12 @@
 #include "Common/GPU/thin3d_create.h"
 
 #include "Common/Common.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
-#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
@@ -41,6 +41,7 @@
 #include "UWPHelpers/StorageAsync.h"
 #include "UWPHelpers/LaunchItem.h"
 #include "UWPHelpers/InputHelpers.h"
+#include "Windows/InputDevice.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
@@ -50,10 +51,6 @@ using namespace Windows::System::Threading;
 using namespace Windows::ApplicationModel::DataTransfer;
 using namespace Windows::Devices::Enumeration;
 using namespace Concurrency;
-
-// UGLY!
-extern WindowsAudioBackend *winAudioBackend;
-std::list<std::unique_ptr<InputDevice>> g_input;
 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
@@ -75,7 +72,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 
 		if (g_Config.bEnableLogging) {
-			g_logManager.ChangeFileLog(Path(GetLogFile()));
+			g_logManager.SetFileLogPath(Path(GetLogFile()));
 		}
 #endif
 
@@ -89,16 +86,17 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
 
 	// add first XInput device to respond
-	g_input.push_back(std::make_unique<XinputDevice>());
-
-	InputDevice::BeginPolling();
+	g_InputManager.AddDevice(new XinputDevice());
+	g_InputManager.BeginPolling();
 
 	// Prepare input pane (for Xbox & touch devices)
 	PrepareInputPane();
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
-	InputDevice::StopPolling();
+	g_InputManager.StopPolling();
+	g_InputManager.Shutdown();
+
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
@@ -155,13 +153,16 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 		dpi *= 96.0f / 136.0f;
 	}
 
-	g_display.dpi_scale_real = 96.0f / dpi;
+	g_display.dpi_scale_real_x = 96.0f / dpi;
+	g_display.dpi_scale_real_y = 96.0f / dpi;
 
-	g_display.dpi_scale = g_display.dpi_scale_real;
-	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
+	g_display.dpi_scale_x = g_display.dpi_scale_real_x;
+	g_display.dpi_scale_y = g_display.dpi_scale_real_y;
+	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
+	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
 
-	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale;
-	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale;
+	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
 
 	context->RSSetViewports(1, &viewport);
 }
@@ -171,7 +172,7 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 bool PPSSPP_UWPMain::Render() {
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
-		SetCurrentThreadName("UWPRenderThread");
+		SetCurrentThreadName("EmuThread");
 		hasSetThreadName = true;
 	}
 
@@ -268,8 +269,8 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
 	float dpiFactor_y = dpiFactor_x;
-	dpiFactor_x /= g_display.pixel_in_dps;
-	dpiFactor_y /= g_display.pixel_in_dps;
+	dpiFactor_x /= g_display.pixel_in_dps_x;
+	dpiFactor_y /= g_display.pixel_in_dps_y;
 
 	TouchInput input{};
 	input.id = touchId;
@@ -359,10 +360,12 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+extern AudioBackend *g_audioBackend;
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
-		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+		return g_audioBackend ? g_audioBackend->SampleRate() : -1;
 
 	case SYSPROP_DEVICE_TYPE:
 	{
@@ -450,21 +453,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 
-void System_Notify(SystemNotification notification) {
-	switch (notification) {
-	case SystemNotification::POLL_CONTROLLERS:
-	{
-		for (const auto &device : g_input)
-		{
-			if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
-				break;
-		}
-		break;
-	}
-	default:
-		break;
-	}
-}
+void System_Notify(SystemNotification notification) {}
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {

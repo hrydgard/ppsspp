@@ -61,25 +61,25 @@ void ParamSFOData::SetValue(const std::string &key, const u8 *value, unsigned in
 	values[key].max_size = max_size;
 }
 
-int ParamSFOData::GetValueInt(const std::string &key) const {
+int ParamSFOData::GetValueInt(std::string_view key) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if (it == values.end() || it->second.type != VT_INT)
 		return 0;
 	return it->second.i_value;
 }
 
-std::string ParamSFOData::GetValueString(const std::string &key) const {
+std::string ParamSFOData::GetValueString(std::string_view key) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if (it == values.end() || (it->second.type != VT_UTF8))
 		return "";
 	return it->second.s_value;
 }
 
-bool ParamSFOData::HasKey(const std::string &key) const {
+bool ParamSFOData::HasKey(std::string_view key) const {
 	return values.find(key) != values.end();
 }
 
-const u8 *ParamSFOData::GetValueData(const std::string &key, unsigned int *size) const {
+const u8 *ParamSFOData::GetValueData(std::string_view key, unsigned int *size) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if (it == values.end() || (it->second.type != VT_UTF8_SPE)) {
 		return 0;
@@ -352,4 +352,49 @@ std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 
 	std::string fakeID = file + StringFromFormat("%05d", sumOfAllLetters);
 	return fakeID;
+}
+
+GameRegion DetectGameRegionFromID(std::string_view id_version) {
+	if (id_version.size() >= 4) {
+		std::string_view regStr = id_version.substr(0, 4);
+
+		// Guesswork
+		switch (regStr[2]) {
+		case 'E': return GameRegion::EUROPE; break;
+		case 'U': return GameRegion::USA; break;
+		case 'J': return GameRegion::JAPAN; break;
+		case 'H': return GameRegion::HONGKONG; break;
+		case 'A': return GameRegion::ASIA; break;
+		case 'K': return GameRegion::KOREA; break;
+		default:  return GameRegion::OTHER;
+		}
+		/*
+		if (regStr == "NPEZ" || regStr == "NPEG" || regStr == "ULES" || regStr == "UCES" ||
+			  regStr == "NPEX") {
+			region = GameRegion::EUROPE;
+		} else if (regStr == "NPUG" || regStr == "NPUZ" || regStr == "ULUS" || regStr == "UCUS") {
+			region = GameRegion::USA;
+		} else if (regStr == "NPJH" || regStr == "NPJG" || regStr == "ULJM"|| regStr == "ULJS") {
+			region = GameRegion::JAPAN;
+		} else if (regStr == "NPHG") {
+			region = GameRegion::HONGKONG;
+		} else if (regStr == "UCAS") {
+			region = GameRegion::CHINA;
+		}*/
+	} else {
+		return GameRegion::OTHER;
+	}
+}
+
+std::string_view GameRegionToString(GameRegion region) {
+	switch (region) {
+	case GameRegion::JAPAN: return "Japan";
+	case GameRegion::USA: return "USA";
+	case GameRegion::EUROPE: return "Europe";
+	case GameRegion::HONGKONG: return "Hong Kong";
+	case GameRegion::ASIA: return "Asia";
+	case GameRegion::KOREA: return "Korea";
+	case GameRegion::HOMEBREW: return "Homebrew";
+	default: return "Other";
+	}
 }

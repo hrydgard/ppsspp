@@ -7,13 +7,11 @@ StereoResampler g_resampler;
 
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
-int NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz) {
-	int validFrames = g_resampler.Mix(outStereo, numFrames, false, sampleRateHz);
+void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userdata) {
+	g_resampler.Mix(outStereo, numFrames, false, sampleRateHz);
 
 	// Mix sound effects on top.
-	g_BackgroundAudio.SFX().Mix(outStereo, validFrames, sampleRateHz);
-
-	return validFrames;
+	g_BackgroundAudio.SFX().Mix(outStereo, numFrames, sampleRateHz);
 }
 
 void System_AudioGetDebugStats(char *buf, size_t bufSize) {

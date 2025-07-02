@@ -24,6 +24,7 @@
 #include "Common/Swap.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "libchdr/chd.h"
@@ -35,12 +36,15 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
-BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
+BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString) {
 	if (!fileLoader->Exists()) {
+		// Shouldn't get here really.
+		*errorString = "File doesn't exist";
 		return nullptr;
 	}
 	if (fileLoader->IsDirectory()) {
-		ERROR_LOG(Log::Loader, "Can't open directory directly as block device: %s", fileLoader->GetPath().c_str());
+		*errorString = "Can't open directory directly as block device: ";
+		*errorString += fileLoader->GetPath().ToString();
 		return nullptr;
 	}
 
@@ -48,23 +52,36 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
 	if (size != 8) {
 		// Bad or empty file
+		*errorString = "File is empty";
 		return nullptr;
 	}
 
+	BlockDevice *device = nullptr;
+
 	// Check for CISO
 	if (!memcmp(buffer, "CISO", 4)) {
-		return new CISOFileBlockDevice(fileLoader);
+		device = new CISOFileBlockDevice(fileLoader);
 	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
 		if (size == 4 && psarOffset < fileLoader->FileSize())
-			return new NPDRMDemoBlockDevice(fileLoader);
+			device = new NPDRMDemoBlockDevice(fileLoader);
 	} else if (!memcmp(buffer, "MComprHD", 8)) {
-		return new CHDFileBlockDevice(fileLoader);
+		device = new CHDFileBlockDevice(fileLoader);
 	}
 
-	// Should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
-	return new FileBlockDevice(fileLoader);
+	// No check above passed, should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
+	if (!device) {
+		device = new FileBlockDevice(fileLoader);
+	}
+
+	if (!device->IsOK()) {
+		*errorString = device->ErrorString();
+		delete device;
+		return nullptr;
+	}
+
+	return device;
 }
 
 void BlockDevice::NotifyReadError() {
@@ -80,8 +97,7 @@ FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
 	filesize_ = fileLoader->FileSize();
 }
 
-FileBlockDevice::~FileBlockDevice() {
-}
+FileBlockDevice::~FileBlockDevice() {}
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
@@ -90,7 +106,6 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 		DEBUG_LOG(Log::FileSystem, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}
-
 	return true;
 }
 
@@ -141,17 +156,22 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	CISO_H hdr;
 	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
 	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0) {
-		WARN_LOG(Log::Loader, "Invalid CSO!");
+		errorString_ = "Invalid CSO!";
+		return;
 	}
 	if (hdr.ver > 1) {
-		WARN_LOG(Log::Loader, "CSO version too high!");
+		errorString_ = "CSO version too high!";
+		return;
 	}
 
 	frameSize = hdr.block_size;
-	if ((frameSize & (frameSize - 1)) != 0)
-		ERROR_LOG(Log::Loader, "CSO block size %i unsupported, must be a power of two", frameSize);
-	else if (frameSize < 0x800)
-		ERROR_LOG(Log::Loader, "CSO block size %i unsupported, must be at least one sector", frameSize);
+	if ((frameSize & (frameSize - 1)) != 0) {
+		errorString_ = StringFromFormat("CSO block size %i unsupported, must be a power of two", frameSize);
+		return;
+	} else if (frameSize < 0x800) {
+		errorString_ = StringFromFormat("CSO block size %i unsupported, must be at least one sector", frameSize);
+		return;
+	}
 
 	// Determine the translation from block to frame.
 	blockShift = 0;
@@ -203,10 +223,12 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
 	u64 expectedFileSize = lastIndexPos << indexShift;
 	if (expectedFileSize > fileSize) {
-		ERROR_LOG(Log::Loader, "Expected CSO to at least be %lld bytes, but file is %lld bytes. File: '%s'",
-			expectedFileSize, fileSize, fileLoader->GetPath().c_str());
-		NotifyReadError();
+		errorString_ = StringFromFormat("Expected CSO to at least be %lld bytes, but file is %lld bytes", expectedFileSize, fileSize);
+		return;
 	}
+
+	// all ok.
+	_dbg_assert_(errorString_.empty());
 }
 
 CISOFileBlockDevice::~CISOFileBlockDevice()
@@ -381,7 +403,6 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader)
 {
-	std::lock_guard<std::mutex> guard(mutex_);
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
@@ -390,7 +411,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
 	if (readSize != 256){
-		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG header!");
+		errorString_ = "Invalid NPUMDIMG header!";
+		return;
 	}
 
 	u32 psar_id;
@@ -401,20 +423,24 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	if (psar_id == 'SISP') {
 		lbaSize_ = 0;  // Mark invalid
 		ERROR_LOG(Log::Loader, "PSX not supported! Should have been caught earlier.");
+		errorString_ = "PSX ISOs not supported!";
 		return;
 	}
 
-	kirk_init();
+	std::lock_guard<std::mutex> guard(mutex_);
+
+	// Local kirk instance to not clash with other block devices and other decryption things.
+	kirk_init(&kirk_);
 
 	// getkey
 	sceDrmBBMacInit(&mkey, 3);
-	sceDrmBBMacUpdate(&mkey, np_header, 0xc0);
-	bbmac_getkey(&mkey, np_header+0xc0, vkey);
+	sceDrmBBMacUpdate(&kirk_, &mkey, np_header, 0xc0);
+	bbmac_getkey(&kirk_, &mkey, np_header+0xc0, vkey);
 
 	// decrypt NP header
 	memcpy(hkey, np_header+0xa0, 0x10);
-	sceDrmBBCipherInit(&ckey, 1, 2, hkey, vkey, 0);
-	sceDrmBBCipherUpdate(&ckey, np_header+0x40, 0x60);
+	sceDrmBBCipherInit(&kirk_, &ckey, 1, 2, hkey, vkey, 0);
+	sceDrmBBCipherUpdate(&kirk_, &ckey, np_header+0x40, 0x60);
 	sceDrmBBCipherFinal(&ckey);
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
@@ -430,8 +456,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	// When we remove the above assert, let's just try to survive.
 	if (blockLBAs_ > 4096) {
-		ERROR_LOG(Log::Loader, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
-		// We'll end up displaying an error message since ReadBlock will fail.
+		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 		return;
 	}
 
@@ -448,7 +473,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
 	if (readSize != tableSize_){
-		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG table!");
+		errorString_ = "Invalid NPUMDIMG table!";
+		return;
 	}
 
 	u32 *p = (u32*)table_;
@@ -466,6 +492,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	}
 
 	currentBlock_ = -1;
+	_dbg_assert_(errorString_.empty());
 }
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice() {
@@ -523,14 +550,14 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	if ((table_[block].flag & 4) == 0) {
 		CIPHER_KEY ckey;
-		sceDrmBBCipherInit(&ckey, 1, 2, hkey, vkey, table_[block].offset>>4);
-		sceDrmBBCipherUpdate(&ckey, readBuf, table_[block].size);
+		sceDrmBBCipherInit(&kirk_, &ckey, 1, 2, hkey, vkey, table_[block].offset>>4);
+		sceDrmBBCipherUpdate(&kirk_, &ckey, readBuf, table_[block].size);
 		sceDrmBBCipherFinal(&ckey);
 	}
 
 	if (table_[block].size < blockSize_) {
 		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
-		if(lzsize!=blockSize_){
+		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();
 			return false;
@@ -652,8 +679,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	chd_file *file = nullptr;
 	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
 	if (err != CHDERR_NONE) {
-		ERROR_LOG(Log::Loader, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
-		NotifyReadError();
+		errorString_ = StringFromFormat("CHD error: %s", paths[depth].c_str(), chd_error_string(err));
 		return;
 	}
 
@@ -664,6 +690,8 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	currentHunk = -1;
 	blocksPerHunk = impl_->header->hunkbytes / impl_->header->unitbytes;
 	numBlocks = impl_->header->unitcount;
+
+	_dbg_assert_(errorString_.empty());
 }
 
 CHDFileBlockDevice::~CHDFileBlockDevice() {

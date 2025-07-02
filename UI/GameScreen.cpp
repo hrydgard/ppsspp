@@ -229,6 +229,8 @@ void GameScreen::CreateViews() {
 
 	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
 	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	if (inGame_)
+		btnGameSettings_->SetEnabled(false);
 
 	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
@@ -292,7 +294,7 @@ void GameScreen::CreateViews() {
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
 
-	isHomebrew_ = info && info->region > GAMEREGION_COUNT;
+	isHomebrew_ = info && info->region == GameRegion::HOMEBREW;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
@@ -379,18 +381,10 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (tvRegion_) {
-		if (info->region >= 0 && info->region < GAMEREGION_COUNT && info->region != GAMEREGION_OTHER) {
-			static const char *regionNames[GAMEREGION_COUNT] = {
-				"Japan",
-				"USA",
-				"Europe",
-				"Hong Kong",
-				"Asia",
-				"Korea"
-			};
-			tvRegion_->SetText(ga->T(regionNames[info->region]));
-		} else if (info->region > GAMEREGION_COUNT) {
+		if (info->region == GameRegion::OTHER) {
 			tvRegion_->SetText(ga->T("Homebrew"));
+		} else {
+			tvRegion_->SetText(ga->T(GameRegionToString(info->region)));
 		}
 	}
 
@@ -536,22 +530,21 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 		if (info->saveDataSize) {
 			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
+			Path gamePath = gamePath_;
 			screenManager()->push(
 				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
+					[gamePath](bool yes) {
+				if (yes) {
+					std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
+					info->DeleteAllSaveData();
+					info->saveDataSize = 0;
+					info->installDataSize = 0;
+				}
+			}));
 		}
 	}
 	RecreateViews();
 	return UI::EVENT_DONE;
-}
-
-void GameScreen::CallbackDeleteSaveData(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-		info->DeleteAllSaveData();
-		info->saveDataSize = 0;
-		info->installDataSize = 0;
-	}
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
@@ -562,20 +555,21 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
 		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+		Path gamePath = gamePath_;
+		ScreenManager *sm = screenManager();
 		screenManager()->push(
 			new PromptScreen(gamePath_, prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
+				[sm, gamePath](bool yes) {
+			if (yes) {
+				std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
+				info->Delete();
+				g_gameInfoCache->Clear();
+				g_recentFiles.Remove(gamePath.c_str());
+				sm->switchScreen(new MainScreen());
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
-}
-
-void GameScreen::CallbackDeleteGame(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-		info->Delete();
-		g_gameInfoCache->Clear();
-		screenManager()->switchScreen(new MainScreen());
-	}
 }
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {

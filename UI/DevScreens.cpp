@@ -28,6 +28,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/Common.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
@@ -69,6 +70,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
+#include "UI/EmuScreen.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/JitCompareScreen.h"
@@ -606,11 +608,6 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	if (GetGPUBackend() != GPUBackend::VULKAN) {
 		gpuInfo->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 	}
-#if !PPSSPP_PLATFORM(UWP)
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		gpuInfo->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
-	}
-#endif
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gpuInfo->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
@@ -654,7 +651,14 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
 
 	CollapsibleSection *audioInformation = deviceSpecs->Add(new CollapsibleSection(si->T("Audio Information")));
-	audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	extern AudioBackend *g_audioBackend;
+	if (g_audioBackend) {
+		char fmtStr[256];
+		g_audioBackend->DescribeOutputFormat(fmtStr, sizeof(fmtStr));
+		audioInformation->Add(new InfoItem(si->T("Stream format"), fmtStr));
+	} else {
+		audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	}
 	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
 	if (framesPerBuffer > 0) {
 		audioInformation->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
@@ -718,7 +722,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
 			std::string deviceApiVersion = draw->GetInfoString(InfoField::DEVICE_API_VERSION);
-			versionInfo->Add(new InfoItem(si->T("Device API Version"), deviceApiVersion));
+			versionInfo->Add(new InfoItem(si->T("Device API version"), deviceApiVersion));
 		}
 	}
 	versionInfo->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
@@ -945,8 +949,13 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 
 	internals->Add(new ItemHeader(si->T("Font cache")));
 	const TextDrawer *text = screenManager()->getUIContext()->Text();
-	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
-	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	if (text) {
+		internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+		internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	}
+
+	internals->Add(new ItemHeader(si->T("Slider test")));
+	internals->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
@@ -1016,6 +1025,13 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	internals->Add(new ItemHeader(ac->T("Notifications")));
 	internals->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
+#ifdef _DEBUG
+	// Untranslated string because this is debug mode only, only for PPSSPP developers.
+	internals->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
+		_dbg_assert_msg_(false, "Test assert message");
+		return UI::EVENT_DONE;
+	});
+#endif
 #if PPSSPP_PLATFORM(ANDROID)
 	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
 		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
@@ -1156,12 +1172,12 @@ void FrameDumpTestScreen::CreateViews() {
 }
 
 UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
-	std::string url = params.v->Tag();
+	Path url = Path(params.v->Tag());
 	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
 	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
 	// except for some reason the game ID.
 	// TODO: Fix that since it can be important for compat settings.
-	LaunchFile(screenManager(), Path(url));
+	screenManager()->switchScreen(new EmuScreen(url));
 	return UI::EVENT_DONE;
 }
 
@@ -1269,14 +1285,13 @@ void TouchTestScreen::CreateViews() {
 	root_->Add(theTwo);
 
 #if !PPSSPP_PLATFORM(UWP)
-	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
+	static const char *renderingBackend[] = { "OpenGL", "(n/a)", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
 
 	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
 		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
-	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9))
-		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D9);
+	renderingBackendChoice->HideChoice(1);   // previously D3D9
 	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
 		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
 	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
@@ -1370,13 +1385,13 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 	snprintf(buffer, sizeof(buffer),
 		"display_res: %dx%d\n"
 		"dp_res: %dx%d pixel_res: %dx%d\n"
-		"dpi_scale: %0.3f\n"
-		"dpi_scale_real: %0.3f\n"
+		"dpi_scale: %0.3fx%0.3f\n"
+		"dpi_scale_real: %0.3fx%0.3f\n"
 		"delta: %0.2f ms fps: %0.3f\n%s",
 		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
 		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi_scale,
-		g_display.dpi_scale_real,
+		g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y,
 		delta * 1000.0, 1.0 / delta,
 		extra_debug);
 

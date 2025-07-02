@@ -163,12 +163,13 @@ Bounds UIContext::GetLayoutBounds() const {
 void UIContext::ActivateTopScissor() {
 	Bounds bounds;
 	if (scissorStack_.size()) {
-		const float scale = g_display.pixel_in_dps;
+		float scale_x = g_display.pixel_in_dps_x;
+		float scale_y = g_display.pixel_in_dps_y;
 		bounds = scissorStack_.back();
-		int x = floorf(scale * bounds.x);
-		int y = floorf(scale * bounds.y);
-		int w = std::max(0.0f, ceilf(scale * bounds.w));
-		int h = std::max(0.0f, ceilf(scale * bounds.h));
+		int x = floorf(scale_x * bounds.x);
+		int y = floorf(scale_y * bounds.y);
+		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
+		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
 		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
 			DEBUG_LOG(Log::G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
 			if (x < 0) { w += x; x = 0; }

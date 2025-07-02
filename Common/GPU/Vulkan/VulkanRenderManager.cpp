@@ -273,14 +273,21 @@ public:
 
 	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
 	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
-	static void WaitForAll();
+	// Returns the maximum value of tasks in flight seen during the wait.
+	static int WaitForAll();
 	static std::atomic<int> tasksInFlight_;
 };
 
-void CreateMultiPipelinesTask::WaitForAll() {
-	while (tasksInFlight_.load() > 0) {
+int CreateMultiPipelinesTask::WaitForAll() {
+	int inFlight = 0;
+	int maxInFlight = 0;
+	while ((inFlight = tasksInFlight_.load()) > 0) {
+		if (inFlight > maxInFlight) {
+			maxInFlight = inFlight;
+		}
 		sleep_ms(2, "create-multi-pipelines-wait");
 	}
+	return maxInFlight;
 }
 
 std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
@@ -316,7 +323,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (!queueRunner_.CreateSwapchain(cmdInit, &postInitBarrier_)) {
+	if (!CreateSwapchain(cmdInit, &postInitBarrier_, frameDataShared_)) {
 		return false;
 	}
 
@@ -343,6 +350,58 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	// Start the thread(s).
 	if (HasBackbuffers()) {
 		StartThreads();
+	}
+	return true;
+}
+
+bool VulkanRenderManager::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
+	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
+	_dbg_assert_(res == VK_SUCCESS);
+
+	VkImage *swapchainImages = new VkImage[frameDataShared.swapchainImageCount_];
+	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages);
+	if (res != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
+		delete[] swapchainImages;
+		return false;
+	}
+
+	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
+		SwapchainImageData sc_buffer{};
+		sc_buffer.image = swapchainImages[i];
+		res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
+		_dbg_assert_(res == VK_SUCCESS);
+
+		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+		color_image_view.format = vulkan_->GetSwapchainFormat();
+		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		color_image_view.subresourceRange.baseMipLevel = 0;
+		color_image_view.subresourceRange.levelCount = 1;
+		color_image_view.subresourceRange.baseArrayLayer = 0;
+		color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
+		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		color_image_view.flags = 0;
+		color_image_view.image = sc_buffer.image;
+
+		// We leave the images as UNDEFINED, there's no need to pre-transition them as
+		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
+		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
+
+		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
+		vulkan_->SetDebugName(sc_buffer.view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
+		frameDataShared.swapchainImages_.push_back(sc_buffer);
+		_dbg_assert_(res == VK_SUCCESS);
+	}
+	delete[] swapchainImages;
+
+	// Must be before InitBackbufferRenderPass.
+	if (queueRunner_.InitDepthStencilBuffer(cmdInit, barriers)) {
+		queueRunner_.InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight(), frameDataShared);
 	}
 	return true;
 }
@@ -410,7 +469,7 @@ void VulkanRenderManager::StopThreads() {
 		presentWaitThread_.join();
 	}
 
-	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
+	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks. runCompileThread_ = %d", (int)runCompileThread_);
 	CreateMultiPipelinesTask::WaitForAll();
 
 	{
@@ -423,9 +482,16 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	StopThreads();
 	vulkan_->WaitUntilQueueIdle();
 
+	for (auto &image : frameDataShared_.swapchainImages_) {
+		vulkan_->Delete().QueueDeleteImageView(image.view);
+		vkDestroySemaphore(vulkan_->GetDevice(), image.renderingCompleteSemaphore, nullptr);
+	}
+	frameDataShared_.swapchainImages_.clear();
+
 	queueRunner_.DestroyBackBuffers();
 }
 
+// Hm, I'm finding the occasional report of these asserts.
 void VulkanRenderManager::CheckNothingPending() {
 	_assert_(pipelinesToCheck_.empty());
 	{
@@ -507,7 +573,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			}
 		}
 
-		for (auto iter : map) {
+		for (const auto &iter : map) {
 			auto &shaders = iter.first;
 			auto &entries = iter.second;
 
@@ -775,6 +841,10 @@ void VulkanRenderManager::ReportBadStateForDraw() {
 	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
+int VulkanRenderManager::WaitForPipelines() {
+	return CreateMultiPipelinesTask::WaitForAll();
+}
+
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
 	if (!desc->vertexShader || !desc->fragmentShader) {
 		ERROR_LOG(Log::G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
@@ -799,6 +869,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
+		_dbg_assert_(runCompileThread_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -820,8 +891,11 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				sampleCount = VK_SAMPLE_COUNT_1_BIT;
 			}
 
-			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			// Sanity check
+			if (runCompileThread_) {
+				pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
+				compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			}
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -833,6 +907,8 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 void VulkanRenderManager::EndCurRenderStep() {
 	if (!curRenderStep_)
 		return;
+
+	_dbg_assert_(runCompileThread_);
 
 	RPKey key{
 		curRenderStep_->render.colorLoad, curRenderStep_->render.depthLoad, curRenderStep_->render.stencilLoad,

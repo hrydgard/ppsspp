@@ -63,8 +63,8 @@ static int fpsHistoryPos = 0;
 static int fpsHistoryValid = 0;
 
 // Frame time stats.
-static double frameTimeHistory[600];
-static double frameSleepHistory[600];
+static float frameTimeHistory[600];
+static float frameSleepHistory[600];
 static constexpr int frameTimeHistorySize = (int)ARRAY_SIZE(frameTimeHistory);
 static int frameTimeHistoryPos = 0;
 static int frameTimeHistoryValid = 0;
@@ -93,21 +93,27 @@ static void CalculateFPS() {
 	}
 
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
-		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
+		frameTimeHistory[frameTimeHistoryPos++] = (float)(now - lastFrameTimeHistory);
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
 		if (frameTimeHistoryValid < frameTimeHistorySize) {
 			++frameTimeHistoryValid;
 		}
-		frameSleepHistory[frameTimeHistoryPos] = 0.0;
+		frameSleepHistory[frameTimeHistoryPos] = 0.0f;
 	}
 }
 
 // TODO: Also average actualFps
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
-	*out_vps = (float)fps;
-	*out_fps = flips;
-	*out_actual_fps = actualFps;
+	if (out_vps) {
+		*out_vps = (float)fps;
+	}
+	if (out_fps) {
+		*out_fps = flips;
+	}
+	if (out_actual_fps) {
+		*out_actual_fps = actualFps;
+	}
 }
 
 void __DisplayGetVPS(float *out_vps) {
@@ -163,7 +169,7 @@ void DisplayAdjustAccumulatedHcount(uint32_t diff) {
 	hCountBase += diff;
 }
 
-double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep) {
+float *__DisplayGetFrameTimes(int *out_valid, int *out_pos, float **out_sleep) {
 	*out_valid = frameTimeHistoryValid;
 	*out_pos = frameTimeHistoryPos;
 	*out_sleep = frameSleepHistory;
@@ -302,7 +308,7 @@ int DisplayCalculateFrameSkip() {
 	return frameSkipNum;
 }
 
-void DisplayHWInit() {
+void DisplayHWReset() {
 	frameStartTicks = 0;
 	numVBlanks = 0;
 	isVblank = 0;
@@ -322,6 +328,8 @@ void DisplayHWInit() {
 	frameTimeHistoryPos = 0;
 	lastFrameTimeHistory = 0.0;
 }
+
+void DisplayHWInit() {}
 
 void DisplayHWShutdown() {
 	std::lock_guard<std::mutex> guard(listenersLock);

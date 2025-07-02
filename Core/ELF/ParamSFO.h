@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <string>
+#include <string_view>
 #include <map>
 #include <vector>
 
@@ -26,17 +26,16 @@
 
 class Path;
 
-class ParamSFOData
-{
+class ParamSFOData {
 public:
 	void SetValue(const std::string &key, unsigned int value, int max_size);
 	void SetValue(const std::string &key, const std::string &value, int max_size);
 	void SetValue(const std::string &key, const u8 *value, unsigned int size, int max_size);
 
-	int GetValueInt(const std::string &key) const;
-	std::string GetValueString(const std::string &key) const;
-	bool HasKey(const std::string &key) const;
-	const u8 *GetValueData(const std::string &key, unsigned int *size) const;
+	int GetValueInt(std::string_view key) const;
+	std::string GetValueString(std::string_view key) const;  // Common keys: "TITLE", "DISC_VERSION"
+	bool HasKey(std::string_view key) const;
+	const u8 *GetValueData(std::string_view key, unsigned int *size) const;
 
 	std::vector<std::string> GetKeys() const;
 	std::string GenerateFakeID(const Path &filename) const;
@@ -63,18 +62,16 @@ public:
 	void Clear();
 
 private:
-	enum ValueType
-	{
+	enum ValueType {
 		VT_INT,
 		VT_UTF8,
 		VT_UTF8_SPE	// raw data in u8
 	};
 
-	class ValueData
-	{
+	class ValueData {
 	public:
 		ValueType type = VT_INT;
-		int max_size = 0;
+		int max_size = 0;  // Is this meaningful for non-strings?
 		std::string s_value;
 		int i_value = 0;
 
@@ -88,6 +85,24 @@ private:
 		}
 	};
 
-	std::map<std::string,ValueData> values;
+	std::map<std::string, ValueData, std::less<>> values;
 };
 
+// Utilities for parsing the information.
+
+// Guessed from GameID, not necessarily accurate
+// Can't change the order of these.
+enum class GameRegion {
+	JAPAN,
+	USA,
+	EUROPE,
+	HONGKONG,
+	ASIA,
+	KOREA,
+	COUNT,
+	HOMEBREW = COUNT,  // Like other but we actually know it's homebrew.
+	OTHER,
+};
+
+GameRegion DetectGameRegionFromID(std::string_view id_version);
+std::string_view GameRegionToString(GameRegion region);  // These strings can be looked up I18NCat::GAME.

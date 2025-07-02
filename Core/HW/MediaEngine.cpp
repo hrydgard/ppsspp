@@ -343,8 +343,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	return true;
 }
 
-void MediaEngine::closeContext()
-{
+void MediaEngine::closeContext() {
 #ifdef USE_FFMPEG
 	if (m_buffer)
 		av_free(m_buffer);
@@ -356,7 +355,7 @@ void MediaEngine::closeContext()
 		av_free(m_pIOContext->buffer);
 	if (m_pIOContext)
 		av_free(m_pIOContext);
-	for (auto it : m_pCodecCtxs) {
+	for (auto &it : m_pCodecCtxs) {
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 		avcodec_free_context(&it.second);
 #else
@@ -365,7 +364,7 @@ void MediaEngine::closeContext()
 	}
 	m_pCodecCtxs.clear();
 	// These are streams allocated from avformat_new_stream.
-	for (auto it : m_codecsToClose) {
+	for (auto &it : m_codecsToClose) {
 		avcodec_close(it);
 	}
 	m_codecsToClose.clear();

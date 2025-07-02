@@ -264,7 +264,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 }
 
 // This will always run on the main thread. Though, might consider moving the transforms out and just storing verts instead?
-void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
+void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, const VertexDecoder *dec, u32 vertTypeID) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
 
@@ -298,7 +298,7 @@ void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, c
 	}
 }
 
-void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, VertexDecoder *dec, int count) {
+void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, const VertexDecoder *dec, int count) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
 
@@ -315,7 +315,7 @@ void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, 
 	}
 }
 
-void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVertexData, VertexDecoder *dec, int count) {
+void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVertexData, const VertexDecoder *dec, int count) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
 

@@ -1093,7 +1093,11 @@ bool DisassemblyComment::disassemble(u32 address, DisassemblyLineInfo &dest, boo
 	return true;
 }
 
-bool GetDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData, bool displaySymbols) {
+bool GetDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbreviateLabels, bool showData, bool displaySymbols) {
+	if (!Memory::IsValid4AlignedAddress(address)) {
+		snprintf(dest, bufSize, "(bad address!)");
+		return true;
+	}
 	if (displaySymbols) {
 		const std::string addressSymbol = g_symbolMap->GetLabelString(address);
 		if (!addressSymbol.empty()) {
@@ -1109,15 +1113,15 @@ bool GetDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool s
 			*dest = 0;
 			return true;
 		} else {
-			sprintf(dest,"    %08X",address);
+			snprintf(dest, bufSize, "    %08X",address);
 			return false;
 		}
 	} else {
 		if (showData) {
-			u32 encoding = Memory::IsValidAddress(address) ? Memory::Read_Instruction(address, true).encoding : 0;
-			sprintf(dest, "%08X %08X", address, encoding);
+			const u32 encoding = Memory::Read_Instruction(address, true).encoding;
+			snprintf(dest, bufSize, "%08X %08X", address, encoding);
 		} else {
-			sprintf(dest, "%08X", address);
+			snprintf(dest, bufSize, "%08X", address);
 		}
 		return false;
 	}
@@ -1147,28 +1151,28 @@ std::string DisassembleRange(u32 start, u32 size, bool displaySymbols, MIPSDebug
 		char addressText[64], buffer[512];
 
 		g_disassemblyManager.getLine(disAddress, displaySymbols, line, debugger);
-		bool isLabel = GetDisasmAddressText(disAddress, addressText, false, line.type == DISTYPE_OPCODE, displaySymbols);
+		bool isLabel = GetDisasmAddressText(disAddress, addressText, sizeof(addressText), false, line.type == DISTYPE_OPCODE, displaySymbols);
 
 		if (isLabel) {
 			if (!previousLabel)
 				result += "\r\n";
-			sprintf(buffer, "%s\r\n\r\n", addressText);
+			snprintf(buffer, sizeof(buffer), "%s\r\n\r\n", addressText);
 			result += buffer;
 		} else if (branchAddresses.find(disAddress) != branchAddresses.end()) {
 			if (!previousLabel)
 				result += "\r\n";
-			sprintf(buffer, "pos_%08X:\r\n\r\n", disAddress);
+			snprintf(buffer, sizeof(buffer), "pos_%08X:\r\n\r\n", disAddress);
 			result += buffer;
 		}
 
 		if (line.info.isBranch && !line.info.isBranchToRegister
 			&& g_symbolMap->GetLabelString(line.info.branchTarget).empty()
 			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end()) {
-			sprintf(buffer, "pos_%08X", line.info.branchTarget);
+			snprintf(buffer, sizeof(buffer), "pos_%08X", line.info.branchTarget);
 			line.params = line.params.substr(0, line.params.find("0x")) + buffer;
 		}
 
-		sprintf(buffer, "\t%s\t%s\r\n", line.name.c_str(), line.params.c_str());
+		snprintf(buffer, sizeof(buffer), "\t%s\t%s\r\n", line.name.c_str(), line.params.c_str());
 		result += buffer;
 		previousLabel = isLabel;
 		disAddress += line.totalSize;

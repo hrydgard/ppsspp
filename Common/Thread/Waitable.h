@@ -25,14 +25,14 @@ public:
 		cond_.wait(lock, [&] { return triggered_.load(); });
 	}
 
-	bool WaitFor(double budget) {
+	bool WaitFor(double budget_s) {
 		if (triggered_)
 			return true;
 
-		uint32_t us = budget > 0 ? (uint32_t)(budget * 1000000.0) : 0;
-		if (us == 0)
+		uint32_t us = budget_s > 0 ? (uint32_t)(budget_s * 1000000.0) : 0;
+		if (us == 0) {
 			return false;
-
+		}
 		std::unique_lock<std::mutex> lock(mutex_);
 		return cond_.wait_for(lock, std::chrono::microseconds(us), [&] { return triggered_.load(); });
 	}

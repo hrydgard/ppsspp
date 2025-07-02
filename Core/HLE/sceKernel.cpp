@@ -180,9 +180,8 @@ void __KernelInit()
 
 void __KernelShutdown()
 {
-	if (!kernelRunning)
-	{
-		ERROR_LOG(Log::sceKernel, "Can't shut down kernel - not running");
+	if (!kernelRunning) {
+		INFO_LOG(Log::sceKernel, "Can't shut down kernel - not running");
 		return;
 	}
 	kernelObjects.List();
@@ -361,11 +360,11 @@ u32 sceKernelDevkitVersion()
 }
 
 u32 sceKernelRegisterKprintfHandler() {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
 int sceKernelRegisterDefaultExceptionHandler() {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
 void sceKernelSetGPO(u32 ledBits) {

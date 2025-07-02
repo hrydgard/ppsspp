@@ -104,13 +104,13 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 
 	if (FAILED(hr)) {
-		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using Direct3D 9 instead?";
+		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using OpenGL instead?";
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 
 		std::wstring error;
 
 		if (result == LoadD3D11Error::FAIL_NO_COMPILER) {
-			error = ConvertUTF8ToWString(err->T("D3D11CompilerMissing", "D3DCompiler_47.dll not found. Please install. Or press Yes to try again using Direct3D9 instead."));
+			error = ConvertUTF8ToWString(err->T("D3D11CompilerMissing", "D3DCompiler_47.dll not found. Please install. Or press Yes to try again using OpenGL instead."));
 		} else if (result == LoadD3D11Error::FAIL_NO_D3D11) {
 			error = ConvertUTF8ToWString(err->T("D3D11Missing", "Your operating system version does not include D3D11. Please run Windows Update.\n\nPress Yes to try again using Direct3D9 instead."));
 		}
@@ -119,8 +119,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		std::wstring title = ConvertUTF8ToWString(err->T("D3D11InitializationError", "Direct3D 11 initialization error"));
 		bool yes = IDYES == MessageBox(hWnd_, error.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		if (yes) {
-			// Change the config to D3D9 and restart.
-			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
+			// Change the config to OpenGL and restart.
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			g_Config.sFailedGPUBackends.clear();
 			g_Config.Save("save_d3d9_fallback");
 
@@ -196,7 +196,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	hr = dxgiFactory->CreateSwapChain(device_.Get(), &swapChainDesc_, &swapChain_);
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
 
-	draw_ = Draw::T3DCreateD3D11Context(device_.Get(), context_.Get(), device1_.Get(), context1_.Get(), swapChain_.Get(), featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, swapChain_, featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
 	_assert_msg_(success, "Failed to compile preset shaders");
@@ -256,6 +256,20 @@ void D3D11Context::Shutdown() {
 	}
 #endif
 
+#ifdef _DEBUG
+	d3dDebug_ = nullptr;
+	d3dInfoQueue_ = nullptr;
+#endif
+
+	// Important that we release before we unload the DLL, otherwise we may crash on shutdown.
+	bbRenderTargetTex_ = nullptr;
+	bbRenderTargetView_ = nullptr;
+	swapChain_ = nullptr;
+	context1_ = nullptr;
+	context_ = nullptr;
+	device1_ = nullptr;
+	device_ = nullptr;
 	hWnd_ = nullptr;
+
 	UnloadD3D11();
 }

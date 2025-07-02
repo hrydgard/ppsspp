@@ -384,9 +384,25 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	virtual void DrawImGuiDebug(uint64_t &selectedTextureId) const;
-
+	// Accessors for the debugger.
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const = 0;
+
+	const TexCache &Cache() const { return cache_; }
+	const TexCache &SecondCache() const { return secondCache_; }
+
+	const size_t CacheSizeEstimate() const { return cacheSizeEstimate_; }
+	const size_t SecondCacheSizeEstimate() const { return secondCacheSizeEstimate_; }
+
+	struct VideoInfo {
+		u32 addr;
+		u32 size;
+		int flips;
+	};
+
+	const std::vector<VideoInfo> &Videos() const {
+		return videos_;
+	}
+
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
@@ -496,8 +512,8 @@ protected:
 	int texelsScaledThisFrame_ = 0;
 	int timesInvalidatedAllThisFrame_ = 0;
 	double replacementTimeThisFrame_ = 0;
-	// TODO: Maybe vary by FPS...
-	double replacementFrameBudget_ = 0.5 / 60.0;
+	// Recomputed once per frame. Depends FPS and soon also config.
+	double replacementFrameBudgetSeconds_ = 0.5 / 60.0;
 
 	TexCache cache_;
 	u32 cacheSizeEstimate_ = 0;
@@ -505,11 +521,6 @@ protected:
 	TexCache secondCache_;
 	u32 secondCacheSizeEstimate_ = 0;
 
-	struct VideoInfo {
-		u32 addr;
-		u32 size;
-		int flips;
-	};
 	std::vector<VideoInfo> videos_;
 
 	AlignedVector<u32, 16> tmpTexBuf32_;

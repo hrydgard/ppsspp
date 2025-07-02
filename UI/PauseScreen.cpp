@@ -47,6 +47,7 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/NetAdhocCommon.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -64,7 +65,7 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/BackgroundAudio.h"
 
-static void AfterSaveStateAction(SaveState::Status status, std::string_view message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, std::string_view message) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
 			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
@@ -298,8 +299,8 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
-GamePauseScreen::GamePauseScreen(const Path &filename)
-	: UIDialogScreenWithGameBackground(filename) {
+GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
+	: UIDialogScreenWithGameBackground(filename), bootPending_(bootPending) {
 	// So we can tell if something blew up while on the pause screen.
 	std::string assertStr = "PauseScreen: " + filename.GetFilename();
 	SetExtraAssertInfo(assertStr.c_str());
@@ -428,7 +429,7 @@ void GamePauseScreen::CreateViews() {
 
 		if (NetAdhocctl_GetState() >= ADHOCCTL_STATE_CONNECTED) {
 			// Awkwardly re-using a string here
-			leftColumnItems->Add(new TextView(std::string(nw->T("AdHoc Server")) + ": " + std::string(nw->T("Connected"))));
+			leftColumnItems->Add(new TextView(std::string(nw->T("AdHoc server")) + ": " + std::string(nw->T("Connected"))));
 		}
 	}
 
@@ -487,10 +488,14 @@ void GamePauseScreen::CreateViews() {
 
 	if (g_paramSFO.IsValid() && g_Config.hasGameConfig(g_paramSFO.GetDiscID())) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		rightColumnItems->Add(new Choice(pa->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+		Choice *delGameConfig = rightColumnItems->Add(new Choice(pa->T("Delete Game Config")));
+		delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+		delGameConfig->SetEnabled(!bootPending_);
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config")));
+		createGameConfig->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+		createGameConfig->SetEnabled(!bootPending_);
 	}
 
 	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
@@ -517,12 +522,15 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(20.0));
+	Choice *exit;
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
+		exit = rightColumnItems->Add(new Choice(mm->T("Exit")));
 	} else {
-		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
+		exit = rightColumnItems->Add(new Choice(pa->T("Exit to menu")));
 	}
+	exit->OnClick.Handle(this, &GamePauseScreen::OnExit);
+	exit->SetEnabled(!bootPending_);
 
 	middleColumn->SetSpacing(20.0f);
 	playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
@@ -596,7 +604,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	} else {
 		if (tag == "Game") {
 			g_BackgroundAudio.SetGame(Path());
-		} else if (tag != "ContextMenuPopup") {
+		} else if (tag != "Prompt" && tag != "ContextMenuPopup") {
 			// There may have been changes to our savestates, so let's recreate.
 			RecreateViews();
 		}

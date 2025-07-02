@@ -225,7 +225,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	// Standard volume is 10, which pairs with a normal shift of 15.
 	if (reverbVolumeMultiplier <= 0.0f) {
 		// Force to zero output, which is not the same as "Off."
-		memset(output, 0, inputSize * 4);
+		memset(output, 0, inputSize * 4 * sizeof(int16_t));
 		return;
 	} else {
 		volLeft *= reverbVolumeMultiplier;

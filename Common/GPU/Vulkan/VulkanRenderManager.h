@@ -283,6 +283,8 @@ public:
 
 	void ReportBadStateForDraw();
 
+	int WaitForPipelines();
+
 	void NudgeCompilerThread() {
 		compileQueueMutex_.lock();
 		compileCond_.notify_one();
@@ -559,6 +561,7 @@ private:
 	void FlushDescriptors(int frame);
 
 	void SanityCheckPassesOnAdd();
+	bool CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared);
 
 	FrameDataShared frameDataShared_;
 

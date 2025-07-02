@@ -56,7 +56,7 @@ static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
-bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool preload) {
+bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 

@@ -56,8 +56,8 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 	ImGuiIO& io = ImGui::GetIO();
 
 	// We use real pixels in the imgui, no DPI adjustment yet.
-	float x = touch.x / g_display.dpi_scale;
-	float y = touch.y / g_display.dpi_scale;
+	float x = touch.x / g_display.dpi_scale_x;
+	float y = touch.y / g_display.dpi_scale_y;
 
 	if (touch.flags & TOUCH_MOVE) {
 		io.AddMousePosEvent(x, y);
@@ -246,6 +246,10 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	 	return ImGuiKey_None;
 	case NKCODE_EXT_PRINTSCREEN:
 		return ImGuiKey_PrintScreen;
+
+	case NKCODE_EXT_PIPE:
+		// No valid mapping exists.
+		return ImGuiKey_None;
 
 	default:
 		WARN_LOG(Log::System, "Unmapped ImGui keycode conversion from %d", keyCode);

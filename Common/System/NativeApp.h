@@ -15,6 +15,7 @@ struct KeyInput;
 struct AxisInput;
 
 class GraphicsContext;
+class AudioBackend;
 
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
@@ -58,13 +59,11 @@ void NativeMouseDelta(float dx, float dy);
 void NativeFrame(GraphicsContext *graphicsContext);
 
 // This should render num_samples 44khz stereo samples.
-// Try not to make too many assumptions on the granularity
-// of num_samples.
-// This function may be called from a totally separate thread from
-// the rest of the game, so be careful with synchronization.
-// Returns the number of samples actually output. The app should do everything it can
-// to fill the buffer completely.
-int NativeMix(short *audio, int num_samples, int sampleRateHz);
+// Try not to make too many assumptions on the granularity of num_samples.
+// This function will likely be called from a totally separate thread from
+// the rest of the app, so be careful with synchronization.
+// The app must fill the buffer completely, doing its own internal buffering if needed.
+void NativeMix(short *audio, int num_samples, int sampleRateHz, void *userdata);
 
 // Called when it's time to shutdown. After this has been called,
 // no more calls to any other function will be made from the framework
@@ -92,3 +91,4 @@ bool Native_IsWindowHidden();
 // TODO: Feels like this belongs elsewhere.
 bool Native_UpdateScreenScale(int width, int height, float customScale);
 
+AudioBackend *System_CreateAudioBackend();

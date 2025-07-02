@@ -268,25 +268,21 @@ SOURCES_C += \
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 COREFLAGS += -DHTTPS_NOT_AVAILABLE
 
-COREFLAGS += -D_7ZIP_ST
-INCFLAGS += -I$(EXTDIR)/libchdr/deps/lzma-22.01/include
+COREFLAGS += -DZ7_ST
+INCFLAGS += -I$(EXTDIR)/libchdr/deps/lzma-24.05/include
 
 SOURCES_C += \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Alloc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bcj2.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bcj2Enc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bra.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Bra86.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/CpuArch.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Delta.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzFind.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzFindOpt.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzmaDec.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzmaEnc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Lzma86Dec.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Lzma86Enc.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/LzmaLib.c \
-	$(EXTDIR)/libchdr/deps/lzma-22.01/src/Sort.c
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Alloc.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra86.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/BraIA64.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/CpuArch.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Delta.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzFind.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaDec.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
+	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Sort.c
 
 INCFLAGS += -I$(EXTDIR)/libchdr/include
 
@@ -743,6 +739,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceMpeg.cpp \
 	       $(COREDIR)/HLE/sceNet.cpp \
 	       $(COREDIR)/HLE/sceNet_lib.cpp \
+	       $(COREDIR)/HLE/NetAdhocCommon.cpp \
 	       $(COREDIR)/HLE/sceNetAdhoc.cpp \
 	       $(COREDIR)/HLE/sceNetAdhocMatching.cpp \
 	       $(COREDIR)/HLE/sceNetApctl.cpp \
@@ -989,14 +986,6 @@ SOURCES_CXX += \
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += \
-	$(GPUDIR)/Directx9/DrawEngineDX9.cpp \
-	$(GPUDIR)/Directx9/FramebufferManagerDX9.cpp \
-	$(GPUDIR)/Directx9/GPU_DX9.cpp \
-	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
-	$(GPUDIR)/Directx9/StateMappingDX9.cpp \
-	$(GPUDIR)/Directx9/TextureCacheDX9.cpp
-
-SOURCES_CXX += \
 	$(GPUDIR)/D3D11/DrawEngineD3D11.cpp \
 	$(GPUDIR)/D3D11/FramebufferManagerD3D11.cpp \
 	$(GPUDIR)/D3D11/GPU_D3D11.cpp \
@@ -1007,10 +996,6 @@ SOURCES_CXX += \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
-	$(COMMONDIR)/GPU/D3D9/D3D9ShaderCompiler.cpp \
-	$(COMMONDIR)/GPU/D3D9/D3D9StateCache.cpp \
-	$(COMMONDIR)/GPU/D3D9/D3DCompilerLoader.cpp \
-	$(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
 	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
 	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
 

@@ -28,6 +28,8 @@
 
 #include "Common/CommonTypes.h"
 
+#include "ext/libkirk/kirk_engine.h"
+
 class FileLoader;
 
 class BlockDevice {
@@ -53,9 +55,14 @@ public:
 
 	void NotifyReadError();
 
+	bool IsOK() const { return errorString_.empty(); }
+	const std::string &ErrorString() { return errorString_; }
+
 protected:
 	FileLoader *fileLoader_;
 	bool reportedError_ = false;
+
+	std::string errorString_;
 };
 
 class CISOFileBlockDevice : public BlockDevice {
@@ -117,7 +124,7 @@ public:
 	bool IsDisc() const override { return false; }
 
 private:
-	// TODO: Doubt this mutex is actually needed.
+	// This is in case two threads hit this same block device, which shouldn't really happen.
 	std::mutex mutex_;
 
 	u32 lbaSize_ = 0;
@@ -134,6 +141,10 @@ private:
 	int currentBlock_ = 0;
 	u8 *blockBuf_ = nullptr;
 	u8 *tempBuf_ = nullptr;
+
+	// Each block device gets its own private kirk. Multiple ones can be in flight
+	// to load metadata.
+	KirkState kirk_{};
 };
 
 struct CHDImpl;
@@ -157,4 +168,4 @@ private:
 	u32 numBlocks = 0;
 };
 
-BlockDevice *constructBlockDevice(FileLoader *fileLoader);
+BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString);

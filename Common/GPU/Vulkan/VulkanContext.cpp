@@ -1301,7 +1301,7 @@ bool VulkanContext::ChooseQueue() {
 			// Okay, take the first one then.
 			swapchainFormat_ = surfFormats_[0].format;
 		}
-		INFO_LOG(Log::G3D, "swapchain_format: %d (/%d)", swapchainFormat_, formatCount);
+		INFO_LOG(Log::G3D, "swapchain_format: %s (%d) (/%d)", VulkanFormatToString(swapchainFormat_), (int)swapchainFormat_, formatCount);
 	}
 
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
@@ -1388,7 +1388,6 @@ bool VulkanContext::InitSwapchain() {
 		availablePresentModes_.push_back(presentModes[i]);
 	}
 
-	INFO_LOG(Log::G3D, "Supported present modes: %s", modes.c_str());
 	for (size_t i = 0; i < presentModeCount; i++) {
 		bool match = false;
 		match = match || ((flags_ & VulkanInitFlags::PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
@@ -1415,8 +1414,8 @@ bool VulkanContext::InitSwapchain() {
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
 
-	INFO_LOG(Log::G3D, "Chosen present mode: %d (%s). numSwapChainImages: %d/%d",
-		swapchainPresentMode, VulkanPresentModeToString(swapchainPresentMode),
+	INFO_LOG(Log::G3D, "Supported present modes: %s. Chosen present mode: %d (%s). numSwapChainImages: %d (max: %d)",
+		modes.c_str(), swapchainPresentMode, VulkanPresentModeToString(swapchainPresentMode),
 		desiredNumberOfSwapChainImages, surfCapabilities_.maxImageCount);
 
 	// We mostly follow the practices from
@@ -1503,7 +1502,6 @@ bool VulkanContext::InitSwapchain() {
 
 	// We don't support screenshots on Android if TRANSFER_SRC usage flag is not supported.
 	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
-		INFO_LOG(Log::G3D, "Swapchain supports TRANSFER_SRC");
 		swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
@@ -1523,7 +1521,7 @@ bool VulkanContext::InitSwapchain() {
 		ERROR_LOG(Log::G3D, "vkCreateSwapchainKHR failed!");
 		return false;
 	}
-	INFO_LOG(Log::G3D, "Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
+	INFO_LOG(Log::G3D, "Created swapchain: %dx%d %s", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height, (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ? "(TRANSFER_SRC_BIT supported)" : "");
 	return true;
 }
 

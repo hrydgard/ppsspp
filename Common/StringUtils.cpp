@@ -95,7 +95,7 @@ bool containsNoCase(std::string_view haystack, std::string_view needle) {
 	return found != haystack.end();
 }
 
-int countChar(std::string_view haystack, char needle) {
+int CountChar(std::string_view haystack, char needle) {
 	int count = 0;
 	for (int i = 0; i < (int)haystack.size(); i++) {
 		if (haystack[i] == needle) {

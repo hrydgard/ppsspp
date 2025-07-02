@@ -91,9 +91,7 @@ void TextureReplacer::NotifyConfigChanged() {
 		delete vfs_;
 		vfs_ = nullptr;
 		Decimate(ReplacerDecimateMode::ALL);
-	}
-
-	if (replaceEnabled_) {
+	} else if (!wasReplaceEnabled && replaceEnabled_) {
 		std::string error;
 		replaceEnabled_ = LoadIni(&error);
 		if (!error.empty() && !replaceEnabled_) {
@@ -101,8 +99,8 @@ void TextureReplacer::NotifyConfigChanged() {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, error, 5.0f);
 		}
 	} else if (saveEnabled_) {
-		// Even if just saving is enabled, it makes sense to load the ini to get the correct
-		// settings for saving. See issue #19086
+		// Even if just saving is enabled, it makes sense to reload the ini to get the correct
+		// settings for saving. See issue #19086. This can be expensive though.
 		std::string error;
 		bool result = LoadIni(&error);
 		if (!result) {
@@ -169,12 +167,14 @@ bool TextureReplacer::LoadIni(std::string *error) {
 		// Allow overriding settings per game id.
 		std::string overrideFilename;
 		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename, "")) {
-			if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
+			if (overrideFilename == "true") {
+				// Ignore it
+			} else if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
 				IniFile overrideIni;
 				iniLoaded = overrideIni.LoadFromVFS(*dir, overrideFilename);
 				if (!iniLoaded) {
-					*error = "Loading override ini failed: " + overrideFilename;
-					ERROR_LOG(Log::TexReplacement, "Failed to load extra texture ini: %s", overrideFilename.c_str());
+					*error = "Loading override ini failed: '" + overrideFilename + "'";
+					ERROR_LOG(Log::TexReplacement, "Failed to load extra texture ini: '%s'", overrideFilename.c_str());
 					// Since this error is most likely to occure for texture pack creators, let's just bail here
 					// so that the creator is more likely to look in the logs for what happened.
 					delete dir;
@@ -281,7 +281,7 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 			}
 		}
 		if (alias == "|") {
-			alias = "";  // marker for no replacement
+			alias.clear();  // marker for no replacement
 		}
 		// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
 		for (auto &c : alias) {
@@ -345,16 +345,21 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	std::string badFilenames;
 
 	if (ini.HasSection("hashes")) {
-		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
+		const Section *hashesSection = ini.GetOrCreateSection("hashes");
 		// Format: hashname = filename.png
 		bool checkFilenames = saveEnabled_ && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
 
-		for (const auto &[k, v] : hashes) {
+		for (const auto &line : hashesSection->Lines()) {
+			if (line.Key().empty())
+				continue;
 			ReplacementCacheKey key(0, 0);
 			// sscanf might fail to pluck the level if omitted from the line, but that's ok, we default level to 0.
 			// sscanf doesn't write to non-matched outputs.
 			int level = 0;
-			if (sscanf(k.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+			char k[128];
+			truncate_cpy(k, line.Key());
+			std::string_view v = line.Value();
+			if (sscanf(k, "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				// We allow empty filenames, to mark textures that we don't want to keep saving.
 				filenameMap[key][level] = v;
 				if (checkFilenames) {
@@ -376,10 +381,8 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 						}
 					}
 				}
-			} else if (k.empty()) {
-				INFO_LOG(Log::TexReplacement, "Ignoring [hashes] line with empty key: '= %s'", v.c_str());
 			} else {
-				ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [hashes], ignoring: %s = ", k.c_str());
+				ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [hashes], ignoring: %s = ", k);
 			}
 		}
 	}
@@ -789,6 +792,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	_assert_msg_(saveEnabled_, "Texture saving not enabled");
 	_assert_(srcPitch >= 0);
 	_assert_(data);
+	_assert_(level >= 0);
 
 	if (!WillSave(replacedInfo)) {
 		// Ignore.

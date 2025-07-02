@@ -38,7 +38,7 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 float TextDrawer::CalculateDPIScale() const {
 	if (ignoreGlobalDpi_)
 		return dpiScale_;
-	return g_display.dpi_scale;
+	return g_display.dpi_scale_y;
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {

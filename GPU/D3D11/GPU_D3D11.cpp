@@ -39,8 +39,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	D3D_FEATURE_LEVEL featureLevel = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
 
-	stockD3D11.Create(device_);
-
 	shaderManagerD3D11_ = new ShaderManagerD3D11(draw, device_, context_, featureLevel);
 	framebufferManagerD3D11_ = new FramebufferManagerD3D11(draw);
 	framebufferManager_ = framebufferManagerD3D11_;
@@ -75,6 +73,11 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	textureCache_->NotifyConfigChanged();
+}
+
+void GPU_D3D11::FinishInitOnMainThread() {
+	textureCacheD3D11_->InitDeviceObjects();
+	stockD3D11.Create(device_);
 }
 
 GPU_D3D11::~GPU_D3D11() {

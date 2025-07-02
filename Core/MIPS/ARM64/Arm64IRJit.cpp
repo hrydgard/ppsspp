@@ -65,7 +65,7 @@ static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
-bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool preload) {
+bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 

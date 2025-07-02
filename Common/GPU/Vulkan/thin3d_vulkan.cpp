@@ -893,8 +893,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread, frameTimeHistory_) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
-	INFO_LOG(Log::G3D, "Determining Vulkan device caps");
-
 	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
@@ -977,14 +975,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		// Enable some things that cut down pipeline counts but may have other costs.
 		caps_.verySlowShaderCompiler = true;
 	}
-
-	// Hide D3D9 when we know it likely won't work well.
-#if PPSSPP_PLATFORM(WINDOWS)
-	caps_.supportsD3D9 = true;
-	if (!strcmp(deviceProps.deviceName, "Intel(R) Iris(R) Xe Graphics")) {
-		caps_.supportsD3D9 = false;
-	}
-#endif
 
 	// VkSampleCountFlagBits is arranged correctly for our purposes.
 	// Only support MSAA levels that have support for all three of color, depth, stencil.

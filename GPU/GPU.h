@@ -21,6 +21,8 @@
 #include <cstring>
 #include <cstdint>
 
+enum GPUCore : int;
+
 class GPUCommon;
 class GPUDebugInterface;
 class GraphicsContext;
@@ -181,8 +183,7 @@ namespace Draw {
 	class DrawContext;
 }
 
-bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw);
-bool GPU_IsStarted();
+bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw);
 void GPU_Shutdown();
 
 const char *RasterChannelToString(RasterChannel channel);

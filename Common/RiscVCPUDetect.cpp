@@ -201,6 +201,16 @@ void CPUInfo::Detect()
 		RiscV_Zba = true;
 		RiscV_Zbb = true;
 	}
+	if ((parser.FirmwareMatchesCompatible("spacemit,k1-x"))
+			|| (parser.FirmwareMatchesCompatible("spacemit,k1"))) {
+		RiscV_Zba = true;
+		RiscV_Zbb = true;
+		RiscV_Zbc = true;
+		RiscV_Zbs = true;
+		RiscV_Zfh = true;
+		RiscV_Zfhmin = true;
+		RiscV_Zicond = true;
+	}
 #endif
 
 #if defined(HAVE_GETAUXVAL) || defined(HAVE_ELF_AUX_INFO)

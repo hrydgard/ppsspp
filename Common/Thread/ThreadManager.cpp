@@ -304,7 +304,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 	_assert_msg_(task->Type() != TaskType::DEDICATED_THREAD, "Dedicated thread tasks can't be put on specific threads");
 
-	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum or not initialized");
+	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum %d(/%d) or not initialized", threadNum, (int)global_->threads_.size());
 	TaskThreadContext *thread = global_->threads_[threadNum];
 	size_t queueIndex = (size_t)task->Priority();
 

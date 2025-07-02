@@ -1,3 +1,4 @@
+
 // Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
@@ -21,6 +22,7 @@
 #include <set>
 
 #include "Common/Net/Resolve.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
@@ -101,7 +103,7 @@ extern AndroidAudioState *g_audioState;
 #endif
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-static void SetMemStickDirDarwin(int requesterToken) {
+void SetMemStickDirDarwin(int requesterToken) {
 	auto initialPath = g_Config.memStickDirectory;
 	INFO_LOG(Log::System, "Current path: %s", initialPath.c_str());
 	System_BrowseForFolder(requesterToken, "", initialPath, [](const std::string &value, int) {
@@ -265,15 +267,11 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 #if !PPSSPP_PLATFORM(UWP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
-	if (g_Config.iGPUBackend != (int)GPUBackend::DIRECT3D9 && !draw->GetDeviceCaps().supportsD3D9) {
-		renderingBackendChoice->HideChoice(1);
-	}
+	renderingBackendChoice->HideChoice(1);
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 
 	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
 		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
-	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9))
-		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D9);
 	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
 		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
 	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
@@ -497,15 +495,17 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
-	tessellationHW->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
+	if (DoesBackendSupportHWTess()) {
+		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
+		tessellationHW->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
 
-	tessellationHW->SetEnabledFunc([]() {
-		return DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	});
+		tessellationHW->SetEnabledFunc([]() {
+			return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+		});
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
@@ -676,18 +676,11 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		PlayUISound(UI::UISound::CONFIRM);
 		return UI::EVENT_DONE;
 	});
-	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
-
-	// Hide the backend selector in UWP builds (we only support XAudio2 there).
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	if (IsVistaOrHigher()) {
-		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
-		audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), I18NCat::AUDIO, screenManager()));
-	}
-#endif
 
 	bool sdlAudio = false;
+
 #if defined(SDL)
+	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
 	audioDeviceList.insert(audioDeviceList.begin(), a->T_cstr("Auto"));
@@ -704,7 +697,48 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	});
 #endif
 
-	if (sdlAudio || g_Config.iAudioBackend == AUDIO_BACKEND_WASAPI) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	extern AudioBackend *g_audioBackend;
+
+	std::vector<std::string> audioDeviceNames;
+	std::vector<std::string> audioDeviceIds;
+
+	std::vector<AudioDeviceDesc> deviceDescs;
+	g_audioBackend->EnumerateDevices(&deviceDescs);
+	if (!deviceDescs.empty()) {
+		audioSettings->Add(new ItemHeader(a->T("Audio backend")));
+		for (auto &desc : deviceDescs) {
+			audioDeviceNames.push_back(desc.name);
+			audioDeviceIds.push_back(desc.uniqueId);
+		}
+
+		audioDeviceNames.insert(audioDeviceNames.begin(), std::string(a->T("Auto")));
+		audioDeviceIds.insert(audioDeviceIds.begin(), "");
+
+		PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceNames, I18NCat::NONE, screenManager(), &audioDeviceIds));
+		audioDevice->OnChoice.Add([this](UI::EventParams &) {
+			bool reverted;
+			if (g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted)) {
+				if (reverted) {
+					WARN_LOG(Log::Audio, "Unexpected: After a direct choice, audio device reverted to default. '%s'", g_Config.sAudioDevice.c_str());
+				}
+			} else {
+				WARN_LOG(Log::Audio, "InitOutputDevice failed");
+			}
+			return UI::EVENT_DONE;
+		});
+		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+		autoAudio->SetEnabledFunc([]()->bool {
+			return g_Config.sAudioDevice.empty();
+		});
+	}
+
+	const bool isWindows = true;
+#else
+	const bool isWindows = false;
+	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
+
+	if (sdlAudio) {
 		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
 	}
 
@@ -716,6 +750,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	if (!audioErrorStr.empty()) {
 		audioSettings->Add(new InfoItem(a->T("Audio Error"), audioErrorStr));
 	}
+#endif
 #endif
 
 	std::vector<std::string> micList = Microphone::getDeviceList();
@@ -923,6 +958,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -959,7 +995,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	if (g_Config.sInfrastructureUsername.empty()) {
 		networkingSettings->Add(new NoticeView(NoticeLevel::WARN, n->T("To play in Infrastructure Mode, you must enter a username"), ""));
 	}
-	PopupTextInputChoice *usernameChoice = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sInfrastructureUsername, n->T("Username"), "", 16, screenManager()));
+	PopupTextInputChoice *usernameChoice = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sInfrastructureUsername, di->T("Username"), "", 16, screenManager()));
 	usernameChoice->SetRestriction(StringRestriction::AlphaNumDashUnderscore, 3);
 	usernameChoice->OnChange.Add([this](UI::EventParams &e) {
 		RecreateViews();
@@ -1021,12 +1057,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	}
 #endif
 
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
+	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
 }
 
 void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
@@ -1118,7 +1153,8 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	PopupSliderChoice *uiScale = systemSettings->Add(new PopupSliderChoice(&g_Config.iUIScaleFactor, -8, 8, 0, sy->T("UI size adjustment (DPI)"), screenManager()));
 	uiScale->SetZeroLabel(sy->T("Off"));
 	uiScale->OnChange.Add([](UI::EventParams &e) {
-		g_display.Recalculate(-1, -1, -1, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
+		g_display.Recalculate(-1, -1, -1, -1, dpiMul);
 		NativeResized();
 		return UI::EVENT_DONE;
 	});
@@ -1127,7 +1163,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER) || System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
 	} else {
 		backgroundChoice_ = nullptr;
@@ -1514,48 +1550,54 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		INFO_LOG(Log::UI, "Clearing background image.");
+		// The button is in clear mode.
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
 		UIBackgroundShutdown();
 		RecreateViews();
-	} else {
-		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), [=](const std::string &value, int) {
-			if (!value.empty()) {
-				Path path(value);
-
-				// Check the file format. Don't rely on the file extension here due to scoped storage URLs.
-				FILE *f = File::OpenCFile(path, "rb");
-				uint8_t buffer[8];
-				ImageFileType type = ImageFileType::UNKNOWN;
-				if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
-					type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
-				}
-
-				std::string filename;
-				switch (type) {
-				case ImageFileType::JPEG:
-					filename = "background.jpg";
-					break;
-				case ImageFileType::PNG:
-					filename = "background.png";
-					break;
-				default:
-					break;
-				}
-
-				if (!filename.empty()) {
-					Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-					File::Copy(Path(value), dest);
-				} else {
-					g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
-				}
-			}
-			// It will init again automatically.  We can't init outside a frame on Vulkan.
-			UIBackgroundShutdown();
-			RecreateViews();
-		});
+		return UI::EVENT_DONE;
 	}
+
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [=](const std::string &value, int converted) {
+		if (converted == 1) {
+			// The platform code converted and saved the file to the desired path already.
+			INFO_LOG(Log::UI, "Converted file.");
+		} else if (!value.empty()) {
+			Path path(value);
+
+			// Check the file format. Don't rely on the file extension here due to scoped storage URLs.
+			FILE *f = File::OpenCFile(path, "rb");
+			uint8_t buffer[8];
+			ImageFileType type = ImageFileType::UNKNOWN;
+			if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
+				type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
+			}
+
+			std::string filename;
+			switch (type) {
+			case ImageFileType::JPEG:
+				filename = "background.jpg";
+				break;
+			case ImageFileType::PNG:
+				filename = "background.png";
+				break;
+			default:
+				break;
+			}
+
+			if (!filename.empty()) {
+				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
+				File::Copy(Path(value), dest);
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
+			}
+		}
+		// It will init again automatically.  We can't init outside a frame on Vulkan.
+		UIBackgroundShutdown();
+		RecreateViews();
+	});
 
 	// Change to a browse or clear button.
 	return UI::EVENT_DONE;
@@ -1784,7 +1826,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 
 UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto shaderScreen = new TextureShaderScreen(gr->T("Texture Shader"));
+	auto shaderScreen = new TextureShaderScreen(gr->T("GPU texture upscaler (fast)"));
 	shaderScreen->OnChoice.Handle(this, &GameSettingsScreen::OnTextureShaderChange);
 	if (e.v)
 		shaderScreen->SetPopupOrigin(e.v);

@@ -36,7 +36,7 @@ bool JsonReader::parse() {
 int JsonGet::numChildren() const {
 	int count = 0;
 	if (value_.getTag() == JSON_OBJECT || value_.getTag() == JSON_ARRAY) {
-		for (auto it : value_) {
+		for (const auto &it : value_) {
 			(void)it;
 			count++;
 		}
@@ -52,7 +52,7 @@ const JsonNode *JsonGet::get(const char *child_name) const {
 	if (value_.getTag() != JSON_OBJECT) {
 		return nullptr;
 	}
-	for (auto it : value_) {
+	for (const auto &it : value_) {
 		if (!strcmp(it->key, child_name)) {
 			return it;
 		}
@@ -94,7 +94,7 @@ const char *JsonGet::getStringOr(const char *child_name, const char *default_val
 bool JsonGet::getStringVector(std::vector<std::string> *vec) const {
 	vec->clear();
 	if (value_.getTag() == JSON_ARRAY) {
-		for (auto it : value_) {
+		for (const auto &it : value_) {
 			if (it->value.getTag() == JSON_STRING) {
 				vec->push_back(it->value.toString());
 			}

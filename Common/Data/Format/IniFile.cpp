@@ -63,7 +63,7 @@ static bool ParseLineKey(std::string_view line, size_t &pos, std::string *keyOut
 }
 
 static bool ParseLineValue(std::string_view line, size_t &pos, std::string *valueOut) {
-	std::string value = "";
+	std::string value;
 
 	std::string_view strippedLine = StripSpaces(line.substr(pos));
 	if (strippedLine.size() >= 2 && strippedLine[0] == '"' && strippedLine[strippedLine.size() - 1] == '"') {
@@ -408,7 +408,7 @@ std::map<std::string, std::string> Section::ToMap() const {
 	std::map<std::string, std::string> outMap;
 	for (auto &line : lines_) {
 		if (!line.Key().empty()) {
-			outMap[std::string(line.Key())] = line.Value();
+			outMap.emplace(line.Key(), line.Value());
 		}
 	}
 	return outMap;

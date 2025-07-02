@@ -520,6 +520,9 @@
     <ClCompile Include="HLE\sceHeap.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\NetAdhocCommon.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNetAdhoc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -1758,6 +1761,9 @@
     <ClInclude Include="HLE\sceHeap.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\NetAdhocCommon.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceNetAdhoc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -2189,6 +2195,9 @@
     </ClInclude>
     <ClInclude Include="FileLoaders\ZipFileLoader.h">
       <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\AtracBase.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

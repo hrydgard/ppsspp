@@ -680,26 +680,34 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	saddr.addr.sa_family = dst->sa_family;
 	memcpy(saddr.addr.sa_data, dst->sa_data, sizeof(dst->sa_data));
 
-	// Workaround to avoid blocking for indefinitely
-	setSockTimeout(inetSock->sock, SO_SNDTIMEO, 5000000);
-	setSockTimeout(inetSock->sock, SO_RCVTIMEO, 5000000);
-	changeBlockingMode(inetSock->sock, 0); // Use blocking mode as temporary fix for UNO, since we don't simulate blocking-mode yet
+	// Enforcing real blocking-mode on games that use blocking-mode socket (as a temporary fix for UNO), since we don't simulate blocking-mode yet
+	if (!inetSock->nonblocking) {
+		WARN_LOG(Log::sceNet, "Enforcing blocking-mode on Connect! (socket #%d)", socket);
+		changeBlockingMode(inetSock->sock, 0);
+		// Workaround to avoid blocking for indefinitely
+		setSockTimeout(inetSock->sock, SO_SNDTIMEO, 5000000);
+		setSockTimeout(inetSock->sock, SO_RCVTIMEO, 5000000);
+	}
 	int retval = connect(inetSock->sock, (struct sockaddr*)&saddr.addr, dstlen);
+	int hostErrno = socket_errno;
+	if (!inetSock->nonblocking) {
+		// Change the blocking mode back to nonblocking
+		changeBlockingMode(inetSock->sock, 1);
+	}
 	if (retval < 0) {
-		int hostErrno = socket_errno;
+		if (!inetSock->nonblocking) {
+			// Since we're temporarily forcing blocking-mode, we'll need to change errno from ETIMEDOUT to EAGAIN
+			if (hostErrno == ETIMEDOUT)
+				hostErrno = EAGAIN;
+		}
 		int pspErrno = UpdateErrnoFromHost(__KernelGetCurThread(), hostErrno, __FUNCTION__);
 		if (connectInProgress(hostErrno))
 			retval = hleLogDebug(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 		else
 			retval = hleLogError(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
-		changeBlockingMode(inetSock->sock, 1);
-		// TODO: Since we're temporarily forcing blocking-mode we'll need to change errno from ETIMEDOUT to EAGAIN
-		/*if (inetLastErrno == ETIMEDOUT)
-			inetLastErrno = EAGAIN;
-		*/
+		
 		return retval;
 	}
-	changeBlockingMode(inetSock->sock, 1);
 
 	if (saddr.in.sin_port == 53) {
 		WARN_LOG(Log::G3D, "Game connected to DNS server %s (port 53), likely for doing its own DNS lookups!", ip2str(saddr.in.sin_addr, false).c_str());

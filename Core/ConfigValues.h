@@ -86,6 +86,13 @@ enum TextureFiltering {
 	TEX_FILTER_AUTO_MAX_QUALITY = 4,
 };
 
+enum ReplacementTextureLoadSpeed {
+	SLOW = 0,
+	MEDIUM = 1,
+	FAST = 2,
+	INSTANT = 3,
+};
+
 enum BufferFilter {
 	SCALE_LINEAR = 1,
 	SCALE_NEAREST = 2,
@@ -99,7 +106,6 @@ enum class ScreenshotMode {
 // Software is not among these because it will have one of these perform the blit to display.
 enum class GPUBackend {
 	OPENGL = 0,
-	DIRECT3D9 = 1,
 	DIRECT3D11 = 2,
 	VULKAN = 3,
 };
@@ -135,12 +141,6 @@ ENUM_CLASS_BITOPS(DisableHLEFlags);
 
 std::string GPUBackendToString(GPUBackend backend);
 GPUBackend GPUBackendFromString(std::string_view backend);
-
-enum AudioBackendType {
-	AUDIO_BACKEND_AUTO,
-	AUDIO_BACKEND_DSOUND,
-	AUDIO_BACKEND_WASAPI,
-};
 
 // For iIOTimingMethod.
 enum IOTimingMethods {
@@ -181,6 +181,12 @@ enum class ShowStatusFlags {
 	FPS_COUNTER = 1 << 1,
 	SPEED_COUNTER = 1 << 2,
 	BATTERY_PERCENT = 1 << 3,
+};
+
+enum class SplineQuality {
+	LOW_QUALITY = 0,
+	MEDIUM_QUALITY = 1,
+	HIGH_QUALITY = 2,
 };
 
 enum class DumpFileType {

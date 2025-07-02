@@ -176,6 +176,7 @@ bool ReplacedTexture::Poll(double budget) {
 	lastUsed_ = now;
 
 	// Let's not even start a new texture if we're already behind.
+	// Note that 0.0 is used as a signalling value that we don't want to wait (just handling already finished textures).
 	if (budget < 0.0)
 		return false;
 
@@ -473,7 +474,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
 			WARN_LOG(Log::TexReplacement, "Error reading KTX file");
-			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -513,7 +513,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 		} else {
 			WARN_LOG(Log::TexReplacement, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
-			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -683,7 +682,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
-			vfs_->CloseFile(openFile);
 			out.resize(0);
 			return LoadLevelResult::LOAD_ERROR;
 		}

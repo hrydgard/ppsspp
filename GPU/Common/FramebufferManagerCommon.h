@@ -490,7 +490,9 @@ public:
 
 	bool PresentedThisFrame() const;
 
-	void DrawImGuiDebug(int &selected) const;
+	const std::vector<VirtualFramebuffer *> &GetVFBs() const {
+		return vfbs_;
+	}
 
 protected:
 	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);

@@ -507,8 +507,8 @@ void IRNativeJit::Init(IRNativeBackend &backend) {
 	}
 }
 
-bool IRNativeJit::CompileNativeBlock(IRBlockCache *irblockCache, int block_num, bool preload) {
-	return backend_->CompileBlock(irblockCache, block_num, preload);
+bool IRNativeJit::CompileNativeBlock(IRBlockCache *irblockCache, int block_num) {
+	return backend_->CompileBlock(irblockCache, block_num);
 }
 
 void IRNativeJit::FinalizeNativeBlock(IRBlockCache *irblockCache, int block_num) {

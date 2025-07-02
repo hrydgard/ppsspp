@@ -28,8 +28,7 @@
 #include "Core/HLE/AtracCtx.h"
 #include "Core/HW/Atrac3Standalone.h"
 #include "Core/HLE/sceKernelMemory.h"
-#include <sstream>
-#include <iomanip>
+
 
 const size_t overAllocBytes = 16384;
 
@@ -225,11 +224,11 @@ void Atrac::WriteContextToPSPMem() {
 }
 
 void Track::DebugLog() const {
-	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
+	DEBUG_LOG(Log::Atrac, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
 		codecType == PSP_CODEC_AT3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
-	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
-	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
-	DEBUG_LOG(Log::ME, "sampleSize: %d (%03x", bytesPerFrame, bytesPerFrame);
+	DEBUG_LOG(Log::Atrac, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
+	DEBUG_LOG(Log::Atrac, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
+	DEBUG_LOG(Log::Atrac, "sampleSize: %d (%03x)", bytesPerFrame, bytesPerFrame);
 }
 
 int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
@@ -291,7 +290,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
 		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
-			ERROR_LOG_REPORT(Log::ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
+			ERROR_LOG_REPORT(Log::Atrac, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
 			first_.offset = 0;
 			first_.writableBytes = bufferMaxSize_;
 		}
@@ -327,7 +326,7 @@ void AtracBase::CreateDecoder(int codecType, int bytesPerFrame, int channels) {
 	}
 }
 
-int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) {
+int Atrac::GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) {
 	*delay = false;
 	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
@@ -417,7 +416,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	first_._filesize_dontuse = track_.fileSize;
 
 	if (outputChannels != track_.channels) {
-		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
+		WARN_LOG(Log::Atrac, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
 	}
 
 	first_.addr = buffer;
@@ -438,7 +437,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	if (track_.codecType != PSP_CODEC_AT3 && track_.codecType != PSP_CODEC_AT3PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
-		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track_.codecType);
+		ERROR_LOG(Log::Atrac, "unexpected codec type %d in set data", track_.codecType);
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
@@ -467,10 +466,16 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
-	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
+	INFO_LOG(Log::Atrac, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
+	INFO_LOG(Log::Atrac, "BufferState: %s", AtracStatusToString(bufferState_));
+	INFO_LOG(Log::Atrac,
+		"buffer: %08x bufferSize: %d readSize: %d bufferPos: %d\n",
+		buffer, bufferSize, readSize, bufferPos_
+	);
 
 	if (track_.channels == 2 && outputChannels == 1) {
 		// We still do all the tasks, we just return this error.
+		WARN_LOG(Log::Atrac, "Tried to load a stereo track into a mono context, returning NOT_MONO");
 		return SCE_ERROR_ATRAC_NOT_MONO;
 	}
 	return 0;
@@ -494,7 +499,7 @@ int Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	return 0;
 }
 
-int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
+int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) const {
 	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		// Writes zeroes in this error case.
 		*fileOffset = 0;
@@ -715,7 +720,8 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, i
 		// Skip the initial frame used to load state for the looped frame.
 		// TODO: We will want to actually read this in.
 		// TODO again: This seems to happen on the first frame of playback regardless of loops.
-		// Can't be good.
+		// Actually, this is explained now if we look at AtracCtx2, although this isn't really accurate.
+		DEBUG_LOG(Log::Atrac, "Calling ConsumeFrame to skip the initial frame");
 		ConsumeFrame();
 	}
 
@@ -723,6 +729,9 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, i
 
 	bool gotFrame = false;
 	u32 off = track_.FileOffsetBySample(currentSample_ - skipSamples);
+
+	DEBUG_LOG(Log::Atrac, "Decode(%08x): nextFileOff: %d", outbufPtr, off);
+
 	if (off < first_.size) {
 		uint8_t *indata = BufferStart() + off;
 		int bytesConsumed = 0;
@@ -846,7 +855,7 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	// Reuse the same calculation as before.
 	AtracResetBufferInfo bufferInfo;
 	bool ignored;
-	GetResetBufferInfo(&bufferInfo, sample, &ignored);
+	GetBufferInfoForResetting(&bufferInfo, sample, &ignored);
 
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
 		return SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE;
@@ -979,9 +988,9 @@ void Atrac::NotifyGetContextAddress() {
 		context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID_).c_str());
 		if (context_.IsValid())
 			Memory::Memset(context_.ptr, 0, contextSize, "AtracContextClear");
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", context_.ptr, atracID_);
+		WARN_LOG(Log::Atrac, "%08x=_sceAtracGetContextAddress(%i): allocated new context", context_.ptr, atracID_);
 	} else {
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", context_.ptr, atracID_);
+		WARN_LOG(Log::Atrac, "%08x=_sceAtracGetContextAddress(%i)", context_.ptr, atracID_);
 	}
 	WriteContextToPSPMem();
 }

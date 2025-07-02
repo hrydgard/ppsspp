@@ -420,7 +420,6 @@ struct GPUgstate {
 	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
 	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
-
 	void FastLoadBoneMatrix(u32 addr);
 
 	// Real data in the context ends here
@@ -579,13 +578,7 @@ struct GPUStateCache {
 			Dirty(DIRTY_UVSCALEOFFSET);
 		}
 	}
-	void SetUseFlags(u32 newFlags) {
-		if (newFlags != useFlags_) {
-			if (useFlags_ != 0)
-				useFlagsChanged = true;
-			useFlags_ = newFlags;
-		}
-	}
+	bool SetUseFlags(u32 newFlags);
 
 	// When checking for a single flag, use Use()/UseAll().
 	u32 GetUseFlags() const {

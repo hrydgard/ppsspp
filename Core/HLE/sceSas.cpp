@@ -70,7 +70,7 @@ struct SasThreadParams {
 	int rightVol;
 };
 
-static std::thread *sasThread;
+static std::thread g_sasThread;
 static std::mutex sasWakeMutex;
 static std::mutex sasDoneMutex;
 static std::condition_variable sasWake;
@@ -141,9 +141,9 @@ static void __SasDisableThread() {
 		sasThreadState = SasThreadState::DISABLED;
 		sasWake.notify_one();
 		sasWakeMutex.unlock();
-		sasThread->join();
-		delete sasThread;
-		sasThread = nullptr;
+		if (g_sasThread.joinable()) {
+			g_sasThread.join();
+		}
 	}
 }
 
@@ -175,7 +175,7 @@ void __SasInit() {
 
 	if (g_Config.bSeparateSASThread) {
 		sasThreadState = SasThreadState::READY;
-		sasThread = new std::thread(__SasThread);
+		g_sasThread = std::thread(__SasThread);
 	} else {
 		sasThreadState = SasThreadState::DISABLED;
 	}
@@ -343,14 +343,20 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 	}
 
 	u32 prevVagAddr = v.vagAddr;
-	v.type = VOICETYPE_VAG;
+	bool reset = false;
+	if (v.type != VOICETYPE_VAG || v.vagAddr != vagAddr || v.vagSize != size || v.loop != (loop != 0)) {
+		v.type = VOICETYPE_VAG;
+		reset = true;
+	}
 	v.vagAddr = vagAddr;  // Real VAG header is 0x30 bytes behind the vagAddr
 	v.vagSize = size;
 	v.loop = loop != 0;
 	if (v.on) {
 		v.playing = true;
 	}
-	v.vag.Start(vagAddr, size, loop != 0);
+	if (reset) {
+		v.vag.Start(vagAddr, size, loop != 0);
+	}
 	return hleNoLog(0);
 }
 

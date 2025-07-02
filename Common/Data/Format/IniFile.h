@@ -115,6 +115,11 @@ public:
 		return name_;
 	}
 
+	// For reading without copying. Note: You may have to ignore lines with empty keys.
+	const std::vector<ParsedIniLine> &Lines() const {
+		return lines_;
+	}
+
 protected:
 	std::vector<ParsedIniLine> lines_;
 	std::string name_;

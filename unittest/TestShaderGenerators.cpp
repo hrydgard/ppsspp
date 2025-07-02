@@ -21,9 +21,6 @@
 #include <wrl/client.h>
 #include "GPU/D3D11/D3D11Util.h"
 #include "GPU/D3D11/D3D11Loader.h"
-
-#include "GPU/D3D9/D3DCompilerLoader.h"
-#include "GPU/D3D9/D3D9ShaderCompiler.h"
 #endif
 
 static constexpr size_t CODE_BUFFER_SIZE = 32768;
@@ -48,11 +45,6 @@ bool GenerateFShader(FShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
-		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, &flags, errorString);
-	}
-	case ShaderLanguage::HLSL_D3D9:
-	{
-		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateFragmentShader(id, buffer, compat, bugs, &uniformMask, &flags, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
@@ -86,11 +78,6 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 	case ShaderLanguage::GLSL_3xx:
 	{
 		ShaderLanguageDesc compat(ShaderLanguage::GLSL_3xx);
-		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, &flags, errorString);
-	}
-	case ShaderLanguage::HLSL_D3D9:
-	{
-		ShaderLanguageDesc compat(ShaderLanguage::HLSL_D3D9);
 		return GenerateVertexShader(id, buffer, compat, bugs, &attrMask, &uniformMask, &flags, errorString);
 	}
 	case ShaderLanguage::HLSL_D3D11:
@@ -157,18 +144,6 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), programType, 0);
 		return !output.empty();
 	}
-	case ShaderLanguage::HLSL_D3D9:
-	{
-		const char *programType = nullptr;
-		switch (stage) {
-		case ShaderStage::Vertex: programType = "vs_3_0"; break;
-		case ShaderStage::Fragment: programType = "ps_3_0"; break;
-		default: return false;
-		}
-		Microsoft::WRL::ComPtr<ID3DBlob> blob;
-		HRESULT hr = CompileShaderToByteCodeD3D9(buffer, programType, errorMessage, &blob);
-		return SUCCEEDED(hr);
-	}
 #endif
 
 	case ShaderLanguage::GLSL_VULKAN:
@@ -211,7 +186,6 @@ void PrintDiff(const char *a, const char *b) {
 const char *ShaderLanguageToString(ShaderLanguage lang) {
 	switch (lang) {
 	case HLSL_D3D11: return "HLSL_D3D11";
-	case HLSL_D3D9: return "HLSL_D3D9";
 	case GLSL_VULKAN: return "GLSL_VULKAN";
 	case GLSL_1xx: return "GLSL_1xx";
 	case GLSL_3xx: return "GLSL_3xx";
@@ -275,7 +249,6 @@ bool TestStencilShaders() {
 
 	ShaderLanguage languages[] = {
 #if PPSSPP_PLATFORM(WINDOWS)
-		ShaderLanguage::HLSL_D3D9,
 		ShaderLanguage::HLSL_D3D11,
 #endif
 		ShaderLanguage::GLSL_VULKAN,
@@ -331,7 +304,6 @@ bool TestDepalShaders() {
 
 	ShaderLanguage languages[] = {
 #if PPSSPP_PLATFORM(WINDOWS)
-		ShaderLanguage::HLSL_D3D9,
 		ShaderLanguage::HLSL_D3D11,
 #endif
 		ShaderLanguage::GLSL_VULKAN,
@@ -380,7 +352,6 @@ bool TestDepalShaders() {
 
 const ShaderLanguage languages[] = {
 #if PPSSPP_PLATFORM(WINDOWS)
-	ShaderLanguage::HLSL_D3D9,
 	ShaderLanguage::HLSL_D3D11,
 #endif
 	ShaderLanguage::GLSL_VULKAN,
@@ -619,7 +590,6 @@ bool TestShaderGenerators() {
 #if PPSSPP_PLATFORM(WINDOWS)
 	LoadD3D11();
 	init_glslang();
-	LoadD3DCompilerDynamic();
 #else
 	init_glslang();
 #endif

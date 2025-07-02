@@ -10,14 +10,18 @@ pacman -S make
 
 Start Retroarch ones to create the cores directory.
 
-Then use the following in msys:
+Then use the following in msys (edit the last part as appropriate):
 
-> cd libretro
-> make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
+```
+cd libretro
+make platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
+```
 
 To make a debug build:
 
-> make DEBUG=1 platform=windows_msvc2019_desktop_x64 -j32
+```
+make DEBUG=1 platform=windows_msvc2019_desktop_x64 -j32 && cp ppsspp_libretro.* /d/retroarch/cores
+```
 
 Note that the latter part copies the DLL/PDB into wherever retroarch reads it from. Might need to adjust the path,
 and adjust -j32 depending on your number of logical CPUs - might not need that many threads (or you might need more...).

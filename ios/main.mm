@@ -25,8 +25,10 @@
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 #import "iOSCoreAudio.h"
+#import "IAPManager.h"
 
 #include "Common/MemoryUtil.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -358,6 +360,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return true;
 		case SYSPROP_HAS_FOLDER_BROWSER:
 			return true;
+		case SYSPROP_HAS_IMAGE_BROWSER:
+			return true;
 		case SYSPROP_HAS_OPEN_DIRECTORY:
 			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
@@ -371,6 +375,16 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return true;
 		case SYSPROP_APP_GOLD:
 #ifdef GOLD
+			// This is deprecated.
+			return true;
+#elif PPSSPP_PLATFORM(IOS_APP_STORE)
+			// Check the IAP status.
+			return [[IAPManager sharedIAPManager] isGoldUnlocked];
+#else
+			return false;
+#endif
+		case SYSPROP_USE_IAP:
+#if PPSSPP_PLATFORM(IOS_APP_STORE) && defined(USE_IAP)
 			return true;
 #else
 			return false;
@@ -424,7 +438,7 @@ void System_Notify(SystemNotification notification) {
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
-        dispatch_async(dispatch_get_main_queue(), ^{
+		dispatch_async(dispatch_get_main_queue(), ^{
 			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart:param1.c_str()];
 		});
 		return true;
@@ -460,6 +474,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		};
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		NSString *filename = [NSString stringWithUTF8String:param2.c_str()];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[sharedViewController pickPhoto:filename requestId:requestId];
+		});
 		return true;
 	}
 	case SystemRequestType::CAMERA_COMMAND:
@@ -501,6 +523,18 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	case SystemRequestType::IAP_RESTORE_PURCHASES:
+	{
+		[[IAPManager sharedIAPManager] restorePurchasesWithRequestID:requestId];
+		return true;
+	}
+	case SystemRequestType::IAP_MAKE_PURCHASE:
+	{
+		[[IAPManager sharedIAPManager] buyGoldWithRequestID:requestId];
+		return true;
+	}
+#endif
 /*
 	// Not 100% sure the threading is right
 	case SystemRequestType::COPY_TO_CLIPBOARD:
@@ -512,10 +546,10 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 */
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
-        dispatch_async(dispatch_get_main_queue(), ^{
-            INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
-            [[UIApplication sharedApplication] setIdleTimerDisabled: (param3 ? YES : NO)];
-        });
+		dispatch_async(dispatch_get_main_queue(), ^{
+			INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
+			[[UIApplication sharedApplication] setIdleTimerDisabled: (param3 ? YES : NO)];
+		});
 		return true;
 	default:
 		break;
@@ -577,6 +611,11 @@ void System_Vibrate(int mode) {
 		AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
 #endif
 	}
+}
+
+AudioBackend *System_CreateAudioBackend() {
+	// Use legacy mechanisms.
+	return nullptr;
 }
 
 int main(int argc, char *argv[])

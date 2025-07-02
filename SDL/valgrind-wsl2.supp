@@ -102,16 +102,21 @@
    obj:/usr/lib/x86_64-linux-gnu/libvulkan.so.*
 }
 {
-   <vk2>
-   Memcheck:Cond
+   <asdf8>
+   Memcheck:Addr4
    ...
-   obj:/usr/lib/wsl/drivers/nvmdig.inf_amd64_e08347d07a4d61e2/libnvwgf2umx.so
+   obj:/usr/lib/wsl/lib/libd3d12.so
 }
 {
-   <swrast>
+   <asdf>
    Memcheck:Addr8
-   fun:memmove
    ...
-   obj:/usr/lib/x86_64-linux-gnu/dri/swrast_dri.so
+   obj:/usr/lib/wsl/lib/libd3d12.so
+}
+{
+   <asdf2>
+   Memcheck:Free
+   ...
+   obj:/usr/lib/wsl/drivers/nvmdi.inf_amd64_845fc316023c1865/libnvwgf2umx.so
    ...
 }

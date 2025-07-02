@@ -26,11 +26,9 @@ static const u8 loc_1CD4[16] = {0xE3, 0x50, 0xED, 0x1D, 0x91, 0x0A, 0x1F, 0xD0, 
 static const u8 loc_1CE4[16] = {0x13, 0x5F, 0xA4, 0x7C, 0xAB, 0x39, 0x5B, 0xA4, 0x76, 0xB8, 0xCC, 0xA9, 0x8F, 0x3A, 0x04, 0x45};
 static const u8 loc_1CF4[16] = {0x67, 0x8D, 0x7F, 0xA3, 0x2A, 0x9C, 0xA0, 0xD1, 0x50, 0x8A, 0xD8, 0x38, 0x5E, 0x4B, 0x01, 0x7E};
 
-static u8 kirk_buf[0x0814]; // 1DC0 1DD4
-
 /*************************************************************/
 
-static int do_kirk4(u8 *buf, int size, int type)
+static int do_kirk4(KirkState *kirk, u8 *buf, int size, int type)
 {
 	int retv;
 	u32 *header = (u32*)buf;
@@ -41,7 +39,7 @@ static int do_kirk4(u8 *buf, int size, int type)
 	header[3] = type;
 	header[4] = size;
 
-	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
+	retv = kirk_sceUtilsBufferCopyWithRange(kirk, buf, size+0x14, buf, size, 4);
 
 	if(retv)
 		return 0x80510311;
@@ -49,7 +47,7 @@ static int do_kirk4(u8 *buf, int size, int type)
 	return 0;
 }
 
-static int do_kirk7(u8 *buf, int size, int type)
+static int do_kirk7(KirkState *kirk, u8 *buf, int size, int type)
 {
 	int retv;
 	u32 *header = (u32*)buf;
@@ -60,14 +58,14 @@ static int do_kirk7(u8 *buf, int size, int type)
 	header[3] = type;
 	header[4] = size;
 
-	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
+	retv = kirk_sceUtilsBufferCopyWithRange(kirk, buf, size+0x14, buf, size, 7);
 	if(retv)
 		return 0x80510311;
 
 	return 0;
 }
 
-static int kirk5(u8 *buf, int size)
+static int kirk5(KirkState *kirk, u8 *buf, int size)
 {
 	int retv;
 	u32 *header = (u32*)buf;
@@ -78,14 +76,14 @@ static int kirk5(u8 *buf, int size)
 	header[3] = 0x0100;
 	header[4] = size;
 
-	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
+	retv = kirk_sceUtilsBufferCopyWithRange(kirk, buf, size+0x14, buf, size, 5);
 	if(retv)
 		return 0x80510312;
 
 	return 0;
 }
 
-static int kirk8(u8 *buf, int size)
+static int kirk8(KirkState *kirk, u8 *buf, int size)
 {
 	int retv;
 	u32 *header = (u32*)buf;
@@ -96,18 +94,18 @@ static int kirk8(u8 *buf, int size)
 	header[3] = 0x0100;
 	header[4] = size;
 
-	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
+	retv = kirk_sceUtilsBufferCopyWithRange(kirk, buf, size+0x14, buf, size, 8);
 	if(retv)
 		return 0x80510312;
 
 	return 0;
 }
 
-static int kirk14(u8 *buf)
+static int kirk14(KirkState *kirk, u8 *buf)
 {
 	int retv;
 
-	retv = kirk_sceUtilsBufferCopyWithRange(buf, 0x14, 0, 0, 14);
+	retv = kirk_sceUtilsBufferCopyWithRange(kirk, buf, 0x14, 0, 0, 14);
 	if(retv)
 		return 0x80510315;
 
@@ -118,7 +116,7 @@ static int kirk14(u8 *buf)
 
 // Called by sceDrmBBMacUpdate
 // encrypt_buf
-static int sub_158(u8 *buf, int size, u8 *key, int key_type)
+static int sub_158(KirkState *kirk, u8 *buf, int size, u8 *key, int key_type)
 {
 	int i, retv;
 
@@ -126,7 +124,7 @@ static int sub_158(u8 *buf, int size, u8 *key, int key_type)
 		buf[0x14+i] ^= key[i];
 	}
 
-	retv = do_kirk4(buf, size, key_type);
+	retv = do_kirk4(kirk, buf, size, key_type);
 	if(retv)
 		return retv;
 
@@ -151,7 +149,7 @@ int sceDrmBBMacInit(MAC_KEY *mkey, int type)
 	return 0;
 }
 
-int sceDrmBBMacUpdate(MAC_KEY *mkey, u8 *buf, int size)
+int sceDrmBBMacUpdate(KirkState *kirk, MAC_KEY *mkey, u8 *buf, int size)
 {
 	int retv = 0, ksize, p, type;
 	u8 *kbuf;
@@ -166,7 +164,7 @@ int sceDrmBBMacUpdate(MAC_KEY *mkey, u8 *buf, int size)
 		mkey->pad_size += size;
 		retv = 0;
 	}else{
-		kbuf = kirk_buf+0x14;
+		kbuf = kirk->kirk_buf+0x14;
 		// copy pad data first
 		memcpy(kbuf, mkey->pad, mkey->pad_size);
 
@@ -186,7 +184,7 @@ int sceDrmBBMacUpdate(MAC_KEY *mkey, u8 *buf, int size)
 		while(size){
 			ksize = (size+p>=0x0800)? 0x0800 : size+p;
 			memcpy(kbuf+p, buf, ksize-p);
-			retv = sub_158(kirk_buf, ksize, mkey->key, type);
+			retv = sub_158(kirk, kirk->kirk_buf, ksize, mkey->key, type);
 			if(retv)
 				goto _exit;
 			size -= (ksize-p);
@@ -200,7 +198,7 @@ _exit:
 
 }
 
-int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
+int sceDrmBBMacFinal(KirkState *kirk, MAC_KEY *mkey, u8 *buf, u8 *vkey)
 {
 	int i, retv, code;
 	u8 *kbuf, tmp[16], tmp1[16];
@@ -210,10 +208,10 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 		return 0x80510302;
 
 	code = (mkey->type==2)? 0x3A : 0x38;
-	kbuf = kirk_buf+0x14;
+	kbuf = kirk->kirk_buf+0x14;
 
 	memset(kbuf, 0, 16);
-	retv = do_kirk4(kirk_buf, 16, code);
+	retv = do_kirk4(kirk, kirk->kirk_buf, 16, code);
 	if(retv)
 		goto _exit;
 	memcpy(tmp, kbuf, 16);
@@ -262,7 +260,7 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 	memcpy(kbuf, mkey->pad, 16);
 	memcpy(tmp1, mkey->key, 16);
 
-	retv = sub_158(kirk_buf, 0x10, tmp1, code);
+	retv = sub_158(kirk, kirk->kirk_buf, 0x10, tmp1, code);
 	if(retv)
 		return retv;
 
@@ -273,11 +271,11 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 	if(mkey->type==2){
 		memcpy(kbuf, tmp1, 16);
 
-		retv = kirk5(kirk_buf, 0x10);
+		retv = kirk5(kirk, kirk->kirk_buf, 0x10);
 		if(retv)
 			goto _exit;
 
-		retv = do_kirk4(kirk_buf, 0x10, code);
+		retv = do_kirk4(kirk, kirk->kirk_buf, 0x10, code);
 		if(retv)
 			goto _exit;
 
@@ -290,7 +288,7 @@ int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey)
 		}
 		memcpy(kbuf, tmp1, 16);
 
-		retv = do_kirk4(kirk_buf, 0x10, code);
+		retv = do_kirk4(kirk, kirk->kirk_buf, 0x10, code);
 		if(retv)
 			goto _exit;
 
@@ -310,29 +308,29 @@ _exit:
 	return retv;
 }
 
-int sceDrmBBMacFinal2(MAC_KEY *mkey, u8 *out, u8 *vkey)
+int sceDrmBBMacFinal2(KirkState *kirk, MAC_KEY *mkey, u8 *out, u8 *vkey)
 {
 	int i, retv, type;
 	u8 *kbuf, tmp[16];
 
 	type = mkey->type;
-	retv = sceDrmBBMacFinal(mkey, tmp, vkey);
+	retv = sceDrmBBMacFinal(kirk, mkey, tmp, vkey);
 	if(retv)
 		return retv;
 
-	kbuf = kirk_buf+0x14;
+	kbuf = kirk->kirk_buf+0x14;
 
 	// decrypt bbmac
 	if(type==3){
 		memcpy(kbuf, out, 0x10);
-		do_kirk7(kirk_buf, 0x10, 0x63);
+		do_kirk7(kirk, kirk->kirk_buf, 0x10, 0x63);
 	}else{
-		memcpy(kirk_buf, out, 0x10);
+		memcpy(kirk->kirk_buf, out, 0x10);
 	}
 
 	retv = 0;
 	for(i=0; i<0x10; i++){
-		if(kirk_buf[i]!=tmp[i]){
+		if(kirk->kirk_buf[i]!=tmp[i]){
 			retv = 0x80510300;
 			break;
 		}
@@ -342,34 +340,34 @@ int sceDrmBBMacFinal2(MAC_KEY *mkey, u8 *out, u8 *vkey)
 }
 
 // get key from bbmac
-int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey)
+int bbmac_getkey(KirkState *kirk, MAC_KEY *mkey, u8 *bbmac, u8 *vkey)
 {
 	int i, retv, type, code;
 	u8 *kbuf, tmp[16], tmp1[16];
 
 	type = mkey->type;
-	retv = sceDrmBBMacFinal(mkey, tmp, NULL);
+	retv = sceDrmBBMacFinal(kirk, mkey, tmp, NULL);
 	if(retv)
 		return retv;
 
-	kbuf = kirk_buf+0x14;
+	kbuf = kirk->kirk_buf+0x14;
 
 	// decrypt bbmac
 	if(type==3){
 		memcpy(kbuf, bbmac, 0x10);
-		do_kirk7(kirk_buf, 0x10, 0x63);
+		do_kirk7(kirk, kirk->kirk_buf, 0x10, 0x63);
 	}else{
-		memcpy(kirk_buf, bbmac, 0x10);
+		memcpy(kirk->kirk_buf, bbmac, 0x10);
 	}
 
-	memcpy(tmp1, kirk_buf, 16);
+	memcpy(tmp1, kirk->kirk_buf, 16);
 	memcpy(kbuf, tmp1, 16);
 
 	code = (type==2)? 0x3A : 0x38;
-	do_kirk7(kirk_buf, 0x10, code);
+	do_kirk7(kirk, kirk->kirk_buf, 0x10, code);
 
 	for(i=0; i<0x10; i++){
-		vkey[i] = tmp[i] ^ kirk_buf[i];
+		vkey[i] = tmp[i] ^ kirk->kirk_buf[i];
 	}
 
 	return 0;
@@ -377,7 +375,7 @@ int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey)
 
 /*************************************************************/
 
-static int sub_1F8(u8 *buf, int size, u8 *key, int key_type)
+static int sub_1F8(KirkState *kirk, u8 *buf, int size, u8 *key, int key_type)
 {
 	int i, retv;
 	u8 tmp[16];
@@ -385,7 +383,7 @@ static int sub_1F8(u8 *buf, int size, u8 *key, int key_type)
 	// copy last 16 bytes to tmp
 	memcpy(tmp, buf+size+0x14-16, 16);
 
-	retv = do_kirk7(buf, size, key_type);
+	retv = do_kirk7(kirk, buf, size, key_type);
 	if(retv)
 		return retv;
 
@@ -400,7 +398,7 @@ static int sub_1F8(u8 *buf, int size, u8 *key, int key_type)
 }
 
 
-static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
+static int sub_428(KirkState *kirk, u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 {
 	int i, retv;
 	u8 tmp1[16], tmp2[16];
@@ -412,9 +410,9 @@ static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 	}
 	
 	if(ckey->type==2)
-		retv = kirk8(kbuf, 16);
+		retv = kirk8(kirk, kbuf, 16);
 	else
-		retv = do_kirk7(kbuf, 16, 0x39);
+		retv = do_kirk7(kirk, kbuf, 16, 0x39);
 	if(retv)
 		return retv;
 
@@ -437,7 +435,7 @@ static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 		ckey->seed += 1;
 	}
 
-	retv = sub_1F8(kbuf, size, tmp1, 0x63);
+	retv = sub_1F8(kirk, kbuf, size, tmp1, 0x63);
 	if(retv)
 		return retv;
 
@@ -452,12 +450,12 @@ static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 //       2 use fuse id
 // mode: 1 for encrypt
 //       2 for decrypt
-int sceDrmBBCipherInit(CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 *version_key, u32 seed)
+int sceDrmBBCipherInit(KirkState *kirk, CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 *version_key, u32 seed)
 {
 	int i, retv;
 	u8 *kbuf;
 
-	kbuf = kirk_buf+0x14;
+	kbuf = kirk->kirk_buf+0x14;
 	ckey->type = type;
 	if(mode==2){
 		ckey->seed = seed+1;
@@ -472,18 +470,18 @@ int sceDrmBBCipherInit(CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 
 		retv = 0;
 	}else if(mode==1){
 		ckey->seed = 1;
-		retv = kirk14(kirk_buf);
+		retv = kirk14(kirk, kirk->kirk_buf);
 		if(retv)
 			return retv;
 
-		memcpy(kbuf, kirk_buf, 0x10);
+		memcpy(kbuf, kirk->kirk_buf, 0x10);
 		memset(kbuf+0x0c, 0, 4);
 
 		if(ckey->type==2){
 			for(i=0; i<16; i++){
 				kbuf[i] ^= loc_1CE4[i];
 			}
-			retv = kirk5(kirk_buf, 0x10);
+			retv = kirk5(kirk, kirk->kirk_buf, 0x10);
 			for(i=0; i<16; i++){
 				kbuf[i] ^= loc_1CF4[i];
 			}
@@ -491,7 +489,7 @@ int sceDrmBBCipherInit(CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 
 			for(i=0; i<16; i++){
 				kbuf[i] ^= loc_1CE4[i];
 			}
-			retv = do_kirk4(kirk_buf, 0x10, 0x39);
+			retv = do_kirk4(kirk, kirk->kirk_buf, 0x10, 0x39);
 			for(i=0; i<16; i++){
 				kbuf[i] ^= loc_1CF4[i];
 			}
@@ -514,7 +512,7 @@ int sceDrmBBCipherInit(CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 
 	return retv;
 }
 
-int sceDrmBBCipherUpdate(CIPHER_KEY *ckey, u8 *data, int size)
+int sceDrmBBCipherUpdate(KirkState *kirk, CIPHER_KEY *ckey, u8 *data, int size)
 {
 	int p, retv, dsize;
 
@@ -523,7 +521,7 @@ int sceDrmBBCipherUpdate(CIPHER_KEY *ckey, u8 *data, int size)
 
 	while(size>0){
 		dsize = (size>=0x0800)? 0x0800 : size;
-		retv = sub_428(kirk_buf, data+p, dsize, ckey);
+		retv = sub_428(kirk, kirk->kirk_buf, data+p, dsize, ckey);
 		if(retv)
 			break;
 		size -= dsize;
@@ -555,7 +553,7 @@ static const u8 key_363C[16] = {
 	0x38,0x20,0xD0,0x11,0x07,0xA3,0xFF,0x3E,0x0A,0x4C,0x20,0x85,0x39,0x10,0xB5,0x54,
 };
 
-int sceNpDrmGetFixedKey(u8 *key, char *npstr, int type)
+int sceNpDrmGetFixedKey(KirkState *kirk, u8 *key, char *npstr, int type)
 {
 	AES_ctx akey;
 	MAC_KEY mkey;
@@ -573,11 +571,11 @@ int sceNpDrmGetFixedKey(u8 *key, char *npstr, int type)
 	if(retv)
 		return retv;
 
-	retv = sceDrmBBMacUpdate(&mkey, (u8*)strbuf, 0x30);
+	retv = sceDrmBBMacUpdate(kirk, &mkey, (u8*)strbuf, 0x30);
 	if(retv)
 		return retv;
 
-	retv = sceDrmBBMacFinal(&mkey, key, (u8*)key_363C);
+	retv = sceDrmBBMacFinal(kirk, &mkey, key, (u8*)key_363C);
 	if(retv)
 		return 0x80550902;
 
@@ -600,7 +598,7 @@ int sceNpDrmGetFixedKey(u8 *key, char *npstr, int type)
 static const u8 dnas_key1A90[] = {0xED,0xE2,0x5D,0x2D,0xBB,0xF8,0x12,0xE5,0x3C,0x5C,0x59,0x32,0xFA,0xE3,0xE2,0x43};
 static const u8 dnas_key1AA0[] = {0x27,0x74,0xFB,0xEB,0xA4,0xA0,   1,0xD7,   2,0x56,0x9E,0x33,0x8C,0x19,0x57,0x83};
 
-PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
+PGD_DESC *pgd_open(KirkState *kirk, u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 {
 	PGD_DESC *pgd;
 	MAC_KEY mkey;
@@ -644,8 +642,8 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 
 	// MAC_0x80 check
 	sceDrmBBMacInit(&mkey, pgd->mac_type);
-	sceDrmBBMacUpdate(&mkey, pgd_buf+0x00, 0x80);
-	retv = sceDrmBBMacFinal2(&mkey, pgd_buf+0x80, fkey);
+	sceDrmBBMacUpdate(kirk, &mkey, pgd_buf+0x00, 0x80);
+	retv = sceDrmBBMacFinal2(kirk, &mkey, pgd_buf+0x80, fkey);
 	if(retv){
 		//ERROR_LOG(Log::HLE, "pgd_open: MAC_80 check failed!: %08x(%d)\n", retv, retv);
 		free(pgd);
@@ -654,10 +652,10 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 
 	// MAC_0x70
 	sceDrmBBMacInit(&mkey, pgd->mac_type);
-	sceDrmBBMacUpdate(&mkey, pgd_buf+0x00, 0x70);
+	sceDrmBBMacUpdate(kirk, &mkey, pgd_buf+0x00, 0x70);
 	if(pgd_vkey){
 		// use given vkey
-		retv = sceDrmBBMacFinal2(&mkey, pgd_buf+0x70, pgd_vkey);
+		retv = sceDrmBBMacFinal2(kirk, &mkey, pgd_buf+0x70, pgd_vkey);
 		if(retv){
 			//ERROR_LOG(Log::HLE, "pgd_open: MAC_70 check failed!: %08x(%d)\n", retv, retv);
 			free(pgd);
@@ -667,12 +665,12 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 		}
 	}else{
 		// get vkey from MAC_70
-		bbmac_getkey(&mkey, pgd_buf+0x70, pgd->vkey);
+		bbmac_getkey(kirk, &mkey, pgd_buf+0x70, pgd->vkey);
 	}
 
 	// decrypt PGD_DESC
-	sceDrmBBCipherInit(&ckey, pgd->cipher_type, 2, pgd_buf+0x10, pgd->vkey, 0);
-	sceDrmBBCipherUpdate(&ckey, pgd_buf+0x30, 0x30);
+	sceDrmBBCipherInit(kirk, &ckey, pgd->cipher_type, 2, pgd_buf+0x10, pgd->vkey, 0);
+	sceDrmBBCipherUpdate(kirk, &ckey, pgd_buf+0x30, 0x30);
 	sceDrmBBCipherFinal(&ckey);
 
 	pgd->data_size   = *(u32*)(pgd_buf+0x44);
@@ -692,7 +690,7 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	return pgd;
 }
 
-int pgd_decrypt_block(PGD_DESC *pgd, int block)
+int pgd_decrypt_block(KirkState *kirk, PGD_DESC *pgd, int block)
 {
 	CIPHER_KEY ckey;
 	u32 block_offset;
@@ -700,8 +698,8 @@ int pgd_decrypt_block(PGD_DESC *pgd, int block)
  	block_offset = block*pgd->block_size;
 
 	// decrypt block data
-	sceDrmBBCipherInit(&ckey, pgd->cipher_type, 2, pgd->dkey, pgd->vkey, block_offset>>4);
-	sceDrmBBCipherUpdate(&ckey, pgd->block_buf, pgd->block_size);
+	sceDrmBBCipherInit(kirk, &ckey, pgd->cipher_type, 2, pgd->dkey, pgd->vkey, block_offset>>4);
+	sceDrmBBCipherUpdate(kirk, &ckey, pgd->block_buf, pgd->block_size);
 	sceDrmBBCipherFinal(&ckey);
 
 	return pgd->block_size;

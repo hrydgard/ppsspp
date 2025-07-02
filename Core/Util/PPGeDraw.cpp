@@ -1370,7 +1370,7 @@ bool PPGeImage::Load() {
 	width_ = 0;
 	height_ = 0;
 
-	unsigned char *textureData;
+	unsigned char *textureData = nullptr;
 	int success;
 	if (filename_.empty()) {
 		_dbg_assert_(size_ < MAX_VALID_IMAGE_SIZE);

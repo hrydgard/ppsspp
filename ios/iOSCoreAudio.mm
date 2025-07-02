@@ -74,41 +74,21 @@ void iOSCoreAudioSetDisplayConnected(bool connected) {
 	iOSCoreAudioUpdateSession();
 }
 
-int NativeMix(short *audio, int numSamples, int sampleRate);
+void NativeMix(short *audio, int numSamples, int sampleRate, void *userdata);
 
 OSStatus iOSCoreAudioCallback(void *inRefCon,
 							  AudioUnitRenderActionFlags *ioActionFlags,
 							  const AudioTimeStamp *inTimeStamp,
 							  UInt32 inBusNumber,
 							  UInt32 inNumberFrames,
-							  AudioBufferList *ioData)
-{
-	// see if we have any sound to play
+							  AudioBufferList *ioData) {
 	short *output = (short *)ioData->mBuffers[0].mData;
-	UInt32 framesReady = NativeMix(output, inNumberFrames, SAMPLE_RATE);
-	
-	if (framesReady == 0) {
-		// oops, we don't currently have any sound, so return silence
-		*ioActionFlags |= kAudioUnitRenderAction_OutputIsSilence;
-	}
-	
-	/* 
-	 * You'd think iOS would want to know how many frames were
-	 * actually generated in case it was less than asked for, but
-	 * apparently that causes micro-stuttering and everything just
-	 * works better if we lie and say we successfully generated as
-	 * many frames as it wanted... weird. We still get micro-stuttering
-	 * but it's less noticeable this way.
-	 */ 
-	//UInt32 bytesReady = framesReady * sizeof(short) * 2;
-	UInt32 bytesReady = inNumberFrames * sizeof(short) * 2;
-	ioData->mBuffers[0].mDataByteSize = bytesReady;
-	
+	NativeMix(output, inNumberFrames, SAMPLE_RATE, nullptr);
+	ioData->mBuffers[0].mDataByteSize = inNumberFrames * sizeof(short) * 2;
 	return noErr;
 }
 
-void iOSCoreAudioInit()
-{
+void iOSCoreAudioInit() {
 	iOSCoreAudioUpdateSession();
 
 	NSError *error = nil;

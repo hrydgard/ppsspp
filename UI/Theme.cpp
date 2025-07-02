@@ -50,7 +50,7 @@ struct ThemeInfo {
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleBg = 0x00000000;
 	uint32_t uPopupStyleFg = 0xFFFFFFFF;
-	uint32_t uPopupStyleBg = 0xFF303030;
+	uint32_t uPopupStyleBg = 0xFF5E4D1F;
 	uint32_t uPopupTitleStyleFg = 0xFFFFFFFF;
 	uint32_t uPopupTitleStyleBg = 0x00000000;  // default to invisible
 	uint32_t uTooltipStyleFg = 0xFFFFFFFF;
@@ -59,6 +59,8 @@ struct ThemeInfo {
 	uint32_t uCollapsibleHeaderStyleBg = 0x55000000;
 	uint32_t uBackgroundColor = 0xFF754D24;
 	uint32_t uScrollbarColor = 0x80FFFFFF;
+	uint32_t uPopupSliderColor = 0xFFFFFFFF;
+	uint32_t uPopupSliderFocusedColor = 0xFFEDC24C;
 
 	std::string sUIAtlas = "ui_atlas";
 
@@ -154,6 +156,8 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("CollapsibleHeaderStyleBg", &info.uCollapsibleHeaderStyleBg, info.uItemStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
 				section.Get("ScrollbarColor", &info.uScrollbarColor, info.uScrollbarColor);
+				section.Get("PopupSliderColor", &info.uPopupSliderColor, info.uPopupSliderColor);
+				section.Get("PopupSliderFocusedColor", &info.uPopupSliderFocusedColor, info.uPopupSliderFocusedColor);
 
 				std::string tmpPath;
 				section.Get("UIAtlas", &tmpPath, "");
@@ -262,6 +266,9 @@ void UpdateTheme(UIContext *ctx) {
 
 	ui_theme.backgroundColor = themeInfo.uBackgroundColor;
 	ui_theme.scrollbarColor = themeInfo.uScrollbarColor;
+
+	ui_theme.popupSliderColor = themeInfo.uPopupSliderColor;
+	ui_theme.popupSliderFocusedColor = themeInfo.uPopupSliderFocusedColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).
 	LoadAtlasMetadata(ui_atlas, (themeInfo.sUIAtlas + ".meta").c_str(), true);

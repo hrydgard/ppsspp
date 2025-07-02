@@ -215,7 +215,7 @@ void DrawEngineCommon::UpdatePlanes() {
 // * Compute min/max of the verts, and then compute a bounding sphere and check that against the planes.
 //   - Less accurate, but..
 //   - Only requires six plane evaluations then.
-bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, VertexDecoder *dec, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 1024) {
 		return true;
@@ -354,7 +354,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // corners. That way we can cull more draws quite cheaply.
 // We could take the min/max during the regular vertex decode, and just skip the draw call if it's trivially culled.
 // This would help games like Midnight Club (that one does a lot of out-of-bounds drawing) immensely.
-bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
 
@@ -527,25 +527,21 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, V
 
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions.
-bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 16) {
 		return true;
 	}
-
-	float *verts = (float *)(decoded_ + 65536 * 18);
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
 		return true;
 
-	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
-	// and a large vertex format.
-	u8 *temp_buffer = decoded_ + 65536 * 24;
-	// Simple, most common case.
-	int stride = dec->VertexSize();
-	int offset = dec->posoff;
+	const int stride = dec->VertexSize();
+	const int posOffset = dec->posoff;
+
+	*bytesRead = stride * vertexCount;
 
 	bool allOutsideLeft = true;
 	bool allOutsideTop = true;
@@ -559,10 +555,11 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_FLOAT:
 	{
+		// TODO: This can be SIMD'd, with some trickery.
 		for (int i = 0; i < vertexCount; i++) {
-			float *pos = (float*)((const u8 *)vdata + stride * i + offset);
-			float x = pos[0];
-			float y = pos[1];
+			const float *pos = (const float*)((const u8 *)vdata + stride * i + posOffset);
+			const float x = pos[0];
+			const float y = pos[1];
 			if (x >= left) {
 				allOutsideLeft = false;
 			}
@@ -582,8 +579,9 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 		return true;
 	}
 	default:
+		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
-		return false;
+		return true;
 	}
 }
 
@@ -607,7 +605,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization.
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle) {
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
@@ -654,7 +652,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 	return cmd - start;
 }
 
-void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, int *bytesRead) {
+void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim)) {
 		Flush();
 	}
@@ -674,7 +672,7 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDec
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		Flush();
 	}
@@ -771,7 +769,7 @@ void DrawEngineCommon::BeginFrame() {
 	applySkinInDecode_ = g_Config.bSoftwareSkinning;
 }
 
-void DrawEngineCommon::DecodeVerts(VertexDecoder *dec, u8 *dest) {
+void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
 	if (!numDrawVerts_) {
 		return;
 	}
@@ -1025,7 +1023,7 @@ bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim,
 	return true;
 }
 
-void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
+void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
 	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
 		return;
 	}
@@ -1076,7 +1074,7 @@ void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, VertexDecoder 
 	// FlushQueuedDepth();
 }
 
-void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
+void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount) {
 	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
 		return;
 	}

@@ -131,7 +131,7 @@ CtrlRegisterList::CtrlRegisterList(HWND _wnd)
 	: wnd(_wnd) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
 
-	const float fontScale = 1.0f / g_display.dpi_scale_real;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	rowHeight = g_Config.iFontHeight * fontScale;
 	int charWidth = g_Config.iFontWidth * fontScale;
 	font = CreateFont(rowHeight, charWidth, 0, 0,

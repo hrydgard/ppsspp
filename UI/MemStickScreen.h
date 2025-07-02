@@ -116,6 +116,8 @@ private:
 
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
+	bool folderConflict_;
+
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	bool moveData_ = false;
 #else
@@ -126,10 +128,8 @@ private:
 	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
 	UI::TextView *newFreeSpaceView_ = nullptr;
-	UI::TextView *oldFreeSpaceView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;
-	Promise<SpaceResult *> *oldSpaceTask_ = nullptr;
 	Promise<SpaceResult *> *newSpaceTask_ = nullptr;
 
 	std::string error_;

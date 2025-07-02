@@ -18,6 +18,8 @@ enum CommonToggles {
 	Off,
 };
 
+enum MemorySearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND, SEARCH_CANCEL};
+enum MemorySearchType {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT_32, STRING, STRING_16,  BYTE_SEQ};
 class ImMemView {
 public:
 	ImMemView();
@@ -29,7 +31,6 @@ public:
 	MIPSDebugInterface *getDebugger() {
 		return debugger_;
 	}
-	std::vector<u32> searchString(const std::string &searchQuery);
 	void Draw(ImDrawList *drawList);
 	// void onVScroll(WPARAM wParam, LPARAM lParam);
 	// void onKeyDown(WPARAM wParam, LPARAM lParam);
@@ -43,6 +44,14 @@ public:
 	void toggleOffsetScale(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
 
+	void toggleEditableMemory(bool toggle);
+	void toggleDrawZeroDark(bool toggle);
+	void initSearch(const char* str, MemorySearchType type);
+	void continueSearch();
+	MemorySearchStatus SearchStatus();
+	bool SearchEmpty();
+	uint32_t SearchMatchAddress();
+
 	const std::string &StatusMessage() const {
 		return statusMessage_;
 	}
@@ -50,9 +59,9 @@ public:
 private:
 	void ProcessKeyboardShortcuts(bool focused);
 
-	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
+	bool ParseSearchString(const char* query, MemorySearchType mode);
 	void updateStatusBarText();
-	void search(bool continueSearch);
+	MemorySearchStatus search(bool continueSearch);
 
 	enum class GotoMode {
 		RESET,
@@ -67,6 +76,24 @@ private:
 	void ScrollWindow(int lines, GotoMode mdoe);
 	void ScrollCursor(int bytes, GotoMode mdoe);
 	void PopupMenu();
+
+	void EditMemory(int i);
+	struct MemorySearch{
+		// keep search related variables grouped
+		std::vector<u8> data;
+		uint8_t* fast_data;
+		size_t fast_size;
+		u32 searchAddress;
+		u32 matchAddress;
+		u32 segmentStart;
+		u32 segmentEnd;
+		bool searching;
+		MemorySearchStatus status;
+	} memSearch_;
+
+	std::vector<u8> byteClipboard_;
+	void CopyToByteClipboard();
+	void PasteFromByteClipboard();
 
 	static wchar_t szClassName[];
 	MIPSDebugInterface *debugger_ = nullptr;
@@ -109,12 +136,8 @@ private:
 	// Number of rows visible as of last redraw.
 	int visibleRows_ = 0;
 
-	// Last used search query, used when continuing a search.
-	std::string searchQuery_;
-	// Address of last match when continuing search.
-	uint32_t matchAddress_ = 0xFFFFFFFF;
-	// Whether a search is in progress.
-	bool searching_ = false;
+	bool drawZeroDark_ = false;
+	bool editableMemory_ = false;
 
 	std::string statusMessage_;
 };
@@ -170,13 +193,21 @@ private:
 	enum {
 		INVALID_ADDR = 0xFFFFFFFF,
 	};
-
+	void ProcessKeyboardShortcuts();
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
 	bool symsDirty_ = true;
 	int selectedSymbol_ = -1;
 	char selectedSymbolName_[128];
 
+	bool drawZeroDark_ = false;
+	bool editableMemory_ = false;
+
+	int searchFormFlags_=0;
+	bool focusSearchValueInput_ = false;
+	MemorySearchType selectedSearchType_ = BITS_8;
+	char searchStr_[512];
+	// store the state of the search form
 	ImMemView memView_;
 	char searchTerm_[64]{};
 

@@ -10,6 +10,7 @@
 #import "DisplayManager.h"
 #include "Controls.h"
 #import "iOSCoreAudio.h"
+#import "IAPManager.h"
 
 #import <GLKit/GLKit.h>
 #include <cassert>
@@ -24,6 +25,7 @@
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Request.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
@@ -102,6 +104,9 @@ id<PPSSPPViewController> sharedViewController;
 	IOSGLESContext *graphicsContext;
 	LocationHelper *locationHelper;
 	CameraHelper *cameraHelper;
+
+	int imageRequestId;
+	NSString *imageFilename;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
@@ -233,6 +238,16 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::G3D, "viewDidAppear");
 	[self hideKeyboard];
 	[self updateGesture];
+
+	// This needs to be called really late during startup, unfortunately.
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
+	NSLog(@"Metal viewDidAppear. updating icon");
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		[[IAPManager sharedIAPManager] updateIcon:false];
+		[self hideKeyboard];
+	});
+#endif  // IOS_APP_STORE
 }
 
 - (void)viewDidLoad {
@@ -584,6 +599,47 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		INFO_LOG(Log::System, "resignFirstResponder");
 		[self resignFirstResponder];
 	});
+}
+
+- (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId {
+	imageRequestId = requestId;
+	imageFilename = saveFilename;
+	NSLog(@"Picking photo to save to %@ (id: %d)", saveFilename, requestId);
+
+	UIImagePickerController *picker = [[UIImagePickerController alloc] init];
+	picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+	picker.delegate = self;
+	[self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)imagePickerController:(UIImagePickerController *)picker
+		didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info {
+
+	UIImage *image = info[UIImagePickerControllerOriginalImage];
+
+	// Convert to JPEG with 90% quality
+	NSData *jpegData = UIImageJPEGRepresentation(image, 0.9);
+	if (jpegData) {
+		// Do something with the JPEG data (e.g., save to file)
+		[jpegData writeToFile:imageFilename atomically:YES];
+		NSLog(@"Saved JPEG image to %@", imageFilename);
+		g_requestManager.PostSystemSuccess(imageRequestId, "", 1);
+	} else {
+		g_requestManager.PostSystemFailure(imageRequestId);
+	}
+
+	[picker dismissViewControllerAnimated:YES completion:nil];
+	[self hideKeyboard];
+}
+
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
+	NSLog(@"User cancelled image picker");
+
+	[picker dismissViewControllerAnimated:YES completion:nil];
+
+	// You can also call your custom callback or use the requestId here
+	g_requestManager.PostSystemFailure(imageRequestId);
+	[self hideKeyboard];
 }
 
 @end

@@ -83,7 +83,11 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 
 	INFO_LOG(Log::System, "Installing exception handler");
 	g_badAccessHandler = badAccessHandler;
+#ifdef USE_ASAN
+	g_vectoredExceptionHandle = AddVectoredExceptionHandler(FALSE, GlobalExceptionHandler);
+#else
 	g_vectoredExceptionHandle = AddVectoredExceptionHandler(TRUE, GlobalExceptionHandler);
+#endif
 }
 
 void UninstallExceptionHandler() {

@@ -483,49 +483,49 @@ bool __KernelCheckThreadCallbacks(PSPThread *thread, bool force);
 //////////////////////////////////////////////////////////////////////////
 //STATE BEGIN
 //////////////////////////////////////////////////////////////////////////
-int g_inCbCount = 0;
+static int g_inCbCount = 0;
 // Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
-SceUID currentCallbackThreadID = 0;
-int readyCallbacksCount = 0;
-SceUID currentThread;
-PSPThread *currentThreadPtr;
-u32 idleThreadHackAddr;
-u32 threadReturnHackAddr;
-u32 hleReturnHackAddr;
-u32 cbReturnHackAddr;
-u32 intReturnHackAddr;
-u32 extendReturnHackAddr;
-u32 moduleReturnHackAddr;
-std::vector<ThreadCallback> threadEndListeners;
+static SceUID currentCallbackThreadID = 0;
+static int readyCallbacksCount = 0;
+static SceUID currentThread;
+static PSPThread *currentThreadPtr;
+static u32 idleThreadHackAddr;
+static u32 threadReturnHackAddr;
+static u32 hleReturnHackAddr;
+static u32 cbReturnHackAddr;
+static u32 intReturnHackAddr;
+static u32 extendReturnHackAddr;
+static u32 moduleReturnHackAddr;
+static std::vector<ThreadCallback> threadEndListeners;
 
 typedef std::vector<SceUID> ThreadEventHandlerList;
 static std::map<SceUID, ThreadEventHandlerList> threadEventHandlers;
 static std::vector<SceUID> pendingDeleteThreads;
 
 // Lists all thread ids that aren't deleted/etc.
-std::vector<SceUID> threadqueue;
+static std::vector<SceUID> threadqueue;
 // Only for debugger, so not needed to read, just write.
-std::mutex threadqueueLock;
+static std::mutex threadqueueLock;
 
 // Lists only ready thread ids.
-ThreadQueueList threadReadyQueue;
+static ThreadQueueList threadReadyQueue;
 
-SceUID threadIdleID[2];
+static SceUID threadIdleID[2];
 
-int eventScheduledWakeup;
-int eventThreadEndTimeout;
+static int eventScheduledWakeup;
+static int eventThreadEndTimeout;
 
-bool dispatchEnabled = true;
+static bool dispatchEnabled = true;
 
-MipsCallManager mipsCalls;
-int actionAfterCallback;
-int actionAfterMipsCall;
+static MipsCallManager mipsCalls;
+static int actionAfterCallback;
+static int actionAfterMipsCall;
 
 // When inside a callback, delays are "paused", and rechecked after the callback returns.
-std::map<SceUID, u64> pausedDelays;
+static std::map<SceUID, u64> pausedDelays;
 
 // Doesn't need state saving.
-WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
+static WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
 
 // Doesn't really need state saving, just for logging purposes.
 static u64 lastSwitchCycles = 0;
@@ -747,7 +747,6 @@ static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 	*ptr = pos;
 	pos += 8;
 	WriteHLESyscall("FakeSysCalls", nid, *ptr);
-	MIPSAnalyst::PrecompileFunction(*ptr, 8);
 }
 
 u32 HLEMipsCallReturnAddress() {
@@ -1820,6 +1819,14 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	if (!threadName) {
 		ERROR_LOG(Log::sceKernel, "__KernelCreateThread: NULL thread name");
 		return SCE_KERNEL_ERROR_ERROR;
+	}
+	for (int i = 0; i < 4; i++) {
+		if ((u8)threadName[i] >= 0xf0) {
+			WARN_LOG(Log::sceKernel, "Overriding bad thread name to badThreadName. first 4 bytes: %02x %02x %02x %02x", threadName[0], threadName[1], threadName[2], threadName[3]);
+			// Smash Court Tennis gives us an unprintable thread name, messing up logs.
+			threadName = "badThreadName";
+			break;
+		}
 	}
 
 	if ((u32)stacksize < 0x200) {

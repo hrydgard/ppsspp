@@ -23,12 +23,11 @@
 #include "Core/Compatibility.h"
 #include "Core/Loaders.h"
 
-enum GPUCore {
-	GPUCORE_GLES,
-	GPUCORE_SOFTWARE,
-	GPUCORE_DIRECTX9,
-	GPUCORE_DIRECTX11,
-	GPUCORE_VULKAN,
+enum GPUCore : int {
+	GPUCORE_GLES = 0,
+	GPUCORE_SOFTWARE = 1,
+	GPUCORE_DIRECTX11 = 3,
+	GPUCORE_VULKAN = 4,
 };
 
 enum class FPSLimit {
@@ -49,8 +48,6 @@ enum class CPUCore;
 
 // PSP_CoreParameter()
 struct CoreParameter {
-	CoreParameter() {}
-
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 

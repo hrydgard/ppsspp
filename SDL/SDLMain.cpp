@@ -34,6 +34,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
+#include "Common/Audio/AudioBackend.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Net/Resolve.h"
@@ -105,7 +106,7 @@ static SDL_AudioSpec g_retFmt;
 
 static bool g_textFocusChanged;
 static bool g_textFocus;
-
+double g_audioStartTime = 0.0;
 
 // Window state to be transferred to the main SDL thread.
 static std::mutex g_mutexWindow;
@@ -134,7 +135,7 @@ int getDisplayNumber(void) {
 }
 
 void sdl_mixaudio_callback(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / (2 * 2), g_sampleRate);
+	NativeMix((short *)stream, len / (2 * 2), g_sampleRate, userdata);
 }
 
 static SDL_AudioDeviceID audioDev = 0;
@@ -155,21 +156,36 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		startDevice = g_Config.sAudioDevice;
 	}
 
+	// List available audio devices before trying to open, for debugging purposes.
+	const int deviceCount = SDL_GetNumAudioDevices(0);
+	if (deviceCount > 0) {
+		INFO_LOG(Log::Audio, "Available audio devices:");
+		for (int i = 0; i < deviceCount; i++) {
+			const char *deviceName = SDL_GetAudioDeviceName(i, 0);
+			INFO_LOG(Log::Audio, " * '%s'", deviceName);
+		}
+	} else {
+		INFO_LOG(Log::Audio, "Failed to list audio devices: retval=%d", deviceCount);
+	}
+
 	audioDev = 0;
 	if (!startDevice.empty()) {
+		INFO_LOG(Log::Audio, "Opening audio device: '%s'", startDevice.c_str());
 		audioDev = SDL_OpenAudioDevice(startDevice.c_str(), 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 		if (audioDev <= 0) {
-			WARN_LOG(Log::Audio, "Failed to open audio device: %s", startDevice.c_str());
+			WARN_LOG(Log::Audio, "Failed to open audio device '%s'", startDevice.c_str());
 		}
 	}
 	if (audioDev <= 0) {
 		if (audioDev < 0) {
-			INFO_LOG(Log::Audio, "SDL: Error: %s. Trying a different audio device", SDL_GetError());
+			WARN_LOG(Log::Audio, "SDL: Error: '%s'. Trying the default audio device", SDL_GetError());
+		} else {
+			INFO_LOG(Log::Audio, "Opening default audio device");
 		}
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
-		ERROR_LOG(Log::Audio, "Failed to open audio device: %s", SDL_GetError());
+		ERROR_LOG(Log::Audio, "Failed to open audio device '%s', second try. Giving up.", SDL_GetError());
 	} else {
 		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
 			ERROR_LOG(Log::Audio, "Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
@@ -227,6 +243,11 @@ void System_ShowKeyboard() {
 
 void System_Vibrate(int length_ms) {
 	// Ignore on PC
+}
+
+AudioBackend *System_CreateAudioBackend() {
+	// Use legacy mechanisms.
+	return nullptr;
 }
 
 static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType type) {
@@ -329,6 +350,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
+			if (success) {
+				g_requestManager.PostSystemSuccess(requestId, path.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		};
+		BrowseFileType fileType = BrowseFileType::IMAGE;
+		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
@@ -342,6 +376,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #else
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		// TODO: Add non-blocking support.
+		const std::string &title = param1;
+		std::vector<std::string> filters;
+		InitializeFilters(filters, BrowseFileType::IMAGE);
+		std::vector<std::string> result = pfd::open_file(title, "", filters).result();
+		if (!result.empty()) {
+			g_requestManager.PostSystemSuccess(requestId, result[0]);
+		} else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FILE:
 	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
 	{
@@ -453,7 +501,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
+		INFO_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
+		return true;
 	default:
+		INFO_LOG(Log::UI, "Unhandled system request %s", RequestTypeAsString(type));
 		return false;
 	}
 }
@@ -719,11 +771,14 @@ case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
 	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
-#if defined(MOBILE_DEVICE)
-		return false;
-#else
+#if PPSSPP_ARCH(64BIT) && !defined(MOBILE_DEVICE)
 		return true;
+#else
+		return false;
 #endif
+	// hack for testing - do not commit
+	case SYSPROP_USE_IAP:
+		return false;
 	default:
 		return false;
 	}
@@ -882,8 +937,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	// - SDL gives us motion events in "system DPI" points
 	// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
 	// - The UI code expects motion events in "logical DPI" points
-	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale;
-	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale;
+	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
+	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
 
 	switch (event.type) {
 	case SDL_QUIT:
@@ -994,11 +1049,16 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 					// since SDL does not have a separate
 					// UI thread.
 				}
-				if (ctrl && (k == SDLK_b))
-				{
-					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-					Core_Resume();
+
+				/*
+				// TODO: Enable this?
+				if (k == SDLK_F11) {
+#if !defined(MOBILE_DEVICE)
+					g_Config.bFullScreen = !g_Config.bFullScreen;
+					System_ToggleFullscreenState("");
+#endif
 				}
+				*/
 			}
 			break;
 		}
@@ -1034,10 +1094,10 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1047,15 +1107,15 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
-			KeyInput key;
+			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 			key.flags = KEY_DOWN;
@@ -1066,10 +1126,10 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			int w, h;
 			SDL_GetWindowSize(window, &w, &h);
-			TouchInput input;
+			TouchInput input{};
 			input.id = event.tfinger.fingerId;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 			input.flags = TOUCH_UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1134,7 +1194,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		break;
 	case SDL_MOUSEWHEEL:
 		{
-			KeyInput key;
+			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.flags = KEY_DOWN;
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -1232,12 +1292,20 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		if (event.adevice.iscapture == 0) {
 			const char *name = SDL_GetAudioDeviceName(event.adevice.which, 0);
 			if (!name) {
+				INFO_LOG(Log::Audio, "Got bogus new audio device notification");
 				break;
 			}
-			// Don't start auto switching for a second, because some devices init on start.
-			bool doAutoSwitch = g_Config.bAutoAudioDevice && time_now_d() > 1.0f;
+			// Don't start auto switching for a couple of seconds, because some devices init on start.
+			bool doAutoSwitch = g_Config.bAutoAudioDevice;
+			if ((time_now_d() - g_audioStartTime) < 3.0) {
+				INFO_LOG(Log::Audio, "Ignoring new audio device: %s (current: %s)", name, g_Config.sAudioDevice.c_str());
+				doAutoSwitch = false;
+			}
 			if (doAutoSwitch || g_Config.sAudioDevice == name) {
 				StopSDLAudioDevice();
+
+				INFO_LOG(Log::Audio, "!!! Auto-switching to new audio device: '%s'", name);
+
 				InitSDLAudioDevice(name ? name : "");
 			}
 		}
@@ -1245,6 +1313,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_AUDIODEVICEREMOVED:
 		if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
 			StopSDLAudioDevice();
+			INFO_LOG(Log::Audio, "Audio device removed, reselecting");
 			InitSDLAudioDevice();
 		}
 		break;
@@ -1613,6 +1682,7 @@ int main(int argc, char *argv[]) {
 	SDL_StopTextInput();
 
 	InitSDLAudioDevice();
+	g_audioStartTime = time_now_d();
 
 	if (joystick_enabled) {
 		joystick = new SDLJoystick();

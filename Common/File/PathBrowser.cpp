@@ -129,7 +129,7 @@ void PathBrowser::SetPath(const Path &path) {
 }
 
 void PathBrowser::RestrictToRoot(const Path &root) {
-	INFO_LOG(Log::IO, "Restricting to root: %s", root.c_str());
+	VERBOSE_LOG(Log::IO, "Restricting to root: %s", root.c_str());
 	restrictedRoot_ = root;
 }
 

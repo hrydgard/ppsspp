@@ -94,6 +94,9 @@ static bool show_upnp_port_option = true;
 static bool show_detect_frame_rate_option = true;
 static std::string changeProAdhocServer;
 
+void* unserialize_data = NULL;
+size_t unserialize_size = 0;
+
 namespace Libretro
 {
    LibretroGraphicsContext *ctx;
@@ -473,14 +476,18 @@ static std::string map_psp_language_to_i18n_locale(int val)
    }
 }
 
-static void check_variables(CoreParameter &coreParam)
-{
+static void check_dynamic_variables(CoreParameter &coreParam) {
    if (g_Config.bForceLagSync)
    {
       bool isFastForwarding;
       if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
-          coreParam.fastForward = isFastForwarding;
+         coreParam.fastForward = isFastForwarding;
    }
+}
+
+static void check_variables(CoreParameter &coreParam)
+{
+   check_dynamic_variables(coreParam);
 
    struct retro_variable var = {0};
    std::string sTextureShaderName_prev;
@@ -639,7 +646,7 @@ static void check_variables(CoreParameter &coreParam)
    var.key = "ppsspp_analog_sensitivity";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.fAnalogSensitivity = atof(var.value);
-   
+
    var.key = "ppsspp_memstick_inserted";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -1321,8 +1328,9 @@ namespace Libretro
    static void EmuFrame()
    {
       ctx->SetRenderTarget();
-      if (ctx->GetDrawContext())
+      if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
+      }
 
       if (gpu)
          gpu->BeginHostFrame();
@@ -1330,6 +1338,7 @@ namespace Libretro
       PSP_RunLoopWhileState();
       switch (coreState) {
       case CORE_NEXTFRAME:
+      case CORE_POWERDOWN:
          // Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
          coreState = CORE_RUNNING_CPU;
          break;
@@ -1451,6 +1460,7 @@ bool retro_load_game(const struct retro_game_info *game)
    retro_check_backend();
 
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
+
    INFO_LOG(Log::System, "Using %s backend", ctx->Ident());
 
    Core_SetGraphicsContext(ctx);
@@ -1505,8 +1515,9 @@ bool retro_load_game(const struct retro_game_info *game)
    // Launch the init process.
    if (!PSP_InitStart(coreParam)) {
       g_bootErrorString = coreParam.errorString;
-      // Can't really fail, the errors happen later during InitUpdate
+      // Can't really fail, the errors normally happen later during InitUpdate
       ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
+      g_pendingBoot = false;
       return false;
    }
 
@@ -1661,6 +1672,13 @@ void retro_run(void)
       coreState = CORE_RUNNING_CPU;
       g_bootErrorString.clear();
       g_pendingBoot = false;
+
+      if (unserialize_data) {
+         retro_unserialize(unserialize_data, unserialize_size);
+
+         free(unserialize_data);
+         unserialize_data = NULL;
+      }
    }
 
    // TODO: This seems dubious.
@@ -1676,6 +1694,8 @@ void retro_run(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
       && updated)
       check_variables(PSP_CoreParameter());
+   else
+      check_dynamic_variables(PSP_CoreParameter());
 
    retro_input();
 
@@ -1757,8 +1777,13 @@ bool retro_serialize(void *data, size_t size)
 
 bool retro_unserialize(const void *data, size_t size)
 {
-   if (!gpu) // The HW renderer isn't ready on first pass.
-      return false;
+   // The HW renderer isn't ready on first pass.
+   // So we save the data until we are ready to use it.
+   if (!gpu) {
+      unserialize_data = malloc(size);
+      memcpy(unserialize_data, data, size);
+      return true;
+   }
 
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)

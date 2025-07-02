@@ -172,7 +172,7 @@ enum class CullMode : uint8_t {
 	NONE,
 	FRONT,
 	BACK,
-	FRONT_AND_BACK,  // Not supported on D3D9
+	FRONT_AND_BACK,
 };
 
 enum class Facing {
@@ -265,7 +265,6 @@ enum class Aspect {
 	STENCIL_BIT = 4,
 
 	// Implementation specific
-	SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
 	VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
 	FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
 };
@@ -625,9 +624,6 @@ struct DeviceCaps {
 	bool provokingVertexLast;  // GL behavior, what the PSP does
 	bool verySlowShaderCompiler;
 
-	// From the other backends, we can detect if D3D9 support is known bad (like on Xe) and disable it.
-	bool supportsD3D9;
-
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;
 
@@ -802,11 +798,6 @@ public:
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}
 
-	// deprecated, only used by D3D9
-	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, Aspect aspect, int attachment) {
-		return 0;
-	}
-
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
 	// Could be useful in OpenGL ES to give hints about framebuffers on tiler GPUs
@@ -832,7 +823,6 @@ public:
 	// * Vulkan: VkImageView
 	// * D3D11: ID3D11ShaderResourceView*
 	// * OpenGL: GLRTexture
-	// * D3D9: LPDIRECT3DTEXTURE9
 	virtual void BindNativeTexture(int sampler, void *nativeTexture) = 0;
 
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.

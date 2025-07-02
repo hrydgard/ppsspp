@@ -31,7 +31,7 @@ namespace SaveState {
 		WARNING,
 		SUCCESS,
 	};
-	typedef std::function<void(Status status, std::string_view message, void *cbUserData)> Callback;
+	typedef std::function<void(Status status, std::string_view message)> Callback;
 
 	static const int NUM_SLOTS = 5;
 	static const char * const STATE_EXTENSION = "ppst";
@@ -47,11 +47,11 @@ namespace SaveState {
 	// Cycle through the 5 savestate slots
 	void PrevSlot();
 	void NextSlot();
-	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
-	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
+	void SaveSlot(const Path &gameFilename, int slot, Callback callback);
+	void LoadSlot(const Path &gameFilename, int slot, Callback callback);
 	bool UndoSaveSlot(const Path &gameFilename, int slot);
 	bool UndoLastSave(const Path &gameFilename);
-	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData = 0);
+	bool UndoLoad(const Path &gameFilename, Callback callback);
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(const Path &gameFilename, int slot);
 	bool HasUndoSaveInSlot(const Path &gameFilename, int slot);
@@ -73,22 +73,22 @@ namespace SaveState {
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(const Path &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
+	void Load(const Path &filename, int slot, Callback callback = Callback());
 
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(const Path &filename, int slot, Callback callback = Callback(), void *cbUserData = 0);
+	void Save(const Path &filename, int slot, Callback callback = Callback());
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = Callback(), void *cbUserData = 0);
+	void Verify(Callback callback = Callback());
 
 	// To go back to a previous snapshot (only if enabled.)
 	// Warning: callback will be called on a different thread.
-	void Rewind(Callback callback = Callback(), void *cbUserData = 0);
+	void Rewind(Callback callback = Callback());
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
@@ -108,8 +108,8 @@ namespace SaveState {
 	// Notify save state code that new save data has been written.
 	void NotifySaveData();
 
-	// Cleanup by triggering a restart if needed.
-	void Cleanup();
+	// Checks whether a bad load required the caller to trigger a restart (and if returns true, resets the flag internally).
+	bool PollRestartNeeded();
 
 	// Returns the time since last save. -1 if N/A.
 	double SecondsSinceLastSavestate();

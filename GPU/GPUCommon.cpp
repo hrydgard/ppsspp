@@ -1197,8 +1197,10 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Approximate based on timings of several counts on a PSP.
 	cyclesExecuted += count * 22;
 
-	const bool useInds = (gstate.vertType & GE_VTYPE_IDX_MASK) != 0;
-	VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(gstate.vertType);
+	const u32 vertType = gstate.vertType;
+
+	const bool useInds = (vertType & GE_VTYPE_IDX_MASK) != 0;
+	const VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(vertType);
 	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
@@ -1207,23 +1209,17 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		currentList->bboxResult = true;
 		return;
 	}
-
-	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	if (!control_points) {
-		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Invalid verts in bounding box check");
-		currentList->bboxResult = true;
-		return;
-	}
+	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);  // we checked the range above.
 
 	const void *inds = nullptr;
 	if (useInds) {
-		int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
-		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-		if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+		const int indexSizeShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+		if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexSizeShift)) {
 			ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
+		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	// Test if the bounding box is within the drawing region.
@@ -1231,12 +1227,12 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	if (count > 0x200) {
 		// The second to last set of 0x100 is checked (even for odd counts.)
 		size_t skipSize = (count - 0x200) * dec->VertexSize();
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, dec, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, dec, vertType);
 	} else if (count > 0x100) {
 		int checkSize = count - 0x100;
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, dec, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, dec, vertType);
 	} else {
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, vertType);
 	}
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }

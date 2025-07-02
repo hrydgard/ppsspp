@@ -253,7 +253,7 @@ void DrawEngineGLES::Flush() {
 
 	GEPrimitiveType prim = prevPrim_;
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !CanUseHardwareTransform(prim), &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(CanUseHardwareTransform(prim), useHWTessellation_, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !CanUseHardwareTransform(prim), &vsid);
 
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
@@ -320,7 +320,7 @@ void DrawEngineGLES::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		VertexDecoder *swDec = dec_;
+		const VertexDecoder *swDec = dec_;
 		if (swDec->nweights != 0) {
 			u32 withSkinning = lastVType_ | (1 << 26);
 			if (withSkinning != lastVType_) {

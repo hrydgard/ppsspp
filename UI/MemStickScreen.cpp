@@ -136,19 +136,19 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 		holder->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!"), flags, false))->SetBullet(true);
 #if !PPSSPP_PLATFORM(UWP)
-#if GOLD
-		holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
-#else
-		holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
-#endif
+		if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+			holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
+		} else {
+			holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
+		}
 #endif
 		break;
 	case MemStickScreen::CHOICE_SET_MANUAL:
+		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP"), flags, false))->SetBullet(true);
+		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+		break;
 	default:
 		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
-		// What more?
-
-		// Should we have a special text here? It'll popup a text window for editing.
 		break;
 	}
 }
@@ -206,10 +206,16 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, ms->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 
 		// TODO: Show current folder here if we have one set.
-	} else {
+	}
+
+#ifdef ANDROID_LEGACY
+	constexpr bool legacy = true;
+#else
+	constexpr bool legacy = false;
+#endif
+
+	if (!storageBrowserWorking_ || legacy) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_SET_MANUAL, ms->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
-		leftColumn->Add(new TextView(ms->T("DataWillStay", "Data will stay even if you uninstall PPSSPP.")))->SetBullet(true);
-		leftColumn->Add(new TextView(ms->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		// TODO: Show current folder here if we have one set.
 	}
 	errorNoticeView_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("Cancelled - try again"), ""));
@@ -458,24 +464,41 @@ void MemStickScreen::update() {
 
 ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup)
 	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
+	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
+	if (!oldMemstickFolder.empty()) {
+		folderConflict_ = newMemstickFolder != oldMemstickFolder && newMemstickFolder.StartsWithGlobalAndNotEqual(oldMemstickFolder);
+	} else {
+		folderConflict_ = false;
+	}
+	INFO_LOG(Log::System, "Old: '%s'", oldMemstickFolder.c_str());
+	INFO_LOG(Log::System, "New: '%s'", newMemstickFolder.c_str());
+
+	// TODO: If you reinstall the app and start by selecting a subfolder of the PSP folder, we don't detect and warn about that -
+	// we can only warn if there's a known previous folder :(
+
 	if (initialSetup_) {
 		moveData_ = false;
 	}
+
+	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [newMemstickFolder]() -> SpaceResult * {
+		int64_t freeSpaceNew;
+		INFO_LOG(Log::System, "Computing free space in '%s'", newMemstickFolder.c_str());
+		free_disk_space(newMemstickFolder, freeSpaceNew);
+		return new SpaceResult{ freeSpaceNew };
+	}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 }
 
 ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
+	// We should no longer end up blocking here since the back button is disabled until the tasks are done.
 	if (moveDataTask_) {
 		INFO_LOG(Log::System, "Move Data task still running, blocking on it");
 		moveDataTask_->BlockUntilReady();
 		delete moveDataTask_;
 	}
-	if (oldSpaceTask_) {
-		oldSpaceTask_->BlockUntilReady();
-		delete oldSpaceTask_;
-	}
+	// This we just cancel / leak.
 	if (newSpaceTask_) {
-		newSpaceTask_->BlockUntilReady();
+		newSpaceTask_->Cancel();
 		delete newSpaceTask_;
 	}
 }
@@ -487,7 +510,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	Path &oldMemstickFolder = g_Config.memStickDirectory;
+	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
@@ -498,17 +521,12 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(ms->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
-		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("PPSSPP will restart after the change"), ""));
+		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("PPSSPP will restart after the change"), ""));
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 
-	newFreeSpaceView_ = leftColumn->Add(new TextView(ms->T("Free space"), ALIGN_LEFT, false));
-
-	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [&]() -> SpaceResult * {
-		int64_t freeSpaceNew;
-		free_disk_space(newMemstickFolder_, freeSpaceNew);
-		return new SpaceResult{ freeSpaceNew };
-	}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
+	// TODO: Add spinner
+	newFreeSpaceView_ = leftColumn->Add(new TextView(ApplySafeSubstitutions("%1: ...", ms->T("Free space")), ALIGN_LEFT, false));
 
 	if (existingFilesInNewFolder_) {
 		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
@@ -516,20 +534,18 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 			leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("No data will be changed"), ""));
 		}
 	}
+
+	if (folderConflict_) {
+		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("The new folder is inside the previous one"), ""));
+	}
+
 	if (!error_.empty()) {
 		leftColumn->Add(new TextView(error_, ALIGN_LEFT, false));
 	}
 
 	if (!oldMemstickFolder.empty()) {
-		oldSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [&]() -> SpaceResult * {
-			int64_t freeSpaceOld;
-			free_disk_space(oldMemstickFolder, freeSpaceOld);
-			return new SpaceResult{ freeSpaceOld };
-		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
-
 		rightColumn->Add(new TextView(std::string(ms->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
-		oldFreeSpaceView_ = rightColumn->Add(new TextView(ms->T("Free space"), ALIGN_LEFT, false));
 	}
 
 	if (moveDataTask_) {
@@ -545,7 +561,12 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
-		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Add([this](UI::EventParams &params) {
+			if (moveDataTask_ && !moveDataTask_->Poll()) {
+				return UI::EVENT_DONE;
+			}
+			return UIScreen::OnBack(params);
+		});
 	}
 }
 
@@ -573,7 +594,7 @@ void ConfirmMemstickMoveScreen::update() {
 				FinishFolderMove();
 			} else {
 				progressReporter_.SetProgress(ms->T("Failed to move some files!"));
-				INFO_LOG(Log::System, "Move data task failed!");
+				INFO_LOG(Log::System, "Move data task finished with failures!");
 				// What do we do here? We might be in the middle of a move... Bad.
 				RecreateViews();
 			}
@@ -590,14 +611,6 @@ void ConfirmMemstickMoveScreen::update() {
 			newSpaceTask_ = nullptr;
 		}
 	}
-	if (oldSpaceTask_ && oldFreeSpaceView_) {
-		SpaceResult *result = oldSpaceTask_->Poll();
-		if (result) {
-			oldFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
-			delete oldSpaceTask_;
-			oldSpaceTask_ = nullptr;
-		}
-	}
 }
 
 UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
@@ -612,7 +625,9 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
-			return MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_);
+			MoveResult *result = MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_);
+			NOTICE_LOG(Log::System, "Move task finished: %d", (int)(result != nullptr));
+			return result;
 		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
 		RecreateViews();
@@ -635,6 +650,8 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 		return;
 	}
 
+	INFO_LOG(Log::System, "Move from '%s' to '%s' complete. Updating config.", oldMemstickFolder.c_str(), newMemstickFolder_.c_str());
+
 	// If the chosen folder already had a config, reload it!
 	g_Config.Load();
 
@@ -647,14 +664,17 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	if (!initialSetup_) {
 		// We restart the app here, to get the new settings.
+		INFO_LOG(Log::System, "Not initial setup. Restarting!");
 		System_RestartApp("");
 	} else {
 		// This is initial setup, we now switch to the main screen, if we were successful
 		// (which we better have been...)
 		if (g_Config.Save("MemstickPathChanged")) {
+			INFO_LOG(Log::System, "Initial setup succeeded. Switching to main screen!");
 			// TriggerFinish(DialogResult::DR_OK);
 			screenManager()->switchScreen(new MainScreen());
 		} else {
+			INFO_LOG(Log::System, "Initial setup failed.");
 			error_ = ms->T("Failed to save config");
 			RecreateViews();
 		}

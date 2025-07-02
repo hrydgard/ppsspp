@@ -154,8 +154,8 @@ public:
 			dc.Draw()->RectVGradient(x, wave1*bounds.h, nextX, bounds.h, color, 0x00000000);
 
 			// Add some "antialiasing"
-			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps, nextX, wave0 * bounds.h, 0x00000000, color);
-			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps, nextX, wave1 * bounds.h, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps_y, nextX, wave0 * bounds.h, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps_y, nextX, wave1 * bounds.h, 0x00000000, color);
 		}
 
 		dc.Flush();
@@ -623,20 +623,33 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
+	const bool vertical = UseVerticalLayout();
+
 	root_ = new AnchorLayout();
+	ViewGroup *rightColumnItems;
 
-	root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
+	if (!vertical) {
+		// Horizontal layout.
+		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
+		rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
+		root_->Add(rightColumnItems);
+	} else {
+		// Vertical layout
+		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 55, NONE)))->SetClip(false);
+		// Leave space for the version at the bottom.
+		rightColumnItems = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(FILL_PARENT, WRAP_CONTENT, 15, NONE, 15, 65));
+		root_->Add(rightColumnItems);
+	}
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
-	root_->Add(rightColumnItems);
-
-	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
+	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
+	yesButton->SetCentered(vertical);
 	yesButton->OnClick.Add([this](UI::EventParams &e) {
 		TriggerFinish(DR_OK);
 		return UI::EVENT_DONE;
 	});
 	if (!noButtonText_.empty()) {
-		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_));
+		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
+		noButton->SetCentered(vertical);
 		noButton->OnClick.Add([this](UI::EventParams &e) {
 			TriggerFinish(DR_CANCEL);
 			return UI::EVENT_DONE;
@@ -644,7 +657,7 @@ void PromptScreen::CreateViews() {
 		root_->SetDefaultFocusView(noButton);
 	} else {
 		// This is an information screen, not a question.
-		// Sneak in the version of PPSSPP in the corner, for debug-reporting user screenshots.
+		// Sneak in the version of PPSSPP in the bottom left corner, for debug-reporting user screenshots.
 		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
 		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
 		root_->SetDefaultFocusView(yesButton);
@@ -864,6 +877,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T_cstr("created", "Created by"), 0xC3, 0xA5);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		UI::DrawIconShine(dc, Bounds::FromCenter(bounds.centerX() - 120, bounds.centerY() - 30, 60.0f), 0.7f, true);
 		dc.Draw()->DrawImage(ImageID("I_ICONGOLD"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
 	} else {
 		dc.Draw()->DrawImage(ImageID("I_ICON"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
@@ -903,11 +917,17 @@ void CreditsScreen::CreateViews() {
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 	root_->SetDefaultFocusView(back);
 
+	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
+
 	// Really need to redo this whole layout with some linear layouts...
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+		ScreenManager *sm = screenManager();
+		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Add([sm](UI::EventParams) {
+			LaunchBuyGold(sm);
+			return UI::EVENT_DONE;
+		});
 		rightYOffset = 74;
 	}
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
@@ -919,20 +939,12 @@ void CreditsScreen::CreateViews() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
-	} else {
-		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
-	}
-}
 
-UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
-#ifdef __ANDROID__
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
-#else
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
-#endif
-	return UI::EVENT_DONE;
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		root_->Add(new ShinyIcon(ImageID("I_ICONGOLD"), new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
+	} else {
+		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
+	}
 }
 
 UI::EventReturn CreditsScreen::OnX(UI::EventParams &e) {
@@ -1179,7 +1191,9 @@ void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {
 			}
 		}
 	}
-	text_->SetText(text);
+	if (text_) {
+		text_->SetText(text);
+	}
 	timeShown_ = time_now_d();
 }
 
@@ -1214,4 +1228,9 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 std::string SettingInfoMessage::GetText() const {
 	return (showing_ && text_) ? text_->GetText() : "";
+}
+
+void ShinyIcon::Draw(UIContext &dc) {
+	UI::DrawIconShine(dc, bounds_, 1.0f, animated_);
+	UI::ImageView::Draw(dc);
 }

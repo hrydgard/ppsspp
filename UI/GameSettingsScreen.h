@@ -210,3 +210,7 @@ private:
 };
 
 void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath);
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+void SetMemStickDirDarwin(int requesterToken);
+#endif

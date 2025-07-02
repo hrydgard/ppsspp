@@ -21,11 +21,8 @@ void FrameData::Init(VulkanContext *vulkan, int index) {
 	this->index = index;
 	VkDevice device = vulkan->GetDevice();
 
-	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-	semaphoreCreateInfo.flags = 0;
+	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	VkResult res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore);
-	_dbg_assert_(res == VK_SUCCESS);
-	res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore);
 	_dbg_assert_(res == VK_SUCCESS);
 
 	VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -69,7 +66,6 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 	vkDestroyFence(device, fence, nullptr);
 	vkDestroyQueryPool(device, profile.queryPool, nullptr);
 	vkDestroySemaphore(device, acquireSemaphore, nullptr);
-	vkDestroySemaphore(device, renderingCompleteSemaphore, nullptr);
 
 	readbacks_.IterateMut([=](const ReadbackKey &key, CachedReadback *value) {
 		value->Destroy(vulkan);
@@ -120,7 +116,7 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	present.swapchainCount = 1;
 	present.pSwapchains = &swapchain;
 	present.pImageIndices = &curSwapchainImage;
-	present.pWaitSemaphores = &renderingCompleteSemaphore;
+	present.pWaitSemaphores = &shared.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore;
 	present.waitSemaphoreCount = 1;
 
 	// Can't move these into the if.
@@ -232,7 +228,7 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 	submit_info.pCommandBuffers = cmdBufs;
 	if (type == FrameSubmitType::FinishFrame && !skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
+		submit_info.pSignalSemaphores = &sharedData.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore;
 	}
 
 	VkResult res;

@@ -251,7 +251,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (!g_Config.bShowOnScreenMessages || g_TakeScreenshot) {
+	if (g_TakeScreenshot) {
 		return;
 	}
 
@@ -447,7 +447,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
 			{
 				const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-				RenderAchievement(dc, achievement, measuredEntry.style, b, alpha, entry.startTime, now, false);
+				if (achievement) {
+					RenderAchievement(dc, achievement, measuredEntry.style, b, alpha, entry.startTime, now, false);
+				}
 				break;
 			}
 			case OSDType::LEADERBOARD_TRACKER:

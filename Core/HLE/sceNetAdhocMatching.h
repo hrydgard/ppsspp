@@ -44,3 +44,4 @@ void __NetAdhocMatchingInit();
 void __NetAdhocMatchingShutdown();
 
 extern bool netAdhocMatchingInited;
+extern int adhocMatchingEventDelay; //30000

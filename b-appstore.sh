@@ -14,6 +14,11 @@ if [[ -z "${GOLD}" ]]; then
   exit 1
 fi
 
+if [[ -z "${USE_IAP}" ]]; then
+  echo "USE_IAP is not set (should be YES or NO), exiting"
+  exit 1
+fi
+
 FOLDER_NAME="build-ios"
 
 if [[ "$GOLD" = "YES" ]]; then
@@ -21,6 +26,16 @@ if [[ "$GOLD" = "YES" ]]; then
   FOLDER_NAME="build-ios-gold"
 else
   echo "Non-GOLD build."
+fi
+
+if [[ "$USE_IAP" = "YES" ]]; then
+  if [[ "$GOLD" = "YES" ]]; then
+    echo "IAP and GOLD are both set to YES, which is invalid"
+    exit 1
+  fi
+  echo "IAP on."
+else
+  echo "IAP off."
 fi
 
 echo "Clearing and re-creating output directory"
@@ -31,7 +46,7 @@ pushd $FOLDER_NAME
 
 BUILD_TYPE=Release
 
-cmake .. -DIOS_APP_STORE=ON -DGOLD=$GOLD -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DDEVELOPMENT_TEAM_ID=${DEVTEAM} -DIOS_PLATFORM=OS -GXcode
+cmake .. -DIOS_APP_STORE=ON -DGOLD=$GOLD -DUSE_IAP=$USE_IAP -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DDEVELOPMENT_TEAM_ID=${DEVTEAM} -DIOS_PLATFORM=OS -GXcode
 # TODO: Get a MoltenVK somewhere.
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 popd

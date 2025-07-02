@@ -171,7 +171,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1, 1, TRUE);
 
-	const float fontScale = 1.0f / g_display.dpi_scale_real;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	charWidth = g_Config.iFontWidth * fontScale;
 	rowHeight = (g_Config.iFontHeight + 2) * fontScale;
 	int scaledFontHeight = g_Config.iFontHeight * fontScale;
@@ -529,8 +529,8 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SetTextColor(hdc,textColor);
 
 		char addressText[64];
-		GetDisasmAddressText(address,addressText,true,line.type == DISTYPE_OPCODE, displaySymbols);
-		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
+		GetDisasmAddressText(address, addressText, sizeof(addressText), true, line.type == DISTYPE_OPCODE, displaySymbols);
+		TextOutA(hdc, pixelPositions.addressStart, rowY1+2, addressText, (int)strlen(addressText));
 		
 		if (isInInterval(address,line.totalSize,debugger->GetPC()))
 		{
@@ -1252,7 +1252,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 		g_disassemblyManager.getLine(searchAddress,displaySymbols,lineInfo, debugger);
 
 		char addressText[64];
-		GetDisasmAddressText(searchAddress,addressText,true,lineInfo.type == DISTYPE_OPCODE, displaySymbols);
+		GetDisasmAddressText(searchAddress, addressText, sizeof(addressText), true, lineInfo.type == DISTYPE_OPCODE, displaySymbols);
 
 		const char* opcode = lineInfo.name.c_str();
 		const char* arguments = lineInfo.params.c_str();

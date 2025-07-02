@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "Common/TimeUtil.h"
+#include "Common/Data/Random/Rng.h"
 #include "Common/Log.h"
 
 #ifdef HAVE_LIBNX
@@ -288,7 +289,10 @@ void sleep_precise(double seconds) {
 			LARGE_INTEGER due;
 			due.QuadPart = -(sleepTicks > maxTicks ? maxTicks : sleepTicks);
 			// Note: SetWaitableTimerEx is not available on Vista.
-			SetWaitableTimer(Timer, &due, 0, NULL, NULL, FALSE);
+			if (!SetWaitableTimer(Timer, &due, 0, NULL, NULL, FALSE)) {
+				_dbg_assert_(false);
+				break;
+			}
 			WaitForSingleObject(Timer, INFINITE);
 			QueryPerformanceCounter(&qpc);
 		}
@@ -338,4 +342,12 @@ void GetCurrentTimeFormatted(char formattedTime[13]) {
 
 	// Now tack on the milliseconds
 	snprintf(formattedTime, 11, "%s:%03u", tmp, milliseconds % 1000);
+}
+
+// We don't even bother synchronizing this, it's fine if threads stomp a bit.
+static GMRng g_sleepRandom;
+
+void sleep_random(double minSeconds, double maxSeconds) {
+	const double waitSeconds = minSeconds + (maxSeconds - minSeconds) * g_sleepRandom.F();
+	sleep_precise(waitSeconds);
 }

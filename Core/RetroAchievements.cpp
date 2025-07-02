@@ -41,8 +41,8 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
-#include "Common/Crypto/md5.h"
 #include "Common/UI/IconCache.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -265,7 +265,7 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 	uint32_t orig_address = address;
 	address += PSP_MEMORY_OFFSET;
 
-	if (!Memory::ValidSize(address, num_bytes)) {
+	if (!Memory::IsValidRange(address, num_bytes)) {
 		// Some achievement packs are really, really spammy.
 		// So we'll just count the bad accesses.
 		Achievements::g_stats.badMemoryAccessCount++;
@@ -496,18 +496,25 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 		ERROR_LOG(Log::Achievements, "Callback: Failure logging in via token: %d, %s", result, error_message);
 		if (isInitialAttempt) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), "", g_RAImageID);
+			char message[512];
+			snprintf(message, sizeof(message), "%d: %s", result, error_message);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), message, g_RAImageID);
 		}
 
-		// Clear the token.
-		if (result == RC_INVALID_CREDENTIALS || result == RC_EXPIRED_TOKEN) {
-			g_Config.sAchievementsUserName.clear();
+		// Take some action.
+		switch (result) {
+		case RC_INVALID_CREDENTIALS:
+			g_loginResult = RC_OK;  // why?
+			break;
+		case RC_EXPIRED_TOKEN:
+			WARN_LOG(Log::Achievements, "Clearing token since it was expired");
 			NativeClearSecret(RA_TOKEN_SECRET_NAME);
-			g_loginResult = RC_OK;
-		} else {
+			g_loginResult = RC_OK;  // why?
+			break;
+		default:
 			g_loginResult = result;
+			break;
 		}
-
 		OnAchievementsLoginStateChange();
 		g_isLoggingIn = false;
 		return;
@@ -722,8 +729,7 @@ bool LoginAsync(const char *username, const char *password) {
 
 void Logout() {
 	rc_client_logout(g_rcClient);
-	// remove from config
-	g_Config.sAchievementsUserName.clear();
+	// remove secret from config
 	NativeClearSecret(RA_TOKEN_SECRET_NAME);
 	g_Config.Save("Achievements logout");
 	g_activeChallenges.clear();
@@ -945,13 +951,34 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
 			Achievements::DownloadImageIfMissing(cacheId, std::string(temp));
 		}
-		g_OSD.Show(OSDType::MESSAGE_INFO, std::string(gameInfo->title), GetGameAchievementSummary(), cacheId, 5.0f);
+
+		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());
+		auto ga = GetI18NCategory(I18NCat::GAME);
+		std::string_view regionStr = ga->T(GameRegionToString(region));
+		std::string title(gameInfo->title);
+		if (region != GameRegion::OTHER) {
+			title += " (";
+			title += regionStr;
+			title += ")";
+		}
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(), cacheId, 5.0f);
 		break;
 	}
 	case RC_NO_GAME_LOADED:
+	{
+		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());
+		auto ga = GetI18NCategory(I18NCat::GAME);
+		std::string_view regionStr = ga->T(GameRegionToString(region));
+		std::string title(g_paramSFO.GetValueString("TITLE"));
+		if (region != GameRegion::OTHER) {
+			title += " (";
+			title += regionStr;
+			title += ")";
+		}
 		// The current game does not support achievements.
-		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("RetroAchievements are not available for this game"), "", g_RAImageID, 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, ac->T("RetroAchievements are not available for this game"), g_RAImageID, 3.0f);
 		break;
+	}
 	case RC_NO_RESPONSE:
 		// We lost the internet connection at some point and can't report achievements.
 		ShowNotLoggedInMessage();
@@ -1016,9 +1043,10 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		//
 		// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here,
 		// we need a temporary blockdevice anyway since it gets consumed by ComputePSPISOHash.
-		BlockDevice *blockDevice(constructBlockDevice(fileLoader));
+		std::string errorString;
+		BlockDevice *blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 		if (!blockDevice) {
-			ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify", path.c_str());
+			ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 			g_isIdentifying = false;
 			return;
 		}
@@ -1079,9 +1107,10 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 		return;
 	}
 
-	BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+	std::string errorString;
+	BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
 	if (!blockDevice) {
-		ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify", path.c_str());
+		ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 		return;
 	}
 

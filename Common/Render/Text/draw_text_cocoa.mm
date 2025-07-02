@@ -32,7 +32,7 @@ enum {
 	MAX_TEXT_HEIGHT = 512
 };
 
-#define APPLE_FONT "Roboto-Condensed"
+#define APPLE_FONT "RobotoCondensed-Regular"
 
 // for future OpenEmu support
 #ifndef PPSSPP_FONT_BUNDLE
@@ -51,8 +51,35 @@ public:
 		static dispatch_once_t onceToken;
 		dispatch_once(&onceToken, ^{
 			NSURL *fontURL = [PPSSPP_FONT_BUNDLE URLForResource:@"Roboto-Condensed" withExtension:@"ttf" subdirectory:@"assets"];
+			if (!fontURL) {
+				NSLog(@"Font URL not found!");
+				return;
+			}
+			CFArrayRef descs = CTFontManagerCreateFontDescriptorsFromURL((__bridge CFURLRef)fontURL);
+			if (descs) {
+				CFIndex count = CFArrayGetCount(descs);
+				NSLog(@"Found %ld font descriptor(s)", count);
+
+				for (CFIndex i = 0; i < count; ++i) {
+					CTFontDescriptorRef desc = (CTFontDescriptorRef)CFArrayGetValueAtIndex(descs, i);
+					CFTypeRef attr = CTFontDescriptorCopyAttribute(desc, kCTFontNameAttribute);
+					if (attr && CFGetTypeID(attr) == CFStringGetTypeID()) {
+						CFStringRef name = (CFStringRef)attr;
+						NSLog(@"Descriptor #%ld: %@", i, name);
+						CFRelease(name);
+					} else {
+						NSLog(@"Descriptor #%ld: Unknown or non-string attribute", i);
+						if (attr) CFRelease(attr);
+					}
+				}
+
+				CFRelease(descs);
+			} else {
+				NSLog(@"Failed to retrieve font descriptors");
+			}
 			CTFontManagerRegisterFontsForURL((CFURLRef)fontURL, kCTFontManagerScopeProcess, NULL);
 		});
+
 		// Create an attributed string with string and font information
 		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
 		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);

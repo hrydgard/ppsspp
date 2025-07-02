@@ -102,8 +102,12 @@ void InstallZipScreen::CreateViews() {
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-			playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
-			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
+
+			// NOTE: We detect PBP isos (like demos) as game dirs currently. Can't play them directly.
+			if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+				playChoice_ = rightColumnItems->Add(new Choice(ga->T("Play")));
+				playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
+			}
 
 			returnToHomebrew_ = true;
 			showDeleteCheckbox = true;
@@ -152,7 +156,7 @@ void InstallZipScreen::CreateViews() {
 				compareColumns->Add(rightCompare);
 				existingSaveView_ = rightCompare->Add(new SavedataView(*screenManager()->getUIContext(), ginfo.get(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
 				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-					rightCompare->Add(new Button(ga->T("Show In Folder")))->OnClick.Add([=](UI::EventParams &) {
+					rightCompare->Add(new Button(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
 						System_ShowFileInFolder(savedataToOverwrite_);
 						return UI::EVENT_DONE;
 					});
@@ -214,6 +218,9 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	}
 	if (g_GameManager.InstallZipOnThread(task)) {
 		installStarted_ = true;
+		if (playChoice_) {
+			playChoice_->SetEnabled(false);  // need to exit this screen to played the installed one. We could make this smarter.
+		}
 		if (installChoice_) {
 			installChoice_->SetEnabled(false);
 		}
@@ -243,8 +250,9 @@ void InstallZipScreen::update() {
 			if (doneView_)
 				doneView_->SetText(iz->T(err));
 		} else if (installStarted_) {
-			if (doneView_)
+			if (doneView_) {
 				doneView_->SetText(iz->T("Installed!"));
+			}
 			MainScreen::showHomebrewTab = returnToHomebrew_;
 		}
 	}

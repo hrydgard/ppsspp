@@ -10,7 +10,7 @@
 // Include definitions from kirk header
 #include "kirk_engine.h"
 
-void bn_print(char *name, u8 *a, u32 n)
+void bn_print(char *name, const u8 *a, u32 n)
 {
 	u32 i;
 
@@ -27,12 +27,12 @@ static void bn_zero(u8 *d, u32 n)
 	memset(d, 0, n);
 }
 
-void bn_copy(u8 *d, u8 *a, u32 n)
+void bn_copy(u8 *d, const u8 *a, u32 n)
 {
 	memcpy(d, a, n);
 }
 
-int bn_compare(u8 *a, u8 *b, u32 n)
+int bn_compare(const u8 *a, const u8 *b, u32 n)
 {
 	u32 i;
 
@@ -46,7 +46,7 @@ int bn_compare(u8 *a, u8 *b, u32 n)
 	return 0;
 }
 
-static u8 bn_add_1(u8 *d, u8 *a, u8 *b, u32 n)
+static u8 bn_add_1(u8 *d, const u8 *a, const u8 *b, u32 n)
 {
 	u32 i;
 	u32 dig;
@@ -62,7 +62,7 @@ static u8 bn_add_1(u8 *d, u8 *a, u8 *b, u32 n)
 	return c;
 }
 
-static u8 bn_sub_1(u8 *d, u8 *a, u8 *b, u32 n)
+static u8 bn_sub_1(u8 *d, const u8 *a, const u8 *b, u32 n)
 {
 	u32 i;
 	u32 dig;
@@ -78,13 +78,13 @@ static u8 bn_sub_1(u8 *d, u8 *a, u8 *b, u32 n)
 	return 1 - c;
 }
 
-void bn_reduce(u8 *d, u8 *N, u32 n)
+void bn_reduce(u8 *d, const u8 *N, u32 n)
 {
 	if (bn_compare(d, N, n) >= 0)
 		bn_sub_1(d, d, N, n);
 }
 
-void bn_add(u8 *d, u8 *a, u8 *b, u8 *N, u32 n)
+void bn_add(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n)
 {
 	if (bn_add_1(d, a, b, n))
 		bn_sub_1(d, d, N, n);
@@ -92,7 +92,7 @@ void bn_add(u8 *d, u8 *a, u8 *b, u8 *N, u32 n)
 	bn_reduce(d, N, n);
 }
 
-void bn_sub(u8 *d, u8 *a, u8 *b, u8 *N, u32 n)
+void bn_sub(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n)
 {
 	if (bn_sub_1(d, a, b, n))
 		bn_add_1(d, d, N, n);
@@ -117,7 +117,7 @@ static const u8 inv256[0x80] = {
 	0x11, 0x3b, 0x5d, 0xc7, 0x49, 0x33, 0x55, 0xff,
 };
 
-static void bn_mon_muladd_dig(u8 *d, u8 *a, u8 b, u8 *N, u32 n)
+static void bn_mon_muladd_dig(u8 *d, const u8 *a, u8 b, const u8 *N, u32 n)
 {
 	u32 dig;
 	u32 i;
@@ -142,7 +142,7 @@ static void bn_mon_muladd_dig(u8 *d, u8 *a, u8 b, u8 *N, u32 n)
 	bn_reduce(d, N, n);
 }
 
-void bn_mon_mul(u8 *d, u8 *a, u8 *b, u8 *N, u32 n)
+void bn_mon_mul(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n)
 {
 	u8 t[512];
 	u32 i;
@@ -155,7 +155,7 @@ void bn_mon_mul(u8 *d, u8 *a, u8 *b, u8 *N, u32 n)
 	bn_copy(d, t, n);
 }
 
-void bn_to_mon(u8 *d, u8 *N, u32 n)
+void bn_to_mon(u8 *d, const u8 *N, u32 n)
 {
 	u32 i;
 
@@ -163,7 +163,7 @@ void bn_to_mon(u8 *d, u8 *N, u32 n)
 		bn_add(d, d, d, N, n);
 }
 
-void bn_from_mon(u8 *d, u8 *N, u32 n)
+void bn_from_mon(u8 *d, const u8 *N, u32 n)
 {
 	u8 t[512];
 
@@ -172,7 +172,7 @@ void bn_from_mon(u8 *d, u8 *N, u32 n)
 	bn_mon_mul(d, d, t, N, n);
 }
 
-static void bn_mon_exp(u8 *d, u8 *a, u8 *N, u32 n, u8 *e, u32 en)
+static void bn_mon_exp(u8 *d, const u8 *a, const u8 *N, u32 n, const u8 *e, u32 en)
 {
 	u8 t[512];
 	u32 i;
@@ -192,7 +192,7 @@ static void bn_mon_exp(u8 *d, u8 *a, u8 *N, u32 n, u8 *e, u32 en)
 		}
 }
 
-void bn_mon_inv(u8 *d, u8 *a, u8 *N, u32 n)
+void bn_mon_inv(u8 *d, const u8 *a, const u8 *N, u32 n)
 {
 	u8 t[512], s[512];
 

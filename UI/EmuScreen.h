@@ -74,10 +74,9 @@ protected:
 private:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
-	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
-	UI::EventReturn OnResume(UI::EventParams &params);
 
+	void HandleFlip();
 	void ProcessGameBoot(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
 	void bootComplete();
@@ -132,8 +131,6 @@ private:
 
 	std::string extraAssertInfoStr_;
 
-	std::atomic<bool> doFrameAdvance_{};
-
 	ControlMapper controlMapper_;
 
 	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
@@ -153,6 +150,12 @@ private:
 	std::vector<VirtKey> queuedVirtKeys_;
 
 	ImGuiContext *ctx_ = nullptr;
+
+	bool frameStep_ = false;
+#ifndef MOBILE_DEVICE
+	bool startDumping_ = false;
+#endif
+	bool autoLoadFailed_ = false;  // to prevent repeat reloads
 };
 
 bool MustRunBehind();

@@ -742,7 +742,7 @@ public:
 private:
 	int FindExistingIndex(Font *font) const {
 		// TODO: Should this also match for memory fonts, or only internal fonts?
-		for (auto it : fontMap) {
+		for (const auto &it : fontMap) {
 			if (it.second->GetFont() != font || it.second->GetFontLib() != this)
 				continue;
 			for (size_t i = 0; i < fonts_.size(); i++) {

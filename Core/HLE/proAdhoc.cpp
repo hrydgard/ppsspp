@@ -52,7 +52,9 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Instance.h"
-#include "proAdhoc.h" 
+#include "proAdhoc.h"
+
+#include "Core/HLE/NetAdhocCommon.h"
 
 #ifdef _WIN32
 #undef errno

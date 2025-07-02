@@ -31,6 +31,10 @@ struct Bounds {
 	Bounds() : x(0.0f), y(0.0f), w(0.0f), h(0.0f) {}
 	Bounds(float x_, float y_, float w_, float h_) : x(x_), y(y_), w(w_), h(h_) {}
 
+	static Bounds FromCenter(float x_, float y_, float radius) {
+		return Bounds(x_ - radius, y_ - radius, radius * 2.0f, radius * 2.0f);
+	}
+
 	bool Contains(float px, float py) const {
 		return (px >= x && py >= y && px < x + w && py < y + h);
 	}
@@ -60,6 +64,9 @@ struct Bounds {
 	float y2() const { return y + h; }
 	float centerX() const { return x + w * 0.5f; }
 	float centerY() const { return y + h * 0.5f; }
+	float radius() const {
+		return ((w > h) ? w : h) * 0.5f;
+	}
 	Point2D Center() const {
 		return Point2D(centerX(), centerY());
 	}

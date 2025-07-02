@@ -228,6 +228,8 @@ void RecentFilesManager::PerformCleanMissing() {
 	std::vector<std::string> cleanedRecent;
 	double startTime = time_now_d();
 
+	bool pathUpdated = false;
+
 	for (const auto &filename : initialRecent) {
 		bool exists = false;
 		Path path(filename);
@@ -238,7 +240,10 @@ void RecentFilesManager::PerformCleanMissing() {
 			if (!exists && TryUpdateSavedPath(&path)) {
 				// iOS only stuff
 				exists = File::Exists(path);
-				INFO_LOG(Log::Loader, "Exists=%d when checking updated path: %s", exists, path.c_str());
+				VERBOSE_LOG(Log::UI, "Exists=%d when checking updated path: %s", exists, path.c_str());
+				if (exists) {
+					pathUpdated = true;
+				}
 			}
 			break;
 		default:
@@ -256,7 +261,7 @@ void RecentFilesManager::PerformCleanMissing() {
 				cleanedRecent.push_back(pathStr);
 			}
 		} else {
-			DEBUG_LOG(Log::Loader, "Removed %s from recent. errno=%d", path.c_str(), errno);
+			DEBUG_LOG(Log::UI, "Removed '%s' from recent (couldn't access)", path.ToVisualString().c_str());
 		}
 	}
 
@@ -265,7 +270,7 @@ void RecentFilesManager::PerformCleanMissing() {
 		INFO_LOG(Log::System, "CleanRecent took %0.2f", recentTime);
 	}
 
-	if (cleanedRecent.size() != initialRecent.size()) {
+	if (cleanedRecent.size() != initialRecent.size() || pathUpdated) {
 		std::lock_guard<std::mutex> guard(recentLock_);
 		recentFiles_ = cleanedRecent;
 		System_PostUIMessage(UIMessage::RECENT_FILES_CHANGED);

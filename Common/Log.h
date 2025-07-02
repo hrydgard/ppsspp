@@ -40,6 +40,8 @@ enum class Log {
 	HLE,
 	JIT,
 	Loader,
+	Mpeg,
+	Atrac,
 	ME,
 	MemMap,
 	SasMix,
@@ -53,6 +55,7 @@ enum class Log {
 	TexReplacement,
 	GeDebugger,
 	UI,
+	IAP,
 
 	sceAudio,
 	sceCtrl,
@@ -135,9 +138,20 @@ __attribute__((format(printf, 5, 6)))
 #endif
 ;
 
+// These allow us to get a small amount of information into assert messages.
+// They can have a value between 0 and 15.
+enum class DebugCounter {
+	APP_BOOT = 0,
+	GAME_BOOT = 1,
+	GAME_SHUTDOWN = 2,
+	CPUCORE_SWITCHES = 3,
+};
+
 bool HitAnyAsserts();
 void ResetHitAnyAsserts();
 void SetExtraAssertInfo(const char *info);
+void SetDebugValue(DebugCounter counter, int value);
+void IncrementDebugCounter(DebugCounter counter);
 typedef void (*AssertNoCallbackFunc)(const char *message, void *userdata);
 void SetAssertCancelCallback(AssertNoCallbackFunc callback, void *userdata);
 void SetCleanExitOnAssert();
