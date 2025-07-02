@@ -823,21 +823,15 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x0590, 0x05FF));
 			break;
 
-		case 'S':  // Unicode symbols
-			ranges.push_back(range(0x2000, 0x2312)); // General Punctuation, Letterlike Symbols, Arrows, 
-													 // Mathematical Operators, Miscellaneous Technical
-			ranges.push_back(range(0x2500, 0x254B)); // Box drawing
-			ranges.push_back(range(0x25A0, 0x266F)); // Geometric Shapes, Miscellaneous Symbols
-			// fallthrough select symbols
-		case 's':  // Select symbols
-			ranges.push_back(range(0x2007, 0x2007));  // Figure space (digit-wide)
-			ranges.push_back(range(0x2020, 0x2020));  // Dagger
+		case 'S':  // Select symbols
+			ranges.push_back(range(0x2007, 0x2007));  // Figure Space (digit-wide)
+			ranges.push_back(range(0x2020, 0x2021));  // Dagger and Double Dagger
 			ranges.push_back(range(0x20AC, 0x20AC));  // Euro sign
 			ranges.push_back(range(0x2116, 0x2116));  // "No." symbol
 			ranges.push_back(range(0x2120, 0x2122));  // "SM", "TEL" and "TM" symbols
 			ranges.push_back(range(0x2139, 0x2139));  // "i" symbol
 			ranges.push_back(range(0x2302, 0x2302));  // House sign
-			ranges.push_back(range(0x2314, 0x2314));  // Cmd Key symbol
+			ranges.push_back(range(0x2314, 0x2314));  // Place of Interest sign
 			ranges.push_back(range(0x2328, 0x2328));  // Keyboard sign
 			ranges.push_back(range(0x232B, 0x232B));  // Backspace symbol
 			ranges.push_back(range(0x23CE, 0x23CF));  // Return and Eject symbols
@@ -859,6 +853,12 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		case 'h':  // Hiragana
 			ranges.push_back(range(0x3041, 0x3097));
 			ranges.push_back(range(0x3099, 0x309F));
+			break;
+		case 'J':  // Shift JIS (for Japanese fonts)
+			ranges.push_back(range(0x2010, 0x2312)); // General Punctuation, Letterlike Symbols, Arrows, 
+													 // Mathematical Operators, Miscellaneous Technical
+			ranges.push_back(range(0x2500, 0x254B)); // Box drawing
+			ranges.push_back(range(0x25A0, 0x266F)); // Geometric Shapes, Miscellaneous Symbols
 			break;
 		case 'c':  // All Kanji, filtered though!
 			ranges.push_back(range(0x3000, 0x303F));  // Ideographic symbols
