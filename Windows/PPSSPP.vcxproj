@@ -1191,6 +1191,7 @@
     <None Include="..\b.sh" />
     <None Include="..\build.gradle" />
     <None Include="..\buildatlas.sh" />
+    <None Include="..\build_fontatlas.sh" />
     <None Include="..\build_ppgeatlas.sh" />
     <None Include="..\CMakeLists.txt" />
     <None Include="..\cmake\Modules\ccache.cmake" />
