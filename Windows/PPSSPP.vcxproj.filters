@@ -607,6 +607,9 @@
     <None Include="..\b.sh">
       <Filter>Build</Filter>
     </None>
+    <None Include="..\build_fontatlas.sh">
+      <Filter>Build</Filter>
+    </None>
     <None Include="..\build_ppgeatlas.sh">
       <Filter>Build</Filter>
     </None>

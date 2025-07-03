@@ -1,6 +1,6 @@
 2048
-font UBUNTU24 C:/Windows/Fonts/KozGoPro-Medium.otf UWkhcsGR 24
-font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHKVTe 24 0
+font UBUNTU24 C:/Windows/Fonts/KozGoPro-Medium.otf UWkhcJGRS 24
+font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHKVTeS 24 0
 image I_CROSS source_assets/image/cross.png copy
 image I_CIRCLE source_assets/image/circle.png copy
 image I_SQUARE source_assets/image/square.png copy
