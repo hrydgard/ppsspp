@@ -271,6 +271,9 @@
     <ClCompile Include="Debugger\EditSymbolsWindow.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="HidInputDevice.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -561,6 +564,9 @@
     </ClInclude>
     <ClInclude Include="..\ios\ViewControllerMetal.h">
       <Filter>Other Platforms\iOS</Filter>
+    </ClInclude>
+    <ClInclude Include="HidInputDevice.h">
+      <Filter>Windows\Input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

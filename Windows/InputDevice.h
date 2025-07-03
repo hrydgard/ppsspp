@@ -31,7 +31,7 @@ public:
 	virtual void Init() {}
 	virtual void Shutdown() {}
 
-	enum { UPDATESTATE_SKIP_PAD = 0x1234};
+	enum { UPDATESTATE_SKIP_PAD = 0x1234, UPDATESTATE_NO_SLEEP = 0x2345};
 	virtual int UpdateState() = 0;
 };
 
