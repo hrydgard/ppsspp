@@ -1,6 +1,8 @@
 // CrossSIMD
 //
 // This file will contain cross-instruction-set SIMD instruction wrappers.
+//
+// This specific file (and a future CrossSIMD.cpp) file is under public domain or MIT, unlike most of the rest of the emulator.
 
 #pragma once
 

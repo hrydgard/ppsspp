@@ -10,10 +10,12 @@
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 #include "Common/Input/InputState.h"
+#include "Common/Common.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/OSD.h"
 
 enum PSButton : u32 {
-	PS_DPAD_UP = 1,
+	PS_DPAD_UP = 1, // These dpad ones are not real, we convert from hat switch format.
 	PS_DPAD_DOWN = 2,
 	PS_DPAD_LEFT = 4,
 	PS_DPAD_RIGHT = 8,
@@ -33,16 +35,6 @@ enum PSButton : u32 {
 	PS_BTN_PS_BUTTON = (1 << 16),
 	PS_BTN_TOUCHPAD = (1 << 17),
 };
-
-constexpr u16 SONY_VID = 0x054C;
-
-constexpr u16 DS4_PID = 0x05C4;
-constexpr u16 DS5_PID = 0x0CE6;
-constexpr u16 DS4_2_PID = 0x09CC;
-constexpr u16 DS4_WIRELESS = 0x0BA0;
-constexpr u16 DUALSENSE_WIRELESS = 0x0CE6;
-constexpr u16 DUALSENSE_EDGE_WIRELESS = 0x0DF2;
-constexpr u16 PS_CLASSIC = 0x0CDA;
 
 struct PSInputMapping {
 	PSButton button;
@@ -105,33 +97,124 @@ static const PSTriggerMapping g_psTriggerMappings[] = {
 };
 
 struct PSControllerInfo {
-	PSSubType type;
+	u16 vendorId;
 	u16 productId;
+	PSSubType type;
+	const char *name;
 };
 
+constexpr u16 SONY_VID = 0x054C;
+
+constexpr u16 DS4_WIRELESS = 0x0BA0;
+constexpr u16 PS_CLASSIC = 0x0CDA;
+
+// We pick a few ones from here to support, let's add more later.
+// https://github.com/ds4windowsapp/DS4Windows/blob/65609b470f53a4f832fb07ac24085d3e28ec15bd/DS4Windows/DS4Library/DS4Devices.cs#L126
 static const PSControllerInfo g_psInfos[] = {
-	{TYPE_DS4, DS4_PID},
-	{TYPE_DS5, DS5_PID},
-	{TYPE_DS4, DS4_2_PID},
-	{TYPE_DS4, DS4_WIRELESS},
-	{TYPE_DS5, DUALSENSE_WIRELESS},
-	{TYPE_DS5, DUALSENSE_EDGE_WIRELESS},
-	{TYPE_DS4, PS_CLASSIC},
+	{SONY_VID, 0x05C4, PSSubType::DS4, "DS4 v.1"},
+	{SONY_VID, 0x09CC, PSSubType::DS4, "DS4 v.2"},
+	{SONY_VID, 0x0CE6, PSSubType::DS5, "DualSense"},
+	{SONY_VID, PS_CLASSIC, PSSubType::DS4, "PS Classic"},
+	// {PSSubType::DS4, DS4_WIRELESS},
+	// {PSSubType::DS5, DUALSENSE_WIRELESS},
+	// {PSSubType::DS5, DUALSENSE_EDGE_WIRELESS},
 };
 
-static bool IsSonyGamepad(HANDLE handle, USHORT *pidOut, PSSubType *subType) {
+static bool IsSupportedGamepad(HANDLE handle, USHORT *pidOut, PSSubType *subType) {
 	HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
 	if (!HidD_GetAttributes(handle, &attr)) {
 		return false;
 	}
 	for (const auto &info : g_psInfos) {
-		if (attr.VendorID == SONY_VID && attr.ProductID == info.productId) {
+		if (attr.VendorID == info.vendorId && attr.ProductID == info.productId) {
 			*pidOut = attr.ProductID;
 			*subType = info.type;
 			return true;
 		}
 	}
 	return false;
+}
+
+struct DualSenseOutputReport{
+	uint8_t reportId;
+	uint8_t flags1;
+	uint8_t flags2;
+	uint8_t headphone[4];
+	uint8_t muteLED;
+	uint8_t micMute;
+};
+
+// https://github.com/ds4windowsapp/DS4Windows/blob/65609b470f53a4f832fb07ac24085d3e28ec15bd/DS4Windows/DS4Library/InputDevices/DualSenseDevice.cs#L905
+
+// Sends initialization packet to DualSense
+static bool InitializeDualSense(HANDLE handle, int outReportSize) {
+	if (outReportSize != 48) {
+		return false;
+	}
+
+	// Output report (0x05) – sets lightbar, enables full report mode
+	uint8_t reportData[48] = {0};
+
+	DualSenseOutputReport report;
+	report.reportId = 2;
+	report.flags1 = 0x0C;
+	report.flags2 = 0x15;
+	report.muteLED = 1;
+
+	memcpy(reportData, &report, sizeof(report));
+
+	DWORD written;
+	bool result = WriteFile(handle, reportData, sizeof(reportData), &written, NULL);
+	if (!result) {
+		u32 errorCode = GetLastError();
+
+		if (errorCode == ERROR_INVALID_PARAMETER) {
+			if (!HidD_SetOutputReport(handle, reportData, outReportSize)) {
+				errorCode = GetLastError();
+			}
+		}
+
+		WARN_LOG(Log::UI, "Failed initializing: %08x", errorCode);
+		return false;
+	}
+	return true;
+}
+
+enum class DS4FeatureBits : u8 {
+	VOL_L = 0x10,
+	VOL_R = 0x20,
+	MIC_VOL = 0x40,
+	SPEAKER_VOL = 0x80,
+	RUMBLE = 0x1,
+	LIGHTBAR = 0x2,
+	FLASH = 0x4,
+};
+ENUM_CLASS_BITOPS(DS4FeatureBits);
+
+static bool InitializeDualShock(HANDLE handle, int outReportSize) {
+	if (outReportSize != 32) {
+		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
+		return false;
+	}
+
+	// DS4 USB output report (report ID 0x05)
+	// Total size: 32 bytes (must match device buffer size)
+	uint8_t report[32] = {0};
+
+	report[0] = 0x05; // Report ID (DS4 output)
+	report[1] = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
+	report[2] = 0x02;
+	// Rumble
+	report[4] = 0x00; // Right (weak)
+	report[5] = 0x00; // Left (strong)
+
+	// Lightbar (RGB)
+	report[6] = 0x00; // Red
+	report[7] = 0x10; // Green
+	report[8] = 0x40; // Blue (dim blue)
+
+	DWORD written;
+	return WriteFile(handle, report, sizeof(report), &written, NULL);
 }
 
 HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
@@ -155,11 +238,11 @@ HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
 
 		if (SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &interfaceData, detailData, requiredSize, nullptr, nullptr)) {
 			HANDLE handle = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE,
-				FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+				FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 			if (handle != INVALID_HANDLE_VALUE) {
 				USHORT pid;
-				if (IsSonyGamepad(handle, &pid, subType)) {
-					INFO_LOG(Log::UI, "Found Sony gamepad. PID: %04x", pid);
+				if (IsSupportedGamepad(handle, &pid, subType)) {
+					INFO_LOG(Log::UI, "Found supported gamepad. PID: %04x", pid);
 					HIDP_CAPS caps;
 					PHIDP_PREPARSED_DATA preparsedData;
 
@@ -168,9 +251,21 @@ HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
 					HidD_FreePreparsedData(preparsedData);
 
 					*reportSize = caps.InputReportByteLength;
+					int outReportSize = caps.OutputReportByteLength;
+
+					INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", outReportSize);
+					bool result;
+					if (*subType == PSSubType::DS5) {
+						result = InitializeDualSense(handle, outReportSize);
+					} else {
+						result = InitializeDualShock(handle, outReportSize);
+					}
 
 					SetupDiDestroyDeviceInfoList(deviceInfoSet);
+
 					return handle;
+				} else {
+					DEBUG_LOG(Log::UI, "Skipping HID device: pid=%02x", pid);
 				}
 				CloseHandle(handle);
 			}
@@ -188,7 +283,24 @@ void HidInputDevice::AddSupportedDevices(std::set<u32> *deviceVIDPIDs) {
 	}
 }
 
-struct PSInputReportHeader {
+static u32 DecodeHatSwitch(u8 dpad) {
+	u32 buttons = 0;
+	if (dpad == 0 || dpad == 1 || dpad == 7) {
+		buttons |= PS_DPAD_UP;
+	}
+	if (dpad == 1 || dpad == 2 || dpad == 3) {
+		buttons |= PS_DPAD_RIGHT;
+	}
+	if (dpad == 3 || dpad == 4 || dpad == 5) {
+		buttons |= PS_DPAD_DOWN;
+	}
+	if (dpad == 5 || dpad == 6 || dpad == 7) {
+		buttons |= PS_DPAD_LEFT;
+	}
+	return buttons;
+}
+
+struct DualShockInputReport {
 	u8 lx;
 	u8 ly;
 	u8 rx;
@@ -201,12 +313,12 @@ struct PSInputReportHeader {
 	// Then there's motion and all kinds of stuff.
 };
 
-bool HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
+bool HidInputDevice::ReadDualShockInput(HANDLE handle, PSControllerState *state) {
 	BYTE inputReport[64]{}; // 64-byte input report for DS4
 	DWORD bytesRead = 0;
 	if (ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
-		PSInputReportHeader hdr{};
-		static_assert(sizeof(hdr) < sizeof(inputReport));
+		DualShockInputReport report{};
+		static_assert(sizeof(report) < sizeof(inputReport));
 		if (bytesRead < 14) {
 			return false;
 		}
@@ -224,42 +336,94 @@ bool HidInputDevice::ReadDS4Input(HANDLE handle, PSControllerState *state) {
 		}
 		// const bool isBluetooth = (reportId == 0x11 || reportId == 0x31);
 
-		memcpy(&hdr, inputReport + offset, sizeof(hdr));
+		memcpy(&report, inputReport + offset, sizeof(report));
 
 		// Center the sticks.
-		state->stickAxes[PS_STICK_LX] = hdr.lx - 128;
-		state->stickAxes[PS_STICK_LY] = hdr.ly - 128;
-		state->stickAxes[PS_STICK_RX] = hdr.rx - 128;
-		state->stickAxes[PS_STICK_RY] = hdr.ry - 128;
+		state->stickAxes[PS_STICK_LX] = report.lx - 128;
+		state->stickAxes[PS_STICK_LY] = report.ly - 128;
+		state->stickAxes[PS_STICK_RX] = report.rx - 128;
+		state->stickAxes[PS_STICK_RY] = report.ry - 128;
 
 		// Copy over the triggers.
-		state->triggerAxes[PS_TRIGGER_L2] = hdr.l2_analog;
-		state->triggerAxes[PS_TRIGGER_R2] = hdr.r2_analog;
+		state->triggerAxes[PS_TRIGGER_L2] = report.l2_analog;
+		state->triggerAxes[PS_TRIGGER_R2] = report.r2_analog;
 
 		u32 buttons{};
-		hdr.buttons[2] &= 3;  // Remove noise
-		memcpy(&buttons, &hdr.buttons[0], 3);
+		int frameCounter = report.buttons[2] >> 2;
+		report.buttons[2] &= 3;
+		memcpy(&buttons, &report.buttons[0], 3);
 
 		// Clear out and re-fill the DPAD, it works differently somehow
 		buttons &= ~0xF;
-
-		const u8 dpad = hdr.buttons[0] & 0xF;
-		if (dpad == 0 || dpad == 1 || dpad == 7) {
-			buttons |= PS_DPAD_UP;
-		}
-		if (dpad == 1 || dpad == 2 || dpad == 3) {
-			buttons |= PS_DPAD_RIGHT;
-		}
-		if (dpad == 3 || dpad == 4 || dpad == 5) {
-			buttons |= PS_DPAD_DOWN;
-		}
-		if (dpad == 5 || dpad == 6 || dpad == 7) {
-			buttons |= PS_DPAD_LEFT;
-		}
+		buttons |= DecodeHatSwitch(report.buttons[0] & 0xF);
 
 		state->buttons = buttons;
 		return true;
 	} else {
+		u32 error = GetLastError();
+		return false;
+	}
+}
+
+// So strange that this is different!
+struct DualSenseInputReport {
+	u8 lx;
+	u8 ly;
+	u8 rx;
+	u8 ry;
+
+	u8 l2_analog;
+	u8 r2_analog;
+
+	u8 frameCounter;
+
+	u8 buttons[3];
+
+	// TODO: More stuff (battery, tilt, etc).
+};
+
+bool HidInputDevice::ReadDualSenseInput(HANDLE handle, PSControllerState *state) {
+	BYTE inputReport[64]{}; // 64-byte input report for DS4
+	DWORD bytesRead = 0;
+	if (ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
+		DualSenseInputReport report{};
+		static_assert(sizeof(report) < sizeof(inputReport));
+		if (bytesRead < 14) {
+			return false;
+		}
+
+		// OK, check the first byte to figure out what we're dealing with here.
+		int offset = 1;
+		if (inputReport[0] != 1) {
+			// Wrong data
+			return false;
+		}
+		// const bool isBluetooth = (reportId == 0x11 || reportId == 0x31);
+
+		memcpy(&report, inputReport + offset, sizeof(report));
+
+		// Center the sticks.
+		state->stickAxes[PS_STICK_LX] = report.lx - 128;
+		state->stickAxes[PS_STICK_LY] = report.ly - 128;
+		state->stickAxes[PS_STICK_RX] = report.rx - 128;
+		state->stickAxes[PS_STICK_RY] = report.ry - 128;
+
+		// Copy over the triggers.
+		state->triggerAxes[PS_TRIGGER_L2] = report.l2_analog;
+		state->triggerAxes[PS_TRIGGER_R2] = report.r2_analog;
+
+		u32 buttons{};
+		report.buttons[2] &= 3;  // Remove noise
+		memcpy(&buttons, &report.buttons[0], 3);
+
+		// Clear out and re-fill the DPAD, it works differently somehow
+		buttons &= ~0xF;
+		buttons |= DecodeHatSwitch(report.buttons[0] & 0xF);
+
+		state->buttons = buttons;
+		return true;
+	} else {
+		u32 error = GetLastError();
 		return false;
 	}
 }
@@ -302,7 +466,14 @@ int HidInputDevice::UpdateState() {
 
 	if (controller_) {
 		PSControllerState state{};
-		if (ReadDS4Input(controller_, &state)) {
+		bool result;
+		if (subType_ == PSSubType::DS4) {
+			result = ReadDualShockInput(controller_, &state);
+		} else if (subType_ == PSSubType::DS5) {
+			result = ReadDualSenseInput(controller_, &state);
+		}
+
+		if (result) {
 			const InputDeviceID deviceID = DeviceID(pad_);
 			// Process the input and generate input events.
 			const u32 downMask = state.buttons & (~prevState_.buttons);

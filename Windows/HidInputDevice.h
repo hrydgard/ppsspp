@@ -5,9 +5,9 @@
 #include "Windows/InputDevice.h"
 #include <set>
 
-enum PSSubType {
-	TYPE_DS4,
-	TYPE_DS5
+enum class PSSubType {
+	DS4,
+	DS5
 };
 
 enum InputDeviceID;
@@ -30,7 +30,8 @@ private:
 		// Buttons
 		u32 buttons;  // Bitmask, PSButton enum
 	};
-	bool ReadDS4Input(HANDLE handle, PSControllerState *state);
+	bool ReadDualShockInput(HANDLE handle, PSControllerState *state);
+	bool ReadDualSenseInput(HANDLE handle, PSControllerState *state);
 	void ReleaseAllKeys();
 	InputDeviceID DeviceID(int pad);
 	PSControllerState prevState_{};
