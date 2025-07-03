@@ -168,6 +168,7 @@ enum class BackgroundAnimation {
 	WAVE = 3,
 	MOVING_BACKGROUND = 4,
 	BOUNCING_ICON = 5,
+	FLOATING_SYMBOLS_COLORED = 6,
 };
 
 // iOS only
