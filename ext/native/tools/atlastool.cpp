@@ -830,13 +830,14 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x2116, 0x2116));  // "No." symbol
 			ranges.push_back(range(0x2120, 0x2122));  // "SM", "TEL" and "TM" symbols
 			ranges.push_back(range(0x2139, 0x2139));  // "i" symbol
+			ranges.push_back(range(0x2300, 0x2300));  // Diameter sign
 			ranges.push_back(range(0x2302, 0x2302));  // House sign
-			ranges.push_back(range(0x2314, 0x2314));  // Place of Interest sign
-			ranges.push_back(range(0x2328, 0x2328));  // Keyboard sign
-			ranges.push_back(range(0x232B, 0x232B));  // Backspace symbol
-			ranges.push_back(range(0x23CE, 0x23CF));  // Return and Eject symbols
-			ranges.push_back(range(0x23E9, 0x23EF));  // UI and Media Control symbols 1
-			ranges.push_back(range(0x23F4, 0x23FA));  // UI and Media Control symbols 2
+			// ranges.push_back(range(0x2314, 0x2314));  // Place of Interest sign
+			// ranges.push_back(range(0x2328, 0x2328));  // Keyboard sign
+			// ranges.push_back(range(0x232B, 0x232B));  // Backspace symbol
+			// ranges.push_back(range(0x23CE, 0x23CF));  // Return and Eject symbols
+			// ranges.push_back(range(0x23E9, 0x23EF));  // UI and Media Control symbols 1
+			// ranges.push_back(range(0x23F4, 0x23FA));  // UI and Media Control symbols 2
 			ranges.push_back(range(0x2610, 0x2612));  // Ballot boxes
 			ranges.push_back(range(0x26A0, 0x26A1));  // Warning and High Voltage signs
 			ranges.push_back(range(0x32CF, 0x32CF));  // "LTD" symbol
