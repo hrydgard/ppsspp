@@ -81,9 +81,15 @@
     //https://github.com/gcc-mirror/gcc/blob/master/gcc/config/loongarch/loongarch-c.cc
     #define PPSSPP_ARCH_LOONGARCH64 1
     #define PPSSPP_ARCH_64BIT 1
-    #define PPSSPP_ARCH_LOONGARCH64_LSX 1
-#endif
 
+    #if defined(__loongarch_asx)
+        #define PPSSPP_ARCH_LOONGARCH64_LASX 1
+    #endif
+
+    #if defined(__loongarch_asx) || defined(__loongarch_sx)
+        #define PPSSPP_ARCH_LOONGARCH64_LSX  1
+    #endif
+#endif
 // PLATFORM defines
 #if defined(_WIN32)
     // Covers both 32 and 64bit Windows
