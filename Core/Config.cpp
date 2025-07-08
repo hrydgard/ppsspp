@@ -1460,9 +1460,6 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 	if (g_Config.sCustomDriver == "Default") {
 		g_Config.sCustomDriver = "";
 	}
-
-	// Convert old volume settings.
-
 }
 
 void Config::PreSaveCleanup(bool gameSpecific) {
