@@ -264,14 +264,11 @@ HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
 					SetupDiDestroyDeviceInfoList(deviceInfoSet);
 
 					return handle;
-				} else {
-					DEBUG_LOG(Log::UI, "Skipping HID device: pid=%02x", pid);
 				}
 				CloseHandle(handle);
 			}
 		}
 	}
-
 	SetupDiDestroyDeviceInfoList(deviceInfoSet);
 	return nullptr;
 }
@@ -423,7 +420,7 @@ bool HidInputDevice::ReadDualSenseInput(HANDLE handle, PSControllerState *state)
 		state->buttons = buttons;
 		return true;
 	} else {
-		u32 error = GetLastError();
+		const u32 error = GetLastError();
 		return false;
 	}
 }
@@ -466,7 +463,7 @@ int HidInputDevice::UpdateState() {
 
 	if (controller_) {
 		PSControllerState state{};
-		bool result;
+		bool result = false;
 		if (subType_ == PSSubType::DS4) {
 			result = ReadDualShockInput(controller_, &state);
 		} else if (subType_ == PSSubType::DS5) {

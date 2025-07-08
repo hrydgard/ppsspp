@@ -42,6 +42,6 @@ private:
 	int pollCount_ = 0;
 	int reportSize_ = 0;
 	enum {
-		POLL_FREQ = 69,
+		POLL_FREQ = 283,  // a prime number.
 	};
 };
