@@ -225,7 +225,7 @@ static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_APOSTROPHE, "'"},
 	{NKCODE_MINUS, "-"},
 	{NKCODE_PLUS, "+"},
-	{NKCODE_SYSRQ, "Print"},
+	{NKCODE_PRINTSCREEN, "Print"},
 	{NKCODE_SCROLL_LOCK, "ScrLock"},
 	{NKCODE_BREAK, "Pause"},
 

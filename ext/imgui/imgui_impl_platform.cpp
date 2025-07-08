@@ -244,7 +244,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_EXT_MOUSEWHEEL_UP:
 		// Keys ignored for imgui
 	 	return ImGuiKey_None;
-	case NKCODE_EXT_PRINTSCREEN:
+	case NKCODE_PRINTSCREEN:
 		return ImGuiKey_PrintScreen;
 
 	case NKCODE_EXT_PIPE:

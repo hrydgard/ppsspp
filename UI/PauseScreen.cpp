@@ -643,6 +643,11 @@ std::string GetConfirmExitMessage() {
 		confirmMessage += '\n';
 	}
 
+	if (coreState == CORE_RUNTIME_ERROR) {
+		// The game crashed, or similar. Don't bother checking for timeout or network.
+		return confirmMessage;
+	}
+
 	if (IsNetworkConnected()) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		confirmMessage += nw->T("Network connected");
