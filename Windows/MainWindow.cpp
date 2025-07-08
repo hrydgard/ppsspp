@@ -152,8 +152,8 @@ namespace MainWindow
 	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
 #define MAX_LOADSTRING 100
-	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
-	const TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
+	const wchar_t *const szWindowClass = L"PPSSPPWnd";
+	const wchar_t *const szDisplayClass = L"PPSSPPDisplay";
 
 	// Forward declarations of functions included in this code module:
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -180,7 +180,7 @@ namespace MainWindow
 		wcex.lpfnWndProc = (WNDPROC)WndProc;
 		wcex.hInstance = hInstance;
 		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-		wcex.hbrBackground = NULL;  // Always covered by display window
+		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName = szWindowClass;
 		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
@@ -544,8 +544,10 @@ namespace MainWindow
 
 		WindowsRawInput::Init();
 
-		SetFocus(hwndMain);
+		UpdateWindow(hwndMain);
+		UpdateWindow(hwndDisplay);
 
+		SetFocus(hwndMain);
 		return TRUE;
 	}
 
@@ -615,8 +617,6 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-		static bool firstErase = true;
-
 		switch (message) {
 		case WM_SIZE:
 			break;
@@ -652,12 +652,7 @@ namespace MainWindow
 			break;
 
 		case WM_ERASEBKGND:
-			if (firstErase) {
-				firstErase = false;
-				// Paint black on first erase while OpenGL stuff is loading
-				return DefWindowProc(hWnd, message, wParam, lParam);
-			}
-			// Then never erase, let the OpenGL drawing take care of everything.
+			// Don't erase, let OpenGL take care of it.
 			return 1;
 
 		// Mouse input. We send asynchronous touch events for minimal latency.
@@ -852,8 +847,11 @@ namespace MainWindow
 			return darkResult;
 		}
 
+		static bool first = true;
+
 		switch (message) {
 		case WM_CREATE:
+			first = true;
 			if (!IsVistaOrHigher()) {
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
@@ -968,8 +966,18 @@ namespace MainWindow
 			break;
 
 		case WM_ERASEBKGND:
-			// This window is always covered by DisplayWindow. No reason to erase.
-			return 0;
+		{
+			if (first) {
+				// Manually clearing on first boot looks better (only a brief white flash which I can't seem
+				// to get rid of).
+				HDC hdc = (HDC)wParam;
+				RECT rc;
+				GetClientRect(hWnd, &rc);
+				FillRect(hdc, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
+				first = false;
+			}
+			return 1;
+		}
 
 		case WM_MOVE:
 			SavePosition();
@@ -1114,7 +1122,7 @@ namespace MainWindow
 					// TODO: Translate? Or just not bother?
 					MessageBox(hwndMain, L"You can only load one file at a time", L"Error", MB_ICONINFORMATION);
 				} else {
-					TCHAR filename[1024];
+					wchar_t filename[1024];
 					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
 						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
