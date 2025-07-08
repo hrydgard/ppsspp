@@ -385,6 +385,10 @@ public:
 		return useBufferedRendering_;
 	}
 
+	void ForceUseBufferedRendering(bool buf) {
+		useBufferedRendering_ = true;
+	}
+
 	// TODO: Maybe just include the last depth buffer address in this, too.
 	bool MayIntersectFramebufferColor(u32 start) const {
 		// Clear the cache/kernel bits.

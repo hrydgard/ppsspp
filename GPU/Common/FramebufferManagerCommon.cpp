@@ -1707,6 +1707,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	} else if (useBufferedRendering_) {
 		WARN_LOG(Log::FrameBuf, "Using buffered rendering, and current VFB lacks an FBO: %08x", vfb->fb_address);
 	} else {
+		// This is OK because here we're in "skip buffered" mode, so even if we haven't presented
+		// we will have a render target.
 		presentation_->NotifyPresent();
 	}
 
