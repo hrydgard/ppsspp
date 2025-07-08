@@ -896,19 +896,20 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	case VIRTKEY_TEXTURE_DUMP:
 		g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
 		if (g_Config.bSaveNewTextures) {
-			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0, "savetexturechanged");
-			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0, "savetexturechanged");
 		} else {
 			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0, "savetexturechanged");
 		}
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 		break;
 
 	case VIRTKEY_TEXTURE_REPLACE:
 		g_Config.bReplaceTextures = !g_Config.bReplaceTextures;
-		if (g_Config.bReplaceTextures)
-			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0, "replacetexturechanged");
-		else
+		if (g_Config.bReplaceTextures) {
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0, "replacetexturechanged");
+		} else {
 			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures are no longer being replaced"), 2.0, "replacetexturechanged");
+		}
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 		break;
 

@@ -131,7 +131,7 @@ public:
 protected:
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
 
-	bool LoadIni(std::string *error);
+	bool LoadIni(std::string *error, bool notify = true);
 	bool LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride, std::string *error);
 	void ParseHashRange(const std::string &key, const std::string &value);
 	void ParseFiltering(const std::string &key, const std::string &value);
