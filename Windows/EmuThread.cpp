@@ -140,7 +140,7 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 		return false;
 	}
 
-	if (graphicsContext->Init(MainWindow::GetHInstance(), MainWindow::GetDisplayHWND(), error_message)) {
+	if (graphicsContext->Init(MainWindow::GetHInstance(), MainWindow::GetHWND(), error_message)) {
 		*ctx = graphicsContext;
 		return true;
 	} else {
