@@ -124,7 +124,6 @@ static std::wstring g_windowTitle;
 namespace MainWindow
 {
 	HWND hwndMain;
-	HWND hwndDisplay;
 	HWND hwndGameList;
 	TouchInputHandler touchHandler;
 	static HMENU menu;
@@ -151,20 +150,12 @@ namespace MainWindow
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
-#define MAX_LOADSTRING 100
-	const wchar_t *const szWindowClass = L"PPSSPPWnd";
-	const wchar_t *const szDisplayClass = L"PPSSPPDisplay";
+	static const TCHAR szWindowClass[] = L"PPSSPPWnd";
 
-	// Forward declarations of functions included in this code module:
-	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
+	static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND() {
 		return hwndMain;
-	}
-
-	HWND GetDisplayHWND() {
-		return hwndDisplay;
 	}
 
 	void SetKeepScreenBright(bool keepBright) {
@@ -186,21 +177,6 @@ namespace MainWindow
 		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
 		wcex.hIconSm = (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
 		RegisterClassEx(&wcex);
-
-		WNDCLASSEX wcdisp;
-		memset(&wcdisp, 0, sizeof(wcdisp));
-		// Display Window (contained in main window)
-		wcdisp.cbSize = sizeof(WNDCLASSEX);
-		wcdisp.style = CS_HREDRAW | CS_VREDRAW;
-		wcdisp.lpfnWndProc = (WNDPROC)DisplayProc;
-		wcdisp.hInstance = hInstance;
-		wcdisp.hCursor = LoadCursor(NULL, IDC_ARROW);
-		wcdisp.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wcdisp.lpszMenuName = 0;
-		wcdisp.lpszClassName = szDisplayClass;
-		wcdisp.hIcon = 0;
-		wcdisp.hIconSm = 0;
-		RegisterClassEx(&wcdisp);
 	}
 
 	void SavePosition() {
@@ -261,9 +237,9 @@ namespace MainWindow
 			}
 			if (g_Config.bMouseConfine) {
 				RECT rc;
-				GetClientRect(hwndDisplay, &rc);
-				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.left));
-				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.right));
+				GetClientRect(hwndMain, &rc);
+				ClientToScreen(hwndMain, reinterpret_cast<POINT*>(&rc.left));
+				ClientToScreen(hwndMain, reinterpret_cast<POINT*>(&rc.right));
 				ClipCursor(&rc);
 			}
 		} else {
@@ -285,9 +261,6 @@ namespace MainWindow
 
 		int width, height;
 		W32Util::GetWindowRes(hwndMain, &width, &height);
-
-		// Moves the internal display window to match the inner size of the main window.
-		MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
 
 		// Setting pixelWidth to be too small could have odd consequences.
 		if (width >= 4 && height >= 4) {
@@ -502,17 +475,8 @@ namespace MainWindow
 
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
-
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
-
-		RECT rcClient;
-		GetClientRect(hwndMain, &rcClient);
-
-		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
-			0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, hwndMain, 0, hInstance, 0);
-		if (!hwndDisplay)
-			return FALSE;
 
 		menu = GetMenu(hwndMain);
 
@@ -540,12 +504,11 @@ namespace MainWindow
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		touchHandler.registerTouchWindow(hwndDisplay);
+		touchHandler.registerTouchWindow(hwndMain);
 
 		WindowsRawInput::Init();
 
 		UpdateWindow(hwndMain);
-		UpdateWindow(hwndDisplay);
 
 		SetFocus(hwndMain);
 		return TRUE;
@@ -616,179 +579,6 @@ namespace MainWindow
 		vfpudlg = nullptr;
 	}
 
-	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-		switch (message) {
-		case WM_SIZE:
-			break;
-
-		case WM_SETFOCUS:
-			break;
-
-		case WM_SETCURSOR:
-			if ((lParam & 0xFFFF) == HTCLIENT && g_Config.bShowImDebugger) {
-				LPTSTR win32_cursor = 0;
-				if (g_Config.bShowImDebugger) {
-					switch (ImGui_ImplPlatform_GetCursor()) {
-					case ImGuiMouseCursor_Arrow:        win32_cursor = IDC_ARROW; break;
-					case ImGuiMouseCursor_TextInput:    win32_cursor = IDC_IBEAM; break;
-					case ImGuiMouseCursor_ResizeAll:    win32_cursor = IDC_SIZEALL; break;
-					case ImGuiMouseCursor_ResizeEW:     win32_cursor = IDC_SIZEWE; break;
-					case ImGuiMouseCursor_ResizeNS:     win32_cursor = IDC_SIZENS; break;
-					case ImGuiMouseCursor_ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
-					case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
-					case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
-					case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
-					}
-				}
-				if (win32_cursor) {
-					SetCursor(::LoadCursor(nullptr, win32_cursor));
-				} else {
-					SetCursor(nullptr);
-				}
-				return TRUE;
-			} else {
-				return DefWindowProc(hWnd, message, wParam, lParam);
-			}
-			break;
-
-		case WM_ERASEBKGND:
-			// Don't erase, let OpenGL take care of it.
-			return 1;
-
-		// Mouse input. We send asynchronous touch events for minimal latency.
-		case WM_LBUTTONDOWN:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
-			{
-				// Hack: Take the opportunity to show the cursor.
-				mouseButtonDown = true;
-
-				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-				WindowsRawInput::SetMousePos(x, y);
-
-				TouchInput touch{};
-				touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
-				touch.buttons = 1;
-				touch.x = x;
-				touch.y = y;
-				NativeTouch(touch);
-				SetCapture(hWnd);
-
-				// Simulate doubleclick, doesn't work with RawInput enabled
-				static double lastMouseDownTime;
-				static float lastMouseDownX = -1.0f;
-				static float lastMouseDownY = -1.0f;
-				const double now = time_now_d();
-				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime()) {
-					const float dx = lastMouseDownX - x;
-					const float dy = lastMouseDownY - y;
-					const float distSq = dx * dx + dy * dy;
-					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
-						SendToggleFullscreen(!g_Config.UseFullScreen());
-					}
-					lastMouseDownTime = 0.0;
-				} else {
-					lastMouseDownTime = now;
-				}
-				lastMouseDownX = x;
-				lastMouseDownY = y;
-			}
-			break;
-
-		case WM_MOUSEMOVE:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
-			{
-				// Hack: Take the opportunity to show the cursor.
-				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
-				int cursorX = GET_X_LPARAM(lParam);
-				int cursorY = GET_Y_LPARAM(lParam);
-				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
-					hideCursor = false;
-					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
-				}
-				prevCursorX = cursorX;
-				prevCursorY = cursorY;
-
-				float x = (float)cursorX * g_display.dpi_scale_x;
-				float y = (float)cursorY * g_display.dpi_scale_y;
-				WindowsRawInput::SetMousePos(x, y);
-
-				// Mouse moves now happen also when no button is pressed.
-				TouchInput touch{};
-				touch.flags = TOUCH_MOVE | TOUCH_MOUSE;
-				if (wParam & MK_LBUTTON) {
-					touch.buttons |= 1;
-				}
-				if (wParam & MK_RBUTTON) {
-					touch.buttons |= 2;
-				}
-				touch.x = x;
-				touch.y = y;
-				NativeTouch(touch);
-			}
-			break;
-
-		case WM_LBUTTONUP:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
-			{
-				// Hack: Take the opportunity to hide the cursor.
-				mouseButtonDown = false;
-
-				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-				WindowsRawInput::SetMousePos(x, y);
-
-				TouchInput touch{};
-				touch.buttons = 1;
-				touch.flags = TOUCH_UP | TOUCH_MOUSE;
-				touch.x = x;
-				touch.y = y;
-				NativeTouch(touch);
-				ReleaseCapture();
-			}
-			break;
-
-		case WM_TOUCH:
-			touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
-			return 0;
-
-		case WM_RBUTTONDOWN:
-		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-
-			TouchInput touch{};
-			touch.buttons = 2;
-			touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
-			touch.x = x;
-			touch.y = y;
-			NativeTouch(touch);
-			break;
-		}
-
-		case WM_RBUTTONUP:
-		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-
-			TouchInput touch{};
-			touch.buttons = 2;
-			touch.flags = TOUCH_UP | TOUCH_MOUSE;
-			touch.x = x;
-			touch.y = y;
-			NativeTouch(touch);
-			break;
-		}
-
-		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		return 0;
-	}
-
 	RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT & r)
 	{
 		RECT wnd_coords = r;
@@ -842,6 +632,7 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
+		static bool firstErase = true;
 		LRESULT darkResult = 0;
 		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
 			return darkResult;
@@ -966,18 +757,13 @@ namespace MainWindow
 			break;
 
 		case WM_ERASEBKGND:
-		{
-			if (first) {
-				// Manually clearing on first boot looks better (only a brief white flash which I can't seem
-				// to get rid of).
-				HDC hdc = (HDC)wParam;
-				RECT rc;
-				GetClientRect(hWnd, &rc);
-				FillRect(hdc, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
-				first = false;
+			if (firstErase) {
+				firstErase = false;
+				// Paint black on first erase while OpenGL stuff is loading
+				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
+			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
-		}
 
 		case WM_MOVE:
 			SavePosition();
@@ -1244,14 +1030,165 @@ namespace MainWindow
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 
+		case WM_SETCURSOR:
+			if ((lParam & 0xFFFF) == HTCLIENT && g_Config.bShowImDebugger) {
+				LPTSTR win32_cursor = 0;
+				if (g_Config.bShowImDebugger) {
+					switch (ImGui_ImplPlatform_GetCursor()) {
+					case ImGuiMouseCursor_Arrow:        win32_cursor = IDC_ARROW; break;
+					case ImGuiMouseCursor_TextInput:    win32_cursor = IDC_IBEAM; break;
+					case ImGuiMouseCursor_ResizeAll:    win32_cursor = IDC_SIZEALL; break;
+					case ImGuiMouseCursor_ResizeEW:     win32_cursor = IDC_SIZEWE; break;
+					case ImGuiMouseCursor_ResizeNS:     win32_cursor = IDC_SIZENS; break;
+					case ImGuiMouseCursor_ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
+					case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
+					case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
+					case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
+					}
+				}
+				if (win32_cursor) {
+					SetCursor(::LoadCursor(nullptr, win32_cursor));
+				} else {
+					SetCursor(nullptr);
+				}
+				return TRUE;
+			} else {
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+			break;
+
+		// Mouse input. We send asynchronous touch events for minimal latency.
+		case WM_LBUTTONDOWN:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
+			{
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = true;
+
+				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				TouchInput touch{};
+				touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				touch.buttons = 1;
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+				SetCapture(hWnd);
+
+				// Simulate doubleclick, doesn't work with RawInput enabled
+				static double lastMouseDownTime;
+				static float lastMouseDownX = -1.0f;
+				static float lastMouseDownY = -1.0f;
+				const double now = time_now_d();
+				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime()) {
+					const float dx = lastMouseDownX - x;
+					const float dy = lastMouseDownY - y;
+					const float distSq = dx * dx + dy * dy;
+					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+						SendToggleFullscreen(!g_Config.UseFullScreen());
+					}
+					lastMouseDownTime = 0.0;
+				} else {
+					lastMouseDownTime = now;
+				}
+				lastMouseDownX = x;
+				lastMouseDownY = y;
+			}
+			break;
+
+		case WM_MOUSEMOVE:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
+			{
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
+				int cursorX = GET_X_LPARAM(lParam);
+				int cursorY = GET_Y_LPARAM(lParam);
+				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
+					hideCursor = false;
+					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
+				}
+				prevCursorX = cursorX;
+				prevCursorY = cursorY;
+
+				float x = (float)cursorX * g_display.dpi_scale_x;
+				float y = (float)cursorY * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				// Mouse moves now happen also when no button is pressed.
+				TouchInput touch{};
+				touch.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				if (wParam & MK_LBUTTON) {
+					touch.buttons |= 1;
+				}
+				if (wParam & MK_RBUTTON) {
+					touch.buttons |= 2;
+				}
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+			}
+			break;
+
+		case WM_LBUTTONUP:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
+			{
+				// Hack: Take the opportunity to hide the cursor.
+				mouseButtonDown = false;
+
+				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				TouchInput touch{};
+				touch.buttons = 1;
+				touch.flags = TOUCH_UP | TOUCH_MOUSE;
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+				ReleaseCapture();
+			}
+			break;
+
+		case WM_TOUCH:
+			touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
+			return 0;
+
+		case WM_RBUTTONDOWN:
+		{
+			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+
+			TouchInput touch{};
+			touch.buttons = 2;
+			touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
+			touch.x = x;
+			touch.y = y;
+			NativeTouch(touch);
+			break;
+		}
+
+		case WM_RBUTTONUP:
+		{
+			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+
+			TouchInput touch{};
+			touch.buttons = 2;
+			touch.flags = TOUCH_UP | TOUCH_MOUSE;
+			touch.x = x;
+			touch.y = y;
+			NativeTouch(touch);
+			break;
+		}
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		return 0;
-	}
-
-	void Redraw() {
-		InvalidateRect(hwndDisplay,0,0);
 	}
 
 	HINSTANCE GetHInstance() {

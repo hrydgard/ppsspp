@@ -70,10 +70,8 @@ namespace MainWindow
 	void UpdateCommands();
 	void UpdateSwitchUMD();
 	void SetWindowTitle(const wchar_t *title);
-	void Redraw();
 	HWND GetHWND();
 	HINSTANCE GetHInstance();
-	HWND GetDisplayHWND();
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
 	void Minimize();
 	void SendToggleFullscreen(bool fullscreen);  // To be used off-thread

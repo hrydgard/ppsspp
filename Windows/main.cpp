@@ -233,7 +233,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	case SYSPROP_CLIPBOARD_TEXT:
 		{
 			std::string retval;
-			if (OpenClipboard(MainWindow::GetDisplayHWND())) {
+			if (OpenClipboard(MainWindow::GetHWND())) {
 				HANDLE handle = GetClipboardData(CF_UNICODETEXT);
 				const wchar_t *wstr = (const wchar_t*)GlobalLock(handle);
 				if (wstr)
@@ -601,7 +601,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 	{
 		std::wstring data = ConvertUTF8ToWString(param1);
-		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
+		W32Util::CopyTextToClipboard(MainWindow::GetHWND(), data);
 		return true;
 	}
 	case SystemRequestType::SET_WINDOW_TITLE:
