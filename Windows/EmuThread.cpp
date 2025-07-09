@@ -312,7 +312,6 @@ void MainThreadFunc() {
 		Core_StateProcessed();
 		NativeFrame(graphicsContext);
 	}
-	Core_WaitInactive();
 
 	g_inLoop = false;
 

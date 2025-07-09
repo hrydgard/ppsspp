@@ -1142,8 +1142,8 @@ namespace MainWindow
 
 		case WM_DESTROY:
 			InputDevice::StopPolling();
-			MainThread_Stop();
 			WindowsRawInput::Shutdown();
+			MainThread_Stop();
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			// Main window is gone, this tells the message loop to exit.
