@@ -33,7 +33,7 @@
 
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
-
+#include "Core/RetroAchievements.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
@@ -949,6 +949,12 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			}
 		} else if (!PSP_IsInited() && primaryBuffer_) {
 			SendMessage(m_hDlg, WM_COMMAND, IDC_GEDBG_RESUME, 0);
+		}
+		if (Achievements::HardcoreModeActive()) {
+			if (g_activeWindow == WINDOW_GEDEBUGGER) {
+				g_activeWindow = WINDOW_OTHER;
+			}
+			SendMessage(m_hDlg, WM_CLOSE, 0, 0);
 		}
 		break;
 
