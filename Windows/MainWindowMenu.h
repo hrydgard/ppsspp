@@ -12,4 +12,5 @@ namespace MainWindow {
 	void BrowseAndBoot(RequesterToken token, std::string defaultPath, bool browseDirectory = false);
 	void setTexScalingMultiplier(int level);
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state);
+	void HideDebugWindows();
 }

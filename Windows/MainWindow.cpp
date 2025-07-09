@@ -1117,7 +1117,7 @@ namespace MainWindow
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				HDROP hdrop = (HDROP)wParam;
-				int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
+				const int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
 					// TODO: Translate? Or just not bother?
 					MessageBox(hwndMain, L"You can only load one file at a time", L"Error", MB_ICONINFORMATION);
