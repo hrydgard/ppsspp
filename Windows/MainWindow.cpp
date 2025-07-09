@@ -929,9 +929,9 @@ namespace MainWindow
 		case WM_DESTROY:
 			g_InputManager.StopPolling();
 			g_InputManager.Shutdown();
+			WindowsRawInput::Shutdown();
 
 			MainThread_Stop();
-			WindowsRawInput::Shutdown();
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			// Main window is gone, this tells the message loop to exit.
