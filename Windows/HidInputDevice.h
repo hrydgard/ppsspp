@@ -2,23 +2,23 @@
 
 #pragma once
 
+#include "Input/InputState.h"
 #include "Windows/InputDevice.h"
 #include <set>
+#include <windows.h>
 
 enum class PSSubType {
 	DS4,
 	DS5
 };
 
-enum InputDeviceID;
-
 // Supports a few specific HID input devices, namely DualShock and DualSense.
 // More may be added later. Just picks the first one available, for now.
 class HidInputDevice : public InputDevice {
 public:
-	void Init();
-	int UpdateState();
-	void Shutdown();
+	void Init() override;
+	int UpdateState() override;
+	void Shutdown() override;
 
 	static void AddSupportedDevices(std::set<u32> *deviceVIDPIDs);
 private:
