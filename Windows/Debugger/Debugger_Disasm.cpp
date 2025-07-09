@@ -576,6 +576,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			ProcessUpdateDialog();
 			updateDialogScheduled_ = false;
 			KillTimer(GetDlgHandle(), wParam);
+
+			if (Achievements::HardcoreModeActive()) {
+				SendMessage(m_hDlg, WM_CLOSE, 0, 0);
+			}
 		}
 		break;
 	}

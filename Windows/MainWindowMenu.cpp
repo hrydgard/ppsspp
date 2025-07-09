@@ -974,6 +974,19 @@ namespace MainWindow {
 		}
 	}
 
+	void HideDebugWindows() {
+		if (disasmWindow)
+			disasmWindow->Show(false);
+#if PPSSPP_API(ANY_GL)
+		if (geDebuggerWindow)
+			geDebuggerWindow->Show(false);
+#endif
+		if (memoryWindow)
+			memoryWindow->Show(false);
+		if (vfpudlg)
+			vfpudlg->Show(false);
+	}
+
 	void UpdateMenus(bool isMenuSelect) {
 		if (isMenuSelect) {
 			menuShaderInfoLoaded = false;
