@@ -936,7 +936,6 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HideStickBackground", &g_Config.bHideStickBackground, false, CfgFlag::PER_GAME),
 
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, CfgFlag::PER_GAME),
-	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, CfgFlag::PER_GAME),
 	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, CfgFlag::PER_GAME),
 	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, CfgFlag::PER_GAME),
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, CfgFlag::PER_GAME),

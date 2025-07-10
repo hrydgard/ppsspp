@@ -340,7 +340,7 @@ namespace WindowsRawInput {
 		};
 
 		for (int i = 0; i < 5; i++) {
-			if (i > 0 || (g_Config.bMouseControl && (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse))) {
+			if (i > 0 || (g_Config.bMouseControl && (GetUIState() == UISTATE_INGAME || g_IsMappingMouseInput))) {
 				if (raw->data.mouse.usButtonFlags & rawInputDownID[i]) {
 					key.flags = KEY_DOWN;
 					key.keyCode = windowsTransTable[vkInputID[i]];
