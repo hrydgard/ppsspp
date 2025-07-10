@@ -1,16 +1,15 @@
 #pragma once
 
+#include "Audio/AudioBackend.h"
 #include <atomic>
-#include "WindowsAudio.h"
 
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
-#include <cmath>
 #include <thread>
-#include <vector>
 #include <string>
 #include <string_view>
+#include <wrl/client.h>
 
 class WASAPIContext : public AudioBackend {
 public:
@@ -72,10 +71,10 @@ private:
 	void AudioLoop();
 
 	// Only one of these can be non-null at a time. Check audioClient3 to determine if it's being used.
-	IAudioClient3 *audioClient3_ = nullptr;
-	IAudioClient *audioClient_ = nullptr;
+	Microsoft::WRL::ComPtr<IAudioClient3> audioClient3_;
+	Microsoft::WRL::ComPtr<IAudioClient> audioClient_;
 
-	IAudioRenderClient* renderClient_ = nullptr;
+	Microsoft::WRL::ComPtr<IAudioRenderClient> renderClient_;
 	WAVEFORMATEX *format_ = nullptr;
 	HANDLE audioEvent_ = nullptr;
 	std::thread audioThread_;
@@ -83,7 +82,7 @@ private:
 	std::atomic<bool> running_ = true;
 	UINT32 actualPeriodFrames_ = 0;  // may not be the requested.
 	UINT32 reportedBufferSize_ = 0;
-	IMMDeviceEnumerator *enumerator_ = nullptr;
+	Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_;
 	DeviceNotificationClient notificationClient_;
 	RenderCallback callback_{};
 	void *userdata_ = nullptr;
