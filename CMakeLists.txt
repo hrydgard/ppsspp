@@ -2672,9 +2672,10 @@ set(WindowsFiles
 	Windows/CaptureDevice.h
 	Windows/DinputDevice.cpp
 	Windows/DinputDevice.h
+	Windows/HidInputDevice.h
+	Windows/HidInputDevice.cpp
 	Windows/EmuThread.cpp
 	Windows/EmuThread.h
-	Windows/GeDebugger/GeDebugger.cpp
 	Windows/GPU/D3D11Context.cpp
 	Windows/GPU/D3D11Context.h
 	Windows/GPU/WindowsGLContext.cpp
@@ -2726,7 +2727,7 @@ endif()
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi setupapi hid)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
