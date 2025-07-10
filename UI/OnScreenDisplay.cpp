@@ -118,12 +118,12 @@ static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &e
 	}
 }
 
-static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, bool transparent) {
+static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);
 
-	if (!transparent) {
+	if (!(flags & OSDMessageFlags::Transparent)) {
 		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 		dc.FillRect(background, bounds);
 	}
@@ -153,7 +153,13 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 				// easily melts into the orange of warnings otherwise.
 				dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
 			}
-			dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH));
+
+			if (flags & (OSDMessageFlags::SpinLeft | OSDMessageFlags::SpinRight)) {
+				const float direction = (flags & OSDMessageFlags::SpinLeft) ? -1.5f : 1.5f;
+				dc.DrawImageRotated(iconID, bounds.x + 2.5f + iconW * 0.5f, bounds.y + 2.5f + iconW * 0.5f, 1.0f, direction * time_now_d(), foreGround, false);
+			} else {
+				dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH));
+			}
 		}
 	}
 
@@ -168,7 +174,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
-		if (!transparent) {
+		if (!(flags & OSDMessageFlags::Transparent)) {
 			UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
 			dc.FillRect(backgroundDark, bottomTextBounds);
 		}
@@ -178,7 +184,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 	dc.SetFontScale(1.0f, 1.0f);
 }
 
-static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
+static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha, float now) {
 	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
 		const rc_client_achievement_t * achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
 		if (achievement) {
@@ -186,8 +192,7 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		}
 		return;
 	} else {
-		bool transparent = entry.type == OSDType::TRANSPARENT_STATUS;
-		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, transparent);
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime);
 	}
 }
 
@@ -309,7 +314,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_UNLOCKED] = (ScreenEdgePosition)g_Config.iAchievementsUnlockedPos;
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_ERROR] = ScreenEdgePosition::CENTER;
-	typeEdges[(size_t)OSDType::TRANSPARENT_STATUS] = ScreenEdgePosition::TOP_LEFT;
+	typeEdges[(size_t)OSDType::STATUS_ICON] = ScreenEdgePosition::TOP_LEFT;
 	typeEdges[(size_t)OSDType::PROGRESS_BAR] = ScreenEdgePosition::TOP_CENTER;  // These only function at the top currently, needs fixing.
 
 	dc.SetFontStyle(dc.theme->uiFont);
@@ -471,7 +476,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				}
 
 				float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
-				RenderOSDEntry(dc, entry, b, measuredEntry.h1, measuredEntry.align, alpha);
+				RenderOSDEntry(dc, entry, b, measuredEntry.h1, measuredEntry.align, alpha, now);
 
 				switch (entry.type) {
 				case OSDType::MESSAGE_INFO:
@@ -584,6 +589,6 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f, false);
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f, OSDMessageFlags::None, 0.0f);
 	dc.PopScissor();
 }

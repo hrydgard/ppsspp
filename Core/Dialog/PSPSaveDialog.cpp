@@ -21,6 +21,7 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -1095,6 +1096,7 @@ int PSPSaveDialog::Update(int animSpeed)
 	return 0;
 }
 
+// It's kinda ugly how this uses the "global" 'display'...
 void PSPSaveDialog::ExecuteIOAction() {
 	param.ClearSFOCache();
 	auto &result = param.GetPspParam()->common.result;
@@ -1229,21 +1231,26 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	param.ClearSFOCache();
 }
 
-static void DoExecuteIOAction(PSPSaveDialog *dialog) {
-	SetCurrentThreadName("SaveIO");
-
-	AndroidJNIThreadContext jniContext;
-	dialog->ExecuteIOAction();
-}
-
 void PSPSaveDialog::StartIOThread() {
 	if (ioThread.joinable()) {
 		WARN_LOG_REPORT(Log::sceUtility, "Starting a save io thread when one already pending, uh oh.");
 		ioThread.join();
 	}
 
+	// Show save indicator. It's strange how "display" is just as much an action as what to display.
+	if (display == DS_SAVE_SAVING || display == DS_LOAD_LOADING || display == DS_DELETE_DELETING) {
+		const bool left = display == DS_LOAD_LOADING;
+		g_OSD.Show(OSDType::STATUS_ICON, "", "", left ? "I_ROTATE_LEFT" : "I_ROTATE_RIGHT", 1.0f, "save_indicator");
+		g_OSD.SetFlags("save_indicator", (left ? OSDMessageFlags::SpinLeft : OSDMessageFlags::SpinRight) | OSDMessageFlags::Transparent);
+	}
+
 	ioThreadStatus = SAVEIO_PENDING;
-	ioThread = std::thread(&DoExecuteIOAction, this);
+	ioThread = std::thread([this]() {
+		SetCurrentThreadName("SaveIO");
+
+		AndroidJNIThreadContext jniContext;
+		this->ExecuteIOAction();
+	});
 }
 
 int PSPSaveDialog::Shutdown(bool force) {
