@@ -25,6 +25,17 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.19.3
+--------------------
+
+- Regression fixed: Crash in Tony Hawk's Underground ([#20573])
+- Crash fixed when accessing the menu in FFII if readbacks were configured to copy-to-tex ([#20573])
+- Music and audio fixed in certain modded games (Various football (soccer) games, Crazy Taxi original soundtrack) ([#20566], [#20571])
+- Translation improvements
+- Fix exiting not functioning correctly on Windows in some circumstances ([#20607])
+- Minor UI and key binding fixes ([#20604])
+- Fix crash/blackscreen when switching from skip buffer effects to auto-frameskip rendering ([#20605])
+
 What's new in 1.19.2
 --------------------
 
