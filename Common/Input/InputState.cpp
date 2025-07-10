@@ -33,6 +33,8 @@ const char *GetDeviceName(int deviceId) {
 	}
 }
 
+bool g_IsMappingMouseInput;
+
 std::vector<InputMapping> dpadKeys;
 std::vector<InputMapping> confirmKeys;
 std::vector<InputMapping> cancelKeys;

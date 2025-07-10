@@ -211,3 +211,6 @@ void SetInfoKeys(const std::vector<InputMapping> &info);
 // 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
 void SetAnalogFlipY(const std::unordered_map<InputDeviceID, int> &flipYByDeviceId);
 int GetAnalogYDirection(InputDeviceID deviceId);
+
+// Gross hack unfortunately.
+extern bool g_IsMappingMouseInput;

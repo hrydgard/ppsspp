@@ -57,7 +57,9 @@ using KeyMap::MultiInputMapping;
 class SingleControlMapper : public UI::LinearLayout {
 public:
 	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
-
+	~SingleControlMapper() {
+		g_IsMappingMouseInput = false;
+	}
 	int GetPspKey() const { return pspKey_; }
 
 private:
@@ -196,7 +198,7 @@ void SingleControlMapper::MappedCallback(const MultiInputMapping &kdf) {
 		break;
 	}
 	KeyMap::UpdateNativeMenuKeys();
-	g_Config.bMapMouse = false;
+	g_IsMappingMouseInput = false;
 }
 
 UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
@@ -219,7 +221,7 @@ UI::EventReturn SingleControlMapper::OnAdd(UI::EventParams &params) {
 }
 UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
-	g_Config.bMapMouse = true;
+	g_IsMappingMouseInput = true;
 	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
@@ -430,14 +432,14 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_ESCAPE) {
 			TriggerFinish(DR_OK);
-			g_Config.bMapMouse = false;
+			g_IsMappingMouseInput = false;
 			return false;
 		}
 
 		mapped_ = true;
 
 		TriggerFinish(DR_YES);
-		g_Config.bMapMouse = false;
+		g_IsMappingMouseInput = false;
 		if (callback_) {
 			MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
 			callback_(kdf);

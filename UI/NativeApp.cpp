@@ -1420,7 +1420,7 @@ static void SendMouseDeltaAxis() {
 	//NOTICE_LOG(Log::System, "delta: %0.2f %0.2f    mx/my: %0.2f %0.2f   dpi: %f  sens: %f ",
 	//	g_mouseDeltaX, g_mouseDeltaY, mx, my, g_display.dpi_scale_x, g_Config.fMouseSensitivity);
 
-	if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+	if (GetUIState() == UISTATE_INGAME || g_IsMappingMouseInput) {
 		NativeAxis(axis, 2);
 	}
 }
