@@ -801,49 +801,68 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 
 	for (size_t i = 0; i < strlen(locales); i++) {
 		switch (locales[i]) {
-		case 'U':  // US ASCII
-			ranges.push_back(range(32, 127));
+		case 'U':  // Basic Latin (US ASCII)
+			ranges.push_back(range(0x20, 0x7E));  // 00 - 1F are C0 Controls, 7F is DEL
 			break;
-		case 'W':  // Latin-1 extras 1
-			ranges.push_back(range(0x80, 0x80));  // euro sign (??? It's not here?)
-			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
-			ranges.push_back(range(0x2121, 0x2122));  // TEL symbol and trademark symbol 
+		case 'W':  // Latin-1 Supplement
+			ranges.push_back(range(0xA0, 0xFF));  // 80 - 9F are C1 Controls
 			break;
-		case 'E':  // Latin-1 Extended A (needed for Hungarian etc)
+		case 'E':  // Latin Extended-A (various European languages, Slavic, Hungarian, Romanian, Turkish, etc.)
 			ranges.push_back(range(0x100, 0x17F));
 			break;
-		case 'e':  // Latin-1 Extended B (for some African and latinized asian languages?)
-			ranges.push_back(range(0x180, 0x250));
+		case 'e':  // Latin Extended-B (additions for European languages, some Romanized African and Asian languages)
+			ranges.push_back(range(0x180, 0x24F));
 			break;
+		case 'G':  // Greek and Coptic
+			ranges.push_back(range(0x0370, 0x03FF));
+			break;
+		case 'R':  // Cyrillic (Russian, Bulgarian, etc.)
+			ranges.push_back(range(0x0400, 0x04FF));
+			break;
+		case 'H':  // Hebrew
+			ranges.push_back(range(0x0590, 0x05FF));
+			break;
+
+		case 'S':  // Select symbols
+			ranges.push_back(range(0x2007, 0x2007));  // Figure Space (digit-wide)
+			ranges.push_back(range(0x2020, 0x2021));  // Dagger and Double Dagger
+			ranges.push_back(range(0x20AC, 0x20AC));  // Euro sign
+			ranges.push_back(range(0x2116, 0x2116));  // "No." symbol
+			ranges.push_back(range(0x2120, 0x2122));  // "SM", "TEL" and "TM" symbols
+			ranges.push_back(range(0x2139, 0x2139));  // "i" symbol
+			ranges.push_back(range(0x2300, 0x2300));  // Diameter sign
+			ranges.push_back(range(0x2302, 0x2302));  // House sign
+			// ranges.push_back(range(0x2314, 0x2314));  // Place of Interest sign
+			// ranges.push_back(range(0x2328, 0x2328));  // Keyboard sign
+			// ranges.push_back(range(0x232B, 0x232B));  // Backspace symbol
+			// ranges.push_back(range(0x23CE, 0x23CF));  // Return and Eject symbols
+			// ranges.push_back(range(0x23E9, 0x23EF));  // UI and Media Control symbols 1
+			// ranges.push_back(range(0x23F4, 0x23FA));  // UI and Media Control symbols 2
+			ranges.push_back(range(0x2610, 0x2612));  // Ballot boxes
+			ranges.push_back(range(0x26A0, 0x26A1));  // Warning and High Voltage signs
+			ranges.push_back(range(0x32CF, 0x32CF));  // "LTD" symbol
+			ranges.push_back(range(0x33C7, 0x33C7));  // "Co." symbol
+			ranges.push_back(range(0x33CD, 0x33CD));  // "K.K." symbol
+			ranges.push_back(range(0xFFFD, 0xFFFD));  // "?" Replacement character
+			break;
+
 		case 'k':  // Katakana
 			ranges.push_back(range(0x30A0, 0x30FF));
 			ranges.push_back(range(0x31F0, 0x31FF));
-			ranges.push_back(range(0xFF00, 0xFFEF));  // half-width ascii
+			ranges.push_back(range(0xFF00, 0xFFEF));  // Halfwidth ascii
 			break;
 		case 'h':  // Hiragana
 			ranges.push_back(range(0x3041, 0x3097));
 			ranges.push_back(range(0x3099, 0x309F));
 			break;
-		case 's':  // ShiftJIS symbols
+		case 'J':  // Shift JIS (for Japanese fonts)
 			ranges.push_back(range(0x2010, 0x2312)); // General Punctuation, Letterlike Symbols, Arrows, 
 													 // Mathematical Operators, Miscellaneous Technical
 			ranges.push_back(range(0x2500, 0x254B)); // Box drawing
-			ranges.push_back(range(0x25A0, 0x266F)); //  Geometric Shapes,  Miscellaneous Symbols
-			ranges.push_back(range(0x3231, 0x3231)); // Co,.Ltd. symbol
-			ranges.push_back(range(0x2116, 0x2116)); // "No." symbol
-			ranges.push_back(range(0x33CD, 0x33CD)); // "K.K." symbol
-			break;
-		case 'H':  // Hebrew
-			ranges.push_back(range(0x0590, 0x05FF));
-			break;
-		case 'G':  // Greek
-			ranges.push_back(range(0x0370, 0x03FF));
-			break;
-		case 'R':  // Russian
-			ranges.push_back(range(0x0400, 0x04FF));
+			ranges.push_back(range(0x25A0, 0x266F)); // Geometric Shapes, Miscellaneous Symbols
 			break;
 		case 'c':  // All Kanji, filtered though!
-			ranges.push_back(range(0x3000, 0x303f));  // Ideographic symbols
+			ranges.push_back(range(0x3000, 0x303F));  // Ideographic symbols
 			ranges.push_back(range(0x4E00, 0x9FFF, kanji));
 			// ranges.push_back(range(0xFB00, 0xFAFF, kanji));
 			break;
