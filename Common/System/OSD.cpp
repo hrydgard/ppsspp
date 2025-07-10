@@ -69,7 +69,7 @@ void OnScreenDisplay::ClickEntry(size_t index, double now) {
 }
 
 void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s, const char *id) {
-	if (text.empty()) {
+	if (text.empty() && type != OSDType::STATUS_ICON) {
 		// The user hacked the translation files to get rid of the message. Let's reward the dedication
 		// by skipping it entirely.
 		return;
@@ -332,6 +332,15 @@ void OnScreenDisplay::SetClickCallback(const char *id, void (*callback)(bool, vo
 		if (ent.id == id && !ent.clickCallback) {
 			ent.clickCallback = callback;
 			ent.clickUserData = userdata;
+		}
+	}
+}
+
+void OnScreenDisplay::SetFlags(const char *id, OSDMessageFlags flags) {
+	for (auto &ent : entries_) {
+		// protect against dupes.
+		if (ent.id == id) {
+			ent.flags = flags;
 		}
 	}
 }

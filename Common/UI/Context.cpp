@@ -352,6 +352,11 @@ void UIContext::DrawImageVGradient(ImageID image, uint32_t color1, uint32_t colo
 	uidrawbuffer_->DrawImageStretchVGradient(image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color1, color2);
 }
 
+void UIContext::DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, uint32_t color, bool mirror_h) {
+	uidrawbuffer_->DrawImageRotated(atlas_image, x, y, scale, angle, color, mirror_h);
+}
+
+
 void UIContext::PushTransform(const UITransform &transform) {
 	Flush();
 

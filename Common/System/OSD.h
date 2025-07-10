@@ -5,6 +5,8 @@
 #include <vector>
 #include <mutex>
 
+#include "Common/Common.h"
+
 // Shows a visible message to the user.
 // The default implementation in NativeApp.cpp uses our "osm" system (on screen messaging).
 enum class OSDType {
@@ -29,10 +31,20 @@ enum class OSDType {
 
 	PROGRESS_BAR,
 
-	TRANSPARENT_STATUS,  // Use icons from the atlas
+	STATUS_ICON,  // Use icons from the atlas
 
 	VALUE_COUNT,
 };
+
+#undef None  // X11, sigh.
+
+enum class OSDMessageFlags {
+	None = 0,
+	SpinLeft = 1,
+	SpinRight = 2,
+	Transparent = 4,
+};
+ENUM_CLASS_BITOPS(OSDMessageFlags);
 
 // Data holder for on-screen messages.
 class OnScreenDisplay {
@@ -78,6 +90,7 @@ public:
 
 	// Can't add an infinite number of "Show" functions, so starting to offer post-modification.
 	void SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata);
+	void SetFlags(const char *id, OSDMessageFlags flag);
 
 	struct Entry {
 		OSDType type;
@@ -86,6 +99,7 @@ public:
 		std::string iconName;
 		int numericID;
 		std::string id;
+		OSDMessageFlags flags;
 
 		// We could use std::function, but prefer to do it the oldschool way.
 		void (*clickCallback)(bool, void *);

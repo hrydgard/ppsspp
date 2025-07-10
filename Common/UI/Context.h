@@ -95,6 +95,7 @@ public:
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);
+	void DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, uint32_t color, bool mirror_h);
 
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }

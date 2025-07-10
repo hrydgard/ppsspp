@@ -713,7 +713,8 @@ static void ShowFpsLimitNotice() {
 
 	char temp[51];
 	snprintf(temp, sizeof(temp), "%d%%", (int)((float)fpsLimit / 60.0f * 100.0f));
-	g_OSD.Show(OSDType::TRANSPARENT_STATUS, temp, "", "I_FASTFORWARD", 1.5f, "altspeed");
+	g_OSD.Show(OSDType::STATUS_ICON, temp, "", "I_FASTFORWARD", 1.5f, "altspeed");
+	g_OSD.SetFlags("altspeed", OSDMessageFlags::Transparent);
 }
 
 void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
