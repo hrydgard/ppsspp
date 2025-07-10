@@ -10,31 +10,43 @@
 #include <string_view>
 #include <wrl/client.h>
 
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "WASAPIContext.h"
 
 using Microsoft::WRL::ComPtr;
 
-static std::string ConvertWStringToUTF8(const std::wstring &wstr) {
-	const int len = (int)wstr.size();
-	const int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), len, 0, 0, NULL, NULL);
-	std::string s;
-	s.resize(size);
-	if (size > 0) {
-		WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), len, &s[0], size, NULL, NULL);
+// We must have one of these already...
+static inline s16 ClampFloatToS16(float f) {
+	f *= 32768.0f;
+	if (f >= 32767) {
+		return 32767;
+	} else if (f < -32767) {
+		return -32767;
+	} else {
+		return (s16)(s32)f;
 	}
-	return s;
 }
 
-static std::wstring ConvertUTF8ToWString(const std::string_view source) {
-	const int len = (int)source.size();
-	const int size = MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
-	std::wstring str;
-	str.resize(size);
-	if (size > 0) {
-		MultiByteToWideChar(CP_UTF8, 0, source.data(), (int)source.size(), &str[0], size);
-	}
-	return str;
+void BuildStereoFloatFormat(const WAVEFORMATEXTENSIBLE *original, WAVEFORMATEXTENSIBLE *output) {
+	// Zero‑init all fields first.
+	ZeroMemory(output, sizeof(WAVEFORMATEXTENSIBLE));
+
+	// Fill the WAVEFORMATEX base part.
+	output->Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+	output->Format.nChannels = 2;
+	output->Format.nSamplesPerSec = original->Format.nSamplesPerSec;
+	output->Format.wBitsPerSample = 32;                                 // 32‑bit float
+	output->Format.nBlockAlign = output->Format.nChannels *
+		output->Format.wBitsPerSample / 8;
+	output->Format.nAvgBytesPerSec = output->Format.nSamplesPerSec *
+		output->Format.nBlockAlign;
+	output->Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+
+	// Fill the extensible fields.
+	output->Samples.wValidBitsPerSample = 32;
+	output->dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+	output->SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
 }
 
 WASAPIContext::WASAPIContext() : notificationClient_(this) {
@@ -54,6 +66,21 @@ WASAPIContext::~WASAPIContext() {
 	}
 	Stop();
 	enumerator_->UnregisterEndpointNotificationCallback(&notificationClient_);
+	delete[] tempBuf_;
+}
+
+WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
+	if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 2) {
+		return AudioFormat::S16;
+	} else if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+		const WAVEFORMATEXTENSIBLE *ex = (const WAVEFORMATEXTENSIBLE *)format;
+		if (ex->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT) {
+			return AudioFormat::Float;
+		}
+	} else {
+		WARN_LOG(Log::Audio, "Unhandled output format!");
+	}
+	return AudioFormat::Unhandled;
 }
 
 void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool captureDevices) {
@@ -108,7 +135,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		std::wstring wId = ConvertUTF8ToWString(uniqueId);
 		if (FAILED(enumerator_->GetDevice(wId.c_str(), &device))) {
 			// Fallback to default device
-			printf("Falling back to default device...\n");
+			INFO_LOG(Log::Audio, "Falling back to default device...\n");
 			*revertedToDefault = true;
 			if (FAILED(enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device))) {
 				return false;
@@ -123,22 +150,40 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	if (latencyMode != LatencyMode::Safe) {
 		hr = device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&audioClient3_);
 	}
+
+	// Get rid of any old tempBuf_.
+	delete[] tempBuf_;
+	tempBuf_ = nullptr;
+
 	if (SUCCEEDED(hr)) {
 		audioClient3_->GetMixFormat(&format_);
 		audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
 
-		printf("default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
-		printf("initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
+		// If there are too many channels, try asking for a 2-channel output format.
+		DWORD extraStreamFlags = 0;
+		if (Classify(format_) == AudioFormat::Float && format_->nChannels != 2) {
+			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead");
+			WAVEFORMATEXTENSIBLE stereo;
+			BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
+			if (audioClient3_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, nullptr)) {
+				// Use this format!
+				memcpy(format_, &stereo, sizeof(*format_));
+				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+			}
+		}
+
+		INFO_LOG(Log::Audio, "default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
+		INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
 
 		audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		HRESULT result = audioClient3_->InitializeSharedAudioStream(
-			AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+			AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraStreamFlags,
 			minPeriodFrames,
 			format_,
 			nullptr
 		);
 		if (FAILED(result)) {
-			printf("Error initializing shared audio stream: %08lx", result);
+			WARN_LOG(Log::Audio, "Error initializing shared audio stream: %08lx", result);
 			audioClient3_.Reset();
 			return false;
 		}
@@ -147,11 +192,29 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		audioClient3_->GetBufferSize(&reportedBufferSize_);
 		audioClient3_->SetEventHandle(audioEvent_);
 		audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
+
+		if (Classify(format_) != AudioFormat::Float || format_->nChannels != 2) {
+			// We're gonna need a stereo temp buffer, allocate it.
+			tempBuf_ = new float[reportedBufferSize_ * 2];
+		}
 	} else {
 		// Fallback to IAudioClient (older OS)
 		device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
 
 		audioClient_->GetMixFormat(&format_);
+
+		// If there are too many channels, try asking for a 2-channel output format.
+		DWORD extraStreamFlags = 0;
+		if (Classify(format_) == AudioFormat::Float && format_->nChannels != 2) {
+			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead");
+			WAVEFORMATEXTENSIBLE stereo;
+			BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
+			if (audioClient_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, nullptr)) {
+				// Use this format!
+				memcpy(format_, &stereo, sizeof(*format_));
+				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+			}
+		}
 
 		// Get engine period info
 		REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
@@ -162,7 +225,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		const REFERENCE_TIME duration = minPeriod;
 		HRESULT hr = audioClient_->Initialize(
 			AUDCLNT_SHAREMODE_SHARED,
-			AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+			AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraStreamFlags,
 			duration,  // This is a minimum, the result might be larger. We use GetBufferSize to check.
 			0,  // ref duration, always 0 in shared mode.
 			format_,
@@ -170,10 +233,11 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		);
 
 		if (FAILED(hr)) {
-			printf("ERROR: Failed to initialize audio with all attempted buffer sizes\n");
+			WARN_LOG(Log::Audio, "ERROR: Failed to initialize audio with all attempted buffer sizes\n");
 			audioClient_.Reset();
 			return false;
 		}
+
 		audioClient_->GetBufferSize(&reportedBufferSize_);
 		actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
 		audioClient_->SetEventHandle(audioEvent_);
@@ -200,8 +264,14 @@ void WASAPIContext::Stop() {
 
 	renderClient_.Reset();
 	audioClient_.Reset();
-	if (audioEvent_) { CloseHandle(audioEvent_); audioEvent_ = nullptr; }
-	if (format_) { CoTaskMemFree(format_); format_ = nullptr; }
+	if (audioEvent_) {
+		CloseHandle(audioEvent_);
+		audioEvent_ = nullptr;
+	}
+	if (format_) {
+		CoTaskMemFree(format_);
+		format_ = nullptr;
+	}
 }
 
 void WASAPIContext::FrameUpdate(bool allowAutoChange) {
@@ -228,6 +298,9 @@ void WASAPIContext::AudioLoop() {
 		audioClient_->GetBufferSize(&available);
 	}
 
+	AudioFormat format = Classify(format_);
+	const int nChannels = format_->nChannels;
+
 	while (running_) {
 		const DWORD waitResult = WaitForSingleObject(audioEvent_, INFINITE);
 		if (waitResult != WAIT_OBJECT_0) {
@@ -245,7 +318,49 @@ void WASAPIContext::AudioLoop() {
 		const UINT32 framesToWrite = available - padding;
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
-			callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nChannels, format_->nSamplesPerSec, userdata_);
+			if (!tempBuf_) {
+				// Mix directly to the output buffer, avoiding a copy.
+				callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nSamplesPerSec, userdata_);
+			} else {
+				// We decided previously that we need conversion, so mix to our temp buffer...
+				callback_(tempBuf_, framesToWrite, format_->nSamplesPerSec, userdata_);
+				// .. and convert according to format (we support multi-channel float and s16)
+				if (format == AudioFormat::S16) {
+					// Need to convert.
+					s16 *dest = reinterpret_cast<s16 *>(buffer);
+					for (UINT32 i = 0; i < framesToWrite; i++) {
+						if (nChannels == 1) {
+							// Maybe some bluetooth speakers? Mixdown.
+							float sum = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
+							dest[i] = ClampFloatToS16(sum);
+						} else {
+							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);
+							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
+							// Zero other channels.
+							for (int j = 2; j < nChannels; j++) {
+								dest[i * nChannels + j] = 0;
+							}
+						}
+					}
+				} else if (format == AudioFormat::Float) {
+					// We have a non-2 number of channels (since we're in the tempBuf_ 'if'), so we contract/expand.
+					float *dest = reinterpret_cast<float *>(buffer);
+					for (UINT32 i = 0; i < framesToWrite; i++) {
+						if (nChannels == 1) {
+							// Maybe some bluetooth speakers? Mixdown.
+							dest[i] = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
+						} else {
+							dest[i * nChannels] = tempBuf_[i * 2];
+							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];
+							// Zero other channels.
+							for (int j = 2; j < nChannels; j++) {
+								dest[i * nChannels + j] = 0;
+							}
+						}
+					}
+				}
+			}
+
 			renderClient_->ReleaseBuffer(framesToWrite, 0);
 		}
 

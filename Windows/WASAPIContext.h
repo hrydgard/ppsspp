@@ -70,6 +70,13 @@ private:
 
 	void AudioLoop();
 
+	enum class AudioFormat {
+		Float,
+		S16,
+		Unhandled,
+	};
+	static AudioFormat Classify(const WAVEFORMATEX *format);
+
 	// Only one of these can be non-null at a time. Check audioClient3 to determine if it's being used.
 	Microsoft::WRL::ComPtr<IAudioClient3> audioClient3_;
 	Microsoft::WRL::ComPtr<IAudioClient> audioClient_;
@@ -86,7 +93,9 @@ private:
 	DeviceNotificationClient notificationClient_;
 	RenderCallback callback_{};
 	void *userdata_ = nullptr;
-	LatencyMode latencyMode_ = LatencyMode::Aggressive;
+	LatencyMode latencyMode_ = LatencyMode::Safe;
 	std::string deviceId_;
 	std::atomic<bool> defaultDeviceChanged_{};
+
+	float *tempBuf_ = nullptr;
 };
