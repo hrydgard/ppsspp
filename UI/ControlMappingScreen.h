@@ -97,6 +97,9 @@ class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
 	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
 		: PopupScreen(T(i18n, "Map Mouse"), "", ""), callback_(callback) {}
+	~KeyMappingNewMouseKeyDialog() {
+		g_IsMappingMouseInput = false;
+	}
 
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 
