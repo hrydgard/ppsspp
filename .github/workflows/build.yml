@@ -59,17 +59,20 @@ jobs:
     - name: Create git-version.cpp for Windows # Not sure why the one at git-version-gen.cmd couldn't get the version properly.
       #if: github.ref_type == 'tag'
       run: |
-        $GIT_VERSION=git describe --always --tags
+        $GIT_VERSION=git describe --always
+        echo "Num of Valid Tags = ${{ steps.valid-tags.outputs.count }}"
         echo "Test GitVer = ${{ github.ref_name }} / $GIT_VERSION / ${GITHUB_REF_NAME}"
         echo "const char *PPSSPP_GIT_VERSION = `"$GIT_VERSION`";" > git-version.cpp
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
         
         # Generate Windows/win-version.h too.
-        $WIN_VERSION_COMMA=$GIT_VERSION -replace '^v', '' -replace '-g[0-9a-f]+$', '' -replace '[-\.]', ','
-        echo "Test WinVer = $WIN_VERSION_COMMA"
-        echo "#define PPSSPP_WIN_VERSION_STRING `"$GIT_VERSION`"" > Windows/win-version.h
-        echo "#define PPSSPP_WIN_VERSION_COMMA $WIN_VERSION_COMMA" >> Windows/win-version.h
-        echo "#define PPSSPP_WIN_VERSION_NO_UPDATE 1" >> Windows/win-version.h
+        if ($GIT_VERSION.StartsWith("v")) {
+          $WIN_VERSION_COMMA=$GIT_VERSION -replace '^v', '' -replace '-g[0-9a-f]+$', '' -replace '[-\.]', ','
+          echo "Test WinVer = $WIN_VERSION_COMMA"
+          echo "#define PPSSPP_WIN_VERSION_STRING `"$GIT_VERSION`"" > Windows/win-version.h
+          echo "#define PPSSPP_WIN_VERSION_COMMA $WIN_VERSION_COMMA" >> Windows/win-version.h
+          echo "#define PPSSPP_WIN_VERSION_NO_UPDATE 1" >> Windows/win-version.h
+        }
         
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
