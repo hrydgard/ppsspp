@@ -294,6 +294,7 @@
     <ClCompile Include="JitHarness.cpp" />
     <ClCompile Include="TestArm64Emitter.cpp" />
     <ClCompile Include="TestIRPassSimplify.cpp" />
+    <ClCompile Include="TestLoongArch64Emitter.cpp" />
     <ClCompile Include="TestRiscVEmitter.cpp" />
     <ClCompile Include="TestShaderGenerators.cpp" />
     <ClCompile Include="TestSoftwareGPUJit.cpp" />

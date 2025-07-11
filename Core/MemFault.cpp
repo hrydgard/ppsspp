@@ -98,6 +98,12 @@ static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std
 		*dest = lines[0];
 		return true;
 	}
+#elif PPSSPP_ARCH(LOONGARCH64)
+	auto lines = DisassembleLA64(codePtr, instructionSize);
+	if (!lines.empty()) {
+		*dest = lines[0];
+		return true;
+	}
 #endif
 	return false;
 }

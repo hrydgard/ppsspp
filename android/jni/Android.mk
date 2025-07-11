@@ -977,13 +977,16 @@ ifeq ($(UNITTEST),1)
       $(SRC)/Common/ArmEmitter.cpp \
       $(SRC)/Common/Arm64Emitter.cpp \
       $(SRC)/Common/RiscVEmitter.cpp \
+      $(SRC)/Common/LoongArch64Emitter.cpp \
       $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
       $(SRC)/Core/Util/DisArm64.cpp \
       $(SRC)/ext/disarm.cpp \
       $(SRC)/ext/riscv-disas.cpp \
+      $(SRC)/ext/loongarch-disasm.cpp \
       $(SRC)/unittest/TestArmEmitter.cpp \
       $(SRC)/unittest/TestArm64Emitter.cpp \
       $(SRC)/unittest/TestRiscVEmitter.cpp \
+      $(SRC)/unittest/TestLoongArch64Emitter.cpp \
       $(SRC)/unittest/TestX64Emitter.cpp
   endif
 

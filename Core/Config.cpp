@@ -172,7 +172,7 @@ std::string CreateRandMAC() {
 }
 
 static int DefaultCpuCore() {
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
 	if (System_GetPropertyBool(SYSPROP_CAN_JIT))
 		return (int)CPUCore::JIT;
 	return (int)CPUCore::IR_INTERPRETER;
@@ -182,7 +182,7 @@ static int DefaultCpuCore() {
 }
 
 static bool DefaultCodeGen() {
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
 	return true;
 #else
 	return false;

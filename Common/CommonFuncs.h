@@ -41,6 +41,8 @@
 #define Crash() {asm ("brk #0");}
 #elif PPSSPP_ARCH(RISCV64)
 #define Crash() {asm ("ebreak");}
+#elif PPSSPP_ARCH(LOONGARCH64)
+#define Crash() {asm ("break 0");}
 #else
 #include <signal.h>
 #define Crash() {kill(getpid(), SIGINT);}

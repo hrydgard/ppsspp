@@ -688,6 +688,7 @@
     <ClInclude Include="Audio\AudioBackend.h">
       <Filter>Audio</Filter>
     </ClInclude>
+    <ClInclude Include="LoongArch64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1288,6 +1289,7 @@
     <ClCompile Include="..\ext\imgui\imgui_extras.cpp">
       <Filter>ext\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="LoongArch64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
