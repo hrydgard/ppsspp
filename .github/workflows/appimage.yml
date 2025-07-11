@@ -174,7 +174,7 @@ jobs:
         run: |
           echo "Building..."
           uname -m
-          echo "tag=$(git describe --always --tags)" >> $GITHUB_OUTPUT
+          echo "tag=$(git describe --always)" >> $GITHUB_OUTPUT
 
           # Export ccache env var(s)
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
