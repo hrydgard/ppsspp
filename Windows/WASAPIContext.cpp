@@ -147,7 +147,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	HRESULT hr = E_FAIL;
 	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
-	if (latencyMode != LatencyMode::Safe) {
+	if (false && latencyMode != LatencyMode::Safe) {
 		hr = device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&audioClient3_);
 	}
 
@@ -157,47 +157,39 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	if (SUCCEEDED(hr)) {
 		audioClient3_->GetMixFormat(&format_);
-		audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
-
-		// If there are too many channels, try asking for a 2-channel output format.
-		DWORD extraStreamFlags = 0;
-		if (Classify(format_) == AudioFormat::Float && format_->nChannels != 2) {
-			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead");
-			WAVEFORMATEXTENSIBLE stereo;
-			BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
-			if (audioClient3_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, nullptr)) {
-				// Use this format!
-				memcpy(format_, &stereo, sizeof(*format_));
-				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
-			}
-		}
-
-		INFO_LOG(Log::Audio, "default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
-		INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
-
-		audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-		HRESULT result = audioClient3_->InitializeSharedAudioStream(
-			AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraStreamFlags,
-			minPeriodFrames,
-			format_,
-			nullptr
-		);
-		if (FAILED(result)) {
-			WARN_LOG(Log::Audio, "Error initializing shared audio stream: %08lx", result);
+		// We only use AudioClient3 if we got the format we wanted (stereo float).
+		if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
+			// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
+			// AudioClient3 with low latency audio with AUTOCONVERTPCM, you get the error 0x88890021.
 			audioClient3_.Reset();
-			return false;
-		}
-		actualPeriodFrames_ = minPeriodFrames;
+			// Fall through to AudioClient creation below.
+		} else {
+			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
 
-		audioClient3_->GetBufferSize(&reportedBufferSize_);
-		audioClient3_->SetEventHandle(audioEvent_);
-		audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
+			INFO_LOG(Log::Audio, "default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
+			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
 
-		if (Classify(format_) != AudioFormat::Float || format_->nChannels != 2) {
-			// We're gonna need a stereo temp buffer, allocate it.
-			tempBuf_ = new float[reportedBufferSize_ * 2];
+			audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			HRESULT result = audioClient3_->InitializeSharedAudioStream(
+				AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+				minPeriodFrames,
+				format_,
+				nullptr
+			);
+			if (FAILED(result)) {
+				WARN_LOG(Log::Audio, "Error initializing AudioClient3 shared audio stream: %08lx", result);
+				audioClient3_.Reset();
+				return false;
+			}
+			actualPeriodFrames_ = minPeriodFrames;
+
+			audioClient3_->GetBufferSize(&reportedBufferSize_);
+			audioClient3_->SetEventHandle(audioEvent_);
+			audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
 		}
-	} else {
+	}
+
+	if (!audioClient3_) {
 		// Fallback to IAudioClient (older OS)
 		device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
 
@@ -205,15 +197,44 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 		// If there are too many channels, try asking for a 2-channel output format.
 		DWORD extraStreamFlags = 0;
-		if (Classify(format_) == AudioFormat::Float && format_->nChannels != 2) {
-			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead");
-			WAVEFORMATEXTENSIBLE stereo;
-			BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
-			if (audioClient_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, nullptr)) {
-				// Use this format!
-				memcpy(format_, &stereo, sizeof(*format_));
-				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+		const AudioFormat fmt = Classify(format_);
+
+		bool createBuffer = false;
+		if (fmt == AudioFormat::Float) {
+			if (format_->nChannels != 2) {
+				INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead", format_->nChannels);
+				WAVEFORMATEXTENSIBLE stereo;
+				BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
+
+				WAVEFORMATEX *closestMatch = nullptr;
+				const HRESULT result = audioClient_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, &closestMatch);
+				if (result == S_OK) {
+					// We got the format! Use it and set as current.
+					_dbg_assert_(!closestMatch);
+					format_ = (WAVEFORMATEX *)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
+					memcpy(format_, &stereo, sizeof(WAVEFORMATEX) + stereo.Format.cbSize);
+					extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+					INFO_LOG(Log::Audio, "Successfully asked for two channels");
+				} else if (result == S_FALSE) {
+					// We got another format. Meh, let's just use what we got.
+					if (closestMatch) {
+						WARN_LOG(Log::Audio, "Didn't get the format we wanted, but got: %d ch=%d", closestMatch->nSamplesPerSec, closestMatch->nChannels);
+						CoTaskMemFree(closestMatch);
+					} else {
+						WARN_LOG(Log::Audio, "Failed to fall back to two channels. Using workarounds.");
+					}
+					createBuffer = true;
+				} else {
+					WARN_LOG(Log::Audio, "Got other error %08x", result);
+					_dbg_assert_(!closestMatch);
+				}
+			} else {
+				// All good, nothing to convert.
 			}
+		} else {
+			// Some other format.
+			WARN_LOG(Log::Audio, "Format not float, applying conversion.");
+			createBuffer = true;
 		}
 
 		// Get engine period info
@@ -242,6 +263,10 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
 		audioClient_->SetEventHandle(audioEvent_);
 		audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
+
+		if (createBuffer) {
+			tempBuf_ = new float[reportedBufferSize_ * 2];
+		}
 	}
 
 	latencyMode_ = latencyMode;
@@ -396,5 +421,5 @@ void WASAPIContext::DescribeOutputFormat(char *buffer, size_t bufferSize) const 
 	} else {
 		fmt = "PCM";  // probably
 	}
-	snprintf(buffer, bufferSize, "%d Hz %s %d-bit, %d ch", sampleRateHz, fmt, sampleBits, numChannels);
+	snprintf(buffer, bufferSize, "%d Hz %s %d-bit, %d ch%s", sampleRateHz, fmt, sampleBits, numChannels, audioClient3_ ? " (ac3)" : " (ac)");
 }
