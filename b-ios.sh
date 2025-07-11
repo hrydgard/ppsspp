@@ -9,7 +9,7 @@ mkdir -p build-ios
 cd build-ios
 rm -rf PPSSPP.app # There seems to be an existing symlink, may be from ccache? We don't want to include old stuff that might be removed to be included in the final IPA file.
 # It seems xcodebuild is looking for "git-version.cpp" file inside "build-ios" directory instead of at repo's root dir.
-echo "const char *PPSSPP_GIT_VERSION = \"$(git describe --always --tags)\";" > git-version.cpp
+echo "const char *PPSSPP_GIT_VERSION = \"$(git describe --always)\";" > git-version.cpp
 echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 # Generate exportOptions.plist for xcodebuild
 echo '<?xml version="1.0" encoding="UTF-8"?>
@@ -98,7 +98,7 @@ if [ -e PPSSPP.app/PPSSPP ]; then
 	echo "Signing PPSSPP.app/PPSSPP ..."
 	ldid -Sent.xml PPSSPP.app/PPSSPP
 fi
-version_number=`echo "$(git describe --tags --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@-\1-\2@;s@^v@@;s@%@~@g')"`
+version_number=`echo "$(git describe --always --match="v*" | sed -e 's@-\([^-]*\)-\([^-]*\)$@-\1-\2@;s@^v@@;s@%@~@g')"`
 echo ${version_number} > PPSSPP.app/Version.txt
 sudo -S chown -R 1004:3 Payload
 
