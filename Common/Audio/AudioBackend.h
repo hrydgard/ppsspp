@@ -4,8 +4,9 @@
 #include <string_view>
 #include <vector>
 
-// For absolute minimal latency, we do not use std::function. Might be overthinking, but...
-typedef void (*RenderCallback)(float *dest, int framesToWrite, int channels, int sampleRateHz, void *userdata);
+// For absolute minimal latency, we do not use std::function.
+// We always request mixing to 2 channels, then if needed we can expand here.
+typedef void (*RenderCallback)(float *dest, int framesToWrite, int sampleRateHz, void *userdata);
 
 enum class LatencyMode {
 	Safe,

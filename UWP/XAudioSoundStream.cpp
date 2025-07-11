@@ -136,10 +136,10 @@ bool XAudioBackend::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			sourceVoice_->GetState(&state);
 			if (state.BuffersQueued < bufferCount) {
 				// Fill buffer with audio
-				callback_(audioBuffer_[curBuffer_], samplesPerBuffer, channels, format_.nSamplesPerSec, userdata_);
+				callback_(audioBuffer_[curBuffer_], samplesPerBuffer, format_.nSamplesPerSec, userdata_);
 
 				XAUDIO2_BUFFER buf = {};
-				buf.AudioBytes = samplesPerBuffer * channels * sizeof(float);
+				buf.AudioBytes = samplesPerBuffer * 2 * sizeof(float);
 				buf.pAudioData = reinterpret_cast<BYTE*>(audioBuffer_[curBuffer_]);
 				buf.Flags = 0;
 				sourceVoice_->SubmitSourceBuffer(&buf);

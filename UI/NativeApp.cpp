@@ -804,7 +804,7 @@ void CallbackPostRender(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
 // TODO: Add faster special case for channels == 2.
-void NativeMixWrapper(float *dest, int framesToWrite, int channels, int sampleRateHz, void *userdata) {
+static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, void *userdata) {
 	static int16_t *buffer;
 	static int bufSize;
 	if (bufSize < framesToWrite * 2) {
@@ -814,16 +814,8 @@ void NativeMixWrapper(float *dest, int framesToWrite, int channels, int sampleRa
 
 	NativeMix(buffer, framesToWrite, sampleRateHz, userdata);
 
-	for (int i = 0; i < framesToWrite; i++) {
-		int16_t lvalue = buffer[i * 2];
-		int16_t rvalue = buffer[i * 2 + 1];
-		dest[i * channels] = (float)lvalue * (float)(1.0f / 32767.0f);
-		if (channels > 1) {
-			dest[i * channels + 1] = (float)lvalue * (float)(1.0f / 32767.0f);
-		}
-		for (int j = 2; j < channels; j++) {
-			dest[i * channels + j] = 0.0f;
-		}
+	for (int i = 0; i < framesToWrite * 2; i++) {
+		dest[i] = (float)buffer[i] * (float)(1.0f / 32767.0f);
 	}
 }
 
