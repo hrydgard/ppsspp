@@ -93,7 +93,7 @@ private:
 	DeviceNotificationClient notificationClient_;
 	RenderCallback callback_{};
 	void *userdata_ = nullptr;
-	LatencyMode latencyMode_ = LatencyMode::Safe;
+	LatencyMode latencyMode_ = LatencyMode::Aggressive;
 	std::string deviceId_;
 	std::atomic<bool> defaultDeviceChanged_{};
 
