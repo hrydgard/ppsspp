@@ -56,27 +56,27 @@ static const char * const condnames[16] = {
 	"al", // Always (unconditional) 14
 };
 
-int SignExtend26(int x) {
+static int SignExtend26(int x) {
 	return (x & 0x02000000) ? (0xFC000000 | x) : (x & 0x3FFFFFF);
 }
 
-int SignExtend19(int x) {
+static int SignExtend19(int x) {
 	return (x & 0x00040000) ? (0xFFF80000 | x) : (x & 0x7FFFF);
 }
 
-int SignExtend9(int x) {
+static int SignExtend9(int x) {
 	return (x & 0x00000100) ? (0xFFFFFE00 | x) : (x & 0x1FF);
 }
 
-int SignExtend7(int x) {
+static int SignExtend7(int x) {
 	return (x & 0x00000040) ? (0xFFFFFF80 | x) : (x & 0x7F);
 }
 
-int SignExtend12(int x) {
+static int SignExtend12(int x) {
 	return (x & 0x00000800) ? (0xFFFFF000 | x) : (x & 0xFFF);
 }
 
-int HighestSetBit(int value) {
+static int HighestSetBit(int value) {
 	int highest = 0;
 	for (int i = 0; i < 32; i++) {
 		if (value & (1 << i))
@@ -85,7 +85,7 @@ int HighestSetBit(int value) {
 	return highest;
 }
 
-int LowestSetBit(int value, int maximum = 32) {
+static int LowestSetBit(int value, int maximum = 32) {
 	for (int i = 0; i < maximum; i++) {
 		if (value & (1 << i))
 			return i;
