@@ -7,12 +7,17 @@
 #include <vector>
 
 #include "Windows/HidInputDevice.h"
+#include "Common/CommonTypes.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
 #include "Common/Input/InputState.h"
 #include "Common/Common.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/OSD.h"
+
+constexpr u8 LED_R = 0x05;
+constexpr u8 LED_G = 0x10;
+constexpr u8 LED_B = 0x40;
 
 enum PSButton : u32 {
 	PS_DPAD_UP = 1, // These dpad ones are not real, we convert from hat switch format.
@@ -135,41 +140,15 @@ static bool IsSupportedGamepad(HANDLE handle, USHORT *pidOut, PSSubType *subType
 	return false;
 }
 
-struct DualSenseOutputReport{
-	uint8_t reportId;
-	uint8_t flags1;
-	uint8_t flags2;
-	uint8_t headphone[4];
-	uint8_t muteLED;
-	uint8_t micMute;
-};
-
-// https://github.com/ds4windowsapp/DS4Windows/blob/65609b470f53a4f832fb07ac24085d3e28ec15bd/DS4Windows/DS4Library/InputDevices/DualSenseDevice.cs#L905
-
-// Sends initialization packet to DualSense
-static bool InitializeDualSense(HANDLE handle, int outReportSize) {
-	if (outReportSize != 48) {
-		return false;
-	}
-
-	// Output report (0x05) – sets lightbar, enables full report mode
-	uint8_t reportData[48] = {0};
-
-	DualSenseOutputReport report;
-	report.reportId = 2;
-	report.flags1 = 0x0C;
-	report.flags2 = 0x15;
-	report.muteLED = 1;
-
-	memcpy(reportData, &report, sizeof(report));
-
+template<class T>
+static bool WriteReport(HANDLE handle, const T &report) {
 	DWORD written;
-	bool result = WriteFile(handle, reportData, sizeof(reportData), &written, NULL);
+	bool result = WriteFile(handle, &report, sizeof(report), &written, NULL);
 	if (!result) {
 		u32 errorCode = GetLastError();
 
 		if (errorCode == ERROR_INVALID_PARAMETER) {
-			if (!HidD_SetOutputReport(handle, reportData, outReportSize)) {
+			if (!HidD_SetOutputReport(handle, (PVOID)&report, sizeof(T))) {
 				errorCode = GetLastError();
 			}
 		}
@@ -178,6 +157,67 @@ static bool InitializeDualSense(HANDLE handle, int outReportSize) {
 		return false;
 	}
 	return true;
+}
+
+struct DualSenseOutputReport {
+	u8 reportId;
+	u8 flags1;
+	u8 flags2;
+	u8 rumbleRight;
+	u8 rumbleLeft;
+	u8 pad[2];
+	u8 muteLED;
+	u8 micMute;
+	u8 other[32];
+	u8 enableBrightness;
+	u8 fade;
+	u8 brightness;
+	u8 playerLights;
+	u8 lightbarRed;
+	u8 lightbarGreen;
+	u8 lightbarBlue;
+};
+static_assert(sizeof(DualSenseOutputReport) == 48);
+
+// https://github.com/ds4windowsapp/DS4Windows/blob/65609b470f53a4f832fb07ac24085d3e28ec15bd/DS4Windows/DS4Library/InputDevices/DualSenseDevice.cs#L905
+
+// Sends initialization packet to DualSense
+static bool InitializeDualSense(HANDLE handle, int outReportSize) {
+	if (outReportSize != sizeof(DualSenseOutputReport)) {
+		return false;
+	}
+
+	DualSenseOutputReport report{};
+	report.reportId = 2;
+	report.flags1 = 0x0C;
+	report.flags2 = 0x15;
+	report.muteLED = 1;
+	report.playerLights = 1;
+	report.enableBrightness = 1;
+	report.brightness = 0;  // 0 = high, 1 = medium, 2 = low
+	report.lightbarRed = LED_R;
+	report.lightbarGreen = LED_G;
+	report.lightbarBlue = LED_B;
+	return WriteReport(handle, report);
+}
+
+static bool ShutdownDualsense(HANDLE handle, int outReportSize) {
+	if (outReportSize != sizeof(DualSenseOutputReport)) {
+		return false;
+	}
+
+	DualSenseOutputReport report{};
+	report.reportId = 2;
+	report.flags1 = 0x0C;
+	report.flags2 = 0x15;
+	report.muteLED = 1;
+	report.playerLights = 0;
+	report.enableBrightness = 1;
+	report.brightness = 2;  // 0 = high, 1 = medium, 2 = low
+	report.lightbarRed = 0;
+	report.lightbarGreen = 0;
+	report.lightbarBlue = 0;
+	return WriteReport(handle, report);
 }
 
 enum class DS4FeatureBits : u8 {
@@ -191,33 +231,67 @@ enum class DS4FeatureBits : u8 {
 };
 ENUM_CLASS_BITOPS(DS4FeatureBits);
 
+struct DualshockOutputReport {
+	u8 reportID;
+	u8 featureBits;
+	u8 two;
+	u8 pad;
+	u8 rumbleRight;
+	u8 rumbleLeft;
+	u8 ledR;
+	u8 ledG;
+	u8 ledB;
+	u8 padding[23];
+};
+static_assert(sizeof(DualshockOutputReport) == 32);
+
 static bool InitializeDualShock(HANDLE handle, int outReportSize) {
-	if (outReportSize != 32) {
+	if (outReportSize != sizeof(DualshockOutputReport)) {
 		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
 		return false;
 	}
 
-	// DS4 USB output report (report ID 0x05)
-	// Total size: 32 bytes (must match device buffer size)
-	uint8_t report[32] = {0};
+	DualshockOutputReport report{};
+	report.reportID = 0x05; // Report ID (DS4 output)
+	report.featureBits = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
+	report.two = 2;
 
-	report[0] = 0x05; // Report ID (DS4 output)
-	report[1] = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
-	report[2] = 0x02;
 	// Rumble
-	report[4] = 0x00; // Right (weak)
-	report[5] = 0x00; // Left (strong)
+	report.rumbleRight = 0x00; // Right (weak)
+	report.rumbleLeft = 0x00; // Left (strong)
 
 	// Lightbar (RGB)
-	report[6] = 0x00; // Red
-	report[7] = 0x10; // Green
-	report[8] = 0x40; // Blue (dim blue)
+	report.ledR = LED_R;
+	report.ledG = LED_G;
+	report.ledB = LED_B;
 
-	DWORD written;
-	return WriteFile(handle, report, sizeof(report), &written, NULL);
+	return WriteReport(handle, report);
 }
 
-HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
+static bool ShutdownDualShock(HANDLE handle, int outReportSize) {
+	if (outReportSize != sizeof(DualshockOutputReport)) {
+		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
+		return false;
+	}
+
+	DualshockOutputReport report{};
+	report.reportID = 0x05; // Report ID (DS4 output)
+	report.featureBits = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
+	report.two = 2;
+
+	// Rumble
+	report.rumbleRight = 0x00; // Right (weak)
+	report.rumbleLeft = 0x00; // Left (strong)
+
+	// Lightbar (RGB)
+	report.ledR = 0;
+	report.ledG = 0;
+	report.ledB = 0;
+
+	return WriteReport(handle, report);
+}
+
+HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize, int *outReportSize) {
 	GUID hidGuid;
 	HidD_GetHidGuid(&hidGuid);
 
@@ -251,14 +325,14 @@ HANDLE OpenFirstDualShockOrSense(PSSubType *subType, int *reportSize) {
 					HidD_FreePreparsedData(preparsedData);
 
 					*reportSize = caps.InputReportByteLength;
-					int outReportSize = caps.OutputReportByteLength;
+					*outReportSize = caps.OutputReportByteLength;
 
 					INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", outReportSize);
 					bool result;
 					if (*subType == PSSubType::DS5) {
-						result = InitializeDualSense(handle, outReportSize);
+						result = InitializeDualSense(handle, *outReportSize);
 					} else {
-						result = InitializeDualShock(handle, outReportSize);
+						result = InitializeDualShock(handle, *outReportSize);
 					}
 
 					SetupDiDestroyDeviceInfoList(deviceInfoSet);
@@ -428,6 +502,14 @@ bool HidInputDevice::ReadDualSenseInput(HANDLE handle, PSControllerState *state)
 void HidInputDevice::Init() {}
 void HidInputDevice::Shutdown() {
 	if (controller_) {
+		switch (subType_) {
+		case PSSubType::DS4:
+			ShutdownDualShock(controller_, outReportSize_);
+			break;
+		case PSSubType::DS5:
+			ShutdownDualsense(controller_, outReportSize_);
+			break;
+		}
 		CloseHandle(controller_);
 		controller_ = nullptr;
 	}
@@ -452,7 +534,7 @@ int HidInputDevice::UpdateState() {
 		// Poll for controllers from time to time.
 		if (pollCount_ == 0) {
 			pollCount_ = POLL_FREQ;
-			HANDLE newController = OpenFirstDualShockOrSense(&subType_, &reportSize_);
+			HANDLE newController = OpenFirstDualShockOrSense(&subType_, &reportSize_, &outReportSize_);
 			if (newController) {
 				controller_ = newController;
 			}
