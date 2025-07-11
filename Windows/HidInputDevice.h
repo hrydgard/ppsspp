@@ -41,6 +41,7 @@ private:
 	int pad_ = 0;
 	int pollCount_ = 0;
 	int reportSize_ = 0;
+	int outReportSize_ = 0;
 	enum {
 		POLL_FREQ = 283,  // a prime number.
 	};
