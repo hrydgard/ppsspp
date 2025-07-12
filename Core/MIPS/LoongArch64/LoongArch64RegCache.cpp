@@ -550,7 +550,7 @@ bool LoongArch64RegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRR
 			emit_->VILVL_W(EncodeRegToV(cur[2]), EncodeRegToV(cur[3]), EncodeRegToV(cur[2]));
 			emit_->FLD_D( SCRATCHF1, CTXREG, GetMipsRegOffset(first + 0));
 			emit_->VEXTRINS_D(EncodeRegToV(cur[3]), EncodeRegToV(SCRATCHF1), 0);
-			emit_->VILVL_W(EncodeRegToV(destReg), EncodeRegToV(cur[2]), EncodeRegToV(cur[3]));
+			emit_->VILVL_D(EncodeRegToV(destReg), EncodeRegToV(cur[2]), EncodeRegToV(cur[3]));
 		} else if (blendMask == 0b0100) {
 			// y = yw##, w = z###, x = xz##, dest = xyzw.
 			emit_->VILVL_W(EncodeRegToV(cur[1]), EncodeRegToV(cur[3]), EncodeRegToV(cur[1]));
