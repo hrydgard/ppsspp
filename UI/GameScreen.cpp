@@ -106,7 +106,7 @@ void GameScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	Margins actionMenuMargins(0, 100, 15, 0);
+	Margins actionMenuMargins(0, 15, 15, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
