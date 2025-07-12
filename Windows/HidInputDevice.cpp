@@ -641,6 +641,23 @@ void HidInputDevice::ReleaseAllKeys(const ButtonInputMapping *buttonMappings, in
 		key.keyCode = mapping.keyCode;
 		NativeKey(key);
 	}
+
+	static const InputAxis allAxes[6] = {
+		JOYSTICK_AXIS_X,
+		JOYSTICK_AXIS_Y,
+		JOYSTICK_AXIS_Z,
+		JOYSTICK_AXIS_RX,
+		JOYSTICK_AXIS_LTRIGGER,
+		JOYSTICK_AXIS_RTRIGGER,
+	};
+
+	for (const auto axisId : allAxes) {
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_XINPUT_0 + pad_;
+		axis.axisId = axisId;
+		axis.value = 0;
+		NativeAxis(&axis, 1);
+	}
 }
 
 InputDeviceID HidInputDevice::DeviceID(int pad) {
