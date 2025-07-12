@@ -1659,11 +1659,6 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
-
-	if (HLEPlugins::Load()) {
-		KernelRotateThreadReadyQueue(0);
-		__KernelReSchedule("Started plugins");
-	}
 }
 
 
@@ -1796,6 +1791,13 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
 	__KernelStartIdleThreads(module->GetUID());
+
+	// Wait until plugins are loaded
+	module->startingPlugins.clear();
+	if (HLEPlugins::Load(module, __KernelGetCurThread())) {
+		__KernelWaitCurThread(WAITTYPE_PLUGIN, module->GetUID(), 1, 0, false, "started plugins");
+		__KernelReSchedule("Started plugins");
+	}
 
 	delete[] param_argp;
 	delete[] param_key;
@@ -2310,6 +2312,29 @@ void __KernelReturnFromModuleFunc() {
 		}
 	}
 	module->waitingThreads.clear();
+
+	// Check if we need to wake up a plugin waiting thread
+	if (module->pluginWaitingThread) {
+		u32 error;
+		PSPThread *plugin_waiting_thread = kernelObjects.Get<PSPThread>(module->pluginWaitingThread, error);
+		if (plugin_waiting_thread && HLEKernel::VerifyWait(module->pluginWaitingThread, WAITTYPE_PLUGIN, plugin_waiting_thread->moduleId)) {
+			PSPModule *plugin_waiting_module = kernelObjects.Get<PSPModule>(plugin_waiting_thread->moduleId, error);
+			if (plugin_waiting_module) {
+				for (auto it = plugin_waiting_module->startingPlugins.begin(), end = plugin_waiting_module->startingPlugins.end(); it < end; ++it) {
+					if (*it == leftModuleID) {
+						plugin_waiting_module->startingPlugins.erase(it);
+						break;
+					}
+				}
+				if (plugin_waiting_module->startingPlugins.empty()) {
+					INFO_LOG(Log::sceModule, "Resuming LoadExec thread 0x%x", module->pluginWaitingThread);
+					__KernelResumeThreadFromWait(module->pluginWaitingThread, 0);
+				} else {
+					INFO_LOG(Log::sceModule, "LoadExec thread 0x%x still waiting for %ld plugin(s)", module->pluginWaitingThread, plugin_waiting_module->startingPlugins.size());
+				}
+			}
+		}
+	}
 
 	if (module->nm.status == MODULE_STATUS_UNLOADING) {
 		// TODO: Delete the waiting thread?
