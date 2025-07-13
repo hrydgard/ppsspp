@@ -156,7 +156,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 
 			if (flags & (OSDMessageFlags::SpinLeft | OSDMessageFlags::SpinRight)) {
 				const float direction = (flags & OSDMessageFlags::SpinLeft) ? -1.5f : 1.5f;
-				dc.DrawImageRotated(iconID, bounds.x + 2.5f + iconW * 0.5f, bounds.y + 2.5f + iconW * 0.5f, 1.0f, direction * time_now_d(), foreGround, false);
+				dc.DrawImageRotated(iconID, bounds.x + 2.5f + iconW * 0.5f, bounds.y + 2.5f + iconW * 0.5f, 1.0f, direction * timeVal, foreGround, false);
 			} else {
 				dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH));
 			}
