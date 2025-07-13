@@ -47,6 +47,11 @@ void ResetSecondsSinceLastGameSave() {
 	g_lastSaveTime = time_now_d();
 }
 
+void ShowSaveLoadIndicator(bool save) {
+	g_OSD.Show(OSDType::STATUS_ICON, "", "", save ? "I_ROTATE_RIGHT" : "I_ROTATE_LEFT", 1.0f, "save_indicator");
+	g_OSD.SetFlags("save_indicator", (save ? OSDMessageFlags::SpinRight : OSDMessageFlags::SpinLeft) | OSDMessageFlags::Transparent);
+}
+
 double SecondsSinceLastGameSave() {
 	if (g_lastSaveTime < 0) {
 		return -1.0;
@@ -139,8 +144,7 @@ int PSPSaveDialog::Init(int paramAddr) {
 	INFO_LOG(Log::sceUtility,"sceUtilitySavedataInitStart(%08x) : Game key (hex): %s", paramAddr, param.GetKey(param.GetPspParam()).c_str());
 
 	yesnoChoice = 1;
-	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
-	{
+	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus) {
 	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
 		currentSelectedSave = param.GetSaveNameIndex(param.GetPspParam());
 		break;
@@ -973,15 +977,15 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayBanner(DB_DELETE);
 
 			if (IsButtonPressed(cancelButtonFlag) || (IsButtonPressed(okButtonFlag) && yesnoChoice == 0)) {
-				if(param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE)
+				if (param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE || param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE)
 					display = DS_DELETE_LIST_CHOICE;
 				else {
 					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
 					StartFade(false);
 				}
 			} else if (IsButtonPressed(okButtonFlag)) {
-					display = DS_DELETE_DELETING;
-					StartIOThread();
+				display = DS_DELETE_DELETING;
+				StartIOThread();
 			}
 
 			EndDraw();
@@ -1110,7 +1114,6 @@ void PSPSaveDialog::ExecuteIOAction() {
 		} else {
 			display = DS_LOAD_FAILED;
 		}
-		ResetSecondsSinceLastGameSave();
 		break;
 	case DS_SAVE_SAVING:
 		SaveState::NotifySaveData();
@@ -1120,7 +1123,6 @@ void PSPSaveDialog::ExecuteIOAction() {
 		} else {
 			display = DS_SAVE_FAILED;
 		}
-		ResetSecondsSinceLastGameSave();
 		break;
 	case DS_DELETE_DELETING:
 		if (param.Delete(param.GetPspParam(), currentSelectedSave)) {
@@ -1153,11 +1155,15 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave);
+		ResetSecondsSinceLastGameSave();
+		ShowSaveLoadIndicator(false);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
 		SaveState::NotifySaveData();
 		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName());
+		ResetSecondsSinceLastGameSave();
+		ShowSaveLoadIndicator(true);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
 		result = param.GetSizes(param.GetPspParam());
@@ -1201,16 +1207,21 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	// TODO: Should reset the directory's other files.
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
-		SaveState::NotifySaveData();
 		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE);
 		if (result == SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE) {
 			result = SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL;
+		} else {
+			SaveState::NotifySaveData();
+			ResetSecondsSinceLastGameSave();
+			ShowSaveLoadIndicator(true);
 		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 		SaveState::NotifySaveData();
 		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE);
+		ResetSecondsSinceLastGameSave();
+		ShowSaveLoadIndicator(true);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
@@ -1219,6 +1230,8 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 			result = SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
 		if (result == SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA)
 			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+		ResetSecondsSinceLastGameSave();
+		ShowSaveLoadIndicator(false);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
@@ -1238,10 +1251,10 @@ void PSPSaveDialog::StartIOThread() {
 	}
 
 	// Show save indicator. It's strange how "display" is just as much an action as what to display.
-	if (display == DS_SAVE_SAVING || display == DS_LOAD_LOADING || display == DS_DELETE_DELETING) {
-		const bool left = display == DS_LOAD_LOADING;
-		g_OSD.Show(OSDType::STATUS_ICON, "", "", left ? "I_ROTATE_LEFT" : "I_ROTATE_RIGHT", 1.0f, "save_indicator");
-		g_OSD.SetFlags("save_indicator", (left ? OSDMessageFlags::SpinLeft : OSDMessageFlags::SpinRight) | OSDMessageFlags::Transparent);
+	if (display == DS_SAVE_SAVING || display == DS_LOAD_LOADING) {
+		const bool save = display != DS_LOAD_LOADING;
+		ResetSecondsSinceLastGameSave();
+		ShowSaveLoadIndicator(save);
 	}
 
 	ioThreadStatus = SAVEIO_PENDING;
