@@ -30,6 +30,7 @@ What's new in 1.19.3
 
 - Fixed crash on startup in Tony Hawk's Underground 2 ([#20573])
 - Fixed crash/hang when accessing the menu in FFII if readbacks were configured to copy-to-tex ([#20573])
+- Fix issue with detection of some types of saving, for the save reminders on exit ([#20623])
 - Fixed music and other audio in modded games (various football games, Crazy Taxi w/ original soundtrack, etc) ([#20566], [#20571])
 - Fix exiting not functioning correctly on Windows in some circumstances ([#20607])
 - Minor UI and key binding fixes ([#20604])
@@ -398,3 +399,4 @@ What's new in 1.18
 [#20605]: https://github.com/hrydgard/ppsspp/issues/20605 "Fix strange edge case when switching to auto-frameskip from non-buffered rendering"
 [#20612]: https://github.com/hrydgard/ppsspp/issues/20612 "SDL: Fix bug where the mouse got stuck in relative mode when mapping mouse inputs"
 [#20616]: https://github.com/hrydgard/ppsspp/issues/20616 "Football Manager Handheld series: Fix blackscreen"
+[#20623]: https://github.com/hrydgard/ppsspp/issues/20623 "Fix tracking for the savedata reminder for several invisible save types"
