@@ -10,10 +10,10 @@
 
 #define ABGR8 uint
 
-// If we had the image as input, we could use a sampler for border handling. But we directly decode
-// low-bitrate texture data, so...
+/* If we took an image as input, we could use a sampler to do the clamping. But we decode
+   low-bpp texture data directly, so...
 
-/* readColoru is a built-in function (implementation depends on rendering engine) that reads unsigned integer format color data from texture/framebuffer.
+   readColoru is a built-in function (implementation depends on rendering engine) that reads unsigned integer format color data from texture/framebuffer.
    Normalization loss: Using readColor (without 'u') reads as floats (vec4), mapping integer range (0-255) to [0.0, 1.0], causing precision loss (255→1.0, 1→0.0039215686...).
    The unpackUnorm4x8 function in MMPX converts uint to vec4 (normalized floats) - this step is lossy.
 */
@@ -47,7 +47,7 @@ uvec4 extractPIX(ABGR8 color) {
     return uvec4(r, g, b, a);
 }
 
-// RGB approximate equality (RGB Euclidean distance ≈0.00932276 after golden ratio^3), alpha difference within 5.57% (golden ratio^3)
+// RGB approximate equality (RGB Euclidean distance ≈0.00932276 after golden ratio^3), alpha difference within 14.59% (golden ratio^2)
 
 bool same(ABGR8 B, ABGR8 A0) {
     uvec4 b_pix = extractPIX(B);
@@ -59,8 +59,8 @@ bool same(ABGR8 B, ABGR8 A0) {
     // Calculate alpha difference (0-255 range)
     uint alphaDiff = abs(int(b_pix.a) - int(a0_pix.a));
     
-    // 5.57% corresponds to ≈14.27 (256*5.57%≈14.27)
-    bool alphaDiffCheck = alphaDiff < 15u;
+    // 14.59%≈37.2
+    bool alphaDiffCheck = alphaDiff < 38u;
     
     return dot(diff, diff) < 606u && alphaDiffCheck;
 }
@@ -71,13 +71,8 @@ bool fullsame(ABGR8 B, ABGR8 A0){
     return B == A0; //exact RGB match
 }
 
-// Checks RGB inequality
-bool notsame(ABGR8 B, ABGR8 A0){
-    return !fullsame(B, A0);
-}
-
 // Full difference including alpha channel
-bool fullnotsame(ABGR8 B, ABGR8 A0){
+bool notsame(ABGR8 B, ABGR8 A0){
     return (B!=A0);
 }
 
@@ -246,7 +241,8 @@ vec4 admixX(ABGR8 LE, ABGR8 LB1, ABGR8 LB2, ABGR8 LA, ABGR8 L1, ABGR8 L2, ABGR8 
     vec4 rgbaLB = mix(rgbaLB1, rgbaLB2, 0.5);
     if (rgbaLB1.a < 0.01 ) rgbaLB=rgbaLB2;
     if (rgbaLB2.a < 0.01 ) rgbaLB=rgbaLB1;
-    vec3 rgbLB = rgbaLB.rgb;
+    // If the RGB difference between the two LBs is large, the alpha of the side with less alpha can be used after mixing to reduce burrs
+    if (rgbaLB1.a < rgbaLB.a ) rgbaLB.a=rgbaLB1.a; else rgbaLB.a=rgbaLB2.a;
 
     // Calculate squared RGB distance and brightness adjustment
     float rgbaDist = dot(rgbaLB - rgbaLE, rgbaLB - rgbaLE);
@@ -271,15 +267,21 @@ vec4 admixX(ABGR8 LE, ABGR8 LB1, ABGR8 LB2, ABGR8 LA, ABGR8 L1, ABGR8 L2, ABGR8 
         bool same_LB1_LQ = same(LB1,LQ);
         bool same_LE_L2 = same(LE,L2);
         bool same_LE_L4 = same(LE,L4);
+
     if (same_LB2_L1 && same_LB1_L5 && (same_LB2_LP && same_LE_L2 || same_LB1_LQ && same_LE_L4) ) return rgbaLE;
 
         // Special pattern: Diagonal cross grid
         bool same_LE_L1 = same(LE,L1);
         bool same_LE_L3 = same(LE,L3);
         bool same_LE_L5 = same(LE,L5);
+
+	// A point
         if (same_LE_L1 && same_LE_L3 && same_LE_L5 && !same_LE_L2 && !same_LE_L4) return rgbaLE;
     bool same_LB1_L3 = same(LB1,L3);
     bool same_LB2_L3 = same(LB2,L3);
+
+	// B point
+    if ( same_LB2_L2 && same_LB1_L4 && !same_LB2_L1 && !same_LB1_L5 && !same_LB1_L3&& !same_LB2_L3 ) return rgbaLE;
 
         // Scoring system for cross patterns
         int score1 = 0; // Diagonal pattern score
@@ -306,6 +308,7 @@ vec4 admixX(ABGR8 LE, ABGR8 LB1, ABGR8 LB2, ABGR8 LA, ABGR8 L1, ABGR8 L2, ABGR8 
         // Penalize large brightness differences
         float LumaDiff = abs((rgbaLE.r + rgbaLE.g + rgbaLE.b + rgbaLE.a) - (rgbaLB.r + rgbaLB.g + rgbaLB.b + rgbaLB.a))*0.3333333;
         if (LumaDiff > 0.8541 ) scoreBonus -= 1;
+        if (alphaDiff > 1.0) scoreBonus -= 1; // Points are deducted when the cross-pixel alpha difference exceeds half
         score1 += scoreBonus;
         score2 += scoreBonus;
 
