@@ -25,6 +25,20 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.19.3
+--------------------
+
+- Fixed crash on startup in Tony Hawk's Underground 2 ([#20573])
+- Fixed crash/hang when accessing the menu in FFII if readbacks were configured to copy-to-tex ([#20573])
+- Fix issue with detection of some types of saving, for the save reminders on exit ([#20623])
+- Fixed music and other audio in modded games (various football games, Crazy Taxi w/ original soundtrack, etc) ([#20566], [#20571])
+- Fix exiting not functioning correctly on Windows in some circumstances ([#20607])
+- Minor UI and key binding fixes ([#20604])
+- Fix crash/blackscreen when switching from skip buffer effects to auto-frameskip rendering ([#20605])
+- Fix bug in Mac/Linux builds where the mouse got hidden and stuck if you enabled mouse input mapping ([#20612])
+- Fix black screen on save/load in the Football Manager Handheld games ([#20616])
+- Translation improvements
+
 What's new in 1.19.2
 --------------------
 
@@ -377,3 +391,12 @@ What's new in 1.18
 [#20514]: https://github.com/hrydgard/ppsspp/issues/20514 "Developer tools: Add UI to force-enable HLE of modules that we have disabled HLE of"
 [#20502]: https://github.com/hrydgard/ppsspp/issues/20502 "Switching from IR Interpreter to JIT in-game crashes"
 [#20515]: https://github.com/hrydgard/ppsspp/issues/20515 "Additional fixes for 1.19.2"
+[#20573]: https://github.com/hrydgard/ppsspp/issues/20573 "Fix crash on second logo in Tony Hawk's Underground 2"
+[#20566]: https://github.com/hrydgard/ppsspp/issues/20566 "Atrac code cleanup, logging and comment fixes"
+[#20571]: https://github.com/hrydgard/ppsspp/issues/20571 "More Atrac3 refactor"
+[#20607]: https://github.com/hrydgard/ppsspp/issues/20607 "Fix issue where PPSSPP wouldn't correctly quit if you closed it with the corner X button in-game"
+[#20604]: https://github.com/hrydgard/ppsspp/issues/20604 "Fix some small UI regressions"
+[#20605]: https://github.com/hrydgard/ppsspp/issues/20605 "Fix strange edge case when switching to auto-frameskip from non-buffered rendering"
+[#20612]: https://github.com/hrydgard/ppsspp/issues/20612 "SDL: Fix bug where the mouse got stuck in relative mode when mapping mouse inputs"
+[#20616]: https://github.com/hrydgard/ppsspp/issues/20616 "Football Manager Handheld series: Fix blackscreen"
+[#20623]: https://github.com/hrydgard/ppsspp/issues/20623 "Fix tracking for the savedata reminder for several invisible save types"
