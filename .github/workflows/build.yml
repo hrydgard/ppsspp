@@ -55,6 +55,7 @@ jobs:
 
     - name: Fetch upstream tags # Fallback to fetching tags from upstream
       if: steps.valid-tags.outputs.count == '0'
+      shell: bash
       run: |
         # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
         git remote add upstream https://github.com/hrydgard/ppsspp.git
