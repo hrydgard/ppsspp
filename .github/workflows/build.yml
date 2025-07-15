@@ -3,7 +3,7 @@ name: Build
 on:
   push:
     branches:
-    - '**'
+    - master
     # For testing.
     - actions
     tags:
@@ -13,7 +13,7 @@ on:
     - 'Tools/**'
     - '.{editorconfig,gitattributes,gitignore}'
     - 'appveyor.yml'
-  pull_request_target:
+  pull_request:
     branches:
     - master
     paths-ignore:
@@ -24,10 +24,6 @@ on:
 
 env:
   BUILD_CONFIGURATION: Release
-
-permissions:
-  contents: read
-  pull-requests: read
 
 jobs:
   build-windows:
