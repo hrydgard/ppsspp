@@ -1822,11 +1822,13 @@ void EmuScreen::runImDebugger() {
 			imDebugger_ = std::make_unique<ImDebugger>();
 
 			// Read the TTF font
-			size_t size = 0;
-			uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &size);
+			size_t propSize = 0;
+			uint8_t *propFontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &propSize);
+			size_t fixedSize = 0;
+			uint8_t *fixedFontData = g_VFS.ReadFile("Inconsolata-Medium.ttf", &fixedSize);
 			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
 			// This takes ownership of the font array.
-			ImGui_ImplThin3d_Init(draw, fontData, size);
+			ImGui_ImplThin3d_Init(draw, propFontData, propSize, fixedFontData, fixedSize);
 			imguiInited_ = true;
 		}
 

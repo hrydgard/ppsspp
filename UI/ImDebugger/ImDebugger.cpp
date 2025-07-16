@@ -381,6 +381,9 @@ void WaitIDToString(WaitType waitType, SceUID waitID, char *buffer, size_t bufSi
 	case WAITTYPE_MICINPUT:
 		truncate_cpy(buffer, bufSize, "-");
 		return;
+	case WAITTYPE_CTRL:
+		snprintf(buffer, bufSize, "ctrl: %d", waitID);
+		return;
 	default:
 		truncate_cpy(buffer, bufSize, "(unimpl)");
 		return;
