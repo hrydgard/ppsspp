@@ -24,7 +24,7 @@ jobs:
         run: |
           # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
-          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+          git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
 
       - name: Set Env Var(s)
         run: |
