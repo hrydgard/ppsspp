@@ -408,6 +408,7 @@
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
     <ClCompile Include="Common\VertexDecoderHandwritten.cpp" />
+    <ClCompile Include="Common\VertexDecoderLoongArch64.cpp" />
     <ClCompile Include="Common\VertexDecoderRiscV.cpp" />
     <ClCompile Include="Common\VertexDecoderX86.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>

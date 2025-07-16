@@ -524,6 +524,9 @@
     <ClCompile Include="Common\DepthRaster.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\VertexDecoderLoongArch64.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\assets\shaders\tex_4xbrz.csh">

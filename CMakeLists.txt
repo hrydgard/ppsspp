@@ -1838,6 +1838,7 @@ list(APPEND CoreExtra
 	Core/MIPS/LoongArch64/LoongArch64Jit.h
 	Core/MIPS/LoongArch64/LoongArch64RegCache.cpp
 	Core/MIPS/LoongArch64/LoongArch64RegCache.h
+	GPU/Common/VertexDecoderLoongArch64.cpp
 )
 
 if(NOT MOBILE_DEVICE)

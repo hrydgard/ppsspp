@@ -1562,6 +1562,8 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) const {
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
 #elif PPSSPP_ARCH(RISCV64)
 			lines = DisassembleRV64((const u8 *)jitted_, jittedSize_);
+#elif PPSSPP_ARCH(LOONGARCH64)
+			lines= DisassembleLA64((const u8 *)jitted_, jittedSize_);
 #else
 			// No disassembler defined
 #endif
