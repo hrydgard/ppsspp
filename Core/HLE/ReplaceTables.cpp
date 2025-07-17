@@ -1330,6 +1330,60 @@ static int Hook_takuyo_download_frame() {
 	return 0;
 }
 
+// Offsets in comments are valid for the US version of "KINGDOM HEARTS Birth by Sleep".
+// Function at 0x0881EF68
+static int Hook_kingdomhearts_download_frame() {
+	const u32 fb_base = 0x04000000; // Set in 0x0880C458, doesn't seem like it's ever overwriten.
+
+	const u32 get_fb_offset = MIPSCodeUtils::GetJumpTarget(currentMIPS->pc + 0x5C); // Jump to function at 0x08821EB0. Said function returns the framebuffer offset.
+	if (get_fb_offset == INVALIDTARGET) {
+		return 0;
+	}
+	u32 fb_offset_index_addr;
+	if (!GetMIPSStaticAddress(fb_offset_index_addr, get_fb_offset - currentMIPS->pc, get_fb_offset + 0x04 - currentMIPS->pc)) {
+		return 0;
+	}
+	if (!Memory::IsValidRange(fb_offset_index_addr, 4)) {
+		return 0;
+	}
+
+	const u32 fb_offset_index = Memory::Read_U32(fb_offset_index_addr); // 0x08821E90-0x08821E98
+	if (fb_offset_index > 2) {
+		return 0;
+	}
+
+	const MIPSOpcode fb_offset_table_lui = Memory::Read_Instruction(get_fb_offset + 0x08, true); // 0x08821EB8
+	if (fb_offset_table_lui != MIPS_MAKE_LUI(MIPS_REG_A1, fb_offset_table_lui & 0xFFFF)) {
+		return 0;
+	}
+	const MIPSOpcode fb_offset_table_addiu = Memory::Read_Instruction(get_fb_offset + 0x10, true); // 0x08821EC0
+	if (fb_offset_table_addiu != MIPS_MAKE_ADDIU(MIPS_REG_A1, MIPS_REG_A1, fb_offset_table_addiu & 0xFFFF)) {
+		return 0;
+	}
+	const u32 fb_offset_table = ((fb_offset_table_lui & 0xFFFF) << 16) + (s16)(fb_offset_table_addiu & 0xFFFF);
+	if (!Memory::IsValidRange(fb_offset_table, 12)) {
+		return 0;
+	}
+	const u32 fb_offset = Memory::Read_U32(fb_offset_table + fb_offset_index*4); // 0x08821E98-0x08821EB0
+
+	u32 magic_ptr_addr;
+	if (!GetMIPSStaticAddress(magic_ptr_addr, 0x08, 0x10)) {
+		return 0;
+	}
+	const u32 magic_ptr = Memory::Read_U32(magic_ptr_addr); // 0x0881EF70, 0x0881EF78
+
+	// Function of the variable guessed.
+	const u8 bytes_per_pixel = Memory::Read_U8(magic_ptr+0x50); // 0x0881EFE0
+
+	const u32 fb_address = fb_base + fb_offset;
+	const u32 fb_size = (bytes_per_pixel == 2) ? 0x044000 : 0x088000; // Branch at 0x0881EFE8, s3 set at 0x0881EFB8
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformReadbackToMemory(fb_address, fb_size);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "kingdomhearts_download_frame");
+	}
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x3C);
 	const u32 fbInfoPtr = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x40);
@@ -1652,6 +1706,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "takuyo_1_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
+	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{}
 };
 
