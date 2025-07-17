@@ -518,6 +518,9 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xde4286b2e7f6d3c1, 304, "persona2_download_frame", },  // Persona 2 (issue #13079)
 	{ 0x478c9c93d02011af, 1068, "steinsgate_download_frame", }, // Steins;Gate (issue #18262)
 	{ 0xb85dbe639f7acf13, 312, "infinity_download_frame", },  // Never7, Ever17, Remember11
+	{ 0x649d3305344f7afd, 464, "takuyo_1_download_frame", },
+	{ 0x505ad2073e4381d7, 428, "takuyo_2_download_frame", },
+	{ 0x0f4dbf28320798d7, 1160, "takuyo_3_download_frame", },
 };
 
 namespace MIPSAnalyst {
