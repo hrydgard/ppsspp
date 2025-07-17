@@ -1324,6 +1324,12 @@ static int Hook_infinity_download_frame() {
 	return 0;
 }
 
+static int Hook_takuyo_download_frame() {
+	gpu->PerformReadbackToMemory(0x04088000, 0x00088000); // The offset is hardcoded.
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x04088000, 0x00088000, "takuyo_download_frame");
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x3C);
 	const u32 fbInfoPtr = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x40);
@@ -1643,6 +1649,9 @@ static const ReplacementTableEntry entries[] = {
 	{ "persona2_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOKENTER, 0 },
 	{ "steinsgate_download_frame", &Hook_steinsgate_download_frame, 0, REPFLAG_HOOKENTER, 0 },
 	{ "infinity_download_frame", &Hook_infinity_download_frame, 0, REPFLAG_HOOKENTER, 0 },
+	{ "takuyo_1_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
+	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
+	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{}
 };
 
