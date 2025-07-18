@@ -184,8 +184,11 @@ void WindowsVulkanContext::Resize() {
 
 void WindowsVulkanContext::Poll() {
 	// Check for existing swapchain to avoid issues during shutdown.
-	if (vulkan_->GetSwapchain() && renderManager_->NeedsSwapchainRecreate()) {
+	if (vulkan_->IsSwapchainInited() && renderManager_->NeedsSwapchainRecreate()) {
 		Resize();
+	} else if (vulkan_->IsSwapchainInited() && windowRestored_) {
+		Resize();
+		windowRestored_ = false;
 	}
 }
 

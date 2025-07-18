@@ -232,9 +232,6 @@ public:
 	VkFence CreateFence(bool presignalled);
 	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule, const char *tag);
 
-	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
-	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
-
 	void BeginFrame(VkCommandBuffer firstCommandBuffer);
 	void EndFrame();
 
@@ -373,12 +370,13 @@ public:
 		return curFrame_;
 	}
 
-	VkSwapchainKHR GetSwapchain() const {
-		return swapchain_;
-	}
-	VkFormat GetSwapchainFormat() const {
-		return swapchainFormat_;
-	}
+	VkSwapchainKHR GetSwapchain() const { return swapchain_; }
+	VkFormat GetSwapchainFormat() const { return swapchainFormat_; }
+	bool IsSwapchainInited() const { return swapchainInited_; }
+	bool HasRealSwapchain() const { return swapChainExtent_.width > 0; }
+
+	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
+	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
 
 	void SetProfilerEnabledPtr(bool *enabled) {
 		for (auto &frame : frame_) {
@@ -511,6 +509,7 @@ private:
 	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 
 	uint32_t queue_count = 0;
+	bool swapchainInited_ = false;
 
 	PhysicalDeviceFeatures deviceFeatures_;
 

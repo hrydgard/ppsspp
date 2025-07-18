@@ -32,6 +32,10 @@ public:
 	void Resize() override;
 	void Poll() override;
 
+	void NotifyWindowRestored() override {
+		windowRestored_ = true;
+	}
+
 	void *GetAPIContext() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
@@ -39,5 +43,6 @@ private:
 	Draw::DrawContext *draw_;
 	VulkanContext *vulkan_ = nullptr;
 	VulkanRenderManager *renderManager_ = nullptr;
+	bool windowRestored_ = false;
 };
 

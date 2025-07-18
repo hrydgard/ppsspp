@@ -1134,6 +1134,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		}
 
 		for (const auto &item : toProcess) {
+			// Hack.
+			if (item.message == UIMessage::WINDOW_RESTORED && graphicsContext) {
+				graphicsContext->NotifyWindowRestored();
+			}
+
 			if (HandleGlobalMessage(item.message, item.value)) {
 				// TODO: Add a to-string thingy.
 				VERBOSE_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());

@@ -390,6 +390,7 @@ void VulkanContext::DestroySwapchain() {
 		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
 		swapchain_ = VK_NULL_HANDLE;
 	}
+	swapchainInited_ = false;
 }
 
 void VulkanContext::DestroySurface() {
@@ -1343,6 +1344,15 @@ bool VulkanContext::InitSwapchain() {
 		ERROR_LOG(Log::G3D, "VK: Surface lost in InitSwapchain");
 		return false;
 	}
+
+	if (surfCapabilities_.maxImageExtent.width == 0 || surfCapabilities_.maxImageExtent.height == 0) {
+		WARN_LOG(Log::G3D, "Max image extent is 0 - app is probably minimized. Faking having a swapchain.");
+		swapChainExtent_ = {};  // makes it so querying width/height returns 0.
+		// We pretend to have a swapchain initialized - though we won't actually render to it.
+		swapchainInited_ = true;
+		return true;
+	}
+
 	_dbg_assert_(res == VK_SUCCESS);
 	uint32_t presentModeCount;
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
@@ -1522,6 +1532,7 @@ bool VulkanContext::InitSwapchain() {
 		return false;
 	}
 	INFO_LOG(Log::G3D, "Created swapchain: %dx%d %s", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height, (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ? "(TRANSFER_SRC_BIT supported)" : "");
+	swapchainInited_ = true;
 	return true;
 }
 

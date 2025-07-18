@@ -21,6 +21,7 @@ public:
 	virtual void Resume() {}
 
 	virtual void Resize() = 0;
+	virtual void NotifyWindowRestored() {}
 
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
 	virtual void *GetAPIContext() { return nullptr; }
