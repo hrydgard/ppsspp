@@ -183,6 +183,45 @@ static u32 QuickTexHashNEON(const void *checkp, u32 size) {
 
 #endif  // PPSSPP_ARCH(ARM_NEON)
 
+#if PPSSPP_ARCH(LOONGARCH64_LSX)
+
+alignas(16) static const u16 QuickTexHashInitial[8] = { 0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U };
+
+static u32 QuickTexHashLSX(const void *checkp, u32 size) {
+	u32 check = 0;
+
+	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
+		__m128i cursor = __lsx_vrepli_d(0);
+		__m128i cursor2 = __lsx_vld(QuickTexHashInitial, 0);
+		__m128i update = __lsx_vreplgr2vr_h(0x2455U);
+		const __m128i *p = (const __m128i *)checkp;
+		for (u32 i = 0; i < size / 16; i += 4) {
+			__m128i chunk = __lsx_vmul_h(__lsx_vld(&p[i], 0), cursor2);
+			cursor = __lsx_vadd_h(cursor, chunk);
+			cursor = __lsx_vxor_v(cursor, __lsx_vld(&p[i + 1], 0));
+			cursor = __lsx_vadd_w(cursor, __lsx_vld(&p[i + 2], 0));
+			chunk = __lsx_vmul_h(__lsx_vld(&p[i + 3], 0), cursor2);
+			cursor = __lsx_vxor_v(cursor, chunk);
+			cursor2 = __lsx_vadd_h(cursor2, update);
+		}
+		cursor = __lsx_vadd_w(cursor, cursor2);
+		// Add the four parts into the low i32.
+		cursor = __lsx_vadd_w(cursor, __lsx_vbsrl_v(cursor, 8));
+		cursor = __lsx_vadd_w(cursor, __lsx_vbsrl_v(cursor, 4));
+		check = __lsx_vpickve2gr_w(cursor, 0);
+	} else {
+		const u32 *p = (const u32 *)checkp;
+		for (u32 i = 0; i < size / 8; ++i) {
+			check += *p++;
+			check ^= *p++;
+		}
+	}
+
+	return check;
+}
+
+#endif // PPSSPP_ARCH(LOONGARCH64_LSX)
+
 // Masks to downalign bufw to 16 bytes, and wrap at 2048.
 static const u32 textureAlignMask16[16] = {
 	0x7FF & ~(((8 * 16) / 16) - 1),  //GE_TFMT_5650,
@@ -278,6 +317,8 @@ u32 StableQuickTexHash(const void *checkp, u32 size) {
 	return QuickTexHashSSE2(checkp, size);
 #elif PPSSPP_ARCH(ARM_NEON)
 	return QuickTexHashNEON(checkp, size);
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+	return QuickTexHashLSX(checkp, size);
 #else
 	return QuickTexHashNonSSE(checkp, size);
 #endif
