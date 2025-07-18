@@ -639,6 +639,7 @@ namespace MainWindow
 		}
 
 		static bool first = true;
+		static bool wasMinimized = false;
 
 		switch (message) {
 		case WM_CREATE:
@@ -790,6 +791,10 @@ namespace MainWindow
 				if (hasFocus) {
 					g_InputManager.GainFocus();
 				}
+				if (wasMinimized) {
+					System_PostUIMessage(UIMessage::WINDOW_RESTORED, "true");
+					wasMinimized = false;
+				}
 				break;
 
 			case SIZE_MINIMIZED:
@@ -798,6 +803,7 @@ namespace MainWindow
 					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
 				}
 				g_InputManager.LoseFocus();
+				wasMinimized = true;
 				break;
 			default:
 				break;

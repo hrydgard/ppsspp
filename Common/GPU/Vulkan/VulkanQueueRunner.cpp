@@ -309,37 +309,49 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
+		{
+			bool perform = true;
 			if (!step.render.framebuffer) {
 				if (emitLabels) {
 					vkCmdEndDebugUtilsLabelEXT(cmd);
 				}
 				frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared);
 
-				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
-				// So only acquire once.
-				if (!frameData.hasAcquired) {
-					frameData.AcquireNextImage(vulkan_);
-					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], frameDataShared.swapchainImages_[frameData.curSwapchainImage].image);
-				}
+				// If the window is minimized and we don't have a swap chain, don't bother.
+				if (frameDataShared.swapchainImageCount_ > 0) {
+					// When stepping in the GE debugger, we can end up here multiple times in a "frame".
+					// So only acquire once.
+					if (!frameData.hasAcquired) {
+						frameData.AcquireNextImage(vulkan_);
+						SetBackbuffer(framebuffers_[frameData.curSwapchainImage], frameDataShared.swapchainImages_[frameData.curSwapchainImage].image);
+					}
 
-				if (!frameData.hasPresentCommands) {
-					// A RENDER step rendering to the backbuffer is normally the last step that happens in a frame,
-					// unless taking a screenshot, in which case there might be a READBACK_IMAGE after it.
-					// This is why we have to switch cmd to presentCmd, in this case.
-					VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-					begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-					vkBeginCommandBuffer(frameData.presentCmd, &begin);
-					frameData.hasPresentCommands = true;
-				}
-				cmd = frameData.presentCmd;
-				if (emitLabels) {
-					VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
-					labelInfo.pLabelName = "present";
-					vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+					if (!frameData.hasPresentCommands) {
+						// A RENDER step rendering to the backbuffer is normally the last step that happens in a frame,
+						// unless taking a screenshot, in which case there might be a READBACK_IMAGE after it.
+						// This is why we have to switch cmd to presentCmd, in this case.
+						VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+						begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+						vkBeginCommandBuffer(frameData.presentCmd, &begin);
+						frameData.hasPresentCommands = true;
+					}
+					cmd = frameData.presentCmd;
+					if (emitLabels) {
+						VkDebugUtilsLabelEXT labelInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
+						labelInfo.pLabelName = "present";
+						vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+					}
+				} else {
+					perform = false;
 				}
 			}
-			PerformRenderPass(step, cmd, curFrame, frameData.profile);
+			if (perform) {
+				PerformRenderPass(step, cmd, curFrame, frameData.profile);
+			} else {
+				frameData.skipSwap = true;
+			}
 			break;
+		}
 		case VKRStepType::COPY:
 			PerformCopy(step, cmd);
 			break;

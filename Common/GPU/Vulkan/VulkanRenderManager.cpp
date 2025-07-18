@@ -316,23 +316,21 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 }
 
 bool VulkanRenderManager::CreateBackbuffers() {
-	if (!vulkan_->GetSwapchain()) {
+	if (!vulkan_->IsSwapchainInited()) {
 		ERROR_LOG(Log::G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (!CreateSwapchain(cmdInit, &postInitBarrier_, frameDataShared_)) {
-		return false;
+	if (vulkan_->HasRealSwapchain()) {
+		if (!CreateSwapchainViewsAndDepth(cmdInit, &postInitBarrier_, frameDataShared_)) {
+			return false;
+		}
 	}
 
 	curWidthRaw_ = -1;
 	curHeightRaw_ = -1;
-
-	if (HasBackbuffers()) {
-		VLOG("Backbuffers Created");
-	}
 
 	if (newInflightFrames_ != -1) {
 		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
@@ -348,13 +346,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	}
 
 	// Start the thread(s).
-	if (HasBackbuffers()) {
-		StartThreads();
-	}
+	StartThreads();
 	return true;
 }
 
-bool VulkanRenderManager::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
+bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
 	_dbg_assert_(res == VK_SUCCESS);
 
@@ -487,6 +483,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 		vkDestroySemaphore(vulkan_->GetDevice(), image.renderingCompleteSemaphore, nullptr);
 	}
 	frameDataShared_.swapchainImages_.clear();
+	frameDataShared_.swapchainImageCount_ = 0;
 
 	queueRunner_.DestroyBackBuffers();
 }
@@ -1580,7 +1577,9 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 			}
 		} else {
 			// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
-			outOfDateFrames_++;
+			if (vulkan_->HasRealSwapchain()) {
+				outOfDateFrames_++;
+			}
 			frameData.skipSwap = false;
 		}
 		return;
