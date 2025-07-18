@@ -2,7 +2,7 @@ name: Generate Linux AppImage
 on:
   push:
     branches:
-    - '**'
+    - master
     # For testing.
     #- test_arch
     tags:
@@ -12,7 +12,7 @@ on:
     - 'Tools/**'
     - '.{editorconfig,gitattributes,gitignore}'
     - 'appveyor.yml'
-  pull_request_target:
+  pull_request:
     branches:
     - master
     paths-ignore:
@@ -25,10 +25,6 @@ env:
   SDL_AUDIODRIVER: "dummy" #"disk"
   #SDL_VIDEODRIVER: "dummy"
   #BUILD_CONFIGURATION: Release #RelWithDebInfo
-
-permissions:
-  contents: read
-  pull-requests: read
 
 jobs:
   build:
