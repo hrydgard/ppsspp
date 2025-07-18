@@ -521,6 +521,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x649d3305344f7afd, 464, "takuyo_1_download_frame", },
 	{ 0x505ad2073e4381d7, 428, "takuyo_2_download_frame", },
 	{ 0x0f4dbf28320798d7, 1160, "takuyo_3_download_frame", },
+	{ 0xf2bbff4807c5dab2, 556, "kingdomhearts_download_frame", },
 };
 
 namespace MIPSAnalyst {
