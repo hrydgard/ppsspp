@@ -23,7 +23,7 @@ dependencies {
 
 android {
 	flavorDimensions += "variant"
-	namespace 'org.ppsspp.ppsspp'
+	namespace = 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
 			storeFile file("debug.keystore")
@@ -46,9 +46,9 @@ android {
 		}
 	}
 
-	compileSdk 35
+	compileSdk = 36
 
-	ndkVersion "27.2.12479018"
+	ndkVersion = "27.2.12479018"
 
 	compileOptions {
 		sourceCompatibility JavaVersion.VERSION_11
@@ -67,8 +67,7 @@ android {
 		*/
 
 		applicationId 'org.ppsspp.ppsspp'
-		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
-			// Start using automatic Android version numbers from version 1.4.
+		if (androidGitVersion.name() != "unknown") {
 			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 			versionName androidGitVersion.name()
 			versionCode androidGitVersion.code()
@@ -78,29 +77,29 @@ android {
 		file("versionname.txt").text = androidGitVersion.name()
 		file("versioncode.txt").text = androidGitVersion.code().toString()
 
-		minSdk 21
-		targetSdk 35
+		minSdk = 21
+		targetSdk = 36
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
 		}
-		signingConfig signingConfigs.debug
+		signingConfig = signingConfigs.debug
 	}
 	buildTypes {
 		debug {
 			minifyEnabled = false
-			jniDebuggable true
-			signingConfig signingConfigs.debug
+			jniDebuggable = true
+			signingConfig = signingConfigs.debug
 		}
 		optimized {
 			// Debug signed but optimized.
 			minifyEnabled = false
-			jniDebuggable true
-			signingConfig android.buildTypes.debug.signingConfig
+			jniDebuggable = true
+			signingConfig = android.buildTypes.debug.signingConfig
 		}
 		release {
 			minifyEnabled = false
-			signingConfig signingConfigs.release
+			signingConfig = signingConfigs.release
 		}
 	}
 	externalNativeBuild {
@@ -238,8 +237,8 @@ android {
 		variant.setIgnore(!needed)
 	}
 	buildFeatures {
-		aidl true
-		buildConfig true
+		aidl = true
+		buildConfig = true
 	}
 }
 afterEvaluate {
