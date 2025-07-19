@@ -7,10 +7,23 @@
 #include <set>
 #include <windows.h>
 
-enum class PSSubType {
+enum class HIDControllerType {
 	DS4,
-	DS5
+	DS5,
+	SwitchPro,
 };
+
+struct HIDControllerState {
+	// Analog sticks
+	s8 stickAxes[4];  // LX LY RX RY
+	// Analog triggers
+	u8 triggerAxes[2];
+	// Buttons. Here the mapping is specific to the controller type and resolved
+	// later.
+	u32 buttons;  // Bitmask, PSButton enum
+};
+
+struct ButtonInputMapping;
 
 // Supports a few specific HID input devices, namely DualShock and DualSense.
 // More may be added later. Just picks the first one available, for now.
@@ -22,21 +35,11 @@ public:
 
 	static void AddSupportedDevices(std::set<u32> *deviceVIDPIDs);
 private:
-	struct PSControllerState {
-		// Analog sticks
-		s8 stickAxes[4];  // LX LY RX RY
-		// Analog triggers
-		u8 triggerAxes[2];
-		// Buttons
-		u32 buttons;  // Bitmask, PSButton enum
-	};
-	bool ReadDualShockInput(HANDLE handle, PSControllerState *state);
-	bool ReadDualSenseInput(HANDLE handle, PSControllerState *state);
-	void ReleaseAllKeys();
+	void ReleaseAllKeys(const ButtonInputMapping *buttonMappings, int count);
 	InputDeviceID DeviceID(int pad);
-	PSControllerState prevState_{};
+	HIDControllerState prevState_{};
 
-	PSSubType subType_{};
+	HIDControllerType subType_{};
 	HANDLE controller_;
 	int pad_ = 0;
 	int pollCount_ = 0;
