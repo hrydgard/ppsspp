@@ -45,4 +45,3 @@ private:
 	VulkanRenderManager *renderManager_ = nullptr;
 	bool windowRestored_ = false;
 };
-
