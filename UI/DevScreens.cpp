@@ -674,11 +674,21 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
 #endif
-	displayInfo->Add(new InfoItem(si->T("UI resolution"), StringFromFormat("%dx%d (%s: %d)",
-		g_display.dp_xres,
-		g_display.dp_yres,
-		si->T_cstr("DPI"),
-		System_GetPropertyInt(SYSPROP_DISPLAY_DPI))));
+
+	char uiResStr[64];
+	const int sysDPI = System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+	if (sysDPI > 0) {
+		snprintf(uiResStr, sizeof(uiResStr), "%dx%d (%s: %d)",
+			g_display.dp_xres,
+			g_display.dp_yres,
+			si->T_cstr("DPI"),
+			sysDPI);
+	} else {
+		snprintf(uiResStr, sizeof(uiResStr), "%dx%d",
+			g_display.dp_xres,
+			g_display.dp_yres);
+	}
+	displayInfo->Add(new InfoItem(si->T("UI resolution"), uiResStr));
 	displayInfo->Add(new InfoItem(si->T("Pixel resolution"), StringFromFormat("%dx%d",
 		g_display.pixel_xres,
 		g_display.pixel_yres)));
