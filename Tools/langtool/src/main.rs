@@ -125,7 +125,7 @@ fn print_keys_if_not_in(
             if !keys.is_empty() {
                 println!("{} ({})", reference_section.name, header);
                 for key in &keys {
-                    println!("- {}", key);
+                    println!("- {key}");
                 }
             }
         }
@@ -139,13 +139,13 @@ fn move_key(target_ini: &mut IniFile, old: &str, new: &str, key: &str) -> io::Re
             if let Some(new_section) = target_ini.get_section_mut(new) {
                 new_section.insert_line_if_missing(&line);
             } else {
-                println!("No new section {}", new);
+                println!("No new section {new}");
             }
         } else {
-            println!("No key {} in section {}", key, old);
+            println!("No key {key} in section {old}");
         }
     } else {
-        println!("No old section {}", old);
+        println!("No old section {old}");
     }
     Ok(())
 }
@@ -156,13 +156,13 @@ fn copy_key(target_ini: &mut IniFile, old: &str, new: &str, key: &str) -> io::Re
             if let Some(new_section) = target_ini.get_section_mut(new) {
                 new_section.insert_line_if_missing(&line);
             } else {
-                println!("No new section {}", new);
+                println!("No new section {new}");
             }
         } else {
-            println!("No key {} in section {}", key, old);
+            println!("No key {key} in section {old}");
         }
     } else {
-        println!("No old section {}", old);
+        println!("No old section {old}");
     }
     Ok(())
 }
@@ -171,16 +171,16 @@ fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<
     if let Some(old_section) = target_ini.get_section_mut(section) {
         old_section.remove_line(key);
     } else {
-        println!("No section {}", section);
+        println!("No section {section}");
     }
     Ok(())
 }
 
 fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str, value: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
-        section.insert_line_if_missing(&format!("{} = {}", key, value));
+        section.insert_line_if_missing(&format!("{key} = {value}"));
     } else {
-        println!("No section {}", section);
+        println!("No section {section}");
     }
     Ok(())
 }
@@ -189,7 +189,7 @@ fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> 
     if let Some(section) = target_ini.get_section_mut(section) {
         section.rename_key(old, new);
     } else {
-        println!("No section {}", section);
+        println!("No section {section}");
     }
     Ok(())
 }
@@ -198,7 +198,7 @@ fn dupe_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io
     if let Some(section) = target_ini.get_section_mut(section) {
         section.dupe_key(old, new);
     } else {
-        println!("No section {}", section);
+        println!("No section {section}");
     }
     Ok(())
 }
@@ -207,7 +207,7 @@ fn sort_section(target_ini: &mut IniFile, section: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.sort();
     } else {
-        println!("No section {}", section);
+        println!("No section {section}");
     }
     Ok(())
 }
@@ -225,7 +225,7 @@ fn main() {
     let reference_ini_filename = "en_US.ini";
 
     let mut reference_ini =
-        IniFile::parse(&format!("{}/{}", root, reference_ini_filename)).unwrap();
+        IniFile::parse(&format!("{root}/{reference_ini_filename}")).unwrap();
 
     if filenames.is_empty() {
         // Grab them all.
@@ -254,10 +254,10 @@ fn main() {
             if let Some(single_section) = single_ini.get_section("Single") {
                 single_ini_section = Some(single_section.clone());
             } else {
-                println!("No section {} in {}", section, filename);
+                println!("No section {section} in {filename}");
             }
         } else {
-            println!("Failed to parse {}", filename);
+            println!("Failed to parse {filename}");
             return;
         }
     }
@@ -268,9 +268,9 @@ fn main() {
             // Get this from cargo run for some reason.
             continue;
         }
-        let target_ini_filename = format!("{}/{}", root, filename);
+        let target_ini_filename = format!("{root}/{filename}");
         if opt.verbose {
-            println!("Langtool processing {}", target_ini_filename);
+            println!("Langtool processing {target_ini_filename}");
         }
 
         let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
@@ -287,7 +287,7 @@ fn main() {
             Command::RemoveUnknownLines {} => {
                 deal_with_unknown_lines(reference_ini, &mut target_ini, true).unwrap();
             }
-            Command::GetNewKeys {} => {
+            Command::GetNewKeys => {
                 print_keys_if_not_in(reference_ini, &mut target_ini, &target_ini_filename).unwrap();
             }
             Command::SortSection { ref section } => sort_section(&mut target_ini, section).unwrap(),
@@ -340,28 +340,27 @@ fn main() {
             } => {
                 let lang_id = filename.strip_suffix(".ini").unwrap();
                 if let Some(single_section) = &single_ini_section {
-                    if let Some(target_section) = target_ini.get_section_mut(&section) {
-                        if let Some(single_line) = single_section.get_line(&lang_id) {
+                    if let Some(target_section) = target_ini.get_section_mut(section) {
+                        if let Some(single_line) = single_section.get_line(lang_id) {
                             if let Some(value) = line_value(&single_line) {
                                 println!(
-                                    "Inserting value {} for key {} in section {} in {}",
-                                    value, key, section, target_ini_filename
+                                    "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
                                 );
                                 if !target_section
-                                    .insert_line_if_missing(&format!("{} = {}", key, value))
+                                    .insert_line_if_missing(&format!("{key} = {value}"))
                                 {
                                     // Didn't insert it, so it exists. We need to replace it.
                                     target_section.set_value(key, value);
                                 }
                             }
                         } else {
-                            println!("No lang_id {} in single section", lang_id);
+                            println!("No lang_id {lang_id} in single section");
                         }
                     } else {
-                        println!("No section {} in {}", section, target_ini_filename);
+                        println!("No section {section} in {target_ini_filename}");
                     }
                 } else {
-                    println!("No section {} in {}", section, filename);
+                    println!("No section {section} in {filename}");
                 }
             }
         }
@@ -371,7 +370,7 @@ fn main() {
         }
     }
 
-    println!("Langtool processing {}", reference_ini_filename);
+    println!("Langtool processing {reference_ini_filename}");
 
     // Some commands also apply to the reference ini.
     match opt.cmd {
