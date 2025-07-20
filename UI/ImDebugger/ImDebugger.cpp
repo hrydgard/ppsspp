@@ -1232,13 +1232,13 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		}
 	}
 
-	if (ImGui::CollapsingHeaderWithCount("sceMp3", (int)mp3Map.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeaderWithCount("sceMp3", (int)g_mp3Map.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
 		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("ReadPos", ImGuiTableColumnFlags_WidthFixed);
 
-			for (auto &iter : mp3Map) {
+			for (auto &iter : g_mp3Map) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(iter.first);
@@ -1260,8 +1260,8 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::EndTable();
 		}
 
-		auto iter = mp3Map.find(cfg.selectedMp3Ctx);
-		if (iter != mp3Map.end() && ImGui::CollapsingHeader("MP3 %d", iter->first)) {
+		auto iter = g_mp3Map.find(cfg.selectedMp3Ctx);
+		if (iter != g_mp3Map.end() && ImGui::CollapsingHeader("MP3 %d", iter->first)) {
 			ImGui::Text("MP3 Context %d", iter->first);
 			if (iter->second) {
 				AuCtx *ctx = iter->second;
@@ -1301,8 +1301,8 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::EndTable();
 		}
 
-		auto iter = mp3Map.find(cfg.selectedAacCtx);
-		if (iter != mp3Map.end() && ImGui::CollapsingHeader("AAC %d", iter->first)) {
+		auto iter = g_mp3Map.find(cfg.selectedAacCtx);
+		if (iter != g_mp3Map.end() && ImGui::CollapsingHeader("AAC %d", iter->first)) {
 			ImGui::Text("AAC Context %d", iter->first);
 			if (iter->second) {
 				AuCtx *ctx = iter->second;
