@@ -1,6 +1,6 @@
 [package]
 authors = ["Henrik Rydgård <hrydgard@gmail.com>"]
-edition = "2021"
+edition = "2024"
 name = "langtool"
 version = "0.1.0"
 

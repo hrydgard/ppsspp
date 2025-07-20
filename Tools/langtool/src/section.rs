@@ -10,7 +10,7 @@ pub struct Section {
     pub lines: Vec<String>,
 }
 
-pub fn line_value<'a>(line: &'a str) -> Option<&'a str> {
+pub fn line_value(line: &str) -> Option<&str> {
     let line = line.trim();
     if let Some(pos) = line.find(" =") {
         let value = &line[pos + 2..];
@@ -105,7 +105,7 @@ impl Section {
             return true;
         }
 
-        println!("failed to insert {}", line);
+        println!("failed to insert {line}");
         true
     }
 
@@ -122,7 +122,7 @@ impl Section {
             let mut right_part = line.strip_prefix(&prefix).unwrap().to_string();
             if right_part.trim() == old.trim() {
                 // Was still untranslated - replace the translation too.
-                right_part = format!(" {}", new);
+                right_part = format!(" {new}");
             }
             let line = new.to_owned() + " =" + &right_part;
             self.insert_line_if_missing(&line);
@@ -145,7 +145,7 @@ impl Section {
             let mut right_part = line.strip_prefix(&prefix).unwrap().to_string();
             if right_part.trim() == old.trim() {
                 // Was still untranslated - replace the translation too.
-                right_part = format!(" {}", new);
+                right_part = format!(" {new}");
             }
             let line = new.to_owned() + " =" + &right_part;
             self.insert_line_if_missing(&line);
@@ -238,7 +238,7 @@ impl Section {
         }
 
         if let Some(found_index) = found_index {
-            self.lines[found_index] = format!("{} = {}", key, value);
+            self.lines[found_index] = format!("{key} = {value}");
             true
         } else {
             false

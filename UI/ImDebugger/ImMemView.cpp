@@ -367,7 +367,7 @@ void ImMemView::CopyToByteClipboard() {
 
 void ImMemView::PasteFromByteClipboard() {
 	if (editableMemory_)
-		Memory::MemcpyUnchecked(curAddress_, byteClipboard_.data(), byteClipboard_.size());
+		Memory::MemcpyUnchecked(curAddress_, byteClipboard_.data(), (u32)byteClipboard_.size());
 }
 
 void ImMemView::toggleEditableMemory(bool toggle) {
