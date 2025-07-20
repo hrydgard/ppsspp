@@ -211,7 +211,7 @@ static float DefaultUISaturation() {
 }
 
 static int DefaultUIScaleFactor() {
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
 	return -1;
 #else
 	return 0;
@@ -456,8 +456,8 @@ static int DefaultGPUBackend() {
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
-	// On Win11, there's a good chance Vulkan will work by default.
-	if (IsWin11OrHigher()) {
+	// On Win10, there's a good chance Vulkan will work by default.
+	if (IsWin10OrHigher()) {
 		return (int)GPUBackend::VULKAN;
 	}
 	// On older Windows, to be safe, use Direct3D 11.
