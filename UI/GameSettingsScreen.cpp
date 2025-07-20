@@ -677,6 +677,11 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		return UI::EVENT_DONE;
 	});
 
+	PopupSliderChoice *gamePreviewVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGamePreviewVolume, VOLUME_OFF, VOLUMEHI_FULL, NO_DEFAULT_INT, a->T("Game preview volume"), screenManager()));
+	gamePreviewVolume->SetFormat("%d%%");
+	gamePreviewVolume->SetEnabledPtr(&g_Config.bEnableSound);
+	gamePreviewVolume->SetZeroLabel(a->T("Mute"));
+
 	bool sdlAudio = false;
 
 #if defined(SDL)

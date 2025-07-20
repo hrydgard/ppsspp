@@ -298,6 +298,7 @@ public:
 	int iGameVolume;
 	int iReverbVolume;
 	int iUIVolume;
+	int iGamePreviewVolume;  // Volume for the game preview sound in the game grid.
 	int iAchievementVolume;
 	int iAltSpeedVolume;
 
