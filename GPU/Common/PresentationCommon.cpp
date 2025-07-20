@@ -134,7 +134,7 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 
 	// Ye olde 1080p hack: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
 	// cut off one line from the top and bottom.
-	if (scale == 1.0f && aspectRatioAdjust == 1.0f && offsetX == 0.5f && offsetY == 0.5f && !g_Config.bDisplayIntegerScale && g_Config.bDisplayCropTo16x9) {
+	if (scale == 1.0f && aspectRatioAdjust == 1.0f && offsetX == 0.5f && offsetY == 0.5f && g_Config.bDisplayCropTo16x9) {
 		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
 			outW *= 272.0f / 270.0f;
 			outH *= 272.0f / 270.0f;

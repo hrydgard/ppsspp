@@ -1608,7 +1608,7 @@ void Slider::Draw(UIContext &dc) {
 	bool focus = HasFocus();
 	uint32_t sliderColor;
 
-	if (down_) {
+	if (dragging_) {
 		sliderColor = popupStyle_ ? dc.theme->popupSliderFocusedColor : dc.theme->itemDownStyle.fgColor;
 	} else if (focus) {
 		sliderColor = popupStyle_ ? dc.theme->popupSliderFocusedColor : dc.theme->itemFocusedStyle.fgColor;

@@ -107,6 +107,7 @@ public:
 
 	void CreateTabs() override;
 	void update() override;
+	void resized() { RecreateViews(); }
 
 protected:
 	UI::EventReturn CopySummaryToClipboard(UI::EventParams &e);
