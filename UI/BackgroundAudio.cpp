@@ -273,19 +273,19 @@ private:
 BackgroundAudio g_BackgroundAudio;
 
 BackgroundAudio::BackgroundAudio() {
-	buffer = new int[BUFSIZE]();
+	buffer_ = new int[BUFSIZE]();
 	sndLoadPending_.store(false);
 }
 
 BackgroundAudio::~BackgroundAudio() {
 	delete at3Reader_;
-	delete[] buffer;
+	delete[] buffer_;
 }
 
 void BackgroundAudio::Clear(bool hard) {
 	if (!hard) {
 		fadingOut_ = true;
-		volume_ = 1.0f;
+		volumeFader_ = 1.0f;
 		return;
 	}
 	if (at3Reader_) {
@@ -313,7 +313,7 @@ void BackgroundAudio::SetGame(const Path &path) {
 		sndLoadPending_ = true;
 		fadingOut_ = false;
 	}
-	volume_ = 1.0f;
+	volumeFader_ = 1.0f;
 	bgGamePath_ = path;
 }
 
@@ -335,30 +335,30 @@ bool BackgroundAudio::Play() {
 
 	sz = std::min(BUFSIZE / 2, sz);
 	if (at3Reader_) {
-		if (at3Reader_->Read(buffer, sz)) {
+		if (at3Reader_->Read(buffer_, sz)) {
 			if (fadingOut_) {
-				float vol = volume_;
+				float vol = volumeFader_;
 				// TODO: This isn't optimized. But hardly matters...
 				for (int i = 0; i < sz * 2; i += 2) {
 					const float v = vol;
-					buffer[i] = (int)((float)buffer[i] * v);
-					buffer[i + 1] = (int)((float)buffer[i + 1] * v);
+					buffer_[i] = (int)((float)buffer_[i] * v);
+					buffer_[i + 1] = (int)((float)buffer_[i + 1] * v);
 					vol += delta_;
 				}
-				volume_ = vol;
+				volumeFader_ = vol;
 			}
 		}
 	} else {
 		for (int i = 0; i < sz * 2; i += 2) {
-			buffer[i] = 0;
-			buffer[i + 1] = 0;
+			buffer_[i] = 0;
+			buffer_[i + 1] = 0;
 		}
 	}
 
-	float multiplier = Volume100ToMultiplier(g_Config.iUIVolume);
-	System_AudioPushSamples(buffer, sz, multiplier);
+	float multiplier = Volume100ToMultiplier(g_Config.iGamePreviewVolume);
+	System_AudioPushSamples(buffer_, sz, multiplier);
 
-	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
+	if (at3Reader_ && fadingOut_ && volumeFader_ <= 0.0f) {
 		Clear(true);
 		fadingOut_ = false;
 		gameLastChanged_ = 0;

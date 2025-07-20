@@ -79,9 +79,9 @@ private:
 	AT3PlusReader *at3Reader_ = nullptr;
 	double gameLastChanged_ = 0.0;
 	double lastPlaybackTime_ = 0.0;
-	int *buffer = nullptr;
+	int *buffer_ = nullptr;
 	bool fadingOut_ = true;
-	float volume_ = 0.0f;
+	float volumeFader_ = 0.0f;
 	float delta_ = -0.0001f;
 	SoundEffectMixer sfxMixer_;
 };
