@@ -29,4 +29,4 @@ void __Mp3Init();
 void __Mp3Shutdown();
 void __Mp3DoState(PointerWrap &p);
 
-extern std::map<u32, AuCtx *> mp3Map;
+extern std::map<u32, AuCtx *> g_mp3Map;

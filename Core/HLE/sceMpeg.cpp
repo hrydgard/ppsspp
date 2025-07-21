@@ -458,6 +458,7 @@ static u32 MpegRequiredMem() {
 	return MPEG_MEMSIZE_0105;
 }
 
+// ddrTop is currently ignored.
 static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop) {
 	if (!Memory::IsValidAddress(mpegAddr)) {
 		return hleLogWarning(Log::Mpeg, -1, "invalid addresses");

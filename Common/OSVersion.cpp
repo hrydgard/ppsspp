@@ -109,6 +109,10 @@ bool IsWin8OrHigher() {
 	return DoesVersionMatchWindows(6, 2, 0, 0, 0, true);
 }
 
+bool IsWin10OrHigher() {
+	return DoesVersionMatchWindows(10, 0, 0, 0, 0, true);
+}
+
 bool IsWin11OrHigher() {
 	return DoesVersionMatchWindows(10, 0, 0, 0, 22000, true);
 }

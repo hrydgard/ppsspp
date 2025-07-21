@@ -29,6 +29,7 @@
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceAac.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNet.h"
@@ -1231,13 +1232,13 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 		}
 	}
 
-	if (ImGui::CollapsingHeaderWithCount("sceMp3", (int)mp3Map.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeaderWithCount("sceMp3", (int)g_mp3Map.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
 		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("ReadPos", ImGuiTableColumnFlags_WidthFixed);
 
-			for (auto &iter : mp3Map) {
+			for (auto &iter : g_mp3Map) {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(iter.first);
@@ -1259,9 +1260,50 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::EndTable();
 		}
 
-		auto iter = mp3Map.find(cfg.selectedMp3Ctx);
-		if (iter != mp3Map.end() && ImGui::CollapsingHeader("MP3 %d", iter->first)) {
+		auto iter = g_mp3Map.find(cfg.selectedMp3Ctx);
+		if (iter != g_mp3Map.end() && ImGui::CollapsingHeader("MP3 %d", iter->first)) {
 			ImGui::Text("MP3 Context %d", iter->first);
+			if (iter->second) {
+				AuCtx *ctx = iter->second;
+				ImGui::Text("%d Hz, %d channels", ctx->SamplingRate, ctx->Channels);
+				ImGui::Text("AUBuf: %08x AUSize: %08x", ctx->AuBuf, ctx->AuBufSize);
+				ImGui::Text("PCMBuf: %08x PCMSize: %08x", ctx->PCMBuf, ctx->PCMBufSize);
+				ImGui::Text("Pos: %d (%d -> %d)", ctx->ReadPos(), (int)ctx->startPos, (int)ctx->endPos);
+			}
+		}
+	}
+
+	if (ImGui::CollapsingHeaderWithCount("sceAac", (int)g_aacMap.size(), ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("aac", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("ReadPos", ImGuiTableColumnFlags_WidthFixed);
+
+			for (auto &iter : g_aacMap) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(iter.first);
+				ImGui::SetNextItemAllowOverlap();
+				char temp[16];
+				snprintf(temp, sizeof(temp), "%d", iter.first);
+				if (ImGui::Selectable(temp, iter.first == cfg.selectedAacCtx, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedAacCtx = iter.first;
+				}
+				if (!iter.second) {
+					continue;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->Channels);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", (int)iter.second->ReadPos());
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+
+		auto iter = g_mp3Map.find(cfg.selectedAacCtx);
+		if (iter != g_mp3Map.end() && ImGui::CollapsingHeader("AAC %d", iter->first)) {
+			ImGui::Text("AAC Context %d", iter->first);
 			if (iter->second) {
 				AuCtx *ctx = iter->second;
 				ImGui::Text("%d Hz, %d channels", ctx->SamplingRate, ctx->Channels);

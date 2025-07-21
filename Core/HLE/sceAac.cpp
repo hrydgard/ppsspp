@@ -26,19 +26,19 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
-static std::map<u32, AuCtx*> aacMap;
+std::map<u32, AuCtx*> g_aacMap;
 
 static AuCtx *getAacCtx(u32 id) {
-	if (aacMap.find(id) == aacMap.end())
+	if (g_aacMap.find(id) == g_aacMap.end())
 		return NULL;
-	return aacMap[id];
+	return g_aacMap[id];
 }
 
 void __AACShutdown() {
-	for (auto it = aacMap.begin(), end = aacMap.end(); it != end; it++) {
+	for (auto it = g_aacMap.begin(), end = g_aacMap.end(); it != end; it++) {
 		delete it->second;
 	}
-	aacMap.clear();
+	g_aacMap.clear();
 }
 
 void __AACDoState(PointerWrap &p) {
@@ -46,13 +46,13 @@ void __AACDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	Do(p, aacMap);
+	Do(p, g_aacMap);
 }
 
 static u32 sceAacExit(u32 id) {
-	if (aacMap.find(id) != aacMap.end()) {
-		delete aacMap[id];
-		aacMap.erase(id);
+	if (g_aacMap.find(id) != g_aacMap.end()) {
+		delete g_aacMap[id];
+		g_aacMap.erase(id);
 	} else {
 		return hleLogError(Log::ME, -1, "bad aac ID");
 	}
@@ -105,11 +105,11 @@ static u32 sceAacInit(u32 id)
 	aac->decoder = CreateAudioDecoder(PSP_CODEC_AAC);
 
 	// close the audio if id already exist.
-	if (aacMap.find(id) != aacMap.end()) {
-		delete aacMap[id];
-		aacMap.erase(id);
+	if (g_aacMap.find(id) != g_aacMap.end()) {
+		delete g_aacMap[id];
+		g_aacMap.erase(id);
 	}
-	aacMap[id] = aac;
+	g_aacMap[id] = aac;
 
 	return hleNoLog(id);
 }

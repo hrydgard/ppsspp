@@ -101,6 +101,7 @@ struct ImConfig {
 	int selectedMemCheck = -1;
 	int selectedAtracCtx = 0;
 	int selectedMp3Ctx = 0;
+	int selectedAacCtx = 0;
 	int selectedMemoryBlock = 0;
 	u32 selectedMpegCtx = 0;
 
