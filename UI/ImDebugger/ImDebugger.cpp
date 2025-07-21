@@ -1488,7 +1488,7 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 			ImGui::TableNextColumn();
 			char id[2]{};
 			id[0] = i + 1;
-			ImClickableValue(id, g_audioChans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			ImClickableValue(id, g_audioChans[i].sampleAddressUnused, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
 			ImGui::Text("%08x", g_audioChans[i].sampleCount);
 			ImGui::TableNextColumn();
@@ -1507,9 +1507,9 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 			}
 			ImGui::TableNextColumn();
 			for (auto t : g_audioChans[i].waitingThreads) {
-				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t.threadID);
+				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t);
 				if (thread) {
-					ImGui::Text("%s: %d", thread->GetName(), t.numSamples);
+					ImGui::Text("%s", thread->GetName());
 				}
 			}
 			ImGui::PopID();

@@ -76,11 +76,8 @@ static u32 sceVaudioChRelease() {
 
 static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	DEBUG_LOG(Log::sceAudio, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = vol;
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = vol;
 	// TODO: This may be wrong, not sure if's in a different format?
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].sampleAddress = buffer;
-	return __AudioEnqueue(g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
+	return __AudioEnqueue(g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, vol, vol, buffer, true);
 }
 
 static u32 sceVaudioSetEffectType(int effectType, int vol) {
