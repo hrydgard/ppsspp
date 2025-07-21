@@ -1459,7 +1459,7 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	if (ImGui::BeginTable("audios", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("audios", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("SampleAddr", ImGuiTableColumnFlags_WidthFixed);
@@ -1467,6 +1467,7 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 		ImGui::TableSetupColumn("Volume", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Waiting Thread", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Underruns", ImGuiTableColumnFlags_WidthFixed);
 
 		ImGui::TableHeadersRow();
 
@@ -1512,6 +1513,8 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 					ImGui::Text("%s", thread->GetName());
 				}
 			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", g_audioChans[i].numUnderruns);
 			ImGui::PopID();
 		}
 

@@ -102,6 +102,9 @@ void AudioChannel::clear() {
 	// chanSampleQueues[index].clear();
 	queueLength = 0;
 	queuePlayOffset = 0;
+	queue[0] = {};
+	queue[1] = {};
+	numUnderruns = 0;
 
 	waitingThreads.clear();
 }
@@ -134,7 +137,11 @@ static u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32
 	}
 
 	u32 result = __AudioEnqueue(g_audioChans[chan], chan, leftvol, rightvol, samplePtr, true);
-	return hleLogDebug(Log::sceAudio, result);
+	if (chan == 4) {
+		return hleLogDebug(Log::sceAudio, result);
+	} else {
+		return hleLogVerbose(Log::sceAudio, result);
+	}
 }
 
 static u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
@@ -163,7 +170,7 @@ static u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 sampleP
 	}
 }
 
-static int sceAudioGetChannelRestLen(u32 chan) {
+static int __RestLenCommon(u32 chan) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
 	}
@@ -172,14 +179,9 @@ static int sceAudioGetChannelRestLen(u32 chan) {
 	return hleLogVerbose(Log::sceAudio, remainingSamples);
 }
 
-static int sceAudioGetChannelRestLength(u32 chan) {
-	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
-	}
-
-	int remainingSamples = (int)g_audioChans[chan].queueLength * g_audioChans[chan].sampleCount;
-	return hleLogVerbose(Log::sceAudio, remainingSamples);
-}
+// These two are the same so share the implementation.
+static int sceAudioGetChannelRestLen(u32 chan) { return __RestLenCommon(chan); }
+static int sceAudioGetChannelRestLength(u32 chan) { return __RestLenCommon(chan); }
 
 static u32 GetFreeChannel() {
 	for (u32 i = PSP_AUDIO_CHANNEL_MAX - 1; i > 0; --i) {
@@ -209,11 +211,16 @@ static u32 sceAudioChReserve(int chan, u32 sampleCount, u32 format) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "reserve channel failed");
 	}
 
-	g_audioChans[chan].sampleCount = sampleCount;
-	g_audioChans[chan].format = format;
-	g_audioChans[chan].reserved = true;
-	g_audioChans[chan].leftVolume = 0;
-	g_audioChans[chan].rightVolume = 0;
+	// Reset the channel.
+	AudioChannel &channel = g_audioChans[chan];
+	channel.sampleCount = sampleCount;
+	channel.format = format;
+	channel.reserved = true;
+	channel.leftVolume = 0;
+	channel.rightVolume = 0;
+	channel.queuePlayOffset = 0;
+	channel.queueLength = 0;
+	channel.numUnderruns = 0;
 	return hleLogDebug(Log::sceAudio, chan);
 }
 
@@ -238,7 +245,6 @@ static u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
 	} else if ((len & 63) != 0 || len == 0 || len > PSP_AUDIO_SAMPLE_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED, "invalid sample count");
 	}
-	
 	g_audioChans[chan].sampleCount = len;
 	return hleLogDebug(Log::sceAudio, 0);
 }

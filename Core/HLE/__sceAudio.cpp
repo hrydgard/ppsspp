@@ -193,13 +193,18 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, int leftVol, int rightVol, i
 	}
 
 	// Update channel volume.
-	chan.leftVolume = leftVol;
-	chan.rightVolume = rightVol;
+	if (leftVol) {
+		chan.leftVolume = leftVol;
+	}
+	if (rightVol) {
+		chan.rightVolume = rightVol;
+	}
 
-	// Check for blocking.
-	if (chan.queueLength > 0) {
+	// Check for blocking when pushing the *second* block.
+	if (chan.queueLength == 1) {
 		if (blocking) {
 			if (__KernelIsDispatchEnabled()) {
+				DEBUG_LOG(Log::sceAudio, "Blocking thread %i on audio channel %i", __KernelGetCurThread(), chanNum);
 				chan.waitingThreads.push_back(__KernelGetCurThread());
 				// Also remember the value to return in the waitValue.
 				__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum + 1, ret, 0, false, "blocking audio");
@@ -210,6 +215,11 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, int leftVol, int rightVol, i
 		} else {
 			return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 		}
+	} else if (chan.queueLength == 0) {
+		// This we shouldn't see very much, or?	
+		DEBUG_LOG(Log::sceAudio, "Empty, not blocking thread %i on audio channel %i", __KernelGetCurThread(), chanNum);
+	} else {
+		return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 	}
 
 	if (samplePtr == 0) {
@@ -222,16 +232,17 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, int leftVol, int rightVol, i
 	// read the actual data.
 
 	QueueEntry entry;
-	entry.leftVol = leftVol;
-	entry.rightVol = rightVol;
+	entry.leftVol = chan.leftVolume;
+	entry.rightVol = chan.rightVolume;
 	entry.sampleAddress = samplePtr;
+	entry.sampleCount = chan.sampleCount;
 
 	chan.queue[chan.queueLength++] = entry;
 	_dbg_assert_(chan.queueLength <= AudioChannel::MAX_QUEUE_LENGTH);
 	return ret;
 }
 
-void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
+void __AudioWakeThreads(AudioChannel &chan, int result) {
 	u32 error;
 	bool wokeThreads = false;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {
@@ -257,10 +268,6 @@ void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	}
 }
 
-void __AudioWakeThreads(AudioChannel &chan, int result) {
-	__AudioWakeThreads(chan, result, 0x7FFFFFFF);
-}
-
 void __AudioSetOutputFrequency(int freq) {
 	if (freq != 44100) {
 		WARN_LOG_REPORT(Log::sceAudio, "Switching audio frequency to %i", freq);
@@ -276,6 +283,8 @@ void __AudioSetSRCFrequency(int freq) {
 
 // Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
+	DEBUG_LOG(Log::sceAudio, "=========== Audio update ============ ");
+
 	// AUDIO throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
@@ -294,34 +303,69 @@ void __AudioUpdate(bool resetRecording) {
 		}
 
 		if (chan.queueLength == 0) {
+			chan.numUnderruns++;
 			// Can't play an empty queue.
 			// Log?
 			continue;
 		}
 
-		int channels = chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1;
+		if (!chan.queue[0].sampleAddress) {
+			DEBUG_LOG(Log::sceAudio, "Channel %i queue[0] had a zero sampleAddress, skipping", i);
+			chan.queue[0] = chan.queue[1];
+			chan.queueLength--;
+			__AudioWakeThreads(chan, 0);
+			continue;
+		}
+
+		_dbg_assert_(Memory::IsValid4AlignedAddress(chan.queue[0].sampleAddress));
+
+		const int channels = chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1;
 
 		const bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
 		const size_t sz = needsResample ? (hwBlockSize * srcFrequency) / mixFrequency : hwBlockSize;
 
+		static_assert(chan.MAX_QUEUE_LENGTH == 2);
+
 		const s16 *buf1 = 0, *buf2 = 0;
 		size_t sz1 = 0, sz2 = 0;
 
-		if (sz <= chan.sampleCount - chan.queuePlayOffset) {
-			// Easy case, no wrapping to the next buffer, and no change in blocking.
-			buf1 = (s16 *)(Memory::base + chan.queue[0].sampleAddress) + chan.queuePlayOffset * channels;
+		buf1 = (s16 *)(Memory::base + chan.queue[0].sampleAddress) + chan.queuePlayOffset * channels;
+
+		if (sz <= chan.queue[0].sampleCount - chan.queuePlayOffset) {
+			// Easy case, no wrapping to the next buffer.
 			chan.queuePlayOffset += (int)sz;
 			sz1 = sz * channels;
-			if (chan.queuePlayOffset == chan.sampleCount) {
+
+			// If reached the end?
+			if (chan.queuePlayOffset == chan.queue[0].sampleCount) {
 				// If we reached the end of the queue, pop. Let's do it the easy way.
-				static_assert(chan.MAX_QUEUE_LENGTH == 2);
 				chan.queue[0] = chan.queue[1];
+				chan.queue[1] = {};
 				chan.queueLength--;
 				chan.queuePlayOffset = 0;
 				__AudioWakeThreads(chan, 0);
+				if (chan.queueLength == 0) {
+					DEBUG_LOG(Log::sceAudio, "Channel %i queue ran empty at offset %d", i, chan.queuePlayOffset);
+				}
 			}
 		} else {
-			_dbg_assert_(false);
+			// We reached the end. Figure out how much is left in the first buffer.
+			int left = (chan.queue[0].sampleCount - chan.queuePlayOffset);
+			int right = sz - left;
+			sz1 = left * channels;
+
+			__AudioWakeThreads(chan, 0);
+			if (chan.queueLength == 0) {
+				DEBUG_LOG(Log::sceAudio, "Channel %i queue ran empty at offset %d", i, chan.queuePlayOffset);
+			} else {
+				// Then fill up with data from the second buffer, then pop.
+				buf2 = (s16 *)(Memory::base + chan.queue[1].sampleAddress);
+				sz2 = right * channels;
+				chan.queue[0] = chan.queue[1];
+				chan.queue[1] = {};
+			}
+
+			// _dbg_assert_(false);
 			/*
 			if (sz > legacyChanSampleQueues[i].size()) {
 				ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)legacyChanSampleQueues[i].size() / 2, (int)sz / 2);
@@ -374,11 +418,14 @@ void __AudioUpdate(bool resetRecording) {
 		// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
 		// Actually, the cmple/pack trick should work fine...
 
+		// TODO: Before merge, we must incorporate the volume here.
+
 		// sz1 includes the channels multiplier, so the below core is channel-neutral.
 		for (size_t s = 0; s < sz1; s++) {
 			_dbg_assert_(s < ARRAY_SIZE(mixBuffer));
 			mixBuffer[s] += buf1[s];
 		}
+		
 		if (buf2) {
 			for (size_t s = 0; s < sz2; s++)
 				mixBuffer[s + sz1] += buf2[s];

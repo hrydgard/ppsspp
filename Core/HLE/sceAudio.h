@@ -37,6 +37,7 @@ struct QueueEntry {
 	u32 leftVol;
 	u32 rightVol;
 	u32 sampleAddress;
+	u32 sampleCount;
 };
 
 struct AudioChannel {
@@ -61,6 +62,7 @@ struct AudioChannel {
 
 	// For the debugger only. Not saved.
 	bool mute = false;
+	int numUnderruns = 0;
 
 	std::vector<SceUID> waitingThreads;
 
