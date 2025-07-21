@@ -66,6 +66,26 @@
 			]
 		},
 		{
+			"name": "NHL 07",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "NHL Playoff Edition",
+				"url": "https://discord.gg/aUdr5qXzrH"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnhl07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES00477",
+				"ULUS10131"
+			]
+		},
+		{
 			"name": "WipEout Pure",
 			"comment": {
 				"en_US": "Web browser only, no multiplayer"
