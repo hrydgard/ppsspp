@@ -42,7 +42,7 @@ void __AudioSetOutputFrequency(int freq);
 void __AudioSetSRCFrequency(int freq);
 
 // May return SCE_ERROR_AUDIO_CHANNEL_BUSY if buffer too large
-u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
+u32 __AudioEnqueue(AudioChannel &chan, int chanNum, int leftVol, int rightVol, int samplePtr, bool blocking);
 void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 

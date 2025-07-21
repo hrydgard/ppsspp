@@ -49,7 +49,7 @@ std::atomic_flag atomicLock_;
 
 // We copy samples as they are written into this simple ring buffer.
 // Might try something more efficient later.
-FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
+FixedSizeQueue<s16, 32768 * 8> legacyChanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
 
@@ -59,14 +59,14 @@ int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
 int srcFrequency = 0;
 
-const int hwSampleRate = 44100;
-const int hwBlockSize = 64;
+static constexpr int hwSampleRate = 44100;
+static constexpr int hwBlockSize = 64;
 
 static int audioIntervalCycles;
 static int audioHostIntervalCycles;
 
-static s32 *mixBuffer;
-static s16 *clampedMixBuffer;
+static s32 mixBuffer[hwBlockSize * 2];
+static s16 clampedMixBuffer[hwBlockSize * 2];
 #ifndef MOBILE_DEVICE
 WaveFileWriter g_wave_writer;
 static bool m_logAudio;
@@ -115,8 +115,6 @@ void __AudioInit() {
 		g_audioChans[i].clear();
 	}
 
-	mixBuffer = new s32[hwBlockSize * 2];
-	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
 	System_AudioClear();
@@ -158,8 +156,7 @@ void __AudioDoState(PointerWrap &p) {
 
 	int chanCount = ARRAY_SIZE(g_audioChans);
 	Do(p, chanCount);
-	if (chanCount != ARRAY_SIZE(g_audioChans))
-	{
+	if (chanCount != ARRAY_SIZE(g_audioChans)) {
 		ERROR_LOG(Log::sceAudio, "Savestate failure: different number of audio channels.");
 		p.SetError(p.ERROR_FAILURE);
 		return;
@@ -173,10 +170,6 @@ void __AudioDoState(PointerWrap &p) {
 }
 
 void __AudioShutdown() {
-	delete [] mixBuffer;
-	delete [] clampedMixBuffer;
-
-	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
 		g_audioChans[i].index = i;
 		g_audioChans[i].clear();
@@ -189,42 +182,37 @@ void __AudioShutdown() {
 #endif
 }
 
-u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
+u32 __AudioEnqueue(AudioChannel &chan, int chanNum, int leftVol, int rightVol, int samplePtr, bool blocking) {
 	u32 ret = chan.sampleCount;
 
-	if (chan.sampleAddress == 0) {
+	if (samplePtr == 0) {
 		// For some reason, multichannel audio lies and returns the sample count here.
-		if (chanNum == PSP_AUDIO_CHANNEL_SRC || chanNum == PSP_AUDIO_CHANNEL_OUTPUT2) {
+		if (chanNum == PSP_AUDIO_CHANNEL_SRC) {  // equals OUTPUT2, they share channel 8
 			ret = 0;
 		}
 	}
 
-	// If there's anything on the queue at all, it should be busy, but we try to be a bit lax.
-	//if (chanSampleQueues[chanNum].size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
-	if (chanSampleQueues[chanNum].size() > 0) {
-		if (blocking) {
-			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
-			int blockSamples = (int)chanSampleQueues[chanNum].size() / 2 / chanQueueMinSizeFactor;
+	// Update channel volume.
+	chan.leftVolume = leftVol;
+	chan.rightVolume = rightVol;
 
+	// Check for blocking.
+	if (chan.queueLength > 0) {
+		if (blocking) {
 			if (__KernelIsDispatchEnabled()) {
-				AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
-				chan.waitingThreads.push_back(waitInfo);
+				chan.waitingThreads.push_back(__KernelGetCurThread());
 				// Also remember the value to return in the waitValue.
 				__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum + 1, ret, 0, false, "blocking audio");
 			} else {
-				// TODO: Maybe we shouldn't take this audio after all?
+				// If the channel is already busy, we can't enqueue.
 				ret = SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 			}
-
-			// Fall through to the sample queueing, don't want to lose the samples even though
-			// we're getting full.  The PSP would enqueue after blocking.
 		} else {
-			// Non-blocking doesn't even enqueue, but it's not commonly used.
 			return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 		}
 	}
 
-	if (chan.sampleAddress == 0) {
+	if (samplePtr == 0) {
 		return ret;
 	}
 
@@ -233,54 +221,13 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	// What we should be queueing here is just the sampleAddress and sampleCount. Then when dequeuing is when we should
 	// read the actual data.
 
-	int leftVol = chan.leftVolume;
-	int rightVol = chan.rightVolume;
+	QueueEntry entry;
+	entry.leftVol = leftVol;
+	entry.rightVol = rightVol;
+	entry.sampleAddress = samplePtr;
 
-	if (leftVol == (1 << 15) && rightVol == (1 << 15) && chan.format == PSP_AUDIO_FORMAT_STEREO && IS_LITTLE_ENDIAN) {
-		// TODO: Add mono->stereo conversion to this path.
-
-		// Good news: the volume (1 << 15), specifically, doesn't affect the values at all.
-		// We can just do a direct memory copy.
-		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
-		s16 *buf1 = 0, *buf2 = 0;
-		size_t sz1, sz2;
-		chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-
-		if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
-			Memory::Memcpy(buf1, chan.sampleAddress, (u32)sz1 * sizeof(s16));
-			if (buf2)
-				Memory::Memcpy(buf2, chan.sampleAddress + (u32)sz1 * sizeof(s16), (u32)sz2 * sizeof(s16));
-		}
-	} else {
-		// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue.
-		// This way we can optimally shift by 16.
-		leftVol <<=1;
-		rightVol <<=1;
-
-		if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
-			const u32 totalSamples = chan.sampleCount * 2;
-
-			s16_le *sampleData = (s16_le *) Memory::GetPointer(chan.sampleAddress);
-
-			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
-			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
-				s16 *buf1 = 0, *buf2 = 0;
-				size_t sz1, sz2;
-				chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
-				if (buf2) {
-					AdjustVolumeBlock(buf2, sampleData + sz1, sz2, leftVol, rightVol);
-				}
-			}
-		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
-			// Rare, so unoptimized. Expands to stereo.
-			for (u32 i = 0; i < chan.sampleCount; i++) {
-				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-				chanSampleQueues[chanNum].push(ApplySampleVolume(sample, leftVol));
-				chanSampleQueues[chanNum].push(ApplySampleVolume(sample, rightVol));
-			}
-		}
-	}
+	chan.queue[chan.queueLength++] = entry;
+	_dbg_assert_(chan.queueLength <= AudioChannel::MAX_QUEUE_LENGTH);
 	return ret;
 }
 
@@ -288,22 +235,21 @@ void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	u32 error;
 	bool wokeThreads = false;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {
-		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
-		waitInfo.numSamples -= step;
+		const SceUID waitInfoThreadID = chan.waitingThreads[w];
 
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
-		u32 waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error);
-		if (waitInfo.numSamples <= 0 && waitID != 0) {
+		const u32 waitID = __KernelGetWaitID(waitInfoThreadID, WAITTYPE_AUDIOCHANNEL, error);
+		if (waitID != 0) {
 			// DEBUG_LOG(Log::sceAudio, "Woke thread %i for some buffer filling", waitingThread);
-			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
+			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfoThreadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+			__KernelResumeThreadFromWait(waitInfoThreadID, ret);
 			wokeThreads = true;
-
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
 		}
 		// This means the thread stopped waiting, so stop trying to wake it.
-		else if (waitID == 0)
+		else if (waitID == 0) {
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
+		}
 	}
 
 	if (wokeThreads) {
@@ -337,27 +283,50 @@ void __AudioUpdate(bool resetRecording) {
 	const int16_t srcBufferSize = hwBlockSize * 2;
 	int16_t srcBuffer[srcBufferSize];
 
+	// We always consume "hwBlockSize" samples currently. This should be changed.
+	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
+
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
-		if (!g_audioChans[i].reserved) {
+		AudioChannel &chan = g_audioChans[i];
+
+		if (!chan.reserved) {
 			continue;
 		}
 
-		__AudioWakeThreads(g_audioChans[i], 0, hwBlockSize);
-
-		if (!chanSampleQueues[i].size()) {
+		if (chan.queueLength == 0) {
+			// Can't play an empty queue.
+			// Log?
 			continue;
 		}
 
-		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
-		size_t sz = needsResample ? (srcBufferSize * srcFrequency) / mixFrequency : srcBufferSize;
-		if (sz > chanSampleQueues[i].size()) {
-			ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
-		}
+		int channels = chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1;
+
+		const bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
+		const size_t sz = needsResample ? (hwBlockSize * srcFrequency) / mixFrequency : hwBlockSize;
 
 		const s16 *buf1 = 0, *buf2 = 0;
-		size_t sz1, sz2;
+		size_t sz1 = 0, sz2 = 0;
 
-		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+		if (sz <= chan.sampleCount - chan.queuePlayOffset) {
+			// Easy case, no wrapping to the next buffer, and no change in blocking.
+			buf1 = (s16 *)(Memory::base + chan.queue[0].sampleAddress) + chan.queuePlayOffset * channels;
+			chan.queuePlayOffset += (int)sz;
+			sz1 = sz * channels;
+			if (chan.queuePlayOffset == chan.sampleCount) {
+				// If we reached the end of the queue, pop. Let's do it the easy way.
+				static_assert(AudioChannel::MAX_QUEUE_LENGTH == 2);
+				chan.queue[0] = chan.queue[1];
+				chan.queueLength--;
+				chan.queuePlayOffset = 0;
+				__AudioWakeThreads(chan, 0);
+			}
+		} else {
+			_dbg_assert_(false);
+			/*
+			if (sz > legacyChanSampleQueues[i].size()) {
+				ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)legacyChanSampleQueues[i].size() / 2, (int)sz / 2);
+			}*/
+		}
 
 		// We do this check as the very last thing before mixing, to maximize compatibility.
 		if (g_audioChans[i].mute) {
@@ -365,6 +334,7 @@ void __AudioUpdate(bool resetRecording) {
 		}
 
 		if (needsResample) {
+			_dbg_assert_(channels == 2);
 			auto read = [&](size_t i) {
 				if (i < sz1)
 					return buf1[i];
@@ -376,7 +346,8 @@ void __AudioUpdate(bool resetRecording) {
 			};
 
 			// TODO: This is terrible, since it's doing it by small chunk and discarding frac.
-			const uint32_t ratio = (uint32_t)(65536.0 * srcFrequency / (double)mixFrequency);
+			// Also, this code assumes that channels == 2.
+			const uint32_t ratio = (uint32_t)(65536.0 * (double)srcFrequency / (double)mixFrequency);
 			uint32_t frac = 0;
 			size_t readIndex = 0;
 			for (size_t outIndex = 0; readIndex < sz && outIndex < srcBufferSize; outIndex += 2) {
@@ -400,29 +371,18 @@ void __AudioUpdate(bool resetRecording) {
 			sz2 = 0;
 		}
 
-		if (firstChannel) {
-			for (size_t s = 0; s < sz1; s++)
-				mixBuffer[s] = buf1[s];
-			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					mixBuffer[s + sz1] = buf2[s];
-			}
-			firstChannel = false;
-		} else {
-			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
-			// Actually, the cmple/pack trick should work fine...
-			for (size_t s = 0; s < sz1; s++)
-				mixBuffer[s] += buf1[s];
-			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					mixBuffer[s + sz1] += buf2[s];
-			}
-		}
-	}
+		// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
+		// Actually, the cmple/pack trick should work fine...
 
-	if (firstChannel) {
-		// Nothing was written above, let's memset.
-		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
+		// sz1 includes the channels multiplier, so the below core is channel-neutral.
+		for (size_t s = 0; s < sz1; s++) {
+			_dbg_assert_(s < ARRAY_SIZE(mixBuffer));
+			mixBuffer[s] += buf1[s];
+		}
+		if (buf2) {
+			for (size_t s = 0; s < sz2; s++)
+				mixBuffer[s + sz1] += buf2[s];
+		}
 	}
 
 	if (g_Config.bEnableSound) {

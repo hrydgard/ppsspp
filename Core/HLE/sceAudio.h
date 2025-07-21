@@ -33,9 +33,10 @@ const int PSP_AUDIO_CHANNEL_SRC = 8;
 const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
 const int PSP_AUDIO_CHANNEL_VAUDIO = 8;
 
-struct AudioChannelWaitInfo {
-	SceUID threadID;
-	int numSamples;
+struct QueueEntry {
+	u32 leftVol;
+	u32 rightVol;
+	u32 sampleAddress;
 };
 
 struct AudioChannel {
@@ -43,16 +44,25 @@ struct AudioChannel {
 	bool reserved = false;
 
 	// last sample address
-	u32 sampleAddress = 0;
+	u32 sampleAddressUnused = 0;  // no longer used
 	u32 sampleCount = 0;  // Number of samples written in each OutputBlocking
-	u32 leftVolume = 0;
-	u32 rightVolume = 0;
+	u32 leftVolume = 0;  // no longer used
+	u32 rightVolume = 0;   // no longer used
 	u32 format = 0;
+
+	// Audio queues seem to only be two entries deep given delay behavior on blocking enqueues,
+	// however, games seem to often cycle between three addresses, which I don't really understand.
+	enum {
+		MAX_QUEUE_LENGTH = 2,
+	};
+	QueueEntry queue[MAX_QUEUE_LENGTH];
+	int queueLength = 0;
+	int queuePlayOffset = 0;  // Position in queue[0] currently being read.
 
 	// For the debugger only. Not saved.
 	bool mute = false;
 
-	std::vector<AudioChannelWaitInfo> waitingThreads;
+	std::vector<SceUID> waitingThreads;
 
 	void DoState(PointerWrap &p);
 
