@@ -390,7 +390,7 @@ int Atrac::GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sampl
 	return 0;
 }
 
-int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
+int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) {
 	// 72 is about the size of the minimum required data to even be valid.
 	if (readSize < 72) {
 		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;

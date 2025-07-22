@@ -358,7 +358,7 @@ int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
 	track->waveDataSize = 0;
 
 	int retval = SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
-	int offset = 0;  // byte offset into the data array. Is kept even.
+	int offset = 0;  // u8 offset into the data array. Is kept even.
 
 	// Scan RIFF chunks for the RIFFWAVE header. Normally we find this immediately.
 	while (true) {
@@ -536,4 +536,141 @@ int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
 		}
 		offset = nextOffset;
 	}
+}
+
+struct AA3Info {
+	int tagSize;
+	int dataOff;
+	int extraBytes;
+	u8 codecType;  // 1 == at3plus
+	u32 codecParams;
+	u32 waveDataSize;
+};
+
+static u16 ParseU16BE(const u8 *data, int *offset) {
+	const u16 value = (data[*offset] << 8) | data[*offset + 1];
+	*offset += 2;
+	return value;
+}
+
+static u32 Parse3BytesBE(const u8 *data, int *offset) {
+	const u32 id = (data[*offset] << 16) | (data[*offset + 1] << 8) | data[*offset + 2];
+	*offset += 3;
+	return id;
+}
+
+static u32 Parse28BitIntBE(const u8 *data, int *offset) {
+	const u32 value = ((data[*offset] & 0x7F) << 21) | ((data[*offset + 1] & 0x7F) << 14) | ((data[*offset + 2] & 0x7F) << 7) | (data[*offset + 3] & 0x7F);
+	*offset += 4;
+	return value;
+}
+
+static u32 Parse4BytesBE(const u8 *data, int *offset) {
+	const u32 value = (data[*offset] << 24) | (data[*offset + 1] << 16) | (data[*offset + 2] << 8) | data[*offset + 3];
+	*offset += 4;
+	return value;
+}
+
+static u32 ParseAA3Headers(int readSize, AA3Info *info, int fileSize, const u8 *aa3Data) {
+	if ((u32)readSize < 9) {
+		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
+	}
+	int offset = 0;
+	const u32 id = Parse3BytesBE(aa3Data, &offset);
+	if (id == 0x656133 || id == 0x494433) {  // "ea3" or "id3"
+		const u8 *dataPtr = aa3Data + offset;
+		if ((*dataPtr != 3) || (offset = offset + 3, dataPtr[1] != 0)) {
+			return SCE_ERROR_ATRAC_AA3_OTHER_FAILURE;
+		}
+		info->tagSize = Parse28BitIntBE(aa3Data, &offset);
+		if (info->tagSize == 0xffffffff) {
+			return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
+		}
+		offset += info->tagSize;
+		if (offset >= readSize) {
+			return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
+		}
+		if (aa3Data[offset] == 0) {
+			offset += 0x10;
+		}
+		info->dataOff = offset;
+	} else {
+		// Might be that the file just starts with the EA3 header.
+		info->tagSize = 0;
+		info->dataOff = 0;
+		offset = 0;
+	}
+
+	if (offset + 0x22 > readSize) {
+		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
+	}
+	if (Parse3BytesBE(aa3Data, &offset) != 0x454133) {
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
+	}
+
+	offset++;
+	info->extraBytes = ParseU16BE(aa3Data, &offset);;
+	if (ParseU16BE(aa3Data, &offset) != 0xffff) {
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
+	}
+
+	offset += 24;
+	info->codecType = aa3Data[offset];
+
+	u32 codec;
+	switch (info->codecType) {
+	case 0: codec = PSP_CODEC_AT3; break;
+	case 1: codec = PSP_CODEC_AT3PLUS; break;
+	default: return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
+	}
+
+	info->codecParams = Parse4BytesBE(aa3Data, &offset);
+	const u32 dataOff = info->dataOff + info->extraBytes;
+	info->waveDataSize = fileSize - dataOff;
+	info->dataOff = dataOff;
+	return codec;
+}
+
+static int ConvertAA3InfoToTrackInfo(const AA3Info *in, TrackInfo *out) {
+	out->loopEnd = 0xffffffff;
+	out->loopStart = 0xffffffff;
+	out->waveDataSize = in->waveDataSize;
+	out->dataOff = in->dataOff;
+	out->numChans = 2;
+	out->endSample = 0;
+	const u32 codecParams = in->codecParams;
+	if (in->codecType == 0) {
+		if ((codecParams & 0xe000) != 0x2000) {
+			return SCE_ERROR_ATRAC_AA3_BAD_CODEC_PARAMS;
+		}
+		out->firstSampleOffset = 0x400;
+		out->blockAlign = (u16)((codecParams & 0x3ff) << 3);
+		if ((codecParams & 0x20000) == 0) {
+			out->sampleSizeMaybe = 0;
+		} else {
+			out->sampleSizeMaybe = 1;
+		}
+		out->tailFlag = 0;
+		return PSP_CODEC_AT3;
+	} else if (in->codecType == 1) {
+		if ((codecParams & 0x1c00) != 0x800 || (codecParams & 0xe000) != 0x2000) {
+			return SCE_ERROR_ATRAC_AA3_BAD_CODEC_PARAMS;
+		}
+		out->firstSampleOffset = 0x800;
+		out->blockAlign = ((u16)codecParams & 0x3ff) * 8 + 8;
+		out->sampleSizeMaybe = (u8)(((codecParams >> 8) & 0x3) | 0x28);
+		out->tailFlag = codecParams & 0xFF;
+		return PSP_CODEC_AT3PLUS;
+	} else {
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
+	}
+}
+
+int ParseAA3(const u8 *buffer, int readSize, int fileSize, TrackInfo *track) {
+	AA3Info info;
+	int retval = ParseAA3Headers(readSize, &info, fileSize, buffer);
+	if (retval < 0) {
+		return retval;
+	}
+	return ConvertAA3InfoToTrackInfo(&info, track);
 }

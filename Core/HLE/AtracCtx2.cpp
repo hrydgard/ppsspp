@@ -206,8 +206,7 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 	(ctx->info).firstValidSample = extraSamples + wave->firstSampleOffset;
 	int endSample3 = wave->endSample;
 	(ctx->info).sampleSize = wave->blockAlign;
-	InitLengthAndLoop(&ctx->info, endSample3, wave->waveDataSize, wave->firstSampleOffset, wave->loopStart,
-		wave->loopEnd);
+	InitLengthAndLoop(&ctx->info, endSample3, wave->waveDataSize, wave->firstSampleOffset, wave->loopStart, wave->loopEnd);
 	const int dataOff = wave->dataOff;
 	const int endSample = (ctx->info).endSample;
 	(ctx->info).streamDataByte = readSize - dataOff;
@@ -959,13 +958,21 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	return 0;
 }
 
-int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, int outputChannels) {
+int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) {
 	TrackInfo trackInfo{};
 	if (bufferAddr) {
-		int retval = ParseWaveAT3(Memory::GetPointerRange(bufferAddr, bufferSize), readSize, &trackInfo);
-		if (retval < 0) {
-			ERROR_LOG(Log::Atrac, "Atrac2::SetData: ParseWaveAT3 failed with %08x", retval);
-			return retval;
+		if (!isAA3) {
+			int retval = ParseWaveAT3(Memory::GetPointerRange(bufferAddr, bufferSize), readSize, &trackInfo);
+			if (retval < 0) {
+				ERROR_LOG(Log::Atrac, "Atrac2::SetData: ParseWaveAT3 failed with %08x", retval);
+				return retval;
+			}
+		} else {
+			int retval = ParseAA3(Memory::GetPointerRange(bufferAddr, bufferSize), readSize, fileSize, &trackInfo);
+			if (retval < 0) {
+				ERROR_LOG(Log::Atrac, "Atrac2::SetData: ParseAA3 failed with %08x", retval);
+				return retval;
+			}
 		}
 	}
 

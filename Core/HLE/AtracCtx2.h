@@ -33,7 +33,7 @@ public:
 	int AddStreamData(u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
-	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
+	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) override;
 	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	bool HasSecondBuffer() const override;
 

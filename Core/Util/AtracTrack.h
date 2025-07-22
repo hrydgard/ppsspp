@@ -122,3 +122,4 @@ struct TrackInfo {
 };
 
 int ParseWaveAT3(const u8 *data, int length, TrackInfo *track);
+int ParseAA3(const u8 *data, int readSize, int fileSize, TrackInfo *track);
