@@ -97,7 +97,7 @@ public:
 	int AddStreamData(u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;  // NOTE: Not const! This can cause SkipFrames! (although only in the AtracCtx2)
-	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
+	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) override;
 	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) const override;
 	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) override;

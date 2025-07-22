@@ -669,7 +669,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		// Must not delay.
 		return hleLogError(Log::Atrac, ret);
@@ -705,7 +705,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		// Must not delay.
 		return hleLogError(Log::Atrac, ret);
@@ -736,7 +736,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		return hleLogError(Log::Atrac, atracID, "no free ID");
 	}
 
-	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 2);
+	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::Atrac, ret);
@@ -762,7 +762,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 		return hleLogError(Log::Atrac, atracID, "no free ID");
 	}
 
-	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 2);
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::Atrac, ret);
@@ -877,7 +877,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
 
-	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1, 0, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		// Must not delay.
 		return hleLogError(Log::Atrac, ret);
@@ -902,7 +902,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
 
-	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1, 0, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		// Must not delay.
 		return hleLogError(Log::Atrac, ret);
@@ -930,7 +930,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::Atrac, atracID, "no free ID");
 	}
 
-	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 1);
+	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::Atrac, ret);
@@ -959,7 +959,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		return hleLogError(Log::Atrac, atracID, "no free ID");
 	}
 
-	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 1);
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::Atrac, ret);
@@ -980,7 +980,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		return hleLogError(Log::Atrac, atracID, "no free ID");
 	}
 
-	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 2);
+	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, fileSize, 2, true);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::Atrac, ret);
@@ -1006,7 +1006,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(Log::Atrac, atracID, "no free ID");
 	}
 
-	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 2);
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, fileSize, 2, true);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::Atrac, ret);
