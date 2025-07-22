@@ -970,7 +970,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), bufferSize, &track, &error);
+	int ret = AnalyzeAA3Track(Memory::GetPointerOrNull(buffer), bufferSize, fileSize, &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -996,7 +996,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), readSize, &track, &error);
+	int ret = AnalyzeAA3Track(Memory::GetPointerOrNull(buffer), readSize, fileSize, &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
