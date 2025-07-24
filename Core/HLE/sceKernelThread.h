@@ -115,6 +115,7 @@ enum WaitType : int {
 	WAITTYPE_MICINPUT     = 24, // fake
 	WAITTYPE_NET          = 25, // fake
 	WAITTYPE_USB          = 26, // fake
+	WAITTYPE_PLUGIN       = 27, // this is fake, for when LoadExec thread is waiting for plugins to finish loading
 
 	NUM_WAITTYPES
 };

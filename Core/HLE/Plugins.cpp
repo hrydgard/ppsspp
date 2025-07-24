@@ -172,7 +172,7 @@ void Init() {
 	}
 }
 
-bool Load() {
+bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 	bool started = false;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -197,6 +197,10 @@ bool Load() {
 			std::string shortName = Path(filename).GetFilename();
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName), 6.0f);
 			started = true;
+			pluginWaitingModule->startingPlugins.push_back(module);
+			u32 error;
+			PSPModule *plugin_module = kernelObjects.Get<PSPModule>(module, error);
+			plugin_module->pluginWaitingThread = threadID;
 		}
 
 		INFO_LOG(Log::System, "Loaded plugin: %s", filename.c_str());
