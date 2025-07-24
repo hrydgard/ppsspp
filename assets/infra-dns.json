@@ -9,6 +9,32 @@
 	},
 	"games": [
 		{
+			"name": "FIFA 07",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "PSP Online",
+				"url": "https://discord.gg/wxeGVkM"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnhl07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00440",
+				"ULES00441",
+				"ULES00442",
+				"ULES00443",
+				"ULES00444",
+				"ULES00459",
+				"ULJM05191",
+				"ULUS10112"
+			]
+		},
+		{
 			"name": "Medal of Honor: Heroes",
 			"comment": {
 				"en_US": "Works"
