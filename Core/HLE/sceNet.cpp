@@ -160,7 +160,7 @@ bool NetworkWarnUserIfOnlineAndCantSpeed() {
 }
 
 bool NetworkAllowSpeedControl() {
-	return !IsNetworkConnected();
+	return !IsNetworkConnected() || g_Config.bAllowSpeedControlWhileConnected;
 }
 
 bool NetworkAllowSaveState() {
