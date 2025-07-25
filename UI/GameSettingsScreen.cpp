@@ -720,7 +720,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		audioDeviceIds.insert(audioDeviceIds.begin(), "");
 
 		PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceNames, I18NCat::NONE, screenManager(), &audioDeviceIds));
-		audioDevice->OnChoice.Add([this](UI::EventParams &) {
+		audioDevice->OnChoice.Add([](UI::EventParams &) {
 			bool reverted;
 			if (g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted)) {
 				if (reverted) {
