@@ -92,6 +92,26 @@
 			]
 		},
 		{
+			"name": "Need for Speed: Undercover",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "PSP Online",
+				"url": "https://discord.gg/wxeGVkM"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnhl07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES01145",
+				"ULUS10376"
+			]
+		},
+		{
 			"name": "NHL 07",
 			"comment": {
 				"en_US": "Works but there are incompatibilities between platforms"
