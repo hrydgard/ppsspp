@@ -186,7 +186,11 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 	std::string uri = "";
 	
 	if (!scheme.empty()) {
-		uri += scheme + ":";
+		std::string finalScheme = scheme;
+		if (finalScheme == "https") { // https is unsupported
+			finalScheme = "http";
+		}
+		uri += finalScheme + ":";
 	}
 	
 	if (parsedUri->noSlash == 0) {
@@ -212,7 +216,7 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 			if (protocol) {
 				std::string protocolStr(protocol);
 				if (protocolStr == "http") defaultPort = 80;
-				else if (protocolStr == "https") defaultPort = 443;
+				//else if (protocolStr == "https") defaultPort = 443;
 				else if (protocolStr == "ftp") defaultPort = 21;
 				else if (protocolStr == "ssh") defaultPort = 22;
 			}
