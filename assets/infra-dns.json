@@ -94,7 +94,7 @@
 		{
 			"name": "Portable Ops",
 			"comment": {
-				"en_US": ""
+				"en_US": "Support for MPO and MPO+."
 			},
 			"revival_credits": {
 				"group": "SaveMGO",
@@ -102,6 +102,10 @@
 			},
 			"dns": "mpo.savemgo.com",
 			"dyn_dns": "mpo.savemgo.com",
+			"domains": {
+				"mpoweb.konamionline.com": "mpo.savemgo.com",
+				"info.service.konamionline.com": "mpo.savemgo.com"
+			},
 			"score": 4,
 			"known_working_ids": [
 				"ULJM05261",
