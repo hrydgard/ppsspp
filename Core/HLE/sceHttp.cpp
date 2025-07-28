@@ -747,8 +747,6 @@ static int sceHttpCreateConnectionWithURL(int templateID, const char *url, int e
 	if (!baseURL.Valid())
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_URL, "invalid url");
 
-	// TODO: Here we should look up baseURL.Host() in DNS.
-
 	httpObjects.emplace_back(std::make_shared<HTTPConnection>(templateID, baseURL.Host().c_str(), baseURL.Protocol().c_str(), baseURL.Port(), enableKeepalive));
 	int retid = (int)httpObjects.size();
 	return hleLogDebug(Log::sceNet, retid);
