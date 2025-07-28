@@ -104,7 +104,10 @@
 			"dyn_dns": "mpo.savemgo.com",
 			"domains": {
 				"mpoweb.konamionline.com": "mpo.savemgo.com",
-				"info.service.konamionline.com": "mpo.savemgo.com"
+				"info.service.konamionline.com": "mpo.savemgo.com",
+				"mpostunus.konamionline.com": "stun.mgo2pc.com",
+				"mpostunjp.konamionline.com": "stun.mgo2pc.com",
+				"mpostuneu.konamionline.com": "stun.mgo2pc.com"
 			},
 			"score": 4,
 			"known_working_ids": [
@@ -122,6 +125,7 @@
 				"ULJM05256",
 				"ULJM08016",
 				"ULUS10202GH",
+				"NPJH50112",
 				"ULJM05573"
 			]
 		},
