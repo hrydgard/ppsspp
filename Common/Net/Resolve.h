@@ -26,5 +26,6 @@ int inet_pton(int af, const char* src, void* dst);
 
 // Does a DNS lookup without involving the OS, so you can hit any DNS server.
 bool DirectDNSLookupIPV4(const char *dnsServer, const char *host, uint32_t *ipv4_addr);
+std::string ProcessHostnameWithInfraDNS(const std::string& hostname);
 
 }  // namespace net

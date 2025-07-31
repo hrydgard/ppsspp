@@ -18,7 +18,6 @@
 #include "Common/Data/Encoding/Compression.h"
 #include "Common/Net/NetBuffer.h"
 #include "Common/Log.h"
-#include "Core/HLE/sceNet.h"
 
 namespace net {
 
