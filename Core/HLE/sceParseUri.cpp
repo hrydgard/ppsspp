@@ -54,7 +54,7 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 			*workAreaSz = sz;
 			workAreaSz.NotifyWrite("UriParse");
 		}
-		return hleLogDebug(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
+		return hleLogDebug(Log::sceNet, -1, "workAreaSize: %d, %d", sz, workAreaSize);
 	}
 
 	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);
@@ -246,7 +246,7 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 	}
 
 	if (workAreaAddr == 0) {
-		return hleLogDebug(Log::sceNet, 0, "size query, required size: %d", requiredSize);
+		return hleLogDebug(Log::sceNet, -1, "size query, required size: %d", requiredSize);
 	}
 
 	if (requiredSize > workAreaSize) {
@@ -305,7 +305,7 @@ static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBuffe
 	}
 
 	if (escapedAddr == 0) {
-		return hleLogError(Log::sceNet, 0, "size query, required size: %d", requiredSize);
+		return hleLogError(Log::sceNet, -1, "size query, required size: %d", requiredSize);
 	}
 
 	if (requiredSize > escapedBufferLength) {
@@ -328,7 +328,7 @@ static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBuffe
 
 	Memory::MemcpyUnchecked(escapedAddr, escaped.c_str(), escaped.length() + 1);
 
-	return hleLogError(Log::sceNet, 0, "escaped '%s' to '%s'", source, escaped.c_str());
+	return hleLogDebug(Log::sceNet, 0, "escaped '%s' to '%s'", source, escaped.c_str());
 }
 
 const HLEFunction sceParseUri[] =
