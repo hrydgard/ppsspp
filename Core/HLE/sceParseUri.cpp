@@ -54,7 +54,7 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 			*workAreaSz = sz;
 			workAreaSz.NotifyWrite("UriParse");
 		}
-		return hleLogDebug(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
+		return hleLogDebug(Log::sceNet, -1, "workAreaSize: %d, %d", sz, workAreaSize);
 	}
 
 	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);
@@ -153,12 +153,190 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 	return 0;
 }
 
+static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize, u32 parsedUriAddr, int flags) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriBuild(%x, %x, %d, %x, %d) at %08x", workAreaAddr, workAreaSizeAddr, workAreaSize, parsedUriAddr, flags, currentMIPS->pc);
+
+	auto workAreaSz = PSPPointer<u32>::Create(workAreaSizeAddr);
+	
+	if (parsedUriAddr == 0) {
+		return hleLogError(Log::sceNet, -1, "invalid parsedUriAddr");
+	}
+
+	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAddr);
+	if (!parsedUri.IsValid()) {
+		return hleLogError(Log::sceNet, -1, "invalid parsedUri structure");
+	}
+
+	auto getUriComponent = [](u32 addr, int flags, int flagMask) -> std::string {
+		if (addr == 0 || (flags & flagMask) == 0) return "";
+		const char* str = Memory::GetCharPointer(addr);
+		return str ? std::string(str) : "";
+	};
+
+	std::string scheme = getUriComponent(parsedUri->schemeAddr, flags, 0x1);
+	std::string userInfoUserName = getUriComponent(parsedUri->userInfoUserNameAddr, flags, 0x10);
+	std::string userInfoPassword = getUriComponent(parsedUri->userInfoPasswordAddr, flags, 0x20);
+	std::string host = getUriComponent(parsedUri->hostAddr, flags, 0x2);
+	std::string path = getUriComponent(parsedUri->pathAddr, flags, 0x8);
+	std::string query = getUriComponent(parsedUri->queryAddr, flags, 0x40);
+	std::string fragment = getUriComponent(parsedUri->fragmentAddr, flags, 0x80);
+	int port = (flags & 0x4) != 0 ? parsedUri->port : -1;
+
+	// Build the complete URI
+	std::string uri = "";
+	
+	if (!scheme.empty()) {
+		std::string finalScheme = scheme;
+		if (finalScheme == "https") { // https is unsupported
+			finalScheme = "http";
+		}
+		uri += finalScheme + ":";
+	}
+	
+	if (parsedUri->noSlash == 0) {
+		uri += "//";
+	}
+	
+	if (!userInfoUserName.empty()) {
+		uri += userInfoUserName;
+		if (!userInfoPassword.empty()) {
+			uri += ":" + userInfoPassword;
+		}
+		uri += "@";
+	}
+	
+	if (!host.empty()) {
+		uri += host;
+	}
+	
+	if (port > 0) {
+		int defaultPort = -1;
+		if (parsedUri->schemeAddr != 0) {
+			const char* protocol = Memory::GetCharPointer(parsedUri->schemeAddr);
+			if (protocol) {
+				std::string protocolStr(protocol);
+				if (protocolStr == "http") defaultPort = 80;
+				//else if (protocolStr == "https") defaultPort = 443;
+				else if (protocolStr == "ftp") defaultPort = 21;
+				else if (protocolStr == "ssh") defaultPort = 22;
+			}
+		}
+		if (port != defaultPort) {
+			uri += ":" + std::to_string(port);
+		}
+	}
+	
+	if (!path.empty()) {
+		uri += path;
+	}
+	
+	if (!query.empty()) {
+		uri += query;
+	}
+	
+	if (!fragment.empty()) {
+		uri += fragment;
+	}
+
+	int requiredSize = (int)uri.length() + 1;
+
+	if (workAreaSz.IsValid()) {
+		*workAreaSz = requiredSize;
+		workAreaSz.NotifyWrite("UriBuild");
+	}
+
+	if (workAreaAddr == 0) {
+		return hleLogDebug(Log::sceNet, -1, "size query, required size: %d", requiredSize);
+	}
+
+	if (requiredSize > workAreaSize) {
+		return hleLogError(Log::sceNet, -1, "work area too small: need %d, have %d", requiredSize, workAreaSize);
+	}
+
+	Memory::MemcpyUnchecked(workAreaAddr, uri.c_str(), requiredSize);
+
+	return hleLogDebug(Log::sceNet, 0, "built URI: %s", uri.c_str());
+}
+
+static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char* source) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriEscape(%x, %x, %d, %s) at %08x", escapedAddr, escapedLengthAddr, escapedBufferLength, safe_string(source), currentMIPS->pc);
+
+	if (source == nullptr) {
+		return hleLogError(Log::sceNet, -1, "invalid source");
+	}
+
+	auto escapedLength = PSPPointer<u32>::Create(escapedLengthAddr);
+
+	// Helper function to check if a character needs to be escaped
+	auto needsEscaping = [](unsigned char c) -> bool {
+		// Characters that should NOT be escaped (unreserved characters in RFC 3986)
+		// ALPHA / DIGIT / "-" / "." / "_" / "~"
+		if ((c >= 'A' && c <= 'Z') || 
+		    (c >= 'a' && c <= 'z') || 
+		    (c >= '0' && c <= '9') ||
+		    c == '-' || c == '.' || c == '_' || c == '~') {
+			return false;
+		}
+		// Everything else needs to be escaped
+		return true;
+	};
+
+	// Helper function to convert a hex digit to character
+	auto toHexChar = [](int digit) -> char {
+		if (digit < 10) return '0' + digit;
+		return 'A' + (digit - 10);
+	};
+
+	std::string sourceStr(source);
+	int requiredSize = 0;
+	
+	for (unsigned char c : sourceStr) {
+		if (needsEscaping(c)) {
+			requiredSize += 3; // %XX format
+		} else {
+			requiredSize += 1; // unchanged character
+		}
+	}
+	requiredSize += 1; // null terminator
+
+	if (escapedLength.IsValid()) {
+		*escapedLength = requiredSize;
+		escapedLength.NotifyWrite("UriEscape");
+	}
+
+	if (escapedAddr == 0) {
+		return hleLogError(Log::sceNet, -1, "size query, required size: %d", requiredSize);
+	}
+
+	if (requiredSize > escapedBufferLength) {
+		return hleLogError(Log::sceNet, -1, "buffer too small: need %d, have %d", requiredSize, escapedBufferLength);
+	}
+
+	std::string escaped = "";
+	
+	for (unsigned char c : sourceStr) {
+		if (needsEscaping(c)) {
+			// Escape as %XX
+			escaped += '%';
+			escaped += toHexChar((c >> 4) & 0xF);
+			escaped += toHexChar(c & 0xF); 
+		} else {
+			// Keep unchanged
+			escaped += c;
+		}
+	}
+
+	Memory::MemcpyUnchecked(escapedAddr, escaped.c_str(), escaped.length() + 1);
+
+	return hleLogDebug(Log::sceNet, 0, "escaped '%s' to '%s'", source, escaped.c_str());
+}
+
 const HLEFunction sceParseUri[] =
 {
-	{0X49E950EC, nullptr,                            "sceUriEscape",   '?', ""},
+	{0X49E950EC, &WrapI_UUIC<sceUriEscape>,          "sceUriEscape",   'i', "xxis"},
 	{0X062BB07E, nullptr,                            "sceUriUnescape", '?', ""},
 	{0X568518C9, &WrapI_UCUUI<sceUriParse>,          "sceUriParse",    'i', "xsxxi" },
-	{0X7EE318AF, nullptr,                            "sceUriBuild",    '?', ""},
+	{0X7EE318AF, &WrapI_UUIUI<sceUriBuild>,          "sceUriBuild",    'i', "xxxxi" },
 };
 
 void Register_sceParseUri()

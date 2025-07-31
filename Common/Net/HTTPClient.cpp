@@ -63,8 +63,10 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	char port_str[16];
 	snprintf(port_str, sizeof(port_str), "%d", port);
 
+	std::string processedHostname = ProcessHostnameWithInfraDNS(std::string(host));
+	
 	std::string err;
-	if (!net::DNSResolve(host, port_str, &resolved_, err, type)) {
+	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
 		WARN_LOG(Log::IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;

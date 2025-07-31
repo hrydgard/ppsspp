@@ -86,72 +86,23 @@ static int sceNetResolverTerm() {
 
 // Note: timeouts are in seconds
 static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	addrinfo *resolved = nullptr;
-
-	std::string err;
 	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
-
-	SockAddrIN4 addr{};
-	addr.in.sin_addr.s_addr = INADDR_NONE;
-
-	// Resolve any aliases. First check the ini file, then check the hardcoded DNS config.
-	auto aliasIter = g_Config.mHostToAlias.find(hostname);
-	if (aliasIter != g_Config.mHostToAlias.end()) {
-		const std::string& alias = aliasIter->second;
-		INFO_LOG(Log::sceNet, "%s - Resolved alias %s from hostname %s", __FUNCTION__, alias.c_str(), hostname.c_str());
-		hostname = alias;
-	}
-
-	if (g_Config.bInfrastructureAutoDNS) {
-		// Also look up into the preconfigured fixed DNS JSON.
-		auto fixedDNSIter = GetInfraDNSConfig().fixedDNS.find(hostname);
-		if (fixedDNSIter != GetInfraDNSConfig().fixedDNS.end()) {
-			const std::string& domainIP = fixedDNSIter->second;
-			INFO_LOG(Log::sceNet, "%s - Resolved IP %s from fixed DNS lookup with '%s'", __FUNCTION__, domainIP.c_str(), hostname.c_str());
-			hostname = domainIP;
-		}
-	}
-
-	// Check if hostname is already an IPv4 address, if so we do not need further lookup. This usually happens
-	// after the mHostToAlias or fixedDNSIter lookups, which effectively both are hardcoded DNS.
-	uint32_t resolvedAddr;
-	if (inet_pton(AF_INET, hostname.c_str(), &resolvedAddr)) {
-		INFO_LOG(Log::sceNet, "Not looking up '%s', already an IP address.", hostname.c_str());
-		Memory::Write_U32(resolvedAddr, inAddrPtr);
-		return 0;
-	}
+	
+	// Process hostname with infra-DNS
+	std::string processedHostname = net::ProcessHostnameWithInfraDNS(hostname);
 
 	// Flag resolver as in-progress - not relevant for sync functions but potentially relevant for async
 	resolver->isRunning = true;
-
-	// Now use the configured primary DNS server to do a lookup.
-	// If auto DNS, use the server from that config.
-	std::string dnsServer;
-	if (g_Config.bInfrastructureAutoDNS && !GetInfraDNSConfig().dns.empty()) {
-		dnsServer = GetInfraDNSConfig().dns;
-	} else {
-		dnsServer = g_Config.sInfrastructureDNSServer;
-	}
-
-	if (net::DirectDNSLookupIPV4(dnsServer.c_str(), hostname.c_str(), &resolvedAddr)) {
-		char temp[32];
-		inet_ntop(AF_INET, &resolvedAddr, temp, sizeof(temp));
+	addrinfo *resolved = nullptr;
+	std::string err;
+	if (!net::DNSResolve(processedHostname, "", &resolved, err)) {
+		ERROR_LOG(Log::sceNet, "OS DNS Error Resolving %s (%s)", processedHostname.c_str(), err.c_str());
 		resolver->isRunning = false;
-		Memory::Write_U32(resolvedAddr, inAddrPtr);
-		INFO_LOG(Log::sceNet, "Direct lookup of '%s' from '%s' succeeded: %s (%08x)", hostname.c_str(), dnsServer.c_str(), temp, resolvedAddr);
-		return 0;
-	}
-
-	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.sInfrastructureDNSServer.c_str());
-
-	// Attempt to execute an OS DNS resolution
-	if (!net::DNSResolve(hostname, "", &resolved, err)) {
-		// TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
-		ERROR_LOG(Log::sceNet, "OS DNS Error Resolving %s (%s)\n", hostname.c_str(), err.c_str());
 		return SCE_NET_RESOLVER_ERROR_INVALID_HOST;
 	}
 
-	// If successful, write to memory
+	// Process results
+	SockAddrIN4 addr{};
 	if (resolved) {
 		for (auto ptr = resolved; ptr != nullptr; ptr = ptr->ai_next) {
 			switch (ptr->ai_family) {
@@ -161,9 +112,7 @@ static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inA
 			}
 		}
 		net::DNSResolveFree(resolved);
-
 		Memory::Write_U32(addr.in.sin_addr.s_addr, inAddrPtr);
-		resolver->isRunning = false;
 		INFO_LOG(Log::sceNet, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(),
 			ip2str(addr.in.sin_addr, false).c_str());
 	}

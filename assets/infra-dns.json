@@ -92,6 +92,44 @@
 			]
 		},
 		{
+			"name": "Portable Ops",
+			"comment": {
+				"en_US": "Support for MPO and MPO+."
+			},
+			"revival_credits": {
+				"group": "SaveMGO",
+				"url": "https://discord.gg/mgo2pc"
+			},
+			"dns": "mpo.savemgo.com",
+			"dyn_dns": "mpo.savemgo.com",
+			"domains": {
+				"mpoweb.konamionline.com": "mpo.savemgo.com",
+				"info.service.konamionline.com": "mpo.savemgo.com",
+				"mpostunus.konamionline.com": "stun.mgo2pc.com",
+				"mpostunjp.konamionline.com": "stun.mgo2pc.com",
+				"mpostuneu.konamionline.com": "stun.mgo2pc.com"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULJM05261",
+				"ULJM05284",
+				"ULJM05284",
+				"ULUS10290",
+				"ULAS42123",
+				"ULES01003",
+				"ULUS10202",
+				"ULJM05193",
+				"VP033J1",
+				"ULKS46119",
+				"ULES00645",
+				"ULJM05256",
+				"ULJM08016",
+				"ULUS10202GH",
+				"NPJH50112",
+				"ULJM05573"
+			]
+		},
+		{
 			"name": "Need for Speed: Undercover",
 			"comment": {
 				"en_US": "Works"
