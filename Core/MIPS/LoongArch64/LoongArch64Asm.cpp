@@ -75,6 +75,10 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	{
 		// LoongArch64 does not have any flush to zero capability, so leaving it off
 		LD_WU(SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
+		// We have to do this because otherwise, FMUL will output inaccurate results,
+		// which cause some game going into infinite loop, for example PATAPON.
+		ANDI(SCRATCH2, SCRATCH2, 3);
+		SLLI_D(SCRATCH2, SCRATCH2, 8);
 
 		// We can skip if the rounding mode is nearest (0) and flush is not set.
 		// (as restoreRoundingMode cleared it out anyway)

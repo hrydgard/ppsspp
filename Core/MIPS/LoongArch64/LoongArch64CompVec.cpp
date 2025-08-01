@@ -219,19 +219,20 @@ void LoongArch64JitBackend::CompIR_VecAssign(IRInst inst) {
 	case IROp::Vec4Blend:
 		regs_.Map(inst);
 		if (cpu_info.LOONGARCH_LSX) {
-			LoongArch64Reg src = regs_.V(inst.src1);;
+			IRReg src = inst.src1;
 			uint8_t imm = inst.constant;
-			if (inst.dest == inst.src1)
-				src = regs_.V(inst.src2);
-			else if (inst.dest == inst.src2)
+			if (inst.dest == inst.src1) {
+				src = inst.src2;
+			} else if (inst.dest == inst.src2) {
 				imm = ~imm;
-			else
-				VOR_V(regs_.V(inst.dest), src, src);
+			} else {
+				VOR_V(regs_.V(inst.dest), regs_.V(src), regs_.V(src));
+				src = inst.src2;
+			}
 
 			for (int i = 0; i < 4; ++i)
-				if (imm & (1 << i)) {
-					VEXTRINS_W(regs_.V(inst.dest), src, (i << 4) | i);
-				}
+				if (imm & (1 << i))
+					VEXTRINS_W(regs_.V(inst.dest), regs_.V(src), (i << 4) | i);
 		} else {
 			for (int i = 0; i < 4; ++i) {
 				int which = (inst.constant >> i) & 1;
@@ -337,7 +338,7 @@ void LoongArch64JitBackend::CompIR_VecArith(IRInst inst) {
 	case IROp::Vec4Abs:
 		regs_.Map(inst);
 		if (cpu_info.LOONGARCH_LSX)
-			VBITSETI_W(regs_.V(inst.dest), regs_.V(inst.src1), 31);
+			VBITCLRI_W(regs_.V(inst.dest), regs_.V(inst.src1), 31);
 		else
 			for (int i = 0; i < 4; ++i)
 				FABS_S(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
@@ -403,11 +404,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec4Pack32To8:
 		if (cpu_info.LOONGARCH_LSX) {
-			regs_.Map(inst);
 			if (Overlap(inst.dest, 1, inst.src1, 4))
 				DISABLE;
 
-			VSRLI_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), 23);
+			regs_.Map(inst);
+			VSRLI_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), 24);
 			VPICKEV_B(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 			VPICKEV_B(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 		} else {
@@ -416,14 +417,16 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Unpack8To32:
-		regs_.Map(inst);
 		if (cpu_info.LOONGARCH_LSX) {
 			if (Overlap(inst.dest, 1, inst.src1, 4))
 				DISABLE;
 
+			regs_.Map(inst);
 			VSLLWIL_HU_BU(regs_.V(inst.dest), regs_.V(inst.src1), 0);
 			VSLLWIL_WU_HU(regs_.V(inst.dest), regs_.V(inst.dest), 0);
+			VSLLI_W(regs_.V(inst.dest), regs_.V(inst.dest), 24);
 		} else {
+			regs_.Map(inst);
 			MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1));
 			for (int i = 0; i < 4; ++i) {
 				// Mask using walls.
@@ -476,15 +479,16 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec4Pack31To8:
 		// TODO: This works for now, but may need to handle aliasing for vectors.
-		regs_.Map(inst);
 		if (cpu_info.LOONGARCH_LSX) {
 			if (Overlap(inst.dest, 1, inst.src1, 4))
 				DISABLE;
 
+			regs_.Map(inst);
 			VSRLI_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), 23);
 			VPICKEV_B(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 			VPICKEV_B(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
-		}else {
+		} else {
+			regs_.Map(inst);
 			for (int i = 0; i < 4; ++i) {
 				MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1 + i));
 				SRLI_D(SCRATCH1, SCRATCH1, 23);

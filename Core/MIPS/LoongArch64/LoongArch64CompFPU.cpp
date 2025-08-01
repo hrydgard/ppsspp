@@ -559,7 +559,11 @@ void LoongArch64JitBackend::CompIR_FSpecial(IRInst inst) {
 		// It might be in a non-volatile register.
 		// TODO: May have to handle a transfer if SIMD here.
 		if (regs_.IsFPRMapped(inst.src1)) {
-			FMOV_S(F0, regs_.F(inst.src1));
+			int lane = regs_.GetFPRLane(inst.src1);
+			if (lane == 0)
+				FMOV_S(F0, regs_.F(inst.src1));
+			else
+				VREPLVEI_W(V0, regs_.V(inst.src1), lane);
 		} else {
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
 			FLD_S(F0, CTXREG, offset);
