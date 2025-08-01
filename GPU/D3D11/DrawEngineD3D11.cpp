@@ -90,19 +90,6 @@ void DrawEngineD3D11::InitDeviceObjects() {
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
 }
 
-void DrawEngineD3D11::ClearInputLayoutMap() {
-	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ComPtr<ID3D11InputLayout> il) {
-		if (il)
-			il.Reset();
-	});
-	inputLayoutMap_.Clear();
-}
-
-void DrawEngineD3D11::NotifyConfigChanged() {
-	DrawEngineCommon::NotifyConfigChanged();
-	ClearInputLayoutMap();
-}
-
 void DrawEngineD3D11::DestroyDeviceObjects() {
 	if (draw_) {
 		draw_->SetInvalidationCallback(InvalidationCallback());
@@ -114,6 +101,31 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	tessDataTransfer = nullptr;
 	delete pushVerts_;
 	delete pushInds_;
+	pushVerts_ = nullptr;
+	pushInds_ = nullptr;
+}
+
+void DrawEngineD3D11::DeviceLost() {
+	DestroyDeviceObjects();
+	draw_ = nullptr;
+}
+
+void DrawEngineD3D11::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	InitDeviceObjects();
+}
+
+void DrawEngineD3D11::ClearInputLayoutMap() {
+	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ComPtr<ID3D11InputLayout> il) {
+		if (il)
+			il.Reset();
+	});
+	inputLayoutMap_.Clear();
+}
+
+void DrawEngineD3D11::NotifyConfigChanged() {
+	DrawEngineCommon::NotifyConfigChanged();
+	ClearInputLayoutMap();
 }
 
 struct DeclTypeInfo {
