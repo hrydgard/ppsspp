@@ -55,10 +55,11 @@ public:
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
-	void DeviceLost() override { draw_ = nullptr; }
-	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void InitDeviceObjects();
+	void DestroyDeviceObjects();
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;

@@ -140,12 +140,28 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
 
 TextureCacheD3D11::~TextureCacheD3D11() {
 	Clear(true);
+	DestroyDeviceObjects();
 }
 
 void TextureCacheD3D11::InitDeviceObjects() {
 	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
 	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
 	_dbg_assert_(SUCCEEDED(hr));
+}
+
+void TextureCacheD3D11::DestroyDeviceObjects() {
+	depalConstants_.Reset();
+}
+
+void TextureCacheD3D11::DeviceLost() {
+	Clear(false);
+	DestroyDeviceObjects();
+	draw_ = nullptr;
+}
+
+void TextureCacheD3D11::DeviceRestore(Draw::DrawContext *draw) { 
+	draw_ = draw;
+	InitDeviceObjects();
 }
 
 void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager) {
