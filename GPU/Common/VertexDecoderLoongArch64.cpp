@@ -716,7 +716,7 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		VILVL_B(reg, reg, reg);
 		VAND_V(reg, reg, V8);
 		VEXTRINS_W(lsxScratchReg3, reg, 0);
-		VSLLI_H(fpScratchReg3, fpScratchReg3, 4);
+		VSLLI_H(lsxScratchReg3, lsxScratchReg3, 4);
 		VOR_V(reg, reg,lsxScratchReg3);
 		VSRLI_W(reg, reg, 4);
 
@@ -781,7 +781,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		VFMUL_S(reg, reg, lsxScratchReg2);
 
 		if (!first) {
-			VFADD_S(fpScratchReg, fpScratchReg, fpScratchReg3);
+			VFADD_S(lsxScratchReg, lsxScratchReg, lsxScratchReg3);
 		} else {
 			first = false;
 		}
@@ -833,7 +833,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		VFMUL_S(reg, reg, lsxScratchReg2);
 
 		if (!first) {
-			VFADD_S(fpScratchReg, fpScratchReg, fpScratchReg3);
+			VFADD_S(lsxScratchReg, lsxScratchReg, lsxScratchReg3);
 		} else {
 			first = false;
 		}
@@ -869,7 +869,7 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	LD_HU(tempReg2, srcReg, dec_->tcoff + 2);
 
 	auto updateSide = [&](LoongArch64Reg src, bool greater, LoongArch64Reg dst) {
-		FixupBranch skip = BLT(greater ? dst : src, greater ? src : dst);
+		FixupBranch skip = BLT(greater ? src : dst, greater ? dst : src);
 		MOVE(dst, src);
 		SetJumpTarget(skip);
 	};
@@ -879,8 +879,9 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	updateSide(tempReg2, false, boundsMinVReg);
 	updateSide(tempReg2, true, boundsMaxVReg);
 
-    VINSGR2VR_W(lsxScratchReg, tempReg1, 0);
-    VINSGR2VR_W(lsxScratchReg, tempReg2, 1);
+	VINSGR2VR_H(lsxScratchReg, tempReg1, 0);
+	VINSGR2VR_H(lsxScratchReg, tempReg2, 1);
+	VSLLWIL_WU_HU(lsxScratchReg, lsxScratchReg, 0);
 	VFFINT_S_WU(lsxScratchReg, lsxScratchReg);
 	FST_D(fpSrc[0], dstReg, dec_->decFmt.uvoff);
 }

@@ -9771,11 +9771,15 @@ static const char *ir2_fpr_name[] = {
     "$ft8"  , "$ft9"  , "$ft10" , "$ft11" ,
     "$ft12" , "$ft13" , "$ft14" , "$ft15" ,
     "$fs0"  , "$fs1"  , "$fs2"  , "$fs3"  ,
-    "$fs4"  , "$fs5"  , "$fs6"  , "$s7"   ,
+    "$fs4"  , "$fs5"  , "$fs6"  , "$fs7"  ,
 };
 
 static const char *ir2_scr_name[] = {
     "$scr0" , "$scr1" , "$scr2" , "$scr3",
+};
+
+static const char *ir2_fcsr_name[] = {
+    "$fcsr0" , "$fcsr1" , "$fcsr2" , "$fcsr3",
 };
 
 static const char *ir2_cc_name[] = {
@@ -9873,7 +9877,7 @@ void sprint_ins(Ins *ins, char * msg) {
                 sprintf(msg + strlen(msg),"%s", ir2_fpr_name[ins->opnd[i].val]);
                 break;
             case IR2_OPND_FCSR:
-                sprintf(msg + strlen(msg),"%d", ins->opnd[i].val);
+                sprintf(msg + strlen(msg),"%s", ir2_fcsr_name[ins->opnd[i].val]);
                 break;
             case IR2_OPND_SCR:
                 sprintf(msg + strlen(msg),"%s", ir2_scr_name[ins->opnd[i].val]);

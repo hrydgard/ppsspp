@@ -300,9 +300,7 @@ void LoongArch64RegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 }
 
 bool LoongArch64RegCache::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags, int lanes) {
-	// No special flags except VREG, skip the check for a little speed.
-	if (type != MIPSLoc::VREG)
-		return true;
+	// No special flags, skip the check for a little speed.
 	return IRNativeRegCacheBase::IsNativeRegCompatible(nreg, type, flags, lanes);
 }
 

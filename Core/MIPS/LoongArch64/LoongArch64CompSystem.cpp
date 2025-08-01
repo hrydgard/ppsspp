@@ -97,7 +97,7 @@ void LoongArch64JitBackend::CompIR_Transfer(IRInst inst) {
 
 	case IROp::SetCtrlVFPUFReg:
 		regs_.Map(inst);
-		MOVGR2FR_W(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.F(inst.src1));
+		MOVFR2GR_S(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.F(inst.src1));
 		regs_.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, true);
 		break;
 
@@ -117,7 +117,8 @@ void LoongArch64JitBackend::CompIR_Transfer(IRInst inst) {
 		LI(SCRATCH1, 0x0181FFFF);
 		AND(SCRATCH1, regs_.R(inst.src1), SCRATCH1);
 		// Extract the new fpcond value.
-		BSTRPICK_D(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND), 23, 23);
+		SRLI_D(regs_.R(IRREG_FPCOND), SCRATCH1, 23);
+		ANDI(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND), 1);
 		ST_W(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
 		regs_.MarkGPRDirty(IRREG_FPCOND, true);
 		break;
@@ -149,7 +150,6 @@ void LoongArch64JitBackend::CompIR_Transfer(IRInst inst) {
 		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
 			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 			MOVGR2FR_W(regs_.F(inst.dest), R_ZERO);
-			FFINT_S_W(regs_.F(inst.dest), regs_.F(inst.dest));
 		} else {
 			regs_.Map(inst);
 			MOVGR2FR_W(regs_.F(inst.dest), regs_.R(inst.src1));
