@@ -85,12 +85,6 @@ public:
 	void Create(ID3D11Device *device);
 	void Destroy();
 
-	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthStencilDisabled;
-	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthDisabledStencilWrite;
-	Microsoft::WRL::ComPtr<ID3D11BlendState> blendStateDisabledWithColorMask[16];
-	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterStateNoCull;
-	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DWrap;
-	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DWrap;
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DClamp;
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DClamp;
 };
