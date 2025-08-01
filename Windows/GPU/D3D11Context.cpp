@@ -63,6 +63,14 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 		// DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
 		hr = ptr_D3D11CreateDevice(adapter, driverType, nullptr, createDeviceFlags, (D3D_FEATURE_LEVEL *)&featureLevels[3], numFeatureLevels - 3,
 			D3D11_SDK_VERSION, &device_, &featureLevel_, &context_);
+	} else if ((hr == DXGI_ERROR_SDK_COMPONENT_MISSING) && (createDeviceFlags & D3D11_CREATE_DEVICE_DEBUG)) {
+		// Likely no debug device available.
+		// This happens in debug builds if you don't install the Graphics Tools optional feature in Windows 10+.
+		// So, we just retry without the debug flag.
+		WARN_LOG(Log::G3D, "D3D11CreateDevice failed with DXGI_ERROR_SDK_COMPONENT_MISSING, retrying without debug flag.");
+		createDeviceFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
+		hr = ptr_D3D11CreateDevice(adapter, driverType, nullptr, createDeviceFlags, (D3D_FEATURE_LEVEL *)featureLevels, numFeatureLevels,
+			D3D11_SDK_VERSION, &device_, &featureLevel_, &context_);
 	}
 	return hr;
 }
