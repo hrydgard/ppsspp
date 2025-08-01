@@ -75,12 +75,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_->NotifyConfigChanged();
 }
 
-void GPU_D3D11::FinishInitOnMainThread() {
-	stockD3D11.Create(device_);
-}
-
 GPU_D3D11::~GPU_D3D11() {
-	stockD3D11.Destroy();
 }
 
 u32 GPU_D3D11::CheckGPUFeatures() const {

@@ -356,7 +356,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	// There might have been interactions between depth and blend above.
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		if (!device1_) {
-			ComPtr<ID3D11BlendState> bs;
+			ID3D11BlendState *bs;
 			if (!blendCache_.Get(keys_.blend.value, &bs) || !bs) {
 				D3D11_BLEND_DESC desc{};
 				D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
@@ -373,7 +373,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			}
 			blendState_ = bs;
 		} else {
-			ComPtr<ID3D11BlendState1> bs1;
+			ID3D11BlendState1 *bs1;
 			if (!blendCache1_.Get(keys_.blend.value, &bs1) || !bs1) {
 				D3D11_BLEND_DESC1 desc1{};
 				D3D11_RENDER_TARGET_BLEND_DESC1 &rt = desc1.RenderTarget[0];
@@ -395,7 +395,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		ComPtr<ID3D11RasterizerState> rs;
+		ID3D11RasterizerState *rs;
 		if (!rasterCache_.Get(keys_.raster.value, &rs) || !rs) {
 			D3D11_RASTERIZER_DESC desc{};
 			desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
@@ -410,7 +410,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		ComPtr<ID3D11DepthStencilState> ds;
+		ID3D11DepthStencilState *ds;
 		if (!depthStencilCache_.Get(keys_.depthStencil.value, &ds) || !ds) {
 			D3D11_DEPTH_STENCIL_DESC desc{};
 			desc.DepthEnable = keys_.depthStencil.depthTestEnable;
@@ -446,20 +446,20 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 		draw_->SetScissorRect(dynState_.scissor.left, dynState_.scissor.top, dynState_.scissor.right - dynState_.scissor.left, dynState_.scissor.bottom - dynState_.scissor.top);
 	}
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		context_->RSSetState(rasterState_.Get());
+		context_->RSSetState(rasterState_);
 	}
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		// Need to do this AFTER ApplyTexture because the process of depalettization can ruin the blend state.
 		float blendColor[4];
 		Uint8x4ToFloat4(blendColor, dynState_.blendColor);
 		if (device1_) {
-			context1_->OMSetBlendState(blendState1_.Get(), blendColor, 0xFFFFFFFF);
+			context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);
 		} else {
-			context_->OMSetBlendState(blendState_.Get(), blendColor, 0xFFFFFFFF);
+			context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
 		}
 	}
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE) || applyStencilRef) {
-		context_->OMSetDepthStencilState(depthStencilState_.Get(), applyStencilRef ? stencilRef : dynState_.stencilRef);
+		context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
 	gstate_c.Dirty(dirtyRequiresRecheck_);

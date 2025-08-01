@@ -37,6 +37,9 @@ public:
 	SamplerCacheD3D11() {}
 	~SamplerCacheD3D11();
 	HRESULT GetOrCreateSampler(ID3D11Device *device, const SamplerCacheKey &key, ID3D11SamplerState **);
+	void Destroy() {
+		cache_.clear();
+	}
 
 private:
 	std::map<SamplerCacheKey, Microsoft::WRL::ComPtr<ID3D11SamplerState>> cache_;
@@ -75,8 +78,8 @@ private:
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 
-	Microsoft::WRL::ComPtr<ID3D11Device> device_;
-	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
+	ID3D11Device *device_;
+	ID3D11DeviceContext *context_;
 
 	ID3D11Resource *&DxTex(const TexCacheEntry *entry) const {
 		return (ID3D11Resource *&)entry->texturePtr;
@@ -89,6 +92,8 @@ private:
 
 	ID3D11ShaderResourceView *lastBoundTexture_ = D3D11_INVALID_TEX;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> depalConstants_;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DClamp_;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DClamp_;
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);
