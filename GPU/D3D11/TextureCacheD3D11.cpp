@@ -140,12 +140,47 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
 
 TextureCacheD3D11::~TextureCacheD3D11() {
 	Clear(true);
+	DestroyDeviceObjects();
 }
 
 void TextureCacheD3D11::InitDeviceObjects() {
 	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
 	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &depalConstants_);
 	_dbg_assert_(SUCCEEDED(hr));
+	D3D11_SAMPLER_DESC sampler_desc{};
+	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	sampler_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	for (int i = 0; i < 4; i++)
+		sampler_desc.BorderColor[i] = 1.0f;
+	sampler_desc.MinLOD = -FLT_MAX;
+	sampler_desc.MaxLOD = FLT_MAX;
+	sampler_desc.MipLODBias = 0.0f;
+	sampler_desc.MaxAnisotropy = 1;
+	sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	ASSERT_SUCCESS(device_->CreateSamplerState(&sampler_desc, &samplerPoint2DClamp_));
+	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+	ASSERT_SUCCESS(device_->CreateSamplerState(&sampler_desc, &samplerLinear2DClamp_));
+}
+
+void TextureCacheD3D11::DestroyDeviceObjects() {
+	depalConstants_.Reset();
+	samplerPoint2DClamp_.Reset();
+	samplerLinear2DClamp_.Reset();
+	lastBoundTexture_ = D3D11_INVALID_TEX;
+	samplerCache_.Destroy();
+}
+
+void TextureCacheD3D11::DeviceLost() {
+	Clear(false);
+	DestroyDeviceObjects();
+	draw_ = nullptr;
+}
+
+void TextureCacheD3D11::DeviceRestore(Draw::DrawContext *draw) { 
+	draw_ = draw;
+	InitDeviceObjects();
 }
 
 void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager) {
@@ -222,14 +257,14 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
 	ComPtr<ID3D11SamplerState> state;
-	samplerCache_.GetOrCreateSampler(device_.Get(), samplerKey, &state);
+	samplerCache_.GetOrCreateSampler(device_, samplerKey, &state);
 	context_->PSSetSamplers(0, 1, state.GetAddressOf());
 	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
 	ComPtr<ID3D11SamplerState> state;
-	samplerCache_.GetOrCreateSampler(device_.Get(), key, &state);
+	samplerCache_.GetOrCreateSampler(device_, key, &state);
 	context_->PSSetSamplers(0, 1, state.GetAddressOf());
 }
 
@@ -240,7 +275,7 @@ void TextureCacheD3D11::Unbind() {
 void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	ID3D11ShaderResourceView *clutTexture = (ID3D11ShaderResourceView *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
-	context_->PSSetSamplers(3, 1, smooth ? stockD3D11.samplerLinear2DClamp.GetAddressOf() : stockD3D11.samplerPoint2DClamp.GetAddressOf());
+	context_->PSSetSamplers(3, 1, smooth ? samplerLinear2DClamp_.GetAddressOf() : samplerPoint2DClamp_.GetAddressOf());
 }
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {

@@ -2533,7 +2533,6 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 void TextureCacheCommon::Clear(bool delete_them) {
 	textureShaderCache_->Clear();
 
-	ForgetLastTexture();
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}

@@ -88,7 +88,18 @@ ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *de
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 
-	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
+	InitDeviceObjects();
+}
+
+ShaderManagerD3D11::~ShaderManagerD3D11() {
+	ClearShaders();
+	delete[] codeBuffer_;
+	DestroyDeviceObjects();
+}
+
+void ShaderManagerD3D11::InitDeviceObjects() {
+
+	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE};
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_base));
 	desc.ByteWidth = sizeof(ub_lights);
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_lights));
@@ -96,9 +107,21 @@ ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *de
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_bones));
 }
 
-ShaderManagerD3D11::~ShaderManagerD3D11() {
-	ClearShaders();
-	delete[] codeBuffer_;
+void ShaderManagerD3D11::DestroyDeviceObjects() {
+	push_base.Reset();
+	push_lights.Reset();
+	push_bones.Reset();
+	Clear();
+}
+
+void ShaderManagerD3D11::DeviceLost() {
+	DestroyDeviceObjects();
+	draw_ = nullptr;
+}
+
+void ShaderManagerD3D11::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	InitDeviceObjects();
 }
 
 void ShaderManagerD3D11::Clear() {

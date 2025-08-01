@@ -34,12 +34,10 @@ public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
 
-	void FinishInitOnMainThread() override;
-
 	u32 CheckGPUFeatures() const override;
 
 	void GetStats(char *buffer, size_t bufsize) override;
-	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
+	void DeviceLost() override;  // Destroy all device objects.
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
 protected:

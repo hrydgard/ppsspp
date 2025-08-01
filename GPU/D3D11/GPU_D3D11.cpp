@@ -75,13 +75,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_->NotifyConfigChanged();
 }
 
-void GPU_D3D11::FinishInitOnMainThread() {
-	textureCacheD3D11_->InitDeviceObjects();
-	stockD3D11.Create(device_);
-}
-
 GPU_D3D11::~GPU_D3D11() {
-	stockD3D11.Destroy();
 }
 
 u32 GPU_D3D11::CheckGPUFeatures() const {
@@ -111,14 +105,12 @@ void GPU_D3D11::DeviceLost() {
 	// FBOs appear to survive? Or no?
 	shaderManager_->ClearShaders();
 	drawEngine_.ClearInputLayoutMap();
-	textureCache_->Clear(false);
 
 	GPUCommonHW::DeviceLost();
 }
 
 void GPU_D3D11::DeviceRestore(Draw::DrawContext *draw) {
 	GPUCommonHW::DeviceRestore(draw);
-	// Nothing needed.
 }
 
 void GPU_D3D11::BeginHostFrame() {

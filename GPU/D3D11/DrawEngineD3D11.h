@@ -57,8 +57,8 @@ public:
 	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
 	~DrawEngineD3D11();
 
-	void DeviceLost() override { draw_ = nullptr;  }
-	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void SetShaderManager(ShaderManagerD3D11 *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -110,7 +110,7 @@ private:
 		}
 	};
 
-	DenseHashMap<InputLayoutKey, Microsoft::WRL::ComPtr<ID3D11InputLayout>> inputLayoutMap_;
+	DenseHashMap<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
 
 	// Other
 	ShaderManagerD3D11 *shaderManager_ = nullptr;
@@ -118,27 +118,28 @@ private:
 	FramebufferManagerD3D11 *framebufferManager_ = nullptr;
 
 	// Pushbuffers
-	PushBufferD3D11 *pushVerts_;
-	PushBufferD3D11 *pushInds_;
+	PushBufferD3D11 *pushVerts_ = nullptr;
+	PushBufferD3D11 *pushInds_ = nullptr;
 
-	// D3D11 state object caches.
-	DenseHashMap<uint64_t, Microsoft::WRL::ComPtr<ID3D11BlendState>> blendCache_;
-	DenseHashMap<uint64_t, Microsoft::WRL::ComPtr<ID3D11BlendState1>> blendCache1_;
-	DenseHashMap<uint64_t, Microsoft::WRL::ComPtr<ID3D11DepthStencilState>> depthStencilCache_;
-	DenseHashMap<uint32_t, Microsoft::WRL::ComPtr<ID3D11RasterizerState>> rasterCache_;
+	// D3D11 state object caches. Previously had smart pointers but they were harder to deal with.
+	DenseHashMap<uint64_t, ID3D11BlendState *> blendCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState1 *> blendCache1_;
+	DenseHashMap<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
+	DenseHashMap<uint32_t, ID3D11RasterizerState *> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
-	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterState_;
-	Microsoft::WRL::ComPtr<ID3D11BlendState> blendState_;
-	Microsoft::WRL::ComPtr<ID3D11BlendState1> blendState1_;
-	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthStencilState_;
+	// These do not hold ownership.
+	ID3D11BlendState *blendState_ = nullptr;
+	ID3D11BlendState1 *blendState1_ = nullptr;
+	ID3D11DepthStencilState *depthStencilState_ = nullptr;
+	ID3D11RasterizerState *rasterState_ = nullptr;
 
 	// State keys
 	D3D11StateKeys keys_{};
 	D3D11DynamicState dynState_{};
 
 	// Hardware tessellation
-	TessellationDataTransferD3D11 *tessDataTransferD3D11;
+	TessellationDataTransferD3D11 *tessDataTransferD3D11 = nullptr;
 
 	int lastRenderStepId_ = -1;
 };

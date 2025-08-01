@@ -80,23 +80,6 @@ HRESULT CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t co
 HRESULT CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11ComputeShader **);
 HRESULT CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11GeometryShader **);
 
-class StockObjectsD3D11 {
-public:
-	void Create(ID3D11Device *device);
-	void Destroy();
-
-	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthStencilDisabled;
-	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthDisabledStencilWrite;
-	Microsoft::WRL::ComPtr<ID3D11BlendState> blendStateDisabledWithColorMask[16];
-	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterStateNoCull;
-	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DWrap;
-	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DWrap;
-	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DClamp;
-	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DClamp;
-};
-
 #define ASSERT_SUCCESS(x) \
 	if (!SUCCEEDED((x))) \
 		Crash();
-
-extern StockObjectsD3D11 stockD3D11;
