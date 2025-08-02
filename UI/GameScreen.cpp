@@ -528,9 +528,6 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		}
 
 		if (draw) {
-			// draw a dark rectangle behind the image.
-			dc.FillRect(UI::Drawable(0x80000000), bounds);
-
 			dc.Flush();
 
 			dc.GetDrawContext()->BindTexture(0, info->pic0.texture);

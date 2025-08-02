@@ -121,11 +121,9 @@ public:
 		pendingFlags &= ~flags;
 	}
 
-	GameInfoTex *GetBGPic() {
+	GameInfoTex *GetPIC1() {
 		if (pic1.texture)
 			return &pic1;
-		if (pic0.texture)
-			return &pic0;
 		return nullptr;
 	}
 

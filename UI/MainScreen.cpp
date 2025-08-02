@@ -1461,7 +1461,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float pr
 		return false;
 	}
 
-	auto pic = ginfo->GetBGPic();
+	auto pic = ginfo->GetPIC1();
 	Draw::Texture *texture = pic ? pic->texture : nullptr;
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
