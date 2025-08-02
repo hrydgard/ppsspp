@@ -14,13 +14,13 @@
 				"en_US": "Works"
 			},
 			"revival_credits": {
-				"group": "PSP Online",
-				"url": "https://discord.gg/wxeGVkM"
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
 			},
 			"dns": "ablondel.ddns.net",
 			"dyn_dns": "ablondel.ddns.net",
 			"domains": {
-				"pspnhl07.ea.com": "ablondel.ddns.net"
+				"pspfifa07.ea.com": "ablondel.ddns.net"
 			},
 			"score": 5,
 			"known_working_ids": [
@@ -35,13 +35,176 @@
 			]
 		},
 		{
+			"name": "FIFA 08",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspfifa08.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00891",
+				"ULES00892",
+				"ULES00893",
+				"ULES00894",
+				"ULES00895",
+				"ULES00896",
+				"ULES01057",
+				"ULKS46153",
+				"ULUS10293"
+			]
+		},
+		{
+			"name": "FIFA 09",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspfifa09.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULAS42141",
+				"ULES01135",
+				"ULES01136",
+				"ULES01137",
+				"ULES01138",
+				"ULES01139",
+				"ULES01140",
+				"ULES01141",
+				"ULES01143",
+				"ULUS10369",
+				"ULUS10394"
+			]
+		},
+		{
+			"name": "FIFA 10",
+			"comment": {
+				"en_US": "Works but requires to create an account on any pre-2010 EA Nation Hub supported game!"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspfifa10.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES01322",
+				"ULES01323",
+				"ULES01324",
+				"ULES01325",
+				"ULES01326",
+				"ULES01329",
+				"ULES01330",
+				"ULES01331",
+				"ULUS10464",
+				"ULUS10473"
+			]
+		},
+		{
+			"name": "Madden NFL 07",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspmadden07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULUS10117"
+			]
+		},
+		{
+			"name": "Madden NFL 08",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspmadden08.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00867",
+				"ULUS10275"
+			]
+		},
+		{
+			"name": "Madden NFL 09",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspmadden09.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES01093",
+				"UCUS10352",
+				"ULUS10352"
+			]
+		},
+		{
+			"name": "Madden NFL 10",
+			"comment": {
+				"en_US": "Works but requires to create an account on any pre-2010 EA Nation Hub supported game!"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspmadden10.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULUS10441"
+			]
+		},
+		{
 			"name": "Medal of Honor: Heroes",
 			"comment": {
 				"en_US": "Works"
 			},
 			"revival_credits": {
-				"group": "MOHH Revival",
-				"url": "https://mohh-revival.pages.dev/"
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
 			},
 			"dns": "81.49.107.142",
 			"dyn_dns": "ablondel.ddns.net",
@@ -71,8 +234,8 @@
 				"en_US": "Only the menu works!"
 			},
 			"revival_credits": {
-				"group": "MOHH Revival",
-				"url": "https://mohh-revival.pages.dev/"
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
 			},
 			"dns": "ablondel.ddns.net",
 			"dyn_dns": "ablondel.ddns.net",
@@ -89,6 +252,128 @@
 			],
 			"not_working_ids": [
 				"ULJM05301"
+			]
+		},
+		{
+			"name": "NCAA Football 07",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspncaa07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULUS10116"
+			]
+		},
+		{
+			"name": "Need for Speed: Most Wanted 5-1-0",
+			"comment": {
+				"en_US": "Works but requires a patch!"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnfs06.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00196",
+				"ULUS10036",
+				"ULUS10036GH"
+			]
+		},
+		{
+			"name": "Need for Speed Carbon: Own the City",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnfs07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00576",
+				"ULES00577",
+				"ULUS10114"
+			]
+		},
+		{
+			"name": "Need for Speed: ProStreet",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnfs08.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES01019",
+				"ULES01020",
+				"ULUS10331"
+			]
+		},
+		{
+			"name": "Need for Speed: Undercover",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnfs09.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES01145",
+				"ULUS10376"
+			]
+		},
+		{
+			"name": "NHL 07",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnhl07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES00477",
+				"ULUS10131"
 			]
 		},
 		{
@@ -127,46 +412,6 @@
 				"ULUS10202GH",
 				"NPJH50112",
 				"ULJM05573"
-			]
-		},
-		{
-			"name": "Need for Speed: Undercover",
-			"comment": {
-				"en_US": "Works"
-			},
-			"revival_credits": {
-				"group": "PSP Online",
-				"url": "https://discord.gg/wxeGVkM"
-			},
-			"dns": "ablondel.ddns.net",
-			"dyn_dns": "ablondel.ddns.net",
-			"domains": {
-				"pspnhl07.ea.com": "ablondel.ddns.net"
-			},
-			"score": 5,
-			"known_working_ids": [
-				"ULES01145",
-				"ULUS10376"
-			]
-		},
-		{
-			"name": "NHL 07",
-			"comment": {
-				"en_US": "Works but there are incompatibilities between platforms"
-			},
-			"revival_credits": {
-				"group": "NHL Playoff Edition",
-				"url": "https://discord.gg/aUdr5qXzrH"
-			},
-			"dns": "ablondel.ddns.net",
-			"dyn_dns": "ablondel.ddns.net",
-			"domains": {
-				"pspnhl07.ea.com": "ablondel.ddns.net"
-			},
-			"score": 4,
-			"known_working_ids": [
-				"ULES00477",
-				"ULUS10131"
 			]
 		},
 		{
