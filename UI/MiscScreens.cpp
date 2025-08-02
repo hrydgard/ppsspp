@@ -250,7 +250,7 @@ private:
 				// Wait for it to load.  It might be the next one.
 				break;
 			}
-			if (ginfo && (ginfo->pic1.texture || ginfo->pic0.texture)) {
+			if (ginfo && ginfo->pic1.texture) {
 				nextIndex_ = index;
 				nextT_ = t + INTERVAL;
 				break;

@@ -491,7 +491,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		if (info->saveDataSize) {
 			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
 		}
-		if (info->pic0.texture || info->pic1.texture) {
+		if (info->pic1.texture) {
 			btnSetBackground_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
@@ -503,7 +503,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		}
 	}
 
-	if (info->Ready(GameInfoFlags::PIC0)) {
+	if (info->Ready(GameInfoFlags::PIC0) && info->pic0.texture) {
 		// Draw PIC0 as an overlay.
 
 		bool draw = true;
@@ -674,8 +674,6 @@ void SetBackgroundPopupScreen::update() {
 		GameInfoTex *pic = nullptr;
 		if (info->pic1.dataLoaded && info->pic1.data.size()) {
 			pic = &info->pic1;
-		} else if (info->pic0.dataLoaded && info->pic0.data.size()) {
-			pic = &info->pic0;
 		}
 
 		if (pic) {
