@@ -96,7 +96,7 @@ void GameScreen::update() {
 }
 
 void GameScreen::CreateViews() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::BG);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC1);
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
@@ -349,7 +349,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::BG | GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::PIC1 | GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE);
 
 	if (tvTitle_) {
 		tvTitle_->SetText(info->GetTitle());
@@ -613,8 +613,8 @@ void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SetBackgroundPopupScreen::update() {
 	PopupScreen::update();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::BG);
-	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::BG)) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PIC1);
+	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::PIC1)) {
 		GameInfoTex *pic = nullptr;
 		if (info->pic1.dataLoaded && info->pic1.data.size()) {
 			pic = &info->pic1;

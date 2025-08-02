@@ -246,7 +246,7 @@ private:
 			}
 
 			std::shared_ptr<GameInfo> ginfo = GetInfo(dc, index);
-			if (ginfo && !ginfo->Ready(GameInfoFlags::BG)) {
+			if (ginfo && !ginfo->Ready(GameInfoFlags::PIC1)) {
 				// Wait for it to load.  It might be the next one.
 				break;
 			}
@@ -267,7 +267,7 @@ private:
 		const auto recentIsos = g_recentFiles.GetRecentFiles();
 		if (index >= (int)recentIsos.size())
 			return std::shared_ptr<GameInfo>();
-		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::PIC1);
 	}
 
 	static void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
@@ -488,10 +488,10 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 
 	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::BG);
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::PIC1);
 	}
 
-	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::BG)) ? ginfo->GetBGPic() : nullptr;
+	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::PIC1)) ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
 		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;

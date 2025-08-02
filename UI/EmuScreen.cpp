@@ -1177,11 +1177,11 @@ public:
 
 	void Draw(UIContext &dc) override {
 		// Should only be called when visible.
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::BG);
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::PIC1);
 		dc.Flush();
 
 		// PIC1 is the loading image, so let's only draw if it's available.
-		if (ginfo->Ready(GameInfoFlags::BG) && ginfo->pic1.texture) {
+		if (ginfo->Ready(GameInfoFlags::PIC1) && ginfo->pic1.texture) {
 			Draw::Texture *texture = ginfo->pic1.texture;
 			if (texture) {
 				dc.GetDrawContext()->BindTexture(0, texture);

@@ -1834,7 +1834,7 @@ void LoongArch64Emitter::SetRegToImmediate(LoongArch64Reg rd, uint64_t value) {
 		return;
 	}
 
-	if (svalue <= 0x7fffffffl && svalue >= -0x80000000l) {
+	if (svalue <= 0x7fffffffll && svalue >= -0x80000000ll) {
         // Use lu12i.w/ori to load 32-bits immediate.
 		LU12I_W(rd, (s32)((svalue & 0xffffffff) >> 12));
 		ORI(rd, rd, (s16)(svalue & 0xFFF));
