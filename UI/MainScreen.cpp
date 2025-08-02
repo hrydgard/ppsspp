@@ -1454,7 +1454,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float pr
 		dc.RebindTexture();
 
 		// Let's not bother if there's no picture.
-		if (!ginfo->Ready(GameInfoFlags::PIC1) || (!ginfo->pic1.texture && !ginfo->pic0.texture)) {
+		if (!ginfo->Ready(GameInfoFlags::PIC1) || !ginfo->pic1.texture) {
 			return false;
 		}
 	} else {
