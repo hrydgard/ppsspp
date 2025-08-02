@@ -143,9 +143,8 @@ void DrawEngineD3D11::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
-	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ComPtr<ID3D11InputLayout> il) {
-		if (il)
-			il.Reset();
+	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ID3D11InputLayout *il) {
+		il->Release();
 	});
 	inputLayoutMap_.Clear();
 }
@@ -324,14 +323,14 @@ void DrawEngineD3D11::Flush() {
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
 		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
-		ComPtr<ID3D11InputLayout> inputLayout;
+		ID3D11InputLayout *inputLayout;
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 		shaderManager_->BindUniforms();
 
-		context_->IASetInputLayout(inputLayout.Get());
+		context_->IASetInputLayout(inputLayout);
 		UINT stride = dec_->GetDecVtxFmt().stride;
 		context_->IASetPrimitiveTopology(d3d11prim[prim]);
 
