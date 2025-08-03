@@ -42,10 +42,11 @@ enum class GameInfoFlags {
 	FILE_TYPE = 0x01,  // Don't need to specify this, always included.
 	PARAM_SFO = 0x02,
 	ICON = 0x04,
-	BG = 0x08,
-	SND = 0x10,
-	SIZE = 0x20,
-	UNCOMPRESSED_SIZE = 0x40,
+	PIC1 = 0x08,
+	PIC0 = 0x10,
+	SND = 0x20,
+	SIZE = 0x40,
+	UNCOMPRESSED_SIZE = 0x80,
 };
 ENUM_CLASS_BITOPS(GameInfoFlags);
 
@@ -120,11 +121,9 @@ public:
 		pendingFlags &= ~flags;
 	}
 
-	GameInfoTex *GetBGPic() {
+	GameInfoTex *GetPIC1() {
 		if (pic1.texture)
 			return &pic1;
-		if (pic0.texture)
-			return &pic0;
 		return nullptr;
 	}
 
@@ -150,7 +149,7 @@ public:
 	IdentifiedFileType fileType;
 	bool hasConfig = false;
 
-	// Pre read the data, create a texture the next time (GL thread..)
+	// Pre read the data, create a texture the next time
 	GameInfoTex icon;
 	GameInfoTex pic0;
 	GameInfoTex pic1;

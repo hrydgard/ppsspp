@@ -748,7 +748,7 @@ void GameIconView::Draw(UIContext &dc) {
 
 	// Fade icon with the backgrounds.
 	double loadTime = info->icon.timeLoaded;
-	auto pic = info->GetBGPic();
+	auto pic = info->GetPIC1();
 	if (pic) {
 		loadTime = std::max(loadTime, pic->timeLoaded);
 	}

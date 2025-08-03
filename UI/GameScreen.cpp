@@ -96,7 +96,7 @@ void GameScreen::update() {
 }
 
 void GameScreen::CreateViews() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::BG);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1);
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
@@ -347,12 +347,20 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	UIContext &dc = *screenManager()->getUIContext();
+	Draw::DrawContext *draw = dc.GetDrawContext();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::BG | GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE);
+	float maxY = 0;
+	// NOTE: This won't be correct the first frame.
+	auto updateMaxY = [&](UI::View *v) {
+		maxY = std::max(maxY, v->GetBounds().y2());
+	};
+
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::PIC1 | GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE);
 
 	if (tvTitle_) {
 		tvTitle_->SetText(info->GetTitle());
+		updateMaxY(tvTitle_);
 	}
 
 	if (info->Ready(GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE)) {
@@ -364,6 +372,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 				snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
 			}
 			tvGameSize_->SetText(temp);
+			updateMaxY(tvGameSize_);
 		}
 		if (tvSaveDataSize_) {
 			if (info->saveDataSize > 0) {
@@ -372,12 +381,14 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 			} else {
 				tvSaveDataSize_->SetVisibility(UI::V_GONE);
 			}
+			updateMaxY(tvSaveDataSize_);
 		}
 		if (info->installDataSize > 0 && tvInstallDataSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
 			tvInstallDataSize_->SetText(temp);
 			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
 		}
+		updateMaxY(tvInstallDataSize_);
 	}
 
 	if (tvRegion_) {
@@ -386,6 +397,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		} else {
 			tvRegion_->SetText(ga->T(GameRegionToString(info->region)));
 		}
+		updateMaxY(tvRegion_);
 	}
 
 	if (tvPlayTime_) {
@@ -394,6 +406,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 			tvPlayTime_->SetText(str);
 			tvPlayTime_->SetVisibility(UI::V_VISIBLE);
 		}
+		updateMaxY(tvPlayTime_);
 	}
 
 	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
@@ -431,6 +444,9 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 			// tvVerified_->SetLevel(NoticeLevel::WARN);
 			tvVerified_->SetVisibility(UI::V_GONE);
 		}
+
+		updateMaxY(tvCRC_);
+		updateMaxY(tvVerified_);
 	} else if (!isHomebrew_) {
 		GameDBInfo dbInfo;
 		if (tvVerified_) {
@@ -458,11 +474,13 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 					tvVerified_->SetLevel(NoticeLevel::INFO);
 				}
 			}
+			updateMaxY(tvVerified_);
 		}
 	}
 
 	if (tvID_) {
 		tvID_->SetText(ReplaceAll(info->id_version, "_", " v"));
+		updateMaxY(tvID_);
 	}
 
 	if (!info->id.empty()) {
@@ -473,7 +491,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		if (info->saveDataSize) {
 			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
 		}
-		if (info->pic0.texture || info->pic1.texture) {
+		if (info->pic1.texture) {
 			btnSetBackground_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
@@ -482,6 +500,41 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		// At this point, the above buttons won't become visible.  We can show these now.
 		for (UI::Choice *choice : otherChoices_) {
 			choice->SetVisibility(UI::V_VISIBLE);
+		}
+	}
+
+	if (info->Ready(GameInfoFlags::PIC0) && info->pic0.texture) {
+		// Draw PIC0 as an overlay.
+
+		bool draw = true;
+
+		const float w = dc.GetBounds().w - 500;
+		const float h = w * (info->pic0.texture->Height() / (float)info->pic0.texture->Width());
+
+		// Bottom align the image.
+		Bounds bounds(180, dc.GetBounds().h - h - 10, w, h);
+
+		maxY += 20;
+
+		if (bounds.y < maxY) {
+			// Recalculate.
+			bounds.h = dc.GetBounds().h - 10 - maxY;
+			if (bounds.h < 0) {
+				// let's not draw it.
+				draw = false;
+			}
+			bounds.w = bounds.h * (info->pic0.texture->Width() / (float)info->pic0.texture->Height());
+			bounds.y = dc.GetBounds().h - 10 - bounds.h;
+		}
+
+		if (draw) {
+			dc.Flush();
+
+			dc.GetDrawContext()->BindTexture(0, info->pic0.texture);
+			uint32_t color = 0xFFFFFFFF;
+			dc.Draw()->DrawTexRect(bounds, 0, 0, 1, 1, color);
+			dc.Flush();
+			dc.Begin();
 		}
 	}
 	return flags;
@@ -613,13 +666,11 @@ void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SetBackgroundPopupScreen::update() {
 	PopupScreen::update();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::BG);
-	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::BG)) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PIC1);
+	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::PIC1)) {
 		GameInfoTex *pic = nullptr;
 		if (info->pic1.dataLoaded && info->pic1.data.size()) {
 			pic = &info->pic1;
-		} else if (info->pic0.dataLoaded && info->pic0.data.size()) {
-			pic = &info->pic0;
 		}
 
 		if (pic) {
