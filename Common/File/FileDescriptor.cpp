@@ -92,6 +92,7 @@ bool WaitUntilReady(int fd, double timeout, bool for_write) {
 		// Timeout.
 		return false;
 	} else {
+		INFO_LOG(Log::IO, "WaitUntilReady succeeded");
 		// Socket is ready.
 		return true;
 	}
