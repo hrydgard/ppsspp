@@ -173,8 +173,8 @@ static int ComputeAtracStateAndInitSecondBuffer(SceAtracIdInfo *info, u32 readSi
 	int loopEnd;
 
 	if (bufferSize < (u32)info->fileDataEnd) {
-		if (info->streamDataByte < (s32)info->sampleSize * 3) {
-			return 0x80630011;
+		if (info->streamDataByte < (s32)info->sampleSize * 2) {
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		loopEnd = info->loopEnd;
 		state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
