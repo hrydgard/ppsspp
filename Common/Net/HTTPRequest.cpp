@@ -59,7 +59,7 @@ Path RequestManager::UrlToCachePath(const std::string_view url) {
 	return http::UrlToCachePath(cacheDir_, url);
 }
 
-std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name) {
+static std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name) {
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
 		return std::make_shared<HTTPSRequest>(method, url, postdata, postMime, outfile, flags, name);
@@ -67,7 +67,7 @@ std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view ur
 		return std::shared_ptr<Request>();
 #endif
 	} else {
-		return std::make_shared<HTTPRequest>(method, url, postdata, postMime, outfile, flags, name);
+		return std::make_shared<HTTPRequest>(method, url, postdata, postMime, outfile, flags, customResolve, name);
 	}
 }
 
@@ -105,7 +105,7 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 		}
 	}
 
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, "");
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, nullptr, "");
 
 	// OK, didn't get it from cache, so let's continue with the download, putting it in the cache.
 	if (enableCache) {
@@ -131,7 +131,7 @@ std::shared_ptr<Request> RequestManager::StartDownloadWithCallback(
 	std::function<void(Request &)> callback,
 	std::string_view name,
 	const char *acceptMime) {
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, name);
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, nullptr, name);
 
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
@@ -150,7 +150,7 @@ std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
 	RequestFlags flags,
 	std::function<void(Request &)> callback,
 	std::string_view name) {
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::POST, url, postData, postMime, Path(), flags, name);
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::POST, url, postData, postMime, Path(), flags, nullptr, name);
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);

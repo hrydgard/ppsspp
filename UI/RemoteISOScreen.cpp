@@ -106,7 +106,7 @@ std::string RemoteSubdir() {
 }
 
 bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort) {
-	http::Client http;
+	http::Client http(nullptr);
 	Buffer result;
 	int code = 500;
 	bool hadTimeouts = false;

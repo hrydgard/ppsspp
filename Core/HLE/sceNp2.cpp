@@ -22,6 +22,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNp2.h"
 
@@ -157,7 +158,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 	// TODO: use sceNpGetUserProfile and check server availability using sceNpService_76867C01
 	//npMatching2Ctx.started = true;
 	Url url("http://static-resource.np.community.playstation.net/np/resource/psp-title/" + std::string(npTitleId.data) + "_00/matching/" + std::string(npTitleId.data) + "_00-matching.xml");
-	http::Client client;
+	http::Client client(&ProcessHostnameWithInfraDNS);
 	bool cancelled = false;
 	net::RequestProgress progress(&cancelled);
 	if (!client.Resolve(url.Host().c_str(), url.Port())) {

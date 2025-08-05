@@ -268,7 +268,7 @@ private:
 	std::string responseContent_;
 
 public:
-	HTTPRequest(int connectionID, int method, const char* url, u64 contentLength);
+	HTTPRequest(int connectionID, int method, const char* url, u64 contentLength, net::ResolveFunc customResolver);
 	~HTTPRequest();
 
 	virtual const char* className() override { return name_HTTPRequest; }

@@ -27,6 +27,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceHttp.h"
+#include "Core/HLE/sceNet.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Common/StringUtils.h"
 #include "Common/LogReporting.h"
@@ -80,7 +81,7 @@ HTTPConnection::HTTPConnection(int templateID, const char* hostString, const cha
 	this->enableKeepalive = enableKeepalive;
 }
 
-HTTPRequest::HTTPRequest(int connectionID, int method, const char* url, u64 contentLength) {
+HTTPRequest::HTTPRequest(int connectionID, int method, const char *url, u64 contentLength, net::ResolveFunc customResolver) : client(customResolver) {
 	// Copy base data as initial base value for this
 	// Since dynamic_cast/dynamic_pointer_cast/typeid requires RTTI to be enabled (ie. /GR instead of /GR- on msvc, enabled by default on most compilers), so we can only use static_cast here
 	HTTPConnection::operator=(static_cast<HTTPConnection&>(*httpObjects[connectionID - 1LL]));
@@ -558,7 +559,7 @@ static int sceHttpCreateRequest(int connectionID, int method, const char *path, 
 	if (method < PSPHttpMethod::PSP_HTTP_METHOD_GET || method > PSPHttpMethod::PSP_HTTP_METHOD_HEAD)
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_UNKNOWN_METHOD, "unknown method");
 
-	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, path? path:"", contentLength));
+	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, path ? path : "", contentLength, &ProcessHostnameWithInfraDNS));
 	int retid = (int)httpObjects.size();
 	return hleLogDebug(Log::sceNet, retid);
 }
@@ -729,7 +730,7 @@ static int sceHttpCreateRequestWithURL(int connectionID, int method, const char 
 	if (!baseURL.Valid())
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_URL, "invalid url");
 
-	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, url ? url : "", contentLength));
+	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, url ? url : "", contentLength, &ProcessHostnameWithInfraDNS));
 	int retid = (int)httpObjects.size();
 	return hleLogDebug(Log::sceNet, retid);
 }

@@ -89,7 +89,7 @@ static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inA
 	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
 	
 	// Process hostname with infra-DNS
-	std::string processedHostname = net::ProcessHostnameWithInfraDNS(hostname);
+	std::string processedHostname = ProcessHostnameWithInfraDNS(hostname);
 
 	// Flag resolver as in-progress - not relevant for sync functions but potentially relevant for async
 	resolver->isRunning = true;

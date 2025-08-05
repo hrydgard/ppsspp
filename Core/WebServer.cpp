@@ -76,7 +76,7 @@ static ServerStatus RetrieveStatus() {
 // relay that address to a mobile device searching for the server.
 static bool RegisterServer(int port) {
 	bool success = false;
-	http::Client http;
+	http::Client http(nullptr);
 	bool cancelled = false;
 	net::RequestProgress progress(&cancelled);
 	Buffer theVoid = Buffer::Void();

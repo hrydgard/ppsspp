@@ -193,7 +193,7 @@ bool GhidraClient::FetchTypes() {
 }
 
 bool GhidraClient::FetchResource(const std::string &path, std::string &outResult) {
-	http::Client http;
+	http::Client http(nullptr);
 	if (!http.Resolve(host_.c_str(), port_)) {
 		pendingResult_.error = "can't resolve host";
 		return false;

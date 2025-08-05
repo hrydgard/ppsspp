@@ -23,7 +23,7 @@
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
 HTTPFileLoader::HTTPFileLoader(const ::Path &filename)
-	: url_(filename.ToString()), progress_(&cancel_), filename_(filename) {
+	: url_(filename.ToString()), progress_(&cancel_), filename_(filename), client_(nullptr) {  // no custom resolver support
 }
 
 void HTTPFileLoader::Prepare() {
