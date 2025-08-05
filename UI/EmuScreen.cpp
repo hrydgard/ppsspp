@@ -1151,7 +1151,7 @@ void EmuScreen::touch(const TouchInput &touch) {
 		if (!ImGui::GetIO().WantCaptureMouse) {
 			UIScreen::touch(touch);
 		}
-	} else if (g_Config.bMouseControl && !(touch.flags & TOUCH_UP)) {
+	} else if (g_Config.bMouseControl && !(touch.flags & TOUCH_UP) && (touch.flags & TOUCH_MOUSE)) {
 		// don't do anything as the mouse pointer is hidden in this case.
 		// But we let touch-up events through to avoid getting stuck if the user toggles mouse control.
 	} else {
