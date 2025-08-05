@@ -1,5 +1,4 @@
 #include "ppsspp_config.h"
-#include "Common/Net/Resolve.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -13,6 +12,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/SocketCompat.h"
+#include "Common/Net/Resolve.h"
 
 #ifndef HTTPS_NOT_AVAILABLE
 #include "ext/naett/naett.h"

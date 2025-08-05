@@ -14,8 +14,7 @@
 
 #include "Common/Math/lin/matrix4x4.h"
 
-#include "Common/Input/InputState.h"
-#include "Common/Input/KeyCodes.h"
+// The deps below need to be inverted, or we need to move this file (probably better)
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceCtrl.h"
