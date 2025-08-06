@@ -1426,7 +1426,7 @@ static int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
 	if (!foundHandler && Memory::IsValidAddress(handlerPtr)) {
 		if (apctlHandlers.size() >= MAX_APCTL_HANDLERS) {
 			ERROR_LOG(Log::sceNet, "Failed to Add handler(%x, %x): Too many handlers", handlerPtr, handlerArg);
-			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
+			retval = SCE_NET_ADHOCCTL_ERROR_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
 			return retval;
 		}
 		apctlHandlers[retval] = handler;

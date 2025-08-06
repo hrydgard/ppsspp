@@ -45,6 +45,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
 
+#include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Dialog/PSPPlaceholderDialog.h"
@@ -158,6 +159,7 @@ static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
 static PSPNpSigninDialog *npSigninDialog;
 
+// A lot of state seems to be shared between the various dialog types.
 static int oldStatus = -1;
 static std::map<int, u32> currentlyLoadedModules;
 static int volatileUnlockEvent = -1;
@@ -473,14 +475,14 @@ static int sceUtilitySavedataGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = saveDialog->GetStatus();
+	const PSPDialog::DialogStatus status = saveDialog->GetStatus();
 	hleEatCycles(200);
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogDebug(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
 	}
-	return hleLogVerbose(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static int sceUtilitySavedataUpdate(int animSpeed) {
@@ -655,13 +657,13 @@ static int sceUtilityMsgDialogGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = msgDialog->GetStatus();
+	const PSPDialog::DialogStatus status = msgDialog->GetStatus();
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogDebug(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
 	}
-	return hleLogVerbose(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static int sceUtilityMsgDialogAbort() {
@@ -708,13 +710,13 @@ static int sceUtilityOskGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = oskDialog->GetStatus();
+	const PSPDialog::DialogStatus status = oskDialog->GetStatus();
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogDebug(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
 	}
-	return hleLogVerbose(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 
@@ -750,13 +752,13 @@ static int sceUtilityNetconfGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = netDialog->GetStatus();
+	const PSPDialog::DialogStatus status = netDialog->GetStatus();
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogDebug(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
 	}
-	return hleLogVerbose(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 /**
@@ -1043,13 +1045,13 @@ static int sceUtilityScreenshotGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = screenshotDialog->GetStatus();
+	const PSPDialog::DialogStatus status = screenshotDialog->GetStatus();
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogWarning(Log::sceUtility, status);
+		return hleLogWarning(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
 	}
-	return hleLogVerbose(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static int sceUtilityScreenshotContStart(u32 paramAddr) {
@@ -1096,9 +1098,9 @@ static int sceUtilityGamedataInstallGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = gamedataInstallDialog->GetStatus();
+	const PSPDialog::DialogStatus status = gamedataInstallDialog->GetStatus();
 	CleanupDialogThreads();
-	return hleLogDebug(Log::sceUtility, status);
+	return hleLogDebug(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static int sceUtilityGamedataInstallAbort() {
@@ -1251,13 +1253,13 @@ static int sceUtilityNpSigninGetStatus() {
 		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	int status = npSigninDialog->GetStatus();
+	const PSPDialog::DialogStatus status = npSigninDialog->GetStatus();
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogDebug(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
 	}
-	return hleLogVerbose(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static void sceUtilityInstallInitStart(u32 unknown) {

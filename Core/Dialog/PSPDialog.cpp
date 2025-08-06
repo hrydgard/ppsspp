@@ -51,6 +51,18 @@ const char *UtilityDialogTypeToString(UtilityDialogType type) {
 	}
 }
 
+const char *UtilityDialogStatusToString(PSPDialog::DialogStatus status) {
+	switch (status) {
+	case PSPDialog::SCE_UTILITY_STATUS_NONE: return "STATUS_NONE";
+	case PSPDialog::SCE_UTILITY_STATUS_INITIALIZE: return "STATUS_INITIALIZE";
+	case PSPDialog::SCE_UTILITY_STATUS_RUNNING: return "STATUS_RUNNING";
+	case PSPDialog::SCE_UTILITY_STATUS_FINISHED: return "STATUS_FINISHED";
+	case PSPDialog::SCE_UTILITY_STATUS_SHUTDOWN: return "STATUS_SHUTDOWN";
+	case PSPDialog::SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN: return "STATUS_SCREENSHOT_UNKNOWN";
+	default: return "(unknown)";
+	}
+}
+
 void PSPDialog::InitCommon() {
 	UpdateCommon();
 

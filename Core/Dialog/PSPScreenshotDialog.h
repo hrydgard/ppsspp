@@ -42,4 +42,3 @@ protected:
 	int mode;
 	PSPPointer<SceUtilityScreenshotParams> params_;
 };
-

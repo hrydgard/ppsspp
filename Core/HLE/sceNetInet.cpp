@@ -8,6 +8,7 @@
 
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetAdhoc.h"
@@ -69,7 +70,7 @@ void __NetInetShutdown() {
 
 static int sceNetInetInit() {
 	if (netInetInited)
-		return hleLogError(Log::sceNet, ERROR_NET_INET_ALREADY_INITIALIZED);
+		return hleLogError(Log::sceNet, SCE_NET_INET_ERROR_ALREADY_INITIALIZED);
 	g_inetLastErrno.clear();
 	netInetInited = true;
 	return hleLogDebug(Log::sceNet, 0);

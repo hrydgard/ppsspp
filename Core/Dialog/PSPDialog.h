@@ -138,3 +138,4 @@ private:
 };
 
 const char *UtilityDialogTypeToString(UtilityDialogType type);
+const char *UtilityDialogStatusToString(PSPDialog::DialogStatus status);

@@ -1695,7 +1695,7 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 
 	// Uninitialized Library
 	if (netAdhocMatchingInited)
-		return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
+		return SCE_NET_ADHOC_MATCHING_ERROR_ALREADY_INITIALIZED;
 
 	// Save Fake Pool Size
 	fakePoolSize = memsize;
@@ -1748,22 +1748,22 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhoc matching not initialized");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhoc matching not initialized");
 	}
 
 	if (maxnum <= 1 || maxnum > 16) {
 		// Invalid Member Limit
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM, "adhoc matching invalid maxnum");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_MAXNUM, "adhoc matching invalid maxnum");
 	}
 
 	if (rxbuflen < 1) {
 		// Invalid Receive Buffer Size
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
 	}
 
 	if (mode < 1 || mode > 3) {
 		// InvalidERROR_NET_Arguments
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhoc matching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhoc matching invalid arg");
 	}
 
 	// Iterate Matching Contexts
@@ -1771,7 +1771,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	for (; item != NULL; item = item->next) {
 		// Port Match found
 		if (item->port == port)
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
+			return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_PORT_IN_USE, "adhoc matching port in use");
 	}
 
 	// Allocate Context Memory
@@ -1846,7 +1846,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	}
 
 	// Out of Memory
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NO_SPACE, "adhoc matching no space");
+	return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NO_SPACE, "adhoc matching no space");
 }
 
 int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
@@ -1856,7 +1856,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
 
 	if (item == NULL) {
-		// return ERROR_NET_ADHOC_MATCHING_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
+		// return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
 		return hleLogDebug(Log::sceNet, 0);
 	}
 
@@ -1870,15 +1870,15 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 			item->hellolen = optLen;
 			item->helloAddr = optDataAddr;
 		}
-		//else return ERROR_NET_ADHOC_MATCHING_NO_SPACE; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
+		//else return SCE_NET_ADHOC_MATCHING_ERROR_NO_SPACE; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
 	}
-	//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG; // ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
+	//else return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG; // SCE_NET_ADHOC_MATCHING_ERROR_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
 
 	// Create PDP Socket
 	int sock = hleCall(sceNetAdhoc, int, sceNetAdhocPdpCreate, (const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
 	item->socket = sock;
 	if (sock < 1) {
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_PORT_IN_USE, "adhoc matching port in use");
 	}
 
 	// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
@@ -1944,12 +1944,12 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhocmatching not initialized");
 	}
 
 	if (macAddress == NULL) {
 		// Invalid Arguments
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
 	SceNetEtherAddr * target = (SceNetEtherAddr *)macAddress;
@@ -1959,12 +1959,12 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 
 	if (context == NULL) {
 		// Invalid Matching ID
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "adhocmatching invalid id");
 	}
 
 	if (!context->running) {
 		// Idle Context
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 	}
 
 	// Search Result
@@ -1972,12 +1972,12 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 
 	if (peer == NULL) {
 		// Peer not found
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
 	}
 
 	if ((optLen != 0) && (optLen <= 0 || optDataPtr == 0)) {
 		// Invalid Optional Data Length
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN, "adhocmatching invalid optlen");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_OPTLEN, "adhocmatching invalid optlen");
 	}
 
 	void * opt = NULL;
@@ -1985,10 +1985,10 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 	// Host Mode
 	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
 		// Already Connected
-		if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_ALREADY_ESTABLISHED, "adhocmatching already established");
 
 		// Not enough space
-		if (countChildren(context) == (context->maxpeers - 1)) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_EXCEED_MAXNUM, "adhocmatching exceed maxnum");
+		if (countChildren(context) == (context->maxpeers - 1)) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_EXCEED_MAXNUM, "adhocmatching exceed maxnum");
 
 		// Requesting Peer
 		if (peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
@@ -2014,10 +2014,10 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 	// Client Mode
 	else if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) {
 		// Already connected
-		if (findParent(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
+		if (findParent(context) != NULL) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_ALREADY_ESTABLISHED, "adhocmatching already established");
 
 		// Outgoing Request in Progress
-		if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
+		if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
 
 		// Valid Offer
 		if (peer->state == PSP_ADHOC_MATCHING_PEER_OFFER) {
@@ -2035,10 +2035,10 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 	// P2P Mode
 	else {
 		// Already connected
-		if (findP2P(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
+		if (findP2P(context) != NULL) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_ALREADY_ESTABLISHED, "adhocmatching already established");
 
 		// Outgoing Request in Progress
-		if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
+		if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
 
 		// Join Request Mode
 		if (peer->state == PSP_ADHOC_MATCHING_PEER_OFFER) {
@@ -2068,13 +2068,13 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 	}
 
 	// How did this happen?! It shouldn't!
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_TARGET_NOT_READY, "adhocmatching target not ready");
+	return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_TARGET_NOT_READY, "adhocmatching target not ready");
 }
 
 int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress, int optLen, u32 optDataPtr) {
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhocmatching not initialized");
 	}
 
 	SceNetEtherAddr* target = (SceNetEtherAddr*)macAddress;
@@ -2083,7 +2083,7 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 
 	if (target == NULL || ((optLen != 0) && (optLen <= 0 || opt == NULL))) {
 		// Invalid Arguments
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
 	// Find Matching Context
@@ -2091,12 +2091,12 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 
 	if (context == NULL) {
 		// Invalid Matching ID
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "adhocmatching invalid id");
 	}
 
 	if (!context->running) {
 		// Context not running
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 	}
 
 	// Find Peer
@@ -2104,7 +2104,7 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 
 	if (peer == NULL) {
 		// Peer not found
-		//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+		//return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
 		// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
 		return hleLogDebug(Log::sceNet, 0);
 	}
@@ -2138,7 +2138,7 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 	}
 
 	// Peer not found
-	//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+	//return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
 	// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
 	return hleLogDebug(Log::sceNet, 0);
 }
@@ -2165,7 +2165,7 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 	}
 
 	if (!Memory::IsValidAddress(optLenAddr)) {
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG);
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG);
 	}
 
 	s32_le *optlen = PSPPointer<s32_le>::Create(optLenAddr);
@@ -2182,9 +2182,9 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 			uint8_t * optdata = Memory::GetPointerWriteUnchecked(optDataAddr);
 			memcpy(optdata, item->hello, *optlen);
 		}
-		//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
+		//else return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG;
 	}
-	//else return ERROR_NET_ADHOC_MATCHING_INVALID_ID;
+	//else return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID;
 
 	// Multithreading Unlock
 	peerlock.unlock();
@@ -2198,7 +2198,7 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 	}
 
 	if (!netAdhocMatchingInited)
-		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhocmatching not initialized");
 
 	// Multithreading Lock
 	peerlock.lock();
@@ -2210,19 +2210,19 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 
 	// Context not found
 	if (context == NULL)
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "adhocmatching invalid id");
 
 	// Invalid Matching Mode (Child)
 	if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD)
-		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_MODE, "adhocmatching invalid mode");
+		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_MODE, "adhocmatching invalid mode");
 
 	// Context not running
 	if (!context->running)
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 
 	// Invalid Optional Data Length
 	if ((optLenAddr != 0) && (optDataAddr == 0))
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN, "adhocmatching invalid optlen"); //ERROR_NET_ADHOC_MATCHING_INVALID_ARG
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_OPTLEN, "adhocmatching invalid optlen"); //SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG
 
 	// Grab Existing Hello Data
 	void* hello = context->hello;
@@ -2240,7 +2240,7 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 		// Out of Memory
 		if (hello == NULL) {
 			context->hellolen = 0;
-			return ERROR_NET_ADHOC_MATCHING_NO_SPACE;
+			return SCE_NET_ADHOC_MATCHING_ERROR_NO_SPACE;
 		}
 
 		// Clone Hello Data
@@ -2270,11 +2270,11 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	}
 
 	if (!netAdhocMatchingInited)
-		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhocmatching not initialized");
 
 	// Minimum Argument
 	if (!Memory::IsValidAddress(sizeAddr))
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 
 	// Multithreading Lock
 	peerlock.lock();
@@ -2285,15 +2285,15 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 
 	// Context not found
 	if (context == NULL)
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "adhocmatching invalid id");
 
 	// Context not running
 	if (!context->running)
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 
 	// Buffer Length not available
 	if (!Memory::IsValidAddress(sizeAddr))
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 
 	int* buflen = (int*)Memory::GetPointer(sizeAddr);
 	SceNetAdhocMatchingMemberInfoEmu* buf2 = NULL;
@@ -2466,12 +2466,12 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "not initialized");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "not initialized");
 	}
 
 	if (mac == NULL) {
 		// Invalid Arguments
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "invalid arg");
 	}
 
 	// Find Matching Context
@@ -2479,18 +2479,18 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 
 	if (context == NULL) {
 		// Invalid Matching ID
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "invalid id");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "invalid id");
 	}
 
 	if (!context->running) {
 		// Context not running
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "not running");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "not running");
 	}
 
 	// Invalid Data Length
 	if (dataLen <= 0 || dataAddr == 0) {
 		// Invalid Data Length
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN, "invalid datalen");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_DATALEN, "invalid datalen");
 	}
 
 	void* data = NULL;
@@ -2504,17 +2504,17 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 
 	if (peer == NULL) {
 		// Peer not found
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "unknown target");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "unknown target");
 	}
 
 	if (peer->state != PSP_ADHOC_MATCHING_PEER_PARENT && peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P) {
 		// Not connected / accepted
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "not established");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_ESTABLISHED, "not established");
 	}
 
 	// Send in Progress
 	if (peer->sending)
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_DATA_BUSY, "data busy");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_DATA_BUSY, "data busy");
 
 	// Mark Peer as Sending
 	peer->sending = 1;
@@ -2534,12 +2534,12 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhocmatching not initialized");
 	}
 
 	if (mac == NULL) {
 		// Invalid Arguments
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
 	// Find Matching Context
@@ -2547,12 +2547,12 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 
 	if (context == NULL) {
 		// Invalid Matching ID
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "adhocmatching invalid id");
 	}
 
 	if (!context->running) {
 		// Context not running
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 	}
 
 	// Find Target Peer
@@ -2560,7 +2560,7 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 
 	if (peer == NULL) {
 		// Peer not found
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
 	}
 
 	// Peer is sending
@@ -2593,7 +2593,7 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_INITIALIZED, "adhocmatching not initialized");
 	}
 
 	SceNetMallocStat * poolstat = NULL;
@@ -2601,7 +2601,7 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 
 	if (poolstat == NULL) {
 		// Invalid Argument
-		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
 	// Fill Poolstat with Fake Data
