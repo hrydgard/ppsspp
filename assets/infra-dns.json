@@ -9,9 +9,33 @@
 	},
 	"games": [
 		{
+			"name": "UEFA Champions League 2006-2007",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspuefa07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES00699",
+				"ULES00706",
+				"ULES00707",
+				"ULES00708",
+				"ULES00709",
+				"ULUS10221"
+			]
+		},
+		{
 			"name": "FIFA 07",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -22,7 +46,7 @@
 			"domains": {
 				"pspfifa07.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULES00440",
 				"ULES00441",
@@ -37,7 +61,7 @@
 		{
 			"name": "FIFA 08",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -48,7 +72,7 @@
 			"domains": {
 				"pspfifa08.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULES00891",
 				"ULES00892",
@@ -64,7 +88,7 @@
 		{
 			"name": "FIFA 09",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -75,7 +99,7 @@
 			"domains": {
 				"pspfifa09.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULAS42141",
 				"ULES01135",
@@ -93,7 +117,7 @@
 		{
 			"name": "FIFA 10",
 			"comment": {
-				"en_US": "Works but requires to create an account on any pre-2010 EA Nation Hub supported game!"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -104,7 +128,7 @@
 			"domains": {
 				"pspfifa10.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULES01322",
 				"ULES01323",
@@ -119,9 +143,72 @@
 			]
 		},
 		{
+			"name": "FIFA World Cup Germany 2006",
+			"comment": {
+				"en_US": "Works but requires a patch! Also, there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspuefa06.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES00340",
+				"ULUS10082"
+			]
+		},
+		{
+			"name": "FIFA World Cup South Africa 2010",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspworldcup10.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES01412",
+				"ULES01413",
+				"ULES01414",
+				"ULUS10504",
+				"ULUS10517"
+			]
+		},
+		{
+			"name": "Fight Night Round 3",
+			"comment": {
+				"en_US": "Works but requires a patch! Also, there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspkok06.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES00270",
+				"ULUS10066"
+			]
+		},
+		{
 			"name": "Madden NFL 07",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -132,7 +219,7 @@
 			"domains": {
 				"pspmadden07.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULUS10117"
 			]
@@ -140,7 +227,7 @@
 		{
 			"name": "Madden NFL 08",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -151,7 +238,7 @@
 			"domains": {
 				"pspmadden08.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULES00867",
 				"ULUS10275"
@@ -160,7 +247,7 @@
 		{
 			"name": "Madden NFL 09",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -171,7 +258,7 @@
 			"domains": {
 				"pspmadden09.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULES01093",
 				"UCUS10352",
@@ -181,7 +268,7 @@
 		{
 			"name": "Madden NFL 10",
 			"comment": {
-				"en_US": "Works but requires to create an account on any pre-2010 EA Nation Hub supported game!"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -192,7 +279,7 @@
 			"domains": {
 				"pspmadden10.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULUS10441"
 			]
@@ -257,7 +344,7 @@
 		{
 			"name": "NCAA Football 07",
 			"comment": {
-				"en_US": "Works"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -268,7 +355,7 @@
 			"domains": {
 				"pspncaa07.ea.com": "ablondel.ddns.net"
 			},
-			"score": 5,
+			"score": 4,
 			"known_working_ids": [
 				"ULUS10116"
 			]
@@ -374,6 +461,68 @@
 			"known_working_ids": [
 				"ULES00477",
 				"ULUS10131"
+			]
+		},
+		{
+			"name": "Tiger Woods PGA Tour 07",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"psptw07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00455",
+				"ULES00456",
+				"ULUS10115"
+			]
+		},
+		{
+			"name": "Tiger Woods PGA Tour 08",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"psptw08.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00845",
+				"ULES00846",
+				"ULUS10276"
+			]
+		},
+		{
+			"name": "Tiger Woods PGA Tour 10",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"psptw10.ea.com": "ablondel.ddns.net"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES01260",
+				"ULUS10420"
 			]
 		},
 		{
@@ -511,7 +660,7 @@
 				"UCES00038"
 			],
 			"not_working_ids": [
-				"UCKS45021"	
+				"UCKS45021"
 			],
 			"score": 4,
 			"domains": {
