@@ -127,6 +127,7 @@ void StartInfraJsonDownload();
 bool PollInfraJsonDownload(std::string *jsonOutput);
 bool LoadAutoDNS(std::string_view json);
 void DeleteAutoDNSCacheFile();
+std::string ProcessHostnameWithInfraDNS(const std::string &hostname);
 
 // These return false if allowed to be consistent with the similar function for achievements.
 bool NetworkWarnUserIfOnlineAndCantSavestate();

@@ -184,6 +184,7 @@ public:
 		const char *app_name;
 		int app_ver;
 		VulkanInitFlags flags;
+		std::string customDriver;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);

@@ -21,7 +21,7 @@
 bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
 
-	http::Client http;
+	http::Client http(nullptr);
 	Buffer result;
 	int code = 500;
 	std::vector<std::string> responseHeaders;

@@ -7,11 +7,10 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/Data/Collections/TinySet.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
-
-#include "Core/KeyMap.h"
 
 void Screen::focusChanged(ScreenFocusChange focusChange) {
 	const char *eventName = "";

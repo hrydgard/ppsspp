@@ -71,6 +71,7 @@ bool AndroidVulkanContext::InitAPI() {
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = FlagsFromConfig();
+	info.customDriver = g_Config.sCustomDriver;
 	if (!g_Vulkan->CreateInstanceAndDevice(info)) {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;

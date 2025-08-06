@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iostream>
 
-#include "Core/Config.h"
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
 #include "Common/Log.h"
@@ -171,7 +170,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 #endif
 
-	if ((flags_ & VulkanInitFlags::VALIDATE) && g_Config.sCustomDriver.empty()) {
+	if ((flags_ & VulkanInitFlags::VALIDATE) && info.customDriver.empty()) {
 		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {

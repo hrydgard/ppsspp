@@ -246,7 +246,7 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 	}
 
 	if (workAreaAddr == 0) {
-		return hleLogDebug(Log::sceNet, -1, "size query, required size: %d", requiredSize);
+		return hleLogDebug(Log::sceNet, 0, "size query, required size: %d", requiredSize);
 	}
 
 	if (requiredSize > workAreaSize) {
@@ -305,7 +305,7 @@ static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBuffe
 	}
 
 	if (escapedAddr == 0) {
-		return hleLogError(Log::sceNet, -1, "size query, required size: %d", requiredSize);
+		return hleLogDebug(Log::sceNet, 0, "size query, required size: %d", requiredSize);
 	}
 
 	if (requiredSize > escapedBufferLength) {

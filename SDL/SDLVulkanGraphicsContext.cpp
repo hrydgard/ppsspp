@@ -72,6 +72,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = FlagsFromConfig();
+	info.customDriver = g_Config.sCustomDriver;
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;

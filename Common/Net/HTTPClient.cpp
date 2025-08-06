@@ -63,7 +63,11 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	char port_str[16];
 	snprintf(port_str, sizeof(port_str), "%d", port);
 
-	std::string processedHostname = ProcessHostnameWithInfraDNS(std::string(host));
+	std::string processedHostname(host);
+
+	if (customResolve_) {
+		processedHostname = customResolve_(host);
+	}
 	
 	std::string err;
 	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
@@ -211,7 +215,7 @@ namespace http {
 constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
 constexpr const char *HTTP_VERSION = "1.1";
 
-Client::Client() {
+Client::Client(net::ResolveFunc func) : Connection(func) {
 	userAgent_ = DEFAULT_USERAGENT;
 	httpVersion_ = HTTP_VERSION;
 }
@@ -488,8 +492,8 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name)
-	: Request(method, url, name, &cancelled_, flags), postData_(postData), postMime_(postMime) {
+HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name)
+	: Request(method, url, name, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
 	outfile_ = outfile;
 }
 
@@ -525,7 +529,7 @@ int HTTPRequest::Perform(const std::string &url) {
 		return -1;
 	}
 
-	http::Client client;
+	http::Client client(customResolve_);
 	if (!userAgent_.empty()) {
 		client.SetUserAgent(userAgent_);
 	}
