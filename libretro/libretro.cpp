@@ -1247,6 +1247,42 @@ void retro_init(void)
 
    retro_base_dir /= "PPSSPP";
 
+   // Check if '<system_dir>/PPSSPP/compat.ini' exists, if not we can assume
+   // the user is missing the assets entirely, so let's warn them about it.
+   if (!File::Exists(Path(retro_base_dir / "compat.ini")))
+   {
+      const char* str = "Core system files missing, expect bugs.";
+      unsigned msg_interface_version = 0;
+      environ_cb(RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION, &msg_interface_version);
+
+      if (msg_interface_version >= 1)
+      {
+         retro_message_ext msg = {
+            str,
+            3000,
+            3,
+            RETRO_LOG_WARN,
+            RETRO_MESSAGE_TARGET_ALL,
+            RETRO_MESSAGE_TYPE_NOTIFICATION,
+            -1
+         };
+         environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE_EXT, &msg);
+      }
+      else
+      {
+         retro_message msg = {
+            str,
+            180
+         };
+         environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
+      }
+
+      // OSD messages should be kept pretty short, but
+      // let's give the user a bit more info in logs.
+      WARN_LOG(Log::System, "Please check the docs for more informations on how to install "
+                            "the PPSSPP assets: https://docs.libretro.com/library/ppsspp/");
+   }
+
    g_Config.currentDirectory = retro_base_dir;
    g_Config.defaultCurrentDirectory = retro_base_dir;
    g_Config.memStickDirectory = retro_save_dir;
