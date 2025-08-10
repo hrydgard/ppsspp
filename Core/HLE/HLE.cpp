@@ -905,7 +905,7 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
-		std::string_view modName = modulenum > (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name;
+		std::string_view modName = modulenum >= (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name;
 		ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
 		return NULL;
 	}
