@@ -262,12 +262,14 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 // Retrieve a screenshot (gpu.buffer.screenshot)
 //
 // Parameters:
-//  - type: either 'uri' or 'base64'.
+//  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
 //  - alpha: boolean to include the alpha channel for 'uri' type (not normally useful for screenshots.)
+//  - stackWidth: optional, forced width for 'uri' type (increases height.)
 //
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of screenshot.
 //  - height: numeric height of screenshot.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - uri: data: URI of PNG image for display.
 //
 // Response (same event name) for 'base64' type:
@@ -275,6 +277,7 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 //  - height: numeric height of screenshot.
 //  - flipped: boolean to indicate whether buffer is vertically flipped.
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferScreenshot(DebuggerRequest &req) {
 	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
@@ -286,12 +289,14 @@ void WebSocketGPUBufferScreenshot(DebuggerRequest &req) {
 // Retrieve current color render buffer (gpu.buffer.renderColor)
 //
 // Parameters:
-//  - type: either 'uri' or 'base64'.
+//  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
 //  - alpha: boolean to include the alpha channel for 'uri' type.
+//  - stackWidth: optional, forced width for 'uri' type (increases height.)
 //
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of render buffer (may include stride.)
 //  - height: numeric height of render buffer.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - uri: data: URI of PNG image for display.
 //
 // Response (same event name) for 'base64' type:
@@ -299,6 +304,7 @@ void WebSocketGPUBufferScreenshot(DebuggerRequest &req) {
 //  - height: numeric height of render buffer.
 //  - flipped: boolean to indicate whether buffer is vertically flipped.
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferRenderColor(DebuggerRequest &req) {
 	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
@@ -310,12 +316,14 @@ void WebSocketGPUBufferRenderColor(DebuggerRequest &req) {
 // Retrieve current depth render buffer (gpu.buffer.renderDepth)
 //
 // Parameters:
-//  - type: either 'uri' or 'base64'.
+//  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
 //  - alpha: true to use alpha to encode depth, otherwise red for 'uri' type.
+//  - stackWidth: optional, forced width for 'uri' type (increases height.)
 //
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of render buffer (may include stride.)
 //  - height: numeric height of render buffer.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - uri: data: URI of PNG image for display.
 //
 // Response (same event name) for 'base64' type:
@@ -323,6 +331,7 @@ void WebSocketGPUBufferRenderColor(DebuggerRequest &req) {
 //  - height: numeric height of render buffer.
 //  - flipped: boolean to indicate whether buffer is vertically flipped.
 //  - format: string indicating format, such as 'D16', 'D24_X8' or 'D32F'.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferRenderDepth(DebuggerRequest &req) {
 	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
@@ -334,12 +343,14 @@ void WebSocketGPUBufferRenderDepth(DebuggerRequest &req) {
 // Retrieve current stencil render buffer (gpu.buffer.renderStencil)
 //
 // Parameters:
-//  - type: either 'uri' or 'base64'.
+//  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
 //  - alpha: true to use alpha to encode stencil, otherwise red for 'uri' type.
+//  - stackWidth: optional, forced width for 'uri' type (increases height.)
 //
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of render buffer (may include stride.)
 //  - height: numeric height of render buffer.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - uri: data: URI of PNG image for display.
 //
 // Response (same event name) for 'base64' type:
@@ -347,6 +358,7 @@ void WebSocketGPUBufferRenderDepth(DebuggerRequest &req) {
 //  - height: numeric height of render buffer.
 //  - flipped: boolean to indicate whether buffer is vertically flipped.
 //  - format: string indicating format, such as 'X24_S8' or 'S8'.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
 	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
@@ -358,9 +370,10 @@ void WebSocketGPUBufferRenderStencil(DebuggerRequest &req) {
 // Retrieve current texture (gpu.buffer.texture)
 //
 // Parameters:
-//  - type: either 'uri' or 'base64'.
+//  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
 //  - alpha: boolean to include the alpha channel for 'uri' type.
-//  - level: texture mip level, default 0.
+//  - level: optional texture mip level, default 0.
+//  - stackWidth: optional, forced width for 'uri' type (increases height.)
 //
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of the texture (often wider than visual.)
@@ -388,13 +401,14 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 // Retrieve current CLUT (gpu.buffer.clut)
 //
 // Parameters:
-//  - type: either 'uri' or 'base64'.
+//  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
 //  - alpha: boolean to include the alpha channel for 'uri' type.
-//  - stackWidth: forced width for 'uri' type (increases height.)
+//  - stackWidth: optional, forced width for 'uri' type (increases height.)
 //
 // Response (same event name) for 'uri' type:
 //  - width: numeric width of CLUT.
 //  - height: numeric height of CLUT.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - uri: data: URI of PNG image for display.
 //
 // Response (same event name) for 'base64' type:
@@ -402,6 +416,7 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 //  - height: always 1.
 //  - flipped: boolean to indicate whether buffer is vertically flipped.
 //  - format: string indicating format, such as 'R8G8B8A8_UNORM' or 'B8G8R8A8_UNORM'.
+//  - isFramebuffer: optional, present and true if this came from a hardware framebuffer.
 //  - base64: base64 encode of binary data.
 void WebSocketGPUBufferClut(DebuggerRequest &req) {
 	GenericStreamBuffer(req, [](const GPUDebugBuffer *&buf, bool *isFramebuffer) {

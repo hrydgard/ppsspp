@@ -73,8 +73,6 @@ void WebSocketMemoryInfoState::UpdateOverride(bool flag) {
 //     - name: string, friendly name.
 //     - address: number, start address of range.
 //     - size: number, in bytes.
-//
-// Note: Even if you set false, may stay enabled if set by user or another debug session.
 void WebSocketMemoryInfoState::Mapping(DebuggerRequest &req) {
 	struct MemRange {
 		const char *type;

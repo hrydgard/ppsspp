@@ -192,7 +192,7 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 //  - breakpoints: array of objects, each with properties:
 //     - address: unsigned integer address of instruction to break at.
 //     - enabled: boolean, whether to actually enter stepping when this breakpoint trips.
-//     - log: optional boolean, whether to log when this breakpoint trips.
+//     - log: boolean, whether to log when this breakpoint trips.
 //     - condition: null, or string expression to evaluate - breakpoint does not trip if false.
 //     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
 //     - symbol: null, or string label or symbol at breakpoint address.

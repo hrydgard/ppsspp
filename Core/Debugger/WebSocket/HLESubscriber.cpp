@@ -180,7 +180,7 @@ void WebSocketHLEThreadStop(DebuggerRequest &req) {
 		break;
 
 	default:
-		return req.Fail("Cannot force run thread based on current status");
+		return req.Fail("Cannot force stop thread based on current status");
 	}
 
 	// Get it again to verify.

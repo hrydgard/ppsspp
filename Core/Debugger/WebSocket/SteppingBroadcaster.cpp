@@ -50,8 +50,8 @@ private:
 // Sent unexpectedly with these properties:
 //  - pc: number value of PC register (inaccurate unless stepping.)
 //  - ticks: number of CPU cycles into emulation.
-//  - reason: a value submitted to Core_EnableStepping ("jit.branchdebug", "savestate.load", "ui.lost_focus", etc.)
-//  - relatedAddress: an address (often zero, but it can be a value of PC saved at some point, a related memory address, etc.)
+//  - reason: an optional property, if present, it's equal to the value submitted to Core_EnableStepping ("jit.branchdebug", "savestate.load", "ui.lost_focus", etc.)
+//  - relatedAddress: an optional address (often zero, but it can be a value of PC saved at some point, a related memory address, etc.), always present if 'reason' is present
 
 // CPU has resumed from stepping (cpu.resume)
 //
