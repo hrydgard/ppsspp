@@ -181,7 +181,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		}
 	});
 	ws->SetBinaryHandler([&](const std::vector<uint8_t> &d) {
-		ws->Send(DebuggerErrorEvent("Bad message", LogLevel::LERROR));
+		ws->Send(DebuggerErrorEvent("Bad message: binary WebSocket frames are not supported", LogLevel::LERROR));
 	});
 
 	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {

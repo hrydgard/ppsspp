@@ -126,6 +126,7 @@ void WebSocketGPUStatsState::FlipListener() {
 	float *sleepHistory;
 	float *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
 
+	// TODO: 'valid' could be 0 => frameTimes[0] and sleepTimes[0] could lead to a crash
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
 	memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
@@ -149,6 +150,7 @@ void WebSocketGPUStatsState::FlipListener() {
 //
 // Note: stats are returned after the next flip completes (paused if CPU or GPU in break.)
 // Note: info and timing may not be accurate if certain settings are disabled.
+// Note: sending this event with no ticket will not trigger a response! (TODO: maybe fix this?)
 void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");

@@ -387,7 +387,7 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 //  - expression: string containing labels, operators, regs, etc.
 //
 // Response (same event name):
-//  - uintValue: value in register.
+//  - uintValue: the computed value.
 //  - floatValue: string showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUEvaluate(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
