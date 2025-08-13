@@ -342,6 +342,44 @@
 			]
 		},
 		{
+			"name": "NBA Live 07",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnba07.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULUS10113"
+			]
+		},
+		{
+			"name": "NBA Live 08",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnba08.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULUS10294"
+			]
+		},
+		{
 			"name": "NCAA Football 07",
 			"comment": {
 				"en_US": "Works but there are incompatibilities between platforms"
@@ -523,6 +561,29 @@
 			"known_working_ids": [
 				"ULES01260",
 				"ULUS10420"
+			]
+		},
+		{
+			"name": "Sega Rally Revo",
+			"comment": {
+				"en_US": "Works"
+			},
+			"revival_credits": {
+				"group": "PS3 Reborn",
+				"url": "https://discord.gg/kS9CJhjq9C"
+			},
+			"domains": {
+				"sega-rally-psp.lsg.mmp3.demonware.net": "146.190.205.197",
+				"sega-rally-psp.auth.mmp3.demonware.net": "146.190.205.197"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"UCKS45072",
+				"ULAS42119",
+				"ULES00910",
+				"ULJM05302",
+				"ULJM05417",
+				"ULUS10311"
 			]
 		},
 		{
