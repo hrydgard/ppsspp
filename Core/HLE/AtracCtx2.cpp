@@ -959,6 +959,7 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 }
 
 int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) {
+	_dbg_assert_(outputChannels == 1 || outputChannels == 2);
 	TrackInfo trackInfo{};
 	if (bufferAddr) {
 		if (!isAA3) {
@@ -992,11 +993,11 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		"Atrac: sampleSize: %d buffer: %08x bufferByte: %d firstValidSample: %d\n"
 		"endSample: %d loopStart: %d loopEnd: %d\n"
 		"dataOff: %d curFileOff: %d streamOff: %d streamDataByte: %d\n"
-		"fileDataEnd: %d decodePos: %d numSkipFrames: %d",
+		"fileDataEnd: %d decodePos: %d numSkipFrames: %d channels: %d",
 		info.sampleSize, info.buffer, info.bufferByte, info.firstValidSample,
 		info.endSample, info.loopStart, info.loopEnd,
 		info.dataOff, info.curFileOff, info.streamOff, info.streamDataByte,
-		info.fileDataEnd, info.decodePos, info.numSkipFrames
+		info.fileDataEnd, info.decodePos, info.numSkipFrames, info.numChan
 	);
 
 	int skipCount = 0;  // TODO: use for delay

@@ -160,6 +160,8 @@ public class PpssppActivity extends NativeActivity {
 			Uri uri = Uri.parse(uriString);
 			try (ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, mode)) {
 				if (filePfd == null) {
+					// I'd expect an exception to happen before we get here, so this is probably
+					// never reached.
 					Log.e(TAG, "Failed to get file descriptor for " + uriString);
 					return -1;
 				}
@@ -167,9 +169,11 @@ public class PpssppActivity extends NativeActivity {
 			}
 		} catch (java.lang.IllegalArgumentException e) {
 			// This exception is long and ugly and really just means file not found.
-			Log.d(TAG, "openFileDescriptor: File not found.");
+			// We don't log anything (the caller can log).
 			return -1;
 		} catch (Exception e) {
+			// Don't know when this might happen. Let's log. Still, the result is just a
+			// failure that the caller may additionally log.
 			Log.e(TAG, "Unexpected openContentUri exception: " + e);
 			return -1;
 		}

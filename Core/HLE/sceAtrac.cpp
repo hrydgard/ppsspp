@@ -877,7 +877,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
 
-	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1, 0, false);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		// Must not delay.
 		return hleLogError(Log::Atrac, ret);
@@ -902,7 +902,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
 
-	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1, 0, false);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		// Must not delay.
 		return hleLogError(Log::Atrac, ret);
