@@ -1817,6 +1817,87 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 	ImGui::End();
 }
 
+ImWatchWindow::ImWatchWindow() {}
+
+void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug) {
+	if (!ImGui::Begin("Watch", &cfg.atracToolOpen) || !g_symbolMap) {
+		ImGui::End();
+		return;
+	}
+
+	// Refresh watches
+	int steppingCounter = Core_GetSteppingCounter();
+	int changes = false;
+	for (auto &watch : watches_) {
+		if (watch.steppingCounter != steppingCounter) {
+			watch.lastValue = watch.currentValue;
+			watch.steppingCounter = steppingCounter;
+		}
+
+		uint32_t prevValue = watch.currentValue;
+		watch.evaluateFailed = !parseExpression(mipsDebug, watch.expression, watch.currentValue);
+	}
+
+	if (ImGui::Button("Add Watch")) {
+		watches_.push_back(WatchInfo("untitled", "[0x88000000]", mipsDebug));
+	}
+
+	if (ImGui::BeginTable("watches", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Expression", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < (int)watches_.size(); i++) {
+			auto &watch = watches_[i];
+			ImGui::PushID(i);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(watch.name.c_str());
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(watch.originalExpression.c_str());
+			ImGui::TableNextColumn();
+			if (watch.evaluateFailed) {
+				ImGui::TextUnformatted("(Error)");
+			} else {
+				const uint32_t value = watch.currentValue;
+				float valuef = 0.0f;
+				switch (watch.format) {
+				case WatchFormat::HEX:
+					ImGui::Text("%08x", value);
+					break;
+				case WatchFormat::INT:
+					ImGui::Text("%d", value);
+					break;
+				case WatchFormat::FLOAT:
+					memcpy(&valuef, &value, sizeof(valuef));
+					ImGui::Text("%f", value);
+					break;
+				case WatchFormat::STR:
+					if (Memory::IsValidAddress(value)) {
+						uint32_t len = Memory::ValidSize(value, 255);
+						ImGui::Text("%.*s", len, Memory::GetCharPointer(value));
+					} else {
+						ImGui::Text("%08x", value);
+					}
+					break;
+				}
+			}
+			ImGui::TableNextColumn();
+			if (ImGui::SmallButton("X")) {
+				watches_.erase(watches_.begin() + i);
+			}
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+
+	ImGui::End();
+}
+
 void ImAtracToolWindow::Load() {
 	if (File::ReadBinaryFileToString(Path(atracPath_), &data_)) {
 		track_.reset(new Track());
@@ -2052,6 +2133,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
+			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Symbols")) {
@@ -2305,6 +2387,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		memDumpWindow_.Draw(cfg_, mipsDebug);
 	}
 
+	if (cfg_.watchOpen) {
+		watchWindow_.Draw(cfg_, control, mipsDebug);
+	}
+
 	for (int i = 0; i < 4; i++) {
 		if (cfg_.memViewOpen[i]) {
 			mem_[i].Draw(mipsDebug, cfg_, control, i);
@@ -2475,6 +2561,8 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("logConfigOpen", &logConfigOpen, false);
 	sync.Sync("luaConsoleOpen", &luaConsoleOpen, false);
 	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
+	sync.Sync("memDumpOpen", &memDumpOpen, false);
+	sync.Sync("watchOpen", &watchOpen, false);
 	sync.Sync("atracToolOpen", &atracToolOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];

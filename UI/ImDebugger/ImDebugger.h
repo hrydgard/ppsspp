@@ -15,6 +15,7 @@
 
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/Watch.h"
 
 #include "UI/ImDebugger/ImDisasmView.h"
 #include "UI/ImDebugger/ImMemView.h"
@@ -133,6 +134,17 @@ public:
 	std::unique_ptr<Track> track_;
 	std::string error_;
 	std::string data_;
+
+	int editingWatchIndex_ = -1;
+	int editingColumn_ = 0;
+};
+
+class ImWatchWindow {
+public:
+	ImWatchWindow();
+	void Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug);
+private:
+	std::vector<WatchInfo> watches_;
 };
 
 enum class ImCmd {
@@ -186,6 +198,7 @@ private:
 	ImStructViewer structViewer_;
 	ImGePixelViewerWindow pixelViewer_;
 	ImMemDumpWindow memDumpWindow_;
+	ImWatchWindow watchWindow_;
 	ImAtracToolWindow atracToolWindow_;
 	ImConsole luaConsole_;
 
