@@ -191,7 +191,7 @@ jobs:
           #git clone https://aur.archlinux.org/sdl2.git
           mkdir sdl2
           pushd sdl2
-          cat EOF <<-'EOF' > ./PKGBUILD
+          cat <<-'EOF' > ./PKGBUILD
           # Maintainer: HurricanePootis <hurricanepootis@protonmail.com>
           # Contributor: Sven-Hendrik Haase <svenstaro@archlinux.org>
           pkgname=sdl2
