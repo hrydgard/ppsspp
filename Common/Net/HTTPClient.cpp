@@ -387,6 +387,11 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		return -1;
 	}
 
+	if (readbuf->empty()) {
+		ERROR_LOG(Log::HTTP, "Empty HTTP header read buffer :(");
+		return -1;
+	}
+
 	// Grab the first header line that contains the http code.
 
 	std::string line;
