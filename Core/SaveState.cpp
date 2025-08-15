@@ -713,6 +713,16 @@ double g_lastSaveTime = -1.0;
 		return false;
 	}
 
+	void DeleteSlot(const Path &gameFilename, int slot) {
+		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+
+		if (File::Exists(fn)) {
+			DeleteIfExists(fn);
+			DeleteIfExists(shot);
+		}
+	}
+
 	bool UndoLastSave(const Path &gameFilename) {
 		if (!NetworkAllowSaveState()) {
 			return false;

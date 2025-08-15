@@ -46,7 +46,7 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 			int sent = send(sock, &data[pos], end - pos, MSG_NOSIGNAL);
 			// TODO: Do we need some retry logic here, instead of just giving up?
 			if (sent < 0) {
-				ERROR_LOG(Log::IO, "FlushSocket failed to send: %d", errno);
+				ERROR_LOG(Log::IO, "FlushSocket failed to send: errno=%d", errno);
 				return false;
 			}
 			pos += sent;
