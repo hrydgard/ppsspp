@@ -1842,11 +1842,11 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 		watches_.push_back(WatchInfo("untitled", "[0x88000000]", mipsDebug));
 	}
 
-	if (ImGui::BeginTable("watches", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Expression", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed);
+	if (ImGui::BeginTable("watches", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+		ImGui::TableSetupColumn("Expression", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+		ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 50.0f);
 
 		ImGui::TableHeadersRow();
 
@@ -1857,11 +1857,39 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(watch.name.c_str());
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(watch.originalExpression.c_str());
+			if (editingWatchIndex_ == i && editingColumn_ == 1) {
+				ImGui::SetNextItemWidth(-1.0f);  // Full width
+				if (setEditFocus_) {
+					ImGui::FocusItem();
+					setEditFocus_ = false;
+				}
+				bool confirmed = ImGui::InputText("##edit", editBuffer_, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+				// Filter for only enter presses
+				confirmed = confirmed && ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
+				if (confirmed || ImGui::IsItemDeactivated()) {
+					watch.SetExpression(editBuffer_, mipsDebug);
+					editingWatchIndex_ = -1;
+				}
+			} else {
+				ImGui::SetNextItemWidth(-1.0f);  // Full width
+				ImGui::TextUnformatted(watch.originalExpression.c_str());
+				auto cellRect = ImGui::TableGetCellBgRect(ImGui::GetCurrentTable(), 1);
+				bool cellHovered = ImGui::IsMouseHoveringRect(cellRect.Min, cellRect.Max);
+				if (cellHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+					editingWatchIndex_ = i;
+					editingColumn_ = 1;
+					truncate_cpy(editBuffer_, watch.originalExpression.c_str());
+					setEditFocus_ = true;
+				}
+			}
 			ImGui::TableNextColumn();
 			if (watch.evaluateFailed) {
 				ImGui::TextUnformatted("(Error)");
 			} else {
+				bool changed = watch.currentValue != watch.lastValue;
+				if (changed) {
+					//ImGui::PushStyleColor(ImGuiCol_Text, ImDebuggerColor_Diff);
+				}
 				const uint32_t value = watch.currentValue;
 				float valuef = 0.0f;
 				switch (watch.format) {
@@ -1884,11 +1912,27 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 					}
 					break;
 				}
+				if (changed) {
+					//ImGui::PopStyleColor(ImGuiCol_Text);
+				}
 			}
 			ImGui::TableNextColumn();
 			if (ImGui::SmallButton("X")) {
 				watches_.erase(watches_.begin() + i);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("Type")) {
+				ImGui::OpenPopup("watchType");
+			}
+			if (ImGui::BeginPopup("watchType")) {
+				ImGui::Text("Watch type");
+				if (ImGui::MenuItem("Hex", nullptr, watch.format == WatchFormat::HEX)) { watch.format = WatchFormat::HEX; }
+				if (ImGui::MenuItem("Int", nullptr, watch.format == WatchFormat::INT)) { watch.format = WatchFormat::INT; }
+				if (ImGui::MenuItem("Float", nullptr, watch.format == WatchFormat::FLOAT)) { watch.format = WatchFormat::FLOAT; }
+				if (ImGui::MenuItem("Str", nullptr, watch.format == WatchFormat::STR)) { watch.format = WatchFormat::STR; }
+				ImGui::EndPopup();
+			}
+
 			ImGui::PopID();
 		}
 

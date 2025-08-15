@@ -1989,6 +1989,7 @@ set(GPU_SOURCES
 	GPU/Debugger/State.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
+	GPU/Debugger/Watch.h
 	GPU/ge_constants.h
 	GPU/GeConstants.cpp
 	GPU/GPUDefinitions.h

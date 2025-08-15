@@ -134,9 +134,6 @@ public:
 	std::unique_ptr<Track> track_;
 	std::string error_;
 	std::string data_;
-
-	int editingWatchIndex_ = -1;
-	int editingColumn_ = 0;
 };
 
 class ImWatchWindow {
@@ -145,6 +142,11 @@ public:
 	void Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug);
 private:
 	std::vector<WatchInfo> watches_;
+
+	char editBuffer_[256];
+	int editingWatchIndex_ = -1;
+	int editingColumn_ = 0;
+	bool setEditFocus_ = false;
 };
 
 enum class ImCmd {
