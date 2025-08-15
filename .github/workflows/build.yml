@@ -282,8 +282,7 @@ jobs:
         xcodebuild -version
         # List available Xcode versions
         ls /Applications | grep Xcode
-        # Select a specific Xcode version. The recommended Xcode version is 9.4.1 according to https://github.com/Halo-Michael/ppsspp-builder
-        #sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+        sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
 
     - name: Create iOS Version.txt file
       if: matrix.id == 'ios'
