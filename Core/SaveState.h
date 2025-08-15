@@ -52,6 +52,8 @@ namespace SaveState {
 	bool UndoSaveSlot(const Path &gameFilename, int slot);
 	bool UndoLastSave(const Path &gameFilename);
 	bool UndoLoad(const Path &gameFilename, Callback callback);
+	void DeleteSlot(const Path &gameFilename, int slot);
+
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(const Path &gameFilename, int slot);
 	bool HasUndoSaveInSlot(const Path &gameFilename, int slot);

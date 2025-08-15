@@ -317,10 +317,13 @@ void Section::AddComment(const std::string &comment) {
 	lines_.emplace_back(ParsedIniLine::CommentOnly("# " + comment));
 }
 
-bool Section::Get(std::string_view key, std::vector<std::string>& values) const {
+bool Section::Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (!retval || temp.empty()) {
+		if (defaultValues) {
+			*values = *defaultValues;
+		}
 		return false;
 	}
 	// ignore starting , if any
@@ -331,9 +334,10 @@ bool Section::Get(std::string_view key, std::vector<std::string>& values) const 
 	while (subStart != std::string::npos) {
 		// Find next , 
 		subEnd = temp.find_first_of(',', subStart);
-		if (subStart != subEnd) 
+		if (subStart != subEnd) {
 			// take from first char until next , 
-			values.push_back(StripSpaces(temp.substr(subStart, subEnd - subStart)));
+			values->push_back(StripSpaces(temp.substr(subStart, subEnd - subStart)));
+		}
 	
 		// Find the next non , char
 		subStart = temp.find_first_not_of(',', subEnd);
@@ -613,12 +617,12 @@ bool IniFile::Get(const char* sectionName, const char* key, std::string* value, 
 	return section->Get(key, value, defaultValue);
 }
 
-bool IniFile::Get(const char *sectionName, const char* key, std::vector<std::string>& values) 
+bool IniFile::Get(const char *sectionName, const char* key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues)
 {
 	Section *section = GetSection(sectionName);
 	if (!section)
 		return false;
-	return section->Get(key, values);
+	return section->Get(key, values, defaultValues);
 }
 
 bool IniFile::Get(const char* sectionName, const char* key, int* value, int defaultValue)

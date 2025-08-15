@@ -983,7 +983,10 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(n->T("AdHoc server")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address", "Change proAdhocServer Address (localhost = multiple instance)"), I18NCat::NONE))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address", "Change proAdhocServer Address (localhost = multiple instance)"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, &g_Config.proAdhocServerList, n->T("proAdhocServer Address:")));
+		return UI::EVENT_DONE;
+	});
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
@@ -1820,14 +1823,6 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-
-	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, n->T("proAdhocServer Address:")));
-
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto shaderScreen = new TextureShaderScreen(gr->T("GPU texture upscaler (fast)"));
@@ -1924,8 +1919,14 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
 
-	std::vector<std::string> listIP = { "socom.cc", "psp.gameplayer.club", "localhost" }; // TODO: Add some saved recent history too?
+	std::vector<std::string> listIP;
+	if (listItems_) {
+		listIP = *listItems_;
+	}
+	// Add non-editable items
+	listIP.push_back("localhost");
 	net::GetIPList(listIP);
+
 	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	LinearLayout* innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
