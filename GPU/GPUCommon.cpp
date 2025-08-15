@@ -380,7 +380,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 					return 0x80000021;
 				} else if (stackAddr != 0 && dls[i].stackAddr == stackAddr && !dls[i].pendingInterrupt) {
 					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
-					return 0x80000021;
+					if (!PSP_CoreParameter().compat.flags().IgnoreEnqueue) {
+						return 0x80000021;
+					}
 				}
 			}
 		}
