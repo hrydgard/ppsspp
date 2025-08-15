@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-
 #include "GPU/GPUState.h"
 
 #include "GPU/Software/BinManager.h"
@@ -49,7 +47,19 @@ inline float clip_dotprod(const ClipVertexData &vert, float A, float B, float C,
 	return (vert.clippos.x * A + vert.clippos.y * B + vert.clippos.z * C + vert.clippos.w * D);
 }
 
-#define POLY_CLIP( PLANE_BIT, A, B, C, D )							\
+inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData &a, const ClipVertexData &b) {
+	bool outsideRange = false;
+	dest.Lerp(t, a, b);
+	dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos, &outsideRange);
+	dest.v.clipw = dest.clippos.w;
+
+	// If the clipped coordinate is outside range, then we throw it away.
+	// This prevents a lot of inversions that shouldn't be drawn.
+	if (outsideRange)
+		dest.v.screenpos.x = 0x7FFFFFFF;
+}
+
+#define CLIP_POLY( PLANE_BIT, A, B, C, D )							\
 {																	\
 	if (mask & PLANE_BIT) {											\
 		int idxPrev = inlist[0];									\
@@ -64,15 +74,17 @@ inline float clip_dotprod(const ClipVertexData &vert, float A, float B, float C,
 				outlist[outcount++] = idxPrev;						\
 			}														\
 																	\
-			if (different_signs(dp, dpPrev)) {						\
+			/* Skipping w sign mismatches avoids inversions, but is incorrect.  See #16131. */ \
+			/* For now, it's better to avoid inversions as they usually are undesired. */ \
+			if (different_signs(dp, dpPrev)) { \
+				auto &vert = Vertices[numVertices++];				\
 				if (dp < 0) {										\
 					float t = dp / (dp - dpPrev);					\
-					Vertices[numVertices++]->Lerp(t, *Vertices[idx], *Vertices[idxPrev]);		\
+					clip_interpolate(*vert, t, *Vertices[idx], *Vertices[idxPrev]);		\
 				} else {											\
 					float t = dpPrev / (dpPrev - dp);				\
-					Vertices[numVertices++]->Lerp(t, *Vertices[idxPrev], *Vertices[idx]);		\
+					clip_interpolate(*vert, t, *Vertices[idxPrev], *Vertices[idx]);		\
 				}													\
-				clipped = true;										\
 				outlist[outcount++] = numVertices - 1;				\
 			}														\
 																	\
@@ -101,8 +113,7 @@ inline float clip_dotprod(const ClipVertexData &vert, float A, float B, float C,
 		if (mask0 & PLANE_BIT) {								\
 			if (dp0 < 0) {										\
 				float t = dp1 / (dp1 - dp0);					\
-				Vertices[0]->Lerp(t, *Vertices[1], *Vertices[0]); \
-				clipped = true;									\
+				clip_interpolate(*Vertices[0], t, *Vertices[1], *Vertices[0]); \
 			}													\
 		}														\
 		dp0 = clip_dotprod(*Vertices[0], A, B, C, D );			\
@@ -110,8 +121,7 @@ inline float clip_dotprod(const ClipVertexData &vert, float A, float B, float C,
 		if (mask1 & PLANE_BIT) {								\
 			if (dp1 < 0) {										\
 				float t = dp1 / (dp1- dp0);						\
-				Vertices[1]->Lerp(t, *Vertices[1], *Vertices[0]);	\
-				clipped = true;									\
+				clip_interpolate(*Vertices[1], t, *Vertices[1], *Vertices[0]); \
 			}													\
 		}														\
 	}															\
@@ -203,15 +213,26 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		else if (outsidePos >= 2 || outsideNeg >= 2)
 			return;
 
-		if (v0.v.fogdepth != v1.v.fogdepth) {
+		bool splitFog = v0.v.fogdepth != v1.v.fogdepth;
+		if (splitFog) {
+			// If they match the same 1/255, we can consider the fog flat.  Seen in Resistance.
+			// More efficient if we can avoid splitting.
+			static constexpr float foghalfstep = 0.5f / 255.0f;
+			if (v1.v.fogdepth - foghalfstep <= v0.v.fogdepth && v1.v.fogdepth + foghalfstep >= v0.v.fogdepth)
+				splitFog = false;
+		}
+		if (splitFog) {
 			// Rectangles seem to always use nearest along X for fog depth, but reversed.
 			// TODO: Check exactness of middle.
 			VertexData vhalf0 = v1.v;
 			vhalf0.screenpos.x = v0.v.screenpos.x + (v1.v.screenpos.x - v0.v.screenpos.x) / 2;
+			vhalf0.texturecoords.x = v0.v.texturecoords.x + (v1.v.texturecoords.x - v0.v.texturecoords.x) / 2;
 
 			VertexData vhalf1 = v1.v;
 			vhalf1.screenpos.x = v0.v.screenpos.x + (v1.v.screenpos.x - v0.v.screenpos.x) / 2;
 			vhalf1.screenpos.y = v0.v.screenpos.y;
+			vhalf1.texturecoords.x = v0.v.texturecoords.x + (v1.v.texturecoords.x - v0.v.texturecoords.x) / 2;
+			vhalf1.texturecoords.y = v0.v.texturecoords.y;
 
 			VertexData vrev1 = v1.v;
 			vrev1.fogdepth = v0.v.fogdepth;
@@ -283,17 +304,11 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 
 	ClipVertexData ClippedVertices[2] = { v0, v1 };
 	ClipVertexData *Vertices[2] = { &ClippedVertices[0], &ClippedVertices[1] };
-	bool clipped = false;
 	CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 
 	ClipVertexData data[2] = { *Vertices[0], *Vertices[1] };
-	if (clipped) {
-		data[0].v.screenpos = TransformUnit::ClipToScreen(data[0].clippos);
-		data[1].v.screenpos = TransformUnit::ClipToScreen(data[1].clippos);
-		data[0].v.clipw = data[0].clippos.w;
-		data[1].v.clipw = data[1].clippos.w;
-	}
-	binner.AddLine(data[0].v, data[1].v);
+	if (!data[0].OutsideRange() && !data[1].OutsideRange())
+		binner.AddLine(data[0].v, data[1].v);
 }
 
 void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner) {
@@ -352,7 +367,6 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 
 	int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG };
 	int numIndices = 3;
-	bool clipped = false;
 
 	for (int i = 0; i < 3; i += 3) {
 		int vlist[2][2*6+1];
@@ -370,7 +384,7 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		indices[2] = SKIP_FLAG;
 
 		// The PSP only clips on negative Z (importantly, regardless of viewport.)
-		POLY_CLIP(CLIP_NEG_Z_BIT, 0, 0, 1, 1);
+		CLIP_POLY(CLIP_NEG_Z_BIT, 0, 0, 1, 1);
 
 		// transform the poly in inlist into triangles
 		indices[0] = inlist[0];
@@ -388,14 +402,9 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 			ClipVertexData &subv0 = *Vertices[indices[i + 0]];
 			ClipVertexData &subv1 = *Vertices[indices[i + 1]];
 			ClipVertexData &subv2 = *Vertices[indices[i + 2]];
-			if (clipped) {
-				subv0.v.screenpos = TransformUnit::ClipToScreen(subv0.clippos);
-				subv1.v.screenpos = TransformUnit::ClipToScreen(subv1.clippos);
-				subv2.v.screenpos = TransformUnit::ClipToScreen(subv2.clippos);
-				subv0.v.clipw = subv0.clippos.w;
-				subv1.v.clipw = subv1.clippos.w;
-				subv2.v.clipw = subv2.clippos.w;
-			}
+
+			if (subv0.OutsideRange() || subv1.OutsideRange() || subv2.OutsideRange())
+				continue;
 
 			if (gstate.getShadeMode() == GE_SHADE_FLAT) {
 				// So that the order of clipping doesn't matter...

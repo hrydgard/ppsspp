@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=PPSSPP
+Exec=PPSSPPSDL
+Icon=ppsspp
+Type=Application
+Keywords=Sony;PlayStation;Portable;PSP;handheld;console;
+Categories=Game;Emulator;
+MimeType=application/x-cd-image;application/x-iso9660-image;application/x-compressed-iso;application/zip;

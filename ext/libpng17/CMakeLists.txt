@@ -1,6 +1,7 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.8)
+project(libpng17)
 
-add_library(png17 
+add_library(png17 STATIC
 	pngconf.h
 	pngdebug.h
 	png.c
@@ -23,4 +24,20 @@ add_library(png17
 	pngwio.c
 	pngwrite.c
 	pngwtran.c
-	pngwutil.c)
+	pngwutil.c
+)
+
+# Add arm files for ARM processors
+if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm(64)?|aarch64")
+	set (ARM_FILES arm/arm_init.c
+	)
+
+	# Check if it's 32 bit
+	if("${CMAKE_SIZEOF_VOID_P}" EQUAL 4)
+		list(APPEND ARM_FILES arm/filter_neon.S)
+	else()
+		list(APPEND ARM_FILES arm/filter_neon_intrinsics.c)
+	endif()
+
+	target_sources(png17 PRIVATE ${ARM_FILES})
+endif()

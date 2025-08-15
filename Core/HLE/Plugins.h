@@ -17,6 +17,11 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
+#include "Common/Input/KeyCodes.h"
+#include "Core/HLE/sceKernelModule.h"
+
 class PointerWrap;
 
 namespace HLEPlugins {
@@ -24,11 +29,31 @@ namespace HLEPlugins {
 void Init();
 void Shutdown();
 
-bool Load();
+bool Load(PSPModule *pluginWaitingModule, SceUID threadID);
 void Unload();
 
 void DoState(PointerWrap &p);
 
 bool HasEnabled();
 
+enum class PluginType {
+	INVALID = 0,
+	PRX,
 };
+
+struct PluginInfo {
+	PluginType type;
+	std::string name;
+	std::string filename;  // PSP-space path. So we can't use a Path object.
+	int version;
+	uint32_t memory;
+};
+
+std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang);
+
+void SetKey(int key, uint8_t value);
+uint8_t GetKey(int key);
+
+extern float PluginDataAxis[JOYSTICK_AXIS_MAX];
+
+}  // namespace

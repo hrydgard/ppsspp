@@ -25,7 +25,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/DirListing.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 
 #include "Core/Config.h"
 
@@ -46,12 +46,21 @@ struct ThemeInfo {
 	uint32_t uItemDisabledStyleBg = 0x55000000;
 
 	uint32_t uHeaderStyleFg = 0xFFFFFFFF;
+	uint32_t uHeaderStyleBg = 0x00000000;
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleBg = 0x00000000;
-	uint32_t uPopupTitleStyleFg = 0xFFE3BE59;
 	uint32_t uPopupStyleFg = 0xFFFFFFFF;
-	uint32_t uPopupStyleBg = 0xFF303030;
+	uint32_t uPopupStyleBg = 0xFF5E4D1F;
+	uint32_t uPopupTitleStyleFg = 0xFFFFFFFF;
+	uint32_t uPopupTitleStyleBg = 0x00000000;  // default to invisible
+	uint32_t uTooltipStyleFg = 0xFFFFFFFF;
+	uint32_t uTooltipStyleBg = 0xC0303030;
+	uint32_t uCollapsibleHeaderStyleFg = 0xFFFFFFFF;
+	uint32_t uCollapsibleHeaderStyleBg = 0x55000000;
 	uint32_t uBackgroundColor = 0xFF754D24;
+	uint32_t uScrollbarColor = 0x80FFFFFF;
+	uint32_t uPopupSliderColor = 0xFFFFFFFF;
+	uint32_t uPopupSliderFocusedColor = 0xFFEDC24C;
 
 	std::string sUIAtlas = "ui_atlas";
 
@@ -86,7 +95,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<File::FileInfo> fileInfo;
-		VFSGetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+		g_VFS.GetFileListing(directories[d].c_str(), &fileInfo, "ini:");
 
 		if (fileInfo.empty()) {
 			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
@@ -106,17 +115,21 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 			if (path.ToString().substr(0, 7) == "assets/")
 				path = Path(path.ToString().substr(7));
 
-			if (ini.LoadFromVFS(name.ToString()) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(fileInfo[f].fullName)) {
 				success = true;
-				// vsh load. meh.
 			}
 
 			if (!success)
 				continue;
 
-			// Alright, let's loop through the sections and see if any is a themes.
+			// Alright, let's loop through the sections and see if any is a theme.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
-				Section &section = ini.Sections()[i];
+				Section &section = *(ini.Sections()[i].get());
+
+				if (section.name().empty()) {
+					continue;
+				}
+
 				ThemeInfo info;
 				section.Get("Name", &info.name, section.name().c_str());
 
@@ -130,24 +143,39 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("ItemDisabledStyleBg", &info.uItemDisabledStyleBg, info.uItemDisabledStyleBg);
 
 				section.Get("HeaderStyleFg", &info.uHeaderStyleFg, info.uHeaderStyleFg);
+				section.Get("HeaderStyleBg", &info.uHeaderStyleBg, info.uHeaderStyleBg);
 				section.Get("InfoStyleFg", &info.uInfoStyleFg, info.uInfoStyleFg);
 				section.Get("InfoStyleBg", &info.uInfoStyleBg, info.uInfoStyleBg);
-				section.Get("PopupTitleStyleFg", &info.uPopupTitleStyleFg, info.uPopupTitleStyleFg);
-				section.Get("PopupStyleFg", &info.uPopupStyleFg, info.uPopupStyleFg);
+				section.Get("PopupStyleFg", &info.uPopupStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
+				section.Get("TooltipStyleFg", &info.uTooltipStyleFg, info.uTooltipStyleFg);  // Backwards compat
+				section.Get("TooltipStyleBg", &info.uTooltipStyleBg, info.uTooltipStyleBg);
+				section.Get("PopupTitleStyleFg", &info.uPopupTitleStyleFg, info.uItemStyleFg);  // Backwards compat
+				section.Get("PopupTitleStyleBg", &info.uPopupTitleStyleBg, info.uPopupTitleStyleBg);
+				section.Get("CollapsibleHeaderStyleFg", &info.uCollapsibleHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
+				section.Get("CollapsibleHeaderStyleBg", &info.uCollapsibleHeaderStyleBg, info.uItemStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
+				section.Get("ScrollbarColor", &info.uScrollbarColor, info.uScrollbarColor);
+				section.Get("PopupSliderColor", &info.uPopupSliderColor, info.uPopupSliderColor);
+				section.Get("PopupSliderFocusedColor", &info.uPopupSliderFocusedColor, info.uPopupSliderFocusedColor);
 
 				std::string tmpPath;
 				section.Get("UIAtlas", &tmpPath, "");
 				if (!tmpPath.empty()) {
-					tmpPath = (path / tmpPath).ToString();
-
-					File::FileInfo tmpInfo;
-					if (VFSGetFileInfo((tmpPath+".meta").c_str(), &tmpInfo) && VFSGetFileInfo((tmpPath+".zim").c_str(), &tmpInfo)) {
-						info.sUIAtlas = tmpPath;
+					if (tmpPath == "../ui_atlas") {
+						// Do nothing.
+					} else {
+						// WARNING: Note that the below appears to be entirely broken. ..-navigation doesn't work on zip VFS.
+						INFO_LOG(Log::System, "Checking %s", tmpPath.c_str());
+						tmpPath = (path / tmpPath).ToString();
+						if (g_VFS.Exists((tmpPath + ".meta").c_str()) && g_VFS.Exists((tmpPath + ".zim").c_str())) {
+							// INFO_LOG(Log::System, "%s exists", tmpPath.c_str());
+							info.sUIAtlas = tmpPath;
+						} else {
+							INFO_LOG(Log::System, "%s.meta/zim doesn't exist, not overriding atlas", tmpPath.c_str());
+						}
 					}
 				}
-
 				appendTheme(info);
 			}
 		}
@@ -163,13 +191,13 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 
 static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
 	size_t atlas_data_size = 0;
-	const uint8_t *atlas_data = VFSReadFile(filename, &atlas_data_size);
+	const uint8_t *atlas_data = g_VFS.ReadFile(filename, &atlas_data_size);
 	bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
 	if (!load_success) {
 		if (required)
-			ERROR_LOG(G3D, "Failed to load %s - graphics will be broken", filename);
+			ERROR_LOG(Log::G3D, "Failed to load %s - graphics will be broken", filename);
 		else
-			WARN_LOG(G3D, "Failed to load %s", filename);
+			WARN_LOG(Log::G3D, "Failed to load %s", filename);
 		// Stumble along with broken visuals instead of dying...
 	}
 	delete[] atlas_data;
@@ -181,27 +209,36 @@ void UpdateTheme(UIContext *ctx) {
 		ReloadAllThemeInfo();
 	}
 
-	size_t i;
-	for (i = 0; i < themeInfos.size(); ++i) {
+	int defaultThemeIndex = -1;
+	int selectedThemeIndex = -1;
+	for (int i = 0; i < themeInfos.size(); ++i) {
+		if (themeInfos[i].name == "Default") {
+			defaultThemeIndex = i;
+		}
 		if (themeInfos[i].name == g_Config.sThemeName) {
-			break;
+			selectedThemeIndex = i;
 		}
 	}
 
 	// Reset to Default if not found
-	if (i >= themeInfos.size()) {
+	if (selectedThemeIndex < 0 || selectedThemeIndex >= themeInfos.size()) {
 		g_Config.sThemeName = "Default";
-		i = 0;
+		selectedThemeIndex = defaultThemeIndex;
+		if (selectedThemeIndex < 0) {
+			_dbg_assert_(false);
+			// No themes? Bad.
+			return;
+		}
 	}
 
 #if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
 	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 22);
-	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 15);
-	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 12);
+	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 17);
+	ui_theme.uiFontBig = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 28);
 #else
 	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), "", 20);
-	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 14);
-	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), "", 11);
+	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 15);
+	ui_theme.uiFontBig = UI::FontStyle(FontID("UBUNTU24"), "", 26);
 #endif
 
 	ui_theme.checkOn = ImageID("I_CHECKEDBOX");
@@ -210,28 +247,38 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.sliderKnob = ImageID("I_CIRCLE");
 	ui_theme.dropShadow4Grid = ImageID("I_DROP_SHADOW");
 
+	const ThemeInfo &themeInfo = themeInfos[selectedThemeIndex];
+
 	// Actual configurable themes setting start here
-	ui_theme.itemStyle = MakeStyle(themeInfos[i].uItemStyleFg, themeInfos[i].uItemStyleBg);
-	ui_theme.itemFocusedStyle = MakeStyle(themeInfos[i].uItemFocusedStyleFg, themeInfos[i].uItemFocusedStyleBg);
-	ui_theme.itemDownStyle = MakeStyle(themeInfos[i].uItemDownStyleFg, themeInfos[i].uItemDownStyleBg);
-	ui_theme.itemDisabledStyle = MakeStyle(themeInfos[i].uItemDisabledStyleFg, themeInfos[i].uItemDisabledStyleBg);
+	ui_theme.itemStyle = MakeStyle(themeInfo.uItemStyleFg, themeInfo.uItemStyleBg);
+	ui_theme.itemFocusedStyle = MakeStyle(themeInfo.uItemFocusedStyleFg, themeInfo.uItemFocusedStyleBg);
+	ui_theme.itemDownStyle = MakeStyle(themeInfo.uItemDownStyleFg, themeInfo.uItemDownStyleBg);
+	ui_theme.itemDisabledStyle = MakeStyle(themeInfo.uItemDisabledStyleFg, themeInfo.uItemDisabledStyleBg);
 
-	ui_theme.headerStyle.fgColor = themeInfos[i].uHeaderStyleFg;
-	ui_theme.infoStyle = MakeStyle(themeInfos[i].uInfoStyleFg, themeInfos[i].uInfoStyleBg);
+	ui_theme.headerStyle = MakeStyle(themeInfo.uHeaderStyleFg, themeInfo.uHeaderStyleBg);
+	ui_theme.collapsibleHeaderStyle = MakeStyle(themeInfo.uCollapsibleHeaderStyleFg, themeInfo.uCollapsibleHeaderStyleBg);
+	ui_theme.infoStyle = MakeStyle(themeInfo.uInfoStyleFg, themeInfo.uInfoStyleBg);
 
-	ui_theme.popupTitle.fgColor = themeInfos[i].uPopupTitleStyleFg;
-	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
-	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
+	ui_theme.popupStyle = MakeStyle(themeInfo.uPopupStyleFg, themeInfo.uPopupStyleBg);
+	ui_theme.popupTitleStyle = MakeStyle(themeInfo.uPopupTitleStyleFg, themeInfo.uPopupTitleStyleBg);
+
+	ui_theme.tooltipStyle = MakeStyle(themeInfo.uTooltipStyleFg, themeInfo.uTooltipStyleBg);
+
+	ui_theme.backgroundColor = themeInfo.uBackgroundColor;
+	ui_theme.scrollbarColor = themeInfo.uScrollbarColor;
+
+	ui_theme.popupSliderColor = themeInfo.uPopupSliderColor;
+	ui_theme.popupSliderFocusedColor = themeInfo.uPopupSliderFocusedColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).
-	LoadAtlasMetadata(ui_atlas, (themeInfos[i].sUIAtlas + ".meta").c_str(), true);
+	LoadAtlasMetadata(ui_atlas, (themeInfo.sUIAtlas + ".meta").c_str(), true);
 #if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 	LoadAtlasMetadata(font_atlas, "font_atlas.meta", ui_atlas.num_fonts == 0);
 #else
 	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
 #endif
 
-	ctx->setUIAtlas(themeInfos[i].sUIAtlas + ".zim");
+	ctx->setUIAtlas(themeInfo.sUIAtlas + ".zim");
 }
 
 UI::Theme *GetTheme() {

@@ -67,11 +67,13 @@ static const bool g_validate_ = true;
 static const bool g_validate_ = false;
 #endif
 
-static uint32_t FlagsFromConfig() {
-	uint32_t flags = 0;
-	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
+static VulkanInitFlags FlagsFromConfig() {
+	VulkanInitFlags flags = g_Config.bVSync ? VulkanInitFlags::PRESENT_FIFO : VulkanInitFlags::PRESENT_MAILBOX;
 	if (g_validate_) {
-		flags |= VULKAN_FLAG_VALIDATE;
+		flags |= VulkanInitFlags::VALIDATE;
+	}
+	if (g_Config.bVulkanDisableImplicitLayers) {
+		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
 	}
 	return flags;
 }
@@ -92,8 +94,10 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 
-	if (!VulkanLoad()) {
-		*error_message = "Failed to load Vulkan driver library";
+	std::string errorStr;
+	if (!VulkanLoad(&errorStr)) {
+		*error_message = "Failed to load Vulkan driver library: ";
+		(*error_message) += errorStr;
 		return false;
 	}
 
@@ -116,8 +120,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
 
-	vulkan_->ChooseDevice(deviceNum);
-	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;
@@ -131,7 +134,12 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_);
+	bool useMultiThreading = g_Config.bRenderMultiThreading;
+	if (g_Config.iInflightFrames == 1) {
+		useMultiThreading = false;
+	}
+
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
 	SetGPUBackend(GPUBackend::VULKAN, vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName);
 	bool success = draw_->CreatePresets();
 	_assert_msg_(success, "Failed to compile preset shaders");
@@ -169,15 +177,18 @@ void WindowsVulkanContext::Shutdown() {
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	vulkan_->DestroySwapchain();
-	vulkan_->UpdateFlags(FlagsFromConfig());
+	vulkan_->UpdateInitFlags(FlagsFromConfig());
 	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 
 void WindowsVulkanContext::Poll() {
 	// Check for existing swapchain to avoid issues during shutdown.
-	if (vulkan_->GetSwapchain() && renderManager_->NeedsSwapchainRecreate()) {
+	if (vulkan_->IsSwapchainInited() && renderManager_->NeedsSwapchainRecreate()) {
 		Resize();
+	} else if (vulkan_->IsSwapchainInited() && windowRestored_) {
+		Resize();
+		windowRestored_ = false;
 	}
 }
 

@@ -104,6 +104,16 @@ struct retro_core_option_v2_category option_cats_us[] = {
       "Configure video options."
    },
    {
+      "input",
+      "Input",
+      "Configure input options."
+   },
+   {
+      "hacks",
+      "Hacks",
+      "Configure speed and emulation hacks. Can cause rendering errors!"
+   },
+   {
       "network",
       "Network",
       "Configure network options."
@@ -112,31 +122,6 @@ struct retro_core_option_v2_category option_cats_us[] = {
 };
 
 struct retro_core_option_v2_definition option_defs_us[] = {
-   {
-      "ppsspp_language",
-      "Language",
-      NULL,
-      "Choose language, 'Automatic' will use the frontend language.",
-      NULL,
-      "system",
-      {
-         { "Automatic",           NULL },
-         { "English",             NULL },
-         { "Japanese",            NULL },
-         { "French",              NULL },
-         { "Spanish",             NULL },
-         { "German",              NULL },
-         { "Italian",             NULL },
-         { "Dutch",               NULL },
-         { "Portuguese",          NULL },
-         { "Russian",             NULL },
-         { "Korean",              NULL },
-         { "Chinese Traditional", NULL },
-         { "Chinese Simplified",  NULL },
-         { NULL, NULL },
-      },
-      "Automatic"
-   },
    {
       "ppsspp_cpu_core",
       "CPU Core",
@@ -156,7 +141,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "ppsspp_fast_memory",
       "Fast Memory",
       NULL,
-      NULL,
+      "Unstable.",
       NULL,
       "system",
       BOOL_OPTIONS,
@@ -189,9 +174,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_force_lag_sync",
-      "Force Real Clock Sync (Slower, less lag)",
+      "Force Real Clock Sync",
       NULL,
-      NULL,
+      "Slower, less lag.",
       NULL,
       "system",
       BOOL_OPTIONS,
@@ -209,9 +194,34 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { "222MHz",   NULL },
          { "266MHz",   NULL },
          { "333MHz",   NULL },
+         { "366MHz",   NULL },
+         { "399MHz",   NULL },
+         { "432MHz",   NULL },
+         { "444MHz",   NULL },
+         { "466MHz",   NULL },
+         { "499MHz",   NULL },
+         { "532MHz",   NULL },
+         { "555MHz",   NULL },
+         { "566MHz",   NULL },
+         { "599MHz",   NULL },
+         { "632MHz",   NULL },
+         { "666MHz",   NULL },
+         { "777MHz",   NULL },
+         { "888MHz",   NULL },
+         { "999MHz",   NULL },
          { NULL, NULL },
       },
       "disabled"
+   },
+   {
+      "ppsspp_memstick_inserted",
+      "Memory Stick Inserted",
+      NULL,
+      "Some games require ejecting/inserting the Memory Stick.",
+      NULL,
+      "system",
+      BOOL_OPTIONS,
+      "enabled"
    },
    {
       "ppsspp_cache_iso",
@@ -234,6 +244,31 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_language",
+      "Game Language",
+      NULL,
+      "'Automatic' will use the frontend language.",
+      NULL,
+      "system",
+      {
+         { "Automatic",           NULL },
+         { "English",             NULL },
+         { "Japanese",            NULL },
+         { "French",              NULL },
+         { "Spanish",             NULL },
+         { "German",              NULL },
+         { "Italian",             NULL },
+         { "Dutch",               NULL },
+         { "Portuguese",          NULL },
+         { "Russian",             NULL },
+         { "Korean",              NULL },
+         { "Chinese Traditional", NULL },
+         { "Chinese Simplified",  NULL },
+         { NULL, NULL },
+      },
+      "Automatic"
+   },
+   {
       "ppsspp_psp_model",
       "PSP Model",
       NULL,
@@ -248,60 +283,83 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "psp_2000_3000"
    },
    {
-      "ppsspp_button_preference",
-      "Confirmation Button",
+      "ppsspp_backend",
+      "Backend",
       NULL,
-      NULL,
-      NULL,
-      "system",
-      {
-         { "Cross",  NULL },
-         { "Circle", NULL },
-         { NULL, NULL },
-      },
-      "Cross"
-   },
-   {
-      "ppsspp_internal_resolution",
-      "Internal Resolution (Restart)",
-      NULL,
-      NULL,
+      "'Automatic' will use the frontend video driver. Core restart required.",
       NULL,
       "video",
       {
-         { "480x272",   NULL },
-         { "960x544",   NULL },
-         { "1440x816",  NULL },
-         { "1920x1088", NULL },
-         { "2400x1360", NULL },
-         { "2880x1632", NULL },
-         { "3360x1904", NULL },
-         { "3840x2176", NULL },
-         { "4320x2448", NULL },
-         { "4800x2720", NULL },
+         { "auto",   "Automatic" },
+         { "opengl", "OpenGL" },
+#ifndef HAVE_LIBNX
+         { "vulkan", "Vulkan" },
+#endif
+#ifdef _WIN32
+         { "d3d11",  "D3D11" },
+#endif
+         { "none",   "None" },
+         { NULL, NULL },
+      },
+      "auto"
+   },
+   {
+      "ppsspp_software_rendering",
+      "Software Rendering",
+      NULL,
+      "Slow, accurate. Core restart required.",
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_internal_resolution",
+      "Rendering Resolution",
+      NULL,
+      "Core restart required with Vulkan.",
+      NULL,
+      "video",
+      {
+         { "480x272",   "1x (480x272)" },
+         { "960x544",   "2x (960x544)" },
+         { "1440x816",  "3x (1440x816)" },
+         { "1920x1088", "4x (1920x1088)" },
+         { "2400x1360", "5x (2400x1360)" },
+         { "2880x1632", "6x (2880x1632)" },
+         { "3360x1904", "7x (3360x1904)" },
+         { "3840x2176", "8x (3840x2176)" },
+         { "4320x2448", "9x (4320x2448)" },
+         { "4800x2720", "10x (4800x2720)" },
          { NULL, NULL },
       },
       "480x272"
    },
    {
-      "ppsspp_skip_buffer_effects",
-      "Skip Buffer Effects",
+      "ppsspp_mulitsample_level",
+      "MSAA Antialiasing",
       NULL,
-      "Faster, but may cause major rendering issues.",
+      "Vulkan only. Core restart required.",
       NULL,
       "video",
-      BOOL_OPTIONS,
-      "disabled"
+      {
+         {"Disabled", NULL},
+         {"x2", NULL},
+         {"x4", NULL},
+         {"x8", NULL},
+         {NULL, NULL}
+      },
+      "Disabled"
    },
    {
-      "ppsspp_skip_gpu_readbacks",
-      "Skip GPU Readbacks",
+      "ppsspp_cropto16x9",
+      "Crop to 16x9",
       NULL,
-      "Some games require GPU readbacks, so be careful.",
+      "Remove one line from top and bottom to get exact 16:9. Core restart required with Vulkan.",
       NULL,
       "video",
       BOOL_OPTIONS,
-      "disabled"
+      "enabled"
    },
    {
       "ppsspp_frameskip",
@@ -350,19 +408,19 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_frame_duplication",
-      "Duplicate Frames in 30 Hz Games",
+      "Render Duplicate Frames to 60 Hz",
       NULL,
       "Can make framerate smoother in games that run at lower framerates.",
       NULL,
       "video",
       BOOL_OPTIONS,
-      "disabled"
+      "enabled"
    },
    {
       "ppsspp_detect_vsync_swap_interval",
-      "Detect Frame Rate Changes (Notify frontend)",
+      "Detect Frame Rate Changes",
       NULL,
-      NULL,
+      "Notify frontend.",
       NULL,
       "video",
       BOOL_OPTIONS,
@@ -370,9 +428,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_inflight_frames",
-      "Buffered Frames (GL/Vulkan only, slower, less lag, restart)",
+      "Buffer Graphics Commands",
       NULL,
-      NULL,
+      "GL/Vulkan only, slower, less lag, restart.",
       NULL,
       "video",
       {
@@ -382,6 +440,143 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { NULL, NULL },
       },
       "Up to 2"
+   },
+   {
+      "ppsspp_button_preference",
+      "Confirmation Button",
+      NULL,
+      NULL,
+      NULL,
+      "input",
+      {
+         { "Cross",  NULL },
+         { "Circle", NULL },
+         { NULL, NULL },
+      },
+      "Cross"
+   },
+   {
+      "ppsspp_analog_is_circular",
+      "Analog Circle vs Square Gate Compensation",
+      NULL,
+      NULL,
+      NULL,
+      "input",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_analog_deadzone",
+      "Analog Deadzone",
+      NULL,
+      "Additional deadzone to apply after frontend input.",
+      NULL,
+      "input",
+      {
+         { "0.0",  "0%" },
+         { "0.05", "5%" },
+         { "0.10", "10%" },
+         { "0.15", "15%" },
+         { "0.20", "20%" },
+         { "0.25", "25%" },
+         { "0.30", "30%" },
+         { "0.35", "35%" },
+         { "0.40", "40%" },
+         { "0.45", "45%" },
+         { "0.50", "50%" },
+         { NULL, NULL },
+      },
+      "0.0"
+   },
+   {
+      "ppsspp_analog_sensitivity",
+      "Analog Axis Scale",
+      NULL,
+      "Additional sensitivity factor to apply after frontend input.",
+      NULL,
+      "input",
+      {
+         {"1.00", NULL}, {"1.01", NULL}, {"1.02", NULL}, {"1.03", NULL}, {"1.04", NULL}, {"1.05", NULL}, {"1.06", NULL},
+         {"1.07", NULL}, {"1.08", NULL}, {"1.09", NULL}, {"1.10", NULL}, {"1.11", NULL}, {"1.12", NULL}, {"1.13", NULL},
+         {"1.14", NULL}, {"1.15", NULL}, {"1.16", NULL}, {"1.17", NULL}, {"1.18", NULL}, {"1.19", NULL}, {"1.20", NULL},
+         {"1.21", NULL}, {"1.22", NULL}, {"1.23", NULL}, {"1.24", NULL}, {"1.25", NULL}, {"1.26", NULL}, {"1.27", NULL},
+         {"1.28", NULL}, {"1.29", NULL}, {"1.30", NULL}, {"1.31", NULL}, {"1.32", NULL}, {"1.33", NULL}, {"1.34", NULL},
+         {"1.35", NULL}, {"1.36", NULL}, {"1.37", NULL}, {"1.38", NULL}, {"1.39", NULL}, {"1.40", NULL}, {"1.41", NULL},
+         {"1.42", NULL}, {"1.43", NULL}, {"1.44", NULL}, {"1.45", NULL}, {"1.46", NULL}, {"1.47", NULL}, {"1.48", NULL},
+         {"1.49", NULL}, {"1.50", NULL}, {NULL, NULL},
+      },
+      "1.00"
+   },
+   {
+      "ppsspp_skip_buffer_effects",
+      "Skip Buffer Effects",
+      NULL,
+      "Faster, but nothing may draw in some games.",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_disable_range_culling",
+      "Disable Culling",
+      NULL,
+      "",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_skip_gpu_readbacks",
+      "Skip GPU Readbacks",
+      NULL,
+      "Some games require GPU readbacks, so be careful.",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_lazy_texture_caching",
+      "Lazy Texture Caching (Speedup)",
+      NULL,
+      "Faster, but can cause text problems in a few games.",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_spline_quality",
+      "Spline/Bezier Curves Quality",
+      NULL,
+      "Only used by some games, controls smoothness of curves.",
+      NULL,
+      "hacks",
+      {
+         { "Low",    NULL },
+         { "Medium", NULL },
+         { "High",   NULL },
+         { NULL, NULL },
+      },
+      "High"
+   },
+   {
+      "ppsspp_lower_resolution_for_effects",
+      "Lower Resolution for Effects",
+      NULL,
+      "Reduces artifacts.",
+      NULL,
+      "hacks",
+      {
+         { "disabled",   NULL },
+         { "Safe",       NULL },
+         { "Balanced",   NULL },
+         { "Aggressive", NULL },
+         { NULL, NULL },
+      },
+      "disabled"
    },
    {
       "ppsspp_gpu_hardware_transform",
@@ -404,41 +599,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "enabled"
    },
    {
-      "ppsspp_vertex_cache",
-      "Vertex Cache",
-      NULL,
-      "Faster, but may cause temporary flicker.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
-      "ppsspp_lazy_texture_caching",
-      "Lazy Texture Caching (Speedup)",
-      NULL,
-      "Faster, but can cause text problems in a few games.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
-      "ppsspp_spline_quality",
-      "Spline/Bezier Curves Quality",
-      NULL,
-      "Only used by some games, controls smoothness of curves.",
-      NULL,
-      "video",
-      {
-         { "Low",    NULL },
-         { "Medium", NULL },
-         { "High",   NULL },
-         { NULL, NULL },
-      },
-      "High"
-   },
-   {
       "ppsspp_hardware_tesselation",
       "Hardware Tesselation",
       NULL,
@@ -449,24 +609,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_lower_resolution_for_effects",
-      "Lower Resolution for Effects",
-      NULL,
-      NULL,
-      NULL,
-      "video",
-      {
-         { "disabled",   NULL },
-         { "Safe",       NULL },
-         { "Balanced",   NULL },
-         { "Aggressive", NULL },
-         { NULL, NULL },
-      },
-      "disabled"
-   },
-   {
       "ppsspp_texture_scaling_type",
-      "Texture Scaling Type",
+      "Texture Upscale Type",
       NULL,
       NULL,
       NULL,
@@ -482,7 +626,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_texture_scaling_level",
-      "Texture Scaling Level",
+      "Texture Upscaling Level",
       NULL,
       "CPU heavy, some scaling may be delayed to avoid stutter.",
       NULL,
@@ -509,9 +653,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_texture_shader",
-      "Texture Shader (Vulkan only, overrides 'Texture Scaling Type')",
+      "Texture Shader",
       NULL,
-      NULL,
+      "Vulkan only, overrides 'Texture Scaling Type'.",
       NULL,
       "video",
       {
@@ -557,6 +701,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Auto"
    },
    {
+      "ppsspp_smart_2d_texture_filtering",
+      "Smart 2D Texture Filtering",
+      NULL,
+      "Gets rid of some visual artifacts caused by unnecessary texture filtering in some 2D games, by switching to nearest filtering.",
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
       "ppsspp_texture_replacement",
       "Texture Replacement",
       NULL,
@@ -578,7 +732,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address01",
-      "MAC Address Pt  1: X-:--:--:--:--:--",
+      "MAC Address Pt  1: x-:--:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -588,7 +742,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address02",
-      "MAC Address Pt  2: -X:--:--:--:--:--",
+      "MAC Address Pt  2: -x:--:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -598,7 +752,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address03",
-      "MAC Address Pt  3: --:X-:--:--:--:--",
+      "MAC Address Pt  3: --:x-:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -608,7 +762,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address04",
-      "MAC Address Pt  4: --:-X:--:--:--:--",
+      "MAC Address Pt  4: --:-x:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -618,7 +772,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address05",
-      "MAC Address Pt  5: --:--:X-:--:--:--",
+      "MAC Address Pt  5: --:--:x-:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -628,7 +782,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address06",
-      "MAC Address Pt  6: --:--:-X:--:--:--",
+      "MAC Address Pt  6: --:--:-x:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -638,7 +792,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address07",
-      "MAC Address Pt  7: --:--:--:X-:--:--",
+      "MAC Address Pt  7: --:--:--:x-:--:--",
       NULL,
       NULL,
       NULL,
@@ -648,7 +802,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address08",
-      "MAC Address Pt  8: --:--:--:-X:--:--",
+      "MAC Address Pt  8: --:--:--:-x:--:--",
       NULL,
       NULL,
       NULL,
@@ -658,7 +812,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address09",
-      "MAC Address Pt  9: --:--:--:--:X-:--",
+      "MAC Address Pt  9: --:--:--:--:x-:--",
       NULL,
       NULL,
       NULL,
@@ -668,7 +822,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address10",
-      "MAC Address Pt 10: --:--:--:--:-X:--",
+      "MAC Address Pt 10: --:--:--:--:-x:--",
       NULL,
       NULL,
       NULL,
@@ -678,7 +832,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address11",
-      "MAC Address Pt 11: --:--:--:--:--:X-",
+      "MAC Address Pt 11: --:--:--:--:--:x-",
       NULL,
       NULL,
       NULL,
@@ -688,7 +842,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address12",
-      "MAC Address Pt 12: --:--:--:--:--:-X",
+      "MAC Address Pt 12: --:--:--:--:--:-x",
       NULL,
       NULL,
       NULL,

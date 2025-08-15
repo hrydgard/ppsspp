@@ -19,10 +19,11 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 
 #include "Common/File/Path.h"
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUCommonHW.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Common/TextureShaderCommon.h"
@@ -32,32 +33,23 @@ class ShaderManagerVulkan;
 class LinkedShader;
 class TextureCacheVulkan;
 
-class GPU_Vulkan : public GPUCommon {
+class GPU_Vulkan : public GPUCommonHW {
 public:
 	GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_Vulkan();
 
+	void FinishInitOnMainThread() override;
+
 	// This gets called on startup and when we get back from settings.
 	u32 CheckGPUFeatures() const override;
-
-	bool IsReady() override;
-	void CancelReady() override;
 
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;
 	void EndHostFrame() override;
 
-	void PreExecuteOp(u32 op, u32 diff) override;
-	void ExecuteOp(u32 op, u32 diff) override;
-
 	void GetStats(char *buffer, size_t bufsize) override;
-	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
-	void DeviceRestore() override;
-
-	void DoState(PointerWrap &p) override;
-
-	void ClearShaderCache() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
@@ -67,20 +59,12 @@ public:
 		return textureCacheVulkan_;
 	}
 
-	std::string GetGpuProfileString();
-
 protected:
 	void FinishDeferred() override;
+	void CheckRenderResized() override;
 
 private:
-	void Flush() {
-		drawEngine_.Flush();
-	}
-	void CheckFlushOp(int cmd, u32 diff);
-	void BuildReportingInfo();
-	void InitClear() override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
-	void Reinitialize() override;
+	void BuildReportingInfo() override;
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -98,12 +82,5 @@ private:
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
 
-	struct FrameData {
-		VulkanPushBuffer *push_;
-	};
-
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
-
 	Path shaderCachePath_;
-	bool shaderCacheLoaded_ = false;
 };

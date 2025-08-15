@@ -21,6 +21,8 @@
 #include <mutex>
 #include <set>
 #include <unordered_map>
+#include <cstdint>
+
 #include "Common/CommonTypes.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMap.h"
@@ -317,8 +319,8 @@ public:
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param, u32 requestAddr);
 	bool GetSize(SceUtilitySavedataParam* param);
-	int GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName);
-	bool IsInSaveDataList(std::string saveName, int count);
+	int GetSaveCryptMode(const SceUtilitySavedataParam *param, const std::string &saveDirName);
+	bool IsInSaveDataList(const std::string &saveName, int count);
 
 	std::string GetGameName(const SceUtilitySavedataParam *param) const;
 	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
@@ -351,20 +353,20 @@ public:
 	int GetLastDataSave();
 	int GetFirstEmptySave();
 	int GetLastEmptySave();
-	int GetSaveNameIndex(SceUtilitySavedataParam* param);
+	int GetSaveNameIndex(const SceUtilitySavedataParam *param);
 
-	bool wouldHasMultiSaveName(SceUtilitySavedataParam* param);
+	bool WouldHaveMultiSaveName(const SceUtilitySavedataParam *param);
 
-	void ClearCaches();
+	void ClearSFOCache();
 
 	void DoState(PointerWrap &p);
 
 private:
 	void Clear();
-	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
-	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
+	void SetFileInfo(int idx, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir = "");
+	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir = "");
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
-	PSPFileInfo GetSaveInfo(std::string saveDir);
+	PSPFileInfo GetSaveInfo(const std::string &saveDir);
 
 	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
 	u32 LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone);
@@ -372,10 +374,12 @@ private:
 	bool LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath);
 	void LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData);
 
-	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
+	int DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
-	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
+
+	// data must be zero-padded from len to alignedLen (which should be the next multiply of 16)!
+	int BuildHash(uint8_t *output, const uint8_t *data, unsigned int len, unsigned int alignedLen, int mode, const uint8_t *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 
 	std::vector<SaveSFOFileListEntry> GetSFOEntries(const std::string &dirPath);

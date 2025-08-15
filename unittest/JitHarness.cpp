@@ -33,15 +33,16 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 
 // Temporary hacks around annoying linking errors.  Copied from Headless.
-void NativeUpdate() { }
-void NativeRender(GraphicsContext *graphicsContext) { }
+void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
-void System_SendMessage(const char *command, const char *parameter) {}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -56,16 +57,22 @@ HLEFunction UnitTestFakeSyscalls[] = {
 	{0x1234BEEF, &UnitTestTerminator, "UnitTestTerminator"},
 };
 
-double ExecCPUTest() {
+double ExecCPUTest(bool clearCache = true) {
 	int blockTicks = 1000000;
 	int total = 0;
+
+	if (MIPSComp::jit) {
+		currentMIPS->pc = PSP_GetUserMemoryBase();
+		MIPSComp::JitAt();
+	}
+
 	double st = time_now_d();
 	do {
 		for (int j = 0; j < 1000; ++j) {
 			currentMIPS->pc = PSP_GetUserMemoryBase();
-			coreState = CORE_RUNNING;
+			coreState = CORE_RUNNING_CPU;
 
-			while (coreState == CORE_RUNNING) {
+			while (coreState == CORE_RUNNING_CPU) {
 				mipsr4k.RunLoopUntil(blockTicks);
 			}
 			++total;
@@ -74,15 +81,26 @@ double ExecCPUTest() {
 	while (time_now_d() - st < 0.5);
 	double elapsed = time_now_d() - st;
 
+	if (MIPSComp::jit) {
+		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
+		if (cache) {
+			JitBlockDebugInfo block = cache->GetBlockDebugInfo(0);
+			WARN_LOG(Log::JIT, "Executed %d target instrs, %d IR, for %d orig", (int)block.targetDisasm.size(), (int)block.irDisasm.size(), (int)block.origDisasm.size());
+		}
+
+		if (clearCache)
+			MIPSComp::jit->ClearCache();
+	}
+
 	return total / elapsed;
 }
 
 static void SetupJitHarness() {
 	// We register a syscall so we have an easy way to finish the test.
-	RegisterModule("UnitTestFakeSyscalls", ARRAY_SIZE(UnitTestFakeSyscalls), UnitTestFakeSyscalls);
+	RegisterHLEModule("UnitTestFakeSyscalls", ARRAY_SIZE(UnitTestFakeSyscalls), UnitTestFakeSyscalls);
 
 	// This is pretty much the bare minimum required to setup jit.
-	coreState = CORE_POWERUP;
+	coreState = CORE_RUNNING_CPU;
 	currentMIPS = &mipsr4k;
 	g_symbolMap = new SymbolMap();
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
@@ -92,7 +110,7 @@ static void SetupJitHarness() {
 	Memory::Init();
 	mipsr4k.Reset();
 	CoreTiming::Init();
-	InitVFPUSinCos();
+	InitVFPU();
 }
 
 static void DestroyJitHarness() {
@@ -109,6 +127,7 @@ static void DestroyJitHarness() {
 bool TestJit() {
 	SetupJitHarness();
 
+	g_Config.bFastMemory = true;
 	currentMIPS->pc = PSP_GetUserMemoryBase();
 	u32 *p = (u32 *)Memory::GetPointer(currentMIPS->pc);
 
@@ -159,42 +178,45 @@ bool TestJit() {
 
 	*p++ = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator");
 	*p++ = MIPS_MAKE_BREAK(1);
+	*p++ = MIPS_MAKE_JR_RA();
 
 	// Dogfood.
 	addr = currentMIPS->pc;
 	for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 		char line[512];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, line, true);
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, line, sizeof(line), true);
 		addr += 4;
 		printf("%s\n", line);
 	}
 
 	printf("\n");
 
-	double jit_speed = 0.0, interp_speed = 0.0;
+	double jit_speed = 0.0, jit_ir_speed = 0.0, ir_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
+		mipsr4k.UpdateCore(CPUCore::IR_INTERPRETER);
+		ir_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		jit_speed = ExecCPUTest();
+#if !PPSSPP_PLATFORM(MAC)
+		mipsr4k.UpdateCore(CPUCore::JIT_IR);
+		jit_ir_speed = ExecCPUTest(false);
+#endif
 
 		// Disassemble
-		JitBlockCache *cache = MIPSComp::jit->GetBlockCache();
-		JitBlock *block = cache->GetBlock(0);  // Should only be one block.
-#if PPSSPP_ARCH(ARM)
-		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif PPSSPP_ARCH(ARM64)
-		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
-#else
-		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
-#endif
-		// Cut off at 25 due to the repetition above. Might need tweaking for large instructions.
-		const int cutoff = 25;
-		for (int i = 0; i < std::min((int)lines.size(), cutoff); i++) {
-			printf("%s\n", lines[i].c_str());
+		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
+		if (cache) {
+			JitBlockDebugInfo block = cache->GetBlockDebugInfo(0);  // Should only be one block.
+			std::vector<std::string> &lines = block.targetDisasm;
+			// Cut off at 25 due to the repetition above. Might need tweaking for large instructions.
+			const int cutoff = 50;
+			for (int i = 0; i < std::min((int)lines.size(), cutoff); i++) {
+				printf("%s\n", lines[i].c_str());
+			}
+			if (lines.size() > cutoff)
+				printf("...\n");
 		}
-		if (lines.size() > cutoff)
-			printf("...\n");
-		printf("Jit was %fx faster than interp.\n\n", jit_speed / interp_speed);
+		printf("Jit was %fx faster than interp, IR was %fx faster, JIT IR %fx.\n\n", jit_speed / interp_speed, ir_speed / interp_speed, jit_ir_speed / interp_speed);
 	}
 
 	printf("\n");

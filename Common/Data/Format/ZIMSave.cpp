@@ -143,7 +143,7 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 			break;
 
 		default:
-			ERROR_LOG(IO, "Unhandled ZIM format %d", flags & ZIM_FORMAT_MASK);
+			ERROR_LOG(Log::IO, "Unhandled ZIM format %d", flags & ZIM_FORMAT_MASK);
 			*data = 0;
 			*data_size = 0;
 			return;
@@ -199,7 +199,7 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 			if (Z_OK == ezcompress(dest, &dest_len, data, data_size, compressLevel == 0 ? Z_DEFAULT_COMPRESSION : compressLevel)) {
 				fwrite(dest, 1, dest_len, f);
 			} else {
-				ERROR_LOG(IO, "Zlib compression failed.\n");
+				ERROR_LOG(Log::IO, "Zlib compression failed.\n");
 			}
 			delete [] dest;
 		} else if (flags & ZIM_ZSTD_COMPRESSED) {
@@ -209,7 +209,7 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 			if (!ZSTD_isError(dest_len)) {
 				fwrite(dest, 1, dest_len, f);
 			} else {
-				ERROR_LOG(IO, "Zlib compression failed.\n");
+				ERROR_LOG(Log::IO, "Zlib compression failed.\n");
 			}
 			delete [] dest;
 		} else {

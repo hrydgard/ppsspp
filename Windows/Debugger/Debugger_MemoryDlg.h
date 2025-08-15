@@ -1,13 +1,12 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #pragma once
 #include "Windows/W32Util/DialogManager.h"
 
 #include "Core/MemMap.h"
 
-#include "Core/Debugger/DebugInterface.h"
 #include "CtrlMemView.h"
 #include "Common/CommonWindows.h"
+
+class MIPSDebugInterface;
 
 class CMemoryDlg : public Dialog
 {
@@ -19,24 +18,22 @@ private:
 	HWND memViewHdl, symListHdl, editWnd, searchBoxHdl, srcListHdl;
 	HWND layerDropdown_;
 	HWND status_;
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 public:
 	int index; //helper 
 
-	void searchBoxRedraw(std::vector<u32> results);
+	void searchBoxRedraw(const std::vector<u32> &results);
 
 	// constructor
-	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu);
+	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, MIPSDebugInterface *_cpu);
 	
 	// destructor
 	~CMemoryDlg(void);
 	
 	void Goto(u32 addr);
-	void Update(void);	
+	void Update(void) override;
 	void NotifyMapLoaded();
-
-	void NotifySearchCompleted();
 
 	void Size(void);
 

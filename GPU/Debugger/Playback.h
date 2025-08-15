@@ -17,10 +17,21 @@
 
 #pragma once
 
+#include <cstdlib>
 #include <string>
 
 namespace GPURecord {
 
-bool RunMountedReplay(const std::string &filename);
-
+enum class ReplayResult {
+	Done = 0,
+	Error = 1,
+	Break = 2,
 };
+
+void WriteRunDumpCode(u32 addr);
+ReplayResult RunMountedReplay(const std::string &filename);
+
+// Will also cancel a currently running replay.
+void Replay_Unload();
+
+}  // namespace GPURecord

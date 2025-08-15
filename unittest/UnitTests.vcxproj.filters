@@ -16,6 +16,8 @@
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestIRPassSimplify.cpp" />
     <ClCompile Include="TestRiscVEmitter.cpp" />
+    <ClCompile Include="TestVFS.cpp" />
+    <ClCompile Include="TestLoongArch64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />

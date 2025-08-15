@@ -33,8 +33,16 @@
 
 using namespace json;
 
+struct WebSocketClientInfo {
+	WebSocketClientInfo() = default;
+
+	std::string name;
+	std::string version;
+	std::map <std::string, bool> disallowed;
+};
+
 struct DebuggerErrorEvent {
-	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l, const JsonGet data = JsonValue(JSON_NULL))
+	DebuggerErrorEvent(const std::string m, LogLevel l, const JsonGet data = JsonValue(JSON_NULL))
 		: message(m), level(l) {
 		// Need to format right away, before it's out of scope.
 		if (data) {
@@ -45,7 +53,7 @@ struct DebuggerErrorEvent {
 	}
 
 	std::string message;
-	LogTypes::LOG_LEVELS level;
+	LogLevel level;
 	std::string ticketRaw;
 
 	operator std::string() const {
@@ -53,7 +61,7 @@ struct DebuggerErrorEvent {
 		j.begin();
 		j.writeString("event", "error");
 		j.writeString("message", message);
-		j.writeInt("level", level);
+		j.writeInt("level", (int)level);
 		if (!ticketRaw.empty()) {
 			j.writeRaw("ticket", ticketRaw);
 		}
@@ -70,16 +78,17 @@ enum class DebuggerParamType {
 };
 
 struct DebuggerRequest {
-	DebuggerRequest(const char *n, net::WebSocketServer *w, const JsonGet &d)
-		: name(n), ws(w), data(d) {
+	DebuggerRequest(const char *n, net::WebSocketServer *w, const JsonGet &d, WebSocketClientInfo *client_info)
+		: name(n), ws(w), data(d), client(client_info) {
 	}
 
 	const char *name;
 	net::WebSocketServer *ws;
 	const JsonGet data;
+	WebSocketClientInfo *client;
 
 	void Fail(const std::string &message) {
-		ws->Send(DebuggerErrorEvent(message, LogTypes::LERROR, data));
+		ws->Send(DebuggerErrorEvent(message, LogLevel::LERROR, data));
 		responseSent_ = true;
 	}
 

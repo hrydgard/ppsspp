@@ -20,7 +20,7 @@
 
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Common/MemoryUtil.h"
 #include "Common/CPUDetect.h"
@@ -56,7 +56,7 @@ static const bool disasm = false;
 extern volatile CoreState coreState;
 
 void ShowPC(u32 sp) {
-	ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+	ERROR_LOG(Log::JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
 	// Sleep(1);
 }
 
@@ -71,8 +71,8 @@ namespace MIPSComp {
 using namespace ArmJitConstants;
 
 void ArmJit::GenerateFixedCode() {
+	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
-	BeginWrite();
 
 	// LR == SCRATCHREG2 on ARM32 so it needs to be pushed.
 	restoreRoundingMode = AlignCode16(); {
@@ -127,7 +127,7 @@ void ArmJit::GenerateFixedCode() {
 
 	enterDispatcher = AlignCode16();
 
-	DEBUG_LOG(JIT, "Base: %08x", (u32)Memory::base);
+	DEBUG_LOG(Log::JIT, "Base: %08x", (u32)Memory::base);
 
 	SetCC(CC_AL);
 
@@ -256,9 +256,9 @@ void ArmJit::GenerateFixedCode() {
 
 	// Uncomment if you want to see the output...
 	if (disasm) {
-		INFO_LOG(JIT, "THE DISASM ========================");
+		INFO_LOG(Log::JIT, "THE DISASM ========================");
 		DisassembleArm(start, GetCodePtr() - start);
-		INFO_LOG(JIT, "END OF THE DISASM ========================");
+		INFO_LOG(Log::JIT, "END OF THE DISASM ========================");
 	}
 
 	// Don't forget to zap the instruction cache!

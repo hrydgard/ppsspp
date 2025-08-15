@@ -62,12 +62,12 @@ static bool enableDebug = false;
 //R15 - Pointer to array of block pointers
 
 void ImHere() {
-	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
+	DEBUG_LOG(Log::CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
 void Jit::GenerateFixedCode(JitOptions &jo) {
+	BeginWrite(GetMemoryProtectPageSize());
 	AlignCodePage();
-	BeginWrite();
 
 	restoreRoundingMode = AlignCode16(); {
 		STMXCSR(MIPSSTATE_VAR(temp));

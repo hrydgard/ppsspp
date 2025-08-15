@@ -1,19 +1,26 @@
 #include <string>
 #include <mutex>
+#include <algorithm>
+
+#include "ext/minimp3/minimp3_ex.h"
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/UI/Root.h"
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/CommonTypes.h"
 #include "Common/Data/Format/RIFF.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HLE/__sceAudio.h"
-#include "GameInfoCache.h"
+#include "Core/System.h"
 #include "Core/Config.h"
+#include "UI/GameInfoCache.h"
 #include "UI/BackgroundAudio.h"
 
 struct WavData {
@@ -30,17 +37,23 @@ struct WavData {
 	int raw_bytes_per_frame = 0;
 	uint8_t *raw_data = nullptr;
 	int raw_data_size = 0;
-	u8 at3_extradata[16];
+	u8 at3_extradata[16]{};
 
-	void Read(RIFFReader &riff);
+	bool Read(RIFFReader &riff);
 
 	~WavData() {
 		free(raw_data);
 		raw_data = nullptr;
 	}
+
+	[[nodiscard]]
+	bool IsSimpleWAV() const {
+		bool isBad = raw_bytes_per_frame > sizeof(int16_t) * num_channels;
+		return !isBad && num_channels > 0 && sample_rate >= 8000 && codec == 0;
+	}
 };
 
-void WavData::Read(RIFFReader &file_) {
+bool WavData::Read(RIFFReader &file_) {
 	// If we have no loop start info, we'll just loop the entire audio.
 	raw_offset_loop_start = 0;
 	raw_offset_loop_end = 0;
@@ -62,8 +75,8 @@ void WavData::Read(RIFFReader &file_) {
 				codec = 0;
 				break;
 			default:
-				ERROR_LOG(SCEAUDIO, "Unexpected wave format %04x", format);
-				return;
+				ERROR_LOG(Log::sceAudio, "Unexpected wave format %04x", format);
+				return false;
 			}
 
 			num_channels = temp >> 16;
@@ -84,11 +97,11 @@ void WavData::Read(RIFFReader &file_) {
 				}
 			}
 			file_.Ascend();
-			// INFO_LOG(AUDIO, "got fmt data: %i", samplesPerSec);
+			// INFO_LOG(Log::AUDIO, "got fmt data: %i", samplesPerSec);
 		} else {
-			ERROR_LOG(AUDIO, "Error - no format chunk in wav");
+			ERROR_LOG(Log::Audio, "Error - no format chunk in wav");
 			file_.Ascend();
-			return;
+			return false;
 		}
 
 		if (file_.Descend('smpl')) {
@@ -137,28 +150,32 @@ void WavData::Read(RIFFReader &file_) {
 			int numBytes = file_.GetCurrentChunkSize();
 			numFrames = numBytes / raw_bytes_per_frame;  // numFrames
 
-			raw_data = (uint8_t *)malloc(numBytes);
+			// It seems the atrac3 codec likes to read a little bit outside.
+			const int padding = 32;  // 32 is the value FFMPEG uses.
+			raw_data = (uint8_t *)malloc(numBytes + padding);
 			raw_data_size = numBytes;
+
 			if (num_channels == 1 || num_channels == 2) {
 				file_.ReadData(raw_data, numBytes);
 			} else {
-				ERROR_LOG(AUDIO, "Error - bad blockalign or channels");
+				ERROR_LOG(Log::Audio, "Error - bad blockalign or channels");
 				free(raw_data);
 				raw_data = nullptr;
-				return;
+				return false;
 			}
 			file_.Ascend();
 		} else {
-			ERROR_LOG(AUDIO, "Error - no data chunk in wav");
+			ERROR_LOG(Log::Audio, "Error - no data chunk in wav");
 			file_.Ascend();
-			return;
+			return false;
 		}
 		file_.Ascend();
 	} else {
-		ERROR_LOG(AUDIO, "Could not descend into RIFF file.");
-		return;
+		ERROR_LOG(Log::Audio, "Could not descend into RIFF file.");
+		return false;
 	}
 	sample_rate = samplesPerSec;
+	return true;
 }
 
 // Really simple looping in-memory AT3 player that also takes care of reading the file format.
@@ -174,11 +191,18 @@ public:
 
 		wave_.Read(file_);
 
-		decoder_ = new SimpleAudio(wave_.codec, wave_.sample_rate, wave_.num_channels);
+		uint8_t *extraData = nullptr;
+		size_t extraDataSize = 0;
+		size_t blockSize = 0;
 		if (wave_.codec == PSP_CODEC_AT3) {
-			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
+			extraData = &wave_.at3_extradata[2];
+			extraDataSize = 14;
+			blockSize = wave_.raw_bytes_per_frame;
+		} else if (wave_.codec == PSP_CODEC_AT3PLUS) {
+			blockSize = wave_.raw_bytes_per_frame;
 		}
-		INFO_LOG(AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
+		decoder_ = CreateAudioDecoder((PSPAudioType)wave_.codec, wave_.sample_rate, wave_.num_channels, blockSize, extraData, extraDataSize);
+		INFO_LOG(Log::Audio, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
 
 	~AT3PlusReader() {
@@ -188,17 +212,19 @@ public:
 		decoder_ = nullptr;
 	}
 
-	bool IsOK() { return wave_.raw_data != nullptr; }
+	bool IsOK() const { return wave_.raw_data != nullptr; }
 
 	bool Read(int *buffer, int len) {
 		if (!wave_.raw_data)
 			return false;
 
 		while (bgQueue.size() < (size_t)(len * 2)) {
-			int outBytes = 0;
-			decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, (uint8_t *)buffer_, &outBytes);
-			if (!outBytes)
+			int outSamples = 0;
+			int inbytesConsumed = 0;
+			bool result = decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, 2, (int16_t *)buffer_, &outSamples);
+			if (!result || !outSamples)
 				return false;
+			int outBytes = outSamples * 2 * sizeof(int16_t);
 
 			if (wave_.raw_offset_loop_end != 0 && raw_offset_ == wave_.raw_offset_loop_end) {
 				// Only take the remaining bytes, but convert to stereo s16.
@@ -241,67 +267,25 @@ private:
 	int skip_next_samples_ = 0;
 	FixedSizeQueue<s16, 128 * 1024> bgQueue;
 	short *buffer_ = nullptr;
-	SimpleAudio *decoder_ = nullptr;
+	AudioDecoder *decoder_ = nullptr;
 };
 
 BackgroundAudio g_BackgroundAudio;
 
 BackgroundAudio::BackgroundAudio() {
-	buffer = new int[BUFSIZE]();
+	buffer_ = new int[BUFSIZE]();
 	sndLoadPending_.store(false);
 }
 
 BackgroundAudio::~BackgroundAudio() {
-	delete[] buffer;
-}
-
-BackgroundAudio::Sample *BackgroundAudio::LoadSample(const std::string &path) {
-	size_t bytes;
-	uint8_t *data = VFSReadFile(path.c_str(), &bytes);
-	if (!data) {
-		return nullptr;
-	}
-
-	RIFFReader reader(data, (int)bytes);
-
-	WavData wave;
-	wave.Read(reader);
-
-	delete [] data;
-
-	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame != 4) {
-		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
-		return nullptr;
-	}
-
-	int16_t *samples = new int16_t[2 * wave.numFrames];
-	memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
-
-	return new BackgroundAudio::Sample(samples, wave.numFrames);
-}
-
-void BackgroundAudio::LoadSamples() {
-	samples_.resize((size_t)UI::UISound::COUNT);
-	samples_[(size_t)UI::UISound::BACK] = std::unique_ptr<Sample>(LoadSample("sfx_back.wav"));
-	samples_[(size_t)UI::UISound::SELECT] = std::unique_ptr<Sample>(LoadSample("sfx_select.wav"));
-	samples_[(size_t)UI::UISound::CONFIRM] = std::unique_ptr<Sample>(LoadSample("sfx_confirm.wav"));
-	samples_[(size_t)UI::UISound::TOGGLE_ON] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_on.wav"));
-	samples_[(size_t)UI::UISound::TOGGLE_OFF] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_off.wav"));
-
-	UI::SetSoundCallback([](UI::UISound sound) {
-		g_BackgroundAudio.PlaySFX(sound);
-	});
-}
-
-void BackgroundAudio::PlaySFX(UI::UISound sfx) {
-	std::lock_guard<std::mutex> lock(mutex_);
-	plays_.push_back(PlayInstance{ sfx, 0, 64, false });
+	delete at3Reader_;
+	delete[] buffer_;
 }
 
 void BackgroundAudio::Clear(bool hard) {
 	if (!hard) {
 		fadingOut_ = true;
-		volume_ = 1.0f;
+		volumeFader_ = 1.0f;
 		return;
 	}
 	if (at3Reader_) {
@@ -329,18 +313,18 @@ void BackgroundAudio::SetGame(const Path &path) {
 		sndLoadPending_ = true;
 		fadingOut_ = false;
 	}
-	volume_ = 1.0f;
+	volumeFader_ = 1.0f;
 	bgGamePath_ = path;
 }
 
-int BackgroundAudio::Play() {
+bool BackgroundAudio::Play() {
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Immediately stop the sound if it is turned off while playing.
-	if (!g_Config.bEnableSound) {
+	if (g_Config.iUIVolume <= 0) {
 		Clear(true);
-		__PushExternalAudio(0, 0);
-		return 0;
+		System_AudioClear();
+		return true;
 	}
 
 	double now = time_now_d();
@@ -348,49 +332,33 @@ int BackgroundAudio::Play() {
 	if (lastPlaybackTime_ > 0.0 && lastPlaybackTime_ <= now) {
 		sz = (int)((now - lastPlaybackTime_) * 44100);
 	}
+
 	sz = std::min(BUFSIZE / 2, sz);
 	if (at3Reader_) {
-		if (at3Reader_->Read(buffer, sz)) {
+		if (at3Reader_->Read(buffer_, sz)) {
 			if (fadingOut_) {
-				for (int i = 0; i < sz*2; i += 2) {
-					buffer[i] *= volume_;
-					buffer[i + 1] *= volume_;
-					volume_ += delta_;
+				float vol = volumeFader_;
+				// TODO: This isn't optimized. But hardly matters...
+				for (int i = 0; i < sz * 2; i += 2) {
+					const float v = vol;
+					buffer_[i] = (int)((float)buffer_[i] * v);
+					buffer_[i + 1] = (int)((float)buffer_[i + 1] * v);
+					vol += delta_;
 				}
+				volumeFader_ = vol;
 			}
 		}
 	} else {
 		for (int i = 0; i < sz * 2; i += 2) {
-			buffer[i] = 0;
-			buffer[i + 1] = 0;
+			buffer_[i] = 0;
+			buffer_[i + 1] = 0;
 		}
 	}
 
-	// Mix in menu sound effects. Terribly slow mixer but meh.
-	if (!plays_.empty()) {
-		for (int i = 0; i < sz * 2; i += 2) {
-			std::vector<PlayInstance>::iterator iter = plays_.begin();
-			while (iter != plays_.end()) {
-				PlayInstance inst = *iter;
-				auto sample = samples_[(int)inst.sound].get();
-				if (!sample || iter->offset >= sample->length_) {
-					iter->done = true;
-					iter = plays_.erase(iter);
-				} else {
-					if (!iter->done) {
-						buffer[i] += sample->data_[inst.offset * 2] * inst.volume >> 8;
-						buffer[i + 1] += sample->data_[inst.offset * 2 + 1] * inst.volume >> 8;
-					}
-					iter->offset++;
-					iter++;
-				}
-			}
-		}
-	}
+	float multiplier = Volume100ToMultiplier(g_Config.iGamePreviewVolume);
+	System_AudioPushSamples(buffer_, sz, multiplier);
 
-	__PushExternalAudio(buffer, sz);
-
-	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
+	if (at3Reader_ && fadingOut_ && volumeFader_ <= 0.0f) {
 		Clear(true);
 		fadingOut_ = false;
 		gameLastChanged_ = 0;
@@ -398,7 +366,7 @@ int BackgroundAudio::Play() {
 
 	lastPlaybackTime_ = now;
 
-	return 0;
+	return true;
 }
 
 void BackgroundAudio::Update() {
@@ -411,8 +379,8 @@ void BackgroundAudio::Update() {
 			return;
 
 		// Grab some audio from the current game and play it.
-		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GAMEINFO_WANTSND);
-		if (!gameInfo || gameInfo->pending) {
+		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GameInfoFlags::SND);
+		if (!gameInfo->Ready(GameInfoFlags::SND)) {
 			// Should try again shortly..
 			return;
 		}
@@ -423,5 +391,230 @@ void BackgroundAudio::Update() {
 			lastPlaybackTime_ = 0.0;
 		}
 		sndLoadPending_ = false;
+	}
+}
+
+inline int16_t ConvertU8ToI16(uint8_t value) {
+	int ivalue = value - 128;
+	return ivalue * 255;
+}
+
+Sample *Sample::Load(const std::string &path) {
+	size_t data_size = 0;
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), &data_size);
+	if (!data || data_size > 100000000) {
+		WARN_LOG(Log::Audio, "Failed to load sample '%s'", path.c_str());
+		return nullptr;
+	}
+
+	const char *mp3_magic = "ID3\03";
+	const char *wav_magic = "RIFF";
+	if (!memcmp(data, wav_magic, 4)) {
+		RIFFReader reader(data, (int)data_size);
+		WavData wave;
+		if (!wave.Read(reader)) {
+			delete[] data;
+			return nullptr;
+		}
+		// A wav file.
+		delete[] data;
+
+		if (!wave.IsSimpleWAV()) {
+			ERROR_LOG(Log::Audio, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
+			return nullptr;
+		}
+
+		int16_t *samples = new int16_t[wave.num_channels * wave.numFrames];
+		if (wave.raw_bytes_per_frame == wave.num_channels * 2) {
+			// 16-bit
+			memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
+		} else if (wave.raw_bytes_per_frame == wave.num_channels) {
+			// 8-bit. Convert.
+			for (int i = 0; i < wave.num_channels * wave.numFrames; i++) {
+				samples[i] = ConvertU8ToI16(wave.raw_data[i]);
+			}
+		}
+
+		// Protect against bad metadata.
+		int actualFrames = std::min(wave.numFrames, wave.raw_data_size / wave.raw_bytes_per_frame);
+
+		return new Sample(samples, wave.num_channels, actualFrames, wave.sample_rate);
+	}
+
+	// Something else.
+	// Let's see if minimp3 can read it.
+	mp3dec_t mp3d;
+	mp3dec_init(&mp3d);
+	mp3dec_file_info_t mp3_info;
+	int retval = mp3dec_load_buf(&mp3d, data, data_size, &mp3_info, nullptr, nullptr);
+
+	if (retval < 0 || mp3_info.samples == 0) {
+		ERROR_LOG(Log::Audio, "Couldn't load MP3 for sound effect from %s", path.c_str());
+		return nullptr;
+	}
+
+	// mp3_info contains the decoded data.
+	int16_t *sample_data = new int16_t[mp3_info.samples];
+	memcpy(sample_data, mp3_info.buffer, mp3_info.samples * sizeof(int16_t));
+
+	Sample *sample = new Sample(sample_data, mp3_info.channels, (int)mp3_info.samples / mp3_info.channels, mp3_info.hz);
+	free(mp3_info.buffer);
+	delete[] data;
+	return sample;
+}
+
+static inline int16_t Clamp16(int32_t sample) {
+	if (sample < -32767) return -32767;
+	if (sample > 32767) return 32767;
+	return sample;
+}
+
+void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+		if (!queue_.empty()) {
+			for (const auto &entry : queue_) {
+				plays_.push_back(entry);
+			}
+			queue_.clear();
+		}
+		if (plays_.empty()) {
+			return;
+		}
+	}
+
+	for (std::vector<PlayInstance>::iterator iter = plays_.begin(); iter != plays_.end(); ) {
+		auto sample = samples_[(int)iter->sound].get();
+		if (!sample) {
+			// Remove playback instance if sample invalid.
+			iter = plays_.erase(iter);
+			continue;
+		}
+
+		int64_t rateOfSample = sample->rateInHz_;
+		int64_t stride = (rateOfSample << 32) / sampleRateHz;
+
+		for (int i = 0; i < sz * 2; i += 2) {
+			if ((iter->offset >> 32) >= sample->length_ - 2) {
+				iter->done = true;
+				break;
+			}
+
+			int wholeOffset = iter->offset >> 32;
+			int frac = (iter->offset >> 20) & 0xFFF;  // Use a 12 bit fraction to get away with 32-bit multiplies
+
+			if (sample->channels_ == 2) {
+				int interpolatedLeft = (sample->data_[wholeOffset * 2] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2] * frac) >> 12;
+				int interpolatedRight = (sample->data_[wholeOffset * 2 + 1] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2 + 1] * frac) >> 12;
+
+				// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+				int left = Clamp16(buffer[i] + (interpolatedLeft * iter->volume >> 8));
+				int right = Clamp16(buffer[i + 1] + (interpolatedRight * iter->volume >> 8));
+
+				buffer[i] = left;
+				buffer[i + 1] = right;
+			} else if (sample->channels_ == 1) {
+				int interpolated = (sample->data_[wholeOffset] * (0x1000 - frac) + sample->data_[wholeOffset + 1] * frac) >> 12;
+
+				// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+				int value = Clamp16(buffer[i] + (interpolated * iter->volume >> 8));
+
+				buffer[i] = value;
+				buffer[i + 1] = value;
+			}
+
+			iter->offset += stride;
+		}
+
+		if (iter->done) {
+			iter = plays_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
+}
+
+void SoundEffectMixer::Play(UI::UISound sfx, float multiplier) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * multiplier), false });
+}
+
+void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
+	if (sample) {
+		std::lock_guard<std::mutex> guard(mutex_);
+		samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
+	} else {
+		LoadDefaultSample(sound);
+	}
+}
+
+void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
+	const char *filename = nullptr;
+
+	switch (sound) {
+	case UI::UISound::BACK: filename = "sfx_back.wav"; break;
+	case UI::UISound::SELECT: filename = "sfx_select.wav"; break;
+	case UI::UISound::CONFIRM: filename = "sfx_confirm.wav"; break;
+	case UI::UISound::TOGGLE_ON: filename = "sfx_toggle_on.wav"; break;
+	case UI::UISound::TOGGLE_OFF: filename = "sfx_toggle_off.wav"; break;
+	case UI::UISound::ACHIEVEMENT_UNLOCKED: filename = "sfx_achievement_unlocked.wav"; break;
+	case UI::UISound::LEADERBOARD_SUBMITTED: filename = "sfx_leaderbord_submitted.wav"; break;
+	default:
+		return;
+	}
+
+	Sample *sample = Sample::Load(filename);
+	if (!sample) {
+		ERROR_LOG(Log::Audio, "Failed to load the default sample for UI sound %d", (int)sound);
+	}
+	std::lock_guard<std::mutex> guard(mutex_);
+	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
+}
+
+class SampleLoadTask : public Task {
+public:
+	SampleLoadTask(SoundEffectMixer *mixer) : mixer_(mixer) {}
+	TaskType Type() const override { return TaskType::IO_BLOCKING; }
+	TaskPriority Priority() const override {
+		return TaskPriority::NORMAL;
+	}
+	void Run() override {
+		mixer_->LoadSamplesOnThread();
+	}
+private:
+	SoundEffectMixer *mixer_;
+};
+
+void SoundEffectMixer::Init() {
+	samples_.resize((size_t)UI::UISound::COUNT);
+
+	// Setup UI sound callback. For navigation sounds only.
+	UI::SetSoundCallback([](UI::UISound sound) {
+		if (g_Config.bUISound) {
+			float volume = Volume100ToMultiplier(g_Config.iUIVolume);
+			g_BackgroundAudio.SFX().Play(sound, volume);
+		}
+	});
+
+	// Load samples in the background.
+	g_threadManager.EnqueueTask(new SampleLoadTask(this));
+}
+
+void SoundEffectMixer::LoadSamplesOnThread() {
+	LoadDefaultSample(UI::UISound::BACK);
+	LoadDefaultSample(UI::UISound::SELECT);
+	LoadDefaultSample(UI::UISound::CONFIRM);
+	LoadDefaultSample(UI::UISound::TOGGLE_ON);
+	LoadDefaultSample(UI::UISound::TOGGLE_OFF);
+
+	if (!g_Config.sAchievementsUnlockAudioFile.empty()) {
+		UpdateSample(UI::UISound::ACHIEVEMENT_UNLOCKED, Sample::Load(g_Config.sAchievementsUnlockAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::ACHIEVEMENT_UNLOCKED);
+	}
+	if (!g_Config.sAchievementsLeaderboardSubmitAudioFile.empty()) {
+		UpdateSample(UI::UISound::LEADERBOARD_SUBMITTED, Sample::Load(g_Config.sAchievementsLeaderboardSubmitAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
 	}
 }

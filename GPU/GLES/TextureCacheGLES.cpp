@@ -15,35 +15,23 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
 #include <cstring>
 
 #include "ext/xxhash.h"
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/TimeUtil.h"
 
-#include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/TextureShaderCommon.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
-#include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/Common/TextureDecoder.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
+#include "GPU/Common/DrawEngineCommon.h"
 
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
@@ -74,7 +62,7 @@ void TextureCacheGLES::Clear(bool delete_them) {
 	TextureCacheCommon::Clear(delete_them);
 }
 
-Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
+static Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
@@ -144,32 +132,17 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 void TextureCacheGLES::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
 
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		if (standardScaleFactor_ > 1) {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
-	}
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
 	}
 }
 
@@ -235,7 +208,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheGLES::Unbind() {
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheGLES::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -262,8 +235,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	int th = plan.createH;
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaced->GetSize(plan.baseLevelSrc, tw, th)) {
-		dstFmt = plan.replaced->Format(plan.baseLevelSrc);
+	if (plan.doReplace) {
+		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
+		dstFmt = plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (plan.decodeToClut8) {
@@ -271,9 +245,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.depth == 1) {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, tw, 1, plan.levelsToCreate);
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, th, 1, plan.levelsToCreate);
 	} else {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, tw, plan.depth, 1);
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, th, plan.depth, 1);
 	}
 
 	// Apply some additional compatibility checks.
@@ -307,27 +281,41 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 			u8 *data = nullptr;
 			int stride = 0;
-			int bpp;
+			int dataSize;
 
-			if (plan.replaceValid) {
-				bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
+			bool bc = false;
+
+			if (plan.doReplace) {
+				int blockSize = 0;
+				if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
+					stride = mipWidth * 4;
+					dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
+					bc = true;
+				} else {
+					int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+					stride = mipWidth * bpp;
+					dataSize = stride * mipHeight;
+				}
 			} else {
+				int bpp = 0;
 				if (plan.scaleFactor > 1) {
 					bpp = 4;
 				} else {
 					bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 				}
+				stride = mipWidth * bpp;
+				dataSize = stride * mipHeight;
 			}
 
-			stride = mipWidth * bpp;
-			data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
+			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
+			_assert_msg_(data != nullptr, "Failed to allocate aligned memory for texture level %d: %d bytes (%dx%d)", i, (int)dataSize, mipWidth, mipHeight);
 
 			if (!data) {
-				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+				ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
 				return;
 			}
 
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, dstFmt, TexDecodeFlags::REVERSE_COLORS);
+			LoadTextureLevel(*entry, data, dataSize, stride, plan, srcLevel, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 
 			// NOTE: TextureImage takes ownership of data, so we don't free it afterwards.
 			render_->TextureImage(entry->textureName, i, mipWidth, mipHeight, 1, dstFmt, data, GLRAllocType::ALIGNED);
@@ -341,12 +329,14 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		int stride = bpp * (plan.w * plan.scaleFactor);
 		int levelStride = stride * (plan.h * plan.scaleFactor);
 
-		u8 *data = (u8 *)AllocateAlignedMemory(levelStride * plan.depth, 16);
+		size_t dataSize = levelStride * plan.depth;
+		u8 *data = (u8 *)AllocateAlignedMemory(dataSize, 16);
+		_assert_msg_(data != nullptr, "Failed to allocate aligned memory for 3d texture: %d bytes", (int)dataSize);
 		memset(data, 0, levelStride * plan.depth);
 		u8 *p = data;
 
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, p, stride, *plan.replaced, i, plan.scaleFactor, dstFmt, TexDecodeFlags::REVERSE_COLORS);
+			LoadTextureLevel(*entry, p, dataSize, stride, plan, i, dstFmt, TexDecodeFlags::REVERSE_COLORS);
 			p += levelStride;
 		}
 
@@ -358,12 +348,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
 
-Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) {
 	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
@@ -386,7 +376,7 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	InvalidateLastTexture();
+	ForgetLastTexture();
 	SetTexture();
 	if (!nextTexture_) {
 		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
@@ -396,7 +386,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-	ApplyTexture();
+	ApplyTexture(false);
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -410,7 +400,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 		buffer.Allocate(w, h, GE_FORMAT_8888, false);
 		renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
 	} else {
-		ERROR_LOG(G3D, "Failed to get debug texture: texture is null");
+		ERROR_LOG(Log::G3D, "Failed to get debug texture: texture is null");
 	}
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
@@ -432,7 +422,7 @@ void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	textureShaderCache_->DeviceRestore(draw);
 }
 
-void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry) {
+void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry, bool flat) const {
 	GLRTexture *tex = entry->textureName;
 	return (void *)tex;
 }

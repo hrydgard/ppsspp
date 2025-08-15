@@ -250,5 +250,8 @@ struct NpMatching2Args {
 
 #pragma pack(pop)
 
+extern std::recursive_mutex npMatching2EvtMtx;
+
+bool NpMatching2ProcessEvents();
 
 void Register_sceNpMatching2();

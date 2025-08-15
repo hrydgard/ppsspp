@@ -68,7 +68,7 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: "Check the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already implemented."
+        - label: "Check the [latest git build](https://www.ppsspp.org/devbuilds) in case it's already implemented."
           required: true
         - label: "[Search for other requests](https://github.com/hrydgard/ppsspp/search?q=my+issue&type=issues) of the same feature."
           required: true

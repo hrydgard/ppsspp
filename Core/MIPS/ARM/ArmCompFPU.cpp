@@ -95,7 +95,7 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 	CONDITIONAL_DISABLE(LSU_FPU);
 	CheckMemoryBreakpoint();
 
-	s32 offset = (s16)(op & 0xFFFF);
+	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
 	// u32 addr = R(rs) + offset;

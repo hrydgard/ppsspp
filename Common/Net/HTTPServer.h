@@ -25,10 +25,10 @@ class OutputSink;
 
 namespace http {
 
-class Request {
+class ServerRequest {
 public:
-	Request(int fd);
-	~Request();
+	ServerRequest(int fd);
+	~ServerRequest();
 
 	const char *resource() const {
 		return header_.resource;
@@ -75,7 +75,7 @@ public:
 	Server(NewThreadExecutor *executor);
 	virtual ~Server();
 
-	typedef std::function<void(const Request &)> UrlHandlerFunc;
+	typedef std::function<void(const ServerRequest &)> UrlHandlerFunc;
 	typedef std::map<std::string, UrlHandlerFunc> UrlHandlerMap;
 
 	// Runs forever, serving request. If you want to do something else than serve pages,
@@ -85,7 +85,7 @@ public:
 	// May run for (significantly) longer than timeout, but won't wait longer than that
 	// for a new connection to handle.
 	bool RunSlice(double timeout);
-	bool Listen(int port, net::DNSType type = net::DNSType::ANY);
+	bool Listen(int port, const char *reason, net::DNSType type = net::DNSType::ANY);
 	void Stop();
 
 	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
@@ -94,24 +94,24 @@ public:
 	// If you want to customize things at a lower level than just a simple path handler,
 	// then inherit and override this. Implementations should forward to HandleRequestDefault
 	// if they don't recognize the url.
-	virtual void HandleRequest(const Request &request);
+	virtual void HandleRequest(const ServerRequest &request);
 
 	int Port() {
 		return port_;
 	}
 
 private:
-	bool Listen6(int port, bool ipv6_only);
-	bool Listen4(int port);
+	bool Listen6(int port, bool ipv6_only, const char *reason);
+	bool Listen4(int port, const char *reason);
 
 	void HandleConnection(int conn_fd);
 
 	// Things like default 404, etc.
-	void HandleRequestDefault(const Request &request);
+	void HandleRequestDefault(const ServerRequest &request);
 
 	// Neat built-in handlers that are tied to the server.
-	void HandleListing(const Request &request);
-	void Handle404(const Request &request);
+	void HandleListing(const ServerRequest &request);
+	void Handle404(const ServerRequest &request);
 
 	int listener_;
 	int port_ = 0;

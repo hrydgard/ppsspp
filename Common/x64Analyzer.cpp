@@ -188,7 +188,7 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 			break;
 
 		default:
-			ERROR_LOG(CPU, "Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
+			ERROR_LOG(Log::CPU, "Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
 			return false;
 		}
 	}

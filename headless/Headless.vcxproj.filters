@@ -4,9 +4,6 @@
     <ClCompile Include="Headless.cpp" />
     <ClCompile Include="Compare.cpp" />
     <ClCompile Include="..\ext\glew\glew.c" />
-    <ClCompile Include="..\Windows\GPU\D3D9Context.cpp">
-      <Filter>Windows</Filter>
-    </ClCompile>
     <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
@@ -22,20 +19,19 @@
     <ClCompile Include="..\Windows\GPU\D3D11Context.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
-    <ClCompile Include="StubHost.cpp" />
     <ClCompile Include="SDLHeadlessHost.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
     <ClCompile Include="..\Windows\CaptureDevice.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
+    <ClCompile Include="HeadlessHost.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
     <None Include="..\test.py" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="StubHost.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="WindowsHeadlessHost.h">
       <Filter>Windows</Filter>
@@ -43,6 +39,7 @@
     <ClInclude Include="SDLHeadlessHost.h">
       <Filter>Other Platforms</Filter>
     </ClInclude>
+    <ClInclude Include="HeadlessHost.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Windows">

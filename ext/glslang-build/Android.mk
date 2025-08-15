@@ -29,6 +29,7 @@ LOCAL_SRC_FILES := \
     ../glslang/glslang/MachineIndependent/RemoveTree.cpp \
     ../glslang/glslang/MachineIndependent/Scan.cpp \
     ../glslang/glslang/MachineIndependent/ShaderLang.cpp \
+    ../glslang/glslang/MachineIndependent/SpirvIntrinsics.cpp \
     ../glslang/glslang/MachineIndependent/SymbolTable.cpp \
     ../glslang/glslang/MachineIndependent/Versions.cpp \
     ../glslang/glslang/MachineIndependent/preprocessor/Pp.cpp \
@@ -57,7 +58,7 @@ LOCAL_SRC_FILES := \
 
 
 LOCAL_CFLAGS := -O3 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS -DENABLE_HLSL
-LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
+LOCAL_CPPFLAGS := -fno-exceptions -std=c++17 -fno-rtti -Wno-reorder
 # Note: LOCAL_PATH is the directory this file is in.
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/.. $(LOCAL_PATH)/../libzip $(LOCAL_PATH)/../glslang ..
 

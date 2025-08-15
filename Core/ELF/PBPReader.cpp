@@ -19,47 +19,53 @@
 #include <cstring>
 
 #include "Common/Log.h"
-#include "Common/File/FileUtil.h"
 #include "Core/Loaders.h"
 #include "Core/ELF/PBPReader.h"
 
-PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_(false) {
+PBPReader::PBPReader(FileLoader *fileLoader) {
 	if (!fileLoader->Exists()) {
-		ERROR_LOG(LOADER, "Failed to open PBP file %s", fileLoader->GetPath().c_str());
+		ERROR_LOG(Log::Loader, "Failed to open PBP file %s", fileLoader->GetPath().c_str());
 		return;
 	}
 
 	fileSize_ = (size_t)fileLoader->FileSize();
 	if (fileLoader->ReadAt(0, sizeof(header_), (u8 *)&header_) != sizeof(header_)) {
-		ERROR_LOG(LOADER, "PBP is too small to be valid: %s", fileLoader->GetPath().c_str());
+		ERROR_LOG(Log::Loader, "PBP is too small to be valid: %s", fileLoader->GetPath().c_str());
 		return;
 	}
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
 		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
-			VERBOSE_LOG(LOADER, "%s: File actually an ELF, not a PBP", fileLoader->GetPath().c_str());
+			VERBOSE_LOG(Log::Loader, "%s: File actually an ELF, not a PBP", fileLoader->GetPath().c_str());
 			isELF_ = true;
 		} else {
-			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", fileLoader->GetPath().c_str(), header_.magic);
+			ERROR_LOG(Log::Loader, "Magic number in %s indicated no PBP: %s", fileLoader->GetPath().c_str(), header_.magic);
 		}
 		return;
 	}
 
-	VERBOSE_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
+	VERBOSE_LOG(Log::Loader, "Loading PBP, version = %08x", header_.version);
 	file_ = fileLoader;
 }
 
-bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
+bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) const {
 	if (!file_) {
 		return false;
 	}
 
 	const size_t expected = GetSubFileSize(file);
+
+	// This is only used to get the PARAM.SFO, so let's have a strict 256MB file size limit for sanity.
+	if (expected > 256 * 1024 * 1024) {
+		ERROR_LOG(Log::Loader, "Bad subfile size: %d", (int)expected);
+		return false;
+	}
+
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
 	size_t bytes = file_->ReadAt(off, expected, &(*out)[0]);
 	if (bytes != expected) {
-		ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
+		ERROR_LOG(Log::Loader, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
 		if (bytes < expected) {
 			out->resize(bytes);
 		}
@@ -67,23 +73,31 @@ bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
 	return true;
 }
 
-void PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) {
+bool PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) const {
 	if (!file_) {
 		out->clear();
-		return;
+		return false;
 	}
 
 	const size_t expected = GetSubFileSize(file);
+
+	// This is only used to get the PNG, AT3 etc, so let's have a strict 256MB file size limit for sanity.
+	if (expected > 256 * 1024 * 1024) {
+		ERROR_LOG(Log::Loader, "Bad subfile size: %d", (int)expected);
+		return false;
+	}
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
 	size_t bytes = file_->ReadAt(off, expected, (void *)out->data());
 	if (bytes != expected) {
-		ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
+		ERROR_LOG(Log::Loader, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
 		if (bytes < expected) {
 			out->resize(bytes);
+			// should we still return true here?
 		}
 	}
+	return true;
 }
 
 PBPReader::~PBPReader() {

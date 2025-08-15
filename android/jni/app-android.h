@@ -5,7 +5,7 @@
 #include <string>
 #include <cstdint>
 
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 #include "Common/File/AndroidStorage.h"
@@ -21,10 +21,7 @@ std::string Android_GetInputDeviceDebugString();
 jclass findClass(const char* name);
 JNIEnv* getEnv();
 
-class AndroidLogger : public LogListener {
-public:
-	void Log(const LogMessage &message) override;
-};
 #endif
 
 #endif
+

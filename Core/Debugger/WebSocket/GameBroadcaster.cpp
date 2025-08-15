@@ -27,7 +27,7 @@ struct GameStatusEvent {
 		JsonWriter j;
 		j.begin();
 		j.writeString("event", ev);
-		if (PSP_IsInited()) {
+		if (PSP_GetBootState() == BootState::Complete) {
 			j.pushDict("game");
 			j.writeString("id", g_paramSFO.GetDiscID());
 			j.writeString("version", g_paramSFO.GetValueString("DISC_VERSION"));
@@ -64,7 +64,7 @@ struct GameStatusEvent {
 //     - version: string disc version.
 //     - title: string game title.
 
-// Game resumed (game.pause)
+// Game resumed (game.resume)
 //
 // Note: this is not the same as stepping.  This means the user resumed from the pause menu.
 //
@@ -83,10 +83,10 @@ void GameBroadcaster::Broadcast(net::WebSocketServer *ws) {
 		} else if (state == UISTATE_INGAME && prevState_ == UISTATE_PAUSEMENU) {
 			ws->Send(GameStatusEvent{"game.resume"});
 			prevState_ = state;
-		} else if (state == UISTATE_INGAME && PSP_IsInited()) {
+		} else if (state == UISTATE_INGAME && PSP_GetBootState() == BootState::Complete) {
 			ws->Send(GameStatusEvent{"game.start"});
 			prevState_ = state;
-		} else if (state == UISTATE_MENU && !PSP_IsInited() && !PSP_IsQuitting() && !PSP_IsRebooting()) {
+		} else if (state == UISTATE_MENU && PSP_GetBootState() != BootState::Complete) {
 			ws->Send(GameStatusEvent{"game.quit"});
 			prevState_ = state;
 		}

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
 #include "Common/CommonWindows.h"
 
 namespace W32Util
@@ -13,7 +14,11 @@ namespace W32Util
 	void MakeTopMost(HWND hwnd, bool topMost);
 	void ExitAndRestart(bool overrideArgs = false, const std::string &args = "");
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
+	bool ExecuteAndGetReturnCode(const wchar_t *executable, const wchar_t *cmdline, const wchar_t *currentDirectory, DWORD *exitCode);
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
+
+	void GetWindowRes(HWND hWnd, int *xres, int *yres);
+	void ShowFileInFolder(const std::string &path);
 
 	struct ClipboardData {
 		ClipboardData(const char *format, size_t sz);
@@ -72,7 +77,7 @@ protected:
 	void SetItemState(int item, uint8_t state);
 
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
-	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
+	virtual void GetColumnText(wchar_t* dest, size_t destSize, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
@@ -97,12 +102,23 @@ private:
 	WNDPROC oldProc;
 	void *images_ = nullptr;
 	const GenericListViewColumn* columns;
+	wchar_t stringBuffer[256];  // needs to survive slightly longer than the GetColumnText scope, so needs to be here.
 	int columnCount;
-	wchar_t stringBuffer[256];
 	bool valid;
 	bool sendInvalidRows;
 	// Used for hacky workaround to fix a rare hang (see issue #5184)
 	volatile bool inResizeColumns;
 	volatile bool updating;
 	bool updateScheduled_ = false;
+
+	enum class Action {
+		CHECK,
+		IMAGE,
+	};
+	struct PendingAction {
+		Action action;
+		int item;
+		int state;
+	};
+	std::vector<PendingAction> pendingActions_;
 };

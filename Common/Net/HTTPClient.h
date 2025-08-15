@@ -4,17 +4,22 @@
 #include <memory>
 #include <thread>
 #include <cstdint>
+#include <string>
 
 #include "Common/File/Path.h"
 #include "Common/Net/NetBuffer.h"
 #include "Common/Net/Resolve.h"
+#include "Common/Net/HTTPRequest.h"
 
 namespace net {
 
+typedef std::function<std::string(const std::string &)> ResolveFunc;
+
 class Connection {
 public:
-	Connection();
 	virtual ~Connection();
+
+	explicit Connection(ResolveFunc func) : customResolve_(func) {}
 
 	// Inits the sockaddr_in.
 	bool Resolve(const char *host, int port, DNSType type = DNSType::ANY);
@@ -35,25 +40,17 @@ protected:
 
 private:
 	uintptr_t sock_ = -1;
-
+	ResolveFunc customResolve_;
 };
 
-}	// namespace net
+}  // namespace net
 
 namespace http {
 
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::string &header, std::string *value);
 
-struct RequestProgress {
-	RequestProgress() {}
-	explicit RequestProgress(bool *c) : cancelled(c) {}
-
-	float progress = 0.0f;
-	float kBps = 0.0f;
-	bool *cancelled = nullptr;
-};
-
-struct RequestParams {
+class RequestParams {
+public:
 	RequestParams() {}
 	explicit RequestParams(const char *r) : resource(r) {}
 	RequestParams(const std::string &r, const char *a) : resource(r), acceptMime(a) {}
@@ -64,140 +61,83 @@ struct RequestParams {
 
 class Client : public net::Connection {
 public:
-	Client();
+	Client(net::ResolveFunc func);
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const RequestParams &req, Buffer *output, RequestProgress *progress);
-	int GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress);
+	int GET(const RequestParams &req, Buffer *output, net::RequestProgress *progress);
+	int GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, net::RequestProgress *progress);
 
 	// Return value is the HTTP return code.
-	int POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress);
-	int POST(const RequestParams &req, const std::string &data, Buffer *output, RequestProgress *progress);
+	int POST(const RequestParams &req, std::string_view data, std::string_view mime, Buffer *output, net::RequestProgress *progress);
+	int POST(const RequestParams &req, std::string_view data, Buffer *output, net::RequestProgress *progress);
 
 	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
 
-	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, RequestProgress *progress);
-	int SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, RequestProgress *progress);
-	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress);
+	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, net::RequestProgress *progress);
+	int SendRequestWithData(const char *method, const RequestParams &req, std::string_view data, const char *otherHeaders, net::RequestProgress *progress);
+	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress, std::string *statusLine = nullptr);
 	// If your response contains a response, you must read it.
-	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress);
+	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress);
 
 	void SetDataTimeout(double t) {
 		dataTimeout_ = t;
 	}
 
-	void SetUserAgent(const std::string &&value) {
+	void SetUserAgent(std::string_view value) {
 		userAgent_ = value;
+	}
+
+	void SetHttpVersion(const char *version) {
+		httpVersion_ = version;
 	}
 
 protected:
 	std::string userAgent_;
-	const char *httpVersion_;
+	const char* httpVersion_;
 	double dataTimeout_ = 900.0;
 };
 
-// Not particularly efficient, but hey - it's a background download, that's pretty cool :P
-class Download {
+// Really an asynchronous request.
+class HTTPRequest : public Request {
 public:
-	Download(const std::string &url, const Path &outfile);
-	~Download();
+	HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name = "");
+	~HTTPRequest();
 
-	void Start();
+	void Start() override;
+	void Join() override;
 
-	void Join();
-
-	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
-	float Progress() const { return progress_.progress; }
-	float SpeedKBps() const { return progress_.kBps; }
-
-	bool Done() const { return completed_; }
-	bool Failed() const { return failed_; }
-
-	// NOTE! The value of ResultCode is INVALID until Done() returns true.
-	int ResultCode() const { return resultCode_; }
-
-	std::string url() const { return url_; }
-	const Path &outfile() const { return outfile_; }
-
-	void SetAccept(const char *mime) {
-		acceptMime_ = mime;
-	}
-
-	// If not downloading to a file, access this to get the result.
-	Buffer &buffer() { return buffer_; }
-	const Buffer &buffer() const { return buffer_; }
-
-	void Cancel() {
-		cancelled_ = true;
-	}
-
-	bool IsCancelled() const {
-		return cancelled_;
-	}
-
-	// NOTE: Callbacks are NOT executed until RunCallback is called. This is so that
-	// the call will end up on the thread that calls g_DownloadManager.Update().
-	void SetCallback(std::function<void(Download &)> callback) {
-		callback_ = callback;
-	}
-	void RunCallback() {
-		if (callback_) {
-			callback_(*this);
-		}
-	}
-
-	// Just metadata. Convenient for download managers, for example, if set,
-	// Downloader::GetCurrentProgress won't return it in the results.
-	bool IsHidden() const { return hidden_; }
-	void SetHidden(bool hidden) { hidden_ = hidden; }
+	bool Done() override { return completed_; }
+	bool Failed() const override { return failed_; }
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
-	int PerformGET(const std::string &url);
-	std::string RedirectLocation(const std::string &baseUrl);
+	int Perform(const std::string &url);
+	std::string RedirectLocation(const std::string &baseUrl) const;
 	void SetFailed(int code);
 
-	RequestProgress progress_;
-	Buffer buffer_;
-	std::vector<std::string> responseHeaders_;
-	std::string url_;
-	Path outfile_;
+	std::string postData_;
 	std::thread thread_;
-	const char *acceptMime_ = "*/*";
-	int resultCode_ = 0;
+	std::string postMime_;
 	bool completed_ = false;
 	bool failed_ = false;
-	bool cancelled_ = false;
-	bool hidden_ = false;
-	bool joined_ = false;
-	std::function<void(Download &)> callback_;
+	net::ResolveFunc customResolve_;
 };
 
-using std::shared_ptr;
-
-class Downloader {
+// Fake request for cache hits.
+// The download manager uses this when caching was requested, and a new-enough file was present in the cache directory.
+// This is simply a finished request, that can still be queried like a normal one so users don't know it came from the cache.
+class CachedRequest : public Request {
 public:
-	~Downloader() {
-		CancelAll();
+	CachedRequest(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags flags, std::string_view responseData)
+		: Request(method, url, name, cancelled, flags)
+	{
+		buffer_.Append(responseData);
 	}
-
-	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile, const char *acceptMime = nullptr);
-
-	std::shared_ptr<Download> StartDownloadWithCallback(
-		const std::string &url,
-		const Path &outfile,
-		std::function<void(Download &)> callback,
-		const char *acceptMime = nullptr);
-
-	// Drops finished downloads from the list.
-	void Update();
-	void CancelAll();
-
-	std::vector<float> GetCurrentProgress();
-
-private:
-	std::vector<std::shared_ptr<Download>> downloads_;
+	void Start() override {}
+	void Join() override {}
+	bool Done() override { return true; }
+	bool Failed() const override { return false; }
 };
 
-}	// http
+}  // namespace http

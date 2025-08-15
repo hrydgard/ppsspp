@@ -30,38 +30,23 @@
 #include <unistd.h>
 #include <errno.h>
 
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !defined(__EMSCRIPTEN__)
 #define Crash() {asm ("int $3");}
+#elif PPSSPP_PLATFORM(SWITCH)
+// TODO: Implement Crash() for Switch, lets not use breakpoint for the time being
+#define Crash() {*((volatile u32 *)0x0) = 0xDEADC0DE;}
 #elif PPSSPP_ARCH(ARM)
 #define Crash() {asm ("bkpt #0");}
 #elif PPSSPP_ARCH(ARM64)
 #define Crash() {asm ("brk #0");}
+#elif PPSSPP_ARCH(RISCV64)
+#define Crash() {asm ("ebreak");}
+#elif PPSSPP_ARCH(LOONGARCH64)
+#define Crash() {asm ("break 0");}
 #else
 #include <signal.h>
 #define Crash() {kill(getpid(), SIGINT);}
 #endif
-
-inline u32 __rotl(u32 x, int shift) {
-	shift &= 31;
-	if (!shift) return x;
-	return (x << shift) | (x >> (32 - shift));
-}
-
-inline u64 __rotl64(u64 x, unsigned int shift){
-	unsigned int n = shift % 64;
-	return (x << n) | (x >> (64 - n));
-}
-
-inline u32 __rotr(u32 x, int shift) {
-    shift &= 31;
-    if (!shift) return x;
-    return (x >> shift) | (x << (32 - shift));
-}
-
-inline u64 __rotr64(u64 x, unsigned int shift){
-	unsigned int n = shift % 64;
-	return (x >> n) | (x << (64 - n));
-}
 
 #else // WIN32
 
@@ -71,11 +56,9 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define strncasecmp _strnicmp
 #endif
 
+#ifndef __MINGW32__
 #define unlink _unlink
-#define __rotl _rotl
-#define __rotl64 _rotl64
-#define __rotr _rotr
-#define __rotr64 _rotr64
+#endif
 
 // 64 bit offsets for windows
 #ifndef __MINGW32__
@@ -85,3 +68,55 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 #endif
 	#define Crash() {__debugbreak();}
 #endif // WIN32 ndef
+
+#if defined(_MSC_VER)
+#include <cstdlib>
+#elif (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64))
+#include <x86intrin.h>
+#endif
+
+inline u32 __rotl(u32 x, int shift) {
+#if defined(_MSC_VER)
+	return _rotl(x, shift);
+#elif (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64))
+	return __rold(x, shift);
+#else
+	shift &= 31;
+	if (!shift) return x;
+	return (x << shift) | (x >> (32 - shift));
+#endif
+}
+
+inline u64 __rotl64(u64 x, unsigned int shift){
+#if defined(_MSC_VER)
+	return _rotl64(x, shift);
+#elif PPSSPP_ARCH(AMD64)
+	return __rolq(x, shift);
+#else
+	unsigned int n = shift % 64;
+	return (x << n) | (x >> (64 - n));
+#endif
+}
+
+inline u32 __rotr(u32 x, int shift) {
+#if defined(_MSC_VER)
+	return _rotr(x, shift);
+#elif (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64))
+	return __rord(x, shift);
+#else
+    shift &= 31;
+    if (!shift) return x;
+    return (x >> shift) | (x << (32 - shift));
+#endif
+}
+
+inline u64 __rotr64(u64 x, unsigned int shift){
+#if defined(_MSC_VER)
+	return _rotr64(x, shift);
+#elif PPSSPP_ARCH(AMD64)
+	return __rorq(x, shift);
+#else
+	unsigned int n = shift % 64;
+	return (x >> n) | (x << (64 - n));
+#endif
+}

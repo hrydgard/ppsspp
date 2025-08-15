@@ -33,14 +33,17 @@ enum class ReportingOverallScore : int {
 	INVALID = -1,
 };
 
-class ReportScreen : public UIDialogScreenWithGameBackground {
+class ReportScreen : public UIDialogScreen {
 public:
 	ReportScreen(const Path &gamePath);
 
 	const char *tag() const override { return "Report"; }
 
+	// For the screenshotting functionality to work.
+	ScreenRenderRole renderRole(bool isTop) const override { return ScreenRenderRole::MUST_BE_FIRST | ScreenRenderRole::CAN_BE_BACKGROUND; }
+
 protected:
-	void postRender() override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void update() override;
 	void resized() override;
 	void CreateViews() override;
@@ -51,7 +54,6 @@ protected:
 	UI::EventReturn HandleChoice(UI::EventParams &e);
 	UI::EventReturn HandleSubmit(UI::EventParams &e);
 	UI::EventReturn HandleBrowser(UI::EventParams &e);
-	UI::EventReturn HandleShowCRC(UI::EventParams &e);
 	UI::EventReturn HandleReportingChange(UI::EventParams &e);
 
 	UI::Choice *submit_ = nullptr;
@@ -59,7 +61,7 @@ protected:
 	UI::TextView *reportingNotice_ = nullptr;
 	UI::TextView *overallDescription_ = nullptr;
 	UI::TextView *crcInfo_ = nullptr;
-	UI::Choice *showCrcButton_ = nullptr;
+	Path gamePath_;
 	Path screenshotFilename_;
 
 	ReportingOverallScore overall_ = ReportingOverallScore::INVALID;
@@ -70,10 +72,9 @@ protected:
 	bool ratingEnabled_;
 	bool tookScreenshot_ = false;
 	bool includeScreenshot_ = true;
-	bool showCRC_ = false;
 };
 
-class ReportFinishScreen : public UIDialogScreenWithGameBackground {
+class ReportFinishScreen : public UIDialogScreen {
 public:
 	ReportFinishScreen(const Path &gamePath, ReportingOverallScore score);
 
@@ -88,6 +89,7 @@ protected:
 
 	UI::TextView *resultNotice_ = nullptr;
 	UI::LinearLayout *resultItems_ = nullptr;
+	Path gamePath_;
 	ReportingOverallScore score_;
 	bool setStatus_ = false;
 };

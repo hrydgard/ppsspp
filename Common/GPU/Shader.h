@@ -6,6 +6,9 @@
 
 #include "Common/Common.h"
 
+struct TBuiltInResource;
+void InitShaderResources(TBuiltInResource &Resources);
+
 // GLSL_1xx and GLSL_3xx each cover a lot of sub variants. All the little quirks
 // that differ are covered in ShaderLanguageDesc.
 // Defined as a bitmask so stuff like GetSupportedShaderLanguages can return combinations.
@@ -14,7 +17,6 @@ enum ShaderLanguage {
 	GLSL_1xx = 1,
 	GLSL_3xx = 2,
 	GLSL_VULKAN = 4,
-	HLSL_D3D9 = 8,
 	HLSL_D3D11 = 16,
 };
 

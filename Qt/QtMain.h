@@ -25,7 +25,7 @@ QTM_USE_NAMESPACE
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Input/InputState.h"
@@ -49,7 +49,7 @@ class QtGLGraphicsContext : public GraphicsContext {
 public:
 	QtGLGraphicsContext() {
 		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext();
+		draw_ = Draw::T3DCreateGLContext(false);
 		SetGPUBackend(GPUBackend::OPENGL);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
@@ -66,11 +66,6 @@ public:
 	}
 
 	void Shutdown() override {}
-	void SwapInterval(int interval) override {
-		// See TODO in constructor.
-		// renderManager_->SwapInterval(interval);
-	}
-	void SwapBuffers() override {}
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
@@ -90,7 +85,6 @@ public:
 	}
 
 	void StopThread() override {
-		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
 
@@ -141,6 +135,7 @@ protected:
 	void EmuThreadJoin();
 
 private:
+	bool HandleCustomEvent(QEvent *e);
 	QtGLGraphicsContext *graphicsContext;
 
 	float xscale, yscale;
@@ -171,7 +166,7 @@ extern MainUI* emugl;
 
 #ifndef SDL
 
-// Audio
+// AUDIO
 class MainAudio : public QObject {
 	Q_OBJECT
 public:
@@ -192,4 +187,3 @@ private:
 #endif //SDL
 
 #endif
-

@@ -3,12 +3,10 @@
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
-    <ClCompile Include="..\..\UI\ComboKeyMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\ControlMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
-    <ClCompile Include="..\..\UI\DisplayLayoutEditor.cpp" />
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\EmuScreen.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
@@ -20,6 +18,7 @@
     <ClCompile Include="..\..\UI\MainScreen.cpp" />
     <ClCompile Include="..\..\UI\MemStickScreen.cpp" />
     <ClCompile Include="..\..\UI\MiscScreens.cpp" />
+    <ClCompile Include="..\..\UI\IAPScreen.cpp" />
     <ClCompile Include="..\..\UI\NativeApp.cpp" />
     <ClCompile Include="..\..\UI\OnScreenDisplay.cpp" />
     <ClCompile Include="..\..\UI\PauseScreen.cpp" />
@@ -28,22 +27,47 @@
     <ClCompile Include="..\..\UI\ReportScreen.cpp" />
     <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
     <ClCompile Include="..\..\UI\Store.cpp" />
-    <ClCompile Include="..\..\UI\TextureUtil.cpp" />
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
-    <ClCompile Include="..\..\UI\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp" />
+    <ClCompile Include="..\..\UI\ChatScreen.cpp" />
+    <ClCompile Include="..\..\UI\Theme.cpp" />
+    <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
+    <ClCompile Include="..\..\UI\AudioCommon.cpp" />
+    <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
+    <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
+    <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
+    <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
+    <ClCompile Include="..\..\UI\DriverManagerScreen.cpp" />
+    <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
+    <ClCompile Include="..\..\UI\ImDebugger\ImDebugger.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImDisasmView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImStructViewer.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImGe.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImMemView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImConsole.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
-    <ClInclude Include="..\..\UI\ComboKeyMappingScreen.h" />
     <ClInclude Include="..\..\UI\ControlMappingScreen.h" />
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
-    <ClInclude Include="..\..\UI\DisplayLayoutEditor.h" />
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
     <ClInclude Include="..\..\UI\EmuScreen.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
@@ -51,11 +75,11 @@
     <ClInclude Include="..\..\UI\GameScreen.h" />
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
-    <ClInclude Include="..\..\UI\HostTypes.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\MainScreen.h" />
     <ClInclude Include="..\..\UI\MemStickScreen.h" />
     <ClInclude Include="..\..\UI\MiscScreens.h" />
+    <ClInclude Include="..\..\UI\IAPScreen.h" />
     <ClInclude Include="..\..\UI\OnScreenDisplay.h" />
     <ClInclude Include="..\..\UI\PauseScreen.h" />
     <ClInclude Include="..\..\UI\ProfilerDraw.h" />
@@ -63,10 +87,42 @@
     <ClInclude Include="..\..\UI\ReportScreen.h" />
     <ClInclude Include="..\..\UI\SavedataScreen.h" />
     <ClInclude Include="..\..\UI\Store.h" />
-    <ClInclude Include="..\..\UI\TextureUtil.h" />
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
-    <ClInclude Include="..\..\UI\TiltEventProcessor.h" />
     <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
     <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h" />
+    <ClInclude Include="..\..\UI\ChatScreen.h" />
+    <ClInclude Include="..\..\UI\Theme.h" />
+    <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
+    <ClInclude Include="..\..\UI\AudioCommon.h" />
+    <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
+    <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
+    <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
+    <ClInclude Include="..\..\UI\DebugOverlay.h" />
+    <ClInclude Include="..\..\UI\DriverManagerScreen.h" />
+    <ClInclude Include="..\..\UI\JitCompareScreen.h" />
+    <ClInclude Include="..\..\UI\ImDebugger\ImDebugger.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImDisasmView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImStructViewer.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImGe.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImMemView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImConsole.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ImDebugger">
+      <UniqueIdentifier>{4013cb89-6145-451c-9cb1-d63d01f66bd5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

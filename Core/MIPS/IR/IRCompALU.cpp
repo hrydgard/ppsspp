@@ -192,8 +192,14 @@ void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
-	ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(31));
-	ir.Write(shiftOp, rd, rt, IRTEMP_0);
+
+	if (opts.optimizeForInterpreter) {
+		// The interpreter already masks where needed, don't need to generate extra ops.
+		ir.Write(shiftOp, rd, rt, rs);
+	} else {
+		ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(31));
+		ir.Write(shiftOp, rd, rt, IRTEMP_0);
+	}
 }
 
 void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
@@ -246,11 +252,24 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 
 	case 0x4: //ins
 	{
+		// TODO: Might be good to support natively in the interpreter. Though, would have to
+		// abuse a register as a constant
 		u32 sourcemask = mask >> pos;
 		u32 destmask = ~(sourcemask << pos);
-		ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
-		if (pos != 0) {
-			ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
+
+		if (size != 32) {
+			// Need to use the sourcemask.
+			ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
+			if (pos != 0) {
+				ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
+			}
+		} else {
+			// If the shl takes care of the sourcemask, don't need to and.
+			if (pos != 0) {
+				ir.Write(IROp::ShlImm, IRTEMP_0, rs, pos);
+			} else {
+				ir.Write(IROp::Mov, IRTEMP_0, rs);
+			}
 		}
 		ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(destmask));
 		ir.Write(IROp::Or, rt, rt, IRTEMP_0);

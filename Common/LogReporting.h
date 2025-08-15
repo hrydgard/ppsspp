@@ -62,4 +62,4 @@ void ReportMessage(const char *message, ...);
 // The same, but with a preformatted version (message is still the key.)
 void ReportMessageFormatted(const char *message, const char *formatted);
 
-}
+} // namespace Reporting

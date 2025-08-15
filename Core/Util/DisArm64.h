@@ -18,6 +18,8 @@
 // Basic ARM64 disassembler.
 // No promises of accuracy, mostly just made to debug JIT code.
 
+#pragma once
+
 #include <cstdint>
 
 typedef bool (*SymbolCallback)(char *buffer, int bufsize, uint8_t *address);

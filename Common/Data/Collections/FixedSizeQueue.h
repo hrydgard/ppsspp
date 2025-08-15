@@ -30,17 +30,17 @@ template <class T, int N>
 class FixedSizeQueue {
 public:
 	FixedSizeQueue() {
-		// Allocate aligned memory, just because.
-		//int sizeInBytes = N * sizeof(T);
-		//storage_ = (T *)AllocateMemoryPages(sizeInBytes);
 		storage_ = new T[N];
 		clear();
 	}
 
 	~FixedSizeQueue() {
-		// FreeMemoryPages((void *)storage_, N * sizeof(T));
 		delete [] storage_;
 	}
+
+	// Disallow copies.
+	FixedSizeQueue(FixedSizeQueue &other) = delete;
+	FixedSizeQueue& operator=(const FixedSizeQueue &other) = delete;
 
 	void clear() {
 		head_ = 0;
@@ -150,9 +150,10 @@ public:
 		Do(p, size);
 		if (size != N)
 		{
-			ERROR_LOG(COMMON, "Savestate failure: Incompatible queue size.");
+			ERROR_LOG(Log::Common, "Savestate failure: Incompatible queue size.");
 			return;
 		}
+		// TODO: This is quite wasteful, could just store the actual data. Would be slightly more complex though.
 		DoArray<T>(p, storage_, N);
 		Do(p, head_);
 		Do(p, tail_);
@@ -165,10 +166,6 @@ private:
 	int head_;
 	int tail_;
 	int count_;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
-
-	// Make copy constructor private for now.
-	FixedSizeQueue(FixedSizeQueue &other);
-	FixedSizeQueue& operator=(const FixedSizeQueue &other);
 };
 
 
@@ -226,4 +223,3 @@ private:
 	volatile int curReadBlock;
 	volatile int curWriteBlock;
 };
-

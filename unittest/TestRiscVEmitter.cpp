@@ -19,11 +19,16 @@
 #include "Common/CPUDetect.h"
 #include "Common/RiscVEmitter.h"
 #include "UnitTest.h"
+#include "ext/riscv-disas.h"
 
 bool TestRiscVEmitter() {
 	using namespace RiscVGen;
 
-	// TODO: Set cpu_info flags.
+	cpu_info.RiscV_A = true;
+	cpu_info.RiscV_C = true;
+	cpu_info.RiscV_D = true;
+	cpu_info.RiscV_F = true;
+	cpu_info.RiscV_M = true;
 
 	u32 code[1024];
 	RiscVEmitter emitter((u8 *)code, (u8 *)code);

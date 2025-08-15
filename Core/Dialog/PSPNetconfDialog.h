@@ -34,17 +34,15 @@ struct SceUtilityNetconfParam {
 	int netWifiSpot;			// Flag to allow WIFI connections
 };
 
-
-class PSPNetconfDialog: public PSPDialog {
+class PSPNetconfDialog : public PSPDialog {
 public:
-	PSPNetconfDialog(UtilityDialogType type);
-	virtual ~PSPNetconfDialog();
+	PSPNetconfDialog(UtilityDialogType type) : PSPDialog(type) {}
 
-	virtual int Init(u32 paramAddr);
-	virtual int Update(int animSpeed) override;
-	virtual int Shutdown(bool force = false) override;
-	virtual void DoState(PointerWrap &p) override;
-	virtual pspUtilityDialogCommon* GetCommonParam() override;
+	int Init(u32 paramAddr);
+	int Update(int animSpeed) override;
+	int Shutdown(bool force = false) override;
+	void DoState(PointerWrap &p) override;
+	pspUtilityDialogCommon* GetCommonParam() override;
 
 protected:
 	bool UseAutoStatus() override {
@@ -52,21 +50,17 @@ protected:
 	}
 
 private:
-	void DisplayMessage(std::string text1, std::string text2a = "", std::string text2b = "", std::string text3a = "", std::string text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void DrawBanner();
 	void DrawIndicator();
 
 	SceUtilityNetconfParam request = {};
 	u32 requestAddr = 0;
 	int connResult = -1;
-	bool hideNotice = false;
-
-	int yesnoChoice = 0;
-	float scrollPos_ = 0.0f;
-	int framesUpHeld_ = 0;
-	int framesDownHeld_ = 0;
 
 	u32 scanInfosAddr = 0;
 	int scanStep = 0;
 	u64 startTime = 0;
+
+	bool showNoWlanNotice_ = false;
+	bool jsonReady_ = false;
 };

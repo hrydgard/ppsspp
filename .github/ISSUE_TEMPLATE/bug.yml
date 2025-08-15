@@ -25,10 +25,10 @@ body:
       label: What area of the game / PPSSPP
       placeholder: |
         When I equip a Mythril Bangle, a blue screen appears and it says the game crashed.
-        
+
         Here's a screenshot of the blue screen:
         [upload screenshot]
-        
+
         Here's a my savedata with a Mythril Bangle not equipped yet:
         [upload zip of savedata]
       description: >
@@ -42,7 +42,7 @@ body:
       label: What should happen
       placeholder: |
         The Mythril Bangle should be equipped without crashing.
-        
+
         My friend also tried this on their actual PSP, and it worked fine.  Here's a screenshot right after equipping frmo my savedata:
         [upload photo]
       description: >
@@ -61,7 +61,7 @@ body:
     attributes:
       value: |
         ## Your device
-        
+
         If you're not sure about any of these questions, check Settings -> Tools -> System Information.
 
   - type: dropdown
@@ -87,7 +87,7 @@ body:
     validations:
       required: true
     attributes:
-      label: Mobile phone model or graphics card
+      label: Mobile device model or graphics card (GPU)
       placeholder: Google Pixel 4a or NVIDIA GeForce GTX 1080Ti
       description: >
         If you don't know, copy what's under 'Driver version' in System Information.
@@ -127,7 +127,7 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: "Test in the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already fixed."
+        - label: "Test in the [latest git build](https://www.ppsspp.org/devbuilds) in case it's already fixed."
           required: true
         - label: "[Search for other reports](https://github.com/hrydgard/ppsspp/search?q=my+issue&type=issues) of the same issue."
           required: true

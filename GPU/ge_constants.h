@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-enum GECommand {
+enum GECommand : uint8_t {
 	GE_CMD_NOP = 0,
 	GE_CMD_VADDR = 0x1,
 	GE_CMD_IADDR = 0x2,
@@ -460,10 +460,10 @@ inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
 
 inline int BufferFormatBytesPerPixel(GEBufferFormat format) {
 	switch (format) {
-	case GE_FORMAT_8888: return 4;  // applies to depth as well.
+	case GE_FORMAT_8888: return 4;
 	case GE_FORMAT_CLUT8: return 1;
 	default:
-		return 2;
+		return 2;  // works for depth as well as the 16-bit color formats.
 	}
 }
 
@@ -583,8 +583,7 @@ enum GETexProjMapMode
 	GE_PROJMAP_NORMAL = 3,
 };
 
-enum GEPrimitiveType
-{
+enum GEPrimitiveType : int8_t {
 	GE_PRIM_POINTS = 0,
 	GE_PRIM_LINES = 1,
 	GE_PRIM_LINE_STRIP = 2,
@@ -622,6 +621,11 @@ enum GEPatchPrimType
 	GE_PATCHPRIM_POINTS = 2,
 	// Treated as points.
 	GE_PATCHPRIM_UNKNOWN = 3,
+};
+
+enum GECullMode {
+	GE_CULL_CW = 0,
+	GE_CULL_CCW = 1,
 };
 
 inline GEPrimitiveType PatchPrimToPrim(GEPatchPrimType type) {

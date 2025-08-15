@@ -1,9 +1,11 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Common/Common.h"
+#include "Common/Data/Collections/CharQueue.h"
 
 class Path;
 
@@ -11,9 +13,8 @@ class Path;
 // Does not do synchronization, must use external mutexes.
 class Buffer {
 public:
-	Buffer();
+	Buffer() = default;
 	Buffer(Buffer &&) = default;
-	~Buffer();
 
 	static Buffer Void() {
 		Buffer buf;
@@ -26,8 +27,7 @@ public:
 	char *Append(size_t length);
 
 	// These work pretty much like you'd expect.
-	void Append(const char *str);  // str null-terminated. The null is not copied.
-	void Append(const std::string &str);
+	void Append(std::string_view str);
 	void Append(const Buffer &other);
 
 	// Various types. Useful for varz etc. Appends a string representation of the
@@ -66,19 +66,19 @@ public:
 	// Simple I/O.
 
 	// Writes the entire buffer to the file descriptor. Also resets the
-	// size to zero. On failure, data remains in buffer and nothing is
+	// size to zero, if the clear flag is true. On failure, data remains in buffer and nothing is
 	// written.
-	bool FlushToFile(const Path &filename);
+	bool FlushToFile(const Path &filename, bool clear);
 
 	// Utilities. Try to avoid checking for size.
 	size_t size() const { return data_.size(); }
 	bool empty() const { return size() == 0; }
-	void clear() { data_.resize(0); }
-	bool IsVoid() { return void_; }
+	void clear() { data_.clear(); }
+	bool IsVoid() const { return void_; }
 
 protected:
-	// TODO: Find a better internal representation, like a cord.
-	std::vector<char> data_;
+	// Custom queue implementation.
+	CharQueue data_;
 	bool void_ = false;
 
 private:

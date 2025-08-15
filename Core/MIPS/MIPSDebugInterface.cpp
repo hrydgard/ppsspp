@@ -22,15 +22,17 @@
 #include <strings.h>
 #endif
 
+#include "Common/StringUtils.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/MIPS.h"
+#include "Core/Core.h"
 #include "Core/System.h"
 
 enum ReferenceIndexType {
@@ -45,33 +47,34 @@ enum ReferenceIndexType {
 	REF_INDEX_HLE      = 0x10000,
 	REF_INDEX_THREAD   = REF_INDEX_HLE | 0,
 	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
+	REF_INDEX_USEC     = REF_INDEX_HLE | 2,
+	REF_INDEX_TICKS    = REF_INDEX_HLE | 3,
 };
 
 
-class MipsExpressionFunctions: public IExpressionFunctions
-{
+class MipsExpressionFunctions : public IExpressionFunctions {
 public:
-	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { }
+	MipsExpressionFunctions(const DebugInterface *_cpu): cpu(_cpu) {}
 
 	bool parseReference(char* str, uint32_t& referenceIndex) override
 	{
 		for (int i = 0; i < 32; i++)
 		{
 			char reg[8];
-			sprintf(reg, "r%d", i);
+			snprintf(reg, sizeof(reg), "r%d", i);
 
-			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i)) == 0)
+			if (strcasecmp(str, reg) == 0 || strcasecmp(str, MIPSDebugInterface::GetRegName(0, i).c_str()) == 0)
 			{
 				referenceIndex = i;
 				return true;
 			}
-			else if (strcasecmp(str, cpu->GetRegName(1, i)) == 0)
+			else if (strcasecmp(str, MIPSDebugInterface::GetRegName(1, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU | i;
 				return true;
 			}
 
-			sprintf(reg, "fi%d", i);
+			snprintf(reg, sizeof(reg), "fi%d", i);
 			if (strcasecmp(str, reg) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU_INT | i;
@@ -81,14 +84,14 @@ public:
 
 		for (int i = 0; i < 128; i++)
 		{
-			if (strcasecmp(str, cpu->GetRegName(2, i)) == 0)
+			if (strcasecmp(str, MIPSDebugInterface::GetRegName(2, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU | i;
 				return true;
 			}
 
 			char reg[8];
-			sprintf(reg, "vi%d", i);
+			snprintf(reg, sizeof(reg), "vi%d", i);
 			if (strcasecmp(str, reg) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU_INT | i;
@@ -122,6 +125,14 @@ public:
 			referenceIndex = REF_INDEX_MODULE;
 			return true;
 		}
+		if (strcasecmp(str, "usec") == 0) {
+			referenceIndex = REF_INDEX_USEC;
+			return true;
+		}
+		if (strcasecmp(str, "ticks") == 0) {
+			referenceIndex = REF_INDEX_TICKS;
+			return true;
+		}
 
 		return false;
 	}
@@ -145,6 +156,10 @@ public:
 			return __KernelGetCurThread();
 		if (referenceIndex == REF_INDEX_MODULE)
 			return __KernelGetCurThreadModuleId();
+		if (referenceIndex == REF_INDEX_USEC)
+			return (uint32_t)CoreTiming::GetGlobalTimeUs();  // Loses information
+		if (referenceIndex == REF_INDEX_TICKS)
+			return (uint32_t)CoreTiming::GetTicks();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
@@ -159,111 +174,88 @@ public:
 		return EXPR_TYPE_UINT;
 	}
 	
-	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override {
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, std::string *error) override {
 		// We allow, but ignore, bad access.
 		// If we didn't, log/condition statements that reference registers couldn't be configured.
-		bool valid = Memory::IsValidRange(address, size);
+		uint32_t valid = Memory::ValidSize(address, size);
+		uint8_t buf[4]{};
+		if (valid != 0)
+			memcpy(buf, Memory::GetPointerUnchecked(address), valid);
 
 		switch (size) {
 		case 1:
-			dest = valid ? Memory::Read_U8(address) : 0;
+			dest = buf[0];
 			return true;
 		case 2:
-			dest = valid ? Memory::Read_U16(address) : 0;
+			dest = (buf[1] << 8) | buf[0];
 			return true;
 		case 4:
-			dest = valid ? Memory::Read_U32(address) : 0;
+			dest = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 			return true;
 		}
 
-		sprintf(error, "Unexpected memory access size %d", size);
+		*error = StringFromFormat("Unexpected memory access size %d", size);
 		return false;
 	}
 
 private:
-	DebugInterface* cpu;
+	const DebugInterface *cpu;
 };
 
-
-
-const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align)
-{
-	static char mojs[256];
-	if (Memory::IsValidAddress(address))
-		MIPSDisAsm(Memory::Read_Opcode_JIT(address), address, mojs);
-	else
-		strcpy(mojs, "-");
-	return mojs;
-}
-
-unsigned int MIPSDebugInterface::readMemory(unsigned int address)
-{
-	return Memory::Read_Instruction(address).encoding;
+unsigned int MIPSDebugInterface::readMemory(unsigned int address) {
+	if (Memory::IsValidRange(address, 4))
+		return Memory::ReadUnchecked_Instruction(address).encoding;
+	return 0;
 }
 
 bool MIPSDebugInterface::isAlive()
 {
-	return PSP_IsInited() && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN;
+	return PSP_GetBootState() == BootState::Complete && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN;
 }
 
 bool MIPSDebugInterface::isBreakpoint(unsigned int address) 
 {
-	return CBreakPoints::IsAddressBreakPoint(address);
+	return g_breakpoints.IsAddressBreakPoint(address);
 }
 
-void MIPSDebugInterface::setBreakpoint(unsigned int address)
-{
-	CBreakPoints::AddBreakPoint(address);
+void MIPSDebugInterface::setBreakpoint(unsigned int address) {
+	g_breakpoints.AddBreakPoint(address);
 }
-void MIPSDebugInterface::clearBreakpoint(unsigned int address)
-{
-	CBreakPoints::RemoveBreakPoint(address);
+
+void MIPSDebugInterface::clearBreakpoint(unsigned int address) {
+	g_breakpoints.RemoveBreakPoint(address);
 }
+
 void MIPSDebugInterface::clearAllBreakpoints() {}
-void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
-{
-	CBreakPoints::IsAddressBreakPoint(address)?CBreakPoints::RemoveBreakPoint(address):CBreakPoints::AddBreakPoint(address);
+
+void MIPSDebugInterface::toggleBreakpoint(unsigned int address) {
+	if (g_breakpoints.IsAddressBreakPoint(address)) {
+		g_breakpoints.RemoveBreakPoint(address);
+	} else {
+		g_breakpoints.AddBreakPoint(address);
+	}
 }
 
+int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
+	uint32_t colors[6] = { 0xFFe0FFFF, 0xFFFFe0e0, 0xFFe8e8FF, 0xFFFFe0FF, 0xFFe0FFe0, 0xFFFFFFe0 };
+	uint32_t colorsDark[6] = { 0xFF301010, 0xFF103030, 0xFF403010, 0xFF103000, 0xFF301030, 0xFF101030 };
 
-int MIPSDebugInterface::getColor(unsigned int address)
-{
-	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
-	int n=g_symbolMap->GetFunctionNum(address);
-	if (n==-1) return 0xFFFFFF;
-	return colors[n%6];
+	int n = g_symbolMap->GetFunctionNum(address);
+	if (n == -1) {
+		return darkMode ? 0xFF101010 : 0xFFFFFFFF;
+	} else if (darkMode) {
+		return colorsDark[n % ARRAY_SIZE(colorsDark)];
+	} else {
+		return colors[n % ARRAY_SIZE(colors)];
+	}
 }
-std::string MIPSDebugInterface::getDescription(unsigned int address) 
-{
+
+std::string MIPSDebugInterface::getDescription(unsigned int address) {
 	return g_symbolMap->GetDescription(address);
 }
 
-bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)
-{
-	MipsExpressionFunctions funcs(this);
-	return initPostfixExpression(exp,&funcs,dest);
-}
-
-bool MIPSDebugInterface::parseExpression(PostfixExpression& exp, u32& dest)
-{
-	MipsExpressionFunctions funcs(this);
-	return parsePostfixExpression(exp,&funcs,dest);
-}
-
-void MIPSDebugInterface::runToBreakpoint() 
-{
-
-}
-
-const char *MIPSDebugInterface::GetName()
-{
-	return ("R4");
-}
-
-
-const char *MIPSDebugInterface::GetRegName(int cat, int index)
-{
-	static const char *regName[32] = {
+std::string MIPSDebugInterface::GetRegName(int cat, int index) {
+	static const char * const regName[32] = {
 		"zero",  "at",    "v0",    "v1",
 		"a0",    "a1",    "a2",    "a3",
 		"t0",    "t1",    "t2",    "t3",
@@ -273,26 +265,36 @@ const char *MIPSDebugInterface::GetRegName(int cat, int index)
 		"t8",    "t9",    "k0",    "k1",
 		"gp",    "sp",    "fp",    "ra"
 	};
+	static const char * const fpRegName[32] = {
+		"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
+		"f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+		"f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
+		"f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+	};
 
-	// really nasty hack so that this function can be called several times on one line of c++.
-	static int access=0;
-	access++;
-	access &= 3;
-	static char temp[4][16];
-
-	if (cat == 0)
+	if (cat == 0 && (unsigned)index < ARRAY_SIZE(regName)) {
 		return regName[index];
-	else if (cat == 1)
-	{
-		sprintf(temp[access],"f%i",index);
-		return temp[access];
+	} else if (cat == 1 && (unsigned)index < ARRAY_SIZE(fpRegName)) {
+		return fpRegName[index];
+	} else if (cat == 2) {
+		return GetVectorNotation(index, V_Single);
 	}
-	else if (cat == 2)
-	{
-		sprintf(temp[access],"v%03x",index);
-		return temp[access];
-	}
-	else
-		return "???";
+	return "???";
 }
 
+bool initExpression(const DebugInterface *debug, const char* exp, PostfixExpression& dest) {
+	MipsExpressionFunctions funcs(debug);
+	return initPostfixExpression(exp, &funcs, dest);
+}
+
+bool parseExpression(const DebugInterface *debug, PostfixExpression& exp, u32& dest) {
+	MipsExpressionFunctions funcs(debug);
+	return parsePostfixExpression(exp, &funcs, dest);
+}
+
+void DisAsm(u32 pc, char *out, size_t outSize) {
+	if (Memory::IsValidAddress(pc))
+		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
+	else
+		truncate_cpy(out, outSize, "-");
+}

@@ -35,8 +35,6 @@ void TestCode::Generate()
 {
 	testCodePtr = this->GetCodePtr();
 
-	const u8 *start = AlignCode16();
-
 	uint32_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
 	uint32_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
 	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
@@ -66,11 +64,11 @@ void Arm64EmitterTest() {
 	return;
 
 	for (int i = 0; i < 6; i++) {
-		INFO_LOG(SYSTEM, "---------------------------");
+		INFO_LOG(Log::System, "---------------------------");
 	}
-	INFO_LOG(SYSTEM, "---------------------------");
-	INFO_LOG(SYSTEM, "Running ARM64 emitter test!");
-	INFO_LOG(SYSTEM, "---------------------------");
+	INFO_LOG(Log::System, "---------------------------");
+	INFO_LOG(Log::System, "Running ARM64 emitter test!");
+	INFO_LOG(Log::System, "---------------------------");
 
 	TestCode gen;
 	gen.ReserveCodeSpace(0x1000);
@@ -78,15 +76,15 @@ void Arm64EmitterTest() {
 	gen.Generate();
 
 	u32 retval = CallPtr(gen.testCodePtr);
-	INFO_LOG(SYSTEM, "Returned %d", retval);
-	// INFO_LOG(SYSTEM, "ARM emitter test 1 passed if %f == 3.0! retval = %08x", abc[32 + 31], retval);
+	INFO_LOG(Log::System, "Returned %d", retval);
+	// INFO_LOG(Log::System, "ARM emitter test 1 passed if %f == 3.0! retval = %08x", abc[32 + 31], retval);
 	/*
-	INFO_LOG(SYSTEM, "x: %08x %08x %08x %08x", x[0], x[1], x[2], x[3]);
-	INFO_LOG(SYSTEM, "y: %08x %08x %08x %08x", y[0], y[1], y[2], y[3]);
-	INFO_LOG(SYSTEM, "z: %08x %08x %08x %08x", z[0], z[1], z[2], z[3]);
-	INFO_LOG(SYSTEM, "c: %f %f %f %f", c[0], c[1], c[2], c[3]);*/
+	INFO_LOG(Log::System, "x: %08x %08x %08x %08x", x[0], x[1], x[2], x[3]);
+	INFO_LOG(Log::System, "y: %08x %08x %08x %08x", y[0], y[1], y[2], y[3]);
+	INFO_LOG(Log::System, "z: %08x %08x %08x %08x", z[0], z[1], z[2], z[3]);
+	INFO_LOG(Log::System, "c: %f %f %f %f", c[0], c[1], c[2], c[3]);*/
 	for (int i = 0; i < 6; i++) {
-		INFO_LOG(SYSTEM, "--------------------------");
+		INFO_LOG(Log::System, "--------------------------");
 	}
 	// DisassembleArm(codeStart, gen.GetCodePtr()-codeStart);
 }

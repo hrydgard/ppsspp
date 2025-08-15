@@ -1,43 +1,25 @@
-#include "Common/Net/HTTPClient.h"
-
-#include "Common/TimeUtil.h"
-#include "Common/StringUtils.h"
-
-#ifndef _WIN32
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netdb.h>
-#include <unistd.h>
-#define closesocket close
-#else
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <io.h>
-#endif
-
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
+#include "Common/Net/HTTPClient.h"
+
+#include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+
+#include "Common/Net/SocketCompat.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
 
 #include "Common/File/FileDescriptor.h"
+#include "Common/SysError.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Compression.h"
 #include "Common/Net/NetBuffer.h"
 #include "Common/Log.h"
 
 namespace net {
-
-Connection::Connection() {
-}
 
 Connection::~Connection() {
 	Disconnect();
@@ -67,11 +49,11 @@ const char *DNSTypeAsString(DNSType type) {
 
 bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
-		ERROR_LOG(IO, "Resolve: Already have a socket");
+		ERROR_LOG(Log::IO, "Resolve: Already have a socket");
 		return false;
 	}
 	if (!host || port < 1 || port > 65535) {
-		ERROR_LOG(IO, "Resolve: Invalid host or port (%d)", port);
+		ERROR_LOG(Log::IO, "Resolve: Invalid host or port (%d)", port);
 		return false;
 	}
 
@@ -81,9 +63,15 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	char port_str[16];
 	snprintf(port_str, sizeof(port_str), "%d", port);
 
+	std::string processedHostname(host);
+
+	if (customResolve_) {
+		processedHostname = customResolve_(host);
+	}
+	
 	std::string err;
-	if (!net::DNSResolve(host, port_str, &resolved_, err, type)) {
-		WARN_LOG(IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
+	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
+		WARN_LOG(Log::IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;
 		return false;
@@ -92,9 +80,21 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	return true;
 }
 
+static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
+	switch (info->ai_family) {
+	case AF_INET:
+	case AF_INET6:
+		inet_ntop(info->ai_family, &((sockaddr_in *)info->ai_addr)->sin_addr, addrbuf, bufsize);
+		break;
+	default:
+		snprintf(addrbuf, bufsize, "(Unknown AF %d)", info->ai_family);
+		break;
+	}
+}
+
 bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
-		ERROR_LOG(IO, "Bad port");
+		ERROR_LOG(Log::IO, "Bad port");
 		return false;
 	}
 	sock_ = -1;
@@ -110,13 +110,38 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			int sock = socket(possible->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if ((intptr_t)sock == -1) {
-				ERROR_LOG(IO, "Bad socket");
+				ERROR_LOG(Log::IO, "Bad socket");
 				continue;
 			}
+			// Windows sockets aren't limited by socket number, just by count, so checking FD_SETSIZE there is wrong.
+#if !PPSSPP_PLATFORM(WINDOWS)
+			if (sock >= FD_SETSIZE) {
+				ERROR_LOG(Log::IO, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
+				closesocket(sock);
+				continue;
+			}
+#endif
 			fd_util::SetNonBlocking(sock, true);
 
 			// Start trying to connect (async with timeout.)
-			connect(sock, possible->ai_addr, (int)possible->ai_addrlen);
+			errno = 0;
+			if (connect(sock, possible->ai_addr, (int)possible->ai_addrlen) < 0) {
+				int errorCode = socket_errno;
+				std::string errorString = GetStringErrorMsg(errorCode);
+				bool unreachable = errorCode == ENETUNREACH;
+				bool inProgress = errorCode == EINPROGRESS || errorCode == EWOULDBLOCK;
+				if (!inProgress) {
+					char addrStr[128]{};
+					FormatAddr(addrStr, sizeof(addrStr), possible);
+					if (!unreachable) {
+						ERROR_LOG(Log::HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errorCode, errorString.c_str());
+					} else {
+						INFO_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
+					}
+					closesocket(sock);
+					continue;
+				}
+			}
 			sockets.push_back(sock);
 			FD_SET(sock, &fds);
 			if (maxfd < sock + 1) {
@@ -127,7 +152,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
 		while (timeoutHalfSeconds >= 0 && selectResult == 0) {
-			struct timeval tv;
+			struct timeval tv{};
 			tv.tv_sec = 0;
 			if (timeoutHalfSeconds > 0) {
 				// Wait up to 0.5 seconds between cancel checks.
@@ -140,6 +165,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
 			if (cancelConnect && *cancelConnect) {
+				WARN_LOG(Log::HTTP, "connect: cancelled (1): %s:%d", host_.c_str(), port_);
 				break;
 			}
 		}
@@ -155,13 +181,19 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			// Great, now we're good to go.
 			return true;
+		} else {
+			// Fail. Close all the sockets.
+			for (int sock : sockets) {
+				closesocket(sock);
+			}
 		}
 
 		if (cancelConnect && *cancelConnect) {
+			WARN_LOG(Log::HTTP, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
 			break;
 		}
 
-		sleep_ms(1);
+		sleep_ms(1, "connect");
 	}
 
 	// Nothing connected, unfortunately.
@@ -180,11 +212,12 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-constexpr const char *DEFAULT_USERAGENT = "NATIVEAPP 1.0";
+constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
+constexpr const char *HTTP_VERSION = "1.1";
 
-Client::Client() {
-	httpVersion_ = "1.1";
+Client::Client(net::ResolveFunc func) : Connection(func) {
 	userAgent_ = DEFAULT_USERAGENT;
+	httpVersion_ = HTTP_VERSION;
 }
 
 Client::~Client() {
@@ -217,15 +250,18 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::
 	return found;
 }
 
-void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *progress) {
+static bool DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
+	_dbg_assert_(outbuffer->empty());
 	int dechunkedBytes = 0;
 	while (true) {
 		std::string line;
 		inbuffer->TakeLineCRLF(&line);
 		if (!line.size())
-			return;
-		unsigned int chunkSize;
-		sscanf(line.c_str(), "%x", &chunkSize);
+			return false;
+		unsigned int chunkSize = 0;
+		if (sscanf(line.c_str(), "%x", &chunkSize) != 1) {
+			return false;
+		}
 		if (chunkSize) {
 			std::string data;
 			inbuffer->Take(chunkSize, &data);
@@ -233,17 +269,16 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 		} else {
 			// a zero size chunk should mean the end.
 			inbuffer->clear();
-			return;
+			return true;
 		}
 		dechunkedBytes += chunkSize;
-		if (progress && contentLength) {
-			*progress = (float)dechunkedBytes / contentLength;
-		}
 		inbuffer->Skip(2);
 	}
+	// Unreachable
+	return true;
 }
 
-int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
+int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, net::RequestProgress *progress) {
 	const char *otherHeaders =
 		"Accept-Encoding: gzip\r\n";
 	int err = SendRequest("GET", req, otherHeaders, progress);
@@ -264,19 +299,20 @@ int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::strin
 	return code;
 }
 
-int Client::GET(const RequestParams &req, Buffer *output, RequestProgress *progress) {
+int Client::GET(const RequestParams &req, Buffer *output, net::RequestProgress *progress) {
 	std::vector<std::string> responseHeaders;
 	int code = GET(req, output, responseHeaders, progress);
 	return code;
 }
 
-int Client::POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress) {
+int Client::POST(const RequestParams &req, std::string_view data, std::string_view mime, Buffer *output, net::RequestProgress *progress) {
 	char otherHeaders[2048];
 	if (mime.empty()) {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
 	} else {
-		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %s\r\n", (long long)data.size(), mime.c_str());
+		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %.*s\r\n", (long long)data.size(), (int)mime.size(), mime.data());
 	}
+
 	int err = SendRequestWithData("POST", req, data, otherHeaders, progress);
 	if (err < 0) {
 		return err;
@@ -296,16 +332,16 @@ int Client::POST(const RequestParams &req, const std::string &data, const std::s
 	return code;
 }
 
-int Client::POST(const RequestParams &req, const std::string &data, Buffer *output, RequestProgress *progress) {
+int Client::POST(const RequestParams &req, std::string_view data, Buffer *output, net::RequestProgress *progress) {
 	return POST(req, data, "", output, progress);
 }
 
-int Client::SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, RequestProgress *progress) {
+int Client::SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, net::RequestProgress *progress) {
 	return SendRequestWithData(method, req, "", otherHeaders, progress);
 }
 
-int Client::SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, RequestProgress *progress) {
-	progress->progress = 0.01f;
+int Client::SendRequestWithData(const char *method, const RequestParams &req, std::string_view data, const char *otherHeaders, net::RequestProgress *progress) {
+	progress->Update(0, 0, false);
 
 	net::Buffer buffer;
 	const char *tpl =
@@ -318,7 +354,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, co
 		"\r\n";
 
 	buffer.Printf(tpl,
-		method, req.resource.c_str(), httpVersion_,
+		method, req.resource.c_str(), HTTP_VERSION,
 		host_.c_str(),
 		userAgent_.c_str(),
 		req.acceptMime,
@@ -331,7 +367,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, co
 	return 0;
 }
 
-int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
+int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress, std::string *statusLine) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
@@ -341,13 +377,13 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
 		if (!ready && time_now_d() > endTimeout) {
-			ERROR_LOG(IO, "HTTP headers timed out");
+			ERROR_LOG(Log::HTTP, "HTTP headers timed out");
 			return -1;
 		}
 	};
 	// Let's hope all the headers are available in a single packet...
 	if (readbuf->Read(sock(), 4096) < 0) {
-		ERROR_LOG(IO, "Failed to read HTTP headers :(");
+		ERROR_LOG(Log::HTTP, "Failed to read HTTP headers :(");
 		return -1;
 	}
 
@@ -365,26 +401,32 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
-		ERROR_LOG(IO, "Could not parse HTTP status code: %s", line.c_str());
+		ERROR_LOG(Log::HTTP, "Could not parse HTTP status code: '%s'", line.c_str());
 		return -1;
 	}
 
+	if (statusLine)
+		*statusLine = line;
+
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);
-		if (!sz)
+		if (!sz || sz < 0)
 			break;
+		VERBOSE_LOG(Log::HTTP, "Header line: %s", line.c_str());
 		responseHeaders.push_back(line);
 	}
 
 	if (responseHeaders.size() == 0) {
-		ERROR_LOG(IO, "No HTTP response headers");
+		ERROR_LOG(Log::HTTP, "No HTTP response headers");
 		return -1;
 	}
 
 	return code;
 }
 
-int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress) {
+int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress) {
+	_dbg_assert_(progress->cancelled);
+
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;
@@ -412,30 +454,22 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	}
 
 	if (contentLength < 0) {
+		WARN_LOG(Log::HTTP, "Negative content length %d", contentLength);
 		// Just sanity checking...
 		contentLength = 0;
 	}
 
-	if (!contentLength) {
-		// Content length is unknown.
-		// Set progress to 1% so it looks like something is happening...
-		progress->progress = 0.1f;
-	}
-
-	if (!contentLength) {
-		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, &progress->kBps, progress->cancelled))
-			return -1;
-	} else {
-		// Let's read in chunks, updating progress between each.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, &progress->progress, &progress->kBps, progress->cancelled))
-			return -1;
-	}
+	if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
+		return -1;
 
 	// output now contains the rest of the reply. Dechunk it.
 	if (!output->IsVoid()) {
 		if (chunked) {
-			DeChunk(readbuf, output, contentLength, &progress->progress);
+			if (!DeChunk(readbuf, output, contentLength)) {
+				ERROR_LOG(Log::HTTP, "Bad chunked data, couldn't read chunk size");
+				progress->Update(0, 0, true);
+				return -1;
+			}
 		} else {
 			output->Append(*readbuf);
 		}
@@ -446,53 +480,62 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			output->TakeAll(&compressed);
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
-				ERROR_LOG(IO, "Error decompressing using zlib");
-				progress->progress = 0.0f;
+				ERROR_LOG(Log::HTTP, "Error decompressing using zlib");
+				progress->Update(0, 0, true);
 				return -1;
 			}
 			output->Append(decompressed);
 		}
 	}
 
-	progress->progress = 1.0f;
+	progress->Update(contentLength, contentLength, true);
 	return 0;
 }
 
-Download::Download(const std::string &url, const Path &outfile)
-	: progress_(&cancelled_), url_(url), outfile_(outfile) {
+HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name)
+	: Request(method, url, name, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
+	outfile_ = outfile;
 }
 
-Download::~Download() {
-	_assert_msg_(joined_, "Download destructed without join");
+HTTPRequest::~HTTPRequest() {
+	g_OSD.RemoveProgressBar(url_, !failed_, 0.5f);
+
+	if (thread_.joinable()) {
+		_dbg_assert_msg_(false, "Download destructed without join");
+	}
 }
 
-void Download::Start() {
-	thread_ = std::thread(std::bind(&Download::Do, this));
+void HTTPRequest::Start() {
+	thread_ = std::thread([this] { Do(); });
 }
 
-void Download::Join() {
-	if (joined_) {
-		ERROR_LOG(IO, "Already joined thread!");
+void HTTPRequest::Join() {
+	if (!thread_.joinable()) {
+		ERROR_LOG(Log::HTTP, "Already joined thread!");
+		_dbg_assert_(false);
 	}
 	thread_.join();
-	joined_ = true;
 }
 
-void Download::SetFailed(int code) {
+void HTTPRequest::SetFailed(int code) {
 	failed_ = true;
-	progress_.progress = 1.0f;
+	progress_.Update(0, 0, true);
 	completed_ = true;
 }
 
-int Download::PerformGET(const std::string &url) {
+int HTTPRequest::Perform(const std::string &url) {
 	Url fileUrl(url);
 	if (!fileUrl.Valid()) {
 		return -1;
 	}
 
-	http::Client client;
+	http::Client client(customResolve_);
+	if (!userAgent_.empty()) {
+		client.SetUserAgent(userAgent_);
+	}
+
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
-		ERROR_LOG(IO, "Failed resolving %s", url.c_str());
+		ERROR_LOG(Log::HTTP, "Failed resolving %s", url.c_str());
 		return -1;
 	}
 
@@ -501,7 +544,7 @@ int Download::PerformGET(const std::string &url) {
 	}
 
 	if (!client.Connect(2, 20.0, &cancelled_)) {
-		ERROR_LOG(IO, "Failed connecting to server or cancelled.");
+		ERROR_LOG(Log::HTTP, "Failed connecting to server or cancelled (=%d).", cancelled_);
 		return -1;
 	}
 
@@ -510,27 +553,33 @@ int Download::PerformGET(const std::string &url) {
 	}
 
 	RequestParams req(fileUrl.Resource(), acceptMime_);
-	return client.GET(req, &buffer_, responseHeaders_, &progress_);
+	if (method_ == RequestMethod::GET) {
+		return client.GET(req, &buffer_, responseHeaders_, &progress_);
+	} else {
+		return client.POST(req, postData_, postMime_, &buffer_, &progress_);
+	}
 }
 
-std::string Download::RedirectLocation(const std::string &baseUrl) {
+std::string HTTPRequest::RedirectLocation(const std::string &baseUrl) const {
 	std::string redirectUrl;
 	if (GetHeaderValue(responseHeaders_, "Location", &redirectUrl)) {
 		Url url(baseUrl);
 		url = url.Relative(redirectUrl);
 		redirectUrl = url.ToString();
 	}
-
 	return redirectUrl;
 }
 
-void Download::Do() {
-	SetCurrentThreadName("Downloader::Do");
+void HTTPRequest::Do() {
+	SetCurrentThreadName("HTTPDownload::Do");
+
+	AndroidJNIThreadContext jniContext;
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;
 	while (resultCode_ == 0) {
-		int resultCode = PerformGET(downloadURL);
+		// This is where the new request is performed.
+		int resultCode = Perform(downloadURL);
 		if (resultCode == -1) {
 			SetFailed(resultCode);
 			return;
@@ -539,7 +588,7 @@ void Download::Do() {
 		if (resultCode == 301 || resultCode == 302 || resultCode == 303 || resultCode == 307 || resultCode == 308) {
 			std::string redirectURL = RedirectLocation(downloadURL);
 			if (redirectURL.empty()) {
-				ERROR_LOG(IO, "Could not find Location header for redirect");
+				ERROR_LOG(Log::HTTP, "Could not find Location header for redirect");
 				resultCode_ = resultCode;
 			} else if (redirectURL == downloadURL || redirectURL == url_) {
 				// Simple loop detected, bail out.
@@ -547,83 +596,30 @@ void Download::Do() {
 			}
 
 			// Perform the next GET.
-			if (resultCode_ == 0)
-				INFO_LOG(IO, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+			if (resultCode_ == 0) {
+				INFO_LOG(Log::HTTP, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+				buffer_.clear();
+				responseHeaders_.clear();
+			}
 			downloadURL = redirectURL;
 			continue;
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
-			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-				ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
+			INFO_LOG(Log::HTTP, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			bool clear = !(flags_ & RequestFlags::KeepInMemory);
+			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_, clear)) {
+				ERROR_LOG(Log::HTTP, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {
-			ERROR_LOG(IO, "Error downloading '%s' to '%s': %i", url_.c_str(), outfile_.c_str(), resultCode);
+			ERROR_LOG(Log::HTTP, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}
-
-	progress_.progress = 1.0f;
 
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
 }
 
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
-	if (acceptMime)
-		dl->SetAccept(acceptMime);
-	downloads_.push_back(dl);
-	dl->Start();
-	return dl;
-}
-
-std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
-	const std::string &url,
-	const Path &outfile,
-	std::function<void(Download &)> callback,
-	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
-	if (acceptMime)
-		dl->SetAccept(acceptMime);
-	dl->SetCallback(callback);
-	downloads_.push_back(dl);
-	dl->Start();
-	return dl;
-}
-
-void Downloader::Update() {
-	restart:
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		auto &dl = downloads_[i];
-		if (dl->Done()) {
-			dl->RunCallback();
-			dl->Join();
-			downloads_.erase(downloads_.begin() + i);
-			goto restart;
-		}
-	}
-}
-
-std::vector<float> Downloader::GetCurrentProgress() {
-	std::vector<float> progress;
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		if (!downloads_[i]->IsHidden())
-			progress.push_back(downloads_[i]->Progress());
-	}
-	return progress;
-}
-
-void Downloader::CancelAll() {
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		downloads_[i]->Cancel();
-	}
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		downloads_[i]->Join();
-	}
-	downloads_.clear();
-}
-
-}	// http
+}  // namespace http

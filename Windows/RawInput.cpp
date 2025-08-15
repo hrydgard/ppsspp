@@ -25,10 +25,10 @@
 #include "Common/Log.h"
 #include "Windows/RawInput.h"
 #include "Windows/MainWindow.h"
-#include "Windows/WindowsHost.h"
 #include "Common/CommonFuncs.h"
 #include "Common/SysError.h"
 #include "Core/Config.h"
+#include "Core/HLE/Plugins.h"
 
 #ifndef HID_USAGE_PAGE_GENERIC
 #define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
@@ -56,7 +56,7 @@
 #endif
 
 namespace WindowsRawInput {
-	static std::set<int> keyboardKeysDown;
+	static std::set<InputKeyCode> keyboardKeysDown;
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static bool menuActive;
@@ -67,7 +67,7 @@ namespace WindowsRawInput {
 
 	// TODO: More keys need to be added, but this is more than
 	// a fair start.
-	static std::map<int, int> windowsTransTable = {
+	static std::map<int, InputKeyCode> windowsTransTable = {
 		{ 'A', NKCODE_A },
 		{ 'B', NKCODE_B },
 		{ 'C', NKCODE_C },
@@ -146,7 +146,6 @@ namespace WindowsRawInput {
 		{ VK_RIGHT, NKCODE_DPAD_RIGHT },
 		{ VK_CAPITAL, NKCODE_CAPS_LOCK },
 		{ VK_CLEAR, NKCODE_CLEAR },
-		{ VK_SNAPSHOT, NKCODE_SYSRQ },
 		{ VK_SCROLL, NKCODE_SCROLL_LOCK },
 		{ VK_OEM_1, NKCODE_SEMICOLON },
 		{ VK_OEM_2, NKCODE_SLASH },
@@ -155,10 +154,11 @@ namespace WindowsRawInput {
 		{ VK_OEM_5, NKCODE_BACKSLASH },
 		{ VK_OEM_6, NKCODE_RIGHT_BRACKET },
 		{ VK_OEM_7, NKCODE_APOSTROPHE },
+		{ VK_OEM_8, NKCODE_GRAVE }, // Key left of 1 (above Q) on a lot of layouts.
 		{ VK_RETURN, NKCODE_ENTER },
 		{ VK_APPS, NKCODE_MENU }, // Context menu key, let's call this "menu".
 		{ VK_PAUSE, NKCODE_BREAK },
-		{ VK_F1, NKCODE_F1 },
+		{ VK_F1, NKCODE_F1 },	
 		{ VK_F2, NKCODE_F2 },
 		{ VK_F3, NKCODE_F3 },
 		{ VK_F4, NKCODE_F4 },
@@ -176,11 +176,11 @@ namespace WindowsRawInput {
 		{ VK_MBUTTON, NKCODE_EXT_MOUSEBUTTON_3 },
 		{ VK_XBUTTON1, NKCODE_EXT_MOUSEBUTTON_4 },
 		{ VK_XBUTTON2, NKCODE_EXT_MOUSEBUTTON_5 },
+		{ VK_SNAPSHOT, NKCODE_PRINTSCREEN },
 	};
 
 	void Init() {
-		RAWINPUTDEVICE dev[3];
-		memset(dev, 0, sizeof(dev));
+		RAWINPUTDEVICE dev[3]{};
 
 		dev[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
 		dev[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
@@ -195,13 +195,12 @@ namespace WindowsRawInput {
 		dev[2].dwFlags = 0;
 
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
-			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
+			WARN_LOG(Log::System, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
 		}
 	}
 
 	bool UpdateMenuActive() {
-		MENUBARINFO info;
-		memset(&info, 0, sizeof(info));
+		MENUBARINFO info{};
 		info.cbSize = sizeof(info);
 		if (GetMenuBarInfo(MainWindow::GetHWND(), OBJID_MENU, 0, &info) != 0) {
 			menuActive = info.fBarFocused != FALSE;
@@ -212,7 +211,7 @@ namespace WindowsRawInput {
 		return menuActive;
 	}
 
-	static int GetTrueVKey(const RAWKEYBOARD &kb) {
+	static InputKeyCode GetTrueVKey(const RAWKEYBOARD &kb) {
 		int vKey = kb.VKey;
 		switch (kb.VKey) {
 		case VK_SHIFT:
@@ -251,7 +250,7 @@ namespace WindowsRawInput {
 		return windowsTransTable[vKey];
 	}
 
-	void ProcessKeyboard(RAWINPUT *raw, bool foreground) {
+	void ProcessKeyboard(const RAWINPUT *raw, bool foreground) {
 		if (menuActive && UpdateMenuActive()) {
 			// Ignore keyboard input while a menu is active, it's probably interacting with the menu.
 			return;
@@ -274,8 +273,7 @@ namespace WindowsRawInput {
 
 			if (key.keyCode) {
 				NativeKey(key);
-
-				auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
+				auto keyDown = keyboardKeysDown.find(key.keyCode);
 				if (keyDown != keyboardKeysDown.end())
 					keyboardKeysDown.erase(keyDown);
 			}
@@ -284,7 +282,7 @@ namespace WindowsRawInput {
 
 	LRESULT ProcessChar(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 		KeyInput key;
-		key.keyCode = (int)wParam;  // Note that this is NOT a NKCODE but a Unicode character!
+		key.unicodeChar = (int)wParam;  // Note that this is NOT a NKCODE but a Unicode character!
 		key.flags = KEY_CHAR;
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		NativeKey(key);
@@ -302,7 +300,7 @@ namespace WindowsRawInput {
 		return true;
 	}
 
-	void ProcessMouse(HWND hWnd, RAWINPUT *raw, bool foreground) {
+	void ProcessMouse(HWND hWnd, const RAWINPUT *raw, bool foreground) {
 		if (menuActive && UpdateMenuActive()) {
 			// Ignore mouse input while a menu is active, it's probably interacting with the menu.
 			return;
@@ -317,24 +315,23 @@ namespace WindowsRawInput {
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
 
-		g_mouseDeltaX += raw->data.mouse.lLastX;
-		g_mouseDeltaY += raw->data.mouse.lLastY;
+		NativeMouseDelta(raw->data.mouse.lLastX, raw->data.mouse.lLastY);
 
-		const int rawInputDownID[5] = {
+		static const int rawInputDownID[5] = {
 			RI_MOUSE_LEFT_BUTTON_DOWN,
 			RI_MOUSE_RIGHT_BUTTON_DOWN,
 			RI_MOUSE_BUTTON_3_DOWN,
 			RI_MOUSE_BUTTON_4_DOWN,
 			RI_MOUSE_BUTTON_5_DOWN
 		};
-		const int rawInputUpID[5] = {
+		static const int rawInputUpID[5] = {
 			RI_MOUSE_LEFT_BUTTON_UP,
 			RI_MOUSE_RIGHT_BUTTON_UP,
 			RI_MOUSE_BUTTON_3_UP,
 			RI_MOUSE_BUTTON_4_UP,
 			RI_MOUSE_BUTTON_5_UP
 		};
-		const int vkInputID[5] = {
+		static const int vkInputID[5] = {
 			VK_LBUTTON,
 			VK_RBUTTON,
 			VK_MBUTTON,
@@ -343,7 +340,7 @@ namespace WindowsRawInput {
 		};
 
 		for (int i = 0; i < 5; i++) {
-			if (i > 0 || (g_Config.bMouseControl && (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse))) {
+			if (i > 0 || (g_Config.bMouseControl && (GetUIState() == UISTATE_INGAME || g_IsMappingMouseInput))) {
 				if (raw->data.mouse.usButtonFlags & rawInputDownID[i]) {
 					key.flags = KEY_DOWN;
 					key.keyCode = windowsTransTable[vkInputID[i]];
@@ -379,15 +376,21 @@ namespace WindowsRawInput {
 	}
 
 	LRESULT Process(HWND hWnd, WPARAM wParam, LPARAM lParam) {
-		UINT dwSize;
+		UINT dwSize = 0;
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 		if (!rawInputBuffer) {
 			rawInputBuffer = malloc(dwSize);
+			if (!rawInputBuffer)
+				return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
 			memset(rawInputBuffer, 0, dwSize);
 			rawInputBufferSize = dwSize;
 		}
 		if (dwSize > rawInputBufferSize) {
-			rawInputBuffer = realloc(rawInputBuffer, dwSize);
+			void *newBuf = realloc(rawInputBuffer, dwSize);
+			if (!newBuf)
+				return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
+			rawInputBuffer = newBuf;
+			rawInputBufferSize = dwSize;
 			memset(rawInputBuffer, 0, dwSize);
 		}
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
@@ -438,9 +441,7 @@ namespace WindowsRawInput {
 	}
 
 	void Shutdown() {
-		if (rawInputBuffer) {
-			free(rawInputBuffer);
-		}
+		free(rawInputBuffer);
 		rawInputBuffer = 0;
 	}
 };

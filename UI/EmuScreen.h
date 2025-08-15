@@ -29,10 +29,11 @@
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 
+#include "UI/ImDebugger/ImDebugger.h"
+
 struct AxisInput;
 
 class AsyncImageFileView;
-class OnScreenMessagesView;
 class ChatMenu;
 
 class EmuScreen : public UIScreen {
@@ -43,46 +44,62 @@ public:
 	const char *tag() const override { return "Emu"; }
 
 	void update() override;
-	void render() override;
-	void preRender() override;
-	void postRender() override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void sendMessage(const char *msg, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 	void resized() override;
+	ScreenRenderRole renderRole(bool isTop) const override;
 
-	bool touch(const TouchInput &touch) override;
+	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
+	// to get minimal latency and full control. We forward to UIScreen when needed.
+	bool UnsyncTouch(const TouchInput &touch) override;
+	bool UnsyncKey(const KeyInput &key) override;
+	void UnsyncAxis(const AxisInput *axes, size_t count) override;
+
+	// We also need to do some special handling of queued UI events to handle closing the chat window.
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void touch(const TouchInput &key) override;
+
+	void deviceLost() override;
+	void deviceRestored(Draw::DrawContext *draw) override;
+
+	void SendImDebuggerCommand(const ImCommand &command) {
+		imCmd_ = command;
+	}
+
+protected:
+	void darken();
+	void focusChanged(ScreenFocusChange focusChange) override;
 
 private:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
-	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
-	UI::EventReturn OnResume(UI::EventParams &params);
-	UI::EventReturn OnReset(UI::EventParams &params);
 
-	void bootGame(const Path &filename);
+	void HandleFlip();
+	void ProcessGameBoot(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
 	void bootComplete();
 	bool hasVisibleUI();
 	void renderUI();
+	void runImDebugger();
+	void renderImDebugger();
 
-	void onVKeyDown(int virtualKeyCode);
-	void onVKeyUp(int virtualKeyCode);
+	void onVKey(VirtKey virtualKeyCode, bool down);
+	void onVKeyAnalog(VirtKey virtualKeyCode, float value);
 
-	void autoLoad();
-	void checkPowerDown();
+	void AutoLoadSaveState();
+	bool checkPowerDown();
+
+	void ProcessQueuedVKeys();
+	void ProcessVKey(VirtKey vkey);
 
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;
 	bool bootPending_ = true;
 	Path gamePath_;
 
-	// Something invalid was loaded, don't try to emulate
-	bool invalid_ = true;
 	bool quit_ = false;
-	bool stopRender_ = false;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
@@ -104,14 +121,42 @@ private:
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 	UI::Spinner *loadingSpinner_ = nullptr;
-	UI::TextView *loadingTextView_ = nullptr;
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
+	UI::Button *backButton_ = nullptr;
 	UI::View *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
-	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
+
+	std::string extraAssertInfoStr_;
 
 	ControlMapper controlMapper_;
+
+	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
+	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
+
+	bool imguiInited_ = false;
+	// For ImGui modifier tracking
+	bool keyCtrlLeft_ = false;
+	bool keyCtrlRight_ = false;
+	bool keyShiftLeft_ = false;
+	bool keyShiftRight_ = false;
+	bool keyAltLeft_ = false;
+	bool keyAltRight_ = false;
+
+	bool lastImguiEnabled_ = false;
+
+	std::vector<VirtKey> queuedVirtKeys_;
+
+	ImGuiContext *ctx_ = nullptr;
+
+	bool frameStep_ = false;
+#ifndef MOBILE_DEVICE
+	bool startDumping_ = false;
+#endif
+	bool autoLoadFailed_ = false;  // to prevent repeat reloads
 };
+
+bool MustRunBehind();
+bool ShouldRunBehind();

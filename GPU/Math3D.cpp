@@ -15,8 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Common.h"
 #include "GPU/Math3D.h"
+#include "Common/Common.h"
+#include "Common/Math/SIMDHeaders.h"
+
+#if PPSSPP_ARCH(SSE2)
+// For the SSE4 stuff.
+#include <smmintrin.h>
+#endif
 
 namespace Math3D {
 
@@ -26,12 +32,19 @@ float Vec2<float>::Length() const
 	// Doubt this is worth it for a vec2 :/
 #if defined(_M_SSE)
 	float ret;
-	__m128 xy = _mm_loadu_ps(&x);
+	__m128d tmp = _mm_load_sd((const double*)&x);
+	__m128 xy = _mm_castpd_ps(tmp);
 	__m128 sq = _mm_mul_ps(xy, xy);
 	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
 	const __m128 res = _mm_add_ss(sq, r2);
 	_mm_store_ss(&ret, _mm_sqrt_ss(res));
 	return ret;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x2_t vec = vld1_f32(&x);
+	float32x2_t sq = vmul_f32(vec, vec);
+	float32x2_t add2 = vpadd_f32(sq, sq);
+	float32x2_t res = vsqrt_f32(add2);
+	return vget_lane_f32(res, 0);
 #else
 	return sqrtf(Length2());
 #endif
@@ -50,8 +63,7 @@ Vec2<float> Vec2<float>::WithLength(const float l) const
 }
 
 template<>
-float Vec2<float>::Distance2To(Vec2<float> &other)
-{
+float Vec2<float>::Distance2To(const Vec2<float> &other) const {
 	return Vec2<float>(other-(*this)).Length2();
 }
 
@@ -81,6 +93,12 @@ float Vec3<float>::Length() const
 	const __m128 res = _mm_add_ss(sq, _mm_add_ss(r2, r3));
 	_mm_store_ss(&ret, _mm_sqrt_ss(res));
 	return ret;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t sq = vsetq_lane_f32(0.0f, vmulq_f32(vec, vec), 3);
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
+	float32x2_t add2 = vpadd_f32(add1, add1);
+	float32x2_t res = vsqrt_f32(add2);
+	return vget_lane_f32(res, 0);
 #else
 	return sqrtf(Length2());
 #endif
@@ -99,8 +117,7 @@ Vec3<float> Vec3<float>::WithLength(const float l) const
 }
 
 template<>
-float Vec3<float>::Distance2To(Vec3<float> &other)
-{
+float Vec3<float>::Distance2To(const Vec3<float> &other) const {
 	return Vec3<float>(other-(*this)).Length2();
 }
 
@@ -147,6 +164,37 @@ Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
 	const __m128 replace = _mm_and_ps(_mm_set_ps(0.0f, 1.0f, 0.0f, 0.0f), mask);
 	// Replace with the constant if the mask matched.
 	return _mm_or_ps(_mm_andnot_ps(mask, result), replace);
+}
+#elif PPSSPP_ARCH(ARM64_NEON)
+template<>
+Vec3<float> Vec3<float>::Normalized(bool useSSE4) const {
+	float32x4_t sq = vsetq_lane_f32(0.0f, vmulq_f32(vec, vec), 3);
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
+	float32x2_t summed = vpadd_f32(add1, add1);
+
+	float32x2_t e = vrsqrte_f32(summed);
+	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
+	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
+
+	float32x4_t factor = vdupq_lane_f32(e, 0);
+	return Vec3<float>(vmulq_f32(vec, factor));
+}
+
+template<>
+Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
+	float32x4_t sq = vsetq_lane_f32(0.0f, vmulq_f32(vec, vec), 3);
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
+	float32x2_t summed = vpadd_f32(add1, add1);
+	if (vget_lane_f32(summed, 0) == 0.0f) {
+		return Vec3<float>(vsetq_lane_f32(1.0f, vdupq_lane_f32(summed, 0), 2));
+	}
+
+	float32x2_t e = vrsqrte_f32(summed);
+	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
+	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
+
+	float32x4_t factor = vdupq_lane_f32(e, 0);
+	return Vec3<float>(vmulq_f32(vec, factor));
 }
 #else
 template<>
@@ -231,8 +279,7 @@ Vec3Packed<float> Vec3Packed<float>::WithLength(const float l) const
 }
 
 template<>
-float Vec3Packed<float>::Distance2To(Vec3Packed<float> &other)
-{
+float Vec3Packed<float>::Distance2To(const Vec3Packed<float> &other) const {
 	return Vec3Packed<float>(other-(*this)).Length2();
 }
 
@@ -261,6 +308,12 @@ float Vec4<float>::Length() const
 	const __m128 res = _mm_add_ss(r2, _mm_shuffle_ps(r2, r2, _MM_SHUFFLE(0, 0, 0, 1)));
 	_mm_store_ss(&ret, _mm_sqrt_ss(res));
 	return ret;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t sq = vmulq_f32(vec, vec);
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
+	float32x2_t add2 = vpadd_f32(add1, add1);
+	float32x2_t res = vsqrt_f32(add2);
+	return vget_lane_f32(res, 0);
 #else
 	return sqrtf(Length2());
 #endif
@@ -279,8 +332,7 @@ Vec4<float> Vec4<float>::WithLength(const float l) const
 }
 
 template<>
-float Vec4<float>::Distance2To(Vec4<float> &other)
-{
+float Vec4<float>::Distance2To(const Vec4<float> &other) const {
 	return Vec4<float>(other-(*this)).Length2();
 }
 

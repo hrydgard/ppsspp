@@ -17,9 +17,16 @@
 
 #pragma once
 
+#include <map>
+
+class AuCtx;
+
 class PointerWrap;
 
 void Register_sceMp3();
 
+void __Mp3Init();
 void __Mp3Shutdown();
 void __Mp3DoState(PointerWrap &p);
+
+extern std::map<u32, AuCtx *> g_mp3Map;

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "Core/MIPS/MIPSStackWalk.h"
+
 namespace Memory {
 
 void MemFault_Init();
@@ -19,3 +21,10 @@ void MemFault_IgnoreLastCrash();
 bool HandleFault(uintptr_t hostAddress, void *context);
 
 }
+
+// Stack walk utility function, walks from the current state. Useful in the debugger and crash report screens etc.
+// Doesn't exactly belong here maybe, but can think of worse locations.
+// threadID can be -1 for current.
+std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID);
+
+std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames);

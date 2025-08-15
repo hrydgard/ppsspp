@@ -3,6 +3,10 @@
 #include "DeviceResources.h"
 #include "DirectXHelper.h"
 
+#include "Core/Config.h"
+#include "Common/StringUtils.h"
+#include "Common/Data/Encoding/Utf8.h"
+
 using namespace D2D1;
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -125,7 +129,7 @@ void DX::DeviceResources::CreateDeviceIndependentResources()
 }
 
 // Configures the Direct3D device, and stores handles to it and the device context.
-void DX::DeviceResources::CreateDeviceResources() 
+void DX::DeviceResources::CreateDeviceResources(IDXGIAdapter* vAdapter)
 {
 	// This flag adds support for surfaces with a different color channel ordering
 	// than the API default. It is required for compatibility with Direct2D.
@@ -159,10 +163,10 @@ void DX::DeviceResources::CreateDeviceResources()
 	// Create the Direct3D 11 API device object and a corresponding context.
 	ComPtr<ID3D11Device> device;
 	ComPtr<ID3D11DeviceContext> context;
-
+	auto hardwareType = (vAdapter != nullptr ? D3D_DRIVER_TYPE_UNKNOWN : D3D_DRIVER_TYPE_HARDWARE);
 	HRESULT hr = D3D11CreateDevice(
-		nullptr,					// Specify nullptr to use the default adapter.
-		D3D_DRIVER_TYPE_HARDWARE,	// Create a device using the hardware graphics driver.
+		vAdapter,					// Specify nullptr to use the default adapter.
+		hardwareType,				// Create a device using the hardware graphics driver.
 		0,							// Should be 0 unless the driver is D3D_DRIVER_TYPE_SOFTWARE.
 		creationFlags,				// Set debug and Direct2D compatibility flags.
 		featureLevels,				// List of feature levels this app can support.
@@ -194,6 +198,14 @@ void DX::DeviceResources::CreateDeviceResources()
 			);
 	}
 
+	if (!vAdapter && CreateAdaptersList(device)) {
+		// While fetching the adapters list
+		// we will check if the configs has custom adapter
+		// then will recall this function to create device with custom adapter
+		// so we have to stop here, if the `CreateAdaptersList` return true
+		return;
+	}
+
 	// Store pointers to the Direct3D 11.3 API device and immediate context.
 	DX::ThrowIfFailed(
 		device.As(&m_d3dDevice)
@@ -203,14 +215,25 @@ void DX::DeviceResources::CreateDeviceResources()
 		context.As(&m_d3dContext)
 		);
 
-	// Create the Direct2D device object and a corresponding context.
-	ComPtr<IDXGIDevice3> dxgiDevice;
 	DX::ThrowIfFailed(
-		m_d3dDevice.As(&dxgiDevice)
+		m_d3dDevice.As(&m_dxgiDevice)
+	);
+
+	DX::ThrowIfFailed(
+		m_dxgiDevice->GetAdapter(&m_dxgiAdapter)
+	);
+
+	DX::ThrowIfFailed(
+		m_dxgiAdapter->GetParent(IID_PPV_ARGS(&m_dxgiFactory))
+	);
+
+	// Create the Direct2D device object and a corresponding context.
+	DX::ThrowIfFailed(
+		m_d3dDevice.As(&m_dxgiDevice)
 		);
 
 	DX::ThrowIfFailed(
-		m_d2dFactory->CreateDevice(dxgiDevice.Get(), &m_d2dDevice)
+		m_d2dFactory->CreateDevice(m_dxgiDevice.Get(), &m_d2dDevice)
 		);
 
 	DX::ThrowIfFailed(
@@ -221,9 +244,72 @@ void DX::DeviceResources::CreateDeviceResources()
 		);
 }
 
+bool DX::DeviceResources::CreateAdaptersList(ComPtr<ID3D11Device> device) {
+	ComPtr<IDXGIDevice3> dxgi_device;
+	DX::ThrowIfFailed(
+		device.As(&dxgi_device)
+	);
+
+	Microsoft::WRL::ComPtr<IDXGIAdapter> deviceAdapter;
+	dxgi_device->GetAdapter(&deviceAdapter);
+
+	Microsoft::WRL::ComPtr<IDXGIFactory4> deviceFactory;
+	deviceAdapter->GetParent(IID_PPV_ARGS(&deviceFactory));
+
+	// Current adapter (Get current adapter name) 
+	DXGI_ADAPTER_DESC currentDefaultAdapterDesc;
+	deviceAdapter->GetDesc(&currentDefaultAdapterDesc);
+	std::string currentDefaultAdapterName = ConvertWStringToUTF8(currentDefaultAdapterDesc.Description);
+
+	UINT i = 0;
+	IDXGIAdapter* pAdapter;
+	IDXGIAdapter* customAdapter = nullptr;
+	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+	bool isXbox = deviceInfo->DeviceFamily == "Windows.Xbox";
+	while (deviceFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND)
+	{
+		++i;
+		DXGI_ADAPTER_DESC vAdapterDesc;
+		pAdapter->GetDesc(&vAdapterDesc);
+		auto adapterDescription = ConvertWStringToUTF8(vAdapterDesc.Description);
+		if (isXbox && adapterDescription == "Microsoft Basic Render Driver") {
+			// Skip, very slow and not usefull for Xbox
+			continue;
+		}
+		m_vAdapters.push_back(adapterDescription);
+		if (!g_Config.sD3D11Device.empty() && g_Config.sD3D11Device == adapterDescription) {
+			// Double check if it's the same default adapter
+			if (adapterDescription != currentDefaultAdapterName) {
+				customAdapter = pAdapter;
+			}
+		}
+	}
+	deviceFactory->Release();
+
+	if (m_vAdapters.size() == 1) {
+		// Only one (default) adapter, clear the list to hide device option from settings
+		m_vAdapters.clear();
+	}
+
+	bool reCreateDevice = false;
+	if (customAdapter) {
+		reCreateDevice = true;
+		// Recreate device with custom adapter
+		CreateDeviceResources(customAdapter);
+	}
+
+	return reCreateDevice;
+}
+
 // These resources need to be recreated every time the window size is changed.
 void DX::DeviceResources::CreateWindowSizeDependentResources() 
 {
+	// Window pointer was previously submited by `SetWindow` called from (App.cpp)
+	// we don't have to do that since we can easily get the current window
+	auto coreWindow = CoreWindow::GetForCurrentThread();
+
+	SetWindow(coreWindow);
+
 	// Clear the previous window size specific context.
 	ID3D11RenderTargetView* nullViews[] = {nullptr};
 	m_d3dContext->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
@@ -287,27 +373,11 @@ void DX::DeviceResources::CreateWindowSizeDependentResources()
 		swapChainDesc.Scaling = scaling;
 		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 
-		// This sequence obtains the DXGI factory that was used to create the Direct3D device above.
-		ComPtr<IDXGIDevice3> dxgiDevice;
-		DX::ThrowIfFailed(
-			m_d3dDevice.As(&dxgiDevice)
-			);
-
-		ComPtr<IDXGIAdapter> dxgiAdapter;
-		DX::ThrowIfFailed(
-			dxgiDevice->GetAdapter(&dxgiAdapter)
-			);
-
-		ComPtr<IDXGIFactory4> dxgiFactory;
-		DX::ThrowIfFailed(
-			dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory))
-			);
-
 		ComPtr<IDXGISwapChain1> swapChain;
 		DX::ThrowIfFailed(
-			dxgiFactory->CreateSwapChainForCoreWindow(
+			m_dxgiFactory->CreateSwapChainForCoreWindow(
 				m_d3dDevice.Get(),
-				reinterpret_cast<IUnknown*>(m_window.Get()),
+				reinterpret_cast<IUnknown*>(coreWindow),
 				&swapChainDesc,
 				nullptr,
 				&swapChain
@@ -320,7 +390,7 @@ void DX::DeviceResources::CreateWindowSizeDependentResources()
 		// Ensure that DXGI does not queue more than one frame at a time. This both reduces latency and
 		// ensures that the application will only render after each VSync, minimizing power consumption.
 		DX::ThrowIfFailed(
-			dxgiDevice->SetMaximumFrameLatency(1)
+			m_dxgiDevice->SetMaximumFrameLatency(1)
 			);
 	}
 
@@ -461,7 +531,6 @@ void DX::DeviceResources::SetWindow(CoreWindow^ window)
 {
 	DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
 
-	m_window = window;
 	if (Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamily == L"Windows.Xbox")
 	{
 		const auto hdi = Windows::Graphics::Display::Core::HdmiDisplayInformation::GetForCurrentView();
@@ -494,8 +563,6 @@ void DX::DeviceResources::SetWindow(CoreWindow^ window)
 	m_currentOrientation = currentDisplayInformation->CurrentOrientation;
 	
 	m_d2dContext->SetDpi(m_dpi, m_dpi);
-
-	CreateWindowSizeDependentResources();
 }
 
 // This method is called in the event handler for the SizeChanged event.
@@ -515,10 +582,8 @@ void DX::DeviceResources::SetDpi(float dpi)
 	{
 		m_dpi = dpi;
 
-		// When the display DPI changes, the logical size of the window (measured in Dips) also changes and needs to be updated.
-		m_logicalSize = Windows::Foundation::Size(m_window->Bounds.Width, m_window->Bounds.Height);
-
-		m_d2dContext->SetDpi(m_dpi, m_dpi);
+		// When the display DPI changes, the logical size of the window (measured in Dips) 
+		// also changes and needs to be updated.
 		CreateWindowSizeDependentResources();
 	}
 }
@@ -540,18 +605,8 @@ void DX::DeviceResources::ValidateDevice()
 	// was created or if the device has been removed.
 
 	// First, get the information for the default adapter from when the device was created.
-
-	ComPtr<IDXGIDevice3> dxgiDevice;
-	DX::ThrowIfFailed(m_d3dDevice.As(&dxgiDevice));
-
-	ComPtr<IDXGIAdapter> deviceAdapter;
-	DX::ThrowIfFailed(dxgiDevice->GetAdapter(&deviceAdapter));
-
-	ComPtr<IDXGIFactory4> deviceFactory;
-	DX::ThrowIfFailed(deviceAdapter->GetParent(IID_PPV_ARGS(&deviceFactory)));
-
 	ComPtr<IDXGIAdapter1> previousDefaultAdapter;
-	DX::ThrowIfFailed(deviceFactory->EnumAdapters1(0, &previousDefaultAdapter));
+	DX::ThrowIfFailed(m_dxgiFactory->EnumAdapters1(0, &previousDefaultAdapter));
 
 	DXGI_ADAPTER_DESC1 previousDesc;
 	DX::ThrowIfFailed(previousDefaultAdapter->GetDesc1(&previousDesc));
@@ -575,9 +630,6 @@ void DX::DeviceResources::ValidateDevice()
 		FAILED(m_d3dDevice->GetDeviceRemovedReason()))
 	{
 		// Release references to resources related to the old device.
-		dxgiDevice = nullptr;
-		deviceAdapter = nullptr;
-		deviceFactory = nullptr;
 		previousDefaultAdapter = nullptr;
 
 		// Create a new device and swap chain.

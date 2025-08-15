@@ -31,7 +31,7 @@
 #include "Core/HW/SimpleAudioDec.h"
 
 class PointerWrap;
-class SimpleAudio;
+class AudioDecoder;
 
 #ifdef USE_FFMPEG
 struct SwsContext;
@@ -50,8 +50,7 @@ inline s64 getMpegTimeStamp(const u8 *buf) {
 bool InitFFmpeg();
 #endif
 
-class MediaEngine
-{
+class MediaEngine {
 public:
 	MediaEngine();
 	~MediaEngine();
@@ -100,48 +99,59 @@ private:
 	void updateSwsFormat(int videoPixelMode);
 	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
 
+	static int MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size);
+
 public:  // TODO: Very little of this below should be public.
 
-	// Video ffmpeg context - not used for audio
 #ifdef USE_FFMPEG
-	AVFormatContext *m_pFormatCtx;
 	std::map<int, AVCodecContext *> m_pCodecCtxs;
-	AVFrame *m_pFrame;
-	AVFrame *m_pFrameRGB;
-	AVIOContext *m_pIOContext;
-	SwsContext *m_sws_ctx;
+	AVFrame *m_pFrame = nullptr;
+	AVFrame *m_pFrameRGB = nullptr;
 #endif
 
-	int m_sws_fmt;
-	u8 *m_buffer;
-	int m_videoStream;
-	int m_expectedVideoStreams;
+	u8 *m_buffer = nullptr;
+
+	int m_desWidth = 0;
+	int m_desHeight = 0;
+	int m_bufSize;  // initialized in constructor
+	s64 m_videopts = 0;
+
+	s64 m_firstTimeStamp = 0;
+	s64 m_lastTimeStamp = 0;
+
+	bool m_isVideoEnd = false;
+
+private:
+#ifdef USE_FFMPEG
+	// Video ffmpeg context - not used for audio
+	AVFormatContext *m_pFormatCtx = nullptr;
+	std::vector<AVCodecContext *> m_codecsToClose;
+	AVIOContext *m_pIOContext = nullptr;
+	SwsContext *m_sws_ctx = nullptr;
+#endif
+
+	int m_sws_fmt = 0;
+	int m_videoStream = -1;
+	int m_expectedVideoStreams = 0;
 
 	// Used by the demuxer.
-	int m_audioStream;
+	int m_audioStream = -1;
 
-	int m_desWidth;
-	int m_desHeight;
-	int m_decodingsize;
-	int m_bufSize;
-	s64 m_videopts = 0;
+	int m_decodingsize = 0;
+	BufferQueue *m_pdata = nullptr;
+
 	s64 m_lastPts = -1;
-	BufferQueue *m_pdata;
 
-	MpegDemux *m_demux;
-	SimpleAudio *m_audioContext;
-	s64 m_audiopts;
-
-	s64 m_firstTimeStamp;
-	s64 m_lastTimeStamp;
-
-	bool m_isVideoEnd;
-
-	int m_ringbuffersize;
-	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
-	int m_mpegheaderReadPos;
-	int m_mpegheaderSize;
+	MpegDemux *m_demux = nullptr;
+	AudioDecoder *m_audioContext = nullptr;
+	s64 m_audiopts = 0;
 
 	// used for audio type 
 	int m_audioType;
+
+	int m_ringbuffersize;
+
+	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
+	int m_mpegheaderReadPos = 0;
+	int m_mpegheaderSize = 0;
 };

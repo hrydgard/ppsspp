@@ -15,48 +15,38 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include <cstdio>
-#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/PSPThreadContext.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-class KernelThreadDebugInterface : public MIPSDebugInterface {
+struct PSPThreadContext;
+
+class KernelThreadDebugInterface : public DebugInterface {
 public:
-	KernelThreadDebugInterface(MIPSState *c, PSPThreadContext &t) : MIPSDebugInterface(c), ctx(t) {
-	}
+	KernelThreadDebugInterface(PSPThreadContext *t) : ctx(*t) {}
 
-	unsigned int getPC() override { return ctx.pc; }
-	void setPC(unsigned int address) override { ctx.pc = address; }
-
-	u32 GetGPR32Value(int reg) override { return ctx.r[reg]; }
-	u32 GetPC() override { return ctx.pc; }
-	u32 GetLR() override { return ctx.r[MIPS_REG_RA]; }
+	u32 GetGPR32Value(int reg) const override { return ctx.r[reg]; }
+	u32 GetHi() const override { return ctx.hi; }
+	u32 GetLo() const override { return ctx.lo; }
+	u32 GetPC() const override { return ctx.pc; }
+	u32 GetRA() const override { return ctx.r[MIPS_REG_RA]; }
+	u32 GetLLBit() const override { return 0; }
+	u32 GetFPCond() const override { return ctx.fpcond; }
 	void SetPC(u32 _pc) override { ctx.pc = _pc; }
+	void SetHi(u32 val) override { ctx.hi = val; }
+	void SetLo(u32 val) override { ctx.lo = val; }
 
-	void PrintRegValue(int cat, int index, char *out) override {
+	void PrintRegValue(int cat, int index, char *out, size_t outSize) const override {
 		switch (cat) {
-		case 0: sprintf(out, "%08X", ctx.r[index]); break;
-		case 1: sprintf(out, "%f", ctx.f[index]); break;
-		case 2: sprintf(out, "N/A"); break;
+		case 0: snprintf(out, outSize, "%08X", ctx.r[index]); break;
+		case 1: snprintf(out, outSize, "%f", ctx.f[index]); break;
+		case 2: snprintf(out, outSize, "N/A"); break;
 		}
 	}
 
-	u32 GetHi() override {
-		return ctx.hi;
-	}
-
-	u32 GetLo() override {
-		return ctx.lo;
-	}
-
-	void SetHi(u32 val) override {
-		ctx.hi = val;
-	}
-
-	void SetLo(u32 val) override {
-		ctx.lo = val;
-	}
-
-	u32 GetRegValue(int cat, int index) override {
+	u32 GetRegValue(int cat, int index) const override {
 		switch (cat) {
 		case 0: return ctx.r[index];
 		case 1: return ctx.fi[index];

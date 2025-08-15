@@ -23,6 +23,14 @@ if(EXISTS ${GIT_VERSION_FILE})
 	if(NOT ${match} EQUAL "")
 		set(GIT_VERSION_UPDATE "0")
 	endif()
+
+	# Let's also skip if it's the same.
+	string(REPLACE "." "\\." GIT_VERSION_ESCAPED ${GIT_VERSION})
+	file(STRINGS ${GIT_VERSION_FILE} match
+		REGEX "PPSSPP_GIT_VERSION = \"${GIT_VERSION_ESCAPED}\";")
+	if(NOT ${match} EQUAL "")
+		set(GIT_VERSION_UPDATE "0")
+	endif()
 endif()
 
 set(code_string "// This is a generated file.\n\n"

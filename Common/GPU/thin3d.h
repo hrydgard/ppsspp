@@ -16,7 +16,9 @@
 #include "Common/Common.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Collections/Slice.h"
+#include "Common/Data/Collections/FastVec.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -87,7 +89,7 @@ enum class BlendFactor : uint8_t {
 	ONE_MINUS_SRC1_ALPHA,
 };
 
-enum class StencilOp {
+enum class StencilOp : uint8_t {
 	KEEP = 0,
 	ZERO = 1,
 	REPLACE = 2,
@@ -170,7 +172,7 @@ enum class CullMode : uint8_t {
 	NONE,
 	FRONT,
 	BACK,
-	FRONT_AND_BACK,  // Not supported on D3D9
+	FRONT_AND_BACK,
 };
 
 enum class Facing {
@@ -209,13 +211,14 @@ enum FormatSupport {
 	FMT_STORAGE_IMAGE = 64,
 };
 
-enum InfoField {
+enum class InfoField {
 	APINAME,
 	APIVERSION,
 	VENDORSTRING,
 	VENDOR,
 	SHADELANGVERSION,
 	DRIVER,
+	DEVICE_API_VERSION,  // Vulkan-only
 };
 
 enum class GPUVendor {
@@ -229,6 +232,7 @@ enum class GPUVendor {
 	VENDOR_BROADCOM,  // Raspberry
 	VENDOR_VIVANTE,
 	VENDOR_APPLE,
+	VENDOR_MESA,
 };
 
 enum class NativeObject {
@@ -250,20 +254,21 @@ enum class NativeObject {
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
 	NULL_IMAGEVIEW_ARRAY,
-	FRAME_DATA_DESC_SET_LAYOUT,
 	THIN3D_PIPELINE_LAYOUT,
+	PUSH_POOL,
 };
 
-enum FBChannel {
-	FB_COLOR_BIT = 1,
-	FB_DEPTH_BIT = 2,
-	FB_STENCIL_BIT = 4,
+enum class Aspect {
+	NO_BIT = 0,
+	COLOR_BIT = 1,
+	DEPTH_BIT = 2,
+	STENCIL_BIT = 4,
 
 	// Implementation specific
-	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
-	FB_VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
-	FB_FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
+	VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
+	FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
 };
+ENUM_CLASS_BITOPS(Aspect);
 
 enum FBInvalidationStage {
 	FB_INVALIDATION_LOAD = 1,
@@ -292,6 +297,11 @@ enum class Event {
 	PRESENTED,
 };
 
+enum class ReadbackMode {
+	BLOCK,
+	OLD_DATA_OK,  // Lets the backend return old results that won't need any waiting to get.
+};
+
 constexpr uint32_t MAX_TEXTURE_SLOTS = 3;
 
 struct FramebufferDesc {
@@ -299,6 +309,7 @@ struct FramebufferDesc {
 	int height;
 	int depth;
 	int numLayers;
+	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
 };
@@ -324,10 +335,10 @@ public:
 	uint32_t MaxBugIndex() const {
 		return (uint32_t)MAX_BUG;
 	}
-	const char *GetBugName(uint32_t bug);
+	static const char *GetBugName(uint32_t bug);
 
 	enum : uint32_t {
-		NO_DEPTH_CANNOT_DISCARD_STENCIL = 0,
+		NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO = 0,
 		DUAL_SOURCE_BLENDING_BROKEN = 1,
 		ANY_MAP_BUFFER_RANGE_SLOW = 2,
 		PVR_GENMIPMAP_HEIGHT_GREATER = 3,
@@ -339,6 +350,10 @@ public:
 		MALI_CONSTANT_LOAD_BUG = 9,
 		SUBPASS_FEEDBACK_BROKEN = 10,
 		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
+		ADRENO_RESOURCE_DEADLOCK = 12,
+		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
+		PVR_BAD_16BIT_TEXFORMATS = 14,
+		NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI = 15,
 		MAX_BUG,
 	};
 
@@ -350,7 +365,7 @@ protected:
 
 class RefCountedObject {
 public:
-	RefCountedObject() {
+	explicit RefCountedObject(const char *name) : name_(name) {
 		refcount_ = 1;
 	}
 	RefCountedObject(const RefCountedObject &other) = delete;
@@ -363,6 +378,7 @@ public:
 
 private:
 	std::atomic<int> refcount_;
+	const char * const name_;
 };
 
 template <typename T>
@@ -407,11 +423,12 @@ struct AutoRef {
 		return ptr != nullptr;
 	}
 
-	void clear() {
+	// Takes over ownership over newItem, so we don't need to AddRef it, the number of owners didn't change.
+	void reset(T *newItem) {
 		if (ptr) {
 			ptr->Release();
-			ptr = nullptr;
 		}
+		ptr = newItem;
 	}
 
 	T *ptr = nullptr;
@@ -419,72 +436,89 @@ struct AutoRef {
 
 class BlendState : public RefCountedObject {
 public:
+	BlendState() : RefCountedObject("BlendState") {}
 };
 
 class SamplerState : public RefCountedObject {
 public:
+	SamplerState() : RefCountedObject("SamplerState") {}
 };
 
 class DepthStencilState : public RefCountedObject {
 public:
+	DepthStencilState() : RefCountedObject("DepthStencilState") {}
 };
 
 class Framebuffer : public RefCountedObject {
 public:
-	int Width() { return width_; }
-	int Height() { return height_; }
-	int Layers() { return layers_; }
+	Framebuffer() : RefCountedObject("Framebuffer") {}
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+	int Layers() const { return layers_; }
+	int MultiSampleLevel() const { return multiSampleLevel_; }
 
 	virtual void UpdateTag(const char *tag) {}
+	virtual const char *Tag() const { return "(no name)"; }
+
 protected:
-	int width_ = -1, height_ = -1, layers_ = 1;
+	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;
 };
 
 class Buffer : public RefCountedObject {
 public:
+	Buffer() : RefCountedObject("Buffer") {}
 };
 
 class Texture : public RefCountedObject {
 public:
-	int Width() { return width_; }
-	int Height() { return height_; }
-	int Depth() { return depth_; }
+	Texture() : RefCountedObject("Texture") {}
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+	int Depth() const { return depth_; }
+	DataFormat Format() const { return format_; }
+	int DataSize() const {
+		// Rough estimate, discounts padding etc.
+		return width_ * height_ * (int)DataFormatSizeInBytes(format_);
+	}
+
 protected:
 	int width_ = -1, height_ = -1, depth_ = -1;
-};
-
-struct BindingDesc {
-	int stride;
-	bool instanceRate;
+	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
 struct AttributeDesc {
-	int binding;
 	int location;  // corresponds to semantic
 	DataFormat format;
 	int offset;
 };
 
 struct InputLayoutDesc {
-	std::vector<BindingDesc> bindings;
+	int stride;
 	std::vector<AttributeDesc> attributes;
 };
 
-class InputLayout : public RefCountedObject { };
+class InputLayout : public RefCountedObject {
+public:
+	InputLayout() : RefCountedObject("InputLayout") {}
+};
 
 // Uniform types have moved to Shader.h.
 
 class ShaderModule : public RefCountedObject {
 public:
+	ShaderModule() : RefCountedObject("ShaderModule") {}
 	virtual ShaderStage GetStage() const = 0;
 };
 
 class Pipeline : public RefCountedObject {
 public:
-	virtual ~Pipeline() {}
+	Pipeline() : RefCountedObject("Pipeline") {}
 };
 
-class RasterState : public RefCountedObject {};
+class RasterState : public RefCountedObject {
+public:
+	RasterState() : RefCountedObject("RasterState") {}
+};
 
 struct StencilSetup {
 	StencilOp failOp;
@@ -543,10 +577,18 @@ struct PipelineDesc {
 	const Slice<SamplerDef> samplers;
 };
 
+enum class PresentMode {
+	FIFO = 1,
+	IMMEDIATE = 2,
+	MAILBOX = 4,
+};
+ENUM_CLASS_BITOPS(PresentMode);
+
 struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
 
+	CoordConvention coordConvention;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;
@@ -570,16 +612,39 @@ struct DeviceCaps {
 	bool fragmentShaderInt32Supported;
 	bool textureNPOTFullySupported;
 	bool fragmentShaderDepthWriteSupported;
+	bool fragmentShaderStencilWriteSupported;
 	bool textureDepthSupported;
 	bool blendMinMaxSupported;
 	bool multiViewSupported;
+	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
+	bool sampleRateShadingSupported;
+	bool setMaxFrameLatencySupported;
+	bool textureSwizzleSupported;
+	bool requiresHalfPixelOffset;
+	bool provokingVertexLast;  // GL behavior, what the PSP does
+	bool verySlowShaderCompiler;
 
+	// Old style, for older GL or Direct3D 9.
+	u32 clipPlanesSupported;
+
+	// Presentation caps
+	int presentMaxInterval; // 1 on many backends
+	bool presentInstantModeChange;
+	PresentMode presentModesSupported;
+
+	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
 // Use to write data directly to texture memory.  initData is the pointer passed in TextureDesc.
 // Important: only write to the provided pointer, don't read from it.
 typedef std::function<bool(uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride)> TextureCallback;
+
+enum class TextureSwizzle {
+	DEFAULT,
+	R8_AS_ALPHA,
+	R8_AS_GRAYSCALE,
+};
 
 struct TextureDesc {
 	TextureType type;
@@ -590,6 +655,7 @@ struct TextureDesc {
 	int depth;
 	int mipLevels;
 	bool generateMips;
+	TextureSwizzle swizzle;
 	// Optional, for tracking memory usage and graphcis debuggers.
 	const char *tag;
 	// Does not take ownership over pointed-to data.
@@ -621,19 +687,54 @@ enum class TextureBindFlags {
 };
 ENUM_CLASS_BITOPS(TextureBindFlags);
 
+enum class DebugFlags {
+	NONE = 0,
+	PROFILE_TIMESTAMPS = 1,
+	PROFILE_SCOPES = 2,
+};
+ENUM_CLASS_BITOPS(DebugFlags);
+
+struct BackendState {
+	u32 passes;
+	bool valid;
+};
+
+struct ClippedDraw {
+	int indexOffset;
+	int indexCount;
+	s16 clipx;
+	s16 clipy;
+	s16 clipw;
+	s16 cliph;
+	Draw::Texture *bindTexture;
+	Draw::Framebuffer *bindFramebufferAsTex;
+	void *bindNativeTexture;
+	Draw::SamplerState *samplerState;
+	Draw::Pipeline *pipeline;
+	Draw::Aspect aspect;
+};
+
 class DrawContext {
 public:
-	virtual ~DrawContext();
+	virtual ~DrawContext() = default;
 	bool CreatePresets();
 	void DestroyPresets();
 
 	Bugs GetBugs() const { return bugs_; }
 
+	virtual void Wait() {}
+
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
-	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetSurfaceFormatList() const { return std::vector<std::string>(); }
+
+	virtual BackendState GetCurrentBackendState() const {
+		return BackendState{};
+	}
 
 	// Describes the primary shader language that this implementation prefers.
 	const ShaderLanguageDesc &GetShaderLanguageDesc() {
@@ -652,7 +753,6 @@ public:
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag = "thin3d") = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) = 0;
@@ -671,9 +771,16 @@ public:
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
 	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
 
-	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) = 0;
-	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) = 0;
-	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
+	// Used to optimize DrawPixels by re-using previously allocated temp textures.
+	// Do not try to update a texture that might be used by an in-flight command buffer! In OpenGL and D3D, this will cause stalls
+	// while in Vulkan this might cause various strangeness like image corruption.
+	virtual void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) = 0;
+
+	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) = 0;
+	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) = 0;
+
+	// If the backend doesn't support old data, it's "OK" to block.
+	virtual bool CopyFramebufferToMemory(Framebuffer *src, Aspect aspect, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 		return false;
 	}
 	virtual DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) {
@@ -686,33 +793,28 @@ public:
 	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
-	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) = 0;
+	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspect, int layer) = 0;
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}
-
-	// deprecated, only used by D3D9
-	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
-		return 0;
-	}
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
 	// Could be useful in OpenGL ES to give hints about framebuffers on tiler GPUs
 	// using glInvalidateFramebuffer, although drivers are known to botch that so we currently don't use it.
 	// In Vulkan, this sets the LOAD_OP or the STORE_OP (depending on stage) of the current render pass instance to DONT_CARE.
-	// channels is a bitwise combination of FBChannel::COLOR, DEPTH and STENCIL.
-	virtual void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) {}
+	// channels is a bitwise combination of Aspect::COLOR, DEPTH and STENCIL.
+	virtual void InvalidateFramebuffer(FBInvalidationStage stage, Aspect aspects) {}
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
-	virtual void SetViewports(int count, Viewport *viewports) = 0;
+	virtual void SetViewport(const Viewport &viewport) = 0;
 	virtual void SetBlendFactor(float color[4]) = 0;
 	virtual void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags = TextureBindFlags::NONE) = 0;
-	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
+	virtual void BindVertexBuffer(Buffer *vertexBuffer, int offset) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 
 	// Sometimes it's necessary to bind a texture not created by thin3d, and use with a thin3d pipeline.
@@ -720,6 +822,7 @@ public:
 	// Data types:
 	// * Vulkan: VkImageView
 	// * D3D11: ID3D11ShaderResourceView*
+	// * OpenGL: GLRTexture
 	virtual void BindNativeTexture(int sampler, void *nativeTexture) = 0;
 
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.
@@ -734,28 +837,38 @@ public:
 	// Clear state cached within thin3d. Must be called after directly calling API functions.
 	// Note that framebuffer state (which framebuffer is bounds) may not be cached.
 	// Must not actually perform any API calls itself since this can be called when no framebuffer is bound for rendering.
-	virtual void InvalidateCachedState() = 0;
+	virtual void Invalidate(InvalidationFlags flags) = 0;
 
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	virtual void Draw(int vertexCount, int offset) = 0;
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;  // Always 16-bit indices.
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
-	
+	virtual void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) = 0;
+	// Intended for ImGui display lists, easier to do optimally this way.
+	virtual void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *dynUniforms, size_t size) = 0;
+
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame() {}
+	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
-	virtual void WipeQueue() {}
+
+	// vblanks is only relevant in FIFO present mode.
+	// NOTE: Not all backends support vblanks > 1. Some backends also can't change presentation mode immediately.
+	virtual void Present(PresentMode presentMode, int vblanks) = 0;
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.
-	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
+	virtual void Clear(Aspect aspects, uint32_t colorval, float depthVal, int stencilVal) = 0;
 
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
 	virtual void SetTargetSize(int w, int h) {
 		targetWidth_ = w;
 		targetHeight_ = h;
 	}
+
+	// In Vulkan, when changing things like MSAA mode, we can't have draw commands in flight (since we only support one at a time).
+	virtual void StopThreads() {}
+	virtual void StartThreads() {}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
 	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.
@@ -768,9 +881,24 @@ public:
 	// This is called when we launch a new game, so any collected internal stats in the backends don't carry over.
 	virtual void ResetStats() {}
 
-	virtual int GetCurrentStepId() const = 0;
+	// Used by the DrawEngines to know when they have to re-apply some state.
+	// Not very elegant, but more elegant than the old passId hack.
+	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
+
+	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
+	virtual int GetFrameCount() = 0;
+
+	virtual std::string GetGpuProfileString() const {
+		return "";
+	}
+
+	const HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &FrameTimeHistory() const {
+		return frameTimeHistory_;
+	}
 
 protected:
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> frameTimeHistory_;
+
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 
@@ -809,5 +937,7 @@ struct ShaderSource {
 };
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources);
+
+const char *PresentModeToString(PresentMode presentMode);
 
 }  // namespace Draw

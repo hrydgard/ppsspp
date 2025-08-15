@@ -17,71 +17,125 @@
 
 #include "ppsspp_config.h"
 
-#include <set>
-#include <chrono>
 #include <cstdint>
 #include <mutex>
+#include <set>
 #include <condition_variable>
 
-#include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "Common/System/Display.h"
-#include "Common/TimeUtil.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/MemFault.h"
 #include "Core/Debugger/Breakpoints.h"
-#include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/HLE/sceNetAdhoc.h"
+#include "Core/MIPS/MIPSTracer.h"
+
 #include "GPU/Debugger/Stepping.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUCommon.h"
 
-#ifdef _WIN32
-#include "Common/CommonWindows.h"
-#include "Windows/InputDevice.h"
-#endif
+// Step command to execute next
+static std::mutex g_stepMutex;
 
-// Time until we stop considering the core active without user input.
-// Should this be configurable?  2 hours currently.
-static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
+struct CPUStepCommand {
+	CPUStepType type;
+	int stepSize;
+	BreakReason reason;
+	u32 relatedAddr;
+	bool empty() const {
+		return type == CPUStepType::None;
+	}
+	void clear() {
+		type = CPUStepType::None;
+		stepSize = 0;
+		reason = BreakReason::None;
+		relatedAddr = 0;
+	}
+};
 
-static std::condition_variable m_StepCond;
-static std::mutex m_hStepMutex;
+static CPUStepCommand g_cpuStepCommand;
+
+// This is so that external threads can wait for the CPU to become inactive.
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
-static bool singleStepPending = false;
-static int steppingCounter = 0;
-static const char *steppingReason = "";
-static uint32_t steppingAddress = 0;
-static std::set<CoreLifecycleFunc> lifecycleFuncs;
-static std::set<CoreStopRequestFunc> stopFuncs;
-static bool windowHidden = false;
-static double lastActivity = 0.0;
-static double lastKeepAwake = 0.0;
-static GraphicsContext *graphicsContext;
-static bool powerSaving = false;
 
-static ExceptionInfo g_exceptionInfo;
+static int steppingCounter = 0;
+static std::set<CoreLifecycleFunc> lifecycleFuncs;
+
+// This can be read and written from ANYWHERE.
+volatile CoreState coreState = CORE_POWERDOWN;
+CoreState preGeCoreState = CORE_POWERDOWN;
+// If true, core state has been changed, but JIT has probably not noticed yet.
+volatile bool coreStatePending = false;
+
+static bool powerSaving = false;
+static bool g_breakAfterFrame = false;
+static BreakReason g_breakReason = BreakReason::None;
+
+static MIPSExceptionInfo g_exceptionInfo;
+
+// This is called on EmuThread before RunLoop.
+static bool Core_ProcessStepping(MIPSDebugInterface *cpu);
+
+BreakReason Core_BreakReason() {
+	return g_breakReason;
+}
+
+const char *CoreStateToString(CoreState state) {
+	switch (state) {
+	case CORE_RUNNING_CPU: return "RUNNING_CPU";
+	case CORE_NEXTFRAME: return "NEXTFRAME";
+	case CORE_STEPPING_CPU: return "STEPPING_CPU";
+	case CORE_POWERDOWN: return "POWERDOWN";
+	case CORE_RUNTIME_ERROR: return "RUNTIME_ERROR";
+	case CORE_STEPPING_GE: return "STEPPING_GE";
+	case CORE_RUNNING_GE: return "RUNNING_GE";
+	default: return "N/A";
+	}
+}
+
+const char *BreakReasonToString(BreakReason reason) {
+	switch (reason) {
+	case BreakReason::None: return "None";
+	case BreakReason::AssertChoice: return "cpu.assert";
+	case BreakReason::DebugBreak: return "cpu.debugbreak";
+	case BreakReason::DebugStep: return "cpu.stepping";
+	case BreakReason::DebugStepInto: return "cpu.stepInto";
+	case BreakReason::UIFocus: return "ui.lost_focus";
+	case BreakReason::AfterFrame: return "frame.after";
+	case BreakReason::MemoryException: return "memory.exception";
+	case BreakReason::CpuException: return "cpu.exception";
+	case BreakReason::BreakInstruction: return "cpu.breakInstruction";
+	case BreakReason::SavestateLoad: return "savestate.load";
+	case BreakReason::SavestateSave: return "savestate.save";
+	case BreakReason::SavestateRewind: return "savestate.rewind";
+	case BreakReason::SavestateCrash: return "savestate.crash";
+	case BreakReason::MemoryBreakpoint: return "memory.breakpoint";
+	case BreakReason::CpuBreakpoint: return "cpu.breakpoint";
+	case BreakReason::MemoryAccess: return "memory.access";  // ???
+	case BreakReason::JitBranchDebug: return "jit.branchdebug";
+	case BreakReason::RABreak: return "ra.break";
+	case BreakReason::BreakOnBoot: return "ui.boot";
+	case BreakReason::AddBreakpoint: return "cpu.breakpoint.add";
+	case BreakReason::FrameAdvance: return "ui.frameAdvance";
+	case BreakReason::UIPause: return "ui.pause";
+	case BreakReason::HLEDebugBreak: return "hle.step";
+	default: return "Unknown";
+	}
+}
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
-	graphicsContext = ctx;
-	PSP_CoreParameter().graphicsContext = graphicsContext;
-}
-
-void Core_NotifyWindowHidden(bool hidden) {
-	windowHidden = hidden;
-	// TODO: Wait until we can react?
-}
-
-void Core_NotifyActivity() {
-	lastActivity = time_now_d();
+	PSP_CoreParameter().graphicsContext = ctx;
 }
 
 void Core_ListenLifecycle(CoreLifecycleFunc func) {
@@ -98,31 +152,34 @@ void Core_NotifyLifecycle(CoreLifecycle stage) {
 	}
 }
 
-void Core_ListenStopRequest(CoreStopRequestFunc func) {
-	stopFuncs.insert(func);
-}
-
 void Core_Stop() {
 	Core_ResetException();
 	Core_UpdateState(CORE_POWERDOWN);
-	for (auto func : stopFuncs) {
-		func();
-	}
+}
+
+void Core_UpdateState(CoreState newState) {
+	const CoreState state = coreState;
+	if ((state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
+		coreStatePending = true;
+	coreState = newState;
 }
 
 bool Core_IsStepping() {
-	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
+	const CoreState state = coreState;
+	return state == CORE_STEPPING_CPU || state == CORE_STEPPING_GE || state == CORE_POWERDOWN;
 }
 
 bool Core_IsActive() {
-	return coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME || coreStatePending;
+	const CoreState state = coreState;
+	return state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME || coreStatePending;
 }
 
 bool Core_IsInactive() {
-	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
+	const CoreState state = coreState;
+	return state != CORE_RUNNING_CPU && state != CORE_NEXTFRAME && !coreStatePending;
 }
 
-static inline void Core_StateProcessed() {
+void Core_StateProcessed() {
 	if (coreStatePending) {
 		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
 		coreStatePending = false;
@@ -131,16 +188,9 @@ static inline void Core_StateProcessed() {
 }
 
 void Core_WaitInactive() {
-	while (Core_IsActive()) {
+	while (Core_IsActive() && !GPUStepping::IsStepping()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
 		m_InactiveCond.wait(guard);
-	}
-}
-
-void Core_WaitInactive(int milliseconds) {
-	if (Core_IsActive()) {
-		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
-		m_InactiveCond.wait_for(guard, std::chrono::milliseconds(milliseconds));
 	}
 }
 
@@ -152,242 +202,304 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
-static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
-	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_dpi_scale_x);
-	int h = (int)(pixelHeight * g_dpi_scale_y);
-	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
-}
+void Core_RunLoopUntil(u64 globalticks) {
+	while (true) {
+		switch (coreState) {
+		case CORE_POWERDOWN:
+		case CORE_RUNTIME_ERROR:
+		case CORE_NEXTFRAME:
+			return;
+		case CORE_STEPPING_CPU:
+		case CORE_STEPPING_GE:
+			if (Core_ProcessStepping(currentDebugMIPS)) {
+				return;
+			}
+			break;
+		case CORE_RUNNING_CPU:
+			mipsr4k.RunLoopUntil(globalticks);
+			if (g_breakAfterFrame && coreState == CORE_NEXTFRAME) {
+				g_breakAfterFrame = false;
+				g_breakReason = BreakReason::AfterFrame;
+				coreState = CORE_STEPPING_CPU;
+			}
+			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
+		case CORE_RUNNING_GE:
+			switch (gpu->ProcessDLQueue()) {
+			case DLResult::DebugBreak:
+				GPUStepping::EnterStepping(coreState);
+				break;
 
-// TODO: Feels like this belongs elsewhere.
-bool UpdateScreenScale(int width, int height) {
-	bool smallWindow;
-#if defined(USING_QT_UI)
-	g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
-	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
-	g_dpi_scale_x = g_logical_dpi / g_dpi;
-	g_dpi_scale_y = g_logical_dpi / g_dpi;
-#elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
-	g_dpi_scale_x = 96.0f / g_dpi;
-	g_dpi_scale_y = 96.0f / g_dpi;
-#else
-	g_dpi = 96.0f;
-	g_dpi_scale_x = 1.0f;
-	g_dpi_scale_y = 1.0f;
-#endif
-	g_dpi_scale_real_x = g_dpi_scale_x;
-	g_dpi_scale_real_y = g_dpi_scale_y;
+			case DLResult::Error: // We should elegantly report the error somehow, or I guess ignore it.
+			case DLResult::Done: // Done executing for now
+				hleFinishSyscallAfterGe();
+				coreState = preGeCoreState;
+				break;
 
-	smallWindow = IsWindowSmall(width, height);
-	if (smallWindow) {
-		g_dpi /= 2.0f;
-		g_dpi_scale_x *= 2.0f;
-		g_dpi_scale_y *= 2.0f;
-	}
-	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
-	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
-
-	int new_dp_xres = (int)(width * g_dpi_scale_x);
-	int new_dp_yres = (int)(height * g_dpi_scale_y);
-
-	bool dp_changed = new_dp_xres != dp_xres || new_dp_yres != dp_yres;
-	bool px_changed = pixel_xres != width || pixel_yres != height;
-
-	if (dp_changed || px_changed) {
-		dp_xres = new_dp_xres;
-		dp_yres = new_dp_yres;
-		pixel_xres = width;
-		pixel_yres = height;
-		INFO_LOG(G3D, "pixel_res: %dx%d. Calling NativeResized()", pixel_xres, pixel_yres);
-		NativeResized();
-		return true;
-	}
-	return false;
-}
-
-// Note: not used on Android.
-void UpdateRunLoop() {
-	if (windowHidden && g_Config.bPauseWhenMinimized) {
-		sleep_ms(16);
-		return;
-	}
-	NativeUpdate();
-	NativeRender(graphicsContext);
-}
-
-void KeepScreenAwake() {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
-#endif
-}
-
-void Core_RunLoop(GraphicsContext *ctx) {
-	graphicsContext = ctx;
-	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
-		Core_StateProcessed();
-		double startTime = time_now_d();
-		UpdateRunLoop();
-
-		// Simple throttling to not burn the GPU in the menu.
-		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
-		if (sleepTime > 0)
-			sleep_ms(sleepTime);
-		if (!windowHidden) {
-			ctx->SwapBuffers();
+			default:
+				// Not a valid return value.
+				_dbg_assert_(false);
+				break;
+			}
+			break;
 		}
 	}
+}
 
-	while ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
-		UpdateRunLoop();
-		if (!windowHidden && !Core_IsStepping()) {
-			ctx->SwapBuffers();
+// Should only be called from GPUCommon functions (called from sceGe functions).
+void Core_SwitchToGe() {
+	// TODO: This should be an atomic exchange. Or we add bitflags into coreState.
+	preGeCoreState = coreState;
+	coreState = CORE_RUNNING_GE;
+}
 
-			// Keep the system awake for longer than normal for cutscenes and the like.
-			const double now = time_now_d();
-			if (now < lastActivity + ACTIVITY_IDLE_TIMEOUT) {
-				// Only resetting it ever prime number seconds in case the call is expensive.
-				// Using a prime number to ensure there's no interaction with other periodic events.
-				if (now - lastKeepAwake > 89.0 || now < lastKeepAwake) {
-					KeepScreenAwake();
-					lastKeepAwake = now;
+bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
+	std::lock_guard<std::mutex> guard(g_stepMutex);
+	if (g_cpuStepCommand.type != CPUStepType::None) {
+		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
+		return false;
+	}
+	// Some step types don't need a size.
+	switch (type) {
+	case CPUStepType::Out:
+	case CPUStepType::Frame:
+		break;
+	default:
+		_dbg_assert_(stepSize != 0);
+		break;
+	}
+	g_cpuStepCommand = { type, stepSize };
+	return true;
+}
+
+// Handles more advanced step types (used by the debugger).
+// stepSize is to support stepping through compound instructions like fused lui+ladd (li).
+// Yes, our disassembler does support those.
+// Doesn't return the new address, as that's just mips->getPC().
+// Internal use.
+static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
+	switch (stepType) {
+	case CPUStepType::Into:
+	{
+		u32 currentPc = cpu->GetPC();
+		u32 newAddress = currentPc + stepSize;
+		// If the current PC is on a breakpoint, the user still wants the step to happen.
+		g_breakpoints.SetSkipFirst(currentPc);
+		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
+			currentMIPS->SingleStep();
+		}
+		break;
+	}
+	case CPUStepType::Over:
+	{
+		u32 currentPc = cpu->GetPC();
+		u32 breakpointAddress = currentPc + stepSize;
+
+		g_breakpoints.SetSkipFirst(currentPc);
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
+
+		// TODO: Doing a step over in a delay slot is a bit .. unclear. Maybe just do a single step.
+
+		if (info.isBranch) {
+			if (info.isConditional == false) {
+				if (info.isLinkedBranch) { // jal, jalr
+					// it's a function call with a delay slot - skip that too
+					breakpointAddress += cpu->getInstructionSize(0);
+				} else {					// j, ...
+					// in case of absolute branches, set the breakpoint at the branch target
+					breakpointAddress = info.branchTarget;
+				}
+			} else {						// beq, ...
+				if (info.conditionMet) {
+					breakpointAddress = info.branchTarget;
+				} else {
+					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
 				}
 			}
+			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			Core_Resume();
+		} else {
+			// If not a branch, just do a simple single-step, no point in involving the breakpoint machinery.
+			for (int i = 0; i < (int)(breakpointAddress - currentPc) / 4; i++) {
+				currentMIPS->SingleStep();
+			}
 		}
+		break;
+	}
+	case CPUStepType::Out:
+	{
+		u32 entry = cpu->GetPC();
+		u32 stackTop = 0;
+
+		auto threads = GetThreadsInfo();
+		for (size_t i = 0; i < threads.size(); i++) {
+			if (threads[i].isCurrent) {
+				entry = threads[i].entrypoint;
+				stackTop = threads[i].initialStack;
+				break;
+			}
+		}
+
+		auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop);
+		if (frames.size() < 2) {
+			// Failure. PC not moving.
+			return;
+		}
+
+		u32 breakpointAddress = frames[1].pc;
+
+		g_breakpoints.AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		break;
+	}
+	case CPUStepType::Frame:
+	{
+		g_breakAfterFrame = true;
+		Core_Resume();
+		break;
+	}
+	default:
+		// Not yet implemented
+		break;
 	}
 }
 
-void Core_DoSingleStep() {
-	std::lock_guard<std::mutex> guard(m_hStepMutex);
-	singleStepPending = true;
-	m_StepCond.notify_all();
-}
-
-void Core_UpdateSingleStep() {
-	std::lock_guard<std::mutex> guard(m_hStepMutex);
-	m_StepCond.notify_all();
-}
-
-void Core_SingleStep() {
-	Core_ResetException();
-	currentMIPS->SingleStep();
-	if (coreState == CORE_STEPPING)
-		steppingCounter++;
-}
-
-static inline bool Core_WaitStepping() {
-	std::unique_lock<std::mutex> guard(m_hStepMutex);
-	// We only wait 16ms so that we can still draw UI or react to events.
-	double sleepStart = time_now_d();
-	if (!singleStepPending && coreState == CORE_STEPPING)
-		m_StepCond.wait_for(guard, std::chrono::milliseconds(16));
-	double sleepEnd = time_now_d();
-	DisplayNotifySleep(sleepEnd - sleepStart);
-
-	bool result = singleStepPending;
-	singleStepPending = false;
-	return result;
-}
-
-void Core_ProcessStepping() {
+static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_StateProcessed();
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();
-	if (coreState != CORE_STEPPING) {
-		return;
+
+	switch (coreState) {
+	case CORE_STEPPING_CPU:
+	case CORE_STEPPING_GE:
+	case CORE_RUNNING_GE:
+		// All good
+		break;
+	default:
+		// Nothing to do.
+		return true;
 	}
 
 	// Or any GPU actions.
-	GPUStepping::SingleStep();
+	// Legacy stepping code.
+	GPUStepping::ProcessStepping();
+
+	if (coreState == CORE_RUNNING_GE) {
+		// Retry, to get it done this frame.
+		return false;
+	}
 
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
 	if (lastSteppingCounter != steppingCounter) {
-		CBreakPoints::ClearTemporaryBreakPoints();
-		host->UpdateDisassembly();
-		host->UpdateMemView();
+		g_breakpoints.ClearTemporaryBreakPoints();
+		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
+		System_Notify(SystemNotification::MEM_VIEW);
 		lastSteppingCounter = steppingCounter;
 	}
 
 	// Need to check inside the lock to avoid races.
-	bool doStep = Core_WaitStepping();
+	std::lock_guard<std::mutex> guard(g_stepMutex);
 
-	// We may still be stepping without singleStepPending to process a save state.
-	if (doStep && coreState == CORE_STEPPING) {
-		Core_SingleStep();
-		// Update disasm dialog.
-		host->UpdateDisassembly();
-		host->UpdateMemView();
+	if (coreState != CORE_STEPPING_CPU || g_cpuStepCommand.empty()) {
+		return true;
 	}
-}
 
-// Many platforms, like Android, do not call this function but handle things on their own.
-// Instead they simply call NativeRender and NativeUpdate directly.
-void Core_Run(GraphicsContext *ctx) {
-	host->UpdateDisassembly();
-	while (true) {
-		if (GetUIState() != UISTATE_INGAME) {
-			Core_StateProcessed();
-			if (GetUIState() == UISTATE_EXIT) {
-				UpdateRunLoop();
-				return;
-			}
-			Core_RunLoop(ctx);
-			continue;
+	Core_ResetException();
+
+	if (!g_cpuStepCommand.empty()) {
+		Core_PerformCPUStep(cpu, g_cpuStepCommand.type, g_cpuStepCommand.stepSize);
+		if (g_cpuStepCommand.type == CPUStepType::Into) {
+			// We're already done. The other step types will resume the CPU.
+			System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		}
-
-		switch (coreState) {
-		case CORE_RUNNING:
-		case CORE_STEPPING:
-			// enter a fast runloop
-			Core_RunLoop(ctx);
-			if (coreState == CORE_POWERDOWN) {
-				Core_StateProcessed();
-				return;
-			}
-			break;
-
-		case CORE_POWERUP:
-		case CORE_POWERDOWN:
-		case CORE_BOOT_ERROR:
-		case CORE_RUNTIME_ERROR:
-			// Exit loop!!
-			Core_StateProcessed();
-
-			return;
-
-		case CORE_NEXTFRAME:
-			return;
-		}
-	}
-}
-
-void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
-	if (step) {
-		host->SetDebugMode(true);
-		Core_UpdateState(CORE_STEPPING);
+		g_cpuStepCommand.clear();
 		steppingCounter++;
-		_assert_msg_(reason != nullptr, "No reason specified for break");
-		steppingReason = reason;
-		steppingAddress = relatedAddress;
-	} else {
-		host->SetDebugMode(false);
-		// Clear the exception if we resume.
-		Core_ResetException();
-		coreState = CORE_RUNNING;
-		coreStatePending = false;
-		m_StepCond.notify_all();
 	}
+
+	// Update disasm dialog.
+	System_Notify(SystemNotification::MEM_VIEW);
+	return true;
 }
 
+// Free-threaded (hm, possibly except tracing).
+void Core_Break(BreakReason reason, u32 relatedAddress) {
+	const CoreState state = coreState;
+	if (state != CORE_RUNNING_CPU) {
+		if (state == CORE_STEPPING_CPU) {
+			// Already stepping.
+			INFO_LOG(Log::CPU, "Core_Break(%s), already in break mode", BreakReasonToString(reason));
+			return;
+		}
+		WARN_LOG(Log::CPU, "Core_Break(%s) only works in the CORE_RUNNING_CPU state (was in state %s)", BreakReasonToString(reason), CoreStateToString(state));
+		return;
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(g_stepMutex);
+		if (!g_cpuStepCommand.empty() && Core_IsStepping()) {
+			// If we're in a failed step that uses a temp breakpoint, we need to be able to override it here.
+			switch (g_cpuStepCommand.type) {
+			case CPUStepType::Over:
+			case CPUStepType::Out:
+				// Allow overwriting the command.
+				break;
+			default:
+				ERROR_LOG(Log::CPU, "Core_Break(%s) called with a step-command already in progress", BreakReasonToString(g_cpuStepCommand.reason));
+				return;
+			}
+		}
+
+		// Stop the tracer
+		mipsTracer.stop_tracing();
+
+		g_breakReason = reason;
+		g_cpuStepCommand.type = CPUStepType::None;
+		g_cpuStepCommand.reason = reason;
+		g_cpuStepCommand.relatedAddr = relatedAddress;
+		steppingCounter++;
+		_assert_msg_(reason != BreakReason::None, "No reason specified for break");
+		Core_UpdateState(CORE_STEPPING_CPU);
+	}
+	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+// Free-threaded (or at least should be)
+void Core_Resume() {
+	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+	if (currentMIPS) {
+		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+	}
+
+	// Handle resuming from GE.
+	if (coreState == CORE_STEPPING_GE) {
+		coreState = CORE_RUNNING_GE;
+		return;
+	}
+
+	// Clear the exception if we resume.
+	Core_ResetException();
+	coreState = CORE_RUNNING_CPU;
+	g_breakReason = BreakReason::None;
+	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+// Should be called from the EmuThread.
 bool Core_NextFrame() {
-	if (coreState == CORE_RUNNING) {
-		coreState = CORE_NEXTFRAME;
+	CoreState coreState = ::coreState;
+
+	_dbg_assert_(coreState != CORE_STEPPING_GE && coreState != CORE_RUNNING_GE);
+
+	if (coreState == CORE_RUNNING_CPU) {
+		::coreState = CORE_NEXTFRAME;
+		return true;
+	} else if (coreState == CORE_STEPPING_CPU) {
+		// All good, just stepping through so no need to switch to the NextFrame coreState though, that'd
+		// just lose our stepping state.
+		INFO_LOG(Log::System, "Reached end-of-frame while stepping the CPU (this is ok)");
 		return true;
 	} else {
+		ERROR_LOG(Log::System, "Core_NextFrame called with wrong core state %s", CoreStateToString(coreState));
 		return false;
 	}
 }
@@ -398,16 +510,19 @@ int Core_GetSteppingCounter() {
 
 SteppingReason Core_GetSteppingReason() {
 	SteppingReason r;
-	r.reason = steppingReason;
-	r.relatedAddress = steppingAddress;
+	std::lock_guard<std::mutex> lock(g_stepMutex);
+	if (!g_cpuStepCommand.empty()) {
+		r.reason = g_cpuStepCommand.reason;
+		r.relatedAddress = g_cpuStepCommand.relatedAddr;
+	}
 	return r;
 }
 
-const char *ExceptionTypeAsString(ExceptionType type) {
+const char *ExceptionTypeAsString(MIPSExceptionType type) {
 	switch (type) {
-	case ExceptionType::MEMORY: return "Invalid Memory Access";
-	case ExceptionType::BREAK: return "Break";
-	case ExceptionType::BAD_EXEC_ADDR: return "Bad Execution Address";
+	case MIPSExceptionType::MEMORY: return "Invalid Memory Access";
+	case MIPSExceptionType::BREAK: return "Break";
+	case MIPSExceptionType::BAD_EXEC_ADDR: return "Bad Execution Address";
 	default: return "N/A";
 	}
 }
@@ -434,82 +549,98 @@ const char *ExecExceptionTypeAsString(ExecExceptionType type) {
 	}
 }
 
-void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x", desc, address);
+	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x)", desc, address, accessSize);
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		ExceptionInfo &e = g_exceptionInfo;
+		// Try to fetch a call stack, to start with.
+		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
+		std::string stackTrace = FormatStackTrace(stackFrames);
+		WARN_LOG(Log::MemMap, "\n%s", stackTrace.c_str());
+
+		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
-		e.type = ExceptionType::MEMORY;
+		e.type = MIPSExceptionType::MEMORY;
 		e.info.clear();
 		e.memory_type = type;
 		e.address = address;
+		e.accessSize = accessSize;
+		e.stackTrace = stackTrace;
 		e.pc = pc;
-		Core_EnableStepping(true, "memory.exception", address);
+		Core_Break(BreakReason::MemoryException, address);
 	}
 }
 
-void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo) {
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x. %s", desc, address, additionalInfo.c_str());
+	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x). %.*s", desc, address, accessSize, (int)additionalInfo.length(), additionalInfo.data());
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x %s", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], additionalInfo.c_str());
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %.*s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], (int)additionalInfo.length(), additionalInfo.data());
 	}
 
-	if (!g_Config.bIgnoreBadMemAccess) {
-		ExceptionInfo &e = g_exceptionInfo;
+	if (!g_Config.bIgnoreBadMemAccess || forceReport) {
+		// Try to fetch a call stack, to start with.
+		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
+		std::string stackTrace = FormatStackTrace(stackFrames);
+		WARN_LOG(Log::MemMap, "\n%s", stackTrace.c_str());
+
+		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
-		e.type = ExceptionType::MEMORY;
+		e.type = MIPSExceptionType::MEMORY;
 		e.info = additionalInfo;
 		e.memory_type = type;
 		e.address = address;
+		e.accessSize = accessSize;
+		e.stackTrace = stackTrace;
 		e.pc = pc;
-		Core_EnableStepping(true, "memory.exception", address);
+		Core_Break(BreakReason::MemoryException, address);
 	}
 }
 
+// Can't be ignored
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
-	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
+	WARN_LOG(Log::MemMap, "%s: Invalid exec address %08x pc=%08x ra=%08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
 
-	ExceptionInfo &e = g_exceptionInfo;
+	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};
-	e.type = ExceptionType::BAD_EXEC_ADDR;
+	e.type = MIPSExceptionType::BAD_EXEC_ADDR;
 	e.info.clear();
 	e.exec_type = type;
 	e.address = address;
+	e.accessSize = 4;  // size of an instruction
 	e.pc = pc;
 	// This just records the closest value that could be useful as reference.
 	e.ra = currentMIPS->r[MIPS_REG_RA];
-	Core_EnableStepping(true, "cpu.exception", address);
+	Core_Break(BreakReason::CpuException, address);
 }
 
-void Core_Break(u32 pc) {
-	ERROR_LOG(CPU, "BREAK!");
+void Core_BreakException(u32 pc) {
+	ERROR_LOG(Log::CPU, "BREAK!");
 
-	ExceptionInfo &e = g_exceptionInfo;
+	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};
-	e.type = ExceptionType::BREAK;
+	e.type = MIPSExceptionType::BREAK;
 	e.info.clear();
 	e.pc = pc;
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		Core_EnableStepping(true, "cpu.breakInstruction", currentMIPS->pc);
+		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}
 }
 
 void Core_ResetException() {
-	g_exceptionInfo.type = ExceptionType::NONE;
+	g_exceptionInfo.type = MIPSExceptionType::NONE;
 }
 
-const ExceptionInfo &Core_GetExceptionInfo() {
+const MIPSExceptionInfo &Core_GetExceptionInfo() {
 	return g_exceptionInfo;
 }

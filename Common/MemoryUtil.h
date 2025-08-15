@@ -18,7 +18,11 @@
 #pragma once
 
 #ifndef _WIN32
+#ifndef __SWITCH__
 #include <sys/mman.h>
+#else
+#include <switch.h>
+#endif // !__SWITCH__
 #endif
 #include <stdint.h>
 
@@ -31,38 +35,42 @@ bool PlatformIsWXExclusive();
 
 // Note that some platforms go through special contortions to allocate executable memory. So for memory
 // that's intended for execution, allocate it first using AllocateExecutableMemory, then modify protection as desired.
-// AllocateMemoryPages is simpler and more generic. Note that on W^X platforms, this will return executable but not writable
-// memory!
+// AllocateMemoryPages is simpler and more generic.
+// Note that on W^X platforms, this will return writable memory that can later be changed to executable!
 void* AllocateExecutableMemory(size_t size);
+void FreeExecutableMemory(void *ptr, size_t size);
+
 void* AllocateMemoryPages(size_t size, uint32_t memProtFlags);
 // Note that on platforms returning PlatformIsWXExclusive, you cannot set a page to be both readable and writable at the same time.
 bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags);
 void FreeMemoryPages(void* ptr, size_t size);
 
 // Regular aligned memory. Don't try to apply memory protection willy-nilly to memory allocated this way as in-page alignment is unknown (though could be checked).
-void* AllocateAlignedMemory(size_t size, size_t alignment);
+// No longer asserts, will return nullptr on failure.
+// WARNING: Not necessarily malloc-compatible!
+void *AllocateAlignedMemory(size_t size, size_t alignment);
 void FreeAlignedMemory(void* ptr);
 
 int GetMemoryProtectPageSize();
 
-// A simple buffer that bypasses the libc memory allocator. As a result the buffer is always page-aligned.
-template <typename T>
-class SimpleBuf {
+// A buffer that uses aligned memory. Can be useful for image processing.
+template <typename T, size_t A>
+class AlignedVector {
 public:
-	SimpleBuf() : buf_(0), size_(0) {}
+	AlignedVector() : buf_(0), size_(0) {}
 
-	SimpleBuf(size_t size) : buf_(0) {
+	AlignedVector(size_t size) : buf_(0) {
 		resize(size);
 	}
 
-	SimpleBuf(const SimpleBuf &o) : buf_(o.buf_), size_(o.size_) {}
+	AlignedVector(const AlignedVector &o) : buf_(o.buf_), size_(o.size_) {}
 
 	// Move constructor
-	SimpleBuf(SimpleBuf &&o) noexcept : buf_(o.buf_), size_(o.size_) { o.buf_ = nullptr; o.size_ = 0; }
+	AlignedVector(AlignedVector &&o) noexcept : buf_(o.buf_), size_(o.size_) { o.buf_ = nullptr; o.size_ = 0; }
 
-	~SimpleBuf() {
+	~AlignedVector() {
 		if (buf_ != 0) {
-			FreeMemoryPages(buf_, size_ * sizeof(T));
+			FreeAlignedMemory(buf_);
 		}
 	}
 
@@ -74,9 +82,9 @@ public:
 	void resize(size_t size) {
 		if (size_ < size) {
 			if (buf_ != 0) {
-				FreeMemoryPages(buf_, size_ * sizeof(T));
+				FreeAlignedMemory(buf_);
 			}
-			buf_ = (T *)AllocateMemoryPages(size * sizeof(T), MEM_PROT_READ | MEM_PROT_WRITE);
+			buf_ = (T *)AllocateAlignedMemory(size * sizeof(T), A);
 			size_ = size;
 		}
 	}

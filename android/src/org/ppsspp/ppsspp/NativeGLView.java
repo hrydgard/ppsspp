@@ -17,7 +17,10 @@ import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceControl;
 
 import com.bda.controller.Controller;
 import com.bda.controller.ControllerListener;
@@ -43,12 +46,13 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
+
 		try {
 			MogaHack.init(mController, activity);
 			Log.i(TAG, "MOGA initialized");
 			mController.setListener(this, new Handler());
 		} catch (Exception e) {
-			Log.i(TAG, "Moga failed to initialize");
+			// Log.d(TAG, "MOGA failed to initialize");
 		}
 	}
 
@@ -57,12 +61,48 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		return ev.getToolType(pointer);
 	}
 
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
+	private void onMouseEventMotion(final MotionEvent ev) {
+		switch (ev.getActionMasked()) {
+			case MotionEvent.ACTION_DOWN: {
+				if (NativeActivity.useModernMouseEvents) {
+					return;
+				}
+				Log.i(TAG, "GL motion action down. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 1);
+				break;
+			}
+			case MotionEvent.ACTION_UP: {
+				if (NativeActivity.useModernMouseEvents) {
+					return;
+				}
+				Log.i(TAG, "GL motion action up. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 2);
+				break;
+			}
+			case MotionEvent.ACTION_MOVE: {
+				// This still needs handling here, even if new events are used.
+				Log.i(TAG, "GL motion action move. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 0, 0);
+				break;
+			}
+			default: {
+				Log.i(TAG, "Unhandled modern mouse action: " + ev.getAction());
+				break;
+			}
+		}
+	}
+
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
-		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1 && NativeSurfaceView.isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
+			// This is where workable mouse support arrived.
+			onMouseEventMotion(ev);
+			return true;
+		}
 
-		int numTouchesHandled = 0;
+		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -94,10 +134,10 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 					code |= tool << 10; // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
+				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
-		return numTouchesHandled > 0;
+		return true;
 	}
 
 	// Sensor management
@@ -173,12 +213,23 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	// MOGA Controller - from ControllerListener
 	@Override
 	public void onMotionEvent(com.bda.controller.MotionEvent event) {
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_X, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Y, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Z, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_RZ, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_LTRIGGER, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_RTRIGGER, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER));
+		int [] axisIds = new int[]{
+			com.bda.controller.MotionEvent.AXIS_X,
+			com.bda.controller.MotionEvent.AXIS_Y,
+			com.bda.controller.MotionEvent.AXIS_Z,
+			com.bda.controller.MotionEvent.AXIS_RZ,
+			com.bda.controller.MotionEvent.AXIS_LTRIGGER,
+			com.bda.controller.MotionEvent.AXIS_RTRIGGER,
+		};
+		float [] values = new float[]{
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER),
+		};
+		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, axisIds, values, 6);
 	}
 
 	// MOGA Controller - from ControllerListener
@@ -190,11 +241,11 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			case StateEvent.ACTION_CONNECTED:
 				Log.i(TAG, "Moga Connected");
 				if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGA) {
-					NativeApp.sendMessage("moga", "Moga");
+					NativeApp.sendMessageFromJava("moga", "Moga");
 				} else {
 					Log.i(TAG, "MOGA Pro detected");
 					isMogaPro = true;
-					NativeApp.sendMessage("moga", "MogaPro");
+					NativeApp.sendMessageFromJava("moga", "MogaPro");
 				}
 				break;
 			case StateEvent.ACTION_CONNECTING:
@@ -202,7 +253,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				break;
 			case StateEvent.ACTION_DISCONNECTED:
 				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
-				NativeApp.sendMessage("moga", "");
+				NativeApp.sendMessageFromJava("moga", "");
 				break;
 			}
 			break;

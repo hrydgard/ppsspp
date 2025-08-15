@@ -15,9 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
-#include <cstddef>
 #include <algorithm>
-#include <cstdlib>
+#include <cstddef>
 #include <cstring>
 #include <cmath>
 
@@ -26,25 +25,13 @@
 #include "Core/Config.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
-#include "Common/CommonFuncs.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Thread/ParallelLoop.h"
-#include "Core/ThreadPools.h"
-#include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
-
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#include <smmintrin.h>
-#endif
 
 // Report the time and throughput for each larger scaling operation in the log
 //#define SCALING_MEASURE_TIME
-
-//#define DEBUG_SCALER_OUTPUT
-
-#ifdef SCALING_MEASURE_TIME
 #include "Common/TimeUtil.h"
-#endif
 
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)
 
@@ -71,7 +58,7 @@ namespace {
 // 3x3 convolution with Neumann boundary conditions, parallelizable
 // quite slow, could be sped up a lot
 // especially handling of separable kernels
-void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
+void convolve3x3(const u32 *data, u32 *out, const int kernel[3][3], int width, int height, int l, int u) {
 	for (int yb = 0; yb < (u - l) / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
@@ -92,7 +79,7 @@ void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int hei
 }
 
 // deposterization: smoothes posterized gradients from low-color-depth (e.g. 444, 565, compressed) sources
-void deposterizeH(u32* data, u32* out, int w, int l, int u) {
+void deposterizeH(const u32 *data, u32 *out, int w, int l, int u) {
 	static const int T = 8;
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < w; ++x) {
@@ -120,7 +107,7 @@ void deposterizeH(u32* data, u32* out, int w, int l, int u) {
 		}
 	}
 }
-void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
+void deposterizeV(const u32 *data, u32 *out, int w, int h, int l, int u) {
 	static const int T = 8;
 	for (int xb = 0; xb < w / BLOCK_SIZE + 1; ++xb) {
 		for (int y = l; y < u; ++y) {
@@ -152,7 +139,7 @@ void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
 
 // generates a distance mask value for each pixel in data
 // higher values -> larger distance to the surrounding pixels
-void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
+void generateDistanceMask(const u32 *data, u32 *out, int width, int height, int l, int u) {
 	for (int yb = 0; yb < (u - l) / BLOCK_SIZE + 1; ++yb) {
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
@@ -183,7 +170,7 @@ void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int
 }
 
 // mix two images based on a mask
-void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
+void mix(u32 *data, const u32 *source, const u32 *mask, u32 maskmax, int width, int l, int u) {
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < width; ++x) {
 			int pos = y*width + x;
@@ -236,7 +223,7 @@ static void load_sample(ptrdiff_t w, ptrdiff_t h, ptrdiff_t s, const u8 *pixels,
 				break;
 			case 2: // Zero
 				memset(output, 0, 4);
-				break;
+				return;
 		}
 	}
 	memcpy(output, pixels + s*y + 4*x, 4);
@@ -395,7 +382,7 @@ static void upscale_block_sse2(
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
-						   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+					   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
 		#undef S
 	}
 	// Vertical pass.
@@ -410,7 +397,7 @@ static void upscale_block_sse2(
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
-						   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+					   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
 		#undef S
 	}
 	// Pack destination pixels.
@@ -448,7 +435,7 @@ static void upscale_cubic(
 
 // End of pasted cubic upscaler.
 
-void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+void scaleBicubicBSpline(int factor, const u32 *data, u32 *out, int w, int h, int l, int u) {
 	const float B = 1.0f, C = 0.0f;
 	const int wrap_mode = 1; // Clamp
 	upscale_cubic(
@@ -458,7 +445,7 @@ void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, i
 		0, factor*l, factor*w, factor*u);
 }
 
-void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+void scaleBicubicMitchell(int factor, const u32 *data, u32 *out, int w, int h, int l, int u) {
 	const float B = 0.0f, C = 0.5f; // Actually, Catmull-Rom
 	const int wrap_mode = 1; // Clamp
 	upscale_cubic(
@@ -478,7 +465,7 @@ const static u8 BILINEAR_FACTORS[4][3][2] = {
 };
 // integral bilinear upscaling by factor f, horizontal part
 template<int f>
-void bilinearHt(u32* data, u32* out, int w, int l, int u) {
+void bilinearHt(const u32 *data, u32 *out, int w, int l, int u) {
 	static_assert(f > 1 && f <= 5, "Bilinear scaling only implemented for factors 2 to 5");
 	int outw = w*f;
 	for (int y = l; y < u; ++y) {
@@ -497,19 +484,19 @@ void bilinearHt(u32* data, u32* out, int w, int l, int u) {
 		}
 	}
 }
-void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
+void bilinearH(int factor, const u32 *data, u32 *out, int w, int l, int u) {
 	switch (factor) {
 	case 2: bilinearHt<2>(data, out, w, l, u); break;
 	case 3: bilinearHt<3>(data, out, w, l, u); break;
 	case 4: bilinearHt<4>(data, out, w, l, u); break;
 	case 5: bilinearHt<5>(data, out, w, l, u); break;
-	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 5");
 	}
 }
 // integral bilinear upscaling by factor f, vertical part
 // gl/gu == global lower and upper bound
 template<int f>
-void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+void bilinearVt(const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
 	static_assert(f>1 && f <= 5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
 	int outw = w*f;
 	for (int xb = 0; xb < outw / BLOCK_SIZE + 1; ++xb) {
@@ -531,13 +518,13 @@ void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
 		}
 	}
 }
-void bilinearV(int factor, u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
 	switch (factor) {
 	case 2: bilinearVt<2>(data, out, w, gl, gu, l, u); break;
 	case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;
 	case 4: bilinearVt<4>(data, out, w, gl, gu, l, u); break;
 	case 5: bilinearVt<5>(data, out, w, gl, gu, l, u); break;
-	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 5");
 	}
 }
 
@@ -548,41 +535,6 @@ void bilinearV(int factor, u32* data, u32* out, int w, int gl, int gu, int l, in
 #undef G
 #undef B
 #undef A
-
-#ifdef DEBUG_SCALER_OUTPUT
-
-// used for debugging texture scaling (writing textures to files)
-static int g_imgCount = 0;
-void dbgPPM(int w, int h, u8* pixels, const char* prefix = "dbg") { // 3 component RGB
-	char fn[32];
-	snprintf(fn, 32, "%s%04d.ppm", prefix, g_imgCount++);
-	FILE *fp = fopen(fn, "wb");
-	fprintf(fp, "P6\n%d %d\n255\n", w, h);
-	for (int j = 0; j < h; ++j) {
-		for (int i = 0; i < w; ++i) {
-			static unsigned char color[3];
-			color[0] = pixels[(j*w + i) * 4 + 0];  /* red */
-			color[1] = pixels[(j*w + i) * 4 + 1];  /* green */
-			color[2] = pixels[(j*w + i) * 4 + 2];  /* blue */
-			fwrite(color, 1, 3, fp);
-		}
-	}
-	fclose(fp);
-}
-void dbgPGM(int w, int h, u32* pixels, const char* prefix = "dbg") { // 1 component
-	char fn[32];
-	snprintf(fn, 32, "%s%04d.pgm", prefix, g_imgCount++);
-	FILE *fp = fopen(fn, "wb");
-	fprintf(fp, "P5\n%d %d\n65536\n", w, h);
-	for (int j = 0; j < h; ++j) {
-		for (int i = 0; i < w; ++i) {
-			fwrite((pixels + (j*w + i)), 1, 2, fp);
-		}
-	}
-	fclose(fp);
-}
-
-#endif
 
 }
 
@@ -595,7 +547,7 @@ TextureScalerCommon::TextureScalerCommon() {
 TextureScalerCommon::~TextureScalerCommon() {
 }
 
-bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) const {
+bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) {
 	u32 ref = data[0];
 	// TODO: SIMD-ify this (although, for most textures we'll get out very early)
 	for (int i = 1; i < pixels; ++i) {
@@ -605,29 +557,31 @@ bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) const {
 	return true;
 }
 
-void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int &width, int &height, int factor) {
+void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 	if (IsEmptyOrFlat(src, width * height)) {
 		// This means it was a flat texture.  Vulkan wants the size up front, so we need to make it happen.
 		u32 pixel = *src;
 
-		width *= factor;
-		height *= factor;
+		*scaledWidth = width * factor;
+		*scaledHeight = height * factor;
+
+		size_t pixelCount = *scaledWidth * *scaledHeight;
 
 		// ABCD.  If A = D, and AB = CD, then they must all be equal (B = C, etc.)
 		if ((pixel & 0x000000FF) == (pixel >> 24) && (pixel & 0x0000FFFF) == (pixel >> 16)) {
-			memset(out, pixel & 0xFF, width * height * sizeof(u32));
+			memset(out, pixel & 0xFF, pixelCount * sizeof(u32));
 		} else {
 			// Let's hope this is vectorized.
-			for (int i = 0; i < width * height; ++i) {
+			for (int i = 0; i < pixelCount; ++i) {
 				out[i] = pixel;
 			}
 		}
 	} else {
-		ScaleInto(out, src, width, height, factor);
+		ScaleInto(out, src, width, height, scaledWidth, scaledHeight, factor);
 	}
 }
 
-bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int &width, int &height, int factor) {
+bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 #ifdef SCALING_MEASURE_TIME
 	double t_start = time_now_d();
 #endif
@@ -656,36 +610,36 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int &width, int &h
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height, true);
 		break;
 	default:
-		ERROR_LOG(G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
+		ERROR_LOG(Log::G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
 	}
 
 	// update values accordingly
-	width *= factor;
-	height *= factor;
+	*scaledWidth = width * factor;
+	*scaledHeight = height * factor;
 
 #ifdef SCALING_MEASURE_TIME
-	if (width*height > 64 * 64 * factor*factor) {
+	if (*scaledWidth* *scaledHeight > 64 * 64 * factor*factor) {
 		double t = time_now_d() - t_start;
-		NOTICE_LOG(G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
-			width*height, t, (width*height) / (t * 1000 * 1000));
+		NOTICE_LOG(Log::G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
+			*scaledWidth * *scaledHeight, t, (*scaledWidth * *scaledHeight) / (t * 1000 * 1000));
 	}
 #endif
 
 	return true;
 }
 
-bool TextureScalerCommon::Scale(u32* &data, int &width, int &height, int factor) {
+bool TextureScalerCommon::Scale(u32* &data, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if (IsEmptyOrFlat(data, width*height)) {
-		DEBUG_LOG(G3D, "TextureScaler: early exit -- empty/flat texture");
+		DEBUG_LOG(Log::G3D, "TextureScaler: early exit -- empty/flat texture");
 		return false;
 	}
 
 	bufOutput.resize(width * height * (factor * factor)); // used to store the upscaled image
 	u32 *outputBuf = bufOutput.data();
 
-	if (ScaleInto(outputBuf, data, width, height, factor)) {
+	if (ScaleInto(outputBuf, data, width, height, scaledWidth, scaledHeight, factor)) {
 		data = outputBuf;
 		return true;
 	}
@@ -721,7 +675,7 @@ void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int wi
 	// 3) output = A*C + B*(1-C)
 
 	const static int KERNEL_SPLAT[3][3] = {
-			{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
+		{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
 	};
 
 	bufTmp1.resize(width*height);

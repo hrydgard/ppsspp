@@ -17,17 +17,28 @@
 
 #pragma once
 
+#include <string>
+#include <set>
+#include <mutex>
+#include <unordered_map>
 #include "Common/CommonTypes.h"
+#include "Common/Math/expression_parser.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
-namespace GPUBreakpoints {
-	void Init(void (*hasBreakpoints)(bool flag));
+struct GECmdInfo;
+
+class GPUBreakpoints {
+public:
+	GPUBreakpoints();
 
 	bool IsBreakpoint(u32 pc, u32 op);
 
 	bool IsAddressBreakpoint(u32 addr, bool &temp);
 	bool IsAddressBreakpoint(u32 addr);
-	bool IsCmdBreakpoint(u8 cmd, bool &temp);
-	bool IsCmdBreakpoint(u8 cmd);
+	bool IsCmdBreakpoint(u8 cmd, bool &temp) const;
+	bool IsCmdBreakpoint(u8 cmd) const;
+	bool IsOpBreakpoint(u32 op, bool &temp) const;
+	bool IsOpBreakpoint(u32 op) const;
 	bool IsTextureBreakpoint(u32 addr, bool &temp);
 	bool IsTextureBreakpoint(u32 addr);
 	bool IsRenderTargetBreakpoint(u32 addr, bool &temp);
@@ -57,7 +68,48 @@ namespace GPUBreakpoints {
 	void ClearAllBreakpoints();
 	void ClearTempBreakpoints();
 
-	bool IsOpBreakpoint(u32 op, bool &temp);
+	bool HasBreakpoints() const {
+		return hasBreakpoints_;
+	}
 
-	bool IsOpBreakpoint(u32 op);
+	struct BreakpointInfo {
+		bool isConditional = false;
+		PostfixExpression expression;
+		std::string expressionString;
+	};
+
+	bool ToggleCmdBreakpoint(const GECmdInfo &info);
+
+private:
+	void AddNonTextureTempBreakpoints();
+	void CheckForTextureChange(u32 op, u32 addr);
+	bool HasAnyBreakpoints() const;
+	bool IsTextureCmdBreakpoint(u32 op);
+	bool IsRenderTargetCmdBreakpoint(u32 op);
+	bool HitAddressBreakpoint(u32 pc, u32 op);
+	bool HitOpBreakpoint(u32 op);
+
+	std::mutex breaksLock;
+
+	bool breakCmds[256]{};
+	BreakpointInfo breakCmdsInfo[256]{};
+	std::unordered_map<u32, BreakpointInfo> breakPCs;
+	std::set<u32> breakTextures;
+	std::set<u32> breakRenderTargets;
+	// Small optimization to avoid a lock/lookup for the common case.
+	size_t breakPCsCount = 0;
+	size_t breakTexturesCount = 0;
+	size_t breakRenderTargetsCount = 0;
+
+	// If these are set, the above are also, but they should be temporary.
+	bool breakCmdsTemp[256];
+	std::set<u32> breakPCsTemp;
+	std::set<u32> breakTexturesTemp;
+	std::set<u32> breakRenderTargetsTemp;
+	bool textureChangeTemp = false;
+
+	u32 lastTexture = 0xFFFFFFFF;
+	std::vector<bool> nonTextureCmds;
+
+	bool hasBreakpoints_ = false;  // cached value of HasAnyBreakpoints().
 };

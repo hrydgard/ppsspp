@@ -18,7 +18,13 @@
 #ifdef SDL
 
 #include <cstdio>
-#include <SDL.h>
+
+#include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
+#else
+#include "SDL.h"
+#endif
 
 #include "headless/SDLHeadlessHost.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -26,7 +32,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -61,6 +67,8 @@ public:
 		glContext_ = nullptr;
 		SDL_DestroyWindow(screen_);
 		screen_ = nullptr;
+
+		SDL_Quit();
 	}
 
 	Draw::DrawContext *GetDrawContext() override {
@@ -81,15 +89,12 @@ public:
 
 	void StopThread() override {
 		if (renderManager_) {
-			renderManager_->WaitUntilQueueIdle();
 			renderManager_->StopThread();
 		}
 	}
 
 	void Shutdown() override {}
 	void Resize() override {}
-	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
@@ -97,12 +102,6 @@ private:
 	SDL_Window *screen_;
 	SDL_GLContext glContext_;
 };
-
-void SDLHeadlessHost::LoadNativeAssets() {
-	VFSRegister("", new DirectoryAssetReader(Path("assets")));
-	VFSRegister("", new DirectoryAssetReader(Path("")));
-	VFSRegister("", new DirectoryAssetReader(Path("..")));
-}
 
 bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	SDL_Init(SDL_INIT_VIDEO);
@@ -120,7 +119,17 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
 	screen_ = CreateHiddenWindow();
+	if (!screen_) {
+		const char *err = SDL_GetError();
+		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
+		return false;
+	}
 	glContext_ = SDL_GL_CreateContext(screen_);
+	if (!glContext_) {
+		const char *err = SDL_GetError();
+		printf("Failed to create GL context: %s\n", err ? err : "(unknown error)");
+		return false;
+	}
 
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
 	SDL_GL_SetSwapInterval(0);
@@ -147,7 +156,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 #endif
 
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(false);
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
@@ -156,18 +165,17 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	renderManager_->SetSwapFunction([&]() {
 		SDL_GL_SwapWindow(screen_);
 	});
-
 	return success;
 }
 
-bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	*ctx = graphicsContext;
 	gfx_ = graphicsContext;
 
 	std::thread th([&]{
 		while (threadState_ == RenderThreadState::IDLE)
-			sleep_ms(1);
+			sleep_ms(1, "sdl-idle-poll");
 		threadState_ = RenderThreadState::STARTING;
 
 		std::string err;
@@ -182,7 +190,6 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 			if (!gfx_->ThreadFrame()) {
 				break;
 			}
-			gfx_->SwapBuffers();
 		}
 
 		threadState_ = RenderThreadState::STOPPING;
@@ -192,11 +199,9 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 	});
 	th.detach();
 
-	LoadNativeAssets();
-
 	threadState_ = RenderThreadState::START_REQUESTED;
 	while (threadState_ == RenderThreadState::START_REQUESTED || threadState_ == RenderThreadState::STARTING)
-		sleep_ms(1);
+		sleep_ms(1, "sdl-start-poll");
 
 	return threadState_ == RenderThreadState::STARTED;
 }
@@ -204,7 +209,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 void SDLHeadlessHost::ShutdownGraphics() {
 	gfx_->StopThread();
 	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
-		sleep_ms(1);
+		sleep_ms(1, "sdl-stop-poll");
 
 	gfx_->Shutdown();
 	delete gfx_;
@@ -212,7 +217,6 @@ void SDLHeadlessHost::ShutdownGraphics() {
 }
 
 void SDLHeadlessHost::SwapBuffers() {
-	gfx_->SwapBuffers();
 }
 
 #endif

@@ -84,6 +84,7 @@ namespace UWP {
 		// Input
 		void OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args);
 		void OnKeyUp(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args);
+		void OnCharacterReceived(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::CharacterReceivedEventArgs^ args);
 
 		void OnPointerMoved(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args);
 		void OnPointerEntered(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args);
@@ -94,6 +95,7 @@ namespace UWP {
 		void OnPointerWheelChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args);
 
 		void App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e);
+		void InitialPPSSPP();
 
 	private:
 		std::shared_ptr<DX::DeviceResources> m_deviceResources;

@@ -2,19 +2,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/select.h>
-#include <unistd.h>
-#else
-#include <io.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#endif
 
+#include "Common/Net/SocketCompat.h"
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/Net/HTTPServer.h"
 #include "Common/Net/Sinks.h"
@@ -69,7 +58,7 @@ static bool ListContainsNoCase(const std::string &list, const std::string value)
 	return false;
 }
 
-WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, const std::string &protocol) {
+WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::ServerRequest &request, const std::string &protocol) {
 	auto requireHeader = [&](const char *name, const char *expected) {
 		std::string val;
 		if (!request.GetHeader(name, &val)) {

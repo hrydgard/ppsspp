@@ -21,11 +21,12 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceDmac.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Debugger/Breakpoints.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 u64 dmacMemcpyDeadline;
@@ -51,11 +52,11 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	}
 	if (!skip && size != 0) {
 		currentMIPS->InvalidateICache(src, size);
+		if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
+			memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
+		}
 		if (MemBlockInfoDetailed(size)) {
-			const std::string tag = GetMemWriteTagAt("DmacMemcpy/", src, size);
-			Memory::Memcpy(dst, src, size, tag.c_str(), tag.size());
-		} else {
-			Memory::Memcpy(dst, src, size, "DmacMemcpy");
+			NotifyMemInfoCopy(dst, src, size, "DmacMemcpy/");
 		}
 		currentMIPS->InvalidateICache(dst, size);
 	}
@@ -65,59 +66,53 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 		// Approx. 225 MiB/s or 235929600 B/s, so let's go with 236 B/us.
 		int delayUs = size / 236;
 		dmacMemcpyDeadline = CoreTiming::GetTicks() + usToCycles(delayUs);
-		return hleDelayResult(0, "dmac copy", delayUs);
+		return delayUs;
+	} else {
+		return 0;
 	}
-	return 0;
 }
 
 static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		// Some games seem to do this frequently.
-		DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
-		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address (dst or src)");
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
-		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
-		WARN_LOG_REPORT_ONCE(overlapDmacMemcpy, HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
+		WARN_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.
 		// Might matter for overlapping copies.
-	} else {
-		DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	}
 
-	return __DmacMemcpy(dst, src, size);
+	int delay = __DmacMemcpy(dst, src, size);
+	int result = hleLogDebug(Log::HLE, 0);
+	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }
 
 static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
-		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
-		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
-		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
-		DEBUG_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): busy", dst, src, size);
-		return SCE_KERNEL_ERROR_BUSY;
-	} else {
-		DEBUG_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy");
 	}
 
-	return __DmacMemcpy(dst, src, size);
+	int delay = __DmacMemcpy(dst, src, size);
+	int result = hleLogDebug(Log::HLE, 0);
+	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }
 
 const HLEFunction sceDmac[] = {
@@ -126,5 +121,5 @@ const HLEFunction sceDmac[] = {
 };
 
 void Register_sceDmac() {
-	RegisterModule("sceDmac", ARRAY_SIZE(sceDmac), sceDmac);
+	RegisterHLEModule("sceDmac", ARRAY_SIZE(sceDmac), sceDmac);
 }

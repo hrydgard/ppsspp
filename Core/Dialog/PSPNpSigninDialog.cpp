@@ -16,39 +16,25 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#if defined(_WIN32)
-#include "Common/CommonWindows.h"
-#endif
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
-#include "Core/HLE/sceNet.h"
-#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNp.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/Dialog/PSPNpSigninDialog.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Reporting.h"
-
-
-static const float FONT_SCALE = 0.65f;
 
 // Needs testing.
 const static int NP_INIT_DELAY_US = 200000; 
 const static int NP_SHUTDOWN_DELAY_US = 501000; 
 const static int NP_RUNNING_DELAY_US = 1000000; // faked delay to simulate signin process to give chance for players to read the text on the dialog
-
-PSPNpSigninDialog::PSPNpSigninDialog(UtilityDialogType type) : PSPDialog(type) {
-}
-
-PSPNpSigninDialog::~PSPNpSigninDialog() {
-}
 
 int PSPNpSigninDialog::Init(u32 paramAddr) {
 	// Already running
@@ -61,23 +47,13 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size);
 	
-	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, SCENET, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
+	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
 
 	ChangeStatusInit(NP_INIT_DELAY_US);
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
-	okButtonImg = ImageID("I_CIRCLE");
-	cancelButtonImg = ImageID("I_CROSS");
-	okButtonFlag = CTRL_CIRCLE;
-	cancelButtonFlag = CTRL_CROSS;
-	if (request.common.buttonSwap == 1)
-	{
-		okButtonImg = ImageID("I_CROSS");
-		cancelButtonImg = ImageID("I_CIRCLE");
-		okButtonFlag = CTRL_CROSS;
-		cancelButtonFlag = CTRL_CIRCLE;
-	}
+	InitCommon();
 
 	//npSigninResult = -1;
 	startTime = (u64)(time_now_d() * 1000000.0);
@@ -88,7 +64,6 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 }
 
 void PSPNpSigninDialog::DrawBanner() {
-
 	PPGeDrawRect(0, 0, 480, 22, CalcFadedColor(0x65636358));
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
@@ -96,7 +71,7 @@ void PSPNpSigninDialog::DrawBanner() {
 
 	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 5, 11.0f, 10.0f, 1, 10, 1, 10, 10, 10, FadedImageStyle());
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	PPGeDrawText(di->T("Sign In"), 31, 10, textStyle);
 }
 
@@ -110,145 +85,18 @@ void PSPNpSigninDialog::DrawLogo() {
 	PPGeDrawImage(416, 22, 64.0f, 64.0f, 1, 10, 1, 10, 64, 64, FadedImageStyle());
 }
 
-void PSPNpSigninDialog::DisplayMessage(std::string text1, std::string text2a, std::string text2b, std::string text3a, std::string text3b, bool hasYesNo, bool hasOK) {
-	auto di = GetI18NCategory("Dialog");
-
-	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
-	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
-	PPGeStyle messageStyleRight = FadedStyle(PPGeAlign::BOX_RIGHT, FONT_SCALE);
-	PPGeStyle messageStyleLeft = FadedStyle(PPGeAlign::BOX_LEFT, FONT_SCALE);
-
-	std::string text2 = text2a + "  " + text2b;
-	std::string text3 = text3a + "  " + text3b;
-
-	// Without the scrollbar, we have 350 total pixels.
-	float WRAP_WIDTH = 300.0f;
-	if (UTF8StringNonASCIICount(text1.c_str()) >= (int)text1.size() / 4) {
-		WRAP_WIDTH = 336.0f;
-		if (text1.size() > 12) {
-			messageStyle.scale = 0.6f;
-		}
-	}
-
-	float totalHeight1 = 0.0f;
-	PPGeMeasureText(nullptr, &totalHeight1, text1.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
-	float totalHeight2 = 0.0f;
-	if (text2 != "  ")
-		PPGeMeasureText(nullptr, &totalHeight2, text2.c_str(), FONT_SCALE, PPGE_LINE_USE_ELLIPSIS, WRAP_WIDTH);
-	float totalHeight3 = 0.0f;
-	if (text3 != "  ")
-		PPGeMeasureText(nullptr, &totalHeight3, text3.c_str(), FONT_SCALE, PPGE_LINE_USE_ELLIPSIS, WRAP_WIDTH);
-	float marginTop = 0.0f;
-	if (text2 != "  " || text3 != "  ")
-		marginTop = 11.0f;
-	float totalHeight = totalHeight1 + totalHeight2 + totalHeight3 + marginTop;
-	// The PSP normally only shows about 8 lines at a time.
-	// For improved UX, we intentionally show part of the next line.
-	float visibleHeight = std::min(totalHeight, 175.0f);
-	float h2 = visibleHeight / 2.0f;
-
-	float centerY = 135.0f;
-	float sy = centerY - h2 - 15.0f;
-	float ey = centerY + h2 + 20.0f;
-	float buttonY = centerY + h2 + 5.0f;
-
-	auto drawSelectionBoxAndAdjust = [&](float x) {
-		// Box has a fixed size.
-		float w = 15.0f;
-		float h = 8.0f;
-		PPGeDrawRect(x - w, buttonY - h, x + w, buttonY + h, CalcFadedColor(0x6DCFCFCF));
-
-		centerY -= h + 5.0f;
-		sy -= h + 5.0f;
-		ey = buttonY + h * 2.0f + 5.0f;
-	};
-
-	if (hasYesNo) {
-		if (yesnoChoice == 1) {
-			drawSelectionBoxAndAdjust(204.0f);
-		}
-		else {
-			drawSelectionBoxAndAdjust(273.0f);
-		}
-
-		PPGeDrawText(di->T("Yes"), 203.0f, buttonY - 1.0f, buttonStyle);
-		PPGeDrawText(di->T("No"), 272.0f, buttonY - 1.0f, buttonStyle);
-		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
-			yesnoChoice = 1;
-		}
-		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
-			yesnoChoice = 0;
-		}
-		buttonY += 8.0f + 5.0f;
-	}
-
-	if (hasOK) {
-		drawSelectionBoxAndAdjust(240.0f);
-
-		PPGeDrawText(di->T("OK"), 239.0f, buttonY - 1.0f, buttonStyle);
-		buttonY += 8.0f + 5.0f;
-	}
-
-	PPGeScissor(0, (int)(centerY - h2 - 2), 480, (int)(centerY + h2 + 2));
-	PPGeDrawTextWrapped(text1.c_str(), 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
-	if (!text2a.empty()) {
-		if (!text2b.empty())
-			PPGeDrawTextWrapped(text2a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
-		else
-			PPGeDrawTextWrapped(text2a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyle);
-	}
-	if (!text2b.empty())
-		PPGeDrawTextWrapped(text2b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
-	if (!text3a.empty()) {
-		if (!text3b.empty())
-			PPGeDrawTextWrapped(text3a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
-		else
-			PPGeDrawTextWrapped(text3a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyle);
-	}
-	if (!text3b.empty())
-		PPGeDrawTextWrapped(text3b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
-	PPGeScissorReset();
-
-	// Do we need a scrollbar?
-	if (visibleHeight < totalHeight) {
-		float scrollSpeed = 5.0f;
-		float scrollMax = totalHeight - visibleHeight;
-
-		float bobHeight = (visibleHeight / totalHeight) * visibleHeight;
-		float bobOffset = (scrollPos_ / scrollMax) * (visibleHeight - bobHeight);
-		float bobY1 = centerY - h2 + bobOffset;
-		PPGeDrawRect(415.0f, bobY1, 420.0f, bobY1 + bobHeight, CalcFadedColor(0xFFCCCCCC));
-
-		auto buttonDown = [this](int btn, int& held) {
-			if (IsButtonPressed(btn)) {
-				held = 0;
-				return true;
-			}
-			return IsButtonHeld(btn, held, 1, 1);
-		};
-		if (buttonDown(CTRL_DOWN, framesDownHeld_) && scrollPos_ < scrollMax) {
-			scrollPos_ = std::min(scrollMax, scrollPos_ + scrollSpeed);
-		}
-		if (buttonDown(CTRL_UP, framesUpHeld_) && scrollPos_ > 0.0f) {
-			scrollPos_ = std::max(0.0f, scrollPos_ - scrollSpeed);
-		}
-	}
-
-	PPGeDrawRect(60.0f, sy, 420.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(60.0f, ey, 420.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
-}
-
 int PSPNpSigninDialog::Update(int animSpeed) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_RUNNING) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	UpdateButtons();
-	auto di = GetI18NCategory("Dialog");
-	auto err = GetI18NCategory("Error");
+	UpdateCommon();
+	auto err = GetI18NCategory(I18NCat::ERRORS);
 	u64 now = (u64)(time_now_d() * 1000000.0);
 	
 	if (request.npSigninStatus == NP_SIGNIN_STATUS_NONE) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		UpdateFade(animSpeed);
 		StartDraw();
 
@@ -260,13 +108,13 @@ int PSPNpSigninDialog::Update(int animSpeed) {
 		// DNAS dialog
 		if (step >= 2 && now - startTime > NP_RUNNING_DELAY_US) {
 			DrawLogo();
-			DisplayMessage(di->T("PleaseWait", "Please wait..."));
+			DisplayMessage2(di->T("PleaseWait", "Please wait..."));
 			step++;
 		}
 		// Signin dialog
 		else {
 			// Skipping the Select Connection screen since we only have 1 fake profile
-			DisplayMessage(di->T("SigninPleaseWait", "Signing in...\nPlease wait."));
+			DisplayMessage2(di->T("SigninPleaseWait", "Signing in...\nPlease wait."));
 		}
 		DisplayButtons(DS_BUTTON_CANCEL, di->T("Cancel"));
 		

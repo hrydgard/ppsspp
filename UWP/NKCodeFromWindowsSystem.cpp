@@ -3,7 +3,7 @@
 
 using namespace Windows::System;
 
-std::map<Windows::System::VirtualKey, int> virtualKeyCodeToNKCode{
+std::map<Windows::System::VirtualKey, InputKeyCode> virtualKeyCodeToNKCode{
 	{ VirtualKey::A, NKCODE_A },
 	{ VirtualKey::B, NKCODE_B },
 	{ VirtualKey::C, NKCODE_C },
@@ -73,6 +73,7 @@ std::map<Windows::System::VirtualKey, int> virtualKeyCodeToNKCode{
 	{ VirtualKey::PageUp, NKCODE_PAGE_UP },
 	{ VirtualKey::PageDown, NKCODE_PAGE_DOWN },
 	{ VirtualKey::Delete, NKCODE_FORWARD_DEL },
+	{ VirtualKey::Back, NKCODE_DEL },
 	{ VirtualKey::End, NKCODE_MOVE_END },
 	{ VirtualKey::Tab, NKCODE_TAB },
 	{ VirtualKey::Down, NKCODE_DPAD_DOWN },

@@ -32,7 +32,7 @@ namespace Memory
 {
 
 inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, const char *tag, size_t tagLen) {
-	u8 *to = GetPointerWrite(to_address);
+	u8 *to = GetPointerWriteRange(to_address, len);
 	if (to) {
 		memcpy(to, from_data, len);
 		if (!tag) {
@@ -45,7 +45,7 @@ inline void Memcpy(const u32 to_address, const void *from_data, const u32 len, c
 }
 
 inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const char *tag, size_t tagLen) {
-	const u8 *from = GetPointer(from_address);
+	const u8 *from = GetPointerRange(from_address, len);
 	if (from) {
 		memcpy(to_data, from, len);
 		if (!tag) {
@@ -58,25 +58,23 @@ inline void Memcpy(void *to_data, const u32 from_address, const u32 len, const c
 }
 
 inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, const char *tag, size_t tagLen) {
-	u8 *to = GetPointerWrite(to_address);
+	u8 *to = GetPointerWriteRange(to_address, len);
 	// If not, GetPointer will log.
 	if (!to)
 		return;
-	const u8 *from = GetPointer(from_address);
+	const u8 *from = GetPointerRange(from_address, len);
 	if (!from)
 		return;
 
 	memcpy(to, from, len);
 
 	if (MemBlockInfoDetailed(len)) {
-		char tagData[128];
 		if (!tag) {
-			const std::string srcTag = GetMemWriteTagAt("Memcpy/", from_address, len);
-			tag = tagData;
-			tagLen = truncate_cpy(tagData, srcTag.c_str());
+			NotifyMemInfoCopy(to_address, from_address, len, "Memcpy/");
+		} else {
+			NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
+			NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
 		}
-		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
-		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
 	}
 }
 

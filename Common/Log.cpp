@@ -16,6 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include <string>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -23,16 +24,73 @@
 #include "Common/Log.h"
 #include "StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/TimeUtil.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <android/log.h>
 #elif PPSSPP_PLATFORM(WINDOWS)
 #include "CommonWindows.h"
+static HWND g_dialogParent;
 #endif
 
 #define LOG_BUF_SIZE 2048
 
 static bool hitAnyAsserts = false;
+
+static std::mutex g_extraAssertInfoMutex;
+static std::string g_extraAssertInfo = "menu";
+static double g_assertInfoTime = 0.0;
+static bool g_exitOnAssert;
+static AssertNoCallbackFunc g_assertCancelCallback = 0;
+static void *g_assertCancelCallbackUserData = 0;
+
+u8 g_debugCounters[8];
+
+void SetDebugValue(DebugCounter counter, int value) {
+	if (value > 15)
+		value = 15;
+	if (value < 0)
+		value = 0;
+	g_debugCounters[(int)counter] = value;
+}
+
+void IncrementDebugCounter(DebugCounter counter) {
+	int value = g_debugCounters[(int)counter] + 1;
+	if (value > 15)
+		value = 15;
+	if (value < 0)
+		value = 0;
+	g_debugCounters[(int)counter] = value;
+}
+
+void SetAssertDialogParent(void *handle) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	// I thought this would be nice, but for some reason the dialog becomes invisible.
+	// g_dialogParent = (HWND)handle;
+#endif
+}
+
+void SetExtraAssertInfo(const char *info) {
+	std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
+	g_extraAssertInfo = info ? info : "menu";
+	g_assertInfoTime = time_now_d();
+}
+
+void SetAssertCancelCallback(AssertNoCallbackFunc callback, void *userdata) {
+	g_assertCancelCallback = callback;
+	g_assertCancelCallbackUserData = userdata;
+}
+
+void SetCleanExitOnAssert() {
+	g_exitOnAssert = true;
+}
+
+void BreakIntoPSPDebugger(const char *reason) {
+	if (g_assertCancelCallback) {
+		g_assertCancelCallback(reason, g_assertCancelCallbackUserData);
+	}
+}
 
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
@@ -45,11 +103,19 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 
 	// Secondary formatting. Wonder if this can be combined into the vsnprintf somehow.
 	char formatted[LOG_BUF_SIZE + 128];
-	snprintf(formatted, sizeof(formatted), "(%s:%s:%d) %s: [%s] %s", file, function, line, caption, expression, text);
+	{
+		std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
+		double delta = time_now_d() - g_assertInfoTime;
+		u32 debugCounters = 0;
+		for (int i = 0; i < 8; i++) {
+			debugCounters |= g_debugCounters[7 - i] << (i * 4);
+		}
+		snprintf(formatted, sizeof(formatted), "(%s:%s:%d:%08x): [%s] (%s, %0.1fs) %s", file, function, line, debugCounters, expression, g_extraAssertInfo.c_str(), delta, text);
+	}
 
 	// Normal logging (will also log to Android log)
-	ERROR_LOG(SYSTEM, "%s", formatted);
-	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
+	ERROR_LOG(Log::System, "%s", formatted);
+	// Also do a simple printf for good measure, in case logging of System is disabled (should we disallow that?)
 	fprintf(stderr, "%s\n", formatted);
 
 	hitAnyAsserts = true;
@@ -57,14 +123,32 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 #if defined(USING_WIN_UI)
 	// Avoid hanging on CI.
 	if (!getenv("CI")) {
-		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
-		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
-		std::wstring wcaption = ConvertUTF8ToWString(caption);
-		OutputDebugString(wtext.c_str());
-		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
-			return false;
+		const int msgBoxStyle = MB_ICONINFORMATION | MB_YESNOCANCEL;
+		std::string text = formatted;
+		text += "\n\nTry to continue?";
+		if (IsDebuggerPresent()) {
+			text += "\n\nNo: break directly into the native debugger";
+			text += "\n\nCancel: skip and break into PPSSPP debugger";
 		} else {
+			text += "\n\nNo: exit";
+			text += "\n\nCancel: skip and break into PPSSPP debugger";
+		}
+		const char *threadName = GetCurrentThreadName();
+		OutputDebugStringA(formatted);
+		printf("%s\n", formatted);
+		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
+		switch (MessageBox(g_dialogParent, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle)) {
+		case IDYES:
 			return true;
+		case IDNO:
+			if (g_exitOnAssert || !IsDebuggerPresent()) {
+				// Hard exit.
+				ExitProcess(1);
+			}
+			return false;  // Break into the native debugger.
+		case IDCANCEL:
+			g_assertCancelCallback(formatted, g_assertCancelCallbackUserData);
+			return true;  // don't crash!
 		}
 	}
 	return false;

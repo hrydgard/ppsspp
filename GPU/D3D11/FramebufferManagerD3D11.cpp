@@ -15,10 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-#include <d3d11.h>
-#include <D3Dcompiler.h>
-
 #include "Common/Common.h"
 #include "Common/GPU/thin3d.h"
 

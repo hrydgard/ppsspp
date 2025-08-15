@@ -27,3 +27,6 @@ void Register_sceSuspendForUser();
 
 int KernelVolatileMemLock(int type, u32 paddr, u32 psize);
 int KernelVolatileMemUnlock(int type);
+
+// Returns 0 for default.
+int GetLockedCPUSpeedMhz();

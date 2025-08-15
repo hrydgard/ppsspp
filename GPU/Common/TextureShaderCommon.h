@@ -22,18 +22,18 @@
 #include <string>
 
 #include "Common/CommonTypes.h"
-#include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/Draw2D.h"
 #include "GPU/Common/ShaderCommon.h"
-#include "GPU/Common/DepalettizeShaderCommon.h"
 
 class ClutTexture {
 public:
+	enum { MAX_RAMPS = 3 };
 	Draw::Texture *texture;
 	int lastFrame;
-	int rampLength;
+	int rampLengths[MAX_RAMPS];
+	int rampStarts[MAX_RAMPS];
 };
 
 // For CLUT depal shaders, and other pre-bind texture shaders.
@@ -44,14 +44,14 @@ public:
 	~TextureShaderCache();
 
 	Draw2DPipeline *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal, u32 depthUpperBits);
-	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut);
 
 	Draw::SamplerState *GetSampler(bool linearFilter);
 
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::string DebugGetShaderString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType);
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);

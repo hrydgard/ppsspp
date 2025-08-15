@@ -59,7 +59,7 @@ void SetupCallbacks(AllowedCallback allowed, MessageCallback message) {
 
 void ReportMessage(const char *message, ...) {
 	if (!allowedCallback || !messageCallback) {
-		ERROR_LOG(SYSTEM, "Reporting not initialized, skipping: %s", message);
+		ERROR_LOG(Log::System, "Reporting not initialized, skipping: %s", message);
 		return;
 	}
 
@@ -67,7 +67,7 @@ void ReportMessage(const char *message, ...) {
 		return;
 
 	const int MESSAGE_BUFFER_SIZE = 65536;
-	char temp[MESSAGE_BUFFER_SIZE];
+	char *temp = new char [MESSAGE_BUFFER_SIZE];
 
 	va_list args;
 	va_start(args, message);
@@ -76,11 +76,13 @@ void ReportMessage(const char *message, ...) {
 	va_end(args);
 
 	messageCallback(message, temp);
+
+	delete[] temp;
 }
 
 void ReportMessageFormatted(const char *message, const char *formatted) {
 	if (!allowedCallback || !messageCallback) {
-		ERROR_LOG(SYSTEM, "Reporting not initialized, skipping: %s", message);
+		ERROR_LOG(Log::System, "Reporting not initialized, skipping: %s", message);
 		return;
 	}
 
@@ -89,4 +91,4 @@ void ReportMessageFormatted(const char *message, const char *formatted) {
 	messageCallback(message, formatted);
 }
 
-}
+}  // namespace

@@ -18,17 +18,18 @@
 // TODO: Get rid of the internal window.
 // Tried before but Intel drivers screw up when minimizing, or something ?
 
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-// It's improving slowly, though. :)
 #include "stdafx.h"
+
+#include "ppsspp_config.h"
+
 #include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
-#include "ppsspp_config.h"
 
 #include <Windowsx.h>
 #include <shellapi.h>
 #include <commctrl.h>
 #include <string>
+#include <dwmapi.h>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -36,10 +37,12 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "ext/imgui/imgui_impl_platform.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -56,6 +59,8 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
+#include "Windows/W32Util/DarkMode.h"
+#include "Windows/W32Util/UAHMenuBar.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
@@ -69,8 +74,8 @@
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Common/LogManager.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/LogManager.h"
+#include "Common/Log/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
@@ -78,17 +83,21 @@
 #include "Windows/CaptureDevice.h"
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/PauseScreen.h"
+#include "Core/SaveState.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
 
+// See https://github.com/unknownbrackets/verysleepy/commit/fc1b1b3bd6081fae3566cdb542d896e413238b71
 int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
 const UINT WM_USER_GET_BASE_POINTER = WM_APP + 0x3118;  // 0xB118
+const UINT WM_USER_GET_EMULATION_STATE = WM_APP + 0x3119;  // 0xB119
 
 // Respond TRUE to a message with this param value to indicate support.
 const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
@@ -104,20 +113,17 @@ struct VerySleepy_AddrInfo {
 	wchar_t name[256];
 };
 
-static std::wstring windowTitle;
-extern ScreenManager *screenManager;
+static std::mutex g_windowTitleLock;
+static std::wstring g_windowTitle;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define TIMER_WHEELRELEASE 3
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
-#define WHEELRELEASE_DELAY_MS 16
 
 namespace MainWindow
 {
 	HWND hwndMain;
-	HWND hwndDisplay;
 	HWND hwndGameList;
 	TouchInputHandler touchHandler;
 	static HMENU menu;
@@ -135,6 +141,7 @@ namespace MainWindow
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
 	static bool g_isFullscreen = false;
+	static bool g_keepScreenBright = false;
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
@@ -143,20 +150,16 @@ namespace MainWindow
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
-#define MAX_LOADSTRING 100
-	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
-	const TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
+	static const TCHAR szWindowClass[] = L"PPSSPPWnd";
 
-	// Forward declarations of functions included in this code module:
-	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
+	static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND() {
 		return hwndMain;
 	}
 
-	HWND GetDisplayHWND() {
-		return hwndDisplay;
+	void SetKeepScreenBright(bool keepBright) {
+		g_keepScreenBright = keepBright;
 	}
 
 	void Init(HINSTANCE hInstance) {
@@ -168,34 +171,19 @@ namespace MainWindow
 		wcex.lpfnWndProc = (WNDPROC)WndProc;
 		wcex.hInstance = hInstance;
 		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-		wcex.hbrBackground = NULL;  // Always covered by display window
+		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName = szWindowClass;
 		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
 		wcex.hIconSm = (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
 		RegisterClassEx(&wcex);
-
-		WNDCLASSEX wcdisp;
-		memset(&wcdisp, 0, sizeof(wcdisp));
-		// Display Window
-		wcdisp.cbSize = sizeof(WNDCLASSEX);
-		wcdisp.style = CS_HREDRAW | CS_VREDRAW;
-		wcdisp.lpfnWndProc = (WNDPROC)DisplayProc;
-		wcdisp.hInstance = hInstance;
-		wcdisp.hCursor = LoadCursor(NULL, IDC_ARROW);
-		wcdisp.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wcdisp.lpszMenuName = 0;
-		wcdisp.lpszClassName = szDisplayClass;
-		wcdisp.hIcon = 0;
-		wcdisp.hIconSm = 0;
-		RegisterClassEx(&wcdisp);
 	}
 
 	void SavePosition() {
 		if (g_Config.UseFullScreen() || inFullscreenResize)
 			return;
 
-		WINDOWPLACEMENT placement;
+		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
 		if (placement.showCmd == SW_SHOWNORMAL) {
 			RECT rc;
@@ -238,7 +226,7 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
-		NativeMessageReceived("gpu_resized", "");
+		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	}
 
 	void CorrectCursor() {
@@ -249,9 +237,9 @@ namespace MainWindow
 			}
 			if (g_Config.bMouseConfine) {
 				RECT rc;
-				GetClientRect(hwndDisplay, &rc);
-				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.left));
-				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.right));
+				GetClientRect(hwndMain, &rc);
+				ClientToScreen(hwndMain, reinterpret_cast<POINT*>(&rc.left));
+				ClientToScreen(hwndMain, reinterpret_cast<POINT*>(&rc.right));
 				ClipCursor(&rc);
 			}
 		} else {
@@ -264,32 +252,15 @@ namespace MainWindow
 		}
 	}
 
-	void ReleaseMouseWheel() {
-			// For simplicity release both wheel events
-			KeyInput key;
-			key.deviceId = DEVICE_ID_MOUSE;
-			key.flags = KEY_UP;
-			key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-			NativeKey(key);
-			key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-			NativeKey(key);
-	}
-
 	static void HandleSizeChange(int newSizingType) {
 		SavePosition();
-		Core_NotifyWindowHidden(false);
+		Native_NotifyWindowHidden(false);
 		if (!g_Config.bPauseWhenMinimized) {
-			NativeMessageReceived("window minimized", "false");
+			System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "false");
 		}
 
-		int width = 0, height = 0;
-		RECT rc;
-		GetClientRect(hwndMain, &rc);
-		width = rc.right - rc.left;
-		height = rc.bottom - rc.top;
-
-		// Moves the internal display window to match the inner size of the main window.
-		MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
+		int width, height;
+		W32Util::GetWindowRes(hwndMain, &width, &height);
 
 		// Setting pixelWidth to be too small could have odd consequences.
 		if (width >= 4 && height >= 4) {
@@ -299,10 +270,11 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		DEBUG_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		DEBUG_LOG(Log::System, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
-		if (UpdateScreenScale(width, height)) {
-			NativeMessageReceived("gpu_resized", "");
+		if (Native_UpdateScreenScale(width, height, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor))) {
+			System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
+			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 		}
 
 		// Don't save the window state if fullscreen.
@@ -373,6 +345,7 @@ namespace MainWindow
 				int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 				MoveWindow(hwndMain, totalX, totalY, totalWidth, totalHeight, TRUE);
 				HandleSizeChange(oldWindowState);
+				ShowWindow(hwndMain, SW_SHOW);
 			} else {
 				ShowWindow(hwndMain, SW_MAXIMIZE);
 			}
@@ -403,7 +376,7 @@ namespace MainWindow
 
 	void Minimize() {
 		ShowWindow(hwndMain, SW_MINIMIZE);
-		InputDevice::LoseFocus();
+		g_InputManager.LoseFocus();
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -470,8 +443,11 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		// Seems to be fine to call now since we use a UNICODE build...
-		std::wstring title = windowTitle;
+		std::wstring title;
+		{
+			std::lock_guard<std::mutex> lock(g_windowTitleLock);
+			title = g_windowTitle;
+		}
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
 			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
 		}
@@ -479,7 +455,11 @@ namespace MainWindow
 	}
 
 	void SetWindowTitle(const wchar_t *title) {
-		windowTitle = title;
+		{
+			std::lock_guard<std::mutex> lock(g_windowTitleLock);
+			g_windowTitle = title;
+		}
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 	}
 
 	BOOL Show(HINSTANCE hInstance) {
@@ -495,13 +475,8 @@ namespace MainWindow
 
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
-		RECT rcClient;
-		GetClientRect(hwndMain, &rcClient);
-
-		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
-			0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, hwndMain, 0, hInstance, 0);
-		if (!hwndDisplay)
-			return FALSE;
+		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
+		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 
 		menu = GetMenu(hwndMain);
 
@@ -529,12 +504,13 @@ namespace MainWindow
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		touchHandler.registerTouchWindow(hwndDisplay);
+		touchHandler.registerTouchWindow(hwndMain);
 
 		WindowsRawInput::Init();
 
-		SetFocus(hwndMain);
+		UpdateWindow(hwndMain);
 
+		SetFocus(hwndMain);
 		return TRUE;
 	}
 
@@ -585,168 +561,140 @@ namespace MainWindow
 
 	void DestroyDebugWindows() {
 		DialogManager::RemoveDlg(disasmWindow);
-		if (disasmWindow)
-			delete disasmWindow;
+		delete disasmWindow;
 		disasmWindow = nullptr;
 
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
-		if (geDebuggerWindow)
-			delete geDebuggerWindow;
+		delete geDebuggerWindow;
 		geDebuggerWindow = nullptr;
 #endif
 
 		DialogManager::RemoveDlg(memoryWindow);
-		if (memoryWindow)
-			delete memoryWindow;
+		delete memoryWindow;
 		memoryWindow = nullptr;
 
 		DialogManager::RemoveDlg(vfpudlg);
-		if (vfpudlg)
-			delete vfpudlg;
+		delete vfpudlg;
 		vfpudlg = nullptr;
 	}
 
-	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-		static bool firstErase = true;
+	RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT & r)
+	{
+		RECT wnd_coords = r;
 
-		switch (message) {
-		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
-			}
-			break;
+		// map to screen
+		MapWindowPoints(hwnd, NULL, reinterpret_cast<POINT *>(&wnd_coords), 2);
 
-		case WM_SIZE:
-			break;
+		RECT scr_coords;
+		GetWindowRect(hwnd, &scr_coords);
 
-		case WM_SETFOCUS:
-			break;
+		// map to window coords by substracting the window coord origin in
+		// screen coords.
+		OffsetRect(&wnd_coords, -scr_coords.left, -scr_coords.top);
 
-		case WM_ERASEBKGND:
-			if (firstErase) {
-				firstErase = false;
-				// Paint black on first erase while OpenGL stuff is loading
-				return DefWindowProc(hWnd, message, wParam, lParam);
-			}
-			// Then never erase, let the OpenGL drawing take care of everything.
-			return 1;
+		return wnd_coords;
+	}
 
-		// Poor man's touch - mouse input. We send the data  asynchronous touch events for minimal latency.
-		case WM_LBUTTONDOWN:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
-			{
-				// Hack: Take the opportunity to show the cursor.
-				mouseButtonDown = true;
+	RECT GetNonclientMenuBorderRect(HWND hwnd)
+	{
+		RECT r;
+		GetClientRect(hwnd, &r);
+		r = MapRectFromClientToWndCoords(hwnd, r);
+		int y = r.top - 1;
+		return {
+			r.left,
+			y,
+			r.right,
+			y + 1
+		};
+	}
 
-				float x = GET_X_LPARAM(lParam) * g_dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_dpi_scale_y;
-				WindowsRawInput::SetMousePos(x, y);
-
-				TouchInput touch;
-				touch.id = 0;
-				touch.flags = TOUCH_DOWN;
-				touch.x = x;
-				touch.y = y;
-				NativeTouch(touch);
-				SetCapture(hWnd);
-
-				// Simulate doubleclick, doesn't work with RawInput enabled
-				static double lastMouseDown;
-				double now = time_now_d();
-				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
-						SendToggleFullscreen(!g_Config.UseFullScreen());
-					}
-					lastMouseDown = 0.0;
-				} else {
-					lastMouseDown = now;
-				}
-			}
-			break;
-
-		case WM_MOUSEMOVE:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
-			{
-				// Hack: Take the opportunity to show the cursor.
-				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
-				int cursorX = GET_X_LPARAM(lParam);
-				int cursorY = GET_Y_LPARAM(lParam);
-				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
-					hideCursor = false;
-					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
-				}
-				prevCursorX = cursorX;
-				prevCursorY = cursorY;
-
-				float x = (float)cursorX * g_dpi_scale_x;
-				float y = (float)cursorY * g_dpi_scale_y;
-				WindowsRawInput::SetMousePos(x, y);
-
-				if (wParam & MK_LBUTTON) {
-					TouchInput touch;
-					touch.id = 0;
-					touch.flags = TOUCH_MOVE;
-					touch.x = x;
-					touch.y = y;
-					NativeTouch(touch);
-				}
-			}
-			break;
-
-		case WM_LBUTTONUP:
-			if (!touchHandler.hasTouch() ||
-				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
-			{
-				// Hack: Take the opportunity to hide the cursor.
-				mouseButtonDown = false;
-
-				float x = (float)GET_X_LPARAM(lParam) * g_dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_dpi_scale_y;
-				WindowsRawInput::SetMousePos(x, y);
-
-				TouchInput touch;
-				touch.id = 0;
-				touch.flags = TOUCH_UP;
-				touch.x = x;
-				touch.y = y;
-				NativeTouch(touch);
-				ReleaseCapture();
-			}
-			break;
-
-		case WM_TOUCH:
-			touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
-			return 0;
-
-		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
+	bool ConfirmAction(HWND hWnd, bool actionIsReset) {
+		const GlobalUIState state = GetUIState();
+		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
+			return true;
 		}
-		return 0;
+
+		std::string confirmExitMessage = GetConfirmExitMessage();
+		if (confirmExitMessage.empty()) {
+			return true;
+		}
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		if (!actionIsReset) {
+			confirmExitMessage += '\n';
+			confirmExitMessage += di->T("Are you sure you want to exit?");
+		} else {
+			// Reset is bit rarer, let's just omit the extra message for now.
+		}
+		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
+		static bool firstErase = true;
+		LRESULT darkResult = 0;
+		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
+			return darkResult;
+		}
+
+		static bool first = true;
+		static bool wasMinimized = false;
+
 		switch (message) {
 		case WM_CREATE:
-			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
+			first = true;
+			if (!IsVistaOrHigher()) {
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
 			}
+			if (g_darkModeSupported) {
+				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			}
+			SetAssertDialogParent(hWnd);
 			break;
 
+		case WM_USER_RUN_CALLBACK:
+		{
+			auto callback = reinterpret_cast<void (*)(void *window, void *userdata)>(wParam);
+			void *userdata = reinterpret_cast<void *>(lParam);
+			callback(hWnd, userdata);
+			break;
+		}
 		case WM_USER_GET_BASE_POINTER:
 			Reporting::NotifyDebugger();
 			switch (lParam) {
-			case 0:
-				return (u32)(u64)Memory::base;
-			case 1:
-				return (u32)((u64)Memory::base >> 32);
+			case 0: return (u32)(u64)Memory::base;
+			case 1: return (u32)((u64)Memory::base >> 32);
+			case 2: return (u32)(u64)(&Memory::base);
+			case 3: return (u32)((u64)(&Memory::base) >> 32);
 			default:
 				return 0;
 			}
 			break;
+
+		case WM_USER_GET_EMULATION_STATE:
+			return (u32)(Core_IsActive() && GetUIState() == UISTATE_INGAME);
+
+		// Hack to kill the white line underneath the menubar.
+		// From https://stackoverflow.com/questions/57177310/how-to-paint-over-white-line-between-menu-bar-and-client-area-of-window
+		case WM_NCPAINT:
+		case WM_NCACTIVATE:
+		{
+			if (!IsDarkModeEnabled() || IsIconic(hWnd)) {
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+
+			auto result = DefWindowProc(hWnd, message, wParam, lParam);
+			// Paint over the line with pure black. Could also try to figure out the dark theme color.
+			HDC hdc = GetWindowDC(hWnd);
+			RECT r = GetNonclientMenuBorderRect(hWnd);
+			HBRUSH red = CreateSolidBrush(RGB(0, 0, 0));
+			FillRect(hdc, &r, red);
+			DeleteObject(red);
+			ReleaseDC(hWnd, hdc);
+			return result;
+		}
 
 		case WM_GETMINMAXINFO:
 			{
@@ -768,29 +716,37 @@ namespace MainWindow
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					WindowsRawInput::GainFocus();
 					if (!IsIconic(GetHWND())) {
-						InputDevice::GainFocus();
+						g_InputManager.GainFocus();
 					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
+				} else {
+					g_activeWindow = WINDOW_OTHER;
 				}
+
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
-					if (pause != Core_IsStepping()) {	// != is xor for bools
-						if (disasmWindow)
+					if (pause != Core_IsStepping()) {
+						if (disasmWindow) {
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
-						else
-							Core_EnableStepping(pause, "ui.lost_focus", 0);
+						} else {
+							if (pause) {
+								Core_Break(BreakReason::UIFocus, 0);
+							} else if (Core_BreakReason() == BreakReason::UIFocus) {
+								Core_Resume();
+							}
+						}
 					}
 				}
 
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-					NativeMessageReceived("got_focus", "");
+					System_PostUIMessage(UIMessage::GOT_FOCUS);
 					hasFocus = true;
 					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
-					NativeMessageReceived("lost_focus", "");
+					System_PostUIMessage(UIMessage::LOST_FOCUS);
 					WindowsRawInput::LoseFocus();
-					InputDevice::LoseFocus();
+					g_InputManager.LoseFocus();
 					hasFocus = false;
 					trapMouse = false;
 				}
@@ -802,7 +758,12 @@ namespace MainWindow
 			break;
 
 		case WM_ERASEBKGND:
-			// This window is always covered by DisplayWindow. No reason to erase.
+			if (firstErase) {
+				firstErase = false;
+				// Paint black on first erase while OpenGL stuff is loading
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
 
 		case WM_MOVE:
@@ -828,16 +789,21 @@ namespace MainWindow
 					HandleSizeChange(wParam);
 				}
 				if (hasFocus) {
-					InputDevice::GainFocus();
+					g_InputManager.GainFocus();
+				}
+				if (wasMinimized) {
+					System_PostUIMessage(UIMessage::WINDOW_RESTORED, "true");
+					wasMinimized = false;
 				}
 				break;
 
 			case SIZE_MINIMIZED:
-				Core_NotifyWindowHidden(true);
+				Native_NotifyWindowHidden(true);
 				if (!g_Config.bPauseWhenMinimized) {
-					NativeMessageReceived("window minimized", "true");
+					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
 				}
-				InputDevice::LoseFocus();
+				g_InputManager.LoseFocus();
+				wasMinimized = true;
 				break;
 			default:
 				break;
@@ -857,10 +823,8 @@ namespace MainWindow
 				} else {
 					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 				}
-				// There's no separate keyup event for mousewheel events,
-				// so we release it with a slight delay.
+				// There's no release event, but we simulate it in NativeKey/NativeFrame.
 				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
-				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
 				NativeKey(key);
 			}
 			break;
@@ -875,11 +839,6 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-				return 0;
-			// Hack: need to release wheel event with a delay for games to register it was "pressed down".
-			case TIMER_WHEELRELEASE:
-				ReleaseMouseWheel();
-				KillTimer(hWnd, TIMER_WHEELRELEASE);
 				return 0;
 			}
 			break;
@@ -950,33 +909,40 @@ namespace MainWindow
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				HDROP hdrop = (HDROP)wParam;
-				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
+				int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
-					MessageBox(hwndMain,L"You can only load one file at a time",L"Error",MB_ICONINFORMATION);
-				}
-				else
-				{
-					TCHAR filename[512];
-					if (DragQueryFile(hdrop, 0, filename, 512) != 0) {
+					// TODO: Translate? Or just not bother?
+					MessageBox(hwndMain, L"You can only load one file at a time", L"Error", MB_ICONINFORMATION);
+				} else {
+					wchar_t filename[1024];
+					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
-						NativeMessageReceived("boot", utf8_filename.c_str());
-						Core_EnableStepping(false);
+						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
 					}
 				}
+				DragFinish(hdrop);
 			}
 			break;
 
 		case WM_CLOSE:
-			InputDevice::StopPolling();
-			WindowsRawInput::Shutdown();
-			return DefWindowProc(hWnd,message,wParam,lParam);
+		{
+			if (ConfirmAction(hWnd, false)) {
+				DestroyWindow(hWnd);
+			}
+			return 0;
+		}
 
 		case WM_DESTROY:
+			g_InputManager.StopPolling();
+			g_InputManager.Shutdown();
+			WindowsRawInput::Shutdown();
+
+			MainThread_Stop();
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-			KillTimer(hWnd, TIMER_WHEELRELEASE);
+			// Main window is gone, this tells the message loop to exit.
 			PostQuitMessage(0);
-			break;
+			return 0;
 
 		case WM_USER + 1:
 			NotifyDebuggerMapLoaded();
@@ -998,26 +964,21 @@ namespace MainWindow
 			UpdateWindowTitle();
 			break;
 
-		case WM_USER_BROWSE_BOOT_DONE:
-			BrowseAndBootDone();
-			break;
-
-		case WM_USER_BROWSE_BG_DONE:
-			BrowseBackgroundDone();
-			break;
-
 		case WM_USER_RESTART_EMUTHREAD:
 			NativeSetRestarting();
-			InputDevice::StopPolling();
+			g_InputManager.StopPolling();
 			MainThread_Stop();
-			coreState = CORE_POWERUP;
 			UpdateUIState(UISTATE_MENU);
 			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
-			InputDevice::BeginPolling();
+			g_InputManager.BeginPolling();
 			break;
 
 		case WM_USER_SWITCHUMD_UPDATED:
 			UpdateSwitchUMD();
+			break;
+
+		case WM_USER_DESTROY:
+			DestroyWindow(hWnd);
 			break;
 
 		case WM_MENUSELECT:
@@ -1032,28 +993,208 @@ namespace MainWindow
 			trapMouse = true;
 			break;
 
-		// Turn off the screensaver.
+		// Turn off the screensaver if in-game.
 		// Note that if there's a screensaver password, this simple method
 		// doesn't work on Vista or higher.
 		case WM_SYSCOMMAND:
-			{
+			// Disable Alt key for menu if it's been mapped.
+			if (wParam == SC_KEYMENU && (lParam >> 16) <= 0) {
+				if (KeyMap::IsKeyMapped(DEVICE_ID_KEYBOARD, NKCODE_ALT_LEFT) || KeyMap::IsKeyMapped(DEVICE_ID_KEYBOARD, NKCODE_ALT_RIGHT)) {
+					return 0;
+				}
+			}
+			if (g_keepScreenBright) {
 				switch (wParam) {
 				case SC_SCREENSAVE:
 					return 0;
 				case SC_MONITORPOWER:
-					return 0;
+					if (lParam == 1 || lParam == 2) {
+						return 0;
+					} else {
+						break;
+					}
+				default:
+					// fall down to DefWindowProc
+					break;
 				}
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		case WM_SETTINGCHANGE:
+			{
+				if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam))
+					SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+
+		case WM_THEMECHANGED:
+		{
+			if (g_darkModeSupported)
+			{
+				_AllowDarkModeForWindow(hWnd, g_darkModeEnabled);
+				RefreshTitleBarThemeColor(hWnd);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+
+		case WM_SETCURSOR:
+			if ((lParam & 0xFFFF) == HTCLIENT && g_Config.bShowImDebugger) {
+				LPTSTR win32_cursor = 0;
+				if (g_Config.bShowImDebugger) {
+					switch (ImGui_ImplPlatform_GetCursor()) {
+					case ImGuiMouseCursor_Arrow:        win32_cursor = IDC_ARROW; break;
+					case ImGuiMouseCursor_TextInput:    win32_cursor = IDC_IBEAM; break;
+					case ImGuiMouseCursor_ResizeAll:    win32_cursor = IDC_SIZEALL; break;
+					case ImGuiMouseCursor_ResizeEW:     win32_cursor = IDC_SIZEWE; break;
+					case ImGuiMouseCursor_ResizeNS:     win32_cursor = IDC_SIZENS; break;
+					case ImGuiMouseCursor_ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
+					case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
+					case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
+					case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
+					}
+				}
+				if (win32_cursor) {
+					SetCursor(::LoadCursor(nullptr, win32_cursor));
+				} else {
+					SetCursor(nullptr);
+				}
+				return TRUE;
+			} else {
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
+			break;
+
+		// Mouse input. We send asynchronous touch events for minimal latency.
+		case WM_LBUTTONDOWN:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
+			{
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = true;
+
+				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				TouchInput touch{};
+				touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				touch.buttons = 1;
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+				SetCapture(hWnd);
+
+				// Simulate doubleclick, doesn't work with RawInput enabled
+				static double lastMouseDownTime;
+				static float lastMouseDownX = -1.0f;
+				static float lastMouseDownY = -1.0f;
+				const double now = time_now_d();
+				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime()) {
+					const float dx = lastMouseDownX - x;
+					const float dy = lastMouseDownY - y;
+					const float distSq = dx * dx + dy * dy;
+					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+						SendToggleFullscreen(!g_Config.UseFullScreen());
+					}
+					lastMouseDownTime = 0.0;
+				} else {
+					lastMouseDownTime = now;
+				}
+				lastMouseDownX = x;
+				lastMouseDownY = y;
+			}
+			break;
+
+		case WM_MOUSEMOVE:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
+			{
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
+				int cursorX = GET_X_LPARAM(lParam);
+				int cursorY = GET_Y_LPARAM(lParam);
+				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
+					hideCursor = false;
+					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
+				}
+				prevCursorX = cursorX;
+				prevCursorY = cursorY;
+
+				float x = (float)cursorX * g_display.dpi_scale_x;
+				float y = (float)cursorY * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				// Mouse moves now happen also when no button is pressed.
+				TouchInput touch{};
+				touch.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				if (wParam & MK_LBUTTON) {
+					touch.buttons |= 1;
+				}
+				if (wParam & MK_RBUTTON) {
+					touch.buttons |= 2;
+				}
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+			}
+			break;
+
+		case WM_LBUTTONUP:
+			if (!touchHandler.hasTouch() ||
+				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
+			{
+				// Hack: Take the opportunity to hide the cursor.
+				mouseButtonDown = false;
+
+				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				TouchInput touch{};
+				touch.buttons = 1;
+				touch.flags = TOUCH_UP | TOUCH_MOUSE;
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+				ReleaseCapture();
+			}
+			break;
+
+		case WM_TOUCH:
+			touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
+			return 0;
+
+		case WM_RBUTTONDOWN:
+		{
+			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+
+			TouchInput touch{};
+			touch.buttons = 2;
+			touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
+			touch.x = x;
+			touch.y = y;
+			NativeTouch(touch);
+			break;
+		}
+
+		case WM_RBUTTONUP:
+		{
+			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+
+			TouchInput touch{};
+			touch.buttons = 2;
+			touch.flags = TOUCH_UP | TOUCH_MOUSE;
+			touch.x = x;
+			touch.y = y;
+			NativeTouch(touch);
+			break;
+		}
 
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		return 0;
-	}
-
-	void Redraw() {
-		InvalidateRect(hwndDisplay,0,0);
 	}
 
 	HINSTANCE GetHInstance() {
@@ -1062,11 +1203,11 @@ namespace MainWindow
 
 	void ToggleDebugConsoleVisibility() {
 		if (!g_Config.bEnableLogging) {
-			LogManager::GetInstance()->GetConsoleListener()->Show(false);
+			g_logManager.GetConsoleListener()->Show(false);
 			EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
 		}
 		else {
-			LogManager::GetInstance()->GetConsoleListener()->Show(true);
+			g_logManager.GetConsoleListener()->Show(true);
 			EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
 		}
 	}
@@ -1077,6 +1218,10 @@ namespace MainWindow
 
 	bool IsFullscreen() {
 		return g_isFullscreen;
+	}
+
+	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
+		PostMessage(hwndMain, WM_USER_RUN_CALLBACK, reinterpret_cast<WPARAM>(callback), reinterpret_cast<LPARAM>(userdata));
 	}
 
 }  // namespace

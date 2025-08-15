@@ -13,8 +13,8 @@ public:
 	void *GetAPIContext() override;
 	void CreateDrawContext() override;
 
-   void ContextReset() override;
-   void ContextDestroy() override;
+	void ContextReset() override;
+	void ContextDestroy() override;
 
 	GPUCore GetGPUCore() override { return GPUCORE_VULKAN; }
 	const char *Ident() override { return "Vulkan"; }

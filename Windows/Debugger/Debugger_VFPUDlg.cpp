@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
@@ -17,7 +15,7 @@ CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : 
 {
 	cpu = cpu_;
 	wchar_t temp[256];
-	wsprintf(temp, L"VFPU - %S", cpu->GetName());
+	wsprintf(temp, L"VFPU - R4");
 	SetWindowText(m_hDlg,temp);
 
 	ShowWindow(m_hDlg,SW_HIDE);

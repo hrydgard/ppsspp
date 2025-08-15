@@ -35,35 +35,38 @@ enum MICTYPE {
 struct MicWaitInfo {
 	SceUID threadID;
 	u32 addr;
-	u32 needSize;
+	int needSize;
 	u32 sampleRate;
 };
 
 class QueueBuf {
 public:
-	QueueBuf(u32 size);
+	QueueBuf(int size);
 	~QueueBuf();
 
-	QueueBuf(const QueueBuf &buf);
-	QueueBuf& operator=(const QueueBuf &buf);
+	QueueBuf(const QueueBuf &buf) = delete;
+	QueueBuf& operator=(const QueueBuf &buf) = delete;
 
-	u32 push(u8 *buf, u32 size);
-	u32 pop(u8 *buf, u32 size);
-	void resize(u32 newSize);
+	int push(const u8 *buf, int size);
+	int pop(u8 *buf, int size);
+	void resize(int newSize);
 	void flush();
-	u32 getAvailableSize();
-	u32 getRemainingSize();
-	u32 getStartPos();
-	u32 getCapacity() const {
+	int getAvailableSize() const {
+		return available;
+	}
+	int getRemainingSize() const;
+	int getStartPos() const;
+	int getCapacity() const {
 		return capacity;
 	}
 
 private:
-	u32 available;
-	u32 end;
-	u32 capacity;
+	int available = 0;
+	int end = 0;
+	int capacity;  // set in constructor
 	u8 *buf_;
-	std::mutex mutex;
+	// TODO: Turn back to a regular mutex, will take some refactoring.
+	std::recursive_mutex mutex;
 };
 
 namespace Microphone {
@@ -71,13 +74,12 @@ namespace Microphone {
 	int stopMic();
 	bool isHaveDevice();
 	bool isMicStarted();
-	u32 numNeedSamples();
-	u32 availableAudioBufSize();
-	u32 getReadMicDataLength();
+	int numNeedSamples();
+	int availableAudioBufSize();
+	int getReadMicDataLength();
 
-
-	int addAudioData(u8 *buf, u32 size);
-	u32 getAudioData(u8 *buf, u32 size);
+	int addAudioData(u8 *buf, int size);
+	int getAudioData(u8 *buf, int size);
 	void flushAudioData();
 
 	std::vector<std::string> getDeviceList();

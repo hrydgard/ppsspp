@@ -145,6 +145,10 @@ void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
 	for (Reg r : vecTemps)
 		Add(r, VEC_INVALID);
 #endif
+#elif PPSSPP_ARCH(RISCV64)
+	_assert_msg_(false, "Not yet implemented (no vector calling standard yet)");
+#elif PPSSPP_ARCH(LOONGARCH64)
+	_assert_msg_(false, "Not yet implemented");
 #elif PPSSPP_ARCH(MIPS)
 	_assert_msg_(false, "Not yet implemented");
 #else
@@ -420,7 +424,7 @@ int CodeBlock::WriteProlog(int extraStack, const std::vector<RegCache::Reg> &vec
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	using namespace Gen;
 
-	BeginWrite();
+	BeginWrite(32768);
 	AlignCode16();
 	lastPrologStart_ = GetWritableCodePtr();
 

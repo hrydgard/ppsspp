@@ -16,13 +16,20 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <deque>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <set>
 #include <cstdlib>
 #include <cstdarg>
+
+// for crc32
+extern "C" {
+#include "zlib.h"
+}
 
 #include "Core/Reporting.h"
 #include "Common/File/VFS/VFS.h"
@@ -30,6 +37,12 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -37,18 +50,15 @@
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
-#include "Core/ELF/ParamSFO.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "Common/Net/HTTPClient.h"
-#include "Common/Net/Resolve.h"
-#include "Common/Net/URL.h"
-#include "Common/Thread/ThreadUtil.h"
 
 namespace Reporting
 {
@@ -58,9 +68,6 @@ namespace Reporting
 
 	// Internal limiter on number of requests per instance.
 	static u32 spamProtectionCount = 0;
-	// Temporarily stores a reference to the hostname.
-	static std::string lastHostname;
-
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
 	// Support is cached here to avoid checking it on every single request.
@@ -70,22 +77,17 @@ namespace Reporting
 	// The latest compatibility result from the server.
 	static std::vector<std::string> lastCompatResult;
 
-	static std::mutex pendingMessageLock;
-	static std::condition_variable pendingMessageCond;
-	static std::deque<int> pendingMessages;
-	static bool pendingMessagesDone = false;
-	static std::thread messageThread;
-	static std::thread compatThread;
+	static std::string lastModuleName;
+	static int lastModuleVersion;
+	static uint32_t lastModuleCrc;
 
-	enum class RequestType
-	{
+	enum class RequestType {
 		NONE,
 		MESSAGE,
 		COMPAT,
 	};
 
-	struct Payload
-	{
+	struct Payload {
 		RequestType type;
 		std::string string1;
 		std::string string2;
@@ -93,26 +95,55 @@ namespace Reporting
 		int int2;
 		int int3;
 	};
-	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
-	static int payloadBufferPos = 0;
 
 	static std::mutex crcLock;
 	static std::condition_variable crcCond;
 	static Path crcFilename;
 	static std::map<Path, u32> crcResults;
-	static volatile bool crcPending = false;
-	static volatile bool crcCancel = false;
+	static std::atomic<bool> crcPending{};
+	static std::atomic<bool> crcCancel{};
 	static std::thread crcThread;
+
+	static u32 CalculateCRC(BlockDevice *blockDevice, std::atomic<bool> *cancel) {
+		auto ga = GetI18NCategory(I18NCat::GAME);
+
+		u32 crc = crc32(0, Z_NULL, 0);
+
+		u8 block[2048];
+		u32 numBlocks = blockDevice->GetNumBlocks();
+		for (u32 i = 0; i < numBlocks; ++i) {
+			if (cancel && *cancel) {
+				g_OSD.RemoveProgressBar("crc", false, 0.0f);
+				return 0;
+			}
+			if (!blockDevice->ReadBlock(i, block, true)) {
+				ERROR_LOG(Log::FileSystem, "Failed to read block for CRC");
+				g_OSD.RemoveProgressBar("crc", false, 0.0f);
+				return 0;
+			}
+			crc = crc32(crc, block, 2048);
+			g_OSD.SetProgressBar("crc", std::string(ga->T("Calculate CRC")), 0.0f, (float)numBlocks, (float)i, 0.5f);
+		}
+
+		g_OSD.RemoveProgressBar("crc", true, 0.0f);
+		return crc;
+	}
 
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
 
+		AndroidJNIThreadContext jniContext;
+
 		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
-		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+
+		std::string errorString;
+		BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = blockDevice->CalculateCRC(&crcCancel);
+			crc = CalculateCRC(blockDevice, &crcCancel);
+		} else {
+			ERROR_LOG(Log::Loader, "Failed to read from block device for CRC: %s", errorString.c_str());
 		}
 
 		delete blockDevice;
@@ -136,12 +167,11 @@ namespace Reporting
 		}
 
 		if (crcPending) {
-			// Already in process.
-			INFO_LOG(SYSTEM, "CRC already pending");
+			// Already in process. This is OK - on the crash screen we call this in a polling fashion.
 			return;
 		}
 
-		INFO_LOG(SYSTEM, "Starting CRC calculation");
+		INFO_LOG(Log::System, "Starting CRC calculation");
 		crcFilename = gamePath;
 		crcPending = true;
 		crcCancel = false;
@@ -163,8 +193,10 @@ namespace Reporting
 			it = crcResults.find(gamePath);
 		}
 
-		if (crcThread.joinable())
+		if (crcThread.joinable()) {
+			INFO_LOG(Log::System, "Finished CRC calculation");
 			crcThread.join();
+		}
 		return it->second;
 	}
 
@@ -180,13 +212,13 @@ namespace Reporting
 	static void PurgeCRC() {
 		std::unique_lock<std::mutex> guard(crcLock);
 		if (crcPending) {
-			INFO_LOG(SYSTEM, "Cancelling CRC calculation");
+			INFO_LOG(Log::System, "Cancelling CRC calculation");
 			crcCancel = true;
 			while (crcPending) {
 				crcCond.wait(guard);
 			}
 		} else {
-			DEBUG_LOG(SYSTEM, "No CRC pending");
+			DEBUG_LOG(Log::System, "No CRC pending");
 		}
 
 		if (crcThread.joinable())
@@ -197,9 +229,8 @@ namespace Reporting
 		PurgeCRC();
 	}
 
-	// Returns the full host (e.g. report.ppsspp.org:80.)
-	std::string ServerHost()
-	{
+	// Returns the full host
+	std::string ServerHost() {
 		if (g_Config.sReportHost.compare("default") == 0)
 			return "";
 		return g_Config.sReportHost;
@@ -225,20 +256,18 @@ namespace Reporting
 	}
 
 	// Returns only the hostname part (e.g. "report.ppsspp.org".)
-	static const char *ServerHostname()
-	{
+	static std::string ServerHostname() {
 		if (!IsEnabled())
-			return NULL;
+			return "";
 
 		std::string host = ServerHost();
 		size_t length = ServerHostnameLength();
 
 		// This means there's no port number - it's already the hostname.
 		if (length == host.npos)
-			lastHostname = host;
+			return host;
 		else
-			lastHostname = host.substr(0, length);
-		return lastHostname.c_str();
+			return host.substr(0, length);
 	}
 
 	// Returns only the port part (e.g. 80) as an int.
@@ -264,36 +293,15 @@ namespace Reporting
 		return ++spamProtectionCount >= SPAM_LIMIT;
 	}
 
-	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
-	{
-		http::Client http;
-		http::RequestProgress progress(&pendingMessagesDone);
-		Buffer theVoid = Buffer::Void();
-
-		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
-
-		if (output == nullptr)
-			output = &theVoid;
-
-		const char *serverHost = ServerHostname();
-		if (!serverHost)
-			return false;
-
-		if (http.Resolve(serverHost, ServerPort())) {
-			int result = -1;
-			if (http.Connect()) {
-				result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
-				http.Disconnect();
-			}
-
-			return result >= 200 && result < 300;
-		} else {
-			return false;
-		}
+	static void SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, std::function<void(http::Request &)> callback) {
+		char url[1024];
+		std::string hostname = ServerHostname();
+		int port = ServerPort();
+		snprintf(url, sizeof(url), "http://%s:%d%s", hostname.c_str(), port, uri);
+		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::RequestFlags::Default, callback);
 	}
 
-	std::string StripTrailingNull(const std::string &str)
-	{
+	std::string StripTrailingNull(const std::string &str) {
 		size_t pos = str.find_first_of('\0');
 		if (pos != str.npos)
 			return str.substr(0, pos);
@@ -343,35 +351,27 @@ namespace Reporting
 	bool MessageAllowed();
 	void SendReportMessage(const char *message, const char *formatted);
 
-	void Init()
-	{
+	void Init() {
 		// New game, clean slate.
 		spamProtectionCount = 0;
 		ResetCounts();
 		everUnsupported = false;
 		currentSupported = IsSupported();
-		pendingMessagesDone = false;
 		Reporting::SetupCallbacks(&MessageAllowed, &SendReportMessage);
+
+		lastModuleName.clear();
+		lastModuleVersion = 0;
+		lastModuleCrc = 0;
 	}
 
-	void Shutdown()
-	{
-		pendingMessageLock.lock();
-		pendingMessagesDone = true;
-		pendingMessageCond.notify_one();
-		pendingMessageLock.unlock();
-		if (compatThread.joinable())
-			compatThread.join();
-		if (messageThread.joinable())
-			messageThread.join();
+	void Shutdown() {
 		PurgeCRC();
 
 		// Just so it can be enabled in the menu again.
 		Init();
 	}
 
-	void DoState(PointerWrap &p)
-	{
+	void DoState(PointerWrap &p) {
 		const int LATEST_VERSION = 1;
 		auto s = p.Section("Reporting", 0, LATEST_VERSION);
 		if (!s || s < LATEST_VERSION) {
@@ -383,16 +383,21 @@ namespace Reporting
 		Do(p, everUnsupported);
 	}
 
-	void UpdateConfig()
-	{
+	void UpdateConfig() {
 		currentSupported = IsSupported();
-		if (!currentSupported && PSP_IsInited())
+		if (!currentSupported && PSP_GetBootState() == BootState::Complete)
 			everUnsupported = true;
 	}
 
 	void NotifyDebugger() {
 		currentSupported = false;
 		everUnsupported = true;
+	}
+
+	void NotifyExecModule(const char *name, int ver, uint32_t crc) {
+		lastModuleName = name;
+		lastModuleVersion = ver;
+		lastModuleCrc = crc;
 	}
 
 	std::string CurrentGameID()
@@ -408,6 +413,9 @@ namespace Reporting
 		postdata.Add("game", CurrentGameID());
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+		postdata.Add("module_name", lastModuleName);
+		postdata.Add("module_ver", lastModuleVersion);
+		postdata.Add("module_crc", lastModuleCrc);
 	}
 
 	void AddSystemInfo(UrlEncoder &postdata)
@@ -434,7 +442,7 @@ namespace Reporting
 	void AddGameplayInfo(UrlEncoder &postdata)
 	{
 		// Just to get an idea of how long they played.
-		if (PSP_IsInited())
+		if (PSP_GetBootState() == BootState::Complete)
 			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
 		float vps, fps;
@@ -448,8 +456,9 @@ namespace Reporting
 	void AddScreenshotData(MultipartFormDataEncoder &postdata, const Path &filename)
 	{
 		std::string data;
-		if (!filename.empty() && File::ReadFileToString(false, filename, data))
+		if (!filename.empty() && File::ReadBinaryFileToString(filename, &data)) {
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
+		}
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
 		std::vector<u8> iconData;
@@ -458,11 +467,7 @@ namespace Reporting
 		}
 	}
 
-	int Process(int pos)
-	{
-		SetCurrentThreadName("Report");
-
-		Payload &payload = payloadBuffer[pos];
+	int Process(const Payload &payload) {
 		Buffer output;
 
 		MultipartFormDataEncoder postdata;
@@ -471,21 +476,18 @@ namespace Reporting
 		AddConfigInfo(postdata);
 		AddGameplayInfo(postdata);
 
-		switch (payload.type)
-		{
+		switch (payload.type) {
 		case RequestType::MESSAGE:
 			// TODO: Add CRC?
 			postdata.Add("message", payload.string1);
 			postdata.Add("value", payload.string2);
 			// We tend to get corrupted data, this acts as a very primitive verification check.
 			postdata.Add("verify", payload.string1 + payload.string2);
-			payload.string1.clear();
-			payload.string2.clear();
 
 			postdata.Finish();
-			serverWorking = true;
-			if (!SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType()))
-				serverWorking = false;
+			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
+				serverWorking = !req.Failed();
+			});
 			break;
 
 		case RequestType::COMPAT:
@@ -498,31 +500,28 @@ namespace Reporting
 			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRCUnlessPowerSaving(PSP_CoreParameter().fileToStart)));
 			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
 			AddScreenshotData(postdata, Path(payload.string2));
-			payload.string1.clear();
-			payload.string2.clear();
 
 			postdata.Finish();
 			serverWorking = true;
-			if (!SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), &output)) {
-				serverWorking = false;
-			} else {
-				std::string result;
-				output.TakeAll(&result);
+			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
+				if (req.Failed()) {
+					serverWorking = false;
+					return;
+				}
+				serverWorking = true;
 
+				std::string result;
+				req.buffer().TakeAll(&result);
 				lastCompatResult.clear();
 				if (result.empty() || result[0] == '0')
 					serverWorking = false;
 				else if (result[0] != '1')
 					SplitString(result, '\n', lastCompatResult);
-			}
+			});
 			break;
-
 		case RequestType::NONE:
 			break;
 		}
-
-		payload.type = RequestType::NONE;
-
 		return 0;
 	}
 
@@ -531,7 +530,7 @@ namespace Reporting
 		// Disabled when using certain hacks, because they make for poor reports.
 		if (CheatsInEffect() || HLEPlugins::HasEnabled())
 			return false;
-		if (g_Config.iLockedCPUSpeed != 0)
+		if (GetLockedCPUSpeedMhz() != 0)
 			return false;
 		if (g_Config.uJitDisableFlags != 0)
 			return false;
@@ -541,7 +540,7 @@ namespace Reporting
 		// Don't report from games without a version ID (i.e. random hashed homebrew IDs.)
 		// The problem is, these aren't useful because the hashes end up different for different people.
 		// TODO: Should really hash the ELF instead of the path, but then that affects savestates/cheats.
-		if (PSP_IsInited() && g_paramSFO.GetValueString("DISC_VERSION").empty())
+		if (PSP_GetBootState() == BootState::Complete && g_paramSFO.GetValueString("DISC_VERSION").empty())
 			return false;
 
 		// Some users run the exe from a zip or something, and don't have fonts.
@@ -551,7 +550,7 @@ namespace Reporting
 			return false;
 #else
 		File::FileInfo fo;
-		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
+		if (!g_VFS.GetFileInfo("flash0/font/jpn0.pgf", &fo))
 			return false;
 #endif
 
@@ -560,7 +559,7 @@ namespace Reporting
 
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || (!currentSupported && PSP_IsInited()))
+		if (g_Config.sReportHost.empty() || (!currentSupported && PSP_GetBootState() == BootState::Complete))
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
@@ -568,7 +567,7 @@ namespace Reporting
 		return true;
 	}
 
-	bool Enable(bool flag, std::string host)
+	bool Enable(bool flag, const std::string &host)
 	{
 		if (IsSupported() && IsEnabled() != flag)
 		{
@@ -585,54 +584,10 @@ namespace Reporting
 		g_Config.sReportHost = "default";
 	}
 
-	ReportStatus GetStatus()
-	{
+	ReportStatus GetStatus() {
 		if (!serverWorking)
 			return ReportStatus::FAILING;
-
-		for (int pos = 0; pos < PAYLOAD_BUFFER_SIZE; ++pos)
-		{
-			if (payloadBuffer[pos].type != RequestType::NONE)
-				return ReportStatus::BUSY;
-		}
-
 		return ReportStatus::WORKING;
-	}
-
-	int NextFreePos()
-	{
-		int start = payloadBufferPos % PAYLOAD_BUFFER_SIZE;
-		do
-		{
-			int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
-			if (payloadBuffer[pos].type == RequestType::NONE)
-				return pos;
-		}
-		while (payloadBufferPos != start);
-
-		return -1;
-	}
-
-	int ProcessPending() {
-		SetCurrentThreadName("Report");
-
-		std::unique_lock<std::mutex> guard(pendingMessageLock);
-		while (!pendingMessagesDone) {
-			while (!pendingMessages.empty() && !pendingMessagesDone) {
-				int pos = pendingMessages.front();
-				pendingMessages.pop_front();
-
-				guard.unlock();
-				Process(pos);
-				guard.lock();
-			}
-			if (pendingMessagesDone) {
-				break;
-			}
-			pendingMessageCond.wait(guard);
-		}
-
-		return 0;
 	}
 
 	bool MessageAllowed() {
@@ -642,33 +597,20 @@ namespace Reporting
 	}
 
 	void SendReportMessage(const char *message, const char *formatted) {
-		int pos = NextFreePos();
-		if (pos == -1)
-			return;
+		// MessageAllowed is checked first.
 
-		Payload &payload = payloadBuffer[pos];
+		Payload payload{};
 		payload.type = RequestType::MESSAGE;
 		payload.string1 = message;
 		payload.string2 = formatted;
 
-		std::lock_guard<std::mutex> guard(pendingMessageLock);
-		pendingMessages.push_back(pos);
-		pendingMessageCond.notify_one();
-
-		if (!messageThread.joinable()) {
-			messageThread = std::thread(ProcessPending);
-		}
+		Process(payload);
 	}
 
-	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, const std::string &screenshotFilename)
-	{
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, const std::string &screenshotFilename) {
 		if (!IsEnabled())
 			return;
-		int pos = NextFreePos();
-		if (pos == -1)
-			return;
-
-		Payload &payload = payloadBuffer[pos];
+		Payload payload{};
 		payload.type = RequestType::COMPAT;
 		payload.string1 = compat;
 		payload.string2 = screenshotFilename;
@@ -676,9 +618,7 @@ namespace Reporting
 		payload.int2 = speed;
 		payload.int3 = gameplay;
 
-		if (compatThread.joinable())
-			compatThread.join();
-		compatThread = std::thread(Process, pos);
+		Process(payload);
 	}
 
 	std::vector<std::string> CompatibilitySuggestions() {

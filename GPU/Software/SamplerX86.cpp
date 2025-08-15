@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
-#include <emmintrin.h>
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/x64Emitter.h"
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
@@ -45,7 +45,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	regCache_.ForceRetain(RegCache::GEN_RESULT);
 	regCache_.ChangeReg(XMM0, RegCache::VEC_RESULT);
 
-	BeginWrite();
+	BeginWrite(2048);
 	Describe("Init");
 	const u8 *start = AlignCode16();
 
@@ -80,7 +80,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 		regCache_.Reset(false);
 		EndWrite();
 		ResetCodePtr(GetOffset(start));
-		ERROR_LOG(G3D, "Failed to compile fetch %s", DescribeSamplerID(id).c_str());
+		ERROR_LOG(Log::G3D, "Failed to compile fetch %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
 
@@ -122,7 +122,7 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 
 NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	_assert_msg_(!id.fetch && !id.linear, "Fetch and linear should be cleared on sampler id");
-	BeginWrite();
+	BeginWrite(2048);
 	Describe("Init");
 
 	// Let's drop some helpful constants here.
@@ -415,7 +415,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		regCache_.Reset(false);
 		EndWrite();
 		ResetCodePtr(GetOffset(start));
-		ERROR_LOG(G3D, "Failed to compile nearest %s", DescribeSamplerID(id).c_str());
+		ERROR_LOG(Log::G3D, "Failed to compile nearest %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
 
@@ -438,7 +438,7 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 
 LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	_assert_msg_(id.linear && !id.fetch, "Only linear should be set on sampler id");
-	BeginWrite();
+	BeginWrite(2048);
 	Describe("Init");
 
 	// We don't use stackArgPos_ here, this is just for DXT.
@@ -486,7 +486,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 			regCache_.Reset(false);
 			EndWrite();
 			ResetCodePtr(GetOffset(nearest));
-			ERROR_LOG(G3D, "Failed to compile linear nearest %s", DescribeSamplerID(id).c_str());
+			ERROR_LOG(Log::G3D, "Failed to compile linear nearest %s", DescribeSamplerID(id).c_str());
 			return nullptr;
 		}
 
@@ -878,7 +878,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		regCache_.Reset(false);
 		EndWrite();
 		ResetCodePtr(GetOffset(nearest ? nearest : linearResetPos));
-		ERROR_LOG(G3D, "Failed to compile linear %s", DescribeSamplerID(id).c_str());
+		ERROR_LOG(Log::G3D, "Failed to compile linear %s", DescribeSamplerID(id).c_str());
 		return nullptr;
 	}
 

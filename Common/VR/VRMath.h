@@ -1,7 +1,7 @@
 #pragma once
 
 #include <math.h>
-#include <openxr.h>
+#include <openxr/openxr.h>
 
 #ifndef EPSILON
 #define EPSILON 0.001f
@@ -9,7 +9,7 @@
 
 float ToDegrees(float rad);
 float ToRadians(float deg);
-bool IsMatrixIdentity(float* matrix);
+bool IsMatrixIdentity(const float *matrix4x4);
 
 // XrPosef
 XrPosef XrPosef_Identity();

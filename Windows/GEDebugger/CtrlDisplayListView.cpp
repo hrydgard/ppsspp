@@ -45,7 +45,7 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	instructionSize = 4;
 
 	// In small window mode, g_dpi_scale may have been adjusted.
-	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	int fontHeight = g_Config.iFontHeight * fontScale;
 	int charWidth = g_Config.iFontWidth * fontScale;
 
@@ -77,8 +77,7 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 {
 	CtrlDisplayListView *win = CtrlDisplayListView::getFrom(hwnd);
 
-	switch(msg)
-	{
+	switch(msg) {
 	case WM_NCCREATE:
 		// Allocate a new CustCtrl structure for this window.
 		win = new CtrlDisplayListView(hwnd);
@@ -86,6 +85,7 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 		// Continue with window creation.
 		return win != NULL;
 	case WM_NCDESTROY:
+		SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
 		delete win;
 		break;
 	case WM_SIZE:
@@ -180,7 +180,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 
-	auto disasm = gpuDebug->DissassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
+	auto disasm = gpuDebug->DisassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
 
 	for (int i = 0; i < visibleRows+2; i++)
 	{
@@ -217,7 +217,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		DeleteObject(backgroundPen);
 
 		// display address/symbol
-		if (GPUBreakpoints::IsAddressBreakpoint(address))
+		if (gpuDebug->GetBreakpoints()->IsAddressBreakpoint(address))
 		{
 			textColor = 0x0000FF;
 			int yOffset = std::max(-1,(rowHeight-14+1)/2);
@@ -228,7 +228,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		GPUDebugOp op = i < (int)disasm.size() ? disasm[i] : GPUDebugOp();
 
 		char addressText[64];
-		sprintf(addressText,"%08X %08X",op.pc,op.op);
+		snprintf(addressText,sizeof(addressText),"%08X %08X",op.pc,op.op);
 		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 
 		if (address == list.pc)
@@ -269,17 +269,21 @@ void CtrlDisplayListView::toggleBreakpoint()
 
 void CtrlDisplayListView::PromptBreakpointCond() {
 	std::string expression;
-	GPUBreakpoints::GetAddressBreakpointCond(curAddress, &expression);
+	gpuDebug->GetBreakpoints()->GetAddressBreakpointCond(curAddress, &expression);
 	if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Expression", expression, expression))
 		return;
 
 	std::string error;
-	if (!GPUBreakpoints::SetAddressBreakpointCond(curAddress, expression, &error))
+	if (!gpuDebug->GetBreakpoints()->SetAddressBreakpointCond(curAddress, expression, &error))
 		MessageBox(wnd, ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
 }
 
 void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
+	if (!validDisplayList || !gpuDebug) {
+		return;
+	}
+
 	int y = HIWORD(lParam);
 
 	int line = y/rowHeight;
@@ -307,10 +311,14 @@ void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
+	if (!validDisplayList || !gpuDebug) {
+		return;
+	}
+
 	if (button == 2)
 	{
 		HMENU menu = GetContextMenu(ContextMenuID::DISPLAYLISTVIEW);
-		EnableMenuItem(menu, ID_GEDBG_SETCOND, GPUBreakpoints::IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu, ID_GEDBG_SETCOND, gpuDebug->GetBreakpoints()->IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
 
 		switch (TriggerContextMenu(ContextMenuID::DISPLAYLISTVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{
@@ -333,7 +341,8 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				char *p = temp, *end = temp + space;
 				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
 				{
-					GPUDebugOp op = gpuDebug->DissassembleOp(pos);
+					u32 opcode = Memory::Read_U32(pos);
+					GPUDebugOp op = gpuDebug->DisassembleOp(pos, opcode);
 					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
 				}
 
@@ -344,7 +353,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_COPYADDRESS:
 			{
 				char temp[16];
-				sprintf(temp,"%08X",curAddress);
+				snprintf(temp,sizeof(temp),"%08X",curAddress);
 				W32Util::CopyTextToClipboard(wnd, temp);
 			}
 			break;
@@ -389,7 +398,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_GEDBG_GOTOADDR:
 			{
 				std::string expression = StringFromFormat("%08x", curAddress);
-				if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Address", expression, expression, true)) {
+				if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Address", expression, expression, InputBoxFlags::Selected)) {
 					break;
 				}
 				uint32_t newAddress = curAddress;

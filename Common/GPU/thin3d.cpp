@@ -46,6 +46,7 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 
 	case DataFormat::S8: return 1;
 	case DataFormat::D16: return 2;
+	case DataFormat::D16_S8: return 3;
 	case DataFormat::D24_S8: return 4;
 	case DataFormat::D32F: return 4;
 	// Or maybe 8...
@@ -56,9 +57,32 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	}
 }
 
+const char *DataFormatToString(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8_UNORM: return "R8_UNORM";
+	case DataFormat::R8G8_UNORM: return "R8G8_UNORM";
+	case DataFormat::R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+	case DataFormat::B8G8R8A8_UNORM: return "B8G8R8A8_UNORM";
+	case DataFormat::R16_UNORM: return "R16_UNORM";
+	case DataFormat::R16_FLOAT: return "R16_FLOAT";
+	case DataFormat::R32_FLOAT: return "R32_FLOAT";
+
+	case DataFormat::S8: return "S8";
+	case DataFormat::D16: return "D16";
+	case DataFormat::D16_S8: return "D16_S8";
+	case DataFormat::D24_S8: return "D24_S8";
+	case DataFormat::D32F: return "D32F";
+	case DataFormat::D32F_S8: return "D32F_S8";
+
+	default:
+		return "(N/A)";
+	}
+}
+
 bool DataFormatIsDepthStencil(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::D16:
+	case DataFormat::D16_S8:
 	case DataFormat::D24_S8:
 	case DataFormat::S8:
 	case DataFormat::D32F:
@@ -69,8 +93,53 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 	}
 }
 
+// We don't bother listing the formats that are irrelevant for PPSSPP, like BC6 (HDR format)
+// or weird-shaped ASTC formats. We only support 4x4 block size formats for now.
+// If you pass in a blockSize parameter, it receives byte count that a 4x4 block takes in this format.
+bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
+	switch (fmt) {
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC4_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+		if (blockSize) *blockSize = 8;  // 64 bits
+		return true;
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+	case DataFormat::BC5_UNORM_BLOCK:
+	case DataFormat::BC7_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		if (blockSize) *blockSize = 16;  // 128 bits
+		return true;
+	default:
+		if (blockSize) *blockSize = 0;
+		return false;
+	}
+}
+
+int DataFormatNumChannels(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::D16:
+	case DataFormat::D32F:
+	case DataFormat::R8_UNORM:
+	case DataFormat::R16_UNORM:
+	case DataFormat::R16_FLOAT:
+	case DataFormat::R32_FLOAT:
+		return 1;
+	case DataFormat::R8G8B8A8_UNORM:
+	case DataFormat::R8G8B8A8_UNORM_SRGB:
+	case DataFormat::B8G8R8A8_UNORM:
+	case DataFormat::B8G8R8A8_UNORM_SRGB:
+		return 4;
+	default:
+		return 0;
+	}
+}
+
 RefCountedObject::~RefCountedObject() {
-	_dbg_assert_(refcount_ == 0xDEDEDE);
+	const int rc = refcount_.load();
+	_dbg_assert_msg_(rc == 0xDEDEDE, "Unexpected refcount %d in object of type '%s'", rc, name_);
 }
 
 bool RefCountedObject::Release() {
@@ -82,6 +151,7 @@ bool RefCountedObject::Release() {
 			return true;
 		}
 	} else {
+		// No point in printing the name here if the object has already been free-d, it'll be corrupt and dangerous to print.
 		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
 	}
 	return false;
@@ -89,10 +159,9 @@ bool RefCountedObject::Release() {
 
 bool RefCountedObject::ReleaseAssertLast() {
 	bool released = Release();
-	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't!");
+	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't! (%s)", name_);
 	return released;
 }
-
 
 // ================================== PIXEL/FRAGMENT SHADERS
 
@@ -114,13 +183,6 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"uniform sampler2D Sampler0;\n"
 	"void main() { gl_FragColor = texture2D(Sampler0, oTexCoord0) * oColor0; }\n"
 	},
-	{ShaderLanguage::HLSL_D3D9,
-	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
-	"sampler2D Sampler0 : register(s0);\n"
-	"float4 main(PS_INPUT input) : COLOR0 {\n"
-	"  return input.color * tex2D(Sampler0, input.uv);\n"
-	"}\n"
-	},
 	{ShaderLanguage::HLSL_D3D11,
 	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
 	"SamplerState samp : register(s0);\n"
@@ -137,7 +199,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
 };
@@ -158,13 +220,6 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"uniform sampler2D Sampler0;\n"
 	"void main() { gl_FragColor = texture2D(Sampler0, oTexCoord0).zyxw * oColor0; }\n"
 	},
-	{ShaderLanguage::HLSL_D3D9,
-	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
-	"sampler2D Sampler0 : register(s0);\n"
-	"float4 main(PS_INPUT input) : COLOR0 {\n"
-	"  return input.color * tex2D(Sampler0, input.uv).zyxw;\n"
-	"}\n"
-	},
 	{ShaderLanguage::HLSL_D3D11,
 	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
 	"SamplerState samp : register(s0);\n"
@@ -181,7 +236,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
 	}
 };
@@ -198,12 +253,6 @@ static const std::vector<ShaderSource> fsCol = {
 	"#endif\n"
 	"varying vec4 oColor0;\n"
 	"void main() { gl_FragColor = oColor0; }\n"
-	},
-	{ ShaderLanguage::HLSL_D3D9,
-	"struct PS_INPUT { float4 color : COLOR0; };\n"
-	"float4 main(PS_INPUT input) : COLOR0 {\n"
-	"  return input.color;\n"
-	"}\n"
 	},
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct PS_INPUT { float4 color : COLOR0; };\n"
@@ -240,18 +289,6 @@ static const std::vector<ShaderSource> vsCol = {
 	"  oColor0 = Color0;\n"
 	"}"
 	},
-	{ ShaderLanguage::HLSL_D3D9,
-	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
-	"struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
-	"float4x4 WorldViewProj : register(c0);\n"
-	"float2 TintSaturation : register(c4);\n"
-	"VS_OUTPUT main(VS_INPUT input) {\n"
-	"  VS_OUTPUT output;\n"
-	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
-	"  output.Color0 = input.Color0;\n"
-	"  return output;\n"
-	"}\n"
-	},
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 	"struct VS_OUTPUT { float4 Color0 : COLOR0; float4 Position : SV_Position; };\n"
@@ -270,7 +307,7 @@ static const std::vector<ShaderSource> vsCol = {
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -348,37 +385,6 @@ void main() {
 	oTexCoord0 = TexCoord0;
 })",
 	},
-	{ ShaderLanguage::HLSL_D3D9,
-	R"(
-struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };
-struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };
-float4x4 WorldViewProj : register(c0);
-float2 TintSaturation : register(c4);
-float3 rgb2hsv(float3 c) {
-	float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-	float4 p = lerp(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
-	float4 q = lerp(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
-	float d = q.x - min(q.w, q.y);
-	float e = 1.0e-10;
-	return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-float3 hsv2rgb(float3 c) {
-	float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-	float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
-	return c.z * lerp(K.xxx, saturate(p - K.xxx), c.y);
-}
-VS_OUTPUT main(VS_INPUT input) {
-	VS_OUTPUT output;
-	float3 hsv = rgb2hsv(input.Color0.xyz);
-	hsv.x += TintSaturation.x;
-	hsv.y *= TintSaturation.y;
-    output.Color0 = float4(hsv2rgb(hsv), input.Color0.w);
-	output.Position = mul(float4(input.Position, 1.0), WorldViewProj);
-	output.Texcoord0 = input.Texcoord0;
-	return output;
-}
-)"
-	},
 	{ ShaderLanguage::HLSL_D3D11,
 R"(
 struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };
@@ -416,7 +422,7 @@ VS_OUTPUT main(VS_INPUT input) {
 	R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -459,7 +465,7 @@ const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
 	uint32_t supported = draw->GetSupportedShaderLanguages();
-	for (auto iter : sources) {
+	for (const auto &iter : sources) {
 		if ((uint32_t)iter.lang & supported) {
 			return draw->CreateShaderModule(stage, iter.lang, (const uint8_t *)iter.src, strlen(iter.src));
 		}
@@ -496,10 +502,6 @@ void DrawContext::DestroyPresets() {
 			fsPresets_[i] = nullptr;
 		}
 	}
-}
-
-DrawContext::~DrawContext() {
-	DestroyPresets();
 }
 
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
@@ -551,7 +553,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG(G3D, "Unable to convert from format: %d", (int)format);
+			WARN_LOG(Log::G3D, "Unable to convert from format: %d", (int)format);
 			break;
 		}
 	}
@@ -613,7 +615,7 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+			WARN_LOG(Log::G3D, "Unable to convert from format to BGRA: %d", (int)format);
 			break;
 		}
 	}
@@ -701,7 +703,8 @@ void ConvertToD16(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t
 
 const char *Bugs::GetBugName(uint32_t bug) {
 	switch (bug) {
-	case NO_DEPTH_CANNOT_DISCARD_STENCIL: return "NO_DEPTH_CANNOT_DISCARD_STENCIL";
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI: return "NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI";
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO: return "NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO";
 	case DUAL_SOURCE_BLENDING_BROKEN: return "DUAL_SOURCE_BLENDING_BROKEN";
 	case ANY_MAP_BUFFER_RANGE_SLOW: return "ANY_MAP_BUFFER_RANGE_SLOW";
 	case PVR_GENMIPMAP_HEIGHT_GREATER: return "PVR_GENMIPMAP_HEIGHT_GREATER";
@@ -712,7 +715,26 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
 	case MALI_CONSTANT_LOAD_BUG: return "MALI_CONSTANT_LOAD_BUG";
 	case SUBPASS_FEEDBACK_BROKEN: return "SUBPASS_FEEDBACK_BROKEN";
+	case GEOMETRY_SHADERS_SLOW_OR_BROKEN: return "GEOMETRY_SHADERS_SLOW_OR_BROKEN";
+	case ADRENO_RESOURCE_DEADLOCK: return "ADRENO_RESOURCE_DEADLOCK";
+	case PVR_BAD_16BIT_TEXFORMATS: return "PVR_BAD_16BIT_TEXFORMATS";
 	default: return "(N/A)";
+	}
+}
+
+const char *PresentModeToString(PresentMode presentMode) {
+	// All 8 possible cases, with three flags, for simplicity.
+	switch ((int)presentMode) {
+	case 0: return "NONE";
+	case (int)PresentMode::FIFO: return "FIFO";
+	case (int)PresentMode::IMMEDIATE: return "IMMEDIATE";
+	case (int)PresentMode::MAILBOX: return "MAILBOX";
+	case ((int)PresentMode::FIFO | (int)PresentMode::MAILBOX) : return "FIFO|MAILBOX";
+	case ((int)PresentMode::FIFO | (int)PresentMode::IMMEDIATE) : return "FIFO|IMMEDIATE";
+	case ((int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "MAILBOX|IMMEDIATE";  // Not gonna happen
+	case ((int)PresentMode::FIFO | (int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "FIFO|MAILBOX|IMMEDIATE";
+	default:
+		return "INVALID";
 	}
 }
 

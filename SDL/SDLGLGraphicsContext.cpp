@@ -299,8 +299,15 @@ void EGL_Close() {
 
 #endif // USING_EGL
 
+bool SDLGLGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
+	bool retval = GraphicsContext::InitFromRenderThread(errorMessage);
+	// HACK: Ensure that the swap interval is set after context creation (needed for kmsdrm)
+	SDL_GL_SetSwapInterval(1);
+	return retval;
+}
+
 // Returns 0 on success.
-int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message) {
 	struct GLVersionPair {
 		int major;
 		int minor;
@@ -333,7 +340,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 		SetGLCoreContext(true);
 #endif
 
-		window = SDL_CreateWindow("PPSSPP", x, y, pixel_xres, pixel_yres, mode);
+		window = SDL_CreateWindow("PPSSPP", x, y, w, h, mode);
 		if (!window) {
 			// Definitely don't shutdown here: we'll keep trying more GL versions.
 			fprintf(stderr, "SDL_CreateWindow failed for GL %d.%d: %s\n", ver.major, ver.minor, SDL_GetError());
@@ -358,7 +365,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		SetGLCoreContext(false);
 
-		window = SDL_CreateWindow("PPSSPP", x, y, pixel_xres, pixel_yres, mode);
+		window = SDL_CreateWindow("PPSSPP", x, y, w, h, mode);
 		if (window == nullptr) {
 			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -368,6 +375,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 
 		glContext = SDL_GL_CreateContext(window);
 		if (glContext == nullptr) {
+			// OK, now we really have tried everything.
 			NativeShutdown();
 			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
 			SDL_Quit();
@@ -414,7 +422,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(true);
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
@@ -432,26 +440,23 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	});
 
 	renderManager_->SetSwapIntervalFunction([&](int interval) {
-		INFO_LOG(G3D, "SDL SwapInterval: %d", interval);
+		INFO_LOG(Log::G3D, "SDL SwapInterval: %d", interval);
 		SDL_GL_SetSwapInterval(interval);
 	});
+
 	window_ = window;
 	return 0;
-}
-
-void SDLGLGraphicsContext::SwapInterval(int interval) {
-	renderManager_->SwapInterval(interval);
-}
-
-void SDLGLGraphicsContext::Shutdown() {
 }
 
 void SDLGLGraphicsContext::ShutdownFromRenderThread() {
 	delete draw_;
 	draw_ = nullptr;
+	renderManager_ = nullptr;
 
 #ifdef USING_EGL
 	EGL_Close();
 #endif
 	SDL_GL_DeleteContext(glContext);
+	glContext = nullptr;
+	window_ = nullptr;
 }

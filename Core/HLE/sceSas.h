@@ -22,5 +22,10 @@ void __SasDoState(PointerWrap &p);
 void __SasShutdown();
 
 void __SasGetDebugStats(char *stats, size_t bufsize);
+bool *__SasGetGlobalMuteFlag();
 
 void Register_sceSasCore();
+
+class SasInstance;
+
+SasInstance *GetSasInstance();

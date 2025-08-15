@@ -15,11 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstdio>
 
 #include "ppsspp_config.h"
 
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
@@ -38,7 +36,11 @@
 #include <fcntl.h>
 #endif
 
-#ifndef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+#include <streams/file_stream.h>
+#endif
+
+#if !defined(_WIN32) && !defined(HAVE_LIBRETRO_VFS)
 
 void LocalFileLoader::DetectSizeFd() {
 #if PPSSPP_PLATFORM(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
@@ -56,16 +58,25 @@ void LocalFileLoader::DetectSizeFd() {
 LocalFileLoader::LocalFileLoader(const Path &filename)
 	: filesize_(0), filename_(filename) {
 	if (filename.empty()) {
-		ERROR_LOG(FILESYS, "LocalFileLoader can't load empty filenames");
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader can't load empty filenames");
 		return;
 	}
 
-#if PPSSPP_PLATFORM(ANDROID)
+#if HAVE_LIBRETRO_VFS
+    isOpenedByFd_ = false;
+    handle_ = filestream_open(filename.c_str(), RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+    filestream_seek(handle_, 0, RETRO_VFS_SEEK_POSITION_END);
+    filesize_ = filestream_tell(handle_);
+    filestream_seek(handle_, 0, RETRO_VFS_SEEK_POSITION_START);
+    return;
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
 	if (filename.Type() == PathType::CONTENT_URI) {
 		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
-		VERBOSE_LOG(SYSTEM, "LocalFileLoader Fd %d for content URI: '%s'", fd, filename.c_str());
+		VERBOSE_LOG(Log::System, "LocalFileLoader Fd %d for content URI: '%s'", fd, filename.c_str());
 		if (fd < 0) {
-			ERROR_LOG(FILESYS, "LocalFileLoader failed to open content URI: '%s'", filename.c_str());
+			ERROR_LOG(Log::FileSystem, "LocalFileLoader failed to open content URI: '%s'", filename.c_str());
 			return;
 		}
 		fd_ = fd;
@@ -75,7 +86,9 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 	}
 #endif
 
-#ifndef _WIN32
+#if defined(HAVE_LIBRETRO_VFS)
+    // Nothing to do here...
+#elif !defined(_WIN32)
 
 	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
 	if (fd_ == -1) {
@@ -109,7 +122,9 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 }
 
 LocalFileLoader::~LocalFileLoader() {
-#ifndef _WIN32
+#if defined(HAVE_LIBRETRO_VFS)
+    filestream_close(handle_);
+#elif !defined(_WIN32)
 	if (fd_ != -1) {
 		close(fd_);
 	}
@@ -122,7 +137,10 @@ LocalFileLoader::~LocalFileLoader() {
 
 bool LocalFileLoader::Exists() {
 	// If we opened it for reading, it must exist.  Done.
-#ifndef _WIN32
+#if defined(HAVE_LIBRETRO_VFS)
+    return handle_ != 0;
+
+#elif !defined(_WIN32)
 	if (isOpenedByFd_) {
 		// As an optimization, if we already tried and failed, quickly return.
 		// This is used because Android Content URIs are so slow.
@@ -135,12 +153,7 @@ bool LocalFileLoader::Exists() {
 		return true;
 #endif
 
-	File::FileInfo info;
-	if (File::GetFileInfo(filename_, &info)) {
-		return info.exists;
-	} else {
-		return false;
-	}
+	return File::Exists(filename_);
 }
 
 bool LocalFileLoader::IsDirectory() {
@@ -160,11 +173,15 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 		return 0;
 
 	if (filesize_ == 0) {
-		ERROR_LOG(FILESYS, "ReadAt from 0-sized file: %s", filename_.c_str());
+		ERROR_LOG(Log::FileSystem, "ReadAt from 0-sized file: %s", filename_.c_str());
 		return 0;
 	}
 
-#if PPSSPP_PLATFORM(SWITCH)
+#if defined(HAVE_LIBRETRO_VFS)
+    std::lock_guard<std::mutex> guard(readLock_);
+	filestream_seek(handle_, absolutePos, RETRO_VFS_SEEK_POSITION_START);
+	return filestream_read(handle_, data, bytes * count) / bytes;
+#elif PPSSPP_PLATFORM(SWITCH)
 	// Toolchain has no fancy IO API.  We must lock.
 	std::lock_guard<std::mutex> guard(readLock_);
 	lseek(fd_, absolutePos, SEEK_SET);

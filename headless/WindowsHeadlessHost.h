@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "headless/StubHost.h"
+#include "headless/HeadlessHost.h"
 #include <thread>
 
 #undef HEADLESSHOST_CLASS
@@ -25,11 +25,10 @@
 
 #include "Common/CommonWindows.h"
 
-// TODO: Get rid of this junk
 class WindowsHeadlessHost : public HeadlessHost
 {
 public:
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) override;
 	void ShutdownGraphics() override;
 
 	void SwapBuffers() override;
@@ -37,8 +36,6 @@ public:
 	void SendDebugOutput(const std::string &output) override;
 
 protected:
-	void LoadNativeAssets();
-
 	enum class RenderThreadState {
 		IDLE,
 		START_REQUESTED,

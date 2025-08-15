@@ -19,10 +19,9 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "Core/MemMap.h"
-#include "Core/ConfigValues.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -65,34 +64,23 @@ struct DXT5Block {
 	u8 alpha1; u8 alpha2;
 };
 
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, u32 *alpha);
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int width, int height, u32 *alpha);
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int width, int height);
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int width, int height);
 
 uint32_t GetDXT1Texel(const DXT1Block *src, int x, int y);
 uint32_t GetDXT3Texel(const DXT3Block *src, int x, int y);
 uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y);
 
-static const u8 textureBitsPerPixel[16] = {
-	16,  //GE_TFMT_5650,
-	16,  //GE_TFMT_5551,
-	16,  //GE_TFMT_4444,
-	32,  //GE_TFMT_8888,
-	4,   //GE_TFMT_CLUT4,
-	8,   //GE_TFMT_CLUT8,
-	16,  //GE_TFMT_CLUT16,
-	32,  //GE_TFMT_CLUT32,
-	4,   //GE_TFMT_DXT1,
-	8,   //GE_TFMT_DXT3,
-	8,   //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
+extern const u8 textureBitsPerPixel[16];
 
 u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format);
+
+// WARNING: Bits not bytes, this is needed due to the presence of 4 - bit formats.
+inline u32 TextureFormatBitsPerPixel(GETextureFormat format) {
+	u32 bits = textureBitsPerPixel[(int)format];
+	return bits != 0 ? bits : 1;  // Best to return 1 here to survive divisions in case of invalid data.
+}
 
 inline bool AlphaSumIsFull(u32 alphaSum, u32 fullAlphaMask) {
 	return fullAlphaMask != 0 && (alphaSum & fullAlphaMask) == fullAlphaMask;
@@ -163,22 +151,36 @@ inline void DeIndexTexture4(/*WRITEONLY*/ ClutT *dest, const u8 *indexed, int le
 
 	ClutT alphaSum = (ClutT)(-1);
 	if (nakedIndex) {
-		for (int i = 0; i < length; i += 2) {
+		while (length >= 2) {
 			u8 index = *indexed++;
 			ClutT color0 = clut[index & 0xf];
 			ClutT color1 = clut[index >> 4];
-			dest[i + 0] = color0;
-			dest[i + 1] = color1;
+			*dest++ = color0;
+			*dest++ = color1;
 			alphaSum &= color0 & color1;
+			length -= 2;
+		}
+		if (length) {  // Last pixel. Can really only happen in 1xY textures, but making this work generically.
+			u8 index = *indexed++;
+			ClutT color0 = clut[index & 0xf];
+			*dest = color0;
+			alphaSum &= color0;
 		}
 	} else {
-		for (int i = 0; i < length; i += 2) {
+		while (length >= 2) {
 			u8 index = *indexed++;
 			ClutT color0 = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
 			ClutT color1 = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
-			dest[i + 0] = color0;
-			dest[i + 1] = color1;
+			*dest++ = color0;
+			*dest++ = color1;
 			alphaSum &= color0 & color1;
+			length -= 2;
+		}
+		if (length) {
+			u8 index = *indexed++;
+			ClutT color0 = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
+			*dest = color0;
+			alphaSum &= color0;
 		}
 	}
 
@@ -187,10 +189,15 @@ inline void DeIndexTexture4(/*WRITEONLY*/ ClutT *dest, const u8 *indexed, int le
 
 template <typename ClutT>
 inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
-	for (int i = 0; i < length; i += 2) {
+	while (length >= 2) {
 		u8 index = *indexed++;
-		dest[i + 0] = color | ((index >> 0) & 0xf);
-		dest[i + 1] = color | ((index >> 4) & 0xf);
+		*dest++ = color | ((index >> 0) & 0xf);
+		*dest++ = color | ((index >> 4) & 0xf);
+		length -= 2;
+	}
+	if (length) {
+		u8 index = *indexed++;
+		*dest++ = color | ((index >> 0) & 0xf);
 	}
 }
 

@@ -24,6 +24,8 @@
 
 #if defined(_MSC_VER)
 
+#define NO_INLINE __declspec(noinline)
+
 typedef unsigned __int8 u8;
 typedef unsigned __int16 u16;
 typedef unsigned __int32 u32;
@@ -35,6 +37,41 @@ typedef signed __int32 s32;
 typedef signed __int64 s64;
 
 #else
+
+#define NO_INLINE __attribute__((noinline))
+
+#ifdef __SWITCH__
+// Some HID conflicts
+#define KEY_UP PKEY_UP
+#define KEY_DOWN PKEY_DOWN
+// Other conflicts
+#define Event _Event
+#define Framebuffer _Framebuffer
+#define Waitable _Waitable
+#define ThreadContext _ThreadContext
+#include <switch.h>
+// Cleanup
+#undef KEY_UP
+#undef KEY_DOWN
+#undef Event
+#undef Framebuffer
+#undef Waitable
+#undef ThreadContext
+
+// Conflicting types with libnx
+#ifndef _u64
+#define u64 _u64
+#endif // _u64
+
+#ifndef s64
+#define s64 _s64
+#endif // _s64
+
+typedef unsigned char   u_char;
+typedef unsigned short  u_short;
+typedef unsigned int    u_int;
+typedef unsigned long   u_long;
+#endif // __SWITCH__
 
 typedef unsigned char u8;
 typedef unsigned short u16;

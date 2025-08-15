@@ -17,20 +17,7 @@
 
 #pragma once
 
-// Net stuff
-#if defined(_WIN32)
-#include <WS2tcpip.h>
-#else
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <errno.h>
-#endif
+#include "Common/Net/SocketCompat.h"
 
 #ifdef _MSC_VER
 #define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
@@ -39,81 +26,17 @@
 #endif
 
 #include <atomic>
-#include <climits>
 #include <mutex>
 #include <thread>
+#include <climits>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
-
-#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include "Core/HLE/HLE.h"
-#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceUtility.h"
-
-#ifdef _WIN32
-#undef errno
-#undef ESHUTDOWN
-#undef ECONNABORTED
-#undef ECONNRESET
-#undef ECONNREFUSED
-#undef ENETUNREACH
-#undef ENOTCONN
-#undef EBADF
-#undef EAGAIN
-#undef EINPROGRESS
-#undef EISCONN
-#undef EALREADY
-#undef ETIMEDOUT
-#undef EOPNOTSUPP
-#define errno WSAGetLastError()
-#define ESHUTDOWN WSAESHUTDOWN
-#define ECONNABORTED WSAECONNABORTED
-#define ECONNRESET WSAECONNRESET
-#define ECONNREFUSED WSAECONNREFUSED
-#define ENETUNREACH WSAENETUNREACH
-#define ENOTCONN WSAENOTCONN
-#define EBADF WSAEBADF
-#define EAGAIN WSAEWOULDBLOCK
-#define EINPROGRESS WSAEWOULDBLOCK
-#define EISCONN WSAEISCONN
-#define EALREADY WSAEALREADY
-#define ETIMEDOUT WSAETIMEDOUT
-#define EOPNOTSUPP WSAEOPNOTSUPP
-inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
-inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
-#else
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
-#define closesocket close
-#ifndef ESHUTDOWN
-#define ESHUTDOWN ENETDOWN
-#endif
-inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
-inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
-#endif
-
-#ifndef POLL_ERR
-#define POLL_ERR 0x008 /* Error condition. */
-#endif
-#ifndef POLLERR
-#define POLLERR POLL_ERR
-#endif
-
-#ifndef POLL_PRI
-#define POLL_PRI 0x002 /* There is urgent data to read. */
-#endif
-#ifndef POLLPRI
-#define POLLPRI POLL_PRI
-#endif
-
-#ifndef SD_BOTH
-#define SD_BOTH SHUT_RDWR //0x02
-#endif
 
 #define IsMatch(buf1, buf2)	(memcmp(&buf1, &buf2, sizeof(buf1)) == 0)
 
@@ -596,88 +519,6 @@ typedef struct SceNetAdhocMatchingContext {
 
 // End of psp definitions
 
-enum {
-	// pspnet_adhoc_auth
-	ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED		= 0x80410601,
-
-	// pspnet_adhoc
-	ERROR_NET_ADHOC_INVALID_SOCKET_ID				= 0x80410701,
-	ERROR_NET_ADHOC_INVALID_ADDR					= 0x80410702,
-	ERROR_NET_ADHOC_INVALID_PORT					= 0x80410703,
-	ERROR_NET_ADHOC_INVALID_BUFLEN					= 0x80410704,
-	ERROR_NET_ADHOC_INVALID_DATALEN					= 0x80410705,
-	ERROR_NET_ADHOC_NOT_ENOUGH_SPACE				= 0x80400706, // not a typo
-	ERROR_NET_ADHOC_SOCKET_DELETED					= 0x80410707,
-	ERROR_NET_ADHOC_SOCKET_ALERTED					= 0x80410708,
-	ERROR_NET_ADHOC_WOULD_BLOCK						= 0x80410709, //ERROR_NET_ADHOC_NO_DATA_AVAILABLE
-	ERROR_NET_ADHOC_PORT_IN_USE						= 0x8041070a,
-	ERROR_NET_ADHOC_NOT_CONNECTED					= 0x8041070B,
-	ERROR_NET_ADHOC_DISCONNECTED					= 0x8041070c,
-	ERROR_NET_ADHOC_NOT_OPENED						= 0x8040070D, // not a typo
-	ERROR_NET_ADHOC_NOT_LISTENED					= 0x8040070E, // not a typo
-	ERROR_NET_ADHOC_SOCKET_ID_NOT_AVAIL				= 0x8041070F,
-	ERROR_NET_ADHOC_PORT_NOT_AVAIL					= 0x80410710,
-	ERROR_NET_ADHOC_INVALID_ARG						= 0x80410711,
-	ERROR_NET_ADHOC_NOT_INITIALIZED					= 0x80410712,
-	ERROR_NET_ADHOC_ALREADY_INITIALIZED				= 0x80410713,
-	ERROR_NET_ADHOC_BUSY							= 0x80410714,
-	ERROR_NET_ADHOC_TIMEOUT							= 0x80410715,
-	ERROR_NET_ADHOC_NO_ENTRY						= 0x80410716,
-	ERROR_NET_ADHOC_EXCEPTION_EVENT					= 0x80410717,
-	ERROR_NET_ADHOC_CONNECTION_REFUSED				= 0x80410718,
-	ERROR_NET_ADHOC_THREAD_ABORTED					= 0x80410719,
-	ERROR_NET_ADHOC_ALREADY_CREATED					= 0x8041071A,
-	ERROR_NET_ADHOC_NOT_IN_GAMEMODE					= 0x8041071B,
-	ERROR_NET_ADHOC_NOT_CREATED						= 0x8041071C,
-
-	// pspnet_adhoc_matching
-	ERROR_NET_ADHOC_MATCHING_INVALID_MODE			= 0x80410801,
-	ERROR_NET_ADHOC_MATCHING_INVALID_PORT			= 0x80410802,
-	ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM			= 0x80410803,
-	ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT		= 0x80410804,
-	ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN			= 0x80410805,
-	ERROR_NET_ADHOC_MATCHING_INVALID_ARG			= 0x80410806,
-	ERROR_NET_ADHOC_MATCHING_INVALID_ID				= 0x80410807,
-	ERROR_NET_ADHOC_MATCHING_ID_NOT_AVAIL			= 0x80410808,
-	ERROR_NET_ADHOC_MATCHING_NO_SPACE				= 0x80410809,
-	ERROR_NET_ADHOC_MATCHING_IS_RUNNING				= 0x8041080A,
-	ERROR_NET_ADHOC_MATCHING_NOT_RUNNING			= 0x8041080B,
-	ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET			= 0x8041080C,
-	ERROR_NET_ADHOC_MATCHING_TARGET_NOT_READY		= 0x8041080D,
-	ERROR_NET_ADHOC_MATCHING_EXCEED_MAXNUM			= 0x8041080E,
-	ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS	= 0x8041080F,
-	ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED	= 0x80410810,
-	ERROR_NET_ADHOC_MATCHING_BUSY					= 0x80410811,
-	ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED	= 0x80410812,
-	ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED		= 0x80410813,
-	ERROR_NET_ADHOC_MATCHING_PORT_IN_USE			= 0x80410814,
-	ERROR_NET_ADHOC_MATCHING_STACKSIZE_TOO_SHORT	= 0x80410815,
-	ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN		= 0x80410816,
-	ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED		= 0x80410817,
-	ERROR_NET_ADHOC_MATCHING_DATA_BUSY				= 0x80410818,
-
-	// pspnet_adhocctl
-	ERROR_NET_ADHOCCTL_NOT_LEFT_IBSS				= 0x80410b01,
-	ERROR_NET_ADHOCCTL_ALREADY_CONNECTED			= 0x80410b02,
-	ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF				= 0x80410b03,
-	ERROR_NET_ADHOCCTL_INVALID_ARG					= 0x80410B04,
-	ERROR_NET_ADHOCCTL_TIMEOUT						= 0x80410b05,
-	ERROR_NET_ADHOCCTL_ID_NOT_FOUND					= 0x80410B06,
-	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED			= 0x80410b07,
-	ERROR_NET_ADHOCCTL_NOT_INITIALIZED				= 0x80410b08,
-	ERROR_NET_ADHOCCTL_DISCONNECTED					= 0x80410b09,
-	ERROR_NET_ADHOCCTL_NO_SCAN_INFO					= 0x80410b0a,
-	ERROR_NET_ADHOCCTL_INVALID_IBSS					= 0x80410b0b,
-	ERROR_NET_ADHOCCTL_NOT_ENTER_GAMEMODE			= 0x80410B0C,
-	ERROR_NET_ADHOCCTL_CHANNEL_NOT_AVAILABLE		= 0x80410B0D,
-	ERROR_NET_ADHOCCTL_WLAN_BEACON_LOST				= 0x80410b0e,
-	ERROR_NET_ADHOCCTL_WLAN_SUSPENDED				= 0x80410b0f,
-	ERROR_NET_ADHOCCTL_BUSY							= 0x80410b10,
-	ERROR_NET_ADHOCCTL_CHANNEL_NOT_MATCH			= 0x80410b11,
-	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS			= 0x80410b12,
-	ERROR_NET_ADHOCCTL_STACKSIZE_TOO_SHORT			= 0x80410B13,
-};
-
 const size_t MAX_ADHOCCTL_HANDLERS = 32; //4
 const size_t MAX_MATCHING_HANDLERS = 32; //4
 
@@ -1017,7 +858,7 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac = nul
 std::string ip2str(in_addr in, bool maskPublicIP = true);
 
 // Convert MAC address to string
-std::string mac2str(SceNetEtherAddr* mac);
+std::string mac2str(const SceNetEtherAddr *mac);
 
 /*
  * Matching Members
@@ -1038,7 +879,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 * Send chat or get that
 * @param std::string ChatString 
 */
-void sendChat(std::string chatString);
+void sendChat(const std::string &chatString);
 std::vector<std::string> getChatLog();
 int GetChatChangeID();
 int GetChatMessageCount();
@@ -1129,10 +970,6 @@ int findFreeMatchingID();
 */
 SceNetAdhocMatchingContext * findMatchingContext(int id);
 
-/*
-* Notify Matching Event Handler
-*/
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32_le &bufAddr, u32_le &bufLen, u32_le * args);
 // Notifiy Adhocctl Handlers
 void notifyAdhocctlHandlers(u32 flag, u32 error);
 
@@ -1304,12 +1141,28 @@ uint32_t getLocalIp(int sock);
 /*
  * Check if an IP (big-endian/network order) is Private or Public IP
  */
+bool isMulticastIP(uint32_t ip);
+
+/*
+ * Check if an IP (big-endian/network order) is Private or Public IP
+ */
 bool isPrivateIP(uint32_t ip);
+
+/*
+ * Check if an IP (big-endian/network order) is APIPA(169.254.x.x) IP
+ */
+bool isAPIPA(uint32_t ip);
 
 /*
  * Check if an IP (big-endian/network order) is Loopback IP
  */
 bool isLoopbackIP(uint32_t ip);
+
+/*
+ * Check if an IP (big-endian/network order) is a Broadcast IP
+ * Default subnet mask is 255.255.255.0
+ */
+bool isBroadcastIP(uint32_t ip, const uint32_t subnetmask = 0x00ffffff);
 
 /*
  * Get Number of bytes available in buffer to be Received
@@ -1470,10 +1323,13 @@ bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
  * @param group_name To-be-checked Network Name
  * @return 1 if valid or... 0
  */
-bool validNetworkName(const SceNetAdhocctlGroupName * groupname);
+bool validNetworkName(const char *data);
 
 // Convert Matching Event Code to String
 const char* getMatchingEventStr(int code);
 
 // Convert Matching Opcode ID to String
 const char* getMatchingOpcodeStr(int code);
+
+// Convert adhoc ctl state to string
+const char *AdhocCtlStateToString(int state);

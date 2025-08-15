@@ -152,3 +152,4 @@ void Register_Kernel_Library();
 void Register_InterruptManager();
 
 void Register_SysclibForKernel();
+void Register_InterruptManagerForKernel();

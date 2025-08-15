@@ -18,6 +18,7 @@ public:
 
 	// Ops
 	void Comp_ITypeMem(MIPSOpcode op) override;
+	void Comp_StoreSync(MIPSOpcode op) override;
 	void Comp_Cache(MIPSOpcode op) override;
 
 	void Comp_RelBranch(MIPSOpcode op) override;
@@ -88,7 +89,7 @@ public:
 	void DoState(PointerWrap &p);
 	bool CheckRounding(u32 blockAddress);  // returns true if we need a do-over
 
-	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
+	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
 
 	void EatPrefix() override {
 		js.EatPrefix();
@@ -125,7 +126,8 @@ private:
 	void CompShiftVar(MIPSOpcode op, IROp shiftType);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg);
-	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	void ApplyPrefixD(u8 *vregs, VectorSize sz, int vectorReg);
+	void ApplyPrefixDMask(u8 *vregs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);

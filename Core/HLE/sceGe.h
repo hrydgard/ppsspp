@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Core/MemMap.h"
 
 #define SCE_GE_LIST_COMPLETED  0
@@ -56,13 +56,6 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks);
 void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason);
 bool __GeTriggerWait(GPUSyncType type, SceUID waitId);
 
-
 // Export functions for use by Util/PPGe
-u32 sceGeRestoreContext(u32 ctxAddr);
-u32 sceGeSaveContext(u32 ctxAddr);
-int sceGeBreak(u32 mode);
-int sceGeContinue();
-int sceGeListSync(u32 displayListID, u32 mode);
-
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);

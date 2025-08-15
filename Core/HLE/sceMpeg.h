@@ -17,22 +17,12 @@
 
 #pragma once
 
+#include <map>
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 
 class PointerWrap;
-
-enum {
-	ERROR_MPEG_BAD_VERSION                              = 0x80610002,
-	ERROR_MPEG_NO_MEMORY                                = 0x80610022,
-	ERROR_MPEG_INVALID_ADDR                             = 0x80610103,
-	ERROR_MPEG_INVALID_VALUE                            = 0x806101fe,
-	ERROR_MPEG_NO_DATA                                  = 0x80618001,
-	ERROR_MPEG_ALREADY_INIT                             = 0x80618005,
-	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
-	ERROR_MPEG_AVC_INVALID_VALUE                        = 0x806201fe,
-	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
-};
 
 // MPEG statics.
 static const u32 PSMF_MAGIC = 0x464D5350;
@@ -68,10 +58,76 @@ struct SceMpegRingBuffer {
 	u32_le callback_addr; // see sceMpegRingbufferPut
 	s32_le callback_args;
 	s32_le dataUpperBound;
-	s32_le semaID; // unused?
+	s32_le semaID; // unused? No, probably not, see #20084. Though when should we signal it? create it?
 	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 	// Note: not available in all versions.
 	u32_le gp;
+};
+
+// Internal structure
+struct AvcContext {
+	int avcDetailFrameWidth;
+	int avcDetailFrameHeight;
+	int avcDecodeResult;
+	int avcFrameStatus;
+};
+
+struct StreamInfo {
+	int type;
+	int num;
+	int sid;
+	bool needsReset;
+};
+
+static const int MPEG_DATA_ES_BUFFERS = 2;
+typedef std::map<u32, StreamInfo> StreamInfoMap;
+class MediaEngine;
+
+// Internal structure
+struct MpegContext {
+	MpegContext();
+	~MpegContext();
+
+	MpegContext(const MpegContext &) = delete;
+	void operator=(const MpegContext &) = delete;
+
+	void DoState(PointerWrap &p);
+
+	u8 mpegheader[2048];
+	u32 defaultFrameWidth;
+	int videoFrameCount;
+	int audioFrameCount;
+	bool endOfAudioReached;
+	bool endOfVideoReached;
+	int videoPixelMode;
+	u32 mpegMagic;
+	int mpegVersion;
+	u32 mpegRawVersion;
+	u32 mpegOffset;
+	u32 mpegStreamSize;
+	s64 mpegFirstTimestamp;
+	s64 mpegLastTimestamp;
+	u32 mpegFirstDate;
+	u32 mpegLastDate;
+	u32 mpegRingbufferAddr;
+	int mpegwarmUp;
+	bool esBuffers[MPEG_DATA_ES_BUFFERS];
+	AvcContext avc;
+
+	bool avcRegistered;
+	bool atracRegistered;
+	bool pcmRegistered;
+	bool dataRegistered;
+
+	bool ignoreAtrac;
+	bool ignorePcm;
+	bool ignoreAvc;
+
+	bool isAnalyzed = false;
+	bool ringbufferNeedsReverse = false;
+
+	StreamInfoMap streamMap;
+	MediaEngine *mediaengine = nullptr;
 };
 
 void __MpegInit();
@@ -87,3 +143,5 @@ void Register_sceMpegbase();
 void __VideoPmpInit();
 void __VideoPmpDoState(PointerWrap &p);
 void __VideoPmpShutdown();
+
+const std::map<u32, MpegContext *> &__MpegGetContexts();

@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	xmlns:tools="http://schemas.android.com/tools"
-    package="org.ppsspp.ppsspp"
-    android:installLocation="auto"
-    android:versionCode="113020000"
-    android:versionName="1.13.2.0">
-    <!-- Note that versionCode should be in the format xyyzzrrrr. Example: 110030000 -->
-    <!-- In this same case, versionName should be 1.10.3.0 -->
-    <!-- Also note that we are overriding these values anyway from gradle. -->
+        xmlns:tools="http://schemas.android.com/tools"
+    android:installLocation="auto">
+    <!-- We use version codes in the format xyyzzrrrr. Example: 110030000
+    In this same case, versionName should be 1.10.3.0
+    Also note that we are overriding these values automatically from a gradle plugin,
+        so we don't need to set them manually. -->
 
     <uses-feature android:glEsVersion="0x00020000" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
@@ -18,9 +16,10 @@
     <uses-feature android:name="android.hardware.location.network" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+	<uses-feature android:name="android.hardware.type.pc" android:required="false" />
 
     <!-- I tried using android:maxSdkVersion="29" on WRITE/READ_EXTERNAL_STORAGE, but that made
-    <it so that in legacy mode, you can't ask for permission anymore. So removed that. -->
+    it so that in legacy mode, you can't ask for permission anymore. So removed that. -->
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -29,6 +28,7 @@
     <uses-permission android:name="archos.permission.FULLSCREEN.FULL" />
     <uses-permission-sdk-23 android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission-sdk-23 android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission-sdk-23 android:name="android.permission.TRANSMIT_IR" />
     <uses-permission-sdk-23 android:name="android.permission.CAMERA" />
     <uses-permission-sdk-23 android:name="android.permission.RECORD_AUDIO" />
 
@@ -40,22 +40,21 @@
         android:normalScreens="true"
         android:smallScreens="true"
         android:xlargeScreens="true" />
-
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
-        android:label="@string/app_name" 
-        android:logo="@drawable/ic_banner"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:appCategory="game"
         android:isGame="true"
-        android:banner="@drawable/tv_banner"
+        android:banner="@drawable/ic_banner"
         android:requestLegacyExternalStorage="true"
         android:preserveLegacyExternalStorage="true">
         <meta-data android:name="android.max_aspect" android:value="2.4" />
         <activity
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
-            android:label="@string/app_name"
             android:theme="@style/ppsspp_style"
+			android:launchMode="singleTop"
             android:exported="true">
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>
@@ -63,36 +62,42 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-                <category android:name="tv.ouya.intent.category.GAME"/>
             </intent-filter>
             <intent-filter>
-				<action android:name="android.intent.action.VIEW" />
-				
-				<category android:name="android.intent.category.DEFAULT" />
-				<category android:name="android.intent.category.BROWSABLE" />
-
-				<data android:scheme="file" />
-				<data android:mimeType="*/*" />
-				<data android:host="*" />
-				<data android:pathPattern=".*\\.iso" />
-				<data android:pathPattern=".*\\..*\\.iso" />
-				<data android:pathPattern=".*\\..*\\..*\\.iso" />
-				<data android:pathPattern=".*\\.cso" />
-				<data android:pathPattern=".*\\..*\\.cso" />
-				<data android:pathPattern=".*\\..*\\..*\\.cso" />
-				<data android:pathPattern=".*\\.elf" />
-				<data android:pathPattern=".*\\..*\\.elf" />
-				<data android:pathPattern=".*\\..*\\..*\\.elf" />
-				<data android:pathPattern=".*\\.ISO" />
-				<data android:pathPattern=".*\\..*\\.ISO" />
-				<data android:pathPattern=".*\\..*\\..*\\.ISO" />
-				<data android:pathPattern=".*\\.CSO" />
-				<data android:pathPattern=".*\\..*\\.CSO" />
-				<data android:pathPattern=".*\\..*\\..*\\.CSO" />
-				<data android:pathPattern=".*\\.ELF" />
-				<data android:pathPattern=".*\\..*\\.ELF" />
-				<data android:pathPattern=".*\\..*\\..*\\.ELF" />
-			</intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="*/*" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.iso" />
+                <data android:pathPattern=".*\\..*\\.iso" />
+                <data android:pathPattern=".*\\..*\\..*\\.iso" />
+                <data android:pathPattern=".*\\.cso" />
+                <data android:pathPattern=".*\\..*\\.cso" />
+                <data android:pathPattern=".*\\..*\\..*\\.cso" />
+                <data android:pathPattern=".*\\.chd" />
+                <data android:pathPattern=".*\\..*\\.chd" />
+                <data android:pathPattern=".*\\..*\\..*\\.chd" />
+                <data android:pathPattern=".*\\.elf" />
+                <data android:pathPattern=".*\\..*\\.elf" />
+                <data android:pathPattern=".*\\..*\\..*\\.elf" />
+                <data android:pathPattern=".*\\.ISO" />
+                <data android:pathPattern=".*\\..*\\.ISO" />
+                <data android:pathPattern=".*\\..*\\..*\\.ISO" />
+                <data android:pathPattern=".*\\.CSO" />
+                <data android:pathPattern=".*\\..*\\.CSO" />
+                <data android:pathPattern=".*\\..*\\..*\\.CSO" />
+                <data android:pathPattern=".*\\.ELF" />
+                <data android:pathPattern=".*\\..*\\.ELF" />
+                <data android:pathPattern=".*\\..*\\..*\\.ELF" />
+                <data android:pathPattern=".*\\.CHD" />
+                <data android:pathPattern=".*\\..*\\.CHD" />
+                <data android:pathPattern=".*\\..*\\..*\\.CHD" />
+                <data android:pathPattern=".*\\.ppdmp" />
+                <data android:pathPattern=".*\\.pbp" />
+            </intent-filter>
         </activity>
         <meta-data android:name="isGame" android:value="true" />
         <activity
@@ -108,7 +113,9 @@
 
         <meta-data
             android:name="xperiaplayoptimized_content"
-            android:resource="@drawable/ic_launcher" />
+            android:resource="@mipmap/ic_launcher" />
+
+        <profileable android:shell="true" android:enabled="true" />
     </application>
 
 </manifest>

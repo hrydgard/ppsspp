@@ -11,4 +11,4 @@
 *.xml            text
 
 # To avoid mucking up the utf-8 characters.
-Core/Dialog/PSPOskDialog.cpp binary
+Core/Dialog/PSPOskConstants.cpp binary

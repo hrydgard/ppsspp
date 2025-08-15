@@ -35,16 +35,11 @@ public:
 	}
 
 protected:
-	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) { return false; };
-	virtual void GetColumnText(wchar_t *dest, int row, int col);
-	virtual int GetRowCount();
+	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override { return false; }
+	void GetColumnText(wchar_t *dest, size_t destSize, int row, int col) override;
+	int GetRowCount() override;
 
 private:
-	void FormatVertCol(wchar_t *dest, const GPUDebugVertex &vert, int col);
-	void FormatVertColRaw(wchar_t *dest, int row, int col);
-	void FormatVertColRawType(wchar_t *dest, const void *data, int type, int offset);
-	void FormatVertColRawColor(wchar_t *dest, const void *data, int type);
-
 	std::vector<GPUDebugVertex> vertices;
 	std::vector<u16> indices;
 	int rowCount_;
@@ -57,12 +52,12 @@ public:
 	TabVertices(HINSTANCE _hInstance, HWND _hParent);
 	~TabVertices();
 
-	virtual void Update() {
+	void Update() override {
 		values->Update();
 	}
 
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 private:
 	void UpdateSize(WORD width, WORD height);
@@ -78,7 +73,7 @@ protected:
 	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override {
 		return false;
 	}
-	void GetColumnText(wchar_t *dest, int row, int col) override;
+	void GetColumnText(wchar_t *dest, size_t destSize, int row, int col) override;
 	int GetRowCount() override;
 	void OnDoubleClick(int row, int column) override;
 	void OnRightClick(int row, int column, const POINT &point) override;
@@ -98,12 +93,12 @@ public:
 	TabMatrices(HINSTANCE _hInstance, HWND _hParent);
 	~TabMatrices();
 
-	virtual void Update() {
+	void Update() override {
 		values->Update();
 	}
 
 protected:
-	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 private:
 	void UpdateSize(WORD width, WORD height);

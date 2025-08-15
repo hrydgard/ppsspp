@@ -20,6 +20,7 @@
 
 #include "ppsspp_config.h"
 #include <string>
+#include <vector>
 
 enum CPUVendor {
 	VENDOR_INTEL = 0,
@@ -68,6 +69,7 @@ struct CPUInfo {
 	bool bSSE4A;
 	bool bAES;
 	bool bSHA;
+	bool bF16C;
 	// x86 : SIMD 256 bit
 	bool bAVX;
 	bool bAVX2;
@@ -92,10 +94,49 @@ struct CPUInfo {
 	// ARMv8 specific
 	bool bFP;
 	bool bASIMD;
+	bool bSVE;
+	bool bSVE2;
+	bool bFRINT;
 
 	// MIPS specific
 	bool bXBurst1;
 	bool bXBurst2;
+
+	// RiscV specific extension flags.
+	bool RiscV_M;
+	bool RiscV_A;
+	bool RiscV_F;
+	bool RiscV_D;
+	bool RiscV_C;
+	bool RiscV_V;
+	bool RiscV_Zicsr;
+	bool RiscV_Zba;
+	bool RiscV_Zbb;
+	bool RiscV_Zbc;
+	bool RiscV_Zbs;
+	bool RiscV_Zcb;
+	bool RiscV_Zfa;
+	bool RiscV_Zfh;
+	bool RiscV_Zfhmin;
+	bool RiscV_Zicond;
+	bool RiscV_Zvbb;
+	bool RiscV_Zvkb;
+
+	// LoongArch specific extension flags.
+	bool LOONGARCH_CPUCFG;
+	bool LOONGARCH_LAM;
+	bool LOONGARCH_UAL;
+	bool LOONGARCH_FPU;
+	bool LOONGARCH_LSX;
+	bool LOONGARCH_LASX;
+	bool LOONGARCH_CRC32;
+	bool LOONGARCH_COMPLEX;
+	bool LOONGARCH_CRYPTO;
+	bool LOONGARCH_LVZ;
+	bool LOONGARCH_LBT_X86;
+	bool LOONGARCH_LBT_ARM;
+	bool LOONGARCH_LBT_MIPS;
+	bool LOONGARCH_PTW;
 
 	// Quirks
 	struct {
@@ -111,6 +152,7 @@ struct CPUInfo {
 	explicit CPUInfo();
 
 	// Turn the cpu info into a string we can show
+	std::vector<std::string> Features();
 	std::string Summarize();
 
 private:
@@ -119,3 +161,5 @@ private:
 };
 
 extern CPUInfo cpu_info;
+
+const char *GetCompilerABI();

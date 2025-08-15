@@ -4,47 +4,46 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceIo.h"
 
-static int sceNpDrmSetLicenseeKey(u32 npDrmKeyAddr)
-{
-	INFO_LOG(HLE, "call sceNpDrmSetLicenseeKey(%08x)", npDrmKeyAddr);
+static int sceNpDrmSetLicenseeKey(u32 npDrmKeyAddr) {
+	return hleLogWarning(Log::sceIo, 0, "UNIMPL");
+}
+
+static int sceNpDrmClearLicenseeKey() {
+	return hleLogWarning(Log::sceIo, 0, "UNIMPL");
+}
+
+static int sceNpDrmRenameCheck(const char *filename) {
+	return hleLogWarning(Log::sceIo, 0, "UNIMPL");
+}
+
+static int sceNpDrmEdataSetupKey(u32 edataFd) {
+	int usec = 0;
+
+	// __IoIoctl logs like a hle function, so no need to log here.
+
+	// set PGD offset
+	int retval = __IoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0, usec);
+	if (retval < 0) {
+		return hleDelayResult(hleLogError(Log::sceIo, retval), "io ctrl command", usec);
+	}
+
+	// call PGD open
+	// Note that usec accumulates.
+	retval = __IoIoctl(edataFd, 0x04100001, 0, 0, 0, 0, usec);
+	return hleDelayResult(hleLogDebugOrError(Log::sceIo, retval), "io ctrl command", usec);
+}
+
+static int sceNpDrmEdataGetDataSize(u32 edataFd) {
+	int retval = hleCall(IoFileMgrForKernel, u32, sceIoIoctl, edataFd, 0x04100010, 0, 0, 0, 0);
+	return hleLogInfo(Log::sceIo, retval);
+}
+
+static int sceNpDrmOpen() {
+	ERROR_LOG(Log::sceIo, "UNIMPL: sceNpDrmOpen()");
 	return 0;
 }
 
-static int sceNpDrmClearLicenseeKey()
-{
-	INFO_LOG(HLE, "call sceNpDrmClearLicenseeKey()");
-	return 0;
-}
-
-static int sceNpDrmRenameCheck(const char *filename)
-{
-	INFO_LOG(HLE, "call sceNpDrmRenameCheck(%s)", filename);
-	return 0;
-}
-
-static int sceNpDrmEdataSetupKey(u32 edataFd)
-{
-	INFO_LOG(HLE, "call sceNpDrmEdataSetupKey %x", edataFd);
-	/* set PGD offset */
-	sceIoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0);
-	/* call PGD open */
-	return sceIoIoctl(edataFd, 0x04100001, 0, 0, 0, 0);
-}
-
-static int sceNpDrmEdataGetDataSize(u32 edataFd)
-{
-	INFO_LOG(HLE, "call sceNpDrmEdataGetDataSize %x", edataFd);
-	return sceIoIoctl(edataFd, 0x04100010, 0, 0, 0, 0);
-}
-
-static int sceNpDrmOpen()
-{
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmOpen");
-	return 0;
-}
-
-const HLEFunction sceNpDrm[] =
-{ 
+const HLEFunction sceNpDrm[] = {
 	{0XA1336091, &WrapI_U<sceNpDrmSetLicenseeKey>,   "sceNpDrmSetLicenseeKey",   'i', "x"},
 	{0X9B745542, &WrapI_V<sceNpDrmClearLicenseeKey>, "sceNpDrmClearLicenseeKey", 'i', "" },
 	{0X275987D1, &WrapI_C<sceNpDrmRenameCheck>,      "sceNpDrmRenameCheck",      'i', "s"},
@@ -53,9 +52,8 @@ const HLEFunction sceNpDrm[] =
 	{0X2BAA4294, &WrapI_V<sceNpDrmOpen>,             "sceNpDrmOpen",             'i', "" },
 };
 
-void Register_sceNpDrm()
-{
-	RegisterModule("sceNpDrm", ARRAY_SIZE(sceNpDrm), sceNpDrm);
-	RegisterModule("scePspNpDrm_user", ARRAY_SIZE(sceNpDrm), sceNpDrm);
+void Register_sceNpDrm() {
+	RegisterHLEModule("sceNpDrm", ARRAY_SIZE(sceNpDrm), sceNpDrm);
+	RegisterHLEModule("scePspNpDrm_user", ARRAY_SIZE(sceNpDrm), sceNpDrm);
 }
  

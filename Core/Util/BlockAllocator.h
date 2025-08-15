@@ -24,7 +24,7 @@ class PointerWrap;
 class BlockAllocator
 {
 public:
-	BlockAllocator(int grain = 16);  // 16 byte granularity by default.
+	BlockAllocator(int grain = 16) : grain_(grain) {}  // 16 byte granularity by default.
 	~BlockAllocator();
 
 	void Init(u32 _rangeStart, u32 _rangeSize, bool suballoc);
@@ -59,8 +59,7 @@ public:
 private:
 	void CheckBlocks() const;
 
-	struct Block
-	{
+	struct Block {
 		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next);
 		void SetAllocated(const char *_tag, bool suballoc);
 		void DoState(PointerWrap &p);
@@ -72,13 +71,13 @@ private:
 		Block *next;
 	};
 
-	Block *bottom_;
-	Block *top_;
-	u32 rangeStart_;
-	u32 rangeSize_;
+	Block *bottom_ = nullptr;
+	Block *top_ = nullptr;
+	u32 rangeStart_ = 0;
+	u32 rangeSize_ = 0;
 
 	u32 grain_;
-	bool suballoc_;
+	bool suballoc_ = false;
 
 	void MergeFreeBlocks(Block *fromBlock);
 	Block *GetBlockFromAddress(u32 addr);

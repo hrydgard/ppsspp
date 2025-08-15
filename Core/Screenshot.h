@@ -19,13 +19,20 @@
 
 #include "Common/File/Path.h"
 
+#include <functional>
+
 struct GPUDebugBuffer;
+namespace Draw {
+class DrawContext;
+}
 
 enum class ScreenshotFormat {
 	PNG,
 	JPG,
 };
 
+// NOTE: The first two may need rotation, depending on the backend and screen orientation.
+// This is handled internally in TakeGameScreenshot().
 enum ScreenshotType {
 	// What's being show on screen (e.g. including FPS, etc.)
 	SCREENSHOT_OUTPUT,
@@ -35,10 +42,19 @@ enum ScreenshotType {
 	SCREENSHOT_RENDER,
 };
 
+enum class ScreenshotResult {
+	ScreenshotNotPossible,
+	DelayedResult,  // This specifies that the actual result is one of the two below and will arrive in the callback.
+	// These result can be delayed and arrive in the callback, if one is specified.
+	FailedToWriteFile,
+	Success,
+};
+
 const u8 *ConvertBufferToScreenshot(const GPUDebugBuffer &buf, bool alpha, u8 *&temp, u32 &w, u32 &h);
 
 // Can only be used while in game.
-bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int *width = nullptr, int *height = nullptr, int maxRes = -1);
+// If the callback is passed in, the saving action happens on a background thread.
+ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes = -1, std::function<void(bool success)> callback = nullptr);
 
 bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h);
 bool Save8888RGBAScreenshot(const Path &filename, const u8 *bufferRGBA8888, int w, int h);

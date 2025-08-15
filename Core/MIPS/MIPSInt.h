@@ -18,13 +18,12 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Core/MIPS/MIPS.h"
 
 int MIPS_SingleStep();
 
 namespace MIPSInt
 {
-	void Int_Unknown(MIPSOpcode op);
-	void Int_Unimpl(MIPSOpcode op);
 	void Int_Syscall(MIPSOpcode op);
 
 	void Int_mxc1(MIPSOpcode op);

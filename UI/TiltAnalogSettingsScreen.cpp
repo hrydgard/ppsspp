@@ -15,67 +15,135 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "TiltAnalogSettingsScreen.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/TiltEventProcessor.h"
+#include "Core/ConfigValues.h"
+
+#include "Common/Math/math_util.h"
+#include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
+
+#include "UI/JoystickHistoryView.h"
+#include "UI/GamepadEmu.h"
+#include "UI/TiltAnalogSettingsScreen.h"
+
+const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+const size_t g_numTiltTypes = ARRAY_SIZE(g_tiltTypes);
 
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
-	auto co = GetI18NCategory("Controls");
-	auto di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
+	bool vertical = UseVerticalLayout();
+
+	root_ = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
 	root_->SetTag("TiltAnalogSettings");
 
 	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
 
+	if (vertical) {
+		// Don't need a scrollview, probably..
+		root_->Add(settings);
+	} else {
+		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
+		root_->Add(menuRoot);
+		menuRoot->Add(settings);
+	}
+
+	GamepadUpdateOpacity(1.0f);
+
+	if (g_Config.iTiltInputType == TILT_ANALOG) {
+		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
+		root_->Add(tilt_);
+	} else {
+		tilt_ = nullptr;
+		AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
+		root_->Add(rightSide);
+		switch (g_Config.iTiltInputType) {
+		case TILT_DPAD:
+		{
+			rightSide->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
+			break;
+		}
+		case TILT_ACTION_BUTTON:
+		{
+			PSPButton *circle = new PSPButton(CTRL_CIRCLE, "Circle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CIRCLE"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
+			PSPButton *cross= new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, true));
+			PSPButton *triangle = new PSPButton(CTRL_TRIANGLE, "Triangle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_TRIANGLE"), 1.5f, new AnchorLayoutParams(NONE, 100.0f, NONE, NONE, true));
+			PSPButton *square = new PSPButton(CTRL_SQUARE, "Square button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_SQUARE"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
+			rightSide->Add(circle);
+			rightSide->Add(cross);
+			rightSide->Add(triangle);
+			rightSide->Add(square);
+			break;
+		}
+		case TILT_TRIGGER_BUTTONS:
+		{
+			PSPButton *lTrigger = new PSPButton(CTRL_LTRIGGER, "Left shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_L"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
+			PSPButton *rTrigger = new PSPButton(CTRL_RTRIGGER, "Right shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_R"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
+			rTrigger->FlipImageH(true);
+			rightSide->Add(lTrigger);
+			rightSide->Add(rTrigger);
+			break;
+		}
+		}
+	}
+
+	auto enabledFunc = [=]() -> bool {
+		return g_Config.iTiltInputType != 0;
+	};
+
 	settings->SetSpacing(0);
-	settings->Add(new ItemHeader(co->T("Invert Axes")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
-	static const char* tiltMode[] = { "Screen aligned to ground", "Screen at right angle to ground", "Auto-switch" };
-	settings->Add(new PopupMultiChoice(&g_Config.iTiltOrientation, co->T("Base tilt position"), tiltMode, 0, ARRAY_SIZE(tiltMode), co->GetName(), screenManager()));
 
-	settings->Add(new ItemHeader(co->T("Sensitivity")));
-	//TODO: allow values greater than 100? I'm not sure if that's needed.
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager(),"%"));
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager(),"%"));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone radius"), 0.01f, screenManager(),"/ 1.0"));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltDeadzoneSkip, 0.0, 1.0, co->T("Tilt Base Radius"), 0.01f, screenManager(),"/ 1.0"));
-
+	settings->Add(new ItemHeader(co->T("Tilt control setup")));
+	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
+		[=](UI::EventParams &p) {
+			//when the tilt event type is modified, we need to reset all tilt settings.
+			//refer to the ResetTiltEvents() function for a detailed explanation.
+			TiltEventProcessor::ResetTiltEvents();
+			RecreateViews();
+			return UI::EVENT_DONE;
+		});
 	settings->Add(new ItemHeader(co->T("Calibration")));
-	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");
+	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
+	calibrationInfo->SetSmall(true);
+	calibrationInfo->SetPadding(5);
 	settings->Add(calibrationInfo);
-
-	Choice *calibrate = new Choice(co->T("Calibrate D-Pad"));
+	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
+	calibrate->SetEnabledFunc(enabledFunc);
 	settings->Add(calibrate);
 
-	root_->Add(settings);
+	settings->Add(new ItemHeader(co->T("Sensitivity")));
+	if (g_Config.iTiltInputType == 1) {
+		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, 0.0f, co->T("Deadzone radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
+		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltInverseDeadzone, 0.0f, 0.8f, 0.0f, co->T("Low end radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
+		settings->Add(new CheckBox(&g_Config.bTiltCircularDeadzone, co->T("Circular deadzone")))->SetEnabledFunc(enabledFunc);
+	}
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, 60, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, 60, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
+
+	settings->Add(new ItemHeader(co->T("Invert Axes")));
+	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledFunc(enabledFunc);
+	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledFunc(enabledFunc);
+
 	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-bool TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
-	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
-		// Historically, we've had X and Y swapped, likely due to portrait vs landscape.
-		// TODO: We may want to configure this based on screen orientation.
-		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_X) {
-			currentTiltY_ = axis.value;
-		}
-		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_Y) {
-			currentTiltX_ = axis.value;
-		}
-	}
-	return false;
-}
-
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
-	g_Config.fTiltBaseX = currentTiltX_;
-	g_Config.fTiltBaseY = currentTiltY_;
-
+	g_Config.fTiltBaseAngleY = TiltEventProcessor::GetCurrentYAngle();
 	return UI::EVENT_DONE;
 }
 
+void TiltAnalogSettingsScreen::update() {
+	UIDialogScreenWithGameBackground::update();
+	if (tilt_) {
+		tilt_->SetXY(
+			Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),
+			Clamp(TiltEventProcessor::rawTiltAnalogY, -1.0f, 1.0f));
+	}
+}

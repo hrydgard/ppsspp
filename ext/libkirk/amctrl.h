@@ -1,5 +1,9 @@
-#ifndef AMCTRL_H
-#define AMCTRL_H
+#pragma once
+#include "kirk_engine.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
 	int type;
@@ -42,25 +46,26 @@ typedef struct {
 //      2: use fuse id
 //      3: use fixed key. MAC need encrypt again
 int sceDrmBBMacInit(MAC_KEY *mkey, int type);
-int sceDrmBBMacUpdate(MAC_KEY *mkey, u8 *buf, int size);
-int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey);
-int sceDrmBBMacFinal2(MAC_KEY *mkey, u8 *out, u8 *vkey);
-int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey);
+int sceDrmBBMacUpdate(KirkState *kirk, MAC_KEY *mkey, u8 *buf, int size);
+int sceDrmBBMacFinal(KirkState *kirk, MAC_KEY *mkey, u8 *buf, u8 *vkey);
+int sceDrmBBMacFinal2(KirkState *kirk, MAC_KEY *mkey, u8 *out, u8 *vkey);
+int bbmac_getkey(KirkState *kirk, MAC_KEY *mkey, u8 *bbmac, u8 *vkey);
 
 // type: 1 use fixed key
 //       2 use fuse id
 // mode: 1 for encrypt
 //       2 for decrypt
-int sceDrmBBCipherInit(CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 *version_key, u32 seed);
-int sceDrmBBCipherUpdate(CIPHER_KEY *ckey, u8 *data, int size);
+int sceDrmBBCipherInit(KirkState *kirk, CIPHER_KEY *ckey, int type, int mode, u8 *header_key, u8 *version_key, u32 seed);
+int sceDrmBBCipherUpdate(KirkState *kirk, CIPHER_KEY *ckey, u8 *data, int size);
 int sceDrmBBCipherFinal(CIPHER_KEY *ckey);
 
 // npdrm.prx
-int sceNpDrmGetFixedKey(u8 *key, char *npstr, int type);
+int sceNpDrmGetFixedKey(KirkState *kirk, u8 *key, char *npstr, int type);
 
-PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey);
-int pgd_decrypt_block(PGD_DESC *pgd, int block);
+PGD_DESC *pgd_open(KirkState *kirk, u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey);
+int pgd_decrypt_block(KirkState *kirk, PGD_DESC *pgd, int block);
 int pgd_close(PGD_DESC *pgd);
 
+#ifdef __cplusplus
+}
 #endif
-

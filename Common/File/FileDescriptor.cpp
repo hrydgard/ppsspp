@@ -3,21 +3,9 @@
 #include <errno.h>
 #include <cmath>
 #include <cstdio>
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/select.h>
-#include <unistd.h>
-#else
-#include <io.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#endif
-#include <fcntl.h>
 
 #include "Common/CommonTypes.h"
+#include "Common/Net/SocketCompat.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileDescriptor.h"
 #include "Common/Log.h"
@@ -114,7 +102,7 @@ void SetNonBlocking(int sock, bool non_blocking) {
 	int opts = fcntl(sock, F_GETFL);
 	if (opts < 0) {
 		perror("fcntl(F_GETFL)");
-		ERROR_LOG(IO, "Error getting socket status while changing nonblocking status");
+		ERROR_LOG(Log::IO, "Error getting socket status while changing nonblocking status");
 	}
 	if (non_blocking) {
 		opts = (opts | O_NONBLOCK);
@@ -124,12 +112,12 @@ void SetNonBlocking(int sock, bool non_blocking) {
 
 	if (fcntl(sock, F_SETFL, opts) < 0) {
 		perror("fcntl(F_SETFL)");
-		ERROR_LOG(IO, "Error setting socket nonblocking status");
+		ERROR_LOG(Log::IO, "Error setting socket nonblocking status");
 	}
 #else
 	u_long val = non_blocking ? 1 : 0;
 	if (ioctlsocket(sock, FIONBIO, &val) != 0) {
-		ERROR_LOG(IO, "Error setting socket nonblocking status");
+		ERROR_LOG(Log::IO, "Error setting socket nonblocking status");
 	}
 #endif
 }

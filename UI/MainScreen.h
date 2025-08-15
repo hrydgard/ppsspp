@@ -32,18 +32,17 @@ enum GameBrowserFlags {
 enum class BrowseFlags {
 	NONE = 0,
 	NAVIGATE = 1,
-	ARCHIVES = 2,
-	PIN = 4,
-	HOMEBREW_STORE = 8,
-	STANDARD = 1 | 2 | 4,
+	BROWSE = 2,
+	ARCHIVES = 4,
+	PIN = 8,
+	HOMEBREW_STORE = 16,
+	STANDARD = 1 | 2 | 4 | 8,
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
-bool LaunchFile(ScreenManager *screenManager, const Path &path);
-
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
+	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -51,20 +50,31 @@ public:
 
 	void FocusGame(const Path &gamePath);
 	void SetPath(const Path &path);
+	void ApplySearchFilter(const std::string &filter);
 	void Draw(UIContext &dc) override;
 	void Update() override;
+	void RequestRefresh() {
+		refreshPending_ = true;
+	}
+
+	void SetHomePath(const Path &path) {
+		homePath_ = path;
+	}
 
 protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 	virtual Path HomePath();
+	void ApplySearchFilter();
 
 	void Refresh();
 
+	Path homePath_;
+
 private:
 	bool IsCurrentPathPinned();
-	const std::vector<Path> GetPinnedPaths();
-	const std::string GetBaseName(const std::string &path);
+	std::vector<Path> GetPinnedPaths() const;
+	std::string GetBaseName(const std::string &path) const;
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
@@ -80,17 +90,28 @@ private:
 	UI::EventReturn OnRecentClear(UI::EventParams &e);
 	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
 
+	enum class SearchState {
+		MATCH,
+		MISMATCH,
+		PENDING,
+	};
+
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
 	bool *gridStyle_ = nullptr;
 	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
+	std::string searchFilter_;
+	std::vector<SearchState> searchStates_;
 	Path focusGamePath_;
 	bool listingPending_ = false;
+	bool searchPending_ = false;
+	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;
 	ScreenManager *screenManager_;
+	int token_;
 };
 
 class RemoteISOBrowseScreen;
@@ -107,14 +128,15 @@ public:
 	// Horrible hack to show the demos & homebrew tab after having installed a game from a zip file.
 	static bool showHomebrewTab;
 
+	bool key(const KeyInput &touch) override;
+
 protected:
 	void CreateViews() override;
 	void DrawBackground(UIContext &dc) override;
 	void update() override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	bool UseVerticalLayout() const;
 	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);
 
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
@@ -124,16 +146,12 @@ protected:
 	UI::EventReturn OnLoadFile(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
-	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
 	UI::EventReturn OnExit(UI::EventParams &e);
-	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
-	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnAllowStorage(UI::EventParams &e);
 	UI::EventReturn OnFullScreenToggle(UI::EventParams &e);
 
-	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
 	UI::Button *fullscreenButton_ = nullptr;
 
@@ -146,9 +164,12 @@ protected:
 	float prevHighlightProgress_ = 0.0f;
 	bool backFromStore_ = false;
 	bool lockBackgroundAudio_ = false;
-	bool lastVertical_;
+	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
 	UI::ScrollView *scrollAllGames_ = nullptr;
+	bool searchKeyModifier_ = false;
+	bool searchChanged_ = false;
+	std::string searchFilter_;
 
 	friend class RemoteISOBrowseScreen;
 };
@@ -160,19 +181,15 @@ public:
 protected:
 	void CreateViews() override;
 	void update() override;
-	//virtual void sendMessage(const char *message, const char *value);
 
 private:
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
-
-	UI::EventReturn OnCancel(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 };
 
-class GridSettingsScreen : public PopupScreen {
+class GridSettingsPopupScreen : public PopupScreen {
 public:
-	GridSettingsScreen(std::string label) : PopupScreen(label) {}
+	GridSettingsPopupScreen(std::string_view label) : PopupScreen(label) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::Event OnRecentChanged;
 
@@ -185,3 +202,5 @@ private:
 	const float MAX_GAME_GRID_SCALE = 3.0f;
 	const float MIN_GAME_GRID_SCALE = 0.8f;
 };
+
+void LaunchBuyGold(ScreenManager *screenManager);

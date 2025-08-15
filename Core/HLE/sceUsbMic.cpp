@@ -22,7 +22,9 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUsbMic.h"
@@ -37,11 +39,6 @@
 #include "Common/CommonWindows.h"
 #include "Windows/CaptureDevice.h"
 #endif
-
-enum {
-	SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES = 0x80243806,
-	SCE_USBMIC_ERROR_INVALID_SAMPLERATE  = 0x8024380A,
-};
 
 int eventMicBlockingResume = -1;
 
@@ -58,36 +55,42 @@ static int micState; // 0 means stopped, 1 means started, for save state.
 static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID)userdata;
 	u32 error;
-	int count = 0;
-	for (auto waitingThread : waitingThreads) {
-		if (waitingThread.threadID == threadID) {
-			SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_MICINPUT, error);
-			if (waitID == 0)
-				continue;
-			if (Microphone::isHaveDevice()) {
-				if (Microphone::getReadMicDataLength() >= waitingThread.needSize) {
-					u32 ret = __KernelGetWaitValue(threadID, error);
-					DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
-					__KernelResumeThreadFromWait(threadID, ret);
-					waitingThreads.erase(waitingThreads.begin() + count);
-				} else {
-					u64 waitTimeus = (waitingThread.needSize - Microphone::getReadMicDataLength()) * 1000000 / 2 / waitingThread.sampleRate;
-					CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, userdata);
-				}
-			} else {
-				for (u32 i = 0; i < waitingThread.needSize; i++) {
-					if (Memory::IsValidAddress(waitingThread.addr + i)) {
-						Memory::Write_U8(i & 0xFF, waitingThread.addr + i);
-					}
-				}
-				u32 ret = __KernelGetWaitValue(threadID, error);
-				DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
-				__KernelResumeThreadFromWait(threadID, ret);
-				waitingThreads.erase(waitingThreads.begin() + count);
-				readMicDataLength += waitingThread.needSize;
-			}
+	// On each path, we must either erase-iter-idiom, or increment iter
+	for (auto iter = waitingThreads.begin(); iter != waitingThreads.end();) {
+		if (iter->threadID != threadID) {
+			iter++;
+			continue;
 		}
-		++count;
+
+		SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_MICINPUT, error);
+		if (waitID == 0) {
+			iter++;
+			continue;
+		}
+
+		if (Microphone::isHaveDevice()) {
+			if (Microphone::getReadMicDataLength() >= iter->needSize) {
+				u32 ret = __KernelGetWaitValue(threadID, error);
+				DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
+				__KernelResumeThreadFromWait(threadID, ret);
+				iter = waitingThreads.erase(iter);
+			} else {
+				u64 waitTimeus = (iter->needSize - Microphone::getReadMicDataLength()) * 1000000 / 2 / iter->sampleRate;
+				CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, userdata);
+				iter++;
+			}
+		} else {
+			for (int i = 0; i < iter->needSize; i++) {
+				if (Memory::IsValidAddress(iter->addr + i)) {
+					Memory::Write_U8(i & 0xFF, iter->addr + i);
+				}
+			}
+			u32 ret = __KernelGetWaitValue(threadID, error);
+			DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
+			__KernelResumeThreadFromWait(threadID, ret);
+			readMicDataLength += iter->needSize;
+			iter = waitingThreads.erase(iter);
+		}
 	}
 }
 
@@ -103,7 +106,7 @@ void __UsbMicInit() {
 	curChannels = 1;
 	curTargetAddr = 0;
 	readMicDataLength = 0;
-	micState = 0; 
+	micState = 0;
 	eventMicBlockingResume = CoreTiming::RegisterEvent("MicBlockingResume", &__MicBlockingResume);
 }
 
@@ -158,7 +161,7 @@ void __UsbMicDoState(PointerWrap &p) {
 	}
 }
 
-QueueBuf::QueueBuf(u32 size) : available(0), end(0), capacity(size) {
+QueueBuf::QueueBuf(int size) : available(0), end(0), capacity(size) {
 	buf_ = new u8[size];
 }
 
@@ -166,32 +169,12 @@ QueueBuf::~QueueBuf() {
 	delete[] buf_;
 }
 
-QueueBuf::QueueBuf(const QueueBuf &buf) {
-	buf_ = new u8[buf.capacity];
-	memcpy(buf_, buf.buf_, buf.capacity);
-	available = buf.available;
-	end = buf.end;
-	capacity = buf.capacity;
-}
-
-QueueBuf& QueueBuf::operator=(const QueueBuf &buf) {
-	if (capacity < buf.capacity) {
-		resize(buf.capacity);
-	}
-	std::unique_lock<std::mutex> lock(mutex);
-	memcpy(buf_, buf.buf_, buf.capacity);
-	available = buf.available;
-	end = buf.end;
-	lock.unlock();
-	return *this;
-}
-
-u32 QueueBuf::push(u8 *buf, u32 size) {
-	u32 addedSize = 0;
+int QueueBuf::push(const u8 *buf, int size) {
+	int addedSize = 0;
+	// This will overwrite the old data if the size prepare to add more than remaining size.
+	std::unique_lock<std::recursive_mutex> lock(mutex);
 	if (size > capacity)
 		resize(size);
-	// This will overwrite the old data if the size prepare to add more than remaining size.
-	std::unique_lock<std::mutex> lock(mutex);
 	while (end + size > capacity) {
 		memcpy(buf_ + end, buf + addedSize, capacity - end);
 		addedSize += capacity - end;
@@ -206,33 +189,37 @@ u32 QueueBuf::push(u8 *buf, u32 size) {
 	return addedSize;
 }
 
-u32 QueueBuf::pop(u8 *buf, u32 size) {
-	u32 ret = 0;
+int QueueBuf::pop(u8 *buf, int size) {
+	if (size == 0) {
+		return 0;
+	}
+	int ret = 0;
+	std::unique_lock<std::recursive_mutex> lock(mutex);
 	if (getAvailableSize() < size)
 		size = getAvailableSize();
 	ret = size;
 
-	std::unique_lock<std::mutex> lock(mutex);
-	if (getStartPos() + size <= capacity) {
-		memcpy(buf, buf_ + getStartPos(), size);
+	int startPos = getStartPos();
+	if (startPos + size <= capacity) {
+		memcpy(buf, buf_ + startPos, size);
 	} else {
-		memcpy(buf, buf_ + getStartPos(), capacity - getStartPos());
-		memcpy(buf + capacity - getStartPos(), buf_, size - (capacity - getStartPos()));
+		memcpy(buf, buf_ + startPos, capacity - startPos);
+		memcpy(buf + capacity - startPos, buf_, size - (capacity - startPos));
 	}
 	available -= size;
 	lock.unlock();
 	return ret;
 }
 
-void QueueBuf::resize(u32 newSize) {
+void QueueBuf::resize(int newSize) {
 	if (capacity >= newSize) {
 		return;
 	}
-	u32 availableSize = getAvailableSize();
+	int availableSize = getAvailableSize();
 	u8 *oldbuf = buf_;
 
 	buf_ = new u8[newSize];
-	pop(buf_, availableSize);
+	pop(buf_, std::min(availableSize, newSize));
 	available = availableSize;
 	end = availableSize;
 	capacity = newSize;
@@ -240,83 +227,81 @@ void QueueBuf::resize(u32 newSize) {
 }
 
 void QueueBuf::flush() {
-	std::unique_lock<std::mutex> lock(mutex);
+	std::unique_lock<std::recursive_mutex> lock(mutex);
 	available = 0;
 	end = 0;
 	lock.unlock();
 }
 
-u32 QueueBuf::getAvailableSize() {
-	return available;
-}
-
-u32 QueueBuf::getRemainingSize() {
+int QueueBuf::getRemainingSize() const {
 	return capacity - getAvailableSize();
 }
 
-u32 QueueBuf::getStartPos() {
+int QueueBuf::getStartPos() const {
 	return end >= available ? end - available : capacity - available + end;
 }
 
 static int sceUsbMicPollInputEnd() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicPollInputEnd");
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicPollInputEnd");
 	return 0;
 }
 
 static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(HLE, "sceUsbMicInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		ERROR_LOG(Log::HLE, "sceUsbMicInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
 		return -1;
 	}
 
-	INFO_LOG(HLE, "sceUsbMicInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	INFO_LOG(Log::HLE, "sceUsbMicInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
-		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
+		return SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES;
 	}
 
 	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
-		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
+		return SCE_ERROR_USBMIC_INVALID_SAMPLERATE;
 	}
 
 	return __MicInput(maxSamples, sampleRate, bufAddr, USBMIC);
 }
 
 static int sceUsbMicInputInitEx(u32 paramAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicInputInitEx: %08x", paramAddr);
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicInputInitEx: %08x", paramAddr);
 	return 0;
 }
 
 static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(HLE, "sceUsbMicInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		ERROR_LOG(Log::HLE, "sceUsbMicInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
 		return -1;
 	}
 
-	ERROR_LOG(HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	WARN_LOG(Log::HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
-		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
+		return SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES;
 	}
 
 	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
-		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
+		return SCE_ERROR_USBMIC_INVALID_SAMPLERATE;
 	}
 
 	return __MicInput(maxSamples, sampleRate, bufAddr, USBMIC, false);
 }
+
 static int sceUsbMicGetInputLength() {
 	int ret = Microphone::getReadMicDataLength() / 2;
-	ERROR_LOG(HLE, "UNTEST sceUsbMicGetInputLength(ret: %d)", ret);
+	ERROR_LOG(Log::HLE, "UNTEST sceUsbMicGetInputLength(ret: %d)", ret);
 	return ret;
 }
 
 static int sceUsbMicInputInit(int unknown1, int inputVolume, int unknown2) {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicInputInit(unknown1: %d, inputVolume: %d, unknown2: %d)", unknown1, inputVolume, unknown2);
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicInputInit(unknown1: %d, inputVolume: %d, unknown2: %d)", unknown1, inputVolume, unknown2);
 	return 0;
 }
 
 static int sceUsbMicWaitInputEnd() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicWaitInputEnd");
-	return 0;
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
+	// Hack: Just task switch so other threads get to do work. Helps Beaterator (although recording does not appear to work correctly).
+	return hleDelayResult(0, "MicWait", 100);
 }
 
 int Microphone::startMic(void *param) {
@@ -327,8 +312,8 @@ int Microphone::startMic(void *param) {
 	std::vector<u32> *micParam = static_cast<std::vector<u32>*>(param);
 	int sampleRate = micParam->at(0);
 	int channels = micParam->at(1);
-	INFO_LOG(HLE, "microphone_command : sr = %d", sampleRate);
-	System_SendMessage("microphone_command", ("startRecording:" + std::to_string(sampleRate)).c_str());
+	INFO_LOG(Log::HLE, "microphone_command : sr = %d", sampleRate);
+	System_MicrophoneCommand("startRecording:" + std::to_string(sampleRate));
 #endif
 	micState = 1;
 	return 0;
@@ -339,7 +324,7 @@ int Microphone::stopMic() {
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_SendMessage("microphone_command", "stopRecording");
+	System_MicrophoneCommand("stopRecording");
 #endif
 	micState = 0;
 	return 0;
@@ -349,7 +334,7 @@ bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
-	return audioRecording_Available();
+	return System_AudioRecordingIsAvailable();
 #endif
 	return false;
 }
@@ -363,39 +348,36 @@ bool Microphone::isNeedInput() {
 	return ::isNeedInput;
 }
 
-u32 Microphone::numNeedSamples() {
+int Microphone::numNeedSamples() {
 	return ::numNeedSamples;
 }
 
-u32 Microphone::availableAudioBufSize() {
+int Microphone::availableAudioBufSize() {
 	return audioBuf->getAvailableSize();
 }
 
-u32 Microphone::getReadMicDataLength() {
+int Microphone::getReadMicDataLength() {
 	return ::readMicDataLength;
 }
 
-int Microphone::addAudioData(u8 *buf, u32 size) {
-	if (audioBuf)
-		audioBuf->push(buf, size);
-	else
+int Microphone::addAudioData(u8 *buf, int size) {
+	if (!audioBuf)
 		return 0;
-	if (Memory::IsValidAddress(curTargetAddr)) {
-		u32 addSize = std::min(audioBuf->getAvailableSize(), numNeedSamples() * 2 - getReadMicDataLength());
-		u8 *tempbuf8 = new u8[addSize];
-		getAudioData(tempbuf8, addSize);
-		Memory::Memcpy(curTargetAddr + readMicDataLength, tempbuf8, addSize);
-		delete[] tempbuf8;
-		readMicDataLength += addSize;
+	audioBuf->push(buf, size);
+
+	int addSize = std::min(audioBuf->getAvailableSize(), numNeedSamples() * 2 - getReadMicDataLength());
+	if (Memory::IsValidRange(curTargetAddr + readMicDataLength, addSize)) {
+		getAudioData(Memory::GetPointerWriteUnchecked(curTargetAddr + readMicDataLength), addSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, curTargetAddr + readMicDataLength, addSize, "MicAddAudioData");
 	}
+	readMicDataLength += addSize;
 
 	return size;
 }
 
-u32 Microphone::getAudioData(u8 *buf, u32 size) {
+int Microphone::getAudioData(u8 *buf, int size) {
 	if(audioBuf)
 		return audioBuf->pop(buf, size);
-
 	return 0;
 }
 
@@ -424,14 +406,12 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	curSampleRate = sampleRate;
 	curChannels = 1;
 	curTargetAddr = bufAddr;
-	u32 size = maxSamples << 1;
+	int size = maxSamples << 1;
 	if (!audioBuf) {
 		audioBuf = new QueueBuf(size);
 	} else {
 		audioBuf->resize(size);
 	}
-	if (!audioBuf)
-		return 0;
 
 	numNeedSamples = maxSamples;
 	readMicDataLength = 0;
@@ -442,10 +422,10 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 
 	if (Microphone::availableAudioBufSize() > 0) {
 		u32 addSize = std::min(Microphone::availableAudioBufSize(), size);
-		u8 *tempbuf8 = new u8[addSize];
-		Microphone::getAudioData(tempbuf8, addSize);
-		Memory::Memcpy(curTargetAddr, tempbuf8, addSize);
-		delete[] tempbuf8;
+		if (Memory::IsValidRange(curTargetAddr, addSize)) {
+			Microphone::getAudioData(Memory::GetPointerWriteUnchecked(curTargetAddr), addSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, curTargetAddr, addSize, "MicInput");
+		}
 		readMicDataLength += addSize;
 	}
 
@@ -457,14 +437,13 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	waitingThreads.push_back(waitInfo);
-	DEBUG_LOG(HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
+	DEBUG_LOG(Log::HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
 	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, size, 0, false, "blocking microphone");
 
 	return type == CAMERAMIC ? size : maxSamples;
 }
 
-const HLEFunction sceUsbMic[] =
-{
+const HLEFunction sceUsbMic[] = {
 	{0x06128E42, &WrapI_V<sceUsbMicPollInputEnd>,    "sceUsbMicPollInputEnd",         'i', ""    },
 	{0x2E6DCDCD, &WrapI_UUU<sceUsbMicInputBlocking>, "sceUsbMicInputBlocking",        'i', "xxx" },
 	{0x45310F07, &WrapI_U<sceUsbMicInputInitEx>,     "sceUsbMicInputInitEx",          'i', "x"   },
@@ -474,7 +453,6 @@ const HLEFunction sceUsbMic[] =
 	{0xF899001C, &WrapI_V<sceUsbMicWaitInputEnd>,    "sceUsbMicWaitInputEnd",         'i', ""    },
 };
 
-void Register_sceUsbMic()
-{
-	RegisterModule("sceUsbMic", ARRAY_SIZE(sceUsbMic), sceUsbMic);
+void Register_sceUsbMic() {
+	RegisterHLEModule("sceUsbMic", ARRAY_SIZE(sceUsbMic), sceUsbMic);
 }

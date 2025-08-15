@@ -18,7 +18,9 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "Common/CommonTypes.h"
+#include "Common/Data/Collections/LinkedList.h"
 
 // This is a system to schedule events into the emulated machine's future. Time is measured
 // in main CPU clock cycles.
@@ -70,13 +72,24 @@ inline s64 cyclesToUs(s64 cycles) {
 	return (cycles * 1000000) / CPU_HZ;
 }
 
-namespace CoreTiming
-{
-	void Init();
-	void Shutdown();
-
+namespace CoreTiming {
 	typedef void (*MHzChangeCallback)();
 	typedef void (*TimedCallback)(u64 userdata, int cyclesLate);
+
+	struct EventType {
+		TimedCallback callback;
+		const char *name;
+	};
+
+	struct BaseEvent {
+		s64 time;
+		u64 userdata;
+		int type;
+	};
+	typedef LinkedListItem<BaseEvent> Event;
+
+	void Init();
+	void Shutdown();
 
 	u64 GetTicks();
 	u64 GetIdleTicks();
@@ -85,6 +98,7 @@ namespace CoreTiming
 
 	// Returns the event_type identifier.
 	int RegisterEvent(const char *name, TimedCallback callback);
+
 	// For save states.
 	void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callback);
 	void UnregisterAllEvents();
@@ -92,18 +106,13 @@ namespace CoreTiming
 	// userdata MAY NOT CONTAIN POINTERS. userdata might get written and reloaded from disk,
 	// when we implement state saves.
 	void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
-	void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
-	void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata=0);
 	s64 UnscheduleEvent(int event_type, u64 userdata);
-	s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata);
 
+	const std::vector<EventType> &GetEventTypes();
+	const Event *GetFirstEvent();
 	void RemoveEvent(int event_type);
-	void RemoveThreadsafeEvent(int event_type);
-	void RemoveAllEvents(int event_type);
 	bool IsScheduled(int event_type);
 	void Advance();
-	void MoveEvents();
-	void ProcessFifoWaitEvents();
 	void ForceCheck();
 
 	// Pretend that the main CPU has executed enough cycles to reach the next event.
@@ -123,6 +132,8 @@ namespace CoreTiming
 
 	void SetClockFrequencyHz(int cpuHz);
 	int GetClockFrequencyHz();
+
+	// TODO: Add accessors?
 	extern int slicelength;
 
 }; // end of namespace

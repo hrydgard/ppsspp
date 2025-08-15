@@ -1,6 +1,20 @@
+================================================================
+
+NOTE: These are legacy instructions for building using ndk-build.
+
+We mostly only use this on CI because it's faster than gradle.
+There might also be some holdouts around still using eclipse.
+
+================================================================
+
 First, build the C++ static library:
+
 > cd android
 > ./ab.sh
+Or
+> ./ab.cmd
+
+as appropriate.
 
 Start Eclipse, import the android directory as an existing project
 You need to also load the "native" project into your eclipse workspace

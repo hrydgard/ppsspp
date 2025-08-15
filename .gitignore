@@ -57,6 +57,7 @@ include/glslang/build_info.h
 
 # For ppsspp.ini, etc.
 ppsspp.ini
+imgui.ini
 PPSSPPControls.dat
 
 # Qt Linguist files
@@ -101,10 +102,13 @@ local.properties
 r.sh
 Windows/compileData*
 Windows/*.ipch
+Windows/imgui.ini
+imgui.ini
 
 # For vim
 *.swp
 tags
+*.ctags
 
 # Other VCS
 .bzr/
@@ -117,6 +121,8 @@ debian/ppsspp/
 
 # Libretro build
 *.o
+*.tmp
+*.a
 
 # YouCompleteMe file
 .ycm_extra_conf.pyc
@@ -126,6 +132,19 @@ debian/ppsspp/
 
 # CMake stuff
 CMakeFiles
+CMakeUserPresets.json
+compile_commands.json
 
 # Clangd 
 .cache/
+build
+libretro/obj/local
+
+ppsspp_retroachievements.dat
+RACache
+RAPrefs_PPSSPP.cfg
+
+# For CLion
+cmake-build-*/
+
+/.vscode/

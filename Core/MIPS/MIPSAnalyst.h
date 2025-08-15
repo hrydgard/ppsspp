@@ -22,12 +22,10 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+#include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPS.h"
 
-class DebugInterface;
-
-namespace MIPSAnalyst
-{
+namespace MIPSAnalyst {
 	const int MIPS_NUM_GPRS = 32;
 
 	struct RegisterAnalysisResults {
@@ -99,7 +97,6 @@ namespace MIPSAnalyst
 
 	void Reset();
 
-	bool IsRegisterUsed(u32 reg, u32 addr);
 	// This will not only create a database of "AnalyzedFunction" structs, it also
 	// will insert all the functions it finds into the symbol map, if insertSymbols is true.
 
@@ -110,8 +107,6 @@ namespace MIPSAnalyst
 	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols);
 	void FinalizeScan(bool insertSymbols);
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
-	void PrecompileFunctions();
-	void PrecompileFunction(u32 startAddr, u32 length);
 
 	void SetHashMapFilename(const std::string& filename = "");
 	void LoadBuiltinHashMap();
@@ -139,8 +134,8 @@ namespace MIPSAnalyst
 	bool IsOpMemoryWrite(u32 pc);
 	bool OpHasDelaySlot(u32 pc);
 
-	typedef struct {
-		DebugInterface* cpu;
+	struct MipsOpcodeInfo {
+		DebugInterface *cpu;
 		u32 opcodeAddress;
 		MIPSOpcode encodedOpcode;
 
@@ -163,7 +158,7 @@ namespace MIPSAnalyst
 
 		bool hasRelevantAddress;
 		u32 relevantAddress;
-	} MipsOpcodeInfo;
+	};
 
 	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address);
 

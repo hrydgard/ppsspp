@@ -8,6 +8,11 @@ if [ ! -f "${PPSSPPQt}" ]; then
   exit 0
 fi
 
+GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../git-version.cpp")
+
+echo "Running Qt macbundle.sh for $PPSSPP/Contents/Info.plist ($GIT_VERSION_LINE)"
+
+# Why don't we just put these in the template?
 plutil -replace NSPrincipalClass -string NSApplication ${PPSSPP}/Contents/Info.plist
 plutil -replace NSHighResolutionCapable -bool YES ${PPSSPP}/Contents/Info.plist
 
@@ -15,7 +20,6 @@ plutil -replace NSLocationWhenInUseUsageDescription -string "Your location may b
 plutil -replace NSCameraUsageDescription -string "Your camera may be used to emulate Go!Cam, a camera accessory" ${PPSSPP}/Contents/Info.plist
 plutil -replace NSMicrophoneUsageDescription -string "Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory" ${PPSSPP}/Contents/Info.plist
 
-GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../git-version.cpp")
 SHORT_VERSION_MATCH='.*"v([0-9\.]+(-[0-9]+)?).*";'
 LONG_VERSION_MATCH='.*"v(.*)";'
 if [[ "${GIT_VERSION_LINE}" =~ ^${SHORT_VERSION_MATCH}$ ]]; then

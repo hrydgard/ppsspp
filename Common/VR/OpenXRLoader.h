@@ -1,18 +1,9 @@
 #pragma once
 
-//Vulkan
-#ifdef VK_USE_NATIVE_LIB
-#include <vulkan/vulkan.h>
-#else
-#include "Common/GPU/Vulkan/VulkanLoader.h"
-using namespace PPSSPP_VK;
-#endif
-
 #ifdef ANDROID
 #include <jni.h>
 #define XR_USE_PLATFORM_ANDROID 1
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#define XR_USE_GRAPHICS_API_VULKAN 1
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
@@ -34,17 +25,15 @@ using namespace PPSSPP_VK;
 #define XR_USE_PLATFORM_WIN32 1
 #endif
 #endif
-#define XR_USE_GRAPHICS_API_VULKAN 1
 #include "Common/VR/OpenXRLoader.h"
 #include <unknwn.h>
 #define XR_NO_PROTOTYPES 1
 #else
-#define XR_USE_GRAPHICS_API_VULKAN 1
 #define XR_NO_PROTOTYPES 1
 #endif
 
-#include <openxr.h>
-#include <openxr_platform.h>
+#include <openxr/openxr.h>
+#include <openxr/openxr_platform.h>
 
 #ifdef XR_NO_PROTOTYPES
 

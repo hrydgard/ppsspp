@@ -74,7 +74,7 @@ struct WebSocketCPUBreakpointParams {
 		if (hasCondition) {
 			if (!req.ParamString("condition", &condition))
 				return false;
-			if (!currentDebugMIPS->initExpression(condition.c_str(), compiledCondition)) {
+			if (!initExpression(currentDebugMIPS, condition.c_str(), compiledCondition)) {
 				req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
 				return false;
 			}
@@ -94,18 +94,18 @@ struct WebSocketCPUBreakpointParams {
 			cond.debug = currentDebugMIPS;
 			cond.expressionString = condition;
 			cond.expression = compiledCondition;
-			CBreakPoints::ChangeBreakPointAddCond(address, cond);
+			g_breakpoints.ChangeBreakPointAddCond(address, cond);
 		} else if (hasCondition && condition.empty()) {
-			CBreakPoints::ChangeBreakPointRemoveCond(address);
+			g_breakpoints.ChangeBreakPointRemoveCond(address);
 		}
 
 		if (hasLogFormat) {
-			CBreakPoints::ChangeBreakPointLogFormat(address, logFormat);
+			g_breakpoints.ChangeBreakPointLogFormat(address, logFormat);
 		}
 
 		// TODO: Fix this interface.
 		if (hasLog && !hasEnabled) {
-			CBreakPoints::IsAddressBreakPoint(address, &enabled);
+			g_breakpoints.IsAddressBreakPoint(address, &enabled);
 			hasEnabled = true;
 		}
 		if (hasLog && hasEnabled) {
@@ -114,9 +114,9 @@ struct WebSocketCPUBreakpointParams {
 				result |= BREAK_ACTION_LOG;
 			if (enabled)
 				result |= BREAK_ACTION_PAUSE;
-			CBreakPoints::ChangeBreakPoint(address, result);
+			g_breakpoints.ChangeBreakPoint(address, result);
 		} else if (hasEnabled) {
-			CBreakPoints::ChangeBreakPoint(address, enabled);
+			g_breakpoints.ChangeBreakPoint(address, enabled);
 		}
 	}
 };
@@ -138,7 +138,7 @@ void WebSocketCPUBreakpointAdd(DebuggerRequest &req) {
 	if (!params.Parse(req))
 		return;
 
-	CBreakPoints::AddBreakPoint(params.address);
+	g_breakpoints.AddBreakPoint(params.address);
 	params.Apply();
 	req.Respond();
 }
@@ -158,7 +158,7 @@ void WebSocketCPUBreakpointUpdate(DebuggerRequest &req) {
 	if (!params.Parse(req))
 		return;
 	bool enabled;
-	if (!CBreakPoints::IsAddressBreakPoint(params.address, &enabled))
+	if (!g_breakpoints.IsAddressBreakPoint(params.address, &enabled))
 		return req.Fail("Breakpoint not found");
 
 	params.Apply();
@@ -180,7 +180,7 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("address", &address))
 		return;
 
-	CBreakPoints::RemoveBreakPoint(address);
+	g_breakpoints.RemoveBreakPoint(address);
 	req.Respond();
 }
 
@@ -192,7 +192,7 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 //  - breakpoints: array of objects, each with properties:
 //     - address: unsigned integer address of instruction to break at.
 //     - enabled: boolean, whether to actually enter stepping when this breakpoint trips.
-//     - log: optional boolean, whether to log when this breakpoint trips.
+//     - log: boolean, whether to log when this breakpoint trips.
 //     - condition: null, or string expression to evaluate - breakpoint does not trip if false.
 //     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
 //     - symbol: null, or string label or symbol at breakpoint address.
@@ -204,7 +204,7 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("breakpoints");
-	auto bps = CBreakPoints::GetBreakpoints();
+	auto bps = g_breakpoints.GetBreakpoints();
 	for (const auto &bp : bps) {
 		if (bp.temporary)
 			continue;
@@ -227,9 +227,8 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 		else
 			json.writeString("symbol", symbol);
 
-		DisassemblyManager manager;
 		DisassemblyLineInfo line;
-		manager.getLine(manager.getStartAddress(bp.addr), true, line);
+		g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(bp.addr), true, line, currentDebugMIPS);
 		json.writeString("code", line.name + " " + line.params);
 
 		json.pop();
@@ -243,11 +242,14 @@ struct WebSocketMemoryBreakpointParams {
 	bool hasEnabled = false;
 	bool hasLog = false;
 	bool hasCond = false;
+	bool hasCondition = false;
 	bool hasLogFormat = false;
 
 	bool enabled = true;
 	bool log = true;
 	MemCheckCondition cond = MEMCHECK_READWRITE;
+	std::string condition;
+	PostfixExpression compiledCondition;
 	std::string logFormat;
 
 	bool Parse(DebuggerRequest &req) {
@@ -279,11 +281,20 @@ struct WebSocketMemoryBreakpointParams {
 		}
 		hasCond = req.HasParam("read") || req.HasParam("write") || req.HasParam("change");
 		if (hasCond) {
-			bool read, write, change;
-			if (!req.ParamBool("read", &read) || !req.ParamBool("write", &write) || !req.ParamBool("change", &change))
+			bool read = false, write = false, change = false;
+			if (!req.ParamBool("read", &read, DebuggerParamType::OPTIONAL) || !req.ParamBool("write", &write, DebuggerParamType::OPTIONAL) || !req.ParamBool("change", &change, DebuggerParamType::OPTIONAL))
 				return false;
 			int bits = (read ? MEMCHECK_READ : 0) | (write ? MEMCHECK_WRITE : 0) | (change ? MEMCHECK_WRITE_ONCHANGE : 0);
 			cond = MemCheckCondition(bits);
+		}
+		hasCondition = req.HasParam("condition");
+		if (hasCondition) {
+			if (!req.ParamString("condition", &condition))
+				return false;
+			if (!initExpression(currentDebugMIPS, condition.c_str(), compiledCondition)) {
+				req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
+				return false;
+			}
 		}
 		hasLogFormat = req.HasParam("logFormat");
 		if (hasLogFormat) {
@@ -300,7 +311,7 @@ struct WebSocketMemoryBreakpointParams {
 			bits = (enabled ? BREAK_ACTION_PAUSE : 0) | (log ? BREAK_ACTION_LOG : 0);
 		} else {
 			MemCheck prev;
-			if (CBreakPoints::GetMemCheck(address, end, &prev))
+			if (g_breakpoints.GetMemCheck(address, end, &prev))
 				bits = prev.result;
 
 			if (hasEnabled)
@@ -313,8 +324,17 @@ struct WebSocketMemoryBreakpointParams {
 	}
 
 	void Apply() {
+		if (hasCondition && !condition.empty()) {
+			BreakPointCond cond;
+			cond.debug = currentDebugMIPS;
+			cond.expressionString = condition;
+			cond.expression = compiledCondition;
+			g_breakpoints.ChangeMemCheckAddCond(address, end, cond);
+		} else if (hasCondition && condition.empty()) {
+			g_breakpoints.ChangeMemCheckRemoveCond(address, end);
+		}
 		if (hasLogFormat) {
-			CBreakPoints::ChangeMemCheckLogFormat(address, end, logFormat);
+			g_breakpoints.ChangeMemCheckLogFormat(address, end, logFormat);
 		}
 	}
 };
@@ -330,6 +350,7 @@ struct WebSocketMemoryBreakpointParams {
 //  - write: optional boolean, whether to trip on any write to this address.
 //  - change: optional boolean, whether to trip on a write to this address which modifies data
 //    (or any write that may modify data.)
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
 //  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
 //
 // Response (same event name) with no extra data.
@@ -340,7 +361,7 @@ void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 	if (!params.Parse(req))
 		return;
 
-	CBreakPoints::AddMemCheck(params.address, params.end, params.cond, params.Result(true));
+	g_breakpoints.AddMemCheck(params.address, params.end, params.cond, params.Result(true));
 	params.Apply();
 	req.Respond();
 }
@@ -356,6 +377,7 @@ void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 //  - write: optional boolean, whether to trip on any write to this address.
 //  - change: optional boolean, whether to trip on a write to this address which modifies data
 //    (or any write that may modify data.)
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
 //  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
 //
 // Response (same event name) with no extra data.
@@ -365,10 +387,10 @@ void WebSocketMemoryBreakpointUpdate(DebuggerRequest &req) {
 		return;
 
 	MemCheck mc;
-	if (!CBreakPoints::GetMemCheck(params.address, params.end, &mc))
+	if (!g_breakpoints.GetMemCheck(params.address, params.end, &mc))
 		return req.Fail("Breakpoint not found");
 
-	CBreakPoints::ChangeMemCheck(params.address, params.end, params.cond, params.Result(true));
+	g_breakpoints.ChangeMemCheck(params.address, params.end, params.cond, params.Result(true));
 	params.Apply();
 	req.Respond();
 }
@@ -392,7 +414,7 @@ void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("size", &size))
 		return;
 
-	CBreakPoints::RemoveMemCheck(address, size == 0 ? 0 : address + size);
+	g_breakpoints.RemoveMemCheck(address, size == 0 ? 0 : address + size);
 	req.Respond();
 }
 
@@ -410,6 +432,7 @@ void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 //     - write: optional boolean, whether to trip on any write to this address.
 //     - change: optional boolean, whether to trip on a write to this address which modifies data
 //       (or any write that may modify data.)
+//     - condition: null, or string expression to evaluate - breakpoint does not trip if false.
 //     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
 //     - symbol: null, or string label or symbol at breakpoint address.
 void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
@@ -419,7 +442,7 @@ void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("breakpoints");
-	auto mcs = CBreakPoints::GetMemChecks();
+	auto mcs = g_breakpoints.GetMemChecks();
 	for (const auto &mc : mcs) {
 		json.pushDict();
 		json.writeUint("address", mc.start);
@@ -430,6 +453,10 @@ void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 		json.writeBool("write", (mc.cond & MEMCHECK_WRITE) != 0);
 		json.writeBool("change", (mc.cond & MEMCHECK_WRITE_ONCHANGE) != 0);
 		json.writeUint("hits", mc.numHits);
+		if (mc.hasCondition)
+			json.writeString("condition", mc.condition.expressionString);
+		else
+			json.writeNull("condition");
 		if (!mc.logFormat.empty())
 			json.writeString("logFormat", mc.logFormat);
 		else

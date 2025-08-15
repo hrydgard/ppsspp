@@ -170,6 +170,7 @@
     <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslParseHelper.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\SpirvIntrinsics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -348,8 +349,6 @@
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\pch.h">
       <Filter>glslang</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\glslang\build_info.h">
-      <Filter>glslang</Filter>
-    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\SpirvIntrinsics.h" />
   </ItemGroup>
 </Project>

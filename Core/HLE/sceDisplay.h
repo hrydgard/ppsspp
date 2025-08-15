@@ -34,5 +34,3 @@ void __DisplaySetWasPaused();
 
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);
-
-void __DisplaySetFramerate(int value);

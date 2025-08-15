@@ -17,37 +17,31 @@
 
 #include <atomic>
 #include <mutex>
+#include <algorithm>
 
 #include "Common/Common.h"
 #include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
+#include "Common/System/System.h"
+#include "Common/Math/SIMDHeaders.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
-#include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
-#ifndef MOBILE_DEVICE
 #include "Core/WaveFile.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceKernelTime.h"
-#include "StringUtils.h"
-#endif
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/HW/StereoResampler.h"
 #include "Core/Util/AudioFormat.h"
-
-StereoResampler resampler;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -58,14 +52,15 @@ std::atomic_flag atomicLock_;
 FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
+
+// TODO: This is now useless and should be removed. Just scared of breaking states.
 int eventHostAudioUpdate = -1;
+
 int mixFrequency = 44100;
 int srcFrequency = 0;
 
 const int hwSampleRate = 44100;
-
 const int hwBlockSize = 64;
-const int hostAttemptBlockSize = 512;
 
 static int audioIntervalCycles;
 static int audioHostIntervalCycles;
@@ -82,11 +77,6 @@ static bool m_logAudio;
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
 
-// Accessor for libretro
-int __AudioGetHostAttemptBlockSize() {
-	return hostAttemptBlockSize;
-}
-
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
@@ -96,20 +86,17 @@ static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 
 static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
-
-	// Not all hosts need this call to poke their audio system once in a while, but those that don't
-	// can just ignore it.
-	host->UpdateSound();
 }
 
 static void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
-	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
+
+	// Soon to be removed.
+	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * 512 / hwSampleRate);
 }
 
-
 void __AudioInit() {
-	resampler.ResetStatCounters();
+	System_AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
 
@@ -124,15 +111,15 @@ void __AudioInit() {
 	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles, eventHostAudioUpdate, 0);
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-		chans[i].index = i;
-		chans[i].clear();
+		g_audioChans[i].index = i;
+		g_audioChans[i].clear();
 	}
 
 	mixBuffer = new s32[hwBlockSize * 2];
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	resampler.Clear();
+	System_AudioClear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -155,28 +142,31 @@ void __AudioDoState(PointerWrap &p) {
 		mixFrequency = 44100;
 	}
 
-	// TODO: This never happens because maxVer=1.
 	if (s >= 2) {
-		resampler.DoState(p);
+		// TODO: Next time we bump, get rid of this. It's kinda useless.
+		auto s = p.Section("resampler", 1);
+		if (p.mode == p.MODE_READ) {
+			System_AudioClear();
+		}
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		resampler.Clear();
+		System_AudioClear();
 	}
 
-	int chanCount = ARRAY_SIZE(chans);
+	int chanCount = ARRAY_SIZE(g_audioChans);
 	Do(p, chanCount);
-	if (chanCount != ARRAY_SIZE(chans))
+	if (chanCount != ARRAY_SIZE(g_audioChans))
 	{
-		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
+		ERROR_LOG(Log::sceAudio, "Savestate failure: different number of audio channels.");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
 	for (int i = 0; i < chanCount; ++i) {
-		chans[i].index = i;
-		chans[i].DoState(p);
+		g_audioChans[i].index = i;
+		g_audioChans[i].DoState(p);
 	}
 
 	__AudioCPUMHzChange();
@@ -188,8 +178,8 @@ void __AudioShutdown() {
 
 	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-		chans[i].index = i;
-		chans[i].clear();
+		g_audioChans[i].index = i;
+		g_audioChans[i].clear();
 	}
 
 #ifndef MOBILE_DEVICE
@@ -238,13 +228,18 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		return ret;
 	}
 
+	// NOTE: The below is WRONG! See issue #20095.
+	//
+	// What we should be queueing here is just the sampleAddress and sampleCount. Then when dequeuing is when we should
+	// read the actual data.
+
 	int leftVol = chan.leftVolume;
 	int rightVol = chan.rightVolume;
 
 	if (leftVol == (1 << 15) && rightVol == (1 << 15) && chan.format == PSP_AUDIO_FORMAT_STEREO && IS_LITTLE_ENDIAN) {
 		// TODO: Add mono->stereo conversion to this path.
 
-		// Good news: the volume doesn't affect the values at all.
+		// Good news: the volume (1 << 15), specifically, doesn't affect the values at all.
 		// We can just do a direct memory copy.
 		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
 		s16 *buf1 = 0, *buf2 = 0;
@@ -289,7 +284,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	return ret;
 }
 
-inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
+void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	u32 error;
 	bool wokeThreads = false;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {
@@ -299,7 +294,7 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
 		u32 waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error);
 		if (waitInfo.numSamples <= 0 && waitID != 0) {
-			// DEBUG_LOG(SCEAUDIO, "Woke thread %i for some buffer filling", waitingThread);
+			// DEBUG_LOG(Log::sceAudio, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
 			wokeThreads = true;
@@ -322,9 +317,9 @@ void __AudioWakeThreads(AudioChannel &chan, int result) {
 
 void __AudioSetOutputFrequency(int freq) {
 	if (freq != 44100) {
-		WARN_LOG_REPORT(SCEAUDIO, "Switching audio frequency to %i", freq);
+		WARN_LOG_REPORT(Log::sceAudio, "Switching audio frequency to %i", freq);
 	} else {
-		DEBUG_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+		DEBUG_LOG(Log::sceAudio, "Switching audio frequency to %i", freq);
 	}
 	mixFrequency = freq;
 }
@@ -333,11 +328,9 @@ void __AudioSetSRCFrequency(int freq) {
 	srcFrequency = freq;
 }
 
-// Mix samples from the various audio channels into a single sample queue.
-// This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
-// just sleep the main emulator thread a little.
+// Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
-	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
+	// AUDIO throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
 	bool firstChannel = true;
@@ -345,10 +338,11 @@ void __AudioUpdate(bool resetRecording) {
 	int16_t srcBuffer[srcBufferSize];
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
-		if (!chans[i].reserved)
+		if (!g_audioChans[i].reserved) {
 			continue;
+		}
 
-		__AudioWakeThreads(chans[i], 0, hwBlockSize);
+		__AudioWakeThreads(g_audioChans[i], 0, hwBlockSize);
 
 		if (!chanSampleQueues[i].size()) {
 			continue;
@@ -357,13 +351,18 @@ void __AudioUpdate(bool resetRecording) {
 		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
 		size_t sz = needsResample ? (srcBufferSize * srcFrequency) / mixFrequency : srcBufferSize;
 		if (sz > chanSampleQueues[i].size()) {
-			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
+			ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
 		}
 
 		const s16 *buf1 = 0, *buf2 = 0;
 		size_t sz1, sz2;
 
 		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+
+		// We do this check as the very last thing before mixing, to maximize compatibility.
+		if (g_audioChans[i].mute) {
+			continue;
+		}
 
 		if (needsResample) {
 			auto read = [&](size_t i) {
@@ -427,13 +426,22 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		resampler.PushSamples(mixBuffer, hwBlockSize);
+		float multiplier = Volume100ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUMEHI_FULL));
+		if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
+			if (g_Config.iAltSpeedVolume != -1) {
+				// Multiply in the alt speed volume instead of replacing like before.
+				multiplier *= Volume100ToMultiplier(g_Config.iAltSpeedVolume);
+			}
+		}
+
+		System_AudioPushSamples(mixBuffer, hwBlockSize, multiplier);
+
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
 			__StopLogAudio();
 			std::string discID = g_paramSFO.GetDiscID();
 			Path audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) / StringFromFormat("%s_%s.wav", discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
-			INFO_LOG(COMMON, "Restarted audio recording to: %s", audio_file_name.c_str());
+			INFO_LOG(Log::Common, "Restarted audio recording to: %s", audio_file_name.c_str());
 			if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
 				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
 			File::CreateEmptyFile(audio_file_name);
@@ -444,7 +452,7 @@ void __AudioUpdate(bool resetRecording) {
 				// Use gameID_EmulatedTimestamp for filename
 				std::string discID = g_paramSFO.GetDiscID();
 				Path audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) / StringFromFormat("%s_%s.wav", discID.c_str(), KernelTimeNowFormatted().c_str());
-				INFO_LOG(COMMON,"Recording audio to: %s", audio_file_name.c_str());
+				INFO_LOG(Log::Common,"Recording audio to: %s", audio_file_name.c_str());
 				// Create the path just in case it doesn't exist
 				if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
 					File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
@@ -465,32 +473,15 @@ void __AudioUpdate(bool resetRecording) {
 	}
 }
 
-// numFrames is number of stereo frames.
-// This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-	return resampler.Mix(outstereo, numFrames, false, sampleRate);
-}
-
-void __AudioGetDebugStats(char *buf, size_t bufSize) {
-	resampler.GetAudioDebugStats(buf, bufSize);
-}
-
-void __PushExternalAudio(const s32 *audio, int numSamples) {
-	if (audio) {
-		resampler.PushSamples(audio, numSamples);
-	} else {
-		resampler.Clear();
-	}
-}
 #ifndef MOBILE_DEVICE
 void __StartLogAudio(const Path& filename) {
 	if (!m_logAudio) {
 		m_logAudio = true;
 		g_wave_writer.Start(filename, 44100);
 		g_wave_writer.SetSkipSilence(false);
-		NOTICE_LOG(SCEAUDIO, "Starting Audio logging");
+		NOTICE_LOG(Log::sceAudio, "Starting Audio logging");
 	} else {
-		WARN_LOG(SCEAUDIO, "Audio logging has already been started");
+		WARN_LOG(Log::sceAudio, "Audio logging has already been started");
 	}
 }
 
@@ -498,9 +489,9 @@ void __StopLogAudio() {
 	if (m_logAudio)	{
 		m_logAudio = false;
 		g_wave_writer.Stop();
-		NOTICE_LOG(SCEAUDIO, "Stopping Audio logging");
+		NOTICE_LOG(Log::sceAudio, "Stopping Audio logging");
 	} else {
-		WARN_LOG(SCEAUDIO, "Audio logging has already been stopped");
+		WARN_LOG(Log::sceAudio, "Audio logging has already been stopped");
 	}
 }
 #endif

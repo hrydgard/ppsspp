@@ -6,12 +6,16 @@
 //
 
 #import "DisplayManager.h"
+#import "iOSCoreAudio.h"
 #import "ViewController.h"
 #import "AppDelegate.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Core/System.h"
+#include "Core/Config.h"
+#include "Core/ConfigValues.h"
+
 #import <AVFoundation/AVFoundation.h>
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
@@ -64,6 +68,9 @@
 	[self setOriginalFrame: [gameWindow frame]];
 	[self setOriginalBounds:[gameWindow bounds]];
 	[self setOriginalTransform:[gameWindow transform]];
+
+	// TODO: From iOS 13, should use UIScreenDidConnectNotification instead of the below.
+
 	// Display connected
 	[[NSNotificationCenter defaultCenter] addObserverForName:UIScreenDidConnectNotification object:nil queue:nil usingBlock:^(NSNotification * _Nonnull notification) {
 		UIScreen *screen = (UIScreen *) notification.object;
@@ -74,8 +81,7 @@
 			return;
 		}
 		// Ignore mute switch when connected to external display
-		NSError *error = nil;
-		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
+		iOSCoreAudioSetDisplayConnected(true);
 		[self updateScreen:screen];
 	}];
 	// Display disconnected
@@ -89,8 +95,7 @@
 			UIScreen *newScreen = [[self extDisplays] lastObject];
 			[self updateScreen:newScreen];
 		} else {
-			NSError *error = nil;
-			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
+			iOSCoreAudioSetDisplayConnected(false);
 			[self updateScreen:[UIScreen mainScreen]];
 		}
 	}];
@@ -133,48 +138,34 @@
 }
 
 - (void)updateResolution:(UIScreen *)screen {
-	float scale = screen.scale;
-	
-	if ([screen respondsToSelector:@selector(nativeScale)]) {
-		scale = screen.nativeScale;
-	}
-	
-	CGSize size = screen.applicationFrame.size;
+	float scale = screen.nativeScale;
+	CGSize size = screen.bounds.size;
 	
 	if (size.height > size.width) {
-		float h = size.height;
-		size.height = size.width;
-		size.width = h;
+		std::swap(size.height, size.width);
 	}
-	
+
+	float dpi;
 	if (screen == [UIScreen mainScreen]) {
-		g_dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+		dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
 	} else {
 		float diagonal = sqrt(size.height * size.height + size.width * size.width);
-		g_dpi = diagonal * scale * 0.1f;
+		dpi = diagonal * scale * 0.1f;
 	}
-	g_dpi_scale_x = 240.0f / g_dpi;
-	g_dpi_scale_y = 240.0f / g_dpi;
-	g_dpi_scale_real_x = g_dpi_scale_x;
-	g_dpi_scale_real_y = g_dpi_scale_y;
-	pixel_xres = size.width * scale;
-	pixel_yres = size.height * scale;
-	
-	dp_xres = pixel_xres * g_dpi_scale_x;
-	dp_yres = pixel_yres * g_dpi_scale_y;
-	
-	pixel_in_dps_x = (float)pixel_xres / (float)dp_xres;
-	pixel_in_dps_y = (float)pixel_yres / (float)dp_yres;
-	
-	[[sharedViewController view] setContentScaleFactor:scale];
-	
+
+	const float dpi_scale_x = 240.0f / dpi;
+	const float dpi_scale_y = 240.0f / dpi;
+	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale_x, dpi_scale_y, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+
+	[[sharedViewController getView] setContentScaleFactor:scale];
+
 	// PSP native resize
-	PSP_CoreParameter().pixelWidth = pixel_xres;
-	PSP_CoreParameter().pixelHeight = pixel_yres;
-	
+	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
+	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
+
 	NativeResized();
 	
-	NSLog(@"Updated display resolution: (%d, %d) @%.1fx", pixel_xres, pixel_yres, scale);
+	NSLog(@"Updated display resolution: (%d, %d) @%.1fx", g_display.pixel_xres, g_display.pixel_yres, scale);
 }
 
 @end

@@ -61,8 +61,10 @@ bool Atlas::Load(const uint8_t *data, size_t data_size) {
 		return false;
 	}
 
-	images = reader.ReadMultipleAlloc<AtlasImage>(num_images, header.version >= 1);
+	delete[] images;
+	delete[] fonts;
 
+	images = reader.ReadMultipleAlloc<AtlasImage>(num_images, header.version >= 1);
 	fonts = new AtlasFont[num_fonts];
 	for (int i = 0; i < num_fonts; i++) {
 		AtlasFontHeader font_header = reader.Read<AtlasFontHeader>();

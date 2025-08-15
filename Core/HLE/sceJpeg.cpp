@@ -23,6 +23,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceJpeg.h"
 #include "Core/HLE/sceKernel.h"
@@ -56,17 +57,6 @@ void __JpegInit() {
 	mjpegHeight = 0;
 }
 
-enum : uint32_t {
-	ERROR_JPEG_INVALID_DATA = 0x80650004,
-	ERROR_JPEG_INVALID_COLORSPACE = 0x80650013,
-	ERROR_JPEG_INVALID_SIZE = 0x80650020,
-	ERROR_JPEG_NO_SOI = 0x80650023,
-	ERROR_JPEG_INVALID_STATE = 0x80650039,
-	ERROR_JPEG_OUT_OF_MEMORY = 0x80650041,
-	ERROR_JPEG_ALREADY_INIT = 0x80650042,
-	ERROR_JPEG_INVALID_VALUE = 0x80650051,
-};
-
 void __JpegDoState(PointerWrap &p) {
 	auto s = p.Section("sceJpeg", 1, 2);
 	if (!s)
@@ -94,17 +84,25 @@ static u32 convertYCbCrToABGR(int y, int cb, int cr) {
 	int g = y - ((cb >> 2) + (cb >> 4) + (cb >> 5)) - ((cr >> 1) + (cr >> 3) + (cr >> 4) + (cr >> 5));
 	int b = y + cb + (cb >> 1) + (cb >> 2) + (cb >> 6);
 
-	// check rgb value.
-	if (r > 0xFF) r = 0xFF; if(r < 0) r = 0;
-	if (g > 0xFF) g = 0xFF; if(g < 0) g = 0;
-	if (b > 0xFF) b = 0xFF; if(b < 0) b = 0;
-
+	// clamp rgb value.
+	if (r > 0xFF)
+		r = 0xFF;
+	else if(r < 0)
+		r = 0;
+	if (g > 0xFF)
+		g = 0xFF;
+	else if (g < 0)
+		g = 0;
+	if (b > 0xFF)
+		b = 0xFF;
+	else if (b < 0)
+		b = 0;
 	return (b << 16) | (g << 8) | (r << 0);
 }
 
 static int JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, uint32_t chroma, int &usec) {
 	if ((chroma & 0x000FFFFF) != 0x00020202 && (chroma & 0x000FFFFF) != 0x00020201 && (chroma & 0x000FFFFF) != 0x00020101)
-		return hleLogError(ME, ERROR_JPEG_INVALID_COLORSPACE, "invalid colorspace");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_COLORSPACE, "invalid colorspace");
 	if (bufferWidth < 0)
 		bufferWidth = 0;
 
@@ -120,9 +118,9 @@ static int JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidt
 
 	uint64_t destSize = ((uint64_t)bufferWidth * (height - 1) + width) * 4;
 	if (destSize > 0x3FFFFFFF || !Memory::IsValidRange(imageAddr, (uint32_t)destSize))
-		return hleLogError(ME, ERROR_JPEG_INVALID_VALUE, "invalid dest address or size");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_VALUE, "invalid dest address or size");
 	if (sizeY > 0x3FFFFFFF || !Memory::IsValidRange(yCbCrAddr, sizeY + sizeCb + sizeCb))
-		return hleLogError(ME, ERROR_JPEG_INVALID_VALUE, "invalid src address or size");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_VALUE, "invalid src address or size");
 
 	u32_le *imageBuffer = (u32_le *)Memory::GetPointerWriteUnchecked(imageAddr);
 	const u8 *Y = (const u8 *)Memory::GetPointerUnchecked(yCbCrAddr);
@@ -164,8 +162,8 @@ static int JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidt
 	NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, (uint32_t)destSize, "JpegCsc");
 
 	if ((widthHeight & 0xFFFF) == 0)
-		return hleLogSuccessI(ME, -1);
-	return hleLogSuccessI(ME, 0);
+		return hleLogDebug(Log::ME, -1);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int &usec) {
@@ -180,12 +178,12 @@ static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int buffe
 	int sizeCb = sizeY >> 2;
 
 	if (width > 720 || height > 480)
-		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "invalid size, max 720x480");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_SIZE, "invalid size, max 720x480");
 	if (bufferWidth > 1024)
-		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "invalid stride, max 1024");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_SIZE, "invalid stride, max 1024");
 	uint32_t destSize = (bufferWidth * (height - 1) + width) * 4;
 	if (!Memory::IsValidRange(imageAddr, destSize))
-		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid dest address or size");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid dest address or size");
 
 	u32_le *imageBuffer = (u32_le *)Memory::GetPointerWriteUnchecked(imageAddr);
 	const u8 *Y = (const u8 *)Memory::GetPointerUnchecked(yCbCrAddr);
@@ -237,16 +235,16 @@ static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int buffe
 
 	NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, destSize, "JpegMJpegCsc");
 
-	return hleLogSuccessI(ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
 	if (mjpegInited == 0)
-		return hleLogError(ME, 0x80000001, "not yet inited");
+		return hleLogError(Log::ME, 0x80000001, "not yet inited");
 
 	int usec = 0;
 	int result = JpegMJpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth, usec);
-	
+
 	int width = (widthHeight >> 16) & 0xFFF;
 	int height = widthHeight & 0xFFF;
 	if (result >= 0)
@@ -263,15 +261,15 @@ static u32 convertARGBtoABGR(u32 argb) {
 
 static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 	if (!Memory::IsValidRange(jpegAddr, jpegSize))
-		return hleLogError(ME, ERROR_JPEG_NO_SOI, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "invalid jpeg address");
 	if (jpegSize == 0)
-		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "invalid jpeg data");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_DATA, "invalid jpeg data");
 
 	NotifyMemInfo(MemBlockFlags::READ, jpegAddr, jpegSize, "JpegDecodeMJpeg");
 
 	const u8 *buf = Memory::GetPointerUnchecked(jpegAddr);
 	if (jpegSize < 2 || buf[0] != 0xFF || buf[1] != 0xD8)
-		return hleLogError(ME, ERROR_JPEG_NO_SOI, "no SOI found, invalid data");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "no SOI found, invalid data");
 
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
@@ -284,24 +282,24 @@ static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 	}
 
 	if (jpegBuf == nullptr) {
-		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "unable to decompress jpeg");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_DATA, "unable to decompress jpeg");
 	}
 
 	usec += (width * height) / 14;
 
 	if (!Memory::IsValidRange(imageAddr, mjpegWidth * mjpegHeight * 4)) {
 		free(jpegBuf);
-		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid output address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid output address");
 	}
 	// Note: even if you Delete, the size is still allowed.
 	if (width > mjpegWidth || height > mjpegHeight) {
 		free(jpegBuf);
-		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "invalid output address");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_SIZE, "invalid output address");
 	}
 	if (mjpegInited == 0) {
 		// If you finish after setting the size, then call this - you get an interesting error.
 		free(jpegBuf);
-		return hleLogError(ME, 0x80000001, "mjpeg not inited");
+		return hleLogError(Log::ME, 0x80000001, "mjpeg not inited");
 	}
 
 	usec += (width * height) / 110;
@@ -320,14 +318,14 @@ static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 	}
 
 	free(jpegBuf);
-	return hleLogSuccessX(ME, getWidthHeight(width, height));
+	return hleLogDebug(Log::ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
 	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 	if (imageAddr & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 
 	int usec = 300;
 	int result = DecodeJpeg(jpegAddr, jpegSize, imageAddr, usec);
@@ -336,9 +334,9 @@ static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dht
 
 static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
 	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 	if (imageAddr & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 
 	int usec = 300;
 	int result = DecodeJpeg(jpegAddr, jpegSize, imageAddr, usec);
@@ -360,15 +358,15 @@ static int getYCbCrBufferSize(int w, int h) {
 
 static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	if (!Memory::IsValidRange(jpegAddr, jpegSize))
-		return hleLogError(ME, ERROR_JPEG_NO_SOI, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "invalid jpeg address");
 	if (jpegSize == 0)
-		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "invalid jpeg data");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_DATA, "invalid jpeg data");
 
 	NotifyMemInfo(MemBlockFlags::READ, jpegAddr, jpegSize, "JpegGetOutputInfo");
 
 	const u8 *buf = Memory::GetPointerUnchecked(jpegAddr);
 	if (jpegSize < 2 || buf[0] != 0xFF || buf[1] != 0xD8)
-		return hleLogError(ME, ERROR_JPEG_NO_SOI, "no SOI found, invalid data");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "no SOI found, invalid data");
 
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
@@ -381,14 +379,14 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	}
 
 	if (jpegBuf == nullptr) {
-		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "unable to decompress jpeg");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_DATA, "unable to decompress jpeg");
 	}
 
 	free(jpegBuf);
-	
+
 	// Buffer to store info about the color space in use.
 	// - Bits 24 to 32 (Always empty): 0x00
-	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr) 
+	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr)
 	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
 	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
 	if (Memory::IsValidAddress(colourInfoAddr)) {
@@ -411,12 +409,12 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
-	return hleLogSuccessX(ME, getYCbCrBufferSize(width, height));
+	return hleLogDebug(Log::ME, getYCbCrBufferSize(width, height));
 }
 
 static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode) {
 	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 
 	int result = JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
 	// Time taken varies a bit, this is the low end.  Depends on data.
@@ -433,11 +431,20 @@ static u32 convertRGBToYCbCr(u32 rgb) {
 	int cb = -0.169f * r - 0.331f * g + 0.499f * b + 128.0f;
 	int cr = 0.499f * r - 0.418f * g - 0.0813f * b + 128.0f;
 
-	// check yCbCr value
-	if ( y > 0xFF)  y = 0xFF; if ( y < 0)  y = 0;
-	if (cb > 0xFF) cb = 0xFF; if (cb < 0) cb = 0;
-	if (cr > 0xFF) cr = 0xFF; if (cr < 0) cr = 0;
-
+	// clamp yCbCr values
+	if (y > 0xFF)
+		y = 0xFF;
+	else if (y < 0)
+		y = 0;
+	if (cb > 0xFF)
+		cb = 0xFF;
+	else if (cb < 0)
+		cb = 0;
+	if (cr > 0xFF)
+		cr = 0xFF;
+	else if (cr < 0)
+		cr = 0;
+	// TODO: No real need to pack here, we immediately unpack in the caller.
 	return (y << 16) | (cb << 8) | cr;
 }
 
@@ -489,15 +496,15 @@ static int JpegConvertRGBToYCbCr(const void *data, u8 *output, int width, int he
 
 static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int &usec) {
 	if (!Memory::IsValidRange(jpegAddr, jpegSize))
-		return hleLogError(ME, ERROR_JPEG_NO_SOI, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "invalid jpeg address");
 	if (jpegSize == 0)
-		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "invalid jpeg data");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_DATA, "invalid jpeg data");
 
 	NotifyMemInfo(MemBlockFlags::READ, jpegAddr, jpegSize, "JpegDecodeMJpegYCbCr");
 
 	const u8 *buf = Memory::GetPointerUnchecked(jpegAddr);
 	if (jpegSize < 2 || buf[0] != 0xFF || buf[1] != 0xD8)
-		return hleLogError(ME, ERROR_JPEG_NO_SOI, "no SOI found, invalid data");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "no SOI found, invalid data");
 
 	int width, height, actual_components;
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
@@ -510,12 +517,12 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 	}
 
 	if (jpegBuf == nullptr) {
-		return hleLogError(ME, ERROR_JPEG_INVALID_DATA, "unable to decompress jpeg");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_DATA, "unable to decompress jpeg");
 	}
 
 	if (yCbCrSize < getYCbCrBufferSize(width, height)) {
 		free(jpegBuf);
-		return hleLogError(ME, ERROR_JPEG_OUT_OF_MEMORY, "buffer not large enough");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_OUT_OF_MEMORY, "buffer not large enough");
 	}
 
 	// Technically, it seems like the PSP doesn't support grayscale, but we might as well.
@@ -525,7 +532,7 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 			NotifyMemInfo(MemBlockFlags::WRITE, yCbCrAddr, getYCbCrBufferSize(width, height), "JpegDecodeMJpegYCbCr");
 		} else {
 			// There's some weird behavior on the PSP where it writes data around the last passed address.
-			WARN_LOG_REPORT(ME, "JpegDecodeMJpegYCbCr: Invalid output address (%08x / %08x) for %dx%d", yCbCrAddr, yCbCrSize, width, height);
+			WARN_LOG_REPORT(Log::ME, "JpegDecodeMJpegYCbCr: Invalid output address (%08x / %08x) for %dx%d", yCbCrAddr, yCbCrSize, width, height);
 		}
 	}
 
@@ -533,17 +540,17 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 
 	// Rough estimate based on observed timing.
 	usec += (width * height) / 14;
-	return hleLogSuccessX(ME, getWidthHeight(width, height));
+	return hleLogDebug(Log::ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
 	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 	if ((yCbCrAddr | yCbCrSize | (yCbCrAddr + yCbCrSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 	if (!Memory::IsValidRange(jpegAddr, jpegSize))
-		return hleLogError(ME, ERROR_JPEG_INVALID_VALUE, "invalid jpeg address");
-	
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_VALUE, "invalid jpeg address");
+
 	int usec = 300;
 	int result = JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, usec);
 	return hleDelayResult(result, "jpeg decode", usec);
@@ -551,10 +558,10 @@ static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, in
 
 static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
 	if ((jpegAddr | jpegSize | (jpegAddr + jpegSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 	if ((yCbCrAddr | yCbCrSize | (yCbCrAddr + yCbCrSize)) & 0x80000000)
-		return hleLogError(ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
-	
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
+
 	// Do as same way as sceJpegDecodeMJpegYCbCr() but with smaller block size
 	int usec = 300;
 	int result = JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, usec);
@@ -562,63 +569,63 @@ static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 y
 }
 
 static int sceJpeg_9B36444C() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpeg_9B36444C()");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceJpeg_9B36444C()");
 	return 0;
 }
 
 static int sceJpegCreateMJpeg(int width, int height) {
 	if (mjpegInited == 0)
-		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "not yet inited");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_STATE, "not yet inited");
 	if (mjpegInited == 2)
-		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "already created");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_STATE, "already created");
 	if (width > 1024)
-		return hleLogError(ME, ERROR_JPEG_INVALID_SIZE, "width outside bounds");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_SIZE, "width outside bounds");
 
 	mjpegInited = 2;
 	mjpegWidth = width;
 	mjpegHeight = height;
 
-	return hleLogSuccessInfoI(ME, 0);
+	return hleLogInfo(Log::ME, 0);
 }
 
 static int sceJpegDeleteMJpeg() {
 	if (mjpegInited == 0)
-		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "not yet inited");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_STATE, "not yet inited");
 	if (mjpegInited == 1)
-		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "not yet created");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_STATE, "not yet created");
 
 	mjpegInited = 1;
-	return hleLogSuccessInfoI(ME, 0);
+	return hleLogInfo(Log::ME, 0);
 }
 
 static int sceJpegInitMJpeg() {
 	if (mjpegInited == 1 || mjpegInited == 2)
-		return hleLogError(ME, ERROR_JPEG_ALREADY_INIT, "already inited");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_ALREADY_INIT, "already inited");
 
 	// If it was -1, it's from an old save state, avoid double init error but assume inited.
 	if (mjpegInited == 0)
 		mjpegInited = 1;
-	return hleLogSuccessI(ME, hleDelayResult(0, "mjpeg init", 130));
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mjpeg init", 130);
 }
 
 static int sceJpegFinishMJpeg() {
 	if (mjpegInited == 0)
-		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "already inited");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_STATE, "already inited");
 	if (mjpegInited == 2)
-		return hleLogError(ME, ERROR_JPEG_INVALID_STATE, "mjpeg not deleted");
+		return hleLogError(Log::ME, SCE_JPEG_ERROR_INVALID_STATE, "mjpeg not deleted");
 
 	// Even from an old save state, if we see this we leave compat mode.
 	mjpegInited = 0;
-	return hleLogSuccessI(ME, hleDelayResult(0, "mjpeg finish", 120));
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mjpeg finish", 120);
 }
 
 static int sceJpegMJpegCscWithColorOption() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
 	return 0;
 }
 
 static int sceJpegDecompressAllImage() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecompressAllImage()");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceJpegDecompressAllImage()");
 	return 0;
 }
 
@@ -648,5 +655,5 @@ const HLEFunction sceJpeg[] =
 };
 
 void Register_sceJpeg() {
-	RegisterModule("sceJpeg", ARRAY_SIZE(sceJpeg), sceJpeg);
+	RegisterHLEModule("sceJpeg", ARRAY_SIZE(sceJpeg), sceJpeg);
 }

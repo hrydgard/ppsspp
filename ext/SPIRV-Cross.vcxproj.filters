@@ -26,4 +26,7 @@
     <ClCompile Include="SPIRV-Cross\spirv_cross_parsed_ir.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_parser.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="SPIRV-Cross-build\CMakeLists.txt" />
+  </ItemGroup>
 </Project>

@@ -28,6 +28,8 @@
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);
 std::vector<std::string> DisassembleArm64(const u8 *data, int size);
 std::vector<std::string> DisassembleX86(const u8 *data, int size);
+std::vector<std::string> DisassembleRV64(const u8 *data, int size);
+std::vector<std::string> DisassembleLA64(const u8 *data, int size);
 
 struct JitBlock;
 class JitBlockCache;
@@ -53,6 +55,7 @@ namespace MIPSComp {
 		virtual void Comp_RunBlock(MIPSOpcode op) = 0;
 		virtual void Comp_ReplacementFunc(MIPSOpcode op) = 0;
 		virtual void Comp_ITypeMem(MIPSOpcode op) = 0;
+		virtual void Comp_StoreSync(MIPSOpcode op) = 0;
 		virtual void Comp_Cache(MIPSOpcode op) = 0;
 		virtual void Comp_RelBranch(MIPSOpcode op) = 0;
 		virtual void Comp_RelBranchRI(MIPSOpcode op) = 0;
@@ -134,7 +137,6 @@ namespace MIPSComp {
 		virtual void DoState(PointerWrap &p) = 0;
 		virtual void RunLoopUntil(u64 globalticks) = 0;
 		virtual void Compile(u32 em_address) = 0;
-		virtual void CompileFunction(u32 start_address, u32 length) { }
 		virtual void ClearCache() = 0;
 		virtual void UpdateFCR31() = 0;
 		virtual MIPSOpcode GetOriginalOp(MIPSOpcode op) = 0;
@@ -175,5 +177,5 @@ namespace MIPSComp {
 
 	void DoDummyJitState(PointerWrap &p);
 
-	JitInterface *CreateNativeJit(MIPSState *mipsState);
+	JitInterface *CreateNativeJit(MIPSState *mipsState, bool useIR);
 }

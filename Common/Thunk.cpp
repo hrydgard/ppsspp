@@ -43,7 +43,7 @@ void ThunkManager::Init()
 #endif
 
 	AllocCodeSpace(THUNK_ARENA_SIZE);
-	BeginWrite();
+	BeginWrite(512);
 	save_regs = GetCodePtr();
 #if PPSSPP_ARCH(AMD64)
 	for (int i = 2; i < ABI_GetNumXMMRegs(); i++)
@@ -151,7 +151,7 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params) 
 
 	_assert_msg_(region != nullptr, "Can't protect functions before the emu is started.");
 
-	BeginWrite();
+	BeginWrite(128);
 	const u8 *call_point = GetCodePtr();
 	Enter(this, true);
 

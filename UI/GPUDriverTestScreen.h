@@ -5,7 +5,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
-#include "Common/LogManager.h"
+#include "Common/Log.h"
 #include "UI/MiscScreens.h"
 #include "Common/GPU/thin3d.h"
 
@@ -15,13 +15,13 @@ public:
 	~GPUDriverTestScreen();
 
 	void CreateViews() override;
-	void render() override;
+	void DrawForeground(UIContext &dc) override;
 
 	const char *tag() const override { return "GPUDriverTest"; }
 
 private:
-	void DiscardTest();
-	void ShaderTest();
+	void DiscardTest(UIContext &dc);
+	void ShaderTest(UIContext &dc);
 
 	// Common objects
 	Draw::SamplerState *samplerNearest_ = nullptr;

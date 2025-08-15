@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <string>
+#include <string_view>
 
 #include "Common/Render/TextureAtlas.h"
 
@@ -87,12 +88,12 @@ struct PPGeImageStyle {
 };
 
 // Get the metrics of the bounding box of the text without changing the buffer or state.
-void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+void PPGeMeasureText(float *w, float *h, std::string_view text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
-void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style);
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, const PPGeStyle &style);
+void PPGeDrawText(std::string_view text, float x, float y, const PPGeStyle &style);
+void PPGeDrawTextWrapped(std::string_view text, float x, float y, float wrapWidth, float wrapHeight, const PPGeStyle &style);
 
 // Draws a "4-patch" for button-like things that can be resized.
 void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
@@ -113,7 +114,7 @@ bool PPGeIsFontTextureAddress(u32 addr);
 
 class PPGeImage {
 public:
-	PPGeImage(const std::string &pspFilename);
+	PPGeImage(std::string_view pspFilename);
 	PPGeImage(u32 pngPointer, size_t pngSize);
 	~PPGeImage();
 
@@ -145,14 +146,14 @@ private:
 	std::string filename_;
 
 	// Only valid if filename_.empty().
-	u32 png_;
-	size_t size_;
+	u32 png_ = 0;
+	size_t size_ = 0;
 
 	u32 texture_ = 0;
-	int width_;
-	int height_;
+	int width_ = 0;
+	int height_ = 0;
 
-	int lastFrame_;
+	int lastFrame_ = 0;
 	bool loadFailed_ = false;
 };
 

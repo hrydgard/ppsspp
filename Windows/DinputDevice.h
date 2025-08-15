@@ -18,24 +18,30 @@
 #pragma once
 
 #include <vector>
+#include <set>
 #include <InitGuid.h>
+#include <wrl/client.h>
 #define DIRECTINPUT_VERSION 0x0800
 #define DIRECTINPUT_RGBBUTTONS_MAX 128
 #include "InputDevice.h"
-#include "dinput.h"
+#include <dinput.h>
 
-class DinputDevice final :
-	public InputDevice
-{
+// TODO: This needs a major refactor into a DinputManager and individual devices inside.
+
+class DinputDevice {
 public:
 	//instantiates device number devnum as explored by the first call to
 	//getDevices(), enumerates all devices if not done yet
 	DinputDevice(int devnum);
 	~DinputDevice();
-	virtual int UpdateState() override;
+	int UpdateState();
 	static size_t getNumPads();
 	static void CheckDevices() {
 		needsCheck_ = true;
+	}
+
+	static void SetDevicesToIgnore(std::set<u32> &&ignoreDevices) {
+		ignoreDevices_ = std::move(ignoreDevices);
 	}
 
 private:
@@ -48,24 +54,33 @@ private:
 	//also, it excludes the devices that are compatible with XInput
 	static void getDevices(bool refresh);
 	//callback for the WinAPI to call
-	static BOOL CALLBACK DevicesCallback(
-	                LPCDIDEVICEINSTANCE lpddi,
-	                LPVOID pvRef
-	            );
-	static unsigned int     pInstances;
+	static BOOL CALLBACK DevicesCallback(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef);
+
+	static unsigned int pInstances;
 	static std::vector<DIDEVICEINSTANCE> devices;
-	static LPDIRECTINPUT8   pDI;
+	static Microsoft::WRL::ComPtr<IDirectInput8>   pDI;
 	static bool needsCheck_;
+	static std::set<u32> ignoreDevices_;
 	int                     pDevNum;
-	LPDIRECTINPUTDEVICE8    pJoystick;
+	Microsoft::WRL::ComPtr<IDirectInputDevice8>    pJoystick;
 	DIJOYSTATE2             pPrevState;
 	bool                    analog;
-	BYTE                    lastButtons_[128];
-	WORD                    lastPOV_[4];
+	BYTE                    lastButtons_[128]{};
+	WORD                    lastPOV_[4]{};
 	int                     last_lX_;
 	int                     last_lY_;
 	int                     last_lZ_;
 	int                     last_lRx_;
 	int                     last_lRy_;
 	int                     last_lRz_;
+};
+
+struct DInputMetaDevice : public InputDevice {
+public:
+	DInputMetaDevice();
+	int UpdateState() override;
+private:
+	std::vector<std::unique_ptr<DinputDevice>> devices_;
+	size_t numDinputDevices_ = 0;
+	int checkCounter_ = 0;
 };

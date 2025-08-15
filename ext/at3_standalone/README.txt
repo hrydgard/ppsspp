@@ -1,0 +1,1 @@
+This is the atrac3/atrac3+ decoders from ffmpeg, extracted to be standalone from ffmpeg.

@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="libchdr\src\libchdr_bitstream.c" />
+    <ClCompile Include="libchdr\src\libchdr_cdrom.c" />
+    <ClCompile Include="libchdr\src\libchdr_chd.c" />
+    <ClCompile Include="libchdr\src\libchdr_flac.c" />
+    <ClCompile Include="libchdr\src\libchdr_huffman.c" />
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Alloc.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Bra.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Bra86.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\BraIA64.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\CpuArch.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Delta.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzFind.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Lzma86Dec.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzmaDec.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\LzmaEnc.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-24.05\src\Sort.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="libchdr\include\dr_libs\dr_flac.h" />
+    <ClInclude Include="libchdr\include\libchdr\bitstream.h" />
+    <ClInclude Include="libchdr\include\libchdr\cdrom.h" />
+    <ClInclude Include="libchdr\include\libchdr\chd.h" />
+    <ClInclude Include="libchdr\include\libchdr\chdconfig.h" />
+    <ClInclude Include="libchdr\include\libchdr\flac.h" />
+    <ClInclude Include="libchdr\include\libchdr\huffman.h" />
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\7zTypes.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\7zWindows.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Alloc.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Bra.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Compiler.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\CpuArch.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Delta.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzFind.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzHash.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Lzma86.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzmaDec.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\LzmaEnc.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Precomp.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\RotateDefs.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+    <ClInclude Include="libchdr\deps\lzma-24.05\include\Sort.h">
+      <Filter>LZMA</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="LZMA">
+      <UniqueIdentifier>{ff31581b-3ff9-4e39-bb96-2f662896cf70}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -28,26 +28,30 @@
 #include "ppsspp_config.h"
 
 #include "Common/Common.h"
+#include "Common/Audio/AudioBackend.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
-#if !PPSSPP_PLATFORM(UWP)
-#include "Common/GPU/Vulkan/VulkanContext.h"
-#endif
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
+#include "Common/UI/IconCache.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
+#include "Common/GPU/ShaderWriter.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -55,21 +59,23 @@
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/CoreParameter.h"
+#include "Core/HLE/sceKernel.h"  // GPI/GPO
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/Debugger/Record.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
+#include "UI/EmuScreen.h"
 #include "UI/ControlMappingScreen.h"
-#include "UI/GameSettingsScreen.h"
-
+#include "UI/DeveloperToolsScreen.h"
+#include "UI/JitCompareScreen.h"
 
 #ifdef _WIN32
-#include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DCompilerVersion();
 #endif
@@ -85,47 +91,113 @@ static const char *logLevelList[] = {
 	"Verb."
 };
 
+static const char *g_debugOverlayList[] = {
+	"Off",
+	"Debug stats",
+	"Draw Frametimes Graph",
+	"Frame timing",
+#ifdef USE_PROFILER
+	"Frame profile",
+#endif
+	"Control Debug",
+	"Audio Debug",
+	"GPU Profile",
+	"GPU Allocator Viewer",
+	"Framebuffer List",
+};
+
+void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	int numOverlays = ARRAY_SIZE(g_debugOverlayList);
+	if (!(g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
+		numOverlays -= 2;  // skip the last 2.
+	}
+	items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, numOverlays, I18NCat::DEVELOPER, screenManager));
+}
+
+void SaveFrameDump() {
+	if (!gpuDebug) {
+		return;
+	}
+	gpuDebug->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
+		NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			System_ShowFileInFolder(dumpPath);
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, dumpPath.ToVisualString(), 7.0f);
+		}
+	});
+}
+
 void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto dev = GetI18NCategory("Developer");
-	auto sy = GetI18NCategory("System");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
-#if !defined(MOBILE_DEVICE)
-	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenuScreen::OnLogView);
-#endif
-	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenuScreen::OnLogConfig);
+	items->Add(new Choice(dev->T("Log View")))->OnClick.Add([this](UI::EventParams & e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new LogViewScreen());
+		return UI::EVENT_DONE;
+	});
+
+	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Add([this](UI::EventParams & e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new LogConfigScreen());
+		return UI::EVENT_DONE;
+	});
+
+	items->Add(new Choice(dev->T("Debugger")))->OnClick.Add([](UI::EventParams &e) {
+		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+		return UI::EVENT_DONE;
+	});
+
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
+
+	// Debug overlay
+	AddOverlayList(items, screenManager());
+
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		// TODO: Make a new allocator visualizer for VMA.
-		// items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("Allocator Viewer")));
-		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
-	}
-	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
-	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
-	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenuScreen::OnToggleAudioDebug);
-#ifdef USE_PROFILER
-	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
-#endif
-	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
+
+	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
+		if (PSP_CoreParameter().frozen) {
+			PSP_CoreParameter().frozen = false;
+		} else {
+			PSP_CoreParameter().freezeNext = true;
+		}
+		return UI::EVENT_DONE;
+	});
+
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+
+	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
+		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
+		return UI::EVENT_DONE;
+	});
+
+	if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
+		items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
+			SaveFrameDump();
+			return UI::EVENT_DONE;
+		});
+	}
+
+	// This one is not very useful these days, and only really on desktop. Hide it on other platforms.
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+		items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
+			gpu->DumpNextFrame();
+			return UI::EVENT_DONE;
+		});
+	}
 
 	scroll->Add(items);
 	parent->Add(scroll);
 
-	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
-	if (ring) {
-		ring->SetEnabled(true);
-	}
-}
-
-UI::EventReturn DevMenuScreen::OnToggleAudioDebug(UI::EventParams &e) {
-	g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
-	return UI::EVENT_DONE;
+	g_logManager.EnableOutput(LogOutput::RingBuffer);
 }
 
 UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
@@ -133,21 +205,9 @@ UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenuScreen::OnLogView(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new LogScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnLogConfig(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new LogConfigScreen());
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new DeveloperToolsScreen());
+	screenManager()->push(new DeveloperToolsScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -164,20 +224,6 @@ UI::EventReturn DevMenuScreen::OnShaderView(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenuScreen::OnFreezeFrame(UI::EventParams &e) {
-	if (PSP_CoreParameter().frozen) {
-		PSP_CoreParameter().frozen = false;
-	} else {
-		PSP_CoreParameter().freezeNext = true;
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnDumpFrame(UI::EventParams &e) {
-	gpu->DumpNextFrame();
-	return UI::EVENT_DONE;
-}
-
 void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	UpdateUIState(UISTATE_INGAME);
 	// Close when a subscreen got closed.
@@ -185,29 +231,41 @@ void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TriggerFinish(DR_OK);
 }
 
-void LogScreen::UpdateLog() {
+void GPIGPOScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	parent->Add(new CheckBox(&g_Config.bShowGPOLEDs, dev->T("Show GPO LEDs")));
+	for (int i = 0; i < 8; i++) {
+		std::string name = ApplySafeSubstitutions(dev->T("GPI switch %1"), i);
+		parent->Add(new BitCheckBox(&g_GPIBits, 1 << i, name));
+	}
+}
+
+void LogViewScreen::UpdateLog() {
+	using namespace UI;
+	const RingbufferLog *ring = g_logManager.GetRingbuffer();
 	if (!ring)
 		return;
 	vert_->Clear();
+
+	// TODO: Direct rendering without TextViews.
 	for (int i = ring->GetCount() - 1; i >= 0; i--) {
-		TextView *v = vert_->Add(new TextView(ring->TextAt(i), FLAG_DYNAMIC_ASCII, false));
+		TextView *v = vert_->Add(new TextView(StripSpaces(ring->TextAt(i)), FLAG_DYNAMIC_ASCII, true));
 		uint32_t color = 0xFFFFFF;
 		switch (ring->LevelAt(i)) {
-		case LogTypes::LDEBUG: color = 0xE0E0E0; break;
-		case LogTypes::LWARNING: color = 0x50FFFF; break;
-		case LogTypes::LERROR: color = 0x5050FF; break;
-		case LogTypes::LNOTICE: color = 0x30FF30; break;
-		case LogTypes::LINFO: color = 0xFFFFFF; break;
-		case LogTypes::LVERBOSE: color = 0xC0C0C0; break;
+		case LogLevel::LDEBUG: color = 0xE0E0E0; break;
+		case LogLevel::LWARNING: color = 0x50FFFF; break;
+		case LogLevel::LERROR: color = 0x5050FF; break;
+		case LogLevel::LNOTICE: color = 0x30FF30; break;
+		case LogLevel::LINFO: color = 0xFFFFFF; break;
+		case LogLevel::LVERBOSE: color = 0xC0C0C0; break;
 		}
 		v->SetTextColor(0xFF000000 | color);
 	}
 	toBottom_ = true;
 }
 
-void LogScreen::update() {
+void LogViewScreen::update() {
 	UIDialogScreenWithBackground::update();
 	if (toBottom_) {
 		toBottom_ = false;
@@ -215,9 +273,9 @@ void LogScreen::update() {
 	}
 }
 
-void LogScreen::CreateViews() {
+void LogViewScreen::CreateViews() {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	root_ = outer;
@@ -225,9 +283,6 @@ void LogScreen::CreateViews() {
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	bottom->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	cmdLine_ = bottom->Add(new TextEdit("", "Command", "Command Line", new LinearLayoutParams(1.0)));
-	cmdLine_->OnEnter.Handle(this, &LogScreen::OnSubmit);
-	bottom->Add(new Button(di->T("Submit")))->OnClick.Handle(this, &LogScreen::OnSubmit);
 
 	vert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	vert_->SetSpacing(0);
@@ -235,24 +290,11 @@ void LogScreen::CreateViews() {
 	UpdateLog();
 }
 
-UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
-	std::string cmd = cmdLine_->GetText();
-
-	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
-
-	NOTICE_LOG(SYSTEM, "Submitted: %s", cmd.c_str());
-
-	UpdateLog();
-	cmdLine_->SetText("");
-	cmdLine_->SetFocus();
-	return UI::EVENT_DONE;
-}
-
 void LogConfigScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -270,8 +312,6 @@ void LogConfigScreen::CreateViews() {
 
 	vert->Add(new ItemHeader(dev->T("Logging Channels")));
 
-	LogManager *logMan = LogManager::GetInstance();
-
 	int cellSize = 400;
 
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
@@ -279,38 +319,35 @@ void LogConfigScreen::CreateViews() {
 	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		LogChannel *chan = logMan->GetLogChannel(type);
+		Log type = (Log)i;
+		LogChannel *chan = g_logManager.GetLogChannel(type);
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
 		row->Add(new CheckBox(&chan->enabled, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
-		row->Add(new PopupMultiChoice((int *)&chan->level, chan->m_shortName, logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
+		row->Add(new PopupMultiChoice((int *)&chan->level, LogManager::GetLogTypeName(type), logLevelList, 1, 6, I18NCat::NONE, screenManager(), new LinearLayoutParams(1.0)));
 		grid->Add(row);
 	}
 }
 
 UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
-	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		LogChannel *chan = g_logManager.GetLogChannel((Log)i);
 		chan->enabled = !chan->enabled;
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
-	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		LogChannel *chan = g_logManager.GetLogChannel((Log)i);
 		chan->enabled = true;
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
-	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		LogChannel *chan = g_logManager.GetLogChannel((Log)i);
 		chan->enabled = false;
 	}
 	return UI::EVENT_DONE;
@@ -322,7 +359,7 @@ UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 }
 
 UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
-	auto dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
@@ -332,26 +369,27 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-LogLevelScreen::LogLevelScreen(const std::string &title) : ListPopupScreen(title) {
+LogLevelScreen::LogLevelScreen(std::string_view title) : ListPopupScreen(title) {
 	int NUMLOGLEVEL = 6;    
 	std::vector<std::string> list;
 	for (int i = 0; i < NUMLOGLEVEL; ++i) {
 		list.push_back(logLevelList[i]);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(list, -1);
+
+	// CreateViews takes care of, well, that.
 }
 
 void LogLevelScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
 	int selected = listView_->GetSelected();
-	LogManager *logMan = LogManager::GetInstance();
 	
 	for (int i = 0; i < LogManager::GetNumChannels(); ++i) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		LogChannel *chan = logMan->GetLogChannel(type);
+		Log type = (Log)i;
+		LogChannel *chan = g_logManager.GetLogChannel(type);
 		if (chan->enabled)
-			chan->level = (LogTypes::LOG_LEVELS)(selected + 1);
+			chan->level = (LogLevel)(selected + 1);
 	}
 }
 
@@ -392,8 +430,8 @@ static const JitDisableFlag jitDisableFlags[] = {
 void JitDebugScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -424,96 +462,135 @@ UI::EventReturn JitDebugScreen::OnDisableAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-const char *GetCompilerABI() {
-#if PPSSPP_ARCH(ARMV7)
-	return "armeabi-v7a";
-#elif PPSSPP_ARCH(ARM)
-	return "armeabi";
-#elif PPSSPP_ARCH(ARM64)
-	return "arm64";
-#elif PPSSPP_ARCH(X86)
-	return "x86";
-#elif PPSSPP_ARCH(AMD64)
-	return "x86-64";
-#elif PPSSPP_ARCH(RISCV64)
-    //https://github.com/riscv/riscv-toolchain-conventions#cc-preprocessor-definitions
-    //https://github.com/riscv/riscv-c-api-doc/blob/master/riscv-c-api.md#abi-related-preprocessor-definitions
-    #if defined(__riscv_float_abi_single)
-        return "lp64f";
-    #elif defined(__riscv_float_abi_double)
-        return "lp64d";
-    #elif defined(__riscv_float_abi_quad)
-        return "lp64q";
-    #elif defined(__riscv_float_abi_soft)
-        return "lp64";
-    #endif
-#else
-	return "other";
-#endif
+void SystemInfoScreen::update() {
+	TabbedUIDialogScreenWithGameBackground::update();
+	g_OSD.NudgeSidebar();
 }
 
-void SystemInfoScreen::CreateViews() {
+// TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?
+UI::EventReturn SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::DIALOG);
+
+	char *summary = new char[100000];
+	StringWriter w(summary, 100000);
+
+	std::string_view build = "Release";
+#ifdef _DEBUG
+	build = "Debug";
+#endif
+	w.W(PPSSPP_GIT_VERSION).C(" ").W(build).endl();
+	w.C("CPU: ").W(cpu_info.cpu_string).endl();
+	w.C("ABI: ").W(GetCompilerABI()).endl();
+	w.C("OS: ").W(System_GetProperty(SYSPROP_NAME)).C(" ").W(System_GetProperty(SYSPROP_SYSTEMBUILD)).endl();
+	w.C("Page Size: ").W(StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())).endl();
+	w.C("RW/RX exclusive: ").W(PlatformIsWXExclusive() ? "Yes" : "No").endl();
+
+	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
+	if (!board.empty())
+		w.C("Board: ").W(board).endl();
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	w.C("3D API: ").W(draw->GetInfoString(Draw::InfoField::APINAME)).endl();
+	w.C("API version: ").W(draw->GetInfoString(Draw::InfoField::APIVERSION)).endl();
+	w.C("Device API version: ").W(draw->GetInfoString(Draw::InfoField::DEVICE_API_VERSION)).endl();
+	w.C("Vendor: ").W(draw->GetInfoString(Draw::InfoField::VENDOR)).endl();
+	w.C("VendorString: ").W(draw->GetInfoString(Draw::InfoField::VENDORSTRING)).endl();
+	w.C("Driver: ").W(draw->GetInfoString(Draw::InfoField::DRIVER)).endl();
+	w.C("Depth buffer format: ").W(DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)).endl();
+	w.C("Refresh rate: ").W(StringFromFormat(si->T_cstr("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))).endl();
+
+	System_CopyStringToClipboard(summary);
+	delete[] summary;
+
+	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")));
+	return UI::EVENT_DONE;
+}
+
+void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;
 
-	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
-	auto di = GetI18NCategory("Dialog");
-	auto si = GetI18NCategory("SysInfo");
-	auto gr = GetI18NCategory("Graphics");
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
+	AddTab("Device Info", si->T("Device Info"), [this](UI::LinearLayout *parent) {
+		CreateDeviceInfoTab(parent);
+	});
+	AddTab("Storage", si->T("Storage"), [this](UI::LinearLayout *parent) {
+		CreateStorageTab(parent);
+	});
+	AddTab("DevSystemInfoBuildConfig", si->T("Build Config"), [this](UI::LinearLayout *parent) {
+		CreateBuildConfigTab(parent);
+	});
+	AddTab("DevSystemInfoCPUExt", si->T("CPU Extensions"), [this](UI::LinearLayout *parent) {
+		CreateCPUExtensionsTab(parent);
+	});
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		AddTab("DevSystemInfoOGLExt", si->T("OGL Extensions"), [this](UI::LinearLayout *parent) {
+			CreateOpenGLExtsTab(parent);
+		});
+	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
+		AddTab("DevSystemInfoVulkanExt", si->T("Vulkan Extensions"), [this](UI::LinearLayout *parent) {
+			CreateVulkanExtsTab(parent);
+		});
+	}
+	AddTab("DevSystemInfoDriverBugs", si->T("Driver bugs"), [this](UI::LinearLayout *parent) {
+		CreateDriverBugsTab(parent);
+	});
+	AddTab("DevSystemInfoInternals", si->T("Internals"), [this](UI::LinearLayout *parent) {
+		CreateInternalsTab(parent);
+	});
+}
 
-	AddStandardBack(root_);
+void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
+	using namespace Draw;
+	using namespace UI;
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
-	tabHolder->SetTag("DevSystemInfo");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	root_->Add(tabHolder);
-	ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	deviceSpecsScroll->SetTag("DevSystemInfoDeviceSpecs");
-	LinearLayout *deviceSpecs = new LinearLayoutList(ORIENT_VERTICAL);
-	deviceSpecs->SetSpacing(0);
-	deviceSpecsScroll->Add(deviceSpecs);
-	tabHolder->AddTab(si->T("Device Info"), deviceSpecsScroll);
+	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
 
-	deviceSpecs->Add(new ItemHeader(si->T("System Information")));
-	deviceSpecs->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
+	systemInfo->Add(new Choice(si->T("Copy summary to clipboard")))->OnClick.Handle(this, &SystemInfoScreen::CopySummaryToClipboard);
+	systemInfo->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
-	deviceSpecs->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
-#endif
-	deviceSpecs->Add(new InfoItem(si->T("Lang/Region"), System_GetProperty(SYSPROP_LANGREGION)));
-	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
-	if (!board.empty())
-		deviceSpecs->Add(new InfoItem(si->T("Board"), board));
-	deviceSpecs->Add(new InfoItem(si->T("ABI"), GetCompilerABI()));
-#ifdef _WIN32
-	if (IsDebuggerPresent()) {
-		deviceSpecs->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
+	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
+#elif PPSSPP_PLATFORM(WINDOWS)
+	std::string sysVersion = System_GetProperty(SYSPROP_SYSTEMBUILD);
+	if (!sysVersion.empty()) {
+		systemInfo->Add(new InfoItem(si->T("OS Build"), sysVersion));
 	}
 #endif
+	systemInfo->Add(new InfoItem(si->T("Lang/Region"), System_GetProperty(SYSPROP_LANGREGION)));
+	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
+	if (!board.empty())
+		systemInfo->Add(new InfoItem(si->T("Board"), board));
+	systemInfo->Add(new InfoItem(si->T("ABI"), GetCompilerABI()));
+	if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
+		systemInfo->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
+	}
 
-	deviceSpecs->Add(new ItemHeader(si->T("CPU Information")));
+	UI::CollapsibleSection *cpuInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
 	if (strcmp(cpu_info.brand_string, "Unknown") != 0) {
-		deviceSpecs->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
+		cpuInfo->Add(new InfoItem(si->T("CPU Name", "Name"), cpu_info.brand_string));
 	}
 
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
-	std::string cores = StringFromFormat(si->T("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
-	deviceSpecs->Add(new InfoItem(si->T("Threads"), cores));
+	std::string cores = StringFromFormat(si->T_cstr("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
+	cpuInfo->Add(new InfoItem(si->T("Threads"), cores));
 #if PPSSPP_PLATFORM(IOS)
-	deviceSpecs->Add(new InfoItem(si->T("JIT available"), System_GetPropertyBool(SYSPROP_CAN_JIT) ? di->T("Yes") : di->T("No")));
+	cpuInfo->Add(new InfoItem(si->T("JIT available"), System_GetPropertyBool(SYSPROP_CAN_JIT) ? di->T("Yes") : di->T("No")));
 #endif
-	deviceSpecs->Add(new ItemHeader(si->T("GPU Information")));
+
+	CollapsibleSection *gpuInfo = deviceSpecs->Add(new CollapsibleSection(si->T("GPU Information")));
 
 	DrawContext *draw = screenManager()->getDrawContext();
 
 	const std::string apiNameKey = draw->GetInfoString(InfoField::APINAME);
-	const char *apiName = gr->T(apiNameKey);
-	deviceSpecs->Add(new InfoItem(si->T("3D API"), apiName));
+	std::string_view apiName = gr->T(apiNameKey);
+	gpuInfo->Add(new InfoItem(si->T("3D API"), apiName));
 
 	// TODO: Not really vendor, on most APIs it's a device name (GL calls it vendor though).
 	std::string vendorString;
@@ -522,78 +599,123 @@ void SystemInfoScreen::CreateViews() {
 	} else {
 		vendorString = draw->GetInfoString(InfoField::VENDORSTRING);
 	}
-	deviceSpecs->Add(new InfoItem(si->T("Vendor"), vendorString));
+	gpuInfo->Add(new InfoItem(si->T("Vendor"), vendorString));
 	std::string vendor = draw->GetInfoString(InfoField::VENDOR);
 	if (vendor.size())
-		deviceSpecs->Add(new InfoItem(si->T("Vendor (detected)"), vendor));
-	deviceSpecs->Add(new InfoItem(si->T("Driver Version"), draw->GetInfoString(InfoField::DRIVER)));
+		gpuInfo->Add(new InfoItem(si->T("Vendor (detected)"), vendor));
+	gpuInfo->Add(new InfoItem(si->T("Driver Version"), draw->GetInfoString(InfoField::DRIVER)));
 #ifdef _WIN32
-	if (GetGPUBackend() != GPUBackend::VULKAN)
-		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
-#if !PPSSPP_PLATFORM(UWP)
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		deviceSpecs->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
+	if (GetGPUBackend() != GPUBackend::VULKAN) {
+		gpuInfo->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 	}
 #endif
-#endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
+		gpuInfo->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 		int highp_int_min = gl_extensions.range[1][5][0];
 		int highp_int_max = gl_extensions.range[1][5][1];
 		int highp_float_min = gl_extensions.range[1][2][0];
 		int highp_float_max = gl_extensions.range[1][2][1];
 		if (highp_int_max != 0) {
-			char temp[512];
-			snprintf(temp, sizeof(temp), "Highp int range: %d-%d", highp_int_min, highp_int_max);
-			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), temp));
+			char temp[128];
+			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
+			gpuInfo->Add(new InfoItem(si->T("High precision int range"), temp));
 		}
 		if (highp_float_max != 0) {
-			char temp[512];
-			snprintf(temp, sizeof(temp), "Highp float range: %d-%d", highp_int_min, highp_int_max);
-			deviceSpecs->Add(new InfoItem(si->T("High precision float range"), temp));
+			char temp[128];
+			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
+			gpuInfo->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
-	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
-	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
-	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
+	gpuInfo->Add(new InfoItem(si->T("Depth buffer format"), DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)));
+
+	std::string texCompressionFormats;
+	// Simple non-detailed summary of supported tex compression formats.
+	if (draw->GetDataFormatSupport(Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK)) texCompressionFormats += "ETC2 ";
+	if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) texCompressionFormats += "ASTC ";
+	if (draw->GetDataFormatSupport(Draw::DataFormat::BC1_RGBA_UNORM_BLOCK)) texCompressionFormats += "BC1-3 ";
+	if (draw->GetDataFormatSupport(Draw::DataFormat::BC4_UNORM_BLOCK)) texCompressionFormats += "BC4-5 ";
+	if (draw->GetDataFormatSupport(Draw::DataFormat::BC7_UNORM_BLOCK)) texCompressionFormats += "BC7 ";
+	gpuInfo->Add(new InfoItem(si->T("Compressed texture formats"), texCompressionFormats));
+
+	CollapsibleSection *osInformation = deviceSpecs->Add(new CollapsibleSection(si->T("OS Information")));
+	osInformation->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())));
+	osInformation->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #if PPSSPP_PLATFORM(ANDROID)
-	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
+	osInformation->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
 #endif
 
-	const char *build = si->T("Release");
+	std::string_view build = si->T("Release");
 #ifdef _DEBUG
 	build = si->T("Debug");
 #endif
-	deviceSpecs->Add(new InfoItem(si->T("PPSSPP build"), build));
+	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
 
-	deviceSpecs->Add(new ItemHeader(si->T("Audio Information")));
-	deviceSpecs->Add(new InfoItem(si->T("Sample rate"), StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	CollapsibleSection *audioInformation = deviceSpecs->Add(new CollapsibleSection(si->T("Audio Information")));
+	extern AudioBackend *g_audioBackend;
+	if (g_audioBackend) {
+		char fmtStr[256];
+		g_audioBackend->DescribeOutputFormat(fmtStr, sizeof(fmtStr));
+		audioInformation->Add(new InfoItem(si->T("Stream format"), fmtStr));
+	} else {
+		audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	}
 	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
 	if (framesPerBuffer > 0) {
-		deviceSpecs->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
+		audioInformation->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
 	}
 #if PPSSPP_PLATFORM(ANDROID)
-	deviceSpecs->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
-	deviceSpecs->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
+	audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
+	audioInformation->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
 #endif
 
-	deviceSpecs->Add(new ItemHeader(si->T("Display Information")));
-#if PPSSPP_PLATFORM(ANDROID)
-	deviceSpecs->Add(new InfoItem(si->T("Native Resolution"), StringFromFormat("%dx%d",
+	CollapsibleSection *displayInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Display Information")));
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
+	displayInfo->Add(new InfoItem(si->T("Native resolution"), StringFromFormat("%dx%d",
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
-	deviceSpecs->Add(new InfoItem(si->T("UI Resolution"), StringFromFormat("%dx%d (dpi: %0.2f)",
-		dp_xres,
-		dp_yres,
-		g_dpi)));
 #endif
 
-#if !PPSSPP_PLATFORM(WINDOWS)
+	char uiResStr[64];
+	const int sysDPI = System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+	if (sysDPI > 0) {
+		snprintf(uiResStr, sizeof(uiResStr), "%dx%d (%s: %d)",
+			g_display.dp_xres,
+			g_display.dp_yres,
+			si->T_cstr("DPI"),
+			sysDPI);
+	} else {
+		snprintf(uiResStr, sizeof(uiResStr), "%dx%d",
+			g_display.dp_xres,
+			g_display.dp_yres);
+	}
+	displayInfo->Add(new InfoItem(si->T("UI resolution"), uiResStr));
+	displayInfo->Add(new InfoItem(si->T("Pixel resolution"), StringFromFormat("%dx%d",
+		g_display.pixel_xres,
+		g_display.pixel_yres)));
+
+	const float insets[4] = {
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT),
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP),
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT),
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM),
+	};
+	if (insets[0] != 0.0f || insets[1] != 0.0f || insets[2] != 0.0f || insets[3] != 0.0f) {
+		displayInfo->Add(new InfoItem(si->T("Screen notch insets"), StringFromFormat("%0.1f %0.1f %0.1f %0.1f", insets[0], insets[1], insets[2], insets[3])));
+	}
+
 	// Don't show on Windows, since it's always treated as 60 there.
-	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
-#endif
+	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T_cstr("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
+	std::string presentModes;
+	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) presentModes += "FIFO, ";
+	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) presentModes += "IMMEDIATE, ";
+	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) presentModes += "MAILBOX, ";
+	if (!presentModes.empty()) {
+		presentModes.pop_back();
+		presentModes.pop_back();
+	}
+	displayInfo->Add(new InfoItem(si->T("Present modes"), presentModes));
 
-	deviceSpecs->Add(new ItemHeader(si->T("Version Information")));
+	CollapsibleSection *versionInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Version Information")));
 	std::string apiVersion;
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		if (gl_extensions.IsGLES) {
@@ -601,28 +723,46 @@ void SystemInfoScreen::CreateViews() {
 		} else {
 			apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
 		}
+		versionInfo->Add(new InfoItem(si->T("API Version"), apiVersion));
 	} else {
 		apiVersion = draw->GetInfoString(InfoField::APIVERSION);
 		if (apiVersion.size() > 30)
 			apiVersion.resize(30);
+		versionInfo->Add(new InfoItem(si->T("API Version"), apiVersion));
+
+		if (GetGPUBackend() == GPUBackend::VULKAN) {
+			std::string deviceApiVersion = draw->GetInfoString(InfoField::DEVICE_API_VERSION);
+			versionInfo->Add(new InfoItem(si->T("Device API version"), deviceApiVersion));
+		}
 	}
-	deviceSpecs->Add(new InfoItem(si->T("API Version"), apiVersion));
-	deviceSpecs->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
+	versionInfo->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
 	if (moga.empty()) {
 		moga = si->T("(none detected)");
 	}
-	deviceSpecs->Add(new InfoItem("Moga", moga));
+	versionInfo->Add(new InfoItem("Moga", moga));
 #endif
 
-	ViewGroup *storageScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	storageScroll->SetTag("DevSystemInfoBuildConfig");
-	LinearLayout *storage = new LinearLayout(ORIENT_VERTICAL);
-	storage->SetSpacing(0);
-	storageScroll->Add(storage);
-	tabHolder->AddTab(si->T("Storage"), storageScroll);
+	if (gstate_c.GetUseFlags()) {
+		// We're in-game, and can determine these.
+		// TODO: Call a static version of GPUCommon::CheckGPUFeatures() and derive them here directly.
+
+		CollapsibleSection *gpuFlags = deviceSpecs->Add(new CollapsibleSection(si->T("GPU Flags")));
+
+		for (int i = 0; i < 32; i++) {
+			if (gstate_c.Use((1 << i))) {
+				gpuFlags->Add(new TextView(GpuUseFlagToString(i), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			}
+		}
+	}
+}
+
+void SystemInfoScreen::CreateStorageTab(UI::LinearLayout *storage) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
@@ -632,25 +772,25 @@ void SystemInfoScreen::CreateViews() {
 	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
 
 #if PPSSPP_PLATFORM(ANDROID)
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
 	bool scoped = System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
-	storage->Add(new InfoItem("Scoped Storage Enabled", scoped ? di->T("Yes") : di->T("No")));
+	storage->Add(new InfoItem("Scoped Storage", scoped ? di->T("Yes") : di->T("No")));
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
 		// This flag is only relevant on Android API 30+.
 		storage->Add(new InfoItem("IsStoragePreservedLegacy", Android_IsExternalStoragePreservedLegacy() ? di->T("Yes") : di->T("No")));
 	}
 #endif
+}
 
-	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	buildConfigScroll->SetTag("DevSystemInfoBuildConfig");
-	LinearLayout *buildConfig = new LinearLayoutList(ORIENT_VERTICAL);
-	buildConfig->SetSpacing(0);
-	buildConfigScroll->Add(buildConfig);
-	tabHolder->AddTab(si->T("Build Config"), buildConfigScroll);
+void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
-#ifdef JENKINS
-	buildConfig->Add(new InfoItem(si->T("Built by"), "Jenkins"));
+#ifdef ANDROID_LEGACY
+	buildConfig->Add(new InfoItem("ANDROID_LEGACY", ""));
 #endif
 #ifdef _DEBUG
 	buildConfig->Add(new InfoItem("_DEBUG", ""));
@@ -678,31 +818,28 @@ void SystemInfoScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
+}
 
-	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
-	LinearLayout *cpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-	cpuExtensions->SetSpacing(0);
-	cpuExtensionsScroll->Add(cpuExtensions);
+void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
+	using namespace UI;
 
-	tabHolder->AddTab(si->T("CPU Extensions"), cpuExtensionsScroll);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	cpuExtensions->Add(new ItemHeader(si->T("CPU Extensions")));
-	std::vector<std::string> exts;
-	SplitString(cpu_info.Summarize(), ',', exts);
-	for (size_t i = 2; i < exts.size(); i++) {
-		cpuExtensions->Add(new TextView(exts[i], new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	std::vector<std::string> exts = cpu_info.Features();
+	for (std::string &ext : exts) {
+		cpuExtensions->Add(new TextView(ext, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
+}
 
-	ViewGroup *driverBugsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	driverBugsScroll->SetTag("DevSystemInfoDriverBugs");
-	LinearLayout *driverBugs = new LinearLayoutList(ORIENT_VERTICAL);
-	driverBugs->SetSpacing(0);
-	driverBugsScroll->Add(driverBugs);
+void SystemInfoScreen::CreateDriverBugsTab(UI::LinearLayout *driverBugs) {
+	using namespace UI;
+	using namespace Draw;
 
-	tabHolder->AddTab(si->T("Driver bugs"), driverBugsScroll);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	bool anyDriverBugs = false;
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
 		if (draw->GetBugs().Has(i)) {
 			anyDriverBugs = true;
@@ -713,431 +850,204 @@ void SystemInfoScreen::CreateViews() {
 	if (!anyDriverBugs) {
 		driverBugs->Add(new TextView(si->T("No GPU driver bugs detected"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
+}
 
-	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	gpuExtensionsScroll->SetTag("DevSystemInfoOGLExt");
-	LinearLayout *gpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-	gpuExtensions->SetSpacing(0);
-	gpuExtensionsScroll->Add(gpuExtensions);
+void SystemInfoScreen::CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions) {
+	using namespace UI;
 
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		tabHolder->AddTab(si->T("OGL Extensions"), gpuExtensionsScroll);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-		if (!gl_extensions.IsGLES) {
-			gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
-		} else if (gl_extensions.GLES3) {
-			gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 3.0 Extensions")));
-		} else {
-			gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 2.0 Extensions")));
-		}
-		exts.clear();
-		SplitString(g_all_gl_extensions, ' ', exts);
-		std::sort(exts.begin(), exts.end());
-		for (auto &extension : exts) {
-			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
+	if (!gl_extensions.IsGLES) {
+		gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
+	} else if (gl_extensions.GLES3) {
+		gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 3.0 Extensions")));
+	} else {
+		gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 2.0 Extensions")));
+	}
 
-		exts.clear();
-		SplitString(g_all_egl_extensions, ' ', exts);
-		std::sort(exts.begin(), exts.end());
+	std::vector<std::string> exts;
+	SplitString(g_all_gl_extensions, ' ', exts);
+	std::sort(exts.begin(), exts.end());
+	for (auto &extension : exts) {
+		gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
 
-		// If there aren't any EGL extensions, no need to show the tab.
-		if (exts.size() > 0) {
-			ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-			eglExtensionsScroll->SetTag("DevSystemInfoEGLExt");
-			LinearLayout *eglExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-			eglExtensions->SetSpacing(0);
-			eglExtensionsScroll->Add(eglExtensions);
+	exts.clear();
+	SplitString(g_all_egl_extensions, ' ', exts);
+	std::sort(exts.begin(), exts.end());
 
-			tabHolder->AddTab(si->T("EGL Extensions"), eglExtensionsScroll);
+	// If there aren't any EGL extensions, no need to show the tab.
+	gpuExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
+	for (auto &extension : exts) {
+		gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+}
 
-			eglExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
+void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
+	using namespace UI;
 
-			for (auto &extension : exts) {
-				eglExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
+	std::vector<std::string> features = draw->GetFeatureList();
+	for (const auto &feature : features) {
+		vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
+	for (const auto &mode : draw->GetPresentModeList(di->T("Current"))) {
+		presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
+	for (const auto &format : draw->GetSurfaceFormatList()) {
+		colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
+	std::vector<std::string> extensions = draw->GetExtensionList(true, true);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+	// Also get instance extensions
+	enabledExtensions->Add(new ItemHeader(si->T("Instance")));
+	extensions = draw->GetExtensionList(false, true);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
+	extensions = draw->GetExtensionList(true, false);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
+	// Also get instance extensions
+	extensions = draw->GetExtensionList(false, false);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+}
+
+void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	internals->Add(new ItemHeader(si->T("Icon cache")));
+	IconCacheStats iconStats = g_iconCache.GetStats();
+	internals->Add(new InfoItem(si->T("Image data count"), StringFromFormat("%d", iconStats.cachedCount)));
+	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", iconStats.textureCount)));
+	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(iconStats.dataSize)));
+	internals->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
+		g_iconCache.ClearData();
+		RecreateViews();
+		return UI::EVENT_DONE;
+	});
+
+	internals->Add(new ItemHeader(si->T("Font cache")));
+	const TextDrawer *text = screenManager()->getUIContext()->Text();
+	if (text) {
+		internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+		internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	}
+
+	internals->Add(new ItemHeader(si->T("Slider test")));
+	internals->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	internals->Add(new ItemHeader(si->T("Notification tests")));
+	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
+		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
+		return UI::EVENT_DONE;
+	});
+	// This one is clickable
+	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success", 0.0f, "clickable");
+		g_OSD.SetClickCallback("clickable", [](bool clicked, void *) {
+			if (clicked) {
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
 			}
-		}
-	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
-		tabHolder->AddTab(si->T("Vulkan Features"), gpuExtensionsScroll);
+		}, nullptr);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "RetroAchievements warning", "", "I_RETROACHIEVEMENTS_LOGO");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new ItemHeader(si->T("Progress tests")));
+	internals->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30, 0.0f);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100, 1.0f);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0, 0.0f);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress", true, 0.5f);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Failure")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress", false, 0.5f);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new ItemHeader(si->T("Achievement tests")));
+	internals->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "My leaderboard tracker", true);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
+		return UI::EVENT_DONE;
+	});
 
-		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));
-		std::vector<std::string> features = draw->GetFeatureList();
-		for (auto &feature : features) {
-			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-		
-#if !PPSSPP_PLATFORM(UWP)
+	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
 
-		// Vulkan specific code here, can't be bothered to abstract.
-		// OK because of above check.
-		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
-		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
-		if (vk) {
-			for (auto &format : vk->SurfaceFormats()) {
-				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
-				gpuExtensions->Add(new TextView(line,
-					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-			}
-		}
+	internals->Add(new ItemHeader(ac->T("Notifications")));
+	internals->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+
+#ifdef _DEBUG
+	// Untranslated string because this is debug mode only, only for PPSSPP developers.
+	internals->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
+		_dbg_assert_msg_(false, "Test assert message");
+		return UI::EVENT_DONE;
+	});
 #endif
-
-		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
-		std::vector<std::string> extensions = draw->GetExtensionList();
-		for (auto &extension : extensions) {
-			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-	}
-}
-
-void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
-	using namespace UI;
-
-	auto dev = GetI18NCategory("Developer");
-
-	addrView_ = new TextView(dev->T("Enter address"), ALIGN_HCENTER, false);
-	parent->Add(addrView_);
-
-	ViewGroup *grid = new GridLayout(GridLayoutSettings(60, 40));
-	parent->Add(grid);
-
-	for (int i = 0; i < 16; ++i) {
-		char temp[16];
-		snprintf(temp, 16, " %X ", i);
-		buttons_[i] = new Button(temp);
-		grid->Add(buttons_[i])->OnClick.Handle(this, &AddressPromptScreen::OnDigitButton);
-	}
-
-	parent->Add(new Button(dev->T("Backspace")))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
-}
-
-void AddressPromptScreen::OnCompleted(DialogResult result) {
-	if (result == DR_OK) {
-		UI::EventParams e{};
-		e.v = root_;
-		e.a = addr_;
-		OnChoice.Trigger(e);
-	}
-}
-
-UI::EventReturn AddressPromptScreen::OnDigitButton(UI::EventParams &e) {
-	for (int i = 0; i < 16; ++i) {
-		if (buttons_[i] == e.v) {
-			AddDigit(i);
-		}
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn AddressPromptScreen::OnBackspace(UI::EventParams &e) {
-	BackspaceDigit();
-	return UI::EVENT_DONE;
-}
-
-void AddressPromptScreen::AddDigit(int n) {
-	if ((addr_ & 0xF0000000) == 0) {
-		addr_ = addr_ * 16 + n;
-	}
-	UpdatePreviewDigits();
-}
-
-void AddressPromptScreen::BackspaceDigit() {
-	addr_ /= 16;
-	UpdatePreviewDigits();
-}
-
-void AddressPromptScreen::UpdatePreviewDigits() {
-	auto dev = GetI18NCategory("Developer");
-
-	if (addr_ != 0) {
-		char temp[32];
-		snprintf(temp, 32, "%8X", addr_);
-		addrView_->SetText(temp);
-	} else {
-		addrView_->SetText(dev->T("Enter address"));
-	}
-}
-
-bool AddressPromptScreen::key(const KeyInput &key) {
-	if (key.flags & KEY_DOWN) {
-		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
-			AddDigit(key.keyCode - NKCODE_0);
-		} else if (key.keyCode >= NKCODE_A && key.keyCode <= NKCODE_F) {
-			AddDigit(10 + key.keyCode - NKCODE_A);
-		// NKCODE_DEL is backspace.
-		} else if (key.keyCode == NKCODE_DEL) {
-			BackspaceDigit();
-		} else if (key.keyCode == NKCODE_ENTER) {
-			TriggerFinish(DR_OK);
-		} else {
-			return UIDialogScreen::key(key);
-		}
-	} else {
-		return UIDialogScreen::key(key);
-	}
-	return true;
-}
-
-// Three panes: Block chooser, MIPS view, ARM/x86 view
-void JitCompareScreen::CreateViews() {
-	auto di = GetI18NCategory("Dialog");
-	auto dev = GetI18NCategory("Developer");
-
-	using namespace UI;
-	
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-
-	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
-	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-	midColumn->SetTag("JitCompareLeftDisasm");
-	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
-	leftDisasm_->SetSpacing(0.0f);
-
-	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
-	rightColumnScroll->SetTag("JitCompareRightDisasm");
-	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
-	rightDisasm_->SetSpacing(0.0f);
-
-	leftColumn->Add(new Choice(dev->T("Current")))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
-	leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
-	leftColumn->Add(new Choice(dev->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
-	leftColumn->Add(new Choice(dev->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
-	leftColumn->Add(new Choice(dev->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
-	leftColumn->Add(new Choice(dev->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
-	leftColumn->Add(new Choice(dev->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
-	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	blockName_ = leftColumn->Add(new TextView(dev->T("No block")));
-	blockAddr_ = leftColumn->Add(new TextEdit("", dev->T("Block address"), "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
-	blockStats_ = leftColumn->Add(new TextView(""));
-
-	EventParams ignore{};
-	OnCurrentBlock(ignore);
-}
-
-void JitCompareScreen::UpdateDisasm() {
-	leftDisasm_->Clear();
-	rightDisasm_->Clear();
-
-	using namespace UI;
-
-	auto dev = GetI18NCategory("Developer");
-
-	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
-
-	char temp[256];
-	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCacheDebug->GetNumBlocks());
-	blockName_->SetText(temp);
-
-	if (currentBlock_ < 0 || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
-		leftDisasm_->Add(new TextView(dev->T("No block")));
-		rightDisasm_->Add(new TextView(dev->T("No block")));
-		blockStats_->SetText("");
-		return;
-	}
-
-	JitBlockDebugInfo debugInfo = blockCacheDebug->GetBlockDebugInfo(currentBlock_);
-
-	snprintf(temp, sizeof(temp), "%08x", debugInfo.originalAddress);
-	blockAddr_->SetText(temp);
-
-	// Alright. First generate the MIPS disassembly.
-	
-	// TODO: Need a way to communicate branch continuing.
-	for (auto line : debugInfo.origDisasm) {
-		leftDisasm_->Add(new TextView(line))->SetFocusable(true);
-	}
-
-	// TODO : When we have both target and IR, need a third column.
-	if (debugInfo.targetDisasm.size()) {
-		for (auto line : debugInfo.targetDisasm) {
-			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
-		}
-	} else {
-		for (auto line : debugInfo.irDisasm) {
-			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
-		}
-	}
-
-	int numMips = leftDisasm_->GetNumSubviews();
-	int numHost = rightDisasm_->GetNumSubviews();
-
-	snprintf(temp, sizeof(temp), "%d to %d : %d%%", numMips, numHost, 100 * numHost / numMips);
-	blockStats_->SetText(temp);
-}
-
-UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
+#if PPSSPP_PLATFORM(ANDROID)
+	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
+		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
 		return UI::EVENT_DONE;
-	}
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
-		return UI::EVENT_DONE;
-	u32 addr;
-	if (blockAddr_->GetText().size() > 8)
-		return UI::EVENT_DONE;
-	if (1 == sscanf(blockAddr_->GetText().c_str(), "%08x", &addr)) {
-		if (Memory::IsValidAddress(addr)) {
-			currentBlock_ = blockCache->GetBlockNumberFromStartAddress(addr);
-			UpdateDisasm();
-		}
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
-
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	BlockCacheStats bcStats;
-	blockCache->ComputeStats(bcStats);
-	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
-	NOTICE_LOG(JIT, "Average Bloat: %0.2f%%", 100 * bcStats.avgBloat);
-	NOTICE_LOG(JIT, "Min Bloat: %0.2f%%  (%08x)", 100 * bcStats.minBloat, bcStats.minBloatBlock);
-	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
-
-	int ctr = 0, sz = (int)bcStats.bloatMap.size();
-	for (auto iter : bcStats.bloatMap) {
-		if (ctr < 10 || ctr > sz - 10) {
-			NOTICE_LOG(JIT, "%08x: %f", iter.second, iter.first);
-		} else if (ctr == 10) {
-			NOTICE_LOG(JIT, "...");
-		}
-		ctr++;
-	}
-	return UI::EVENT_DONE;
-}
-
-
-UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
-	auto dev = GetI18NCategory("Developer");
-
-	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
-	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
-	screenManager()->push(addressPrompt);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnPrevBlock(UI::EventParams &e) {
-	currentBlock_--;
-	UpdateDisasm();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnNextBlock(UI::EventParams &e) {
-	currentBlock_++;
-	UpdateDisasm();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
-
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
-		return UI::EVENT_DONE;
-
-	if (Memory::IsValidAddress(e.a)) {
-		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
-	} else {
-		currentBlock_ = -1;
-	}
-	UpdateDisasm();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
-
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
-		return UI::EVENT_DONE;
-
-	int numBlocks = blockCache->GetNumBlocks();
-	if (numBlocks > 0) {
-		currentBlock_ = rand() % numBlocks;
-	}
-	UpdateDisasm();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_VFPU);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnRandomFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_FPU);
-	return UI::EVENT_DONE;
-}
-
-void JitCompareScreen::OnRandomBlock(int flag) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
-		return;
-	}
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
-		return;
-
-	int numBlocks = blockCache->GetNumBlocks();
-	if (numBlocks > 0) {
-		bool anyWanted = false;
-		int tries = 0;
-		while (!anyWanted && tries < numBlocks) {
-			currentBlock_ = rand() % numBlocks;
-			JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
-			u32 mipsBytes = (u32)b.origDisasm.size() * 4;
-			for (u32 addr = b.originalAddress; addr <= b.originalAddress + mipsBytes; addr += 4) {
-				MIPSOpcode opcode = Memory::Read_Instruction(addr);
-				if (MIPSGetInfo(opcode) & flag) {
-					char temp[256];
-					MIPSDisAsm(opcode, addr, temp);
-					// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
-					anyWanted = true;
-					break;
-				}
-			}
-			tries++;
-		}
-
-		if (!anyWanted)
-			currentBlock_ = -1;
-	}
-	UpdateDisasm();
-}
-
-UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
-	if (!blockCache)
-		return UI::EVENT_DONE;
-	std::vector<int> blockNum;
-	blockCache->GetBlockNumbersFromAddress(currentMIPS->pc, &blockNum);
-	if (blockNum.size() > 0) {
-		currentBlock_ = blockNum[0];
-	} else {
-		currentBlock_ = -1;
-	}
-	UpdateDisasm();
-	return UI::EVENT_DONE;
+	});
+#endif
 }
 
 int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *view) {
@@ -1147,6 +1057,7 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 	for (const auto &id : shaderIds_) {
 		Choice *choice = view->Add(new Choice(gpu->DebugGetShaderString(id, shaderType, SHADER_STRING_SHORT_DESC)));
 		choice->SetTag(id);
+		choice->SetDrawTextFlags(FLAG_DYNAMIC_ASCII);
 		choice->OnClick.Handle(this, &ShaderListScreen::OnShaderClick);
 		count++;
 	}
@@ -1166,12 +1077,12 @@ struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 void ShaderListScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
-	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, new LinearLayoutParams(1.0));
+	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, nullptr, new LinearLayoutParams(1.0));
 	tabs_->SetTag("DevShaderList");
 	layout->Add(tabs_);
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -1195,12 +1106,12 @@ UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
-	layout->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC)));
+	layout->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	scroll->SetTag("DevShaderView");
@@ -1213,12 +1124,22 @@ void ShaderViewScreen::CreateViews() {
 	std::vector<std::string> lines;
 	SplitString(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SOURCE_CODE), '\n', lines);
 
-	for (auto line : lines) {
-		lineLayout->Add(new TextView(line, FLAG_DYNAMIC_ASCII, true));
+	for (const auto &line : lines) {
+		lineLayout->Add(new TextView(line, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
 	}
 
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
+
+bool ShaderViewScreen::key(const KeyInput &ki) {
+	if (ki.flags & KEY_CHAR) {
+		if (ki.unicodeChar == 'C' || ki.unicodeChar == 'c') {
+			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
+		}
+	}
+	return UIDialogScreenWithBackground::key(ki);
+}
+
 
 const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
 
@@ -1234,10 +1155,10 @@ void FrameDumpTestScreen::CreateViews() {
 	using namespace UI;
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	TabHolder *tabHolder;
-	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	AddStandardBack(root_);
 	tabHolder->SetTag("DumpTypes");
@@ -1248,7 +1169,7 @@ void FrameDumpTestScreen::CreateViews() {
 	LinearLayout *dumps = new LinearLayoutList(ORIENT_VERTICAL);
 	dumps->SetSpacing(0);
 	dumpsScroll->Add(dumps);
-	tabHolder->AddTab("Dumps", dumps);
+	tabHolder->AddTab("Dumps", dumpsScroll);
 
 	dumps->Add(new ItemHeader("GE Frame Dumps"));
 
@@ -1261,12 +1182,12 @@ void FrameDumpTestScreen::CreateViews() {
 }
 
 UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
-	std::string url = params.v->Tag();
-	INFO_LOG(COMMON, "Trying to launch '%s'", url.c_str());
+	Path url = Path(params.v->Tag());
+	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
 	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
 	// except for some reason the game ID.
 	// TODO: Fix that since it can be important for compat settings.
-	LaunchFile(screenManager(), Path(url));
+	screenManager()->switchScreen(new EmuScreen(url));
 	return UI::EVENT_DONE;
 }
 
@@ -1275,7 +1196,7 @@ void FrameDumpTestScreen::update() {
 
 	if (!listing_) {
 		const char *acceptMime = "text/html, */*; q=0.8";
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), acceptMime);
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, acceptMime);
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {
@@ -1294,7 +1215,7 @@ void FrameDumpTestScreen::update() {
 					if (offset != std::string::npos) {
 						trimmed = trimmed.substr(0, offset);
 						if (endsWith(trimmed, ".ppdmp")) {
-							INFO_LOG(COMMON, "Found ppdmp: '%s'", trimmed.c_str());
+							INFO_LOG(Log::Common, "Found ppdmp: '%s'", trimmed.c_str());
 							files_.push_back(trimmed);
 						}
 					}
@@ -1306,4 +1227,216 @@ void FrameDumpTestScreen::update() {
 		}
 		RecreateViews();
 	}
+}
+
+void TouchTestScreen::touch(const TouchInput &touch) {
+	UIDialogScreenWithGameBackground::touch(touch);
+	if (touch.flags & TOUCH_DOWN) {
+		bool found = false;
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			if (touches_[i].id == touch.id) {
+				WARN_LOG(Log::System, "Double touch");
+				touches_[i].x = touch.x;
+				touches_[i].y = touch.y;
+				found = true;
+			}
+		}
+		if (!found) {
+			for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+				if (touches_[i].id == -1) {
+					touches_[i].id = touch.id;
+					touches_[i].x = touch.x;
+					touches_[i].y = touch.y;
+					break;
+				}
+			}
+		}
+	}
+	if (touch.flags & TOUCH_MOVE) {
+		bool found = false;
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			if (touches_[i].id == touch.id) {
+				touches_[i].x = touch.x;
+				touches_[i].y = touch.y;
+				found = true;
+			}
+		}
+		if (!found && touch.buttons) {
+			WARN_LOG(Log::System, "Move with buttons %d without touch down: %d", touch.buttons, touch.id);
+		}
+	}
+	if (touch.flags & TOUCH_UP) {
+		bool found = false;
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			if (touches_[i].id == touch.id) {
+				found = true;
+				touches_[i].id = -1;
+				break;
+			}
+		}
+		if (!found) {
+			WARN_LOG(Log::System, "Touch release without touch down");
+		}
+	}
+}
+
+// TODO: Move this screen out into its own file.
+void TouchTestScreen::CreateViews() {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+
+	// TODO: This one should use DYNAMIC_ASCII. Though doesn't matter much.
+	lastKeyEvents_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	root_->Add(theTwo);
+
+#if !PPSSPP_PLATFORM(UWP)
+	static const char *renderingBackend[] = { "OpenGL", "(n/a)", "Direct3D 11", "Vulkan" };
+	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
+	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
+
+	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
+		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
+	renderingBackendChoice->HideChoice(1);   // previously D3D9
+	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
+		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
+	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
+		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+	root_->Add(new Choice(gr->T("Recreate Activity")))->OnClick.Handle(this, &TouchTestScreen::OnRecreateActivity);
+#endif
+	root_->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &TouchTestScreen::OnImmersiveModeChange);
+	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
+void TouchTestScreen::UpdateLogView() {
+	while (keyEventLog_.size() > 8) {
+		keyEventLog_.erase(keyEventLog_.begin());
+	}
+
+	std::string text;
+	for (auto &iter : keyEventLog_) {
+		text += iter + "\n";
+	}
+
+	if (lastKeyEvents_) {
+		lastKeyEvents_->SetText(text);
+	}
+}
+
+bool TouchTestScreen::key(const KeyInput &key) {
+	UIScreen::key(key);
+	char buf[512];
+	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
+		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
+		(key.flags & KEY_UP) ? "UP" : "",
+		(key.flags & KEY_DOWN) ? "DOWN" : "",
+		(key.flags & KEY_CHAR) ? "CHAR" : "");
+	keyEventLog_.push_back(buf);
+	UpdateLogView();
+	return true;
+}
+
+void TouchTestScreen::axis(const AxisInput &axis) {
+	if (axis.deviceId == DEVICE_ID_MOUSE && (axis.axisId == JOYSTICK_AXIS_MOUSE_REL_X || axis.axisId == JOYSTICK_AXIS_MOUSE_REL_Y)) {
+		// These spam a lot, don't log for now.
+		return;
+	}
+
+	char buf[512];
+	snprintf(buf, sizeof(buf), "Axis: %s (%d) (value %1.3f) Device ID: %d",
+		KeyMap::GetAxisName(axis.axisId).c_str(), axis.axisId, axis.value, axis.deviceId);
+
+	keyEventLog_.push_back(buf);
+	if (keyEventLog_.size() > 8) {
+		keyEventLog_.erase(keyEventLog_.begin());
+	}
+	UpdateLogView();
+}
+
+void TouchTestScreen::DrawForeground(UIContext &dc) {
+	Bounds bounds = dc.GetLayoutBounds();
+
+	double now = dc.FrameStartTime();
+	double delta = now - lastFrameTime_;
+	lastFrameTime_ = now;
+
+	dc.BeginNoTex();
+	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+		if (touches_[i].id != -1) {
+			dc.Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
+		}
+	}
+	dc.Flush();
+
+	dc.Begin();
+
+	char buffer[4096];
+	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+		if (touches_[i].id != -1) {
+			dc.Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
+			snprintf(buffer, sizeof(buffer), "%0.1fx%0.1f", touches_[i].x, touches_[i].y);
+			dc.DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
+		}
+	}
+
+	char extra_debug[2048]{};
+
+#if PPSSPP_PLATFORM(ANDROID)
+	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
+#endif
+
+	snprintf(buffer, sizeof(buffer),
+		"display_res: %dx%d\n"
+		"dp_res: %dx%d pixel_res: %dx%d\n"
+		"dpi_scale: %0.3fx%0.3f\n"
+		"dpi_scale_real: %0.3fx%0.3f\n"
+		"delta: %0.2f ms fps: %0.3f\n%s",
+		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
+		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
+		g_display.dpi_scale_x, g_display.dpi_scale_y,
+		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y,
+		delta * 1000.0, 1.0 / delta,
+		extra_debug);
+
+	// On Android, also add joystick debug data.
+	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.Flush();
+}
+
+void RecreateActivity() {
+	const int SYSTEM_JELLYBEAN = 16;
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
+		INFO_LOG(Log::System, "Sending recreate");
+		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
+		INFO_LOG(Log::System, "Got back from recreate");
+	} else {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		System_Toast(gr->T_cstr("Must Restart", "You must restart PPSSPP for this change to take effect"));
+	}
+}
+
+UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
+	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
+	if (g_Config.iAndroidHwScale != 0) {
+		RecreateActivity();
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
+	g_Config.Save("GameSettingsScreen::RenderingBackend");
+	System_RestartApp("--touchscreentest");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
+	RecreateActivity();
+	return UI::EVENT_DONE;
 }

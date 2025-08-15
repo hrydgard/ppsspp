@@ -26,10 +26,8 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Font/PGF.h"
-#include "Core/HLE/HLE.h"
 
-#include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
+#include "GPU/GPUCommon.h"
 
 // These fonts, created by ttf2pgf, don't have complete glyph info and need to be identified.
 static bool isJPCSPFont(const char *fontName) {
@@ -82,9 +80,7 @@ PGF::PGF()
 }
 
 PGF::~PGF() {
-	if (fontData) {
-		delete [] fontData;
-	}
+	delete [] fontData;
 }
 
 struct GlyphFromPGF1State {
@@ -139,9 +135,7 @@ void PGF::DoState(PointerWrap &p) {
 	Do(p, fontDataSizeTemp);
 	fontDataSize = (size_t)fontDataSizeTemp;
 	if (p.mode == p.MODE_READ) {
-		if (fontData) {
-			delete [] fontData;
-		}
+		delete [] fontData;
 		if (fontDataSize) {
 			fontData = new u8[fontDataSize];
 			DoArray(p, fontData, (int)fontDataSize);
@@ -186,7 +180,7 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		return false;
 	}
 
-	DEBUG_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
+	DEBUG_LOG(Log::sceFont, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
 
@@ -570,13 +564,13 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	}
 
 	if (glyph.w <= 0 || glyph.h <= 0) {
-		DEBUG_LOG(SCEFONT, "Glyph with negative size, not rendering");
+		DEBUG_LOG(Log::sceFont, "Glyph with negative size, not rendering");
 		return;
 	}
 
 	if (((glyph.flags & FONT_PGF_BMP_OVERLAY) != FONT_PGF_BMP_H_ROWS) &&
 		((glyph.flags & FONT_PGF_BMP_OVERLAY) != FONT_PGF_BMP_V_ROWS)) {
-		ERROR_LOG_REPORT(SCEFONT, "Nonsense glyph bitmap direction flag");
+		ERROR_LOG_REPORT(Log::sceFont, "Nonsense glyph bitmap direction flag");
 		return;
 	}
 
@@ -680,7 +674,7 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 
 	static const u8 fontPixelSizeInBytes[] = { 0, 0, 1, 3, 4 }; // 0 means 2 pixels per byte
 	if (pixelformat < 0 || pixelformat > PSP_FONT_PIXELFORMAT_32) {
-		ERROR_LOG_REPORT_ONCE(pfgbadformat, SCEFONT, "Invalid image format in image: %d", (int)pixelformat);
+		ERROR_LOG_REPORT_ONCE(pfgbadformat, Log::sceFont, "Invalid image format in image: %d", (int)pixelformat);
 		return;
 	}
 	int pixelBytes = fontPixelSizeInBytes[pixelformat];

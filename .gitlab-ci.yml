@@ -38,12 +38,24 @@ include:
 
   # MacOS 64-bit
   - project: 'libretro-infrastructure/ci-templates'
-    file: '/osx-x64.yml'
+    file: '/osx-cmake-x86.yml'
+
+  # MacOS arm64
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/osx-cmake-arm64.yml'
     
   ################################## CELLULAR ################################
   # Android  
   - project: 'libretro-infrastructure/ci-templates'
     file: '/android-cmake.yml'
+
+  # iOS
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/ios-cmake.yml'
+
+  # tvOS
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/tvos-cmake.yml'
 
   ################################## CONSOLES ################################
   
@@ -89,12 +101,19 @@ libretro-build-linux-i686:
 
 # MacOS 64-bit
 libretro-build-osx-x64:
-  tags:
-    - macosx-packaging
+  variables:
+    CORE_ARGS: -DLIBRETRO=ON -DUSE_SYSTEM_LIBPNG=OFF
   extends:
-    - .libretro-osx-x64-make-default
+    - .libretro-osx-cmake-x86_64
     - .core-defs
-    - .make-defs
+    - .cmake-defs
+
+# MacOS 64-bit
+libretro-build-osx-arm64:
+  extends:
+    - .libretro-osx-cmake-arm64
+    - .core-defs
+    - .cmake-defs
 
 ################################### CELLULAR #################################
 # Android ARMv7a
@@ -120,3 +139,21 @@ libretro-build-android-x86:
   extends:
     - .libretro-android-cmake-x86
     - .core-defs
+
+# iOS arm64
+libretro-build-ios-arm64:
+  extends:
+    - .libretro-ios-cmake-arm64
+    - .core-defs
+    - .cmake-defs
+  variables:
+    CORE_ARGS: -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
+
+# tvOS arm64
+libretro-build-tvos-arm64:
+  extends:
+    - .libretro-tvos-cmake-arm64
+    - .core-defs
+    - .cmake-defs
+  variables:
+    CORE_ARGS: -DIOS_PLATFORM=TVOS -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON

@@ -24,12 +24,12 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/Display.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 
 // Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
 static std::mutex listenersLock;
@@ -63,8 +63,8 @@ static int fpsHistoryPos = 0;
 static int fpsHistoryValid = 0;
 
 // Frame time stats.
-static double frameTimeHistory[600];
-static double frameSleepHistory[600];
+static float frameTimeHistory[600];
+static float frameSleepHistory[600];
 static constexpr int frameTimeHistorySize = (int)ARRAY_SIZE(frameTimeHistory);
 static int frameTimeHistoryPos = 0;
 static int frameTimeHistoryValid = 0;
@@ -78,7 +78,7 @@ static void CalculateFPS() {
 		actualFps = (float)(actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
-		flips = (float)(60.0 * (double)(gpuStats.numFlips - lastNumFlips) / frames);
+		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.numFlips - lastNumFlips) / frames);
 
 		lastFpsFrame = numVBlanks;
 		lastNumFlips = gpuStats.numFlips;
@@ -92,22 +92,28 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
-		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+		frameTimeHistory[frameTimeHistoryPos++] = (float)(now - lastFrameTimeHistory);
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
 		if (frameTimeHistoryValid < frameTimeHistorySize) {
 			++frameTimeHistoryValid;
 		}
-		frameSleepHistory[frameTimeHistoryPos] = 0.0;
+		frameSleepHistory[frameTimeHistoryPos] = 0.0f;
 	}
 }
 
 // TODO: Also average actualFps
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
-	*out_vps = (float)fps;
-	*out_fps = flips;
-	*out_actual_fps = actualFps;
+	if (out_vps) {
+		*out_vps = (float)fps;
+	}
+	if (out_fps) {
+		*out_fps = flips;
+	}
+	if (out_actual_fps) {
+		*out_actual_fps = actualFps;
+	}
 }
 
 void __DisplayGetVPS(float *out_vps) {
@@ -163,7 +169,7 @@ void DisplayAdjustAccumulatedHcount(uint32_t diff) {
 	hCountBase += diff;
 }
 
-double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep) {
+float *__DisplayGetFrameTimes(int *out_valid, int *out_pos, float **out_sleep) {
 	*out_valid = frameTimeHistoryValid;
 	*out_pos = frameTimeHistoryPos;
 	*out_sleep = frameSleepHistory;
@@ -182,6 +188,10 @@ void DisplayNotifySleep(double t, int pos) {
 
 void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 	char statbuf[4096];
+	if (!gpu) {
+		snprintf(stats, bufsize, "N/A");
+		return;
+	}
 	gpu->GetStats(statbuf, sizeof(statbuf));
 
 	snprintf(stats, bufsize,
@@ -194,6 +204,17 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
 		kernelStats.summedSlowestSyscallTime * 1000.0f,
 		statbuf);
+}
+
+// On like 90hz, 144hz, etc, we return 60.0f as the framerate target. We only target other
+// framerates if they're close to 60.
+static float FramerateTarget() {
+	float target = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	if (target < 57.0 || target > 63.0f) {
+		return 60.0f;
+	} else {
+		return target;
+	}
 }
 
 bool DisplayIsRunningSlow() {
@@ -209,7 +230,7 @@ bool DisplayIsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.97;
+		return best < FramerateTarget() * 0.97;
 	}
 
 	return false;
@@ -228,12 +249,12 @@ void DisplayFireVblankStart() {
 }
 
 void DisplayFireVblankEnd() {
-	std::vector<VblankCallback> toCall = [] {
-		std::lock_guard<std::mutex> guard(listenersLock);
-		return vblankListeners;
-	}();
-
 	isVblank = 0;
+	std::vector<VblankCallback> toCall;
+	{
+		std::lock_guard<std::mutex> guard(listenersLock);
+		toCall = vblankListeners;
+	}
 
 	for (VblankCallback cb : toCall) {
 		cb();
@@ -287,7 +308,7 @@ int DisplayCalculateFrameSkip() {
 	return frameSkipNum;
 }
 
-void DisplayHWInit() {
+void DisplayHWReset() {
 	frameStartTicks = 0;
 	numVBlanks = 0;
 	isVblank = 0;
@@ -307,6 +328,8 @@ void DisplayHWInit() {
 	frameTimeHistoryPos = 0;
 	lastFrameTimeHistory = 0.0;
 }
+
+void DisplayHWInit() {}
 
 void DisplayHWShutdown() {
 	std::lock_guard<std::mutex> guard(listenersLock);

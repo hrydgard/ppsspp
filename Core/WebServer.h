@@ -15,12 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
+#include "Common/Common.h"
+
 enum class WebServerFlags {
+	NONE = 0,
 	DISCS = 1,
 	DEBUGGER = 2,
 
 	ALL =  1 | 2,
 };
+ENUM_CLASS_BITOPS(WebServerFlags);
 
 bool StartWebServer(WebServerFlags flags);
 bool StopWebServer(WebServerFlags flags);

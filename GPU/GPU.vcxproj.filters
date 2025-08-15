@@ -10,9 +10,6 @@
     <Filter Include="Common">
       <UniqueIdentifier>{21783292-4dd7-447b-af93-356cd2eaa4d6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="DirectX9">
-      <UniqueIdentifier>{88629970-4774-4122-b031-2128244b795c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Debugger">
       <UniqueIdentifier>{0cbddc00-4aa3-41d0-bed2-a454d37f838e}</UniqueIdentifier>
     </Filter>
@@ -33,7 +30,7 @@
     <ClInclude Include="GPUState.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="GPUInterface.h">
+    <ClInclude Include="GPUDefinitions.h">
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="GPUCommon.h">
@@ -59,18 +56,6 @@
     </ClInclude>
     <ClInclude Include="GLES\DrawEngineGLES.h">
       <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\GPU_DX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\DrawEngineDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\TextureCacheDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\ShaderManagerDX9.h">
-      <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Common\IndexGenerator.h">
       <Filter>Common</Filter>
@@ -225,9 +210,6 @@
     <ClInclude Include="Common\FramebufferManagerCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\FramebufferManagerDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="ge_constants.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -264,6 +246,24 @@
     <ClInclude Include="Common\GeometryShaderGenerator.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="GPUCommonHW.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ReplacedTexture.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\TextureReplacer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VertexDecoderHandwritten.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\State.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DepthRaster.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -295,21 +295,6 @@
     </ClCompile>
     <ClCompile Include="GLES\DrawEngineGLES.cpp">
       <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\GPU_DX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\DrawEngineDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\TextureCacheDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\StateMappingDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\ShaderManagerDX9.cpp">
-      <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Common\IndexGenerator.cpp">
       <Filter>Common</Filter>
@@ -461,9 +446,6 @@
     <ClCompile Include="Debugger\Debugger.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\DepthBufferGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="Debugger\Playback.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -475,9 +457,6 @@
     </ClCompile>
     <ClCompile Include="Common\FramebufferManagerCommon.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\FramebufferManagerDX9.cpp">
-      <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="GeConstants.cpp">
       <Filter>Common</Filter>
@@ -516,6 +495,36 @@
       <Filter>Debugger</Filter>
     </ClCompile>
     <ClCompile Include="Common\GeometryShaderGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DepthBufferCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\StencilBufferGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderRiscV.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GPUCommonHW.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ReplacedTexture.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TextureReplacer.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderHandwritten.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\State.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DepthRaster.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderLoongArch64.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

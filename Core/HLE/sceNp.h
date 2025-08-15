@@ -430,13 +430,14 @@ extern PSPTimeval npSigninTimestamp;
 // Used by sceNet.cpp since we're borrowing Apctl's PSPThread to process NP events & callbacks.
 // TODO: NP events should be processed on it's own PSPThread
 extern std::recursive_mutex npAuthEvtMtx;
-extern std::deque<NpAuthArgs> npAuthEvents;
-extern std::map<int, NpAuthHandler> npAuthHandlers;
 
 // Used by sceNp2.cpp
 extern SceNpCommunicationId npTitleId;
 
+void __NpInit();
+
 int NpGetNpId(SceNpId* npid);
+bool NpAuthProcessEvents();
 
 int sceNpAuthGetMemoryStat(u32 memStatAddr);
 int sceNpAuthCreateStartRequest(u32 paramAddr);

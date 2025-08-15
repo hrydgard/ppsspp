@@ -28,7 +28,7 @@ struct Header {
 	uint8_t pad[3];
 };
 
-static const char *HEADER_MAGIC = "PPSSPPGE";
+static const char * const HEADER_MAGIC = "PPSSPPGE";
 // Version 1: Uncompressed
 // Version 2: Uses snappy
 // Version 3: Adds FRAMEBUF0-FRAMEBUF9

@@ -19,7 +19,7 @@
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 
@@ -34,7 +34,7 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	int morphCount = (op & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT;
 	int idx = (op & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 
-	static const char *colorNames[] = {
+	static const char * const colorNames[] = {
 		NULL,
 		"unsupported1",
 		"unsupported2",
@@ -44,19 +44,19 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		"ABGR 4444",
 		"ABGR 8888",
 	};
-	static const char *typeNames[] = {
+	static const char * const typeNames[] = {
 		NULL,
 		"u8",
 		"u16",
 		"float",
 	};
-	static const char *typeNamesI[] = {
+	static const char * const typeNamesI[] = {
 		NULL,
 		"u8",
 		"u16",
 		"u32",
 	};
-	static const char *typeNamesS[] = {
+	static const char * const typeNamesS[] = {
 		NULL,
 		"s8",
 		"s16",
@@ -474,13 +474,13 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXMAPMODE:
 		{
-			static const char *uvgen[] = {
+			static const char * const uvgen[] = {
 				"texcoords",
 				"texgen matrix",
 				"env map",
 				"invalid"
 			};
-			static const char *uvproj[] = {
+			static const char * const uvproj[] = {
 				"pos",
 				"uv",
 				"normalized normal",
@@ -525,9 +525,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TRANSFERSRCW:
 		{
 			u32 xferSrc = (gstate.transfersrc & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
-			u32 xferSrcW = data & 0x3FF;
-			if (data & ~0xFF03FF)
-				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferSrcW, xferSrc, data & ~0xFF03FF);
+			u32 xferSrcW = (data & 0x400) != 0 ? 0x400 : (data & 0x3FF);
+			u32 validMask = (data & 0x400) != 0 ? 0xFF0400 : 0xFF03FF;
+			if (data & ~validMask)
+				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferSrcW, xferSrc, data & ~validMask);
 			else
 				snprintf(buffer, bufsize, "Block transfer src: high=%02x, w=%d (addr %08x)", data >> 16, xferSrcW, xferSrc);
 			break;
@@ -546,9 +547,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_TRANSFERDSTW:
 		{
 			u32 xferDst = (gstate.transferdst & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
-			u32 xferDstW = data & 0x3FF;
-			if (data & ~0xFF03FF)
-				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferDstW, xferDst, data & ~0xFF03FF);
+			u32 xferDstW = (data & 0x400) != 0 ? 0x400 : (data & 0x3FF);
+			u32 validMask = (data & 0x400) != 0 ? 0xFF0400 : 0xFF03FF;
+			if (data & ~validMask)
+				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x, extra %x)", data >> 16, xferDstW, xferDst, data & ~validMask);
 			else
 				snprintf(buffer, bufsize, "Block transfer dst: high=%02x, w=%d (addr %08x)", data >> 16, xferDstW, xferDst);
 			break;
@@ -1004,7 +1006,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXFUNC:
 		{
-			const char *texfuncs[] = {
+			const char * const texfuncs[] = {
 				"modulate",
 				"decal",
 				"blend",
@@ -1023,7 +1025,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXFILTER:
 		{
-			static const char *textureFilters[] = {
+			static const char * const textureFilters[] = {
 				"nearest",
 				"linear",
 				"nearest, invalid",
@@ -1055,7 +1057,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXFORMAT:
 		{
-			static const char *texformats[] = {
+			static const char * const texformats[] = {
 				"5650",
 				"5551",
 				"4444",
@@ -1103,7 +1105,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXLEVEL:
 		{
-			static const char *mipLevelModes[] = {
+			static const char * const mipLevelModes[] = {
 				"auto + bias",
 				"bias",
 				"slope + bias",
@@ -1147,14 +1149,14 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_STENCILOP:
 		{
-			static const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
+			static const char * const stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
 			snprintf(buffer, bufsize, "Stencil op: fail=%s, pass/depthfail=%s, pass=%s", stencilOps[data & 7], stencilOps[(data >> 8) & 7], stencilOps[(data >> 16) & 7]);
 		}
 		break;
 
 	case GE_CMD_STENCILTEST:
 		{
-			static const char *zTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			static const char * const zTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
 			if (data & ~0xFFFF07)
 				snprintf(buffer, bufsize, "Stencil test: %02x%s(dst.a & %02x) (extra %06x)", (data >> 8) & 0xFF, zTestFuncs[data & 7], (data >> 16) & 0xFF, data & ~0xFFFF07);
 			else
@@ -1168,7 +1170,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_ZTEST:
 		{
-			static const char *zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+			static const char * const zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			if (data & ~7)
 				snprintf(buffer, bufsize, "Z test mode: %s (extra %06x)", zTestFuncs[data & 7], data & ~7);
 			else
@@ -1200,7 +1202,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_LOGICOP:
 		{
-			const char *logicOps[] = {
+			const char * const logicOps[] = {
 				"clear",
 				"and",
 				"reverse and",

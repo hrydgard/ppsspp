@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <atomic>
-#include <condition_variable>
 #include <mutex>
+#include <condition_variable>
+
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
@@ -26,6 +27,9 @@
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
+
+// Sometimes useful for debugging.
+static constexpr bool FORCE_SINGLE_THREAD = false;
 
 using namespace Rasterizer;
 
@@ -102,6 +106,11 @@ public:
 		return TaskType::CPU_COMPUTE;
 	}
 
+	TaskPriority Priority() const override {
+		// Let priority emulation tasks win over this.
+		return TaskPriority::NORMAL;
+	}
+
 	void Run() override {
 		ProcessItems();
 		status_ = false;
@@ -166,9 +175,12 @@ void BinManager::UpdateState() {
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		if (states_.Full())
 			Flush("states");
+		creatingState_ = true;
 		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-		ComputeRasterizerState(&states_[stateIndex_]);
+		// When new funcs are compiled, we need to flush if WX exclusive.
+		ComputeRasterizerState(&states_[stateIndex_], this);
 		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+		creatingState_ = false;
 
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
 	}
@@ -215,7 +227,7 @@ void BinManager::UpdateState() {
 
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
-		int newMaxTasks = selfRender ? 1 : g_threadManager.GetNumLooperThreads();
+		int newMaxTasks = selfRender || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
 		if (newMaxTasks > MAX_POSSIBLE_TASKS)
 			newMaxTasks = MAX_POSSIBLE_TASKS;
 		// We don't want to overlap wrong, so flush any pending.
@@ -252,6 +264,40 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	}
 
 	return false;
+}
+
+bool BinManager::IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) {
+	if (item.type != BinItemType::SPRITE && item.type != BinItemType::RECT)
+		return false;
+	if (state.textureProj || state.maxTexLevel > 0)
+		return false;
+
+	// Only possible if the texture is 1:1.
+	if ((state.texaddr[0] & 0x0F1FFFFF) != (gstate.getFrameBufAddress() & 0x0F1FFFFF))
+		return false;
+	int bufferPixelWidth = BufferFormatBytesPerPixel(state.pixelID.FBFormat());
+	int texturePixelWidth = textureBitsPerPixel[state.samplerID.texfmt] / 8;
+	if (bufferPixelWidth != texturePixelWidth)
+		return false;
+
+	Vec4f tc = Vec4f(item.v0.texturecoords.x, item.v0.texturecoords.y, item.v1.texturecoords.x, item.v1.texturecoords.y);
+	if (state.throughMode) {
+		// Already at texels, convert to screen.
+		tc = tc * SCREEN_SCALE_FACTOR;
+	} else {
+		// Need to also multiply by width/height in transform mode.
+		int w = state.samplerID.cached.sizes[0].w * SCREEN_SCALE_FACTOR;
+		int h = state.samplerID.cached.sizes[0].h * SCREEN_SCALE_FACTOR;
+		tc = tc * Vec4f(w, h, w, h);
+	}
+
+	Vec4<int> tci = tc.Cast<int>();
+	if (tci.x != item.v0.screenpos.x || tci.y != item.v0.screenpos.y)
+		return false;
+	if (tci.z != item.v1.screenpos.x || tci.w != item.v1.screenpos.y)
+		return false;
+
+	return true;
 }
 
 void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
@@ -293,7 +339,7 @@ void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
 		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
 }
 
-inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, DrawingCoords &tl, DrawingCoords &br) {
+inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, const DrawingCoords &tl, const DrawingCoords &br) {
 	const uint32_t w = br.x - tl.x + 1;
 	const uint32_t h = br.y - tl.y + 1;
 
@@ -323,8 +369,9 @@ void BinManager::UpdateClut(const void *src) {
 	PROFILE_THIS_SCOPE("bin_clut");
 	if (cluts_.Full())
 		Flush("cluts");
-	clutIndex_ = (uint16_t)cluts_.Push(BinClut());
-	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
+	BinClut &clut = cluts_.PeekPush();
+	memcpy(clut.readable, src, sizeof(BinClut));
+	clutIndex_ = (uint16_t)cluts_.PushPeeked();
 }
 
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
@@ -348,6 +395,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, v2);
 	Expand(range);
 }
 
@@ -359,6 +407,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -370,6 +419,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -381,6 +431,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -392,6 +443,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, false);
 	Expand(range);
 }
 
@@ -403,6 +455,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	if (queue_.Full())
 		Drain();
 	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
+	CalculateRasterStateFlags(&states_[stateIndex_], v0);
 	Expand(range);
 }
 
@@ -417,6 +470,14 @@ void BinManager::Drain(bool flushing) {
 		// Always bin the entire possible range, but focus on the drawn area.
 		ScreenCoords tl(0, 0, 0);
 		ScreenCoords br(1024 * SCREEN_SCALE_FACTOR, 1024 * SCREEN_SCALE_FACTOR, 0);
+
+		if (pendingOverlap_ && maxTasks_ == 1 && flushing && queue_.Size() == 1 && !FORCE_SINGLE_THREAD) {
+			// If the drawing is 1:1, we can potentially use threads.  It's worth checking.
+			const auto &item = queue_.PeekNext();
+			const auto &state = states_[item.stateIndex];
+			if (IsExactSelfRender(state, item))
+				maxTasks_ = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
+		}
 
 		taskRanges_.clear();
 		if (h2 >= 18 && w2 >= h2 * 4) {
@@ -437,6 +498,10 @@ void BinManager::Drain(bool flushing) {
 
 		tasksSplit_ = true;
 	}
+
+	// Let's try to optimize states, if we can.
+	OptimizePendingStates(pendingStateIndex_, stateIndex_);
+	pendingStateIndex_ = stateIndex_;
 
 	if (taskRanges_.size() <= 1) {
 		PROFILE_THIS_SCOPE("bin_drain_single");
@@ -484,7 +549,7 @@ void BinManager::Drain(bool flushing) {
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
-			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next(), true);
+			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next());
 			enqueues_++;
 		}
 
@@ -510,6 +575,9 @@ void BinManager::Flush(const char *reason) {
 	while (cluts_.Size() > 1)
 		cluts_.SkipNext();
 
+	Rasterizer::FlushJit();
+	Sampler::FlushJit();
+
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;
 	queueRange_.x2 = 0;
@@ -530,6 +598,22 @@ void BinManager::Flush(const char *reason) {
 			slowestFlushTime_ = et - st;
 			slowestFlushReason_ = reason;
 		}
+	}
+}
+
+void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
+	// We can sometimes hit this when compiling new funcs while creating a state.
+	// At that point, the state isn't loaded fully yet, so don't touch it.
+	if (creatingState_ && last == stateIndex_) {
+		if (first == last)
+			return;
+		last--;
+	}
+
+	int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
+	for (int i = 0; i < count; ++i) {
+		size_t pos = (first + i) % QUEUED_STATES;
+		OptimizeRasterState(&states_[pos]);
 	}
 }
 
@@ -681,6 +765,9 @@ void BinManager::Expand(const BinCoords &range) {
 	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
 
 	if (maxTasks_ == 1 || (queueRange_.y2 - queueRange_.y1 >= 224 * SCREEN_SCALE_FACTOR && enqueues_ < 36 * maxTasks_)) {
-		Drain();
+		if (pendingOverlap_)
+			Flush("expand");
+		else
+			Drain();
 	}
 }

@@ -6,9 +6,9 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 
-class AVIDump
-{
+class AVIDump {
 private:
 	static bool CreateAVI();
 	static void CloseFile();
@@ -18,5 +18,6 @@ public:
 	static bool Start(int w, int h);
 	static void AddFrame();
 	static void Stop();
+	static Path LastFilename();
 };
 #endif

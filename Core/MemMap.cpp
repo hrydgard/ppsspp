@@ -24,27 +24,22 @@
 #include <algorithm>
 #include <mutex>
 
-#include "Common/Common.h"
-#include "Common/MemoryUtil.h"
+#include "Common/CommonTypes.h"
 #include "Common/MemArena.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
+#include "Core/System.h"
 #include "Core/Core.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HDRemaster.h"
-#include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
 #include "Core/MemFault.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Common/Thread/ParallelLoop.h"
-#include "UI/OnScreenDisplay.h"
 
 namespace Memory {
 
@@ -96,7 +91,7 @@ static MemoryView views[] =
 	{&m_pPhysicalRAM[0],      0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{&m_pUncachedRAM[0],      0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	{&m_pKernelRAM[0],        0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
-	{&m_pUncachedKernelRAM[0],0xC0000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pUncachedKernelRAM[0],0xC8000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
 	{&m_pPhysicalRAM[1],      0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
 	{&m_pUncachedRAM[1],      0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
@@ -159,8 +154,8 @@ static bool Memory_TryBase(u32 flags) {
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
+			ERROR_LOG(Log::MemMap, "Failed at view %d", i);
 			goto bail;
-			DEBUG_LOG(MEMMAP, "Failed at view %d", i);
 		}
 #else
 		if (CanIgnoreView(view)) {
@@ -170,7 +165,7 @@ static bool Memory_TryBase(u32 flags) {
 			*view.out_ptr = (u8*)g_arena.CreateView(
 				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
 			if (!*view.out_ptr) {
-				DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+				ERROR_LOG(Log::MemMap, "Failed at view %d", i);
 				goto bail;
 			}
 		}
@@ -186,11 +181,11 @@ bail:
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (*views[j].out_ptr) {
+		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
-				g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
+				g_arena.ReleaseView(0, *views[j].out_ptr, views[j].size);
 			}
-			*views[j].out_ptr = NULL;
+			*views[j].out_ptr = nullptr;
 		}
 	}
 	return false;
@@ -236,18 +231,18 @@ bool MemoryMap_Setup(u32 flags) {
 		uintptr_t max_base_addr = 0;
 		uintptr_t min_base_addr = 0;
 		uintptr_t stride = 0;
-		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
+		ERROR_LOG(Log::MemMap, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
 		return false;
 #endif
 		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
 			base_attempts++;
 			base = (u8 *)base_addr;
 			if (Memory_TryBase(flags)) {
-				INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
+				INFO_LOG(Log::MemMap, "Found valid memory base at %p after %i tries.", base, base_attempts);
 				return true;
 			}
 		}
-		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
+		ERROR_LOG(Log::MemMap, "MemoryMap_Setup: Failed finding a memory base.");
 		return false;
 	}
 	else
@@ -255,6 +250,9 @@ bool MemoryMap_Setup(u32 flags) {
 	{
 #if !PPSSPP_PLATFORM(UWP)
 		base = g_arena.Find4GBBase();
+		if (!base) {
+			return false;
+		}
 #endif
 	}
 
@@ -263,13 +261,24 @@ bool MemoryMap_Setup(u32 flags) {
 }
 
 void MemoryMap_Shutdown(u32 flags) {
+	size_t position = 0;
+	size_t last_position = 0;
+
 	for (int i = 0; i < num_views; i++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
+        
+		if (views[i].flags & MV_MIRROR_PREVIOUS) {
+			position = last_position;
+		}
+
 		if (*views[i].out_ptr)
-			g_arena.ReleaseView(*views[i].out_ptr, views[i].size);
+			g_arena.ReleaseView(position, *views[i].out_ptr, views[i].size);
 		*views[i].out_ptr = nullptr;
+
+		last_position = position;
+		position += g_arena.roundup(views[i].size);
 	}
 	g_arena.ReleaseSpace();
 
@@ -296,7 +305,7 @@ bool Init() {
 		return false;
 	}
 
-	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
+	INFO_LOG(Log::MemMap, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 
 	MemFault_Init();
@@ -304,7 +313,7 @@ bool Init() {
 }
 
 void Reinit() {
-	_assert_msg_(PSP_IsInited(), "Cannot reinit during startup/shutdown");
+	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
 	Shutdown();
 	Init();
@@ -334,6 +343,8 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 			for (int i = l; i < h; i++)
 				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
 		}, 0, size, 128);
+		break;
+	case PointerWrap::MODE_NOOP:
 		break;
 	}
 	storage += size;
@@ -385,7 +396,7 @@ void Shutdown() {
 	u32 flags = 0;
 	MemoryMap_Shutdown(flags);
 	base = nullptr;
-	DEBUG_LOG(MEMMAP, "Memory system shut down.");
+	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }
 
 bool IsActive() {
@@ -407,8 +418,7 @@ MemoryInitedLock Lock()
 	return MemoryInitedLock();
 }
 
-__forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
-{
+static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {
 	if (!MIPS_IS_EMUHACK(inst.encoding)) {
 		return inst;
 	}
@@ -420,13 +430,13 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 			u32 op;
 			if (GetReplacedOpAt(address, &op)) {
 				if (MIPS_IS_EMUHACK(op)) {
-					ERROR_LOG(MEMMAP, "WTF 1");
+					ERROR_LOG(Log::MemMap, "WTF 1");
 					return Opcode(op);
 				} else {
 					return Opcode(op);
 				}
 			} else {
-				ERROR_LOG(MEMMAP, "Replacement, but no replacement op? %08x", inst.encoding);
+				ERROR_LOG(Log::MemMap, "Replacement, but no replacement op? %08x", inst.encoding);
 			}
 		}
 		return inst;
@@ -434,7 +444,7 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
 			if (MIPS_IS_EMUHACK(op)) {
-				ERROR_LOG(MEMMAP, "WTF 2");
+				ERROR_LOG(Log::MemMap, "WTF 2");
 				return Opcode(op);
 			} else {
 				return Opcode(op);
@@ -447,14 +457,19 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 	}
 }
 
-Opcode Read_Instruction(u32 address, bool resolveReplacements)
-{
-	Opcode inst = Opcode(Read_U32(address));
+Opcode Read_Instruction(u32 address, bool resolveReplacements) {
+	if (!IsValid4AlignedAddress(address)) {
+		// BAD!
+		_dbg_assert_(false);
+		return Opcode(0);
+	}
+
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
 	return Read_Instruction(address, resolveReplacements, inst);
 }
 
-Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements)
-{
+Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
+	_dbg_assert_((address & 3) == 0);
 	Opcode inst = Opcode(ReadUnchecked_U32(address));
 	return Read_Instruction(address, resolveReplacements, inst);
 }
@@ -471,10 +486,9 @@ Opcode Read_Opcode_JIT(u32 address)
 }
 
 // WARNING! No checks!
-// We assume that _Address is cached
-void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
-{
-	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
+void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
+	_dbg_assert_((address & 3) == 0);
+	Memory::WriteUnchecked_U32(_Value.encoding, address);
 }
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char *tag) {
@@ -482,11 +496,18 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char
 		uint8_t *ptr = GetPointerWriteUnchecked(_Address);
 		memset(ptr, _iValue, _iLength);
 	} else {
-		for (size_t i = 0; i < _iLength; i++)
-			Write_U8(_iValue, (u32)(_Address + i));
+		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
+		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
+		for (size_t i = 0; i < _iLength; i++) {
+			if (Memory::IsValidAddress(_Address + (u32)i)) {
+				WriteUnchecked_U8(_iValue, (u32)(_Address + i));
+			}
+		}
 	}
 
-	NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+	if (tag) {
+		NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+	}
 }
 
 } // namespace

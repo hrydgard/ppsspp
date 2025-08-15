@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <string_view>
+#include <vector>
+#include <string>
 #include "Common/CommonTypes.h"
 
 namespace GPUDebug {
@@ -31,25 +34,18 @@ enum class BreakNext {
 	VSYNC,
 	PRIM,
 	CURVE,
+	BLOCK_TRANSFER,
+	DEBUG_RUN,  // This is just running as normal, but with debug instrumentation.
 	COUNT,
 };
 
-void SetActive(bool flag);
-bool IsActive();
+enum class NotifyResult {
+	Execute,
+	Skip,
+	Break
+};
 
-void SetBreakNext(BreakNext next);
-void SetBreakCount(int c, bool relative = false);
+const char *BreakNextToString(GPUDebug::BreakNext next);
+bool ParsePrimRanges(std::string_view rule, std::vector<std::pair<int, int>> *output);
 
-// While debugging is active, these may block.
-bool NotifyCommand(u32 pc);
-void NotifyDraw();
-void NotifyDisplay(u32 framebuf, u32 stride, int format);
-void NotifyBeginFrame();
-
-int PrimsThisFrame();
-int PrimsLastFrame();
-
-bool SetRestrictPrims(const char *rule);
-const char *GetRestrictPrims();
-
-}
+}  // namespace

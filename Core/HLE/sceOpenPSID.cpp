@@ -20,6 +20,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceOpenPSID.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Reporting.h"
 
 SceOpenPSID dummyOpenPSID = { 0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D };
 
@@ -30,32 +31,25 @@ void __OpenPSIDInit() {
 }
 
 void __OpenPSIDShutdown() {
-
 	return;
 }
 
-static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
-{
-	WARN_LOG(HLE, "UNTESTED %s(%08x)", __FUNCTION__, OpenPSIDPtr);
-
+static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr) {
 	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
 	if (ptr.IsValid()) {
 		*ptr = dummyOpenPSID;
 		ptr.NotifyWrite("OpenPSIDGetOpenPSID");
 	}
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNTESTED");
 }
 
-static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr,u32 unknown)
-{
-	WARN_LOG(HLE, "UNTESTED %s(%08x, %08x)", __FUNCTION__, OpenPSIDPtr, unknown);
-
+static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr, u32 unknown) {
 	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
 	if (ptr.IsValid()) {
 		*ptr = dummyOpenPSID;
 		ptr.NotifyWrite("OpenPSIDGetPSID");
 	}
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNTESTED");
 }
 
 /*
@@ -73,28 +67,22 @@ Returns:
 	0 on success, otherwise < 0.
 */
 static s32 sceDdrdb_F013F8BF(u32 pDataPtr, u32 pSigPtr) {
-	ERROR_LOG(HLE, "UNIMPL %s(%08x, %08x)", __FUNCTION__, pDataPtr, pSigPtr);
-
-	return 0;
+	return hleLogError(Log::HLE, 0, "UNIMPL");
 }
 
 // unkPtr might be a pointer to OpenPSID
-static s32 sceOpenPSID_B29330DE(u32 unkPtr) {
-	ERROR_LOG(HLE, "UNIMPL %s(%08x)", __FUNCTION__, unkPtr);
-
-	return 0;
+static s32 sceOpenPSIDGetProductCode(u32 unkPtr) {
+	return hleLogError(Log::HLE, 0, "UNIMPL");
 }
 
-
-const HLEFunction sceOpenPSID[] = 
-{
-	{0XC69BEBCE, &WrapI_U<sceOpenPSIDGetOpenPSID>,   "sceOpenPSIDGetOpenPSID", 'i', "x" },
-	{0xB29330DE, &WrapI_U<sceOpenPSID_B29330DE>,     "sceOpenPSID_B29330DE",   'i', "x" },
+const HLEFunction sceOpenPSID[] = {
+	{0xC69BEBCE, &WrapI_U<sceOpenPSIDGetOpenPSID>,    "sceOpenPSIDGetOpenPSID",      'i', "x" },
+	{0xB29330DE, &WrapI_U<sceOpenPSIDGetProductCode>, "sceOpenPSIDGetProductCode",   'i', "x" },
 };
 
 void Register_sceOpenPSID()
 {
-	RegisterModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
+	RegisterHLEModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
 }
 
 // According to https://playstationdev.wiki/pspprxlibraries/5.00/kd/openpsid.xml
@@ -107,7 +95,7 @@ const HLEFunction sceOpenPSID_driver[] =
 
 void Register_sceOpenPSID_driver()
 {
-	RegisterModule("sceOpenPSID_driver", ARRAY_SIZE(sceOpenPSID_driver), sceOpenPSID_driver);
+	RegisterHLEModule("sceOpenPSID_driver", ARRAY_SIZE(sceOpenPSID_driver), sceOpenPSID_driver);
 }
 const HLEFunction sceDdrdb[] =
 {
@@ -116,5 +104,5 @@ const HLEFunction sceDdrdb[] =
 
 void Register_sceDdrdb()
 {
-	RegisterModule("sceDdrdb", ARRAY_SIZE(sceDdrdb), sceDdrdb);
+	RegisterHLEModule("sceDdrdb", ARRAY_SIZE(sceDdrdb), sceDdrdb);
 }

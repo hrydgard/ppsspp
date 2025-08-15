@@ -40,6 +40,7 @@ extern const struct HDRemaster g_HDRemasters[] = {
 	{ "ABCD01234561", 0x04000000, false, "UCUS-00000|BBE65F2837A488C2|0001|G" }, // The Elder Scrolls Travels Oblivion USA Beta - 01022007
 	{ "ABCD01234561", 0x04000000, false, "UCUS-00000|55BE9ADC13B14D65|0001|G" }, // The Elder Scrolls Travels Oblivion USA Beta - 27042007
 	{ "PETR00010", 0x04000000, false, "PETR-00010|0C274C92FF78330E|0001|G" }, // Melodie - alpha
+	{ "ULET00003", 0x04000000, false, "ULET-00003|6B7A6CDCB90907A8|0001|G" }, // Unknown, possibly a GTA prototype
 
 	// Strangely there's actually a dash in this game's ID.
 	{ "ULES-01391", 0x04000000, false, "DEMO-12345|9A7EDE8DD786D82F|0001|G" },  // Duke Nukem: Critical Mass prototype

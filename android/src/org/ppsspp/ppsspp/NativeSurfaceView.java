@@ -15,13 +15,19 @@ import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
+import android.view.InputDevice;
+import android.view.InputEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceControl;
 import android.view.SurfaceView;
 
 import com.bda.controller.Controller;
 import com.bda.controller.ControllerListener;
 import com.bda.controller.KeyEvent;
 import com.bda.controller.StateEvent;
+
+import java.lang.annotation.Native;
 
 public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
 	private static String TAG = "NativeSurfaceView";
@@ -42,8 +48,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 
 		mController = Controller.getInstance(activity);
 
-		// this.getHolder().setFormat(PixelFormat.RGBA_8888);
-
 		try {
 			MogaHack.init(mController, activity);
 			Log.i(TAG, "MOGA initialized");
@@ -58,12 +62,64 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		return ev.getToolType(pointer);
 	}
 
+	@TargetApi(Build.VERSION_CODES.N)
+	private void processMouseDelta(final MotionEvent ev) {
+		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
+			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
+			float dy = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
+			Log.i(TAG, "Mouse delta: " + dx + " " + dy);
+			NativeApp.mouseDelta(dx, dy);
+		}
+	}
+
+	public static boolean isFromSource(final InputEvent ev, int source) {
+		return (ev.getSource() & source) == source;
+	}
+
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
+	private void onMouseEventMotion(final MotionEvent ev) {
+		Log.i(TAG, "motion mouse event");
+		switch (ev.getActionMasked()) {
+			case MotionEvent.ACTION_DOWN: {
+				if (NativeActivity.useModernMouseEvents) {
+					return;
+				}
+				//Log.i(TAG, "Surface Action down. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 1);
+				break;
+			}
+			case MotionEvent.ACTION_UP: {
+				if (NativeActivity.useModernMouseEvents) {
+					return;
+				}
+				//Log.i(TAG, "Surface Action up. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 2);
+				break;
+			}
+			case MotionEvent.ACTION_MOVE: {
+				// This still needs handling here, even if new events are used.
+				//Log.i(TAG, "Surface Action move. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 0, 0);
+				break;
+			}
+			default: {
+				Log.i(TAG, "Unhandled modern mouse action: " + ev.getAction());
+				break;
+			}
+		}
+	}
+
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
-		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1 && isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
+			// This is where workable mouse support arrived.
+			onMouseEventMotion(ev);
+			return true;
+		}
 
-		int numTouchesHandled = 0;
+		// Log.i(TAG, "processing touch event");
+		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -74,17 +130,23 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			switch (action) {
 			case MotionEvent.ACTION_DOWN:
 			case MotionEvent.ACTION_POINTER_DOWN:
+				// Log.i(TAG, "ACTION_DOWN");
 				if (ev.getActionIndex() == i)
 					code = 2;
 				break;
 			case MotionEvent.ACTION_UP:
 			case MotionEvent.ACTION_POINTER_UP:
+				// Log.i(TAG, "ACTION_UP");
 				if (ev.getActionIndex() == i)
 					code = 4;
 				break;
-			case MotionEvent.ACTION_MOVE:
+			case MotionEvent.ACTION_MOVE: {
 				code = 1;
+				if (Build.VERSION.SDK_INT >= 24) {
+					processMouseDelta(ev);
+				}
 				break;
+			}
 			default:
 				break;
 			}
@@ -94,11 +156,10 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 					int tool = getToolType(ev, i);
 					code |= tool << 10; // We use the Android tool type codes
 				}
-				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
+				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
-		return numTouchesHandled > 0;
+		return true;
 	}
 
 	// Sensor management
@@ -170,12 +231,24 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	// MOGA Controller - from ControllerListener
 	@Override
 	public void onMotionEvent(com.bda.controller.MotionEvent event) {
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_X, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Y, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Z, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_RZ, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_LTRIGGER, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_RTRIGGER, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER));
+		int [] axisIds = new int[]{
+			com.bda.controller.MotionEvent.AXIS_X,
+			com.bda.controller.MotionEvent.AXIS_Y,
+			com.bda.controller.MotionEvent.AXIS_Z,
+			com.bda.controller.MotionEvent.AXIS_RZ,
+			com.bda.controller.MotionEvent.AXIS_LTRIGGER,
+			com.bda.controller.MotionEvent.AXIS_RTRIGGER,
+		};
+		float [] values = new float[]{
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER),
+		};
+
+		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, axisIds, values, 6);
 	}
 
 	// MOGA Controller - from ControllerListener
@@ -187,11 +260,11 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			case StateEvent.ACTION_CONNECTED:
 				Log.i(TAG, "Moga Connected");
 				if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGA) {
-					NativeApp.sendMessage("moga", "Moga");
+					NativeApp.sendMessageFromJava("moga", "Moga");
 				} else {
 					Log.i(TAG, "MOGA Pro detected");
 					isMogaPro = true;
-					NativeApp.sendMessage("moga", "MogaPro");
+					NativeApp.sendMessageFromJava("moga", "MogaPro");
 				}
 				break;
 			case StateEvent.ACTION_CONNECTING:
@@ -199,7 +272,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 				break;
 			case StateEvent.ACTION_DISCONNECTED:
 				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
-				NativeApp.sendMessage("moga", "");
+				NativeApp.sendMessageFromJava("moga", "");
 				break;
 			}
 			break;

@@ -3,7 +3,7 @@
 #include <string>
 #include <mutex>
 
-typedef int (*AndroidAudioCallback)(short *buffer, int num_samples);
+typedef void (*AndroidAudioCallback)(short *buffer, int numSamples, int sampleRateHz, void *userdata);
 
 class AudioContext {
 public:
@@ -11,6 +11,8 @@ public:
 	virtual bool Init() { return false; }
 	virtual bool AudioRecord_Start(int sampleRate) { return false; };
 	virtual bool AudioRecord_Stop() { return false; };
+
+	int SampleRate() const { return sampleRate; }
 
 	virtual ~AudioContext() {}
 

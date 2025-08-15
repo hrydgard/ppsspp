@@ -2,7 +2,6 @@
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="GameInfoCache.cpp" />
-    <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="EmuScreen.cpp">
@@ -18,6 +17,9 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="MiscScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+		<ClCompile Include="IAPScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="ControlMappingScreen.cpp">
@@ -38,9 +40,6 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="TiltEventProcessor.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
     <ClCompile Include="InstallZipScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -57,17 +56,12 @@
     <ClCompile Include="ProfilerDraw.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="ComboKeyMappingScreen.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
     <ClCompile Include="DisplayLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="DisplayLayoutEditor.cpp" />
     <ClCompile Include="RemoteISOScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="TextureUtil.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="GPUDriverTestScreen.cpp">
       <Filter>Screens</Filter>
@@ -81,10 +75,56 @@
     <ClCompile Include="MemStickScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="Theme.cpp" />
+    <ClCompile Include="GamepadEmu.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="JoystickHistoryView.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioCommon.cpp" />
+    <ClCompile Include="CustomButtonMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TabbedDialogScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="RetroAchievementScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugOverlay.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DriverManagerScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="JitCompareScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImDebugger.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImDisasmView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImStructViewer.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImGe.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImMemView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImConsole.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="DeveloperToolsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
-    <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>
@@ -99,6 +139,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MiscScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+		<ClInclude Include="IAPScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="ControlMappingScreen.h">
@@ -119,9 +162,6 @@
     <ClInclude Include="TiltAnalogSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="TiltEventProcessor.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
     <ClInclude Include="InstallZipScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -138,18 +178,12 @@
     <ClInclude Include="ProfilerDraw.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="ComboKeyMappingScreen.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
     <ClInclude Include="DisplayLayoutScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="DisplayLayoutEditor.h" />
-    <ClInclude Include="HostTypes.h" />
     <ClInclude Include="RemoteISOScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="TextureUtil.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="GPUDriverTestScreen.h">
       <Filter>Screens</Filter>
@@ -163,10 +197,63 @@
     <ClInclude Include="MemStickScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="Theme.h" />
+    <ClInclude Include="GamepadEmu.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="JoystickHistoryView.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioCommon.h" />
+    <ClInclude Include="CustomButtonMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TabbedDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="RetroAchievementScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugOverlay.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DriverManagerScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="JitCompareScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImDebugger.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImDisasmView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImStructViewer.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImGe.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImMemView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImConsole.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="DeveloperToolsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
       <UniqueIdentifier>{faee5dce-633b-4ba6-b19d-ea70ee3c1c38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{071baa63-c681-4ad6-945b-e126645d1b55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImDebugger">
+      <UniqueIdentifier>{fda6bc55-1386-4650-a274-44fac9605ea3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

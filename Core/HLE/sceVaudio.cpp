@@ -20,6 +20,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceVaudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/__sceAudio.h"
@@ -42,53 +43,53 @@ void __VaudioDoState(PointerWrap &p) {
 
 static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 	if (vaudioReserved) {
-		ERROR_LOG(SCEAUDIO, "sceVaudioChReserve(%i, %i, %i) - already reserved", sampleCount, freq, format);
+		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - already reserved", sampleCount, freq, format);
 		return SCE_KERNEL_ERROR_BUSY;
 	}
 	// We still have to check the channel also, which gives a different error.
-	if (chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceVaudioChReserve(%i, %i, %i) - channel already reserved", sampleCount, freq, format);
+	if (g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
+		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - channel already reserved", sampleCount, freq, format);
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = true;
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].sampleCount = sampleCount;
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = 0;
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = 0;
+	DEBUG_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = true;
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].sampleCount = sampleCount;
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = 0;
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = 0;
 	vaudioReserved = true;
 	__AudioSetSRCFrequency(freq);
 	return 0;
 }
 
 static u32 sceVaudioChRelease() {
-	DEBUG_LOG(SCEAUDIO, "sceVaudioChRelease(...)");
-	if (!chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
+	DEBUG_LOG(Log::sceAudio, "sceVaudioChRelease(...)");
+	if (!g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
-		chans[PSP_AUDIO_CHANNEL_VAUDIO].reset();
-		chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = false;
+		g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reset();
+		g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = false;
 		vaudioReserved = false;
 		return 0;
 	}
 }
 
 static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
-	DEBUG_LOG(SCEAUDIO, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = vol;
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = vol;
+	DEBUG_LOG(Log::sceAudio, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = vol;
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = vol;
 	// TODO: This may be wrong, not sure if's in a different format?
-	chans[PSP_AUDIO_CHANNEL_VAUDIO].sampleAddress = buffer;
-	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].sampleAddress = buffer;
+	return __AudioEnqueue(g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
 }
 
 static u32 sceVaudioSetEffectType(int effectType, int vol) {
-	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
+	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
 	return 0;
 }
 
 static u32 sceVaudioSetAlcMode(int alcMode) {
-	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
+	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
 	return 0;
 }
 
@@ -104,5 +105,5 @@ const HLEFunction sceVaudio[] = {
 };
 
 void Register_sceVaudio() {
-	RegisterModule("sceVaudio",ARRAY_SIZE(sceVaudio), sceVaudio );
+	RegisterHLEModule("sceVaudio",ARRAY_SIZE(sceVaudio), sceVaudio );
 }

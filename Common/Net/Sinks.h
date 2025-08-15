@@ -21,7 +21,7 @@ public:
 	bool Skip(size_t bytes);
 	void Discard();
 
-	bool Empty();
+	bool Empty() const;
 	bool TryFill();
 
 private:
@@ -54,7 +54,8 @@ public:
 	bool Flush(bool allowBlock = true);
 	void Discard();
 
-	bool Empty();
+	bool Empty() const;
+	size_t BytesRemaining() const;
 
 private:
 	void Drain();
@@ -72,4 +73,4 @@ private:
 	size_t valid_;
 };
 
-};
+}  // namespace net

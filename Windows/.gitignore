@@ -1,2 +1,5 @@
 *.VC.VC.opendb
 *.VC.db
+*.txt
+enc_temp_folder
+Win32

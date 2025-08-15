@@ -23,6 +23,7 @@
 #include "Core/HLE/sceKernelAlarm.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 
@@ -73,13 +74,13 @@ public:
 		PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
 		if (error)
 		{
-			WARN_LOG(SCEKERNEL, "Ignoring deleted alarm %08x", alarmID);
+			WARN_LOG(Log::sceKernel, "Ignoring deleted alarm %08x", alarmID);
 			return false;
 		}
 
 		currentMIPS->pc = alarm->alm.handlerPtr;
 		currentMIPS->r[MIPS_REG_A0] = alarm->alm.commonPtr;
-		DEBUG_LOG(SCEKERNEL, "Entering alarm %08x handler: %08x", alarmID, currentMIPS->pc);
+		DEBUG_LOG(Log::sceKernel, "Entering alarm %08x handler: %08x", alarmID, currentMIPS->pc);
 
 		return true;
 	}
@@ -94,7 +95,7 @@ public:
 		// A non-zero result means to reschedule.
 		if (result > 0)
 		{
-			DEBUG_LOG(SCEKERNEL, "Rescheduling alarm %08x for +%dms", alarmID, result);
+			DEBUG_LOG(Log::sceKernel, "Rescheduling alarm %08x for +%dms", alarmID, result);
 			u32 error;
 			PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
 			__KernelScheduleAlarm(alarm, result);
@@ -102,9 +103,9 @@ public:
 		else
 		{
 			if (result < 0)
-				WARN_LOG(SCEKERNEL, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
+				WARN_LOG(Log::sceKernel, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
 
-			DEBUG_LOG(SCEKERNEL, "Finished alarm %08x", alarmID);
+			DEBUG_LOG(Log::sceKernel, "Finished alarm %08x", alarmID);
 
 			// Delete the alarm if it's not rescheduled.
 			kernelObjects.Destroy<PSPAlarm>(alarmID);
@@ -145,7 +146,7 @@ void __KernelAlarmDoState(PointerWrap &p)
 
 KernelObject *__KernelAlarmObject() {
 	// Default object to load from state.
-	return new PSPAlarm;
+	return new PSPAlarm();
 }
 
 void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro) {
@@ -169,10 +170,8 @@ static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 	return uid;
 }
 
-SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr)
-{
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetAlarm(%d, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm((u64) micro, handlerPtr, commonPtr);
+SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr) {
+	return hleLogDebug(Log::sceKernel, __KernelSetAlarm((u64) micro, handlerPtr, commonPtr));
 }
 
 SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
@@ -184,33 +183,26 @@ SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
 	else
 		return -1;
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetSysClockAlarm(%lld, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(micro, handlerPtr, commonPtr);
+	return hleLogDebug(Log::sceKernel, __KernelSetAlarm(micro, handlerPtr, commonPtr));
 }
 
 int sceKernelCancelAlarm(SceUID uid)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelCancelAlarm(%08x)", uid);
-
 	CoreTiming::UnscheduleEvent(alarmTimer, uid);
 
-	return kernelObjects.Destroy<PSPAlarm>(uid);
+	return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<PSPAlarm>(uid));
 }
 
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 {
 	u32 error;
 	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
-	if (!alarm)
-	{
-		ERROR_LOG(SCEKERNEL, "sceKernelReferAlarmStatus(%08x, %08x): invalid alarm", uid, infoPtr);
-		return error;
+	if (!alarm) {
+		return hleLogError(Log::sceKernel, error, "invalid alarm");
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelReferAlarmStatus(%08x, %08x)", uid, infoPtr);
-
 	if (!Memory::IsValidAddress(infoPtr))
-		return -1;
+		return hleLogError(Log::sceKernel, -1);
 
 	u32 size = Memory::Read_U32(infoPtr);
 
@@ -224,5 +216,5 @@ int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 	if (size > 16)
 		Memory::Write_U32(alarm->alm.commonPtr, infoPtr + 16);
 
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }

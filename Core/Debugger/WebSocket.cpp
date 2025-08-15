@@ -17,10 +17,10 @@
 
 #include <mutex>
 #include <condition_variable>
+
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
-#include "Core/MemMap.h"
 
 // This WebSocket (connected through the same port as disc sharing) allows API/debugger access to PPSSPP.
 // Currently, the only subprotocol "debugger.ppsspp.org" uses a simple JSON based interface.
@@ -62,6 +62,7 @@
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
+#include "Core/Debugger/WebSocket/ClientConfigSubscriber.h"
 
 typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
 static const std::vector<SubscriberInit> subscribers({
@@ -78,6 +79,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketMemoryInit,
 	&WebSocketReplayInit,
 	&WebSocketSteppingInit,
+	&WebSocketClientConfigInit,
 });
 
 // To handle webserver restart, keep track of how many running.
@@ -97,16 +99,12 @@ static void UpdateConnected(int delta) {
 }
 
 static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
-	// We'll likely already be locked during the reboot.
-	if (PSP_IsRebooting())
-		return;
-
 	switch (stage) {
 	case CoreLifecycle::STARTING:
 	case CoreLifecycle::STOPPING:
 	case CoreLifecycle::MEMORY_REINITING:
 		if (debuggersConnected > 0) {
-			DEBUG_LOG(SYSTEM, "Waiting for debugger to complete on shutdown");
+			DEBUG_LOG(Log::System, "Waiting for debugger to complete on shutdown");
 		}
 		lifecycleLock.lock();
 		break;
@@ -116,7 +114,7 @@ static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 	case CoreLifecycle::MEMORY_REINITED:
 		lifecycleLock.unlock();
 		if (debuggersConnected > 0) {
-			DEBUG_LOG(SYSTEM, "Debugger ready for shutdown");
+			DEBUG_LOG(Log::System, "Debugger ready for shutdown");
 		}
 		break;
 	}
@@ -129,7 +127,7 @@ static void SetupDebuggerLock() {
 	}
 }
 
-void HandleDebuggerRequest(const http::Request &request) {
+void HandleDebuggerRequest(const http::ServerRequest &request) {
 	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
 	if (!ws)
 		return;
@@ -137,6 +135,9 @@ void HandleDebuggerRequest(const http::Request &request) {
 	SetCurrentThreadName("Debugger");
 	UpdateConnected(1);
 	SetupDebuggerLock();
+
+	WebSocketClientInfo client_info;
+	auto& disallowed_config = client_info.disallowed;
 
 	GameBroadcaster game;
 	LogBroadcaster logger;
@@ -155,18 +156,18 @@ void HandleDebuggerRequest(const http::Request &request) {
 	ws->SetTextHandler([&](const std::string &t) {
 		JsonReader reader(t.c_str(), t.size());
 		if (!reader.ok()) {
-			ws->Send(DebuggerErrorEvent("Bad message: invalid JSON", LogTypes::LERROR));
+			ws->Send(DebuggerErrorEvent("Bad message: invalid JSON", LogLevel::LERROR));
 			return;
 		}
 
 		const JsonGet root = reader.root();
-		const char *event = root ? root.getString("event", nullptr) : nullptr;
+		const char *event = root ? root.getStringOr("event", nullptr) : nullptr;
 		if (!event) {
-			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogTypes::LERROR, root));
+			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogLevel::LERROR, root));
 			return;
 		}
 
-		DebuggerRequest req(event, ws, root);
+		DebuggerRequest req(event, ws, root, &client_info);
 		auto eventFunc = eventHandlers.find(event);
 		if (eventFunc != eventHandlers.end()) {
 			std::lock_guard<std::mutex> guard(lifecycleLock);
@@ -180,16 +181,23 @@ void HandleDebuggerRequest(const http::Request &request) {
 		}
 	});
 	ws->SetBinaryHandler([&](const std::vector<uint8_t> &d) {
-		ws->Send(DebuggerErrorEvent("Bad message", LogTypes::LERROR));
+		ws->Send(DebuggerErrorEvent("Bad message: binary WebSocket frames are not supported", LogLevel::LERROR));
 	});
 
 	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {
 		std::lock_guard<std::mutex> guard(lifecycleLock);
-		// These send events that aren't just responses to requests.
-		logger.Broadcast(ws);
-		game.Broadcast(ws);
-		stepping.Broadcast(ws);
-		input.Broadcast(ws);
+		// These send events that aren't just responses to requests
+
+		// The client can explicitly ask not to be notified about some events
+		// so we check the client settings first
+		if (!disallowed_config["logger"])
+			logger.Broadcast(ws);
+		if (!disallowed_config["game"])
+			game.Broadcast(ws);
+		if (!disallowed_config["stepping"])
+			stepping.Broadcast(ws);
+		if (!disallowed_config["input"])
+			input.Broadcast(ws);
 
 		for (size_t i = 0; i < subscribers.size(); ++i) {
 			if (subscriberData[i]) {

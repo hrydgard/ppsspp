@@ -67,7 +67,7 @@ extern u32 g_PSPModel;
 
 // UWP has such limited memory management that we need to mask
 // even in 64-bit mode. Also, when using the sanitizer, we need to mask as well.
-#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ASAN || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ASAN || PPSSPP_PLATFORM(IOS) || defined(__EMSCRIPTEN__)
 #define MASKED_PSP_MEMORY
 #endif
 
@@ -246,6 +246,19 @@ inline void Write_Float(float f, u32 address)
 
 u8* GetPointerWrite(const u32 address);
 const u8* GetPointer(const u32 address);
+
+u8 *GetPointerWriteRange(const u32 address, const u32 size);
+template<typename T>
+T* GetTypedPointerWriteRange(const u32 address, const u32 size) {
+	return reinterpret_cast<T*>(GetPointerWriteRange(address, size));
+}
+
+const u8 *GetPointerRange(const u32 address, const u32 size);
+template<typename T>
+const T* GetTypedPointerRange(const u32 address, const u32 size) {
+	return reinterpret_cast<const T*>(GetPointerRange(address, size));
+}
+
 bool IsRAMAddress(const u32 address);
 inline bool IsVRAMAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x04000000);
@@ -266,16 +279,6 @@ inline bool IsKernelAndNotVolatileAddress(const u32 address) {
 
 bool IsScratchpadAddress(const u32 address);
 
-// Used for auto-converted char * parameters, which can sometimes legitimately be null -
-// so we don't want to get caught in GetPointer's crash reporting.
-inline const char* GetCharPointer(const u32 address) {
-	if (address) {
-		return (const char *)GetPointer(address);
-	} else {
-		return nullptr;
-	}
-}
-
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
@@ -285,14 +288,14 @@ inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u
 }
 
 inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len) {
-	MemcpyUnchecked(GetPointerWrite(to_address), from_address, len);
+	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
 inline bool IsValidAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
 	} else if ((address & 0x3F800000) == 0x04000000) {
-		return true;
+		return address < 0x80000000;  // Let's disallow kernel-flagged VRAM. We don't have it mapped and I am not sure if it's accessible.
 	} else if ((address & 0xBFFFC000) == 0x00010000) {
 		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
@@ -302,28 +305,109 @@ inline bool IsValidAddress(const u32 address) {
 	}
 }
 
-inline u32 ValidSize(const u32 address, const u32 requested_size) {
-	u32 max_size;
-	if ((address & 0x3E000000) == 0x08000000) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		max_size = 0x04800000 - (address & 0x3FFFFFFF);
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		max_size = 0x00014000 - (address & 0x3FFFFFFF);
+inline bool IsValid4AlignedAddress(const u32 address) {
+	if ((address & 0x3E000003) == 0x08000000) {
+		return true;
+	} else if ((address & 0x3F800003) == 0x04000000) {
+		return address < 0x80000000;  // Let's disallow kernel-flagged VRAM. We don't have it mapped and I am not sure if it's accessible.
+	} else if ((address & 0xBFFFC003) == 0x00010000) {
+		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+		return (address & 3) == 0;
 	} else {
-		max_size = 0;
+		return false;
+	}
+}
+
+inline u32 MaxSizeAtAddress(const u32 address){
+	if ((address & 0x3E000000) == 0x08000000) {
+		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		if (address & 0x80000000) {
+			return 0;
+		} else {
+			return 0x04800000 - (address & 0x3FFFFFFF);
+		}
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		return 0x00014000 - (address & 0x3FFFFFFF);
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else {
+		return 0;
+	}
+}
+
+inline const char *GetCharPointerUnchecked(const u32 address) {
+	return (const char *)GetPointerUnchecked(address);
+}
+
+// NOTE: Unlike the similar IsValidRange/IsValidAddress functions, this one is linear cost vs the size of the string,
+// for hopefully-obvious reasons.
+inline bool IsValidNullTerminatedString(const u32 address) {
+	u32 max_size = MaxSizeAtAddress(address);
+	if (max_size == 0) {
+		return false;
 	}
 
+	const char *c = GetCharPointerUnchecked(address);
+	if (memchr(c, '\0', max_size)) {
+		return true;
+	}
+	return false;
+}
+
+inline u32 ValidSize(const u32 address, const u32 requested_size) {
+	u32 max_size = MaxSizeAtAddress(address);
 	if (requested_size > max_size) {
 		return max_size;
 	}
 	return requested_size;
 }
 
+// NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
 inline bool IsValidRange(const u32 address, const u32 size) {
-	return IsValidAddress(address) && ValidSize(address, size) == size;
+	return ValidSize(address, size) == size;
+}
+
+// NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
+// Also, length is not checked for alignment.
+inline bool IsValid4AlignedRange(const u32 address, const u32 size) {
+	if (address & 3) {
+		return false;
+	}
+	return ValidSize(address, size) == size;
+}
+
+// Used for auto-converted char * parameters, which can sometimes legitimately be null -
+// so we don't want to get caught in GetPointer's crash reporting
+// TODO: This should use IsValidNullTerminatedString, but may be expensive since this is used so much - needs evaluation.
+inline const char *GetCharPointer(const u32 address) {
+	if (address && IsValidAddress(address)) {
+		return GetCharPointerUnchecked(address);
+	} else {
+		return nullptr;
+	}
+}
+
+// Remaps the host pointer (potentially 64bit) into the 32bit virtual pointer, no checks are made
+inline u32 GetAddressFromHostPointerUnchecked(const void* host_ptr) {
+	auto address = static_cast<const u8*>(host_ptr) - base;
+	return static_cast<u32>(address);
+}
+
+// Remaps the host pointer (potentially 64bit) into the 32bit virtual pointer with checks
+inline u32 GetAddressFromHostPointer(const void* host_ptr) {
+	u32 address = GetAddressFromHostPointerUnchecked(host_ptr);
+	if (!IsValidAddress(address)) {
+		// Somehow report the error?
+		return 0;
+	}
+	return address;
+}
+
+// Like GetPointer, but bad values don't result in a memory exception, instead nullptr is returned.
+inline const u8* GetPointerOrNull(const u32 address) {
+	return IsValidAddress(address) ? GetPointerUnchecked(address) : nullptr;
 }
 
 }  // namespace Memory
@@ -331,6 +415,9 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 // Avoiding a global include for NotifyMemInfo.
 void PSPPointerNotifyRW(int rw, uint32_t ptr, uint32_t bytes, const char *tag, size_t tagLen);
 
+// TODO: These are actually quite annoying because they can't be followed in the MSVC debugger...
+// Need to find a solution for that. Can't just change the internal representation though, because
+// these can be present in PSP-native structs.
 template <typename T>
 struct PSPPointer
 {
@@ -345,7 +432,16 @@ struct PSPPointer
 #endif
 	}
 
-	inline T &operator[](int i) const
+	inline const T &operator[](int i) const
+	{
+#ifdef MASKED_PSP_MEMORY
+		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
+#else
+		return *((const T *)(Memory::base + ptr) + i);
+#endif
+	}
+
+	inline T &operator[](int i)
 	{
 #ifdef MASKED_PSP_MEMORY
 		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
@@ -354,7 +450,16 @@ struct PSPPointer
 #endif
 	}
 
-	inline T *operator->() const
+	inline const T *operator->() const
+	{
+#ifdef MASKED_PSP_MEMORY
+		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return (const T *)(Memory::base + ptr);
+#endif
+	}
+
+	inline T *operator->()
 	{
 #ifdef MASKED_PSP_MEMORY
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
@@ -445,6 +550,14 @@ struct PSPPointer
 		return Memory::IsValidRange(ptr, (u32)sizeof(T));
 	}
 
+	void FillWithZero() {
+		memset(Memory::GetPointerWrite(ptr), 0, sizeof(T));
+	}
+
+	bool Equals(u32 addr) const {
+		return ptr == addr;
+	}
+
 	T *PtrOrNull() {
 		if (IsValid())
 			return (T *)*this;
@@ -478,7 +591,6 @@ struct PSPPointer
 		return p;
 	}
 };
-
 
 constexpr u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 constexpr u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}

@@ -1,19 +1,27 @@
+#include <cstring>
+
 #include "Common/CommonFuncs.h"
+#include "Common/Log.h"
 #include "Core/MIPS/IR/IRInst.h"
-#include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/HLE/ReplaceTables.h"
 
 // Legend
 // ======================
 //  _ = ignore
 //  G = GPR register
 //  C = 32-bit constant from array
+//  c = 8-bit constant from array
 //  I = immediate value from instruction
 //  F = FPR register, single
 //  V = FPR register, Vec4. Reg number always divisible by 4.
 //  2 = FPR register, Vec2 (uncommon)
 //  v = Vec4Init constant, chosen by immediate
 //  s = Shuffle immediate (4 2-bit fields, choosing a xyzw shuffle)
+//  r = Replacement function (in constant field)
+//
+//  WARNING: The IRJit compiler also uses these letters for semantic information!
+//  So if you add new letters, don't forget to add them to IRNativeRegCacheBase::MappingFromInst.
 
 static const IRMeta irMeta[] = {
 	{ IROp::Nop, "Nop", "" },
@@ -28,10 +36,13 @@ static const IRMeta irMeta[] = {
 	{ IROp::Or, "Or", "GGG" },
 	{ IROp::Xor, "Xor", "GGG" },
 	{ IROp::AddConst, "AddConst", "GGC" },
+	{ IROp::OptAddConst, "OptAddConst", "GC" },
 	{ IROp::SubConst, "SubConst", "GGC" },
 	{ IROp::AndConst, "AndConst", "GGC" },
 	{ IROp::OrConst, "OrConst", "GGC" },
 	{ IROp::XorConst, "XorConst", "GGC" },
+	{ IROp::OptAndConst, "OptAndConst", "GC" },
+	{ IROp::OptOrConst, "OptOrConst", "GC" },
 	{ IROp::Shl, "Shl", "GGG" },
 	{ IROp::Shr, "Shr", "GGG" },
 	{ IROp::Sar, "Sar", "GGG" },
@@ -73,6 +84,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load32, "Load32", "GGC" },
 	{ IROp::Load32Left, "Load32Left", "GGC", IRFLAG_SRC3DST },
 	{ IROp::Load32Right, "Load32Right", "GGC", IRFLAG_SRC3DST },
+	{ IROp::Load32Linked, "Load32Linked", "GGC" },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
 	{ IROp::LoadVec4, "LoadVec4", "VGC" },
 	{ IROp::Store8, "Store8", "GGC", IRFLAG_SRC3 },
@@ -80,6 +92,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Store32, "Store32", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32Left, "Store32Left", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32Right, "Store32Right", "GGC", IRFLAG_SRC3 },
+	{ IROp::Store32Conditional, "Store32Conditional", "GGC", IRFLAG_SRC3DST },
 	{ IROp::StoreFloat, "StoreFloat", "FGC", IRFLAG_SRC3 },
 	{ IROp::StoreVec4, "StoreVec4", "VGC", IRFLAG_SRC3 },
 	{ IROp::FAdd, "FAdd", "FFF" },
@@ -105,22 +118,29 @@ static const IRMeta irMeta[] = {
 	{ IROp::FFloor, "FFloor", "FF" },
 	{ IROp::FCvtWS, "FCvtWS", "FF" },
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
+	{ IROp::FCvtScaledWS, "FCvtScaledWS", "FFI" },
+	{ IROp::FCvtScaledSW, "FCvtScaledSW", "FFI" },
 	{ IROp::FCmp, "FCmp", "mFF" },
 	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
-	{ IROp::ZeroFpCond, "ZeroFpCond", "" },
+	{ IROp::OptFMovToGPRShr8, "OptFMovToGPRShr8", "GF" },
+	{ IROp::OptFCvtSWFromGPR, "OptFCvtSWFromGPR", "FG" },
+	{ IROp::FpCondFromReg, "FpCondFromReg", "_G" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
-	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
+	{ IROp::FpCtrlFromReg, "FpCtrlFromReg", "_G" },
+	{ IROp::FpCtrlToReg, "FpCtrlToReg", "G" },
+	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GT" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::SetCtrlVFPUReg, "SetCtrlVFPUReg", "TG" },
 	{ IROp::SetCtrlVFPUFReg, "SetCtrlVFPUFReg", "TF" },
-	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI" },
+	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI", IRFLAG_SRC3DST },
 	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
+	{ IROp::Vec4Blend, "Vec4Blend", "VVVc" },
 	{ IROp::Vec4Mov, "Vec4Mov", "VV" },
 	{ IROp::Vec4Add, "Vec4Add", "VVV" },
 	{ IROp::Vec4Sub, "Vec4Sub", "VVV" },
@@ -141,10 +161,10 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "22" },
 	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FV" },
 	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FV" },
-	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "2V" },
-	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "2V" },
+	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "F2" },
+	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "F2" },
 
-	{ IROp::Interpret, "Interpret", "_C" },
+	{ IROp::Interpret, "Interpret", "_C", IRFLAG_BARRIER },
 	{ IROp::Downcount, "Downcount", "_C" },
 	{ IROp::ExitToPC, "ExitToPC", "", IRFLAG_EXIT },
 	{ IROp::ExitToConst, "Exit", "C", IRFLAG_EXIT },
@@ -159,23 +179,28 @@ static const IRMeta irMeta[] = {
 	{ IROp::Break, "Break", "", IRFLAG_EXIT },
 	{ IROp::SetPC, "SetPC", "_G" },
 	{ IROp::SetPCConst, "SetPC", "_C" },
-	{ IROp::CallReplacement, "CallRepl", "_C" },
-	{ IROp::Breakpoint, "Breakpoint", "", IRFLAG_EXIT },
-	{ IROp::MemoryCheck, "MemoryCheck", "_GC", IRFLAG_EXIT },
+	{ IROp::CallReplacement, "CallRepl", "Gr", IRFLAG_BARRIER },
+	{ IROp::Breakpoint, "Breakpoint", "_C", IRFLAG_BARRIER },
+	{ IROp::MemoryCheck, "MemoryCheck", "IGC", IRFLAG_BARRIER },
 
-	{ IROp::ValidateAddress8, "ValidAddr8", "_GC", IRFLAG_EXIT },
-	{ IROp::ValidateAddress16, "ValidAddr16", "_GC", IRFLAG_EXIT },
-	{ IROp::ValidateAddress32, "ValidAddr32", "_GC", IRFLAG_EXIT },
-	{ IROp::ValidateAddress128, "ValidAddr128", "_GC", IRFLAG_EXIT },
+	{ IROp::ValidateAddress8, "ValidAddr8", "_GC", IRFLAG_BARRIER },
+	{ IROp::ValidateAddress16, "ValidAddr16", "_GC", IRFLAG_BARRIER },
+	{ IROp::ValidateAddress32, "ValidAddr32", "_GC", IRFLAG_BARRIER },
+	{ IROp::ValidateAddress128, "ValidAddr128", "_GC", IRFLAG_BARRIER },
 
 	{ IROp::RestoreRoundingMode, "RestoreRoundingMode", "" },
 	{ IROp::ApplyRoundingMode, "ApplyRoundingMode", "" },
 	{ IROp::UpdateRoundingMode, "UpdateRoundingMode", "" },
+
+	{ IROp::LogIRBlock, "LogIRBlock", "" },
 };
 
 const IRMeta *metaIndex[256];
 
+// Is there a way to constexpr this?
 void InitIR() {
+	if (metaIndex[0])
+		return;
 	for (size_t i = 0; i < ARRAY_SIZE(irMeta); i++) {
 		metaIndex[(int)irMeta[i].op] = &irMeta[i];
 	}
@@ -208,7 +233,12 @@ int IRWriter::AddConstantFloat(float value) {
 	return AddConstant(val);
 }
 
-const char *GetGPRName(int r) {
+void IRWriter::ReplaceConstant(size_t instNumber, u32 newConstant) {
+	_dbg_assert_(instNumber < insts_.size());
+	insts_[instNumber].constant = newConstant;
+}
+
+static std::string GetGPRName(int r) {
 	if (r < 32) {
 		return currentDebugMIPS->GetRegName(0, r);
 	}
@@ -228,7 +258,7 @@ const char *GetGPRName(int r) {
 }
 
 void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant) {
-	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
+	static const char * const vfpuCtrlNames[VFPU_CTRL_MAX] = {
 		"SPFX",
 		"TPFX",
 		"DPFX",
@@ -246,7 +276,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		"RCX6",
 		"RCX7",
 	};
-	static const char *initVec4Names[8] = {
+	static const char * const initVec4Names[8] = {
 		"[0 0 0 0]",
 		"[1 1 1 1]",
 		"[-1 -1 -1 -1]",
@@ -255,38 +285,41 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		"[0 0 1 0]",
 		"[0 0 0 1]",
 	};
-	static const char *xyzw = "xyzw";
+	static const char * const xyzw = "xyzw";
 
 	switch (type) {
 	case 'G':
-		snprintf(buf, bufSize, "%s", GetGPRName(param));
+		snprintf(buf, bufSize, "%s", GetGPRName(param).c_str());
 		break;
 	case 'F':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d", param - 32);
+			snprintf(buf, bufSize, "vf%d", param - 32);
 		} else {
 			snprintf(buf, bufSize, "f%d", param);
 		}
 		break;
 	case 'V':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d..v%d", param - 32, param - 32 + 3);
+			snprintf(buf, bufSize, "vf%d..vf%d", param - 32, param - 32 + 3);
 		} else {
 			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
 		}
 		break;
 	case '2':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d,v%d", param - 32, param - 32 + 1);
+			snprintf(buf, bufSize, "vf%d,vf%d", param - 32, param - 32 + 1);
 		} else {
 			snprintf(buf, bufSize, "f%d,f%d", param, param + 1);
 		}
 		break;
 	case 'C':
-		snprintf(buf, bufSize, "%08x", constant);
+		snprintf(buf, bufSize, "0x%08x", constant);
+		break;
+	case 'c':
+		snprintf(buf, bufSize, "0x%02x", constant);
 		break;
 	case 'I':
-		snprintf(buf, bufSize, "%02x", param);
+		snprintf(buf, bufSize, "0x%02x", param);
 		break;
 	case 'm':
 		snprintf(buf, bufSize, "%d", param);
@@ -300,6 +333,16 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 	case 's':
 		snprintf(buf, bufSize, "%c%c%c%c", xyzw[param & 3], xyzw[(param >> 2) & 3], xyzw[(param >> 4) & 3], xyzw[(param >> 6) & 3]);
 		break;
+	case 'r':
+	{
+		const ReplacementTableEntry *entry = GetReplacementFunc(constant);
+		if (entry) {
+			snprintf(buf, bufSize, "%s", entry->name);
+		} else {
+			snprintf(buf, bufSize, "(unkn. repl %d)", constant);
+		}
+		break;
+	}
 	case '_':
 	case '\0':
 		buf[0] = 0;
@@ -323,14 +366,20 @@ void DisassembleIR(char *buf, size_t bufsize, IRInst inst) {
 	char bufDst[16];
 	char bufSrc1[16];
 	char bufSrc2[16];
+	// Only really used for constant.
+	char bufSrc3[16];
 	DisassembleParam(bufDst, sizeof(bufDst) - 2, inst.dest, meta->types[0], inst.constant);
 	DisassembleParam(bufSrc1, sizeof(bufSrc1) - 2, inst.src1, meta->types[1], inst.constant);
 	DisassembleParam(bufSrc2, sizeof(bufSrc2), inst.src2, meta->types[2], inst.constant);
+	DisassembleParam(bufSrc3, sizeof(bufSrc3), inst.src3, meta->types[3], inst.constant);
 	if (meta->types[1] && meta->types[0] != '_') {
 		strcat(bufDst, ", ");
 	}
 	if (meta->types[2] && meta->types[1] != '_') {
 		strcat(bufSrc1, ", ");
 	}
-	snprintf(buf, bufsize, "%s %s%s%s", meta->name, bufDst, bufSrc1, bufSrc2);
+	if (meta->types[3] && meta->types[2] != '_') {
+		strcat(bufSrc2, ", ");
+	}
+	snprintf(buf, bufsize, "%s %s%s%s%s", meta->name, bufDst, bufSrc1, bufSrc2, bufSrc3);
 }

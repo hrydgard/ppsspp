@@ -21,17 +21,16 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-
 static u32 sceP3daBridgeInit(u32 channelsNum, u32 samplesNum)
 {
-	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
-	return 0;
+	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
+	return hleNoLog(0);
 }
 
 static u32 sceP3daBridgeExit()
 {
-	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceP3daBridgeExit()");
-	return 0;
+	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceP3daBridgeExit()");
+	return hleNoLog(0);
 }
 
 static inline int getScaleValue(u32 channelsNum) {
@@ -45,14 +44,13 @@ static inline int getScaleValue(u32 channelsNum) {
 
 static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
 {
-	DEBUG_LOG(SCEAUDIO, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	if (Memory::IsValidAddress(inputAddr) && Memory::IsValidAddress(outputAddr)) {
 		int scaleval = getScaleValue(channelsNum);
-		s16_le *outbuf = (s16_le *)Memory::GetPointer(outputAddr);
+		s16_le *outbuf = (s16_le *)Memory::GetPointerWriteUnchecked(outputAddr);
 		memset(outbuf, 0, samplesNum * sizeof(s16) * 2);
 		for (u32 k = 0; k < channelsNum; k++) {
 			u32 inaddr = Memory::Read_U32(inputAddr + k * 4);
-			const s16 *inbuf = (const s16 *)Memory::GetPointer(inaddr);
+			const s16 *inbuf = (const s16 *)Memory::GetPointerUnchecked(inaddr);
 			if (!inbuf)
 				continue;
 			for (u32 i = 0; i < samplesNum; i++) {
@@ -63,7 +61,7 @@ static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, 
 		}
 	}
 	// same as sas core
-	return hleDelayResult(0, "p3da core", 240);
+	return hleDelayResult(hleLogDebug(Log::sceAudio, 0), "p3da core", 240);
 }
 
 const HLEFunction sceP3da[] =
@@ -75,5 +73,5 @@ const HLEFunction sceP3da[] =
 
 void Register_sceP3da()
 {
-	RegisterModule("sceP3da", ARRAY_SIZE(sceP3da), sceP3da);
+	RegisterHLEModule("sceP3da", ARRAY_SIZE(sceP3da), sceP3da);
 }

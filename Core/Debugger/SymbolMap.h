@@ -18,7 +18,6 @@
 #pragma once
 
 #include <vector>
-#include <set>
 #include <map>
 #include <string>
 #include <mutex>
@@ -67,19 +66,20 @@ typedef struct HWND__ *HWND;
 class SymbolMap {
 public:
 	SymbolMap() {}
+
 	void Clear();
 	void SortSymbols();
 
 	bool LoadSymbolMap(const Path &filename);
-	void SaveSymbolMap(const Path &filename) const;
+	bool SaveSymbolMap(const Path &filename) const;
 	bool LoadNocashSym(const Path &filename);
-	void SaveNocashSym(const Path &filename) const;
+	bool SaveNocashSym(const Path &filename) const;
 
 	SymbolType GetSymbolType(u32 address);
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION);
 	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
 	std::string GetDescription(unsigned int address);
-	std::vector<SymbolEntry> GetAllSymbols(SymbolType symmask);
+	std::vector<SymbolEntry> GetAllActiveSymbols(SymbolType symmask);
 
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symType);
@@ -162,6 +162,7 @@ private:
 	// This is indexed by the end address of the module.
 	std::map<u32, const ModuleEntry> activeModuleEnds;
 
+	// Module ID, index
 	typedef std::pair<int, u32> SymbolKey;
 
 	// These are indexed by the module id and relative address in the module.

@@ -29,6 +29,7 @@
 #define MIPS_MAKE_JAL(addr) (0x0C000000 | ((addr)>>2))
 #define MIPS_MAKE_JR_RA()   (0x03e00008)
 #define MIPS_MAKE_NOP()     (0)
+#define MIPS_MAKE_BNEZ(pc, addr, rs) (0x14000000 | (rs << 21) | (u32)(((int)(addr - (pc + 4)) >> 2) & 0xFFFF))
 
 #define MIPS_MAKE_ADDIU(dreg, sreg, immval) ((9 << 26) | ((dreg) << 16) | ((sreg) << 21) | (immval))
 #define MIPS_MAKE_LUI(reg, immval) (0x3c000000 | ((reg) << 16) | (immval))

@@ -20,10 +20,16 @@
 #include <cstdio>
 #include <cstdarg>
 #include <type_traits>
+#include <string_view>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/ConfigValues.h"
+
+#ifdef _MSC_VER
+#pragma warning (error: 4834)  // discarding return value of function with 'nodiscard' attribute
+#endif
 
 class PointerWrap;
 class PSPAction;
@@ -44,8 +50,7 @@ enum {
 	HLE_KERNEL_SYSCALL = 1 << 11,
 };
 
-struct HLEFunction
-{
+struct HLEFunction {
 	// This is the id, or nid, of the function (which is how it's linked.)
 	// Generally, the truncated least significant 32 bits of a SHA-1 hash.
 	u32 ID;
@@ -72,17 +77,15 @@ struct HLEFunction
 	u32 stackBytesToClear;
 };
 
-struct HLEModule
-{
-	const char *name;
+struct HLEModule {
+	std::string_view name;
 	int numFunctions;
 	const HLEFunction *funcTable;
 };
 
 typedef char SyscallModuleName[32];
 
-struct Syscall
-{
+struct Syscall {
 	SyscallModuleName moduleName;
 	u32 symAddr;
 	u32 nid;
@@ -91,17 +94,34 @@ struct Syscall
 #define PARAM(n) currentMIPS->r[MIPS_REG_A0 + n]
 #define PARAM64(n) (currentMIPS->r[MIPS_REG_A0 + n] | ((u64)currentMIPS->r[MIPS_REG_A0 + n + 1] << 32))
 #define PARAMF(n) currentMIPS->f[12 + n]
-#define RETURN(n) currentMIPS->r[MIPS_REG_V0] = n
+#define RETURN(n) currentMIPS->r[MIPS_REG_V0] = n;
 #define RETURN64(n) {u64 RETURN64_tmp = n; currentMIPS->r[MIPS_REG_V0] = RETURN64_tmp & 0xFFFFFFFF; currentMIPS->r[MIPS_REG_V1] = RETURN64_tmp >> 32;}
 #define RETURNF(fl) currentMIPS->f[0] = fl
 
-const char *GetFuncName(const char *module, u32 nib);
-const char *GetFuncName(int module, int func);
-const HLEFunction *GetFunc(const char *module, u32 nib);
-int GetFuncIndex(int moduleIndex, u32 nib);
-int GetModuleIndex(const char *modulename);
+struct HLEModuleMeta {
+	// This is the modname (name from the PRX header). Probably, we should really blacklist on the module names of the exported symbol metadata.
+	const char *modname;
+	const char *importName;  // Technically a module can export functions with different module names, but doesn't seem to happen.
+	DisableHLEFlags disableFlag;
+};
 
-void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable);
+const HLEModuleMeta *GetHLEModuleMetaByFlag(DisableHLEFlags flag);
+const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname);
+bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually = nullptr);
+bool ShouldHLEModuleByImportName(std::string_view importModuleName);
+
+const char *GetHLEFuncName(std::string_view module, u32 nib);
+const char *GetHLEFuncName(int module, int func);
+const HLEModule *GetHLEModuleByName(std::string_view name);
+const HLEFunction *GetHLEFunc(std::string_view module, u32 nib);
+int GetHLEFuncIndexByNib(int moduleIndex, u32 nib);
+int GetHLEModuleIndex(std::string_view modulename);
+u32 GetNibByName(std::string_view module, std::string_view function);
+
+void RegisterHLEModule(std::string_view name, int numFunctions, const HLEFunction *funcTable);
+int GetNumRegisteredHLEModules();
+const HLEModule *GetHLEModuleByIndex(int index);
+DisableHLEFlags AlwaysDisableHLEFlags();
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();
@@ -115,8 +135,6 @@ void hleRunInterrupts();
 void hleDebugBreak();
 // Don't set temp regs to 0xDEADBEEF.
 void hleSkipDeadbeef();
-// Set time spent in debugger (for more useful debug stats while debugging.)
-void hleSetSteppingTime(double t);
 // Set time spent in realtime sync.
 void hleSetFlipTime(double t);
 // Check if the current syscall context is kernel.
@@ -130,23 +148,34 @@ u64 hleDelayResult(u64 result, const char *reason, int usec);
 void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
-inline int hleDelayResult(int result, const char *reason, int usec)
-{
+// Don't manually call this, it's called by the various syscall return macros.
+// This should only be called once per syscall!
+void hleLeave();
+
+void hleCoreTimingForceCheck();
+
+// Causes the syscall to not fully execute immediately, instead give the Ge a chance to
+// execute display lists.
+void hleSplitSyscallOverGe();
+
+// Called after a split syscall from System.cpp
+void hleFinishSyscallAfterGe();
+
+[[nodiscard]]
+inline int hleDelayResult(int result, const char *reason, int usec) {
 	return hleDelayResult((u32) result, reason, usec);
 }
 
-inline s64 hleDelayResult(s64 result, const char *reason, int usec)
-{
+[[nodiscard]]
+inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 	return hleDelayResult((u64) result, reason, usec);
 }
 
 void HLEInit();
 void HLEDoState(PointerWrap &p);
 void HLEShutdown();
-u32 GetNibByName(const char *module, const char *function);
-u32 GetSyscallOp(const char *module, u32 nib);
-bool FuncImportIsSyscall(const char *module, u32 nib);
-bool WriteSyscall(const char *module, u32 nib, u32 address);
+u32 GetSyscallOp(std::string_view module, u32 nib);
+bool WriteHLESyscall(std::string_view module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
@@ -157,21 +186,33 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 
-void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
+void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason);
 
-template <typename T>
-T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
-	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+template <bool leave, bool convert_code, typename T>
+[[nodiscard]]
+#ifdef __GNUC__
+__attribute__((format(printf, 7, 8)))
+#endif
+NO_INLINE
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, const char *reasonFmt, ...) {
+	if (!GenericLogEnabled(t, level)) {
+		if (leave) {
+			hleLeave();
+		}
 		return res;
 	}
 
+	if (convert_code && (int)res >= 0) {
+		level = LogLevel::LDEBUG;
+	}
+
 	char formatted_reason[4096] = {0};
-	if (reason != nullptr) {
+	if (reasonFmt != nullptr) {
 		va_list args;
-		va_start(args, reason);
+		va_start(args, reasonFmt);
 		formatted_reason[0] = ':';
 		formatted_reason[1] = ' ';
-		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reason, args);
+		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reasonFmt, args);
 		formatted_reason[sizeof(formatted_reason) - 1] = '\0';
 		va_end(args);
 	}
@@ -183,14 +224,26 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 	} else if (std::is_signed<T>::value) {
 		fmtRes = (s64)res;
 	}
-	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, reason, formatted_reason);
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, reasonFmt, formatted_reason);
+	if (leave) {
+		hleLeave();
+	}
 	return res;
 }
 
-template <typename T>
-T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask) {
-	if ((level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
+template <bool leave, bool convert_code, typename T>
+[[nodiscard]]
+NO_INLINE
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag) {
+	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(t, level)) && !reportTag) {
+		if (leave) {
+			hleLeave();
+		}
 		return res;
+	}
+
+	if (convert_code && (int)res >= 0) {
+		level = LogLevel::LDEBUG;
 	}
 
 	u64 fmtRes = res;
@@ -200,9 +253,36 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 	} else if (std::is_signed<T>::value) {
 		fmtRes = (s64)res;
 	}
-	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, nullptr, "");
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, nullptr, "");
+	if (leave) {
+		hleLeave();
+	}
 	return res;
 }
+
+// These unwind the log stack.
+template <typename T>
+[[nodiscard]]
+inline T hleNoLog(T t) {
+	hleLeave();
+	return t;
+}
+inline void hleNoLogVoid() {
+	hleLeave();
+}
+
+// TODO: See if we can search the tables with constexpr tricks!
+void hlePushFuncDesc(std::string_view module, std::string_view funcName);
+
+// Calls a syscall from another syscall, managing the logging stack.
+template<class R, class F, typename... Args>
+inline R hleCallImpl(std::string_view module, std::string_view funcName, F func, Args... args) {
+	hlePushFuncDesc(module, funcName);
+	return func(args...);
+}
+
+// Note: ## is to eat the last comma if it's not needed (no arguments).
+#define hleCall(module, retType, funcName, ...) hleCallImpl<retType>(#module, #funcName, funcName, ## __VA_ARGS__)
 
 // This is just a quick way to force logging to be more visible for one file.
 #ifdef HLE_LOG_FORCE
@@ -213,24 +293,29 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 #define DEBUG_LOG NOTICE_LOG
 #undef VERBOSE_LOG
 #define VERBOSE_LOG DEBUG_LOG
+#undef DEBUG_LEVEL
+#define DEBUG_LEVEL NOTICE_LEVEL
+#undef VERBOSE_LEVEL
+#define VERBOSE_LEVEL NOTICE_LEVEL
 #else
-#define HLE_LOG_LDEBUG LDEBUG
-#define HLE_LOG_LVERBOSE LVERBOSE
+#define HLE_LOG_LDEBUG LogLevel::LDEBUG
+#define HLE_LOG_LVERBOSE LogLevel::LVERBOSE
 #endif
 
-#define hleLogHelper(t, level, res, retmask, ...) hleDoLog(LogTypes::t, LogTypes::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
-#define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
-#define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
-#define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
-#define hleLogVerbose(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessX(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessI(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'i', ##__VA_ARGS__)
-#define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LINFO, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessInfoI(t, res, ...) hleLogHelper(t, LINFO, res, 'i', ##__VA_ARGS__)
-#define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'i', ##__VA_ARGS__)
+// IMPORTANT: These *must* only be used directly in HLE functions. They cannot be used by utility functions
+// called by them. Use regular ERROR_LOG etc for those.
 
-#define hleReportError(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportWarning(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportDebug(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportVerbose(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LVERBOSE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleLogReturnHelper(convert, t, level, res, ...) \
+	(((int)level <= MAX_LOGLEVEL) ? hleDoLog<true, convert>(t, level, (res), __FILE__, __LINE__, nullptr, ##__VA_ARGS__) : hleNoLog(res))
+
+#define hleLogError(t, res, ...) hleLogReturnHelper(false, t, LogLevel::LERROR, res, ##__VA_ARGS__)
+#define hleLogWarning(t, res, ...) hleLogReturnHelper(false, t, LogLevel::LWARNING, res, ##__VA_ARGS__)
+#define hleLogDebug(t, res, ...) hleLogReturnHelper(false, t, HLE_LOG_LDEBUG, res, ##__VA_ARGS__)
+#define hleLogInfo(t, res, ...) hleLogReturnHelper(false, t, LogLevel::LINFO, res, ##__VA_ARGS__)
+#define hleLogVerbose(t, res, ...) hleLogReturnHelper(false, t, HLE_LOG_LVERBOSE, res, ##__VA_ARGS__)
+
+#define hleLogDebugOrWarn(t, res, ...) hleLogReturnHelper(true, t, LogLevel::LWARNING, res, ##__VA_ARGS__)
+#define hleLogDebugOrError(t, res, ...) hleLogReturnHelper(true, t, LogLevel::LERROR, res, ##__VA_ARGS__)
+
+#define hleReportError(t, res, ...) hleDoLog<true, false>(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", ##__VA_ARGS__)
+#define hleReportWarning(t, res, ...) hleDoLog<true, false>(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", ##__VA_ARGS__)

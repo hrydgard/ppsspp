@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|ARM">
-      <Configuration>Debug</Configuration>
-      <Platform>ARM</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|ARM64">
       <Configuration>Debug</Configuration>
       <Platform>ARM64</Platform>
@@ -16,10 +12,6 @@
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|ARM">
-      <Configuration>Release</Configuration>
-      <Platform>ARM</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|ARM64">
       <Configuration>Release</Configuration>
@@ -35,42 +27,37 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="miniupnp\miniupnpc\addr_is_reserved.h" />
-    <ClInclude Include="miniupnp\miniupnpc\connecthostport.h" />
-    <ClInclude Include="miniupnp\miniupnpc\igd_desc_parse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minisoap.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minissdpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\miniupnpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\miniwget.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minixml.h" />
-    <ClInclude Include="miniupnp\miniupnpc\portlistingparse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\receivedata.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpcommands.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpdev.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnperrors.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpreplyparse.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="miniupnp\miniupnpc\addr_is_reserved.c" />
-    <ClCompile Include="miniupnp\miniupnpc\connecthostport.c" />
-    <ClCompile Include="miniupnp\miniupnpc\igd_desc_parse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minisoap.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minissdpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\miniupnpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\miniwget.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minixml.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minixmlvalid.c" />
-    <ClCompile Include="miniupnp\miniupnpc\portlistingparse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\receivedata.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpcommands.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpdev.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnperrors.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpreplyparse.c" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="miniupnp\miniupnpc\src\addr_is_reserved.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\connecthostport.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\igd_desc_parse.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minisoap.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minissdpc.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\miniupnpc.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\miniwget.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minixml.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\portlistingparse.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\receivedata.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpcommands.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpdev.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnperrors.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpreplyparse.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="miniupnp\miniupnpc\src\addr_is_reserved.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\codelength.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\connecthostport.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minisoap.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minissdpc.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\miniupnpc_socketdef.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\miniwget_private.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minixml.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\receivedata.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\win32_snprintf.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -95,19 +82,11 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\Windows\fix_2017.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\Windows\fix_2017.props" />
-  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\Windows\fix_2017.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\Windows\fix_2017.props" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\Windows\fix_2017.props" />
   </ImportGroup>
@@ -138,26 +117,12 @@
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
-    <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
-  </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <WindowsSDKDesktopARM64Support>true</WindowsSDKDesktopARM64Support>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
-    <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -204,13 +169,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -227,6 +186,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -256,6 +216,7 @@ cd..\..\..</Command>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -286,6 +247,8 @@ cd..\..\..</Command>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -319,6 +282,8 @@ cd..\..\..</Command>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <OmitFramePointers>false</OmitFramePointers>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -335,24 +300,6 @@ genminiupnpcstrings.vbs
 cd..\..\..</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <PreBuildEvent>
-      <Command>cd miniupnp\miniupnpc\msvc
-genminiupnpcstrings.vbs
-cd..\..\..</Command>
-    </PreBuildEvent>
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>DEBUG;_DEBUG;WIN32;_LIB;MINIUPNP_STATICLIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <RuntimeTypeInfo>false</RuntimeTypeInfo>
-    </ClCompile>
-    <Lib>
-      <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
-    </Lib>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <PreBuildEvent>
       <Command>cd miniupnp\miniupnpc\msvc
@@ -366,29 +313,7 @@ cd..\..\..</Command>
       <PreprocessorDefinitions>DEBUG;_DEBUG;WIN32;_LIB;MINIUPNP_STATICLIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-    </ClCompile>
-    <Lib>
-      <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <PreBuildEvent>
-      <Command>cd miniupnp\miniupnpc\msvc
-genminiupnpcstrings.vbs
-cd..\..\..</Command>
-    </PreBuildEvent>
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-    </ClCompile>
-    <ClCompile>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <PreprocessorDefinitions>NDEBUG;WIN32;_LIB;MINIUPNP_STATICLIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
@@ -411,6 +336,8 @@ cd..\..\..</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>

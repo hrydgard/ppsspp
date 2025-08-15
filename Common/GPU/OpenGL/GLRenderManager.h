@@ -7,12 +7,16 @@
 #include <set>
 #include <string>
 #include <mutex>
+#include <queue>
 #include <condition_variable>
 
-#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
-#include "GLQueueRunner.h"
+#include "Common/GPU/OpenGL/GLQueueRunner.h"
+#include "Common/GPU/OpenGL/GLFrameData.h"
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include "Common/GPU/OpenGL/GLMemory.h"
 
 class GLRInputLayout;
 class GLPushBuffer;
@@ -49,12 +53,13 @@ public:
 
 class GLRFramebuffer {
 public:
-	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil)
+	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil, const char *tag)
 		: color_texture(caps, _width, _height, 1, 1), z_stencil_texture(caps, _width, _height, 1, 1),
 		width(_width), height(_height), z_stencil_(z_stencil) {
 	}
-
 	~GLRFramebuffer();
+
+	const char *Tag() const { return tag_.c_str(); }
 
 	GLuint handle = 0;
 	GLRTexture color_texture;
@@ -67,8 +72,10 @@ public:
 	int width;
 	int height;
 	GLuint colorDepth = 0;
-
 	bool z_stencil_;
+
+private:
+	std::string tag_;
 };
 
 // We need to create some custom heap-allocated types so we can forward things that need to be created on the GL thread, before
@@ -98,12 +105,24 @@ struct GLRProgramFlags {
 	bool useClipDistance2 : 1;
 };
 
+// Unless you manage lifetimes in some smart way,
+// your loc data for uniforms and samplers need to be in a struct
+// derived from this, and passed into CreateProgram.
+class GLRProgramLocData {
+public:
+	virtual ~GLRProgramLocData() {}
+};
+
 class GLRProgram {
 public:
 	~GLRProgram() {
+		if (deleteCallback_) {
+			deleteCallback_(deleteParam_);
+		}
 		if (program) {
 			glDeleteProgram(program);
 		}
+		delete locData_;
 	}
 	struct Semantic {
 		int location;
@@ -126,6 +145,8 @@ public:
 	std::vector<Semantic> semantics_;
 	std::vector<UniformLocQuery> queries_;
 	std::vector<Initializer> initialize_;
+
+	GLRProgramLocData *locData_;
 	bool use_clip_distance[8]{};
 
 	struct UniformInfo {
@@ -147,203 +168,17 @@ public:
 		}
 		return loc;
 	}
+
+	void SetDeleteCallback(void(*cb)(void *), void *p) {
+		deleteCallback_ = cb;
+		deleteParam_ = p;
+	}
+
+private:
+	void(*deleteCallback_)(void *) = nullptr;
+	void *deleteParam_ = nullptr;
+
 	std::unordered_map<std::string, UniformInfo> uniformCache_;
-};
-
-enum class GLBufferStrategy {
-	SUBDATA = 0,
-
-	MASK_FLUSH = 0x10,
-	MASK_INVALIDATE = 0x20,
-
-	// Map/unmap the buffer each frame.
-	FRAME_UNMAP = 1,
-	// Map/unmap and also invalidate the buffer on map.
-	INVALIDATE_UNMAP = MASK_INVALIDATE,
-	// Map/unmap and explicitly flushed changed ranges.
-	FLUSH_UNMAP = MASK_FLUSH,
-	// Map/unmap, invalidate on map, and explicit flush.
-	FLUSH_INVALIDATE_UNMAP = MASK_FLUSH | MASK_INVALIDATE,
-};
-
-static inline int operator &(const GLBufferStrategy &lhs, const GLBufferStrategy &rhs) {
-	return (int)lhs & (int)rhs;
-}
-
-class GLRBuffer {
-public:
-	GLRBuffer(GLuint target, size_t size) : target_(target), size_((int)size) {}
-	~GLRBuffer() {
-		if (buffer_) {
-			glDeleteBuffers(1, &buffer_);
-		}
-	}
-
-	void *Map(GLBufferStrategy strategy);
-	bool Unmap();
-
-	bool Mapped() const {
-		return mapped_;
-	}
-
-	GLuint buffer_ = 0;
-	GLuint target_;
-	int size_;
-
-private:
-	bool mapped_ = false;
-	bool hasStorage_ = false;
-};
-
-class GLRenderManager;
-
-// Similar to VulkanPushBuffer but is currently less efficient - it collects all the data in
-// RAM then does a big memcpy/buffer upload at the end of the frame. This is at least a lot
-// faster than the hundreds of buffer uploads or memory array buffers we used before.
-// On modern GL we could avoid the copy using glBufferStorage but not sure it's worth the
-// trouble.
-// We need to manage the lifetime of this together with the other resources so its destructor
-// runs on the render thread.
-class GLPushBuffer {
-public:
-	friend class GLRenderManager;
-
-	struct BufInfo {
-		GLRBuffer *buffer = nullptr;
-		uint8_t *localMemory = nullptr;
-		uint8_t *deviceMemory = nullptr;
-		size_t flushOffset = 0;
-	};
-
-	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
-	~GLPushBuffer();
-
-	void Reset() { offset_ = 0; }
-
-private:
-	// Needs context in case of defragment.
-	void Begin() {
-		buf_ = 0;
-		offset_ = 0;
-		// Note: we must defrag because some buffers may be smaller than size_.
-		Defragment();
-		Map();
-		_dbg_assert_(writePtr_);
-	}
-
-	void BeginNoReset() {
-		Map();
-	}
-
-	void End() {
-		Unmap();
-	}
-
-public:
-	void Map();
-	void Unmap();
-
-	bool IsReady() const {
-		return writePtr_ != nullptr;
-	}
-
-	// When using the returned memory, make sure to bind the returned vkbuf.
-	// This will later allow for handling overflow correctly.
-	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {
-		size_t out = offset_;
-		if (offset_ + ((numBytes + 3) & ~3) >= size_) {
-			NextBuffer(numBytes);
-			out = offset_;
-			offset_ += (numBytes + 3) & ~3;
-		} else {
-			offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-		}
-		*vkbuf = buffers_[buf_].buffer;
-		return out;
-	}
-
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size, GLRBuffer **vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	uint32_t PushAligned(const void *data, size_t size, int align, GLRBuffer **vkbuf) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return (uint32_t)off;
-	}
-
-	size_t GetOffset() const {
-		return offset_;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	// Recommended.
-	void *Push(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-	void *PushAligned(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf, int align) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-
-	size_t GetTotalSize() const;
-
-	void Destroy(bool onRenderThread);
-	void Flush();
-
-protected:
-	void MapDevice(GLBufferStrategy strategy);
-	void UnmapDevice();
-
-private:
-	bool AddBuffer();
-	void NextBuffer(size_t minSize);
-	void Defragment();
-
-	GLRenderManager *render_;
-	std::vector<BufInfo> buffers_;
-	size_t buf_ = 0;
-	size_t offset_ = 0;
-	size_t size_ = 0;
-	uint8_t *writePtr_ = nullptr;
-	GLuint target_;
-	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
-};
-
-enum class GLRRunType {
-	END,
-	SYNC,
-};
-
-class GLDeleter {
-public:
-	void Perform(GLRenderManager *renderManager, bool skipGLCalls);
-
-	bool IsEmpty() const {
-		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
-	}
-
-	void Take(GLDeleter &other);
-
-	std::vector<GLRShader *> shaders;
-	std::vector<GLRProgram *> programs;
-	std::vector<GLRBuffer *> buffers;
-	std::vector<GLRTexture *> textures;
-	std::vector<GLRInputLayout *> inputLayouts;
-	std::vector<GLRFramebuffer *> framebuffers;
-	std::vector<GLPushBuffer *> pushBuffers;
 };
 
 class GLRInputLayout {
@@ -353,11 +188,36 @@ public:
 		int count;
 		GLenum type;
 		GLboolean normalized;
-		int stride;
 		intptr_t offset;
 	};
 	std::vector<Entry> entries;
+	int stride;
 	int semanticsMask_ = 0;
+};
+
+enum class GLRRunType {
+	SUBMIT,
+	PRESENT,
+	SYNC,
+	EXIT,
+};
+
+class GLRenderManager;
+class GLPushBuffer;
+
+// These are enqueued from the main thread, and the render thread pops them off
+struct GLRRenderThreadTask {
+	GLRRenderThreadTask(GLRRunType _runType) : runType(_runType) {}
+
+	std::vector<GLRStep *> steps;
+	FastVec<GLRInitStep> initSteps;
+
+	int frame = -1;
+	GLRRunType runType;
+
+	// Avoid copying these by accident.
+	GLRRenderThreadTask(GLRRenderThreadTask &) = delete;
+	GLRRenderThreadTask& operator =(GLRRenderThreadTask &) = delete;
 };
 
 // Note: The GLRenderManager is created and destroyed on the render thread, and the latter
@@ -365,8 +225,19 @@ public:
 // directly in the destructor.
 class GLRenderManager {
 public:
-	GLRenderManager() {}
+	GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory);
 	~GLRenderManager();
+
+	GLRenderManager(GLRenderManager &) = delete;
+	GLRenderManager &operator=(GLRenderManager &) = delete;
+
+	void SetInvalidationCallback(InvalidationCallback callback) {
+		invalidationCallback_ = callback;
+	}
+
+	void ThreadStart(Draw::DrawContext *draw);
+	void ThreadEnd();
+	bool ThreadFrame();  // Returns true if it did anything. False means the queue was empty.
 
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
@@ -376,57 +247,52 @@ public:
 		caps_ = caps;
 	}
 
-	void ThreadStart(Draw::DrawContext *draw);
-	void ThreadEnd();
-	bool ThreadFrame();  // Returns false to request exiting the loop.
+	std::string GetGpuProfileString() const;
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
-	void BeginFrame();
+	void BeginFrame(bool enableProfiling);
 	// Can run on a different thread!
 	void Finish();
-	void Run(int frame);
-
-	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
-	void Wipe();
-
-	// Wait until no frames are pending.  Use during shutdown before freeing pointers.
-	void WaitUntilQueueIdle();
+	void Present();
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
 	// and then we'll also need formats and stuff.
 	GLRTexture *CreateTexture(GLenum target, int width, int height, int depth, int numMips) {
-		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
+		_dbg_assert_(target != 0);
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::CREATE_TEXTURE;
 		step.create_texture.texture = new GLRTexture(caps_, width, height, depth, numMips);
 		step.create_texture.texture->target = target;
-		initSteps_.push_back(step);
 		return step.create_texture.texture;
 	}
 
 	GLRBuffer *CreateBuffer(GLuint target, size_t size, GLuint usage) {
-		GLRInitStep step{ GLRInitStepType::CREATE_BUFFER };
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::CREATE_BUFFER;
 		step.create_buffer.buffer = new GLRBuffer(target, size);
 		step.create_buffer.size = (int)size;
 		step.create_buffer.usage = usage;
-		initSteps_.push_back(step);
 		return step.create_buffer.buffer;
 	}
 
 	GLRShader *CreateShader(GLuint stage, const std::string &code, const std::string &desc) {
-		GLRInitStep step{ GLRInitStepType::CREATE_SHADER };
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::CREATE_SHADER;
 		step.create_shader.shader = new GLRShader();
 		step.create_shader.shader->desc = desc;
 		step.create_shader.stage = stage;
 		step.create_shader.code = new char[code.size() + 1];
 		memcpy(step.create_shader.code, code.data(), code.size() + 1);
-		initSteps_.push_back(step);
 		return step.create_shader.shader;
 	}
 
-	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil) {
-		GLRInitStep step{ GLRInitStepType::CREATE_FRAMEBUFFER };
-		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil);
-		initSteps_.push_back(step);
+	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil, const char *tag) {
+		_dbg_assert_(width > 0 && height > 0 && tag != nullptr);
+
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::CREATE_FRAMEBUFFER;
+		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil, tag);
 		return step.create_framebuffer.framebuffer;
 	}
 
@@ -434,13 +300,15 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initializers, const GLRProgramFlags &flags) {
-		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
+		std::vector<GLRProgram::Initializer> initializers, GLRProgramLocData *locData, const GLRProgramFlags &flags) {
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::CREATE_PROGRAM;
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initializers;
+		step.create_program.program->locData_ = locData;
 		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
 		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;
 		step.create_program.program->use_clip_distance[2] = flags.useClipDistance2;
@@ -458,60 +326,63 @@ public:
 		}
 #endif
 		step.create_program.num_shaders = (int)shaders.size();
-		initSteps_.push_back(step);
 		return step.create_program.program;
 	}
 
-	GLRInputLayout *CreateInputLayout(std::vector<GLRInputLayout::Entry> &entries) {
-		GLRInitStep step{ GLRInitStepType::CREATE_INPUT_LAYOUT };
+	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries, int stride) {
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::CREATE_INPUT_LAYOUT;
 		step.create_input_layout.inputLayout = new GLRInputLayout();
 		step.create_input_layout.inputLayout->entries = entries;
+		step.create_input_layout.inputLayout->stride = stride;
 		for (auto &iter : step.create_input_layout.inputLayout->entries) {
 			step.create_input_layout.inputLayout->semanticsMask_ |= 1 << iter.location;
 		}
-		initSteps_.push_back(step);
 		return step.create_input_layout.inputLayout;
 	}
 
-	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size) {
-		GLPushBuffer *push = new GLPushBuffer(this, target, size);
+	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, const char *tag) {
+		GLPushBuffer *push = new GLPushBuffer(this, target, size, tag);
 		RegisterPushBuffer(frame, push);
 		return push;
 	}
 
 	void DeleteShader(GLRShader *shader) {
+		_dbg_assert_(shader != nullptr);
 		deleter_.shaders.push_back(shader);
 	}
 	void DeleteProgram(GLRProgram *program) {
+		_dbg_assert_(program != nullptr);
 		deleter_.programs.push_back(program);
 	}
 	void DeleteBuffer(GLRBuffer *buffer) {
+		_dbg_assert_(buffer != nullptr);
 		deleter_.buffers.push_back(buffer);
 	}
 	void DeleteTexture(GLRTexture *texture) {
+		_dbg_assert_(texture != nullptr);
 		deleter_.textures.push_back(texture);
 	}
 	void DeleteInputLayout(GLRInputLayout *inputLayout) {
+		_dbg_assert_(inputLayout != nullptr);
 		deleter_.inputLayouts.push_back(inputLayout);
 	}
 	void DeleteFramebuffer(GLRFramebuffer *framebuffer) {
+		_dbg_assert_(framebuffer != nullptr);
 		deleter_.framebuffers.push_back(framebuffer);
 	}
 	void DeletePushBuffer(GLPushBuffer *pushbuffer) {
+		_dbg_assert_(pushbuffer != nullptr);
 		deleter_.pushBuffers.push_back(pushbuffer);
 	}
 
-	void BeginPushBuffer(GLPushBuffer *pushbuffer) {
-		pushbuffer->Begin();
-	}
-
-	void EndPushBuffer(GLPushBuffer *pushbuffer) {
-		pushbuffer->End();
+	bool IsInRenderPass() const {
+		return curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER;
 	}
 
 	// This starts a new step (like a "render pass" in Vulkan).
 	//
-	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this beforce
+	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this before
 	// making any new render state changes or draw calls.
 	//
 	// The following state needs to be reset by the caller after calling this (and will thus not safely carry over from
@@ -528,7 +399,7 @@ public:
 	// Binds a framebuffer as a texture, for the following draws.
 	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit);
 
-	bool CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
+	bool CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag);
 	void CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
 	void CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask, const char *tag);
@@ -538,20 +409,20 @@ public:
 	void BufferSubdata(GLRBuffer *buffer, size_t offset, size_t size, uint8_t *data, bool deleteData = true) {
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
 		// an init command, that's for sure.
-		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
-		_dbg_assert_(offset >= 0);
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::BUFFER_SUBDATA;
 		_dbg_assert_(offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = (int)offset;
 		step.buffer_subdata.size = (int)size;
 		step.buffer_subdata.data = data;
 		step.buffer_subdata.deleteData = deleteData;
-		initSteps_.push_back(step);
 	}
 
 	// Takes ownership over the data pointer and delete[]-s it.
 	void TextureImage(GLRTexture *texture, int level, int width, int height, int depth, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW, bool linearFilter = false) {
-		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::TEXTURE_IMAGE;
 		step.texture_image.texture = texture;
 		step.texture_image.data = data;
 		step.texture_image.format = format;
@@ -561,12 +432,11 @@ public:
 		step.texture_image.depth = depth;
 		step.texture_image.allocType = allocType;
 		step.texture_image.linearFilter = linearFilter;
-		initSteps_.push_back(step);
 	}
 
 	void TextureSubImage(int slot, GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData _data{ GLRRenderCommand::TEXTURE_SUBIMAGE };
+		GLRRenderData _data(GLRRenderCommand::TEXTURE_SUBIMAGE);
 		_data.texture_subimage.texture = texture;
 		_data.texture_subimage.data = data;
 		_data.texture_subimage.format = format;
@@ -581,80 +451,59 @@ public:
 	}
 
 	void FinalizeTexture(GLRTexture *texture, int loadedLevels, bool genMips) {
-		GLRInitStep step{ GLRInitStepType::TEXTURE_FINALIZE };
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::TEXTURE_FINALIZE;
 		step.texture_finalize.texture = texture;
 		step.texture_finalize.loadedLevels = loadedLevels;
 		step.texture_finalize.genMips = genMips;
-		initSteps_.push_back(step);
 	}
 
 	void BindTexture(int slot, GLRTexture *tex) {
+		if (!curRenderStep_ && !tex) {
+			// Likely a pre-emptive bindtexture for D3D11 to avoid hazards. Not necessary.
+			// This can happen in BlitUsingRaster.
+			return;
+		}
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
-		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::BINDTEXTURE;
 		data.texture.slot = slot;
 		data.texture.texture = tex;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindProgram(GLRProgram *program) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BINDPROGRAM };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::BINDPROGRAM;
 		_dbg_assert_(program != nullptr);
 		data.program.program = program;
-		curRenderStep_->commands.push_back(data);
 #ifdef _DEBUG
 		curProgram_ = program;
 #endif
 	}
 
-	void BindPixelPackBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER };
-		data.bind_buffer.buffer = buffer;
-		data.bind_buffer.target = GL_PIXEL_PACK_BUFFER;
-		curRenderStep_->commands.push_back(data);
-	}
-
-	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER};
-		data.bind_buffer.buffer = buffer;
-		data.bind_buffer.target = GL_ELEMENT_ARRAY_BUFFER;
-		curRenderStep_->commands.push_back(data);
-	}
-
-	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		_dbg_assert_(inputLayout);
-		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
-		data.bindVertexBuffer.inputLayout = inputLayout;
-		data.bindVertexBuffer.offset = offset;
-		data.bindVertexBuffer.buffer = buffer;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void SetDepth(bool enabled, bool write, GLenum func) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DEPTH };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::DEPTH;
 		data.depth.enabled = enabled;
 		data.depth.write = write;
 		data.depth.func = func;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetViewport(const GLRViewport &vp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::VIEWPORT };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::VIEWPORT;
 		data.viewport.vp = vp;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetScissor(const GLRect2D &rc) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::SCISSOR };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::SCISSOR;
 		data.scissor.rc = rc;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformI(const GLint *loc, int count, const int *udata) {
@@ -662,11 +511,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4I;
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(int) * count);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformI1(const GLint *loc, int udata) {
@@ -674,11 +524,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4I;
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(udata));
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformUI(const GLint *loc, int count, const uint32_t *udata) {
@@ -686,11 +537,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4UI;
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(uint32_t) * count);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformUI1(const GLint *loc, uint32_t udata) {
@@ -698,11 +550,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4UI;
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(udata));
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformF(const GLint *loc, int count, const float *udata) {
@@ -710,11 +563,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4F;
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(float) * count);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformF1(const GLint *loc, const float udata) {
@@ -722,11 +576,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4F;
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(float));
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformF(const char *name, int count, const float *udata) {
@@ -734,11 +589,12 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORM4F;
 		data.uniform4.name = name;
+		data.uniform4.loc = nullptr;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(float) * count);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformM4x4(const GLint *loc, const float *udata) {
@@ -746,10 +602,11 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORMMATRIX;
+		data.uniformMatrix4.name = nullptr;
 		data.uniformMatrix4.loc = loc;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetUniformM4x4Stereo(const char *name, const GLint *loc, const float *left, const float *right) {
@@ -757,12 +614,13 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORMSTEREOMATRIX };
-		data.uniformMatrix4.name = name;
-		data.uniformMatrix4.loc = loc;
-		memcpy(&data.uniformMatrix4.m[0], left, sizeof(float) * 16);
-		memcpy(&data.uniformMatrix4.m[16], right, sizeof(float) * 16);
-		curRenderStep_->commands.push_back(data);
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORMSTEREOMATRIX;
+		data.uniformStereoMatrix4.name = name;
+		data.uniformStereoMatrix4.loc = loc;
+		data.uniformStereoMatrix4.mData = new float[32];
+		memcpy(&data.uniformStereoMatrix4.mData[0], left, sizeof(float) * 16);
+		memcpy(&data.uniformStereoMatrix4.mData[16], right, sizeof(float) * 16);
 	}
 
 	void SetUniformM4x4(const char *name, const float *udata) {
@@ -770,15 +628,19 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::UNIFORMMATRIX;
 		data.uniformMatrix4.name = name;
+		data.uniformMatrix4.loc = nullptr;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetBlendAndMask(int colorMask, bool blendEnabled, GLenum srcColor, GLenum dstColor, GLenum srcAlpha, GLenum dstAlpha, GLenum funcColor, GLenum funcAlpha) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BLEND };
+		// Make this one only a non-debug _assert_, since it often comes first.
+		// Lets us collect info about this potential crash through assert extra data.
+		_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::BLEND;
 		data.blend.mask = colorMask;
 		data.blend.enabled = blendEnabled;
 		data.blend.srcColor = srcColor;
@@ -787,96 +649,88 @@ public:
 		data.blend.dstAlpha = dstAlpha;
 		data.blend.funcColor = funcColor;
 		data.blend.funcAlpha = funcAlpha;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetNoBlendAndMask(int colorMask) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BLEND };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::BLEND;
 		data.blend.mask = colorMask;
 		data.blend.enabled = false;
-		curRenderStep_->commands.push_back(data);
 	}
 
 #ifndef USING_GLES2
 	void SetLogicOp(bool enabled, GLenum logicOp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::LOGICOP };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::LOGICOP;
 		data.logic.enabled = enabled;
 		data.logic.logicOp = logicOp;
-		curRenderStep_->commands.push_back(data);
 	}
 #endif
 
-	void SetStencilFunc(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask) {
+	void SetStencil(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask, uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::STENCILFUNC };
-		data.stencilFunc.enabled = enabled;
-		data.stencilFunc.func = func;
-		data.stencilFunc.ref = refValue;
-		data.stencilFunc.compareMask = compareMask;
-		curRenderStep_->commands.push_back(data);
-	}
-
-	void SetStencilOp(uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::STENCILOP };
-		data.stencilOp.writeMask = writeMask;
-		data.stencilOp.sFail = sFail;
-		data.stencilOp.zFail = zFail;
-		data.stencilOp.pass = pass;
-		curRenderStep_->commands.push_back(data);
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::STENCIL;
+		data.stencil.enabled = enabled;
+		data.stencil.func = func;
+		data.stencil.ref = refValue;
+		data.stencil.compareMask = compareMask;
+		data.stencil.writeMask = writeMask;
+		data.stencil.sFail = sFail;
+		data.stencil.zFail = zFail;
+		data.stencil.pass = pass;
 	}
 
 	void SetStencilDisabled() {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data;
-		data.cmd = GLRRenderCommand::STENCILFUNC;
-		data.stencilFunc.enabled = false;
-		curRenderStep_->commands.push_back(data);
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::STENCIL;
+		data.stencil.enabled = false;
 	}
 
 	void SetBlendFactor(const float color[4]) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BLENDCOLOR };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::BLENDCOLOR;
 		CopyFloat4(data.blendColor.color, color);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable, GLboolean depthClamp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::RASTER };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::RASTER;
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
 		data.raster.cullFace = cullFace;
 		data.raster.ditherEnable = ditherEnable;
 		data.raster.depthClampEnable = depthClamp;
-		curRenderStep_->commands.push_back(data);
 	}
 	
 	// Modifies the current texture as per GL specs, not global state.
 	void SetTextureSampler(int slot, GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
-		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::TEXTURESAMPLER;
 		data.textureSampler.slot = slot;
 		data.textureSampler.wrapS = wrapS;
 		data.textureSampler.wrapT = wrapT;
 		data.textureSampler.magFilter = magFilter;
 		data.textureSampler.minFilter = minFilter;
 		data.textureSampler.anisotropy = anisotropy;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetTextureLod(int slot, float minLod, float maxLod, float lodBias) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
-		GLRRenderData data{ GLRRenderCommand::TEXTURELOD};
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::TEXTURELOD;
 		data.textureLod.slot = slot;
 		data.textureLod.minLod = minLod;
 		data.textureLod.maxLod = maxLod;
 		data.textureLod.lodBias = lodBias;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	// If scissorW == 0, no scissor is applied (the whole render target is cleared).
@@ -884,7 +738,8 @@ public:
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		if (!clearMask)
 			return;
-		GLRRenderData data{ GLRRenderCommand::CLEAR };
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::CLEAR;
 		data.clear.clearMask = clearMask;
 		data.clear.clearColor = clearColor;
 		data.clear.clearZ = clearZ;
@@ -894,30 +749,36 @@ public:
 		data.clear.scissorY = scissorY;
 		data.clear.scissorW = scissorW;
 		data.clear.scissorH = scissorH;
-		curRenderStep_->commands.push_back(data);
 	}
 
-	void Draw(GLenum mode, int first, int count) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DRAW };
+	void Draw(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLenum mode, int first, int count) {
+		_dbg_assert_(vertexBuffer && curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::DRAW;
+		data.draw.inputLayout = inputLayout;
+		data.draw.vertexOffset = vertexOffset;
+		data.draw.vertexBuffer = vertexBuffer;
+		data.draw.indexBuffer = nullptr;
 		data.draw.mode = mode;
 		data.draw.first = first;
 		data.draw.count = count;
-		data.draw.buffer = 0;
-		curRenderStep_->commands.push_back(data);
-		curRenderStep_->render.numDraws++;
+		data.draw.indexType = 0;
 	}
 
-	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DRAW_INDEXED };
-		data.drawIndexed.mode = mode;
-		data.drawIndexed.count = count;
-		data.drawIndexed.indexType = indexType;
-		data.drawIndexed.instances = instances;
-		data.drawIndexed.indices = indices;
-		curRenderStep_->commands.push_back(data);
-		curRenderStep_->render.numDraws++;
+	// Would really love to have a basevertex parameter, but impossible in unextended GLES, without glDrawElementsBaseVertex, unfortunately.
+	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1) {
+		_dbg_assert_(vertexBuffer && indexBuffer && curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = GLRRenderCommand::DRAW;
+		data.draw.inputLayout = inputLayout;
+		data.draw.vertexOffset = vertexOffset;
+		data.draw.vertexBuffer = vertexBuffer;
+		data.draw.indexBuffer = indexBuffer;
+		data.draw.indexOffset = indexOffset;
+		data.draw.mode = mode;
+		data.draw.count = count;
+		data.draw.indexType = indexType;
+		data.draw.instances = instances;
 	}
 
 	enum { MAX_INFLIGHT_FRAMES = 3 };
@@ -963,6 +824,7 @@ public:
 		}
 	}
 
+	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
 	void StopThread();
 
 	bool SawOutOfMemory() {
@@ -980,20 +842,15 @@ public:
 		skipGLCalls_ = true;
 	}
 
-	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
-	// when the current step has changed, which means the caller will need to re-record its state.
-	int GetCurrentStepId() const {
-		return renderStepOffset_ + (int)steps_.size();
+	int GetNumSteps() const {
+		return (int)steps_.size();
 	}
 
 private:
-	void BeginSubmitFrame(int frame);
-	void EndSubmitFrame(int frame);
-	void Submit(int frame, bool triggerFence);
+	bool Run(GLRRenderThreadTask &task);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-	void EndSyncFrame(int frame);
 
 	// When using legacy functionality for push buffers (glBufferData), we need to flush them
 	// before actually making the glDraw* calls. It's best if the render manager handles that.
@@ -1001,56 +858,35 @@ private:
 		frameData_[frame].activePushBuffers.insert(buffer);
 	}
 
-	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
-	struct FrameData {
-		std::mutex push_mutex;
-		std::condition_variable push_condVar;
-
-		std::mutex pull_mutex;
-		std::condition_variable pull_condVar;
-
-		bool readyForFence = true;
-		bool readyForRun = false;
-		bool readyForSubmit = false;
-
-		bool skipSwap = false;
-		GLRRunType type = GLRRunType::END;
-
-		// GLuint fence; For future AZDO stuff?
-		std::vector<GLRStep *> steps;
-		std::vector<GLRInitStep> initSteps;
-
-		// Swapchain.
-		bool hasBegun = false;
-		uint32_t curSwapchainImage = -1;
-
-		GLDeleter deleter;
-		GLDeleter deleter_prev;
-		std::set<GLPushBuffer *> activePushBuffers;
-	};
-
-	FrameData frameData_[MAX_INFLIGHT_FRAMES];
+	GLFrameData frameData_[MAX_INFLIGHT_FRAMES];
 
 	// Submission time state
 	bool insideFrame_ = false;
-	// This is the offset within this frame, in case of a mid-frame sync.
-	int renderStepOffset_ = 0;
+
 	GLRStep *curRenderStep_ = nullptr;
 	std::vector<GLRStep *> steps_;
-	std::vector<GLRInitStep> initSteps_;
+	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
-	bool run_ = true;
+	// TODO: Rename this, as we don't actually use a compile thread on OpenGL.
+	bool runCompileThread_ = true;
+
 	// Thread is managed elsewhere, and should call ThreadFrame.
-	std::mutex mutex_;
-	int threadInitFrame_ = 0;
 	GLQueueRunner queueRunner_;
 
-	// Thread state
-	int threadFrame_ = -1;
+	// For pushing data on the queue.
+	std::mutex pushMutex_;
+	std::condition_variable pushCondVar_;
 
-	bool nextFrame = false;
-	bool firstFrame = true;
+	std::queue<GLRRenderThreadTask *> renderThreadQueue_;
+
+	// For readbacks and other reasons we need to sync with the render thread.
+	std::mutex syncMutex_;
+	std::condition_variable syncCondVar_;
+
+	bool firstFrame_ = true;
+	bool vrRenderStarted_ = false;
+	bool syncDone_ = false;
 
 	GLDeleter deleter_;
 	bool skipGLCalls_ = false;
@@ -1074,4 +910,10 @@ private:
 	GLRProgram *curProgram_ = nullptr;
 #endif
 	Draw::DeviceCaps caps_{};
+
+	std::string profilePassesString_;
+	InvalidationCallback invalidationCallback_;
+
+	uint64_t frameIdGen_ = FRAME_TIME_HISTORY_LENGTH;
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory_;
 };

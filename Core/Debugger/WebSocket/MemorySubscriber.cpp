@@ -45,6 +45,10 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 }
 
 struct AutoDisabledReplacements {
+	AutoDisabledReplacements() {}
+	AutoDisabledReplacements(AutoDisabledReplacements &&other);
+	AutoDisabledReplacements(const AutoDisabledReplacements &) = delete;
+	AutoDisabledReplacements &operator =(const AutoDisabledReplacements &) = delete;
 	~AutoDisabledReplacements();
 
 	Memory::MemoryInitedLock *lock = nullptr;
@@ -60,7 +64,7 @@ static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplace
 	if (Core_IsStepping()) {
 		result.wasStepping = true;
 	} else {
-		Core_EnableStepping(true, "memory.access", addr);
+		Core_Break(BreakReason::MemoryAccess, addr);
 		Core_WaitInactive();
 	}
 
@@ -76,6 +80,17 @@ static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplace
 	return result;
 }
 
+AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&other) {
+	lock = other.lock;
+	other.lock = nullptr;
+	replacements = std::move(other.replacements);
+	emuhacks = std::move(other.emuhacks);
+	saved = other.saved;
+	other.saved = false;
+	wasStepping = other.wasStepping;
+	other.wasStepping = true;
+}
+
 AutoDisabledReplacements::~AutoDisabledReplacements() {
 	if (saved) {
 		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
@@ -84,7 +99,7 @@ AutoDisabledReplacements::~AutoDisabledReplacements() {
 		RestoreSavedReplacements(replacements);
 	}
 	if (!wasStepping)
-		Core_EnableStepping(false);
+		Core_Resume();
 	delete lock;
 }
 

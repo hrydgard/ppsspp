@@ -11,6 +11,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.DisplayCutout;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -39,8 +40,28 @@ public class SizeManager implements SurfaceHolder.Callback {
 	private Point desiredSize = new Point();
 	private int badOrientationCount = 0;
 
+	// Used to fix a race condition on some Android versions.
+	private Surface earlySurface = null;
+
+	private boolean paused = false;
+
 	public SizeManager(final NativeActivity a) {
 		activity = a;
+	}
+
+	public void onResume() {
+		if (earlySurface != null) {
+			Log.i(TAG, "Applying deferred surface");
+			activity.notifySurface(earlySurface);
+			earlySurface = null;
+		}
+		paused = false;
+	}
+
+	public void onPause() {
+		paused = true;
+		// Make sure.
+		earlySurface = null;
 	}
 
 	@TargetApi(Build.VERSION_CODES.P)
@@ -83,12 +104,20 @@ public class SizeManager implements SurfaceHolder.Callback {
 			Log.i(TAG, "Bad orientation detected but ignored" + (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? " (sdk version)" : ""));
 		}
 
-		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
+		Display display = activity.getWindowManager().getDefaultDisplay();
+
+		refreshRate = display.getRefreshRate();
+
+		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr + " " + refreshRate + "Hz");
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
 
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
-		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
+		if (desiredSize.x == 0) {
+			Log.d(TAG, "Setting auto surface size (not fixed)");
+		} else {
+			Log.d(TAG, "Setting fixed surface size " + desiredSize.x + " x " + desiredSize.y);
+		}
 		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
@@ -107,7 +136,12 @@ public class SizeManager implements SurfaceHolder.Callback {
 		NativeApp.backbufferResize(width, height, format);
 		updateDisplayMeasurements();
 
-		activity.notifySurface(holder.getSurface());
+		if (!paused) {
+			activity.notifySurface(holder.getSurface());
+		} else {
+			earlySurface = holder.getSurface();
+			Log.i(TAG, "Skipping notifySurface while paused - deferring to resume");
+		}
 	}
 
 	@Override
@@ -124,15 +158,10 @@ public class SizeManager implements SurfaceHolder.Callback {
 		}
 		displayUpdatePending = true;
 
-		final Runnable updater = new Runnable() {
-			public void run() {
-				Log.d(TAG, "checkDisplayMeasurements: checking now");
-				updateDisplayMeasurements();
-			}
-		};
-
-		final Handler handler = new Handler(Looper.getMainLooper());
-		handler.postDelayed(updater, 10);
+		activity.runOnUiThread(() -> {
+			Log.d(TAG, "checkDisplayMeasurements: checking now");
+			updateDisplayMeasurements();
+		});
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
@@ -208,7 +237,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 				safeInsetTop = 0;
 				safeInsetBottom = 0;
 			}
-			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
+			NativeApp.sendMessageFromJava("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 		}
 	}
 }

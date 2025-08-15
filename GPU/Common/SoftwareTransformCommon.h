@@ -17,16 +17,18 @@
 
 #pragma once
 
+#include <vector>
 #include "Common/CommonTypes.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/TransformCommon.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 
 enum SoftwareTransformAction {
 	SW_NOT_READY,
-	SW_DRAW_PRIMITIVES,
+	SW_DRAW_INDEXED,
 	SW_CLEAR,
 };
 
@@ -44,7 +46,7 @@ struct SoftwareTransformResult {
 
 	TransformedVertex *drawBuffer;
 	int drawNumTrans;
-	bool drawIndexed;
+	bool pixelMapped;
 };
 
 struct SoftwareTransformParams {
@@ -55,27 +57,36 @@ struct SoftwareTransformParams {
 	TextureCacheCommon *texCache;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
-	bool provokeFlatFirst;
 	bool flippedY;
 	bool usesHalfZ;
 };
 
+// Converts an index buffer to make the provoking vertex the last.
+// In-place. So, better not be doing this on GPU memory!
+// TODO: We could do this already during index decode.
+void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
+
 class SoftwareTransform {
 public:
-	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {
-	}
+	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
 
-	void SetProjMatrix(float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
-	void Decode(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result);
-	void DetectOffsetTexture(int maxIndex);
-	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result);
+	void SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
+	void Transform(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result);
+
+	// NOTE: The viewport must be up to date!
+	// indsSize is in indices, not bytes.
+	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
 protected:
-	void CalcCullParams(float &minZValue, float &maxZValue);
-	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	void CalcCullParams(float &minZValue, float &maxZValue) const;
+	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
+	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
+	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;
 };
+
+// Slow. See description in the cpp file.
+u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const VertexDecoder *dec, u32 vertType);
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);

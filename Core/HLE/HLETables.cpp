@@ -49,9 +49,11 @@
 #include "sceKernelTime.h"
 #include "sceMd5.h"
 #include "sceMp4.h"
+#include "sceAac.h"
 #include "sceMp3.h"
 #include "sceNet.h"
 #include "sceNetAdhoc.h"
+#include "sceNetAdhocMatching.h"
 #include "sceNp.h"
 #include "sceMpeg.h"
 #include "sceOpenPSID.h"
@@ -62,8 +64,10 @@
 #include "scePower.h"
 #include "scePspNpDrm_user.h"
 #include "scePsmf.h"
+#include "sceReg.h"
 #include "sceRtc.h"
 #include "sceSas.h"
+#include "sceSircs.h"
 #include "sceSsl.h"
 #include "sceUmd.h"
 #include "sceUsb.h"
@@ -79,6 +83,10 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "sceNetInet.h"
+#include "sceNetResolver.h"
+// #include "sceNp2.h"
+#include "sceNet_lib.h"
 
 #define N(s) s
 
@@ -96,7 +104,7 @@ const HLEFunction FakeSysCalls[] = {
 	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack", 'x', ""},
 	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc", 'x', ""},
 	{NID_IDLE, __KernelIdle, "_sceKernelIdle", 'x', ""},
-	{NID_GPUREPLAY, __KernelGPUReplay, "__KernelGPUReplay", 'x', ""},
+	{NID_GPUREPLAY, &WrapI_V<__KernelGPUReplay>, "__KernelGPUReplay", 'x', ""},
 	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall", 'x', ""},
 };
 
@@ -183,9 +191,9 @@ const HLEFunction KDebugForKernel[] =
 	{0X24C32559, nullptr,                                            "sceKernelDipsw",                          '?', ""   },
 	{0XD636B827, nullptr,                                            "sceKernelRemoveByDebugSection",           '?', ""   },
 	{0X5282DD5E, nullptr,                                            "sceKernelDipswSet",                       '?', ""   },
-	{0X9F8703E4, nullptr,                                            "KDebugForKernel_9F8703E4",                '?', ""   },
-	{0X333DCEC7, nullptr,                                            "KDebugForKernel_333DCEC7",                '?', ""   },
-	{0XE892D9A1, nullptr,                                            "KDebugForKernel_E892D9A1",                '?', ""   },
+	{0X9F8703E4, nullptr,                                            "sceKernelDipswCpTime",                    '?', ""   },
+	{0X333DCEC7, nullptr,                                            "sceKernelSm1RegisterOperations",          '?', ""   },
+	{0XE892D9A1, nullptr,                                            "sceKernelSm1ReferOperations",             '?', ""   },
 	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
@@ -235,7 +243,13 @@ void RegisterAllModules() {
 	Register_sceSasCore();
 	Register_sceFont();
 	Register_sceNet();
+	Register_sceNetResolver();
+	Register_sceNetInet();
+	Register_sceNetApctl();
 	Register_sceNetAdhoc();
+	Register_sceNetAdhocMatching();
+	Register_sceNetAdhocDiscover();
+	Register_sceNetAdhocctl();
 	Register_sceRtc();
 	Register_sceWlanDrv();
 	Register_sceMpeg();
@@ -263,6 +277,7 @@ void RegisterAllModules() {
 	Register_sceGameUpdate();
 	Register_sceDeflt();
 	Register_sceMp4();
+	Register_sceAac();
 	Register_scePauth();
 	Register_sceNp();
 	Register_sceNpCommerce2();
@@ -274,13 +289,13 @@ void RegisterAllModules() {
 	Register_sceHeap();
 
 	for (int i = 0; i < numModules; i++) {
-		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
+		RegisterHLEModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
 
 	// IMPORTANT: New modules have to be added at the end, or they will break savestates.
 
 	Register_StdioForKernel();
-	RegisterModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
+	RegisterHLEModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
 	Register_IoFileMgrForKernel();
 	Register_LoadExecForKernel();
 	Register_SysMemForKernel();
@@ -306,6 +321,13 @@ void RegisterAllModules() {
 	Register_semaphore();
 	Register_sceDdrdb();
 	Register_mp4msv();
+	Register_InterruptManagerForKernel();
+	Register_sceSircs();
+	Register_sceNet_lib();
+	Register_sceReg();
+	// Not ready to enable this due to apparent softlocks in Patapon 3.
+	// Register_sceNpMatching2();
+
 	// add new modules here.
 }
 

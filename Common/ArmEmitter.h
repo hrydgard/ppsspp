@@ -31,6 +31,9 @@
 #define IS_SIGNED     1 << 1
 #define ROUND_TO_ZERO 1 << 2
 
+// Unclear why we suddenly need this.
+#undef VMIN
+
 namespace ArmGen
 {
 enum ARMReg
@@ -112,32 +115,29 @@ private:
 	OpType Type;
 
 	// IMM types
-	u8	Rotation; // Only for u8 values
+	u8	Rotation = 0; // Only for u8 values
 
 	// Register types
-	u8 IndexOrShift;
-	ShiftType Shift;
+	u8 IndexOrShift = 0;
+	ShiftType Shift = ST_LSL;
 public:
-	OpType GetType() const
-	{
+	OpType GetType() const {
 		return Type;
 	}
-	Operand2() {} 
-	Operand2(u32 imm, OpType type = TYPE_IMM)
-	{ 
-		Type = type; 
-		Value = imm; 
-		Rotation = 0;
+	Operand2() {
+		Type = TYPE_IMM;
+		Value = 0;
+	}
+	Operand2(u32 imm, OpType type = TYPE_IMM) {
+		Type = type;
+		Value = imm;
 	}
 
-	Operand2(ARMReg Reg)
-	{
+	Operand2(ARMReg Reg) {
 		Type = TYPE_REG;
 		Value = Reg;
-		Rotation = 0;
 	}
-	Operand2(u8 imm, u8 rotation)
-	{
+	Operand2(u8 imm, u8 rotation) {
 		Type = TYPE_IMM;
 		Value = imm;
 		Rotation = rotation;
@@ -449,6 +449,8 @@ public:
 	void ReserveCodeSpace(u32 bytes);
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
+	const u8 *NopAlignCode16();
+
 	void FlushIcache();
 	void FlushIcacheSection(u8 *start, u8 *end);
 	u8 *GetWritableCodePtr();
@@ -457,7 +459,7 @@ public:
 	void AddNewLit(u32 val);
 	bool TrySetValue_TwoOp(ARMReg reg, u32 val);
 
-	CCFlags GetCC() { return CCFlags(condition >> 28); }
+	CCFlags GetCC() const { return CCFlags(condition >> 28); }
 	void SetCC(CCFlags cond = CC_AL);
 
 	// Special purpose instructions

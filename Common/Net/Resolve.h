@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -22,4 +23,8 @@ void DNSResolveFree(addrinfo *res);
 bool GetIPList(std::vector<std::string>& IP4s);
 
 int inet_pton(int af, const char* src, void* dst);
+
+// Does a DNS lookup without involving the OS, so you can hit any DNS server.
+bool DirectDNSLookupIPV4(const char *dnsServer, const char *host, uint32_t *ipv4_addr);
+
 }  // namespace net

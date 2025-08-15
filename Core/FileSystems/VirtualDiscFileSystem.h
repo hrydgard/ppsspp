@@ -25,6 +25,8 @@
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
+extern const std::string INDEX_FILENAME;
+
 class VirtualDiscFileSystem: public IFileSystem {
 public:
 	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath);
@@ -37,12 +39,13 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	void     CloseFile(u32 handle) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
+	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;
 	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
-	FileSystemFlags Flags() override { return FileSystemFlags::UMD; }
-	u64  FreeSpace(const std::string &path) override { return 0; }
+	FileSystemFlags Flags() const override { return FileSystemFlags::UMD; }
+	u64  FreeDiskSpace(const std::string &path) override { return 0; }
 
 	// unsupported operations
 	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size) override;
@@ -54,19 +57,21 @@ public:
 
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
+	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "VirtualDisc: %s", basePath.ToVisualString().c_str()); }  // TODO: Ask the fileLoader about the origins
+
 private:
 	void LoadFileListIndex();
 	// Warning: modifies input string.
 	int getFileListIndex(std::string &fileName);
-	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false);
-	Path GetLocalPath(std::string localpath);
+	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false) const;
+	Path GetLocalPath(std::string localpath) const;
 
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;
 	typedef s64 HandlerOffset;
-	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
+	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
 
-	static void HandlerLogger(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
+	static void HandlerLogger(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
 
 	// The primary purpose of handlers is to make it easier to work with large archives.
 	// However, they have other uses as well, such as patching individual files.
@@ -76,14 +81,18 @@ private:
 
 		typedef bool (*InitFunc)(HandlerLogFunc logger, void *loggerArg);
 		typedef void (*ShutdownFunc)();
+		typedef void (*ShutdownV2Func)(void *loggerArg);
 		typedef HandlerHandle (*OpenFunc)(const char *basePath, const char *filename);
 		typedef HandlerOffset (*SeekFunc)(HandlerHandle handle, HandlerOffset offset, FileMove origin);
 		typedef HandlerOffset (*ReadFunc)(HandlerHandle handle, void *data, HandlerOffset size);
 		typedef void (*CloseFunc)(HandlerHandle handle);
+		typedef int (*VersionFunc)();
 
 		HandlerLibrary library;
+		VirtualDiscFileSystem *const sys_;
 		InitFunc Init;
 		ShutdownFunc Shutdown;
+		ShutdownV2Func ShutdownV2;
 		OpenFunc Open;
 		SeekFunc Seek;
 		ReadFunc Read;

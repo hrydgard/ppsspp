@@ -16,13 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/CommonTypes.h"
+#include "Common/LogReporting.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Host.h"
-#include "Core/Reporting.h"
 
 #include "Core/MIPS/MIPS.h"
 
@@ -35,12 +34,8 @@ u8 *GetPointerWrite(const u32 address) {
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerWriteUnchecked(address);
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("Unknown GetPointerWrite %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+		// Size is not known, we pass 0 to signal that.
+		Core_MemoryException(address, 0, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
 		return nullptr;
 	}
 }
@@ -52,63 +47,66 @@ const u8 *GetPointer(const u32 address) {
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
+		// Size is not known, we pass 0 to signal that.
+		Core_MemoryException(address, 0, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+		return nullptr;
+	}
+}
+
+u8 *GetPointerWriteRange(const u32 address, const u32 size) {
+	u8 *ptr = GetPointerWrite(address);
+	if (ptr) {
+		if (ValidSize(address, size) != size) {
+			// That's a memory exception! TODO: Adjust reported address to the end of the range?
+			Core_MemoryException(address, size, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+			return nullptr;
+		} else {
+			return ptr;
 		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+	} else {
+		// Error was handled in GetPointerWrite already, if we're not ignoring errors.
+		return nullptr;
+	}
+}
+
+const u8 *GetPointerRange(const u32 address, const u32 size) {
+	const u8 *ptr = GetPointer(address);
+	if (ptr) {
+		if (ValidSize(address, size) != size) {
+			// That's a memory exception! TODO: Adjust reported address to the end of the range?
+			Core_MemoryException(address, size, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+			return nullptr;
+		} else {
+			return ptr;
+		}
+	} else {
+		// Error was handled in GetPointer already, if we're not ignoring errors.
 		return nullptr;
 	}
 }
 
 template <typename T>
 inline void ReadFromHardware(T &var, const u32 address) {
-	// TODO: Figure out the fastest order of tests for both read and write (they are probably different).
-	if ((address & 0x3E000000) == 0x08000000) {
-		// RAM
-		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		// VRAM
-		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		// Scratchpad
-		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		// More RAM (remasters, etc.)
+	if ((address & 0x3E000000) == 0x08000000 || // RAM
+		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("ReadFromHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_WORD);
+		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::READ_WORD);
 		var = 0;
 	}
 }
 
 template <typename T>
 inline void WriteToHardware(u32 address, const T data) {
-	if ((address & 0x3E000000) == 0x08000000) {
-		// RAM
-		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		// VRAM
-		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		// Scratchpad
-		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		// More RAM (remasters, etc.)
+	if ((address & 0x3E000000) == 0x08000000 || // RAM
+		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
-		static bool reported = false;
-		if (!reported) {
-			Reporting::ReportMessage("WriteToHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-			reported = true;
-		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
+		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
 	}
 }
 

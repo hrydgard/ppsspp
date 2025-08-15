@@ -23,26 +23,10 @@
 
 struct FShaderID;
 
-// D3D9 constants
-
-#define CONST_PS_TEXENV 0
-#define CONST_PS_ALPHACOLORREF 1
-#define CONST_PS_ALPHACOLORMASK 2
-#define CONST_PS_FOGCOLOR 3
-#define CONST_PS_STENCILREPLACE 4
-#define CONST_PS_BLENDFIXA 5
-#define CONST_PS_BLENDFIXB 6
-#define CONST_PS_FBOTEXSIZE 7
-#define CONST_PS_TEXCLAMP 8
-#define CONST_PS_TEXCLAMPOFF 9
-#define CONST_PS_MIPBIAS 10
-
-// For stencil upload
-#define CONST_PS_STENCILVALUE 11
-
 // Can technically be deduced from the fragment shader ID, but this is safer.
 enum class FragmentShaderFlags : u32 {
-	INPUT_ATTACHMENT = 1,
+	USES_DISCARD = 2,
+	USES_FLAT_SHADING = 4,
 };
 ENUM_CLASS_BITOPS(FragmentShaderFlags);
 

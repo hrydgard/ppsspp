@@ -1,4 +1,4 @@
-﻿#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -67,16 +67,10 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 
 template void TweenBase<uint32_t>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 template void TweenBase<Visibility>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
-template void TweenBase<Point>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
+template void TweenBase<Point2D>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 
 uint32_t ColorTween::Current(float pos) {
 	return colorBlend(to_, from_, pos);
-}
-
-void TextColorTween::DoApply(View *view, float pos) {
-	// TODO: No validation without RTTI?
-	TextView *tv = (TextView *)view;
-	tv->SetTextColor(Current(pos));
 }
 
 void CallbackColorTween::DoApply(View *view, float pos) {
@@ -99,7 +93,7 @@ Visibility VisibilityTween::Current(float p) {
 }
 
 void AnchorTranslateTween::DoApply(View *view, float pos) {
-	Point cur = Current(pos);
+	Point2D cur = Current(pos);
 
 	auto prev = view->GetLayoutParams()->As<AnchorLayoutParams>();
 	auto lp = new AnchorLayoutParams(prev ? *prev : AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -108,9 +102,9 @@ void AnchorTranslateTween::DoApply(View *view, float pos) {
 	view->ReplaceLayoutParams(lp);
 }
 
-Point AnchorTranslateTween::Current(float p) {
+Point2D AnchorTranslateTween::Current(float p) {
 	float inv = 1.0f - p;
-	return Point(from_.x * inv + to_.x * p, from_.y * inv + to_.y * p);
+	return Point2D(from_.x * inv + to_.x * p, from_.y * inv + to_.y * p);
 }
 
 }  // namespace

@@ -1,4 +1,4 @@
-#include <stdarg.h>
+#include <cstdarg>
 
 #include "VulkanProfiler.h"
 #include "VulkanContext.h"
@@ -8,17 +8,34 @@ using namespace PPSSPP_VK;
 void VulkanProfiler::Init(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
 
-	VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
-	ci.queryCount = MAX_QUERY_COUNT;
-	ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
-	vkCreateQueryPool(vulkan->GetDevice(), &ci, nullptr, &queryPool_);
+	int graphicsQueueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
+	_assert_(graphicsQueueFamilyIndex >= 0);
+
+	if (queryPool_) {
+		vulkan->Delete().QueueDeleteQueryPool(queryPool_);
+	}
+
+	validBits_ = vulkan_->GetQueueFamilyProperties(graphicsQueueFamilyIndex).timestampValidBits;
+
+	if (validBits_) {
+		VkQueryPoolCreateInfo ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+		ci.queryCount = MAX_QUERY_COUNT;
+		ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		vkCreateQueryPool(vulkan->GetDevice(), &ci, nullptr, &queryPool_);
+	}
 }
 
 void VulkanProfiler::Shutdown() {
-	vkDestroyQueryPool(vulkan_->GetDevice(), queryPool_, nullptr);
+	if (queryPool_) {
+		vulkan_->Delete().QueueDeleteQueryPool(queryPool_);
+	}
 }
 
 void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuf) {
+	if (!validBits_) {
+		return;
+	}
+
 	vulkan_ = vulkan;
 
 	// Check for old queries belonging to this frame context that we can log out - these are now
@@ -28,19 +45,18 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 		vkGetQueryPoolResults(vulkan->GetDevice(), queryPool_, 0, numQueries_, sizeof(uint64_t) * numQueries_, results.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 
 		double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
-		int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
-		uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
+		uint64_t timestampDiffMask = validBits_ == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits_) - 1);
 
 		static const char * const indent[4] = { "", "  ", "    ", "      " };
 
 		if (!scopes_.empty()) {
-			INFO_LOG(G3D, "Profiling events this frame:");
+			INFO_LOG(Log::G3D, "Profiling events this frame:");
 		}
 
 		// Log it all out.
 		for (auto &scope : scopes_) {
 			if (scope.endQueryId == -1) {
-				WARN_LOG(G3D, "Unclosed scope: %s", scope.name.c_str());
+				WARN_LOG(Log::G3D, "Unclosed scope: %s", scope.name);
 				continue;
 			}
 			uint64_t startTime = results[scope.startQueryId];
@@ -50,7 +66,7 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 
 			double milliseconds = (double)delta * timestampConversionFactor;
 
-			INFO_LOG(G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name.c_str(), milliseconds);
+			INFO_LOG(Log::G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name, milliseconds);
 		}
 
 		scopes_.clear();
@@ -69,18 +85,15 @@ void VulkanProfiler::BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstComm
 }
 
 void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags, const char *fmt, ...) {
-	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if (!validBits_ || (enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 
+	ProfilerScope scope;
 	va_list args;
 	va_start(args, fmt);
-	char temp[512];
-	vsnprintf(temp, sizeof(temp), fmt, args);
+	vsnprintf(scope.name, sizeof(scope.name), fmt, args);
 	va_end(args);
-
-	ProfilerScope scope;
-	scope.name = temp;
 	scope.startQueryId = numQueries_;
 	scope.endQueryId = -1;
 	scope.level = (int)scopeStack_.size();
@@ -93,7 +106,7 @@ void VulkanProfiler::Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage
 }
 
 void VulkanProfiler::End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stageFlags) {
-	if ((enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
+	if (!validBits_ || (enabledPtr_ && !*enabledPtr_) || numQueries_ >= MAX_QUERY_COUNT - 1) {
 		return;
 	}
 

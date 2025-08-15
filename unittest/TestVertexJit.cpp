@@ -38,9 +38,6 @@ public:
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
 
-		g_Config.bVertexDecoderJit = true;
-		// Required for jit to be enabled.
-		g_Config.iCpuCore = (int)CPUCore::JIT;
 		gstate_c.uv.uScale = 1.0f;
 		gstate_c.uv.vScale = 1.0f;
 	}
@@ -54,7 +51,7 @@ public:
 	void Reset() {
 		memset(src_, 0, BUFFER_SIZE);
 		memset(dst_, 0, BUFFER_SIZE);
-		memset(&options_, 0, sizeof(options_));
+		options_ = {};
 		delete dec_;
 		dec_ = nullptr;
 		indexLowerBound_ = 0;
@@ -68,7 +65,7 @@ public:
 		if (needsReset_) {
 			Reset();
 		}
-		memcpy(&options_, &opts, sizeof(options_));
+		options_ = opts;
 	}
 
 	void SetIndexLowerBound(const int lower) {
@@ -81,7 +78,7 @@ public:
 	void Execute(int vtype, int indexUpperBound, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
 	}
 
 	double ExecuteTimed(int vtype, int indexUpperBound, bool useJit) {
@@ -91,7 +88,7 @@ public:
 		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
 				++total;
 			}
 		} while (time_now_d() - st < 0.5);
@@ -546,7 +543,6 @@ static bool TestVertexColor565() {
 static bool TestVertex8Skin() {
 	VertexDecoderTestHarness dec;
 	VertexDecoderOptions opts{};
-	opts.applySkinInDecode = true;
 	dec.SetOptions(opts);
 
 	for (int i = 0; i < 8 * 12; ++i) {
@@ -561,13 +557,14 @@ static bool TestVertex8Skin() {
 	gstate.boneMatrix[20] = 5.0f;
 
 	int vtype = GE_VTYPE_POS_8BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_WEIGHT_8BIT | (1 << GE_VTYPE_WEIGHTCOUNT_SHIFT);
+	u32 vertTypeID = GetVertTypeID(vtype, 0, true);  // enable skinning in decode
 
 	dec.Add8(128 + 64, 128 - 64);
 	dec.Add8(127, 0, 128);
 	dec.Add8(127, 0, 128);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vertTypeID, 0, jit == 1);
 		dec.AssertFloat("TestVertex8Skin-Nrm", (2.0f * 1.5f + 1.0f * 0.5f) * 127.0f / 128.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 		dec.AssertFloat("TestVertex8Skin-Pos", (2.0f * 1.5f + 1.0f * 0.5f) * 127.0f / 128.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 	}
@@ -578,7 +575,6 @@ static bool TestVertex8Skin() {
 static bool TestVertex16Skin() {
 	VertexDecoderTestHarness dec;
 	VertexDecoderOptions opts{};
-	opts.applySkinInDecode = true;
 	dec.SetOptions(opts);
 
 	for (int i = 0; i < 8 * 12; ++i) {
@@ -593,13 +589,14 @@ static bool TestVertex16Skin() {
 	gstate.boneMatrix[20] = 5.0f;
 
 	int vtype = GE_VTYPE_POS_16BIT | GE_VTYPE_NRM_16BIT | GE_VTYPE_WEIGHT_16BIT | (1 << GE_VTYPE_WEIGHTCOUNT_SHIFT);
+	u32 vertTypeID = GetVertTypeID(vtype, 0, true);  // enable skinning in decode
 
 	dec.Add16(32768 + 16384, 32768 - 16384);
 	dec.Add16(32767, 0, 32768);
 	dec.Add16(32767, 0, 32768);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vertTypeID, 0, jit == 1);
 		dec.AssertFloat("TestVertex16Skin-Nrm", (2.0f * 1.5f + 1.0f * 0.5f) * 32767.0f / 32768.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 		dec.AssertFloat("TestVertex16Skin-Pos", (2.0f * 1.5f + 1.0f * 0.5f) * 32767.0f / 32768.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 	}
@@ -610,7 +607,6 @@ static bool TestVertex16Skin() {
 static bool TestVertexFloatSkin() {
 	VertexDecoderTestHarness dec;
 	VertexDecoderOptions opts{};
-	opts.applySkinInDecode = true;
 	dec.SetOptions(opts);
 
 	for (int i = 0; i < 8 * 12; ++i) {
@@ -625,13 +621,14 @@ static bool TestVertexFloatSkin() {
 	gstate.boneMatrix[20] = 5.0f;
 
 	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_NRM_FLOAT | GE_VTYPE_WEIGHT_FLOAT | (1 << GE_VTYPE_WEIGHTCOUNT_SHIFT);
+	u32 vertTypeID = GetVertTypeID(vtype, 0, true);  // enable skinning in decode
 
 	dec.AddFloat(1.5f, 0.5f);
 	dec.AddFloat(1.0f, 0, -1.0f);
 	dec.AddFloat(1.0f, 0, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vertTypeID, 0, jit == 1);
 		dec.AssertFloat("TestVertexFloatSkin-Nrm", (2.0f * 1.5f + 1.0f * 0.5f) * 1.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 		dec.AssertFloat("TestVertexFloatSkin-Pos", (2.0f * 1.5f + 1.0f * 0.5f) * 1.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 	}

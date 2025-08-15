@@ -23,16 +23,12 @@
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
-typedef struct MatchingArgs {
-	u32_le data[6]; // ContextID, EventID, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
-} PACK MatchingArgs;
 
-typedef struct SceNetAdhocDiscoverParam {
-	u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
-	char   groupName[ADHOCCTL_GROUPNAME_LEN];
-	u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
-	u32_le result; // inited to 0?
-} PACK SceNetAdhocDiscoverParam;
+typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
+	s32_le unknown; // Unknown, set to 0 // Product Type ?
+	char product[PRODUCT_CODE_LENGTH]; // Game ID (Example: ULUS10000)
+} PACK ProductStruct;
+
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
@@ -77,6 +73,14 @@ enum AdhocSocketRequestType : int
 	ADHOC_POLL_SOCKET = 7,
 };
 
+// TODO: maybe move these to sceNetAdhocDiscover?
+typedef struct SceNetAdhocDiscoverParam {
+    u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
+    char   groupName[ADHOCCTL_GROUPNAME_LEN];
+    u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
+    u32_le result; // inited to 0?
+} PACK SceNetAdhocDiscoverParam;
+
 enum AdhocDiscoverStatus : int
 {
 	NET_ADHOC_DISCOVER_STATUS_NONE = 0,
@@ -96,45 +100,52 @@ enum AdhocDiscoverResult : int
 class PointerWrap;
 
 void Register_sceNetAdhoc();
+void Register_sceNetAdhocDiscover();
 
-u32_le __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
+// TODO: expose it via "sceNetAdhocctl.h"
+void Register_sceNetAdhocctl();
+
+
 void __NetAdhocInit();
 void __NetAdhocShutdown();
 void __NetAdhocDoState(PointerWrap &p);
-void __UpdateAdhocctlHandlers(u32 flags, u32 error);
-void __UpdateMatchingHandler(MatchingArgs params);
 
-// I have to call this from netdialog
+// TODO: expose it via "sceNetAdhocctl.h"
+void __UpdateAdhocctlHandlers(u32 flags, u32 error);
+
+bool __NetAdhocConnected();
+
+// TODO: expose these via "sceNetAdhocctl.h"
+// Called from netdialog (and from sceNetApctl)
+// NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocctlGetState(u32 ptrToStatus);
 int sceNetAdhocctlCreate(const char * groupName);
 int sceNetAdhocctlConnect(const char* groupName);
 int sceNetAdhocctlJoin(u32 scanInfoAddr);
 int sceNetAdhocctlScan();
 int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr);
+int sceNetAdhocctlDisconnect();
+int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr);
+int sceNetAdhocctlTerm();
 
-int NetAdhocMatching_Term();
 int NetAdhocctl_Term();
 int NetAdhocctl_GetState();
 int NetAdhocctl_Create(const char* groupName);
+
 int NetAdhoc_Term();
 
 // May need to use these from sceNet.cpp
-extern bool netAdhocInited;
-extern bool netAdhocctlInited;
-extern bool networkInited;
+extern bool netAdhocInited; // TODO: keep here
+extern bool netAdhocctlInited; // TODO: move to sceNetAdhocctl
+
 extern bool netAdhocGameModeEntered;
-extern int netAdhocEnterGameModeTimeout;
-extern int adhocDefaultTimeout; //3000000 usec
-extern int adhocDefaultDelay; //10000
-extern int adhocExtraDelay; //20000
-extern int adhocEventPollDelay; //100000; // Seems to be the same with PSP_ADHOCCTL_RECV_TIMEOUT
-extern int adhocMatchingEventDelay; //30000
-extern int adhocEventDelay; //1000000
-extern std::recursive_mutex adhocEvtMtx;
-extern int IsAdhocctlInCB;
+extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
 
-extern u32 dummyThreadHackAddr;
-extern u32_le dummyThreadCode[3];
-extern u32 matchingThreadHackAddr;
-extern u32_le matchingThreadCode[3];
+// Exposing those for the matching routines
+// NOTE: use hleCall for sceNet* ones!
+int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
+int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
+int sceNetAdhocPdpCreate(const char* mac, int port, int bufferSize, u32 flag);
 
+int NetAdhoc_SetSocketAlert(int id, s32_le flag);
+int NetAdhocPdp_Delete(int id, int unknown);

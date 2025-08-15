@@ -13,7 +13,7 @@ They're important. -->
 ### What are you using?
 #### What hardware / device and operating system?
 
-#### What graphics card (GPU) or mobile phone model?
+#### What graphics card (GPU) or mobile device model?
 
 #### What PPSSPP version (standalone/official), and did it work before?
 

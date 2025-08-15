@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <!-- FastVec -->
+  <Type Name="FastVec&lt;*&gt;">
+    <DisplayString>{{ size = {size_}, capacity = {capacity_} }}</DisplayString>
+    <Expand>
+      <Item Name="[size]">size_</Item>
+      <Item Name="[capacity]">capacity_</Item>
+      <ArrayItems>
+        <Size>size_</Size>
+        <ValuePointer>data_</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>

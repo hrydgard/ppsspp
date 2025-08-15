@@ -31,20 +31,35 @@
 
 #include <algorithm>
 #include <memory>
+#ifndef NO_ARMIPS
 #include <string_view>
+#endif
 #include <unordered_map>
 
 #include "zlib.h"
 
 #include "Common/CommonTypes.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Buffer.h"
 #include "Core/MemMap.h"
+#include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
 
+#ifndef NO_ARMIPS
 #include "ext/armips/Core/Assembler.h"
+#else
+struct Identifier {
+	explicit Identifier() {}
+	explicit Identifier(const std::string &s) {}
+};
+
+struct LabelDefinition {
+	Identifier name;
+	int64_t value;
+};
+#endif
 
 SymbolMap *g_symbolMap;
 
@@ -127,9 +142,9 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 
 		if (!started) continue;
 
-		u32 address = -1, size, vaddress = -1;
+		u32 address = -1, size = 0, vaddress = -1;
 		int moduleIndex = 0;
-		int typeInt;
+		int typeInt = ST_NONE;
 		SymbolType type;
 		char name[128] = {0};
 
@@ -145,11 +160,13 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			continue;
 		}
 
-		sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		int matched = sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		if (matched < 1)
+			continue;
 		type = (SymbolType) typeInt;
 		if (!hasModules) {
 			if (!Memory::IsValidAddress(vaddress)) {
-				ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+				ERROR_LOG(Log::Loader, "Invalid address in symbol file: %08x (%s)", vaddress, name);
 				continue;
 			}
 		} else {
@@ -157,7 +174,7 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			moduleIndex = vaddress;
 			vaddress = GetModuleAbsoluteAddr(address, moduleIndex);
 			if (!Memory::IsValidAddress(vaddress)) {
-				ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+				ERROR_LOG(Log::Loader, "Invalid address in symbol file: %08x (%s)", vaddress, name);
 				continue;
 			}
 		}
@@ -165,11 +182,19 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 		if (type == ST_DATA && size == 0)
 			size = 4;
 
-		if (!strcmp(name, ".text") || !strcmp(name, ".init") || strlen(name) <= 1) {
+		// Ignore syscalls, will be recognized from stubs.
+		// Note: it's still useful to save these for grepping and importing into other tools.
+		if (strncmp(name, "zz_sce", 6) == 0)
+			continue;
+		// Also ignore unresolved imports, which will similarly be replaced.
+		if (strncmp(name, "zz_[UNK", 7) == 0)
+			continue;
 
+		if (!strcmp(name, ".text") || !strcmp(name, ".init") || strlen(name) <= 1) {
+			// Ignored
 		} else {
-			switch (type)
-			{
+			// Seems legit
+			switch (type) {
 			case ST_FUNCTION:
 				AddFunction(name, vaddress, size, moduleIndex);
 				break;
@@ -186,45 +211,63 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 		}
 	}
 	gzclose(f);
+	activeNeedUpdate_ = true;
 	SortSymbols();
 	return started;
 }
 
-void SymbolMap::SaveSymbolMap(const Path &filename) const {
+bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	// Don't bother writing a blank file.
 	if (!File::Exists(filename) && functions.empty() && data.empty()) {
-		return;
+		return true;
 	}
 
-	// TODO(scoped): Use gzdopen
-#if defined(_WIN32) && defined(UNICODE)
-	gzFile f = gzopen_w(filename.ToWString().c_str(), "w9");
-#else
-	gzFile f = gzopen(filename.c_str(), "w9");
-#endif
-
-	if (f == Z_NULL)
-		return;
-
-	gzprintf(f, ".text\n");
-
+	Buffer buf;
+	buf.Printf(".text\n");
 	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
 		const ModuleEntry &mod = *it;
-		gzprintf(f, ".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
+		buf.Printf(".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
 	}
 
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
-		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
+		buf.Printf("%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
 	}
 
 	for (auto it = data.begin(), end = data.end(); it != end; ++it) {
 		const DataEntry& e = it->second;
-		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
+		buf.Printf("%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
-	gzclose(f);
+
+	std::string data;
+	buf.TakeAll(&data);
+	if (g_Config.bCompressSymbols) {
+		// TODO: Wrap this in some nicer way.
+		gzFile f;
+		if (filename.Type() == PathType::CONTENT_URI) {
+			int fd = File::OpenFD(filename, File::OPEN_WRITE);
+			f = gzdopen(fd, "w9");
+			if (f == Z_NULL) {
+				File::CloseFD(fd);
+				return false;
+			}
+		} else {
+			f = gzopen(filename.c_str(), "w9");
+			if (f == Z_NULL) {
+				return false;
+			}
+		}
+		gzwrite(f, data.data(), (unsigned int)data.size());
+		gzclose(f);
+	} else {
+		// Just plain write it.
+		FILE *file = File::OpenCFile(filename, "wb");
+		fwrite(data.data(), 1, data.size(), file);
+		fclose(file);
+	}
+	return true;
 }
 
 bool SymbolMap::LoadNocashSym(const Path &filename) {
@@ -267,43 +310,43 @@ bool SymbolMap::LoadNocashSym(const Path &filename) {
 			}
 		} else {				// labels
 			unsigned int size = 1;
-			char* seperator = strchr(value, ',');
-			if (seperator != NULL) {
-				*seperator = 0;
-				sscanf(seperator+1,"%08X",&size);
+			char *separator = strchr(value, ',');
+			if (separator != NULL) {
+				*separator = '\0';
+				sscanf(separator + 1, "%08X", &size);
 			}
 
 			if (size != 1) {
-				AddFunction(value, address,size, 0);
+				AddFunction(value, address, size, 0);
 			} else {
 				AddLabel(value, address, 0);
 			}
 		}
 	}
-
 	fclose(f);
 	return true;
 }
 
-void SymbolMap::SaveNocashSym(const Path &filename) const {
+bool SymbolMap::SaveNocashSym(const Path &filename) const {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	// Don't bother writing a blank file.
 	if (!File::Exists(filename) && functions.empty() && data.empty()) {
-		return;
+		return false;
 	}
 
-	FILE* f = File::OpenCFile(filename, "w");
-	if (f == NULL)
-		return;
+	FILE *f = File::OpenCFile(filename, "w");
+	if (!f)
+		return false;
 
 	// only write functions, the rest isn't really interesting
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
-		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module),GetLabelNameRel(e.start, e.module), e.size);
+		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module), GetLabelNameRel(e.start, e.module), e.size);
 	}
-	
+
 	fclose(f);
+	return true;
 }
 
 SymbolType SymbolMap::GetSymbolType(u32 address) {
@@ -378,7 +421,7 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address, SymbolType symmask) {
 
 std::string SymbolMap::GetDescription(unsigned int address) {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
-	const char* labelName = NULL;
+	const char *labelName = nullptr;
 
 	u32 funcStart = GetFunctionStart(address);
 	if (funcStart != INVALID_ADDRESS) {
@@ -389,15 +432,15 @@ std::string SymbolMap::GetDescription(unsigned int address) {
 			labelName = GetLabelName(dataStart);
 	}
 
-	if (labelName != NULL)
+	if (labelName)
 		return labelName;
 
-	char descriptionTemp[256];
-	sprintf(descriptionTemp, "(%08x)", address);
+	char descriptionTemp[32];
+	snprintf(descriptionTemp, sizeof(descriptionTemp), "(%08x)", address);
 	return descriptionTemp;
 }
 
-std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
+std::vector<SymbolEntry> SymbolMap::GetAllActiveSymbols(SymbolType symmask) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();
 
@@ -410,7 +453,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 			entry.address = it->first;
 			entry.size = GetFunctionSize(entry.address);
 			const char* name = GetLabelName(entry.address);
-			if (name != NULL)
+			if (name)
 				entry.name = name;
 			result.push_back(entry);
 		}
@@ -423,7 +466,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 			entry.address = it->first;
 			entry.size = GetDataSize(entry.address);
 			const char* name = GetLabelName(entry.address);
-			if (name != NULL)
+			if (name)
 				entry.name = name;
 			result.push_back(entry);
 		}
@@ -696,8 +739,8 @@ void SymbolMap::AssignFunctionIndices() {
 	}
 }
 
+// Copies functions, labels and data to the active set depending on which modules are "active".
 void SymbolMap::UpdateActiveSymbols() {
-	// return;   (slow in debug mode)
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	activeFunctions.clear();
@@ -1089,7 +1132,7 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 
 	case ST_DATA:
 		{
-			int count = ARRAYSIZE(defaultSymbols)+(int)activeData.size();
+			size_t count = ARRAYSIZE(defaultSymbols)+activeData.size();
 			SendMessage(listbox, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
 
 			for (int i = 0; i < ARRAYSIZE(defaultSymbols); i++) {
@@ -1110,6 +1153,9 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 				ListBox_SetItemData(listbox,index,it->first);
 			}
 		}
+		break;
+	case ST_NONE:
+	case ST_ALL:
 		break;
 	}
 

@@ -16,12 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #if PPSSPP_ARCH(AMD64)
 
-#include <emmintrin.h>
 #include "Common/x64Emitter.h"
 #include "Common/CPUDetect.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/SoftGpu.h"
@@ -42,11 +43,12 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		RegCache::GEN_ARG_ID,
 	});
 
-	BeginWrite();
+	BeginWrite(64);
 	Describe("Init");
 	WriteConstantPool(id);
 
 	const u8 *resetPos = AlignCode16();
+	EndWrite();
 	bool success = true;
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -100,7 +102,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 
 	if (!success) {
-		ERROR_LOG_REPORT(G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
+		ERROR_LOG_REPORT(Log::G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
 
 		regCache_.Reset(false);
 		EndWrite();
@@ -147,7 +149,7 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 
 			// Now add the pointer for the color buffer.
 			if (loadDepthOff) {
-				_assert_(Accessible(&fb.data, &depthbuf.data));
+				_assert_msg_(Accessible(&fb.data, &depthbuf.data), "fb.data and depthbuf.data too far apart: %p %p (fb=%08x d=%08x)", fb.data, depthbuf.data, gstate.getFrameBufAddress(), gstate.getDepthBufAddress());
 				depthTemp = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
 				if (RipAccessible(&fb.data) && RipAccessible(&depthbuf.data)) {
 					MOV(PTRBITS, R(argYReg), M(&fb.data));

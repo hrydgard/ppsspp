@@ -26,8 +26,8 @@ struct CollectedStats {
 	float fps;
 	float actual_fps;
 	char statbuf[4096];
-	std::vector<double> frameTimes;
-	std::vector<double> sleepTimes;
+	std::vector<float> frameTimes;
+	std::vector<float> sleepTimes;
 	int frameTimePos;
 };
 
@@ -68,7 +68,7 @@ struct DebuggerGPUStatsEvent {
 
 struct WebSocketGPUStatsState : public DebuggerSubscriber {
 	WebSocketGPUStatsState();
-	~WebSocketGPUStatsState() override;
+	~WebSocketGPUStatsState();
 	void Get(DebuggerRequest &req);
 	void Feed(DebuggerRequest &req);
 
@@ -101,7 +101,7 @@ WebSocketGPUStatsState::WebSocketGPUStatsState() {
 
 WebSocketGPUStatsState::~WebSocketGPUStatsState() {
 	if (forced_)
-		Core_ForceDebugStats(false);
+		PSP_ForceDebugStats(false);
 	__DisplayForgetFlip(&WebSocketGPUStatsState::FlipForwarder, this);
 }
 
@@ -123,9 +123,10 @@ void WebSocketGPUStatsState::FlipListener() {
 	__DisplayGetDebugStats(stats.statbuf, sizeof(stats.statbuf));
 
 	int valid;
-	double *sleepHistory;
-	double *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
+	float *sleepHistory;
+	float *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
 
+	// TODO: 'valid' could be 0 => frameTimes[0] and sleepTimes[0] could lead to a crash
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
 	memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
@@ -149,8 +150,9 @@ void WebSocketGPUStatsState::FlipListener() {
 //
 // Note: stats are returned after the next flip completes (paused if CPU or GPU in break.)
 // Note: info and timing may not be accurate if certain settings are disabled.
+// Note: sending this event with no ticket will not trigger a response! (TODO: maybe fix this?)
 void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");
 
 	std::lock_guard<std::mutex> guard(pendingLock_);
@@ -169,7 +171,7 @@ void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 //
 // Note: info and timing will be accurate after the first frame.
 void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");
 	bool enable = true;
 	if (!req.ParamBool("enable", &enable, DebuggerParamType::OPTIONAL))
@@ -178,7 +180,7 @@ void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
 	std::lock_guard<std::mutex> guard(pendingLock_);
 	sendFeed_ = enable;
 	if (forced_ != enable) {
-		Core_ForceDebugStats(enable);
+		PSP_ForceDebugStats(enable);
 		forced_ = enable;
 	}
 }

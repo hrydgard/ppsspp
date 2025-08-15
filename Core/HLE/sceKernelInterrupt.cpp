@@ -28,6 +28,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 
 #include "Core/Debugger/MemBlockInfo.h"
@@ -79,7 +80,7 @@ static SceUID threadBeforeInterrupt;
 
 static int sceKernelCpuSuspendIntr()
 {
-	VERBOSE_LOG(SCEINTC, "sceKernelCpuSuspendIntr");
+	VERBOSE_LOG(Log::sceIntc, "sceKernelCpuSuspendIntr");
 	int returnValue;
 	if (__InterruptsEnabled())
 	{
@@ -91,12 +92,12 @@ static int sceKernelCpuSuspendIntr()
 		returnValue = 0;
 	}
 	hleEatCycles(15);
-	return returnValue;
+	return hleNoLog(returnValue);
 }
 
 static void sceKernelCpuResumeIntr(u32 enable)
 {
-	VERBOSE_LOG(SCEINTC, "sceKernelCpuResumeIntr(%i)", enable);
+	VERBOSE_LOG(Log::sceIntc, "sceKernelCpuResumeIntr(%i)", enable);
 	if (enable)
 	{
 		__EnableInterrupts();
@@ -108,33 +109,31 @@ static void sceKernelCpuResumeIntr(u32 enable)
 		__DisableInterrupts();
 	}
 	hleEatCycles(15);
+	hleNoLogVoid();
 }
 
-static int sceKernelIsCpuIntrEnable()
-{
+static int sceKernelIsCpuIntrEnable() {
 	u32 retVal = __InterruptsEnabled(); 
-	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrEnable()", retVal);
-	return retVal;
+	return hleLogVerbose(Log::sceIntc, retVal);
 }
 
 static int sceKernelIsCpuIntrSuspended(int flag)
 {
 	int retVal = flag == 0 ? 1 : 0;
-	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrSuspended(%d)", retVal, flag);
-	return retVal;
+	return hleLogDebug(Log::sceIntc, retVal);
 }
 
 static void sceKernelCpuResumeIntrWithSync(u32 enable)
 {
+	// Just a forward, don't bother with hleCall.
 	sceKernelCpuResumeIntr(enable);
 }
 
 bool IntrHandler::run(PendingInterrupt& pend)
 {
 	SubIntrHandler *handler = get(pend.subintr);
-	if (handler == NULL)
-	{
-		WARN_LOG(SCEINTC, "Ignoring interrupt, already been released.");
+	if (!handler) {
+		WARN_LOG(Log::sceIntc, "Ignoring interrupt, already been released.");
 		return false;
 	}
 
@@ -146,7 +145,7 @@ bool IntrHandler::run(PendingInterrupt& pend)
 void IntrHandler::copyArgsToCPU(PendingInterrupt& pend)
 {
 	SubIntrHandler* handler = get(pend.subintr);
-	DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
+	DEBUG_LOG(Log::CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 	currentMIPS->pc = handler->handlerAddress;
 	currentMIPS->r[MIPS_REG_A0] = handler->subIntrNumber;
 	currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
@@ -248,7 +247,7 @@ void __InterruptsDoState(PointerWrap &p)
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
 		p.SetError(p.ERROR_FAILURE);
-		ERROR_LOG(SCEINTC, "Savestate failure: wrong number of interrupts, can't load.");
+		ERROR_LOG(Log::sceIntc, "Savestate failure: wrong number of interrupts, can't load.");
 		return;
 	}
 
@@ -339,7 +338,7 @@ retry:
 
 		IntrHandler* handler = intrHandlers[pend.intr];
 		if (handler == NULL) {
-			WARN_LOG(SCEINTC, "Ignoring interrupt");
+			WARN_LOG(Log::sceIntc, "Ignoring interrupt");
 			pendingInterrupts.pop_front();
 			goto retry;
 		}
@@ -366,7 +365,7 @@ retry:
 	} else {
 		if (needsThreadReturn)
 			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
-		// DEBUG_LOG(SCEINTC, "No more interrupts!");
+		// DEBUG_LOG(Log::sceIntc, "No more interrupts!");
 		return false;
 	}
 }
@@ -398,14 +397,14 @@ void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno]->queueUp(subintr);
-		VERBOSE_LOG(SCEINTC, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
+		VERBOSE_LOG(Log::sceIntc, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
 	}
 }
 
 void __KernelReturnFromInterrupt()
 {
-	VERBOSE_LOG(SCEINTC, "Left interrupt handler at %08x", currentMIPS->pc);
+	VERBOSE_LOG(Log::sceIntc, "Left interrupt handler at %08x", currentMIPS->pc);
 
 	hleSkipDeadbeef();
 
@@ -413,7 +412,11 @@ void __KernelReturnFromInterrupt()
 	PendingInterrupt pend = pendingInterrupts.front();
 	pendingInterrupts.pop_front();
 
-	intrHandlers[pend.intr]->handleResult(pend);
+	if (pend.intr >= 0 && pend.intr < ARRAY_SIZE(intrHandlers)) {
+		intrHandlers[pend.intr]->handleResult(pend);
+	} else {
+		_assert_msg_(false, "Bad pend.intr: %d", pend.intr);
+	}
 	inInterrupt = false;
 
 	// Restore context after running the interrupt.
@@ -429,12 +432,12 @@ void __KernelReturnFromInterrupt()
 		else
 			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 	}
+	hleNoLogVoid();
 }
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)
 {
-	if(intrHandlers[intrNumber])
-		delete intrHandlers[intrNumber];
+	delete intrHandlers[intrNumber];
 	intrHandlers[intrNumber] = handler;
 }
 
@@ -493,79 +496,64 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid interrupt", intrNumber, subIntrNumber, handler, handlerArg);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid subinterrupt", intrNumber, subIntrNumber, handler, handlerArg);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
 
 	u32 error;
 	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, handler, handlerArg, error);
 	if (subIntrHandler) {
 		if (handler == 0) {
-			WARN_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
+			return hleLogWarning(Log::sceIntc, error, "ignored NULL handler");
 		} else {
-			DEBUG_LOG(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
+			return hleLogDebug(Log::sceIntc, error);
 		}
 	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
-	} else {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): error %08x", intrNumber, subIntrNumber, handler, handlerArg, error);
+		// Pretty common. Used to report here, but not useful.
+		return hleLogError(Log::sceIntc, error, "duplicate handler");
 	}
-	return error;
+	return hleReportError(Log::sceIntc, error);
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
 
 	u32 error = __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
-	if (error != SCE_KERNEL_ERROR_OK) {
-		ERROR_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber, error);
-	}
-	return error;
+	return hleLogDebugOrError(Log::sceIntc, error);
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelEnableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelEnableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
 
-	DEBUG_LOG(SCEINTC, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	u32 error;
 	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
-		// Enableing a handler before registering it works fine.
+		// Enabling a handler before registering it works fine.
 		__RegisterSubIntrHandler(intrNumber, subIntrNumber, 0, 0, error);
 	}
 
 	intrHandlers[intrNumber]->enable(subIntrNumber);
-	return 0;
+	return hleLogDebug(Log::sceIntc, 0);
 }
 
 static u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
-
-	DEBUG_LOG(SCEINTC, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 
 	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
 		// Disabling when not registered is not an error.
@@ -573,7 +561,7 @@ static u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	}
 
 	intrHandlers[intrNumber]->disable(subIntrNumber);
-	return 0;
+	return hleLogDebug(Log::sceIntc, 0);
 }
 
 
@@ -598,14 +586,12 @@ struct PspIntrHandlerOptionParam {
 
 static int QueryIntrHandlerInfo()
 {
-	ERROR_LOG_REPORT(SCEINTC, "QueryIntrHandlerInfo()");
+	ERROR_LOG_REPORT(Log::sceIntc, "QueryIntrHandlerInfo()");
 	return 0;
 }
 
-static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
-{
+static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n) {
 	u8 c = fillc & 0xff;
-	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	bool skip = false;
 	if (n != 0) {
 		if (Memory::IsVRAMAddress(addr)) {
@@ -616,13 +602,10 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 		}
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, addr, n, "KernelMemset");
-	return addr;
+	return hleLogDebug(Log::sceKernel, addr);
 }
 
-static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
-{
-	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
-
+static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size) {
 	// Some games copy from executable code.  We need to flush emuhack ops.
 	if (size != 0)
 		currentMIPS->InvalidateICache(src, size);
@@ -633,16 +616,14 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	}
 
 	// Technically should crash if these are invalid and size > 0...
-	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
-	{
+	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))  {
 		u8 *dstp = Memory::GetPointerWriteUnchecked(dst);
 		const u8 *srcp = Memory::GetPointerUnchecked(src);
 
 		// If it's non-overlapping, just do it in one go.
-		if (dst + size < src || src + size < dst)
+		if (dst + size < src || src + size < dst) {
 			memcpy(dstp, srcp, size);
-		else
-		{
+		} else {
 			// Try to handle overlapped copies with similar properties to hardware, just in case.
 			// Not that anyone ought to rely on it.
 			for (u32 size64 = size / 8; size64 > 0; --size64)
@@ -657,12 +638,10 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = GetMemWriteTagAt("KernelMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
+		NotifyMemInfoCopy(dst, src, size, "KernelMemcpy/");
 	}
 
-	return dst;
+	return hleLogDebug(Log::sceKernel, dst);
 }
 
 const HLEFunction Kernel_Library[] =
@@ -692,24 +671,22 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 		memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = GetMemWriteTagAt("KernelMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
+		NotifyMemInfoCopy(dst, src, size, "KernelMemcpy/");
 	}
 	return dst;
 }
 
 static u32 sysclib_strcat(u32 dst, u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
+	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcat((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
 	return dst;
 }
 
 static int sysclib_strcmp(u32 dst, u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
+	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		return strcmp((const char *)Memory::GetPointerUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	} else {
 		// What to do? Crash, probably.
@@ -718,17 +695,17 @@ static int sysclib_strcmp(u32 dst, u32 src) {
 }
 
 static u32 sysclib_strcpy(u32 dst, u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
+	if (Memory::IsValidAddress(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcpy((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
 	return dst;
 }
 
 static u32 sysclib_strlen(u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
-	if (Memory::IsValidAddress(src)) {
-		return (u32)strlen(Memory::GetCharPointer(src));
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strlen(src=%08x)", src);
+	if (Memory::IsValidNullTerminatedString(src)) {  // TODO: This computes the length, could reuse it maybe.
+		return (u32)strlen(Memory::GetCharPointerUnchecked(src));
 	} else {
 		// What to do? Crash, probably.
 		return 0;
@@ -736,9 +713,9 @@ static u32 sysclib_strlen(u32 src) {
 }
 
 static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
-		return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
+		return memcmp(Memory::GetCharPointerUnchecked(dst), Memory::GetCharPointerUnchecked(src), size);
 	} else {
 		// What to do? Crash, probably.
 		return 0;
@@ -746,18 +723,158 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 }
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
-	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(fmt)) {
-		// TODO: Properly use the format string with more parameters.
-		return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
-	} else {
-		// What to do? Crash, probably.
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
+
+	if (!Memory::IsValidNullTerminatedString(fmt)) {
+		ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad fmt");
 		return 0;
 	}
+
+	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
+	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+	currentMIPS->r[MIPS_REG_A0],
+	currentMIPS->r[MIPS_REG_A1],
+	currentMIPS->r[MIPS_REG_A2],
+	currentMIPS->r[MIPS_REG_A3],
+	currentMIPS->r[MIPS_REG_T0],
+	currentMIPS->r[MIPS_REG_T1],
+	currentMIPS->r[MIPS_REG_T2],
+	currentMIPS->r[MIPS_REG_T3]
+	);
+
+	bool processing_specifier = false;
+	std::string specifier = "";
+	int bytes_to_read = 0;
+	int arg_idx = 0;
+	std::string result = "";
+	for (const char *c = Memory::GetCharPointerUnchecked(fmt); *c != '\0'; c++) {
+		if (!processing_specifier) {
+			if (*c == '%') {
+				specifier = "%";
+				processing_specifier = true;
+				bytes_to_read = 0;
+			} else {
+				result.append(1, *c);
+			}
+		} else {
+			specifier.append(1, *c);
+
+			// going by https://cplusplus.com/reference/cstdio/printf/#compatibility
+			// no idea what the kernel module really supports as of writing this
+			switch (*c) {
+			case '%':
+			{
+				result.append(specifier);
+				processing_specifier = false;
+				break;
+			}
+			case 's':
+			{
+				// consume 4 bytes from arguments
+				u32 val = 0;
+				if (arg_idx <= 1) {
+					val = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+				} else if(arg_idx <= 5) {
+					val = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+				} else {
+					int stack_idx = arg_idx - 6;
+					u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
+
+					if (!Memory::IsValidAddress(stack_cur)) {
+						ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
+						return 0;
+					}
+					val = Memory::Read_U32(stack_cur);
+					DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
+				}
+				arg_idx++;
+
+				if (!Memory::IsValidNullTerminatedString(val)) {
+					ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad string reference at %08x", val);
+					return 0;
+				}
+				result.append(Memory::GetCharPointerUnchecked(val));
+				processing_specifier = false;
+				break;
+			}
+			case 'd':
+			case 'i':
+			case 'u':
+			case 'o':
+			case 'x':
+			case 'X':
+			case 'f':
+			case 'e':
+			case 'E':
+			case 'g':
+			case 'G':
+			case 'c':
+			case 'p':
+			case 'n':
+			{
+				u64 val = 0;
+				if (bytes_to_read == 0) {
+					bytes_to_read = 4;
+				}
+				int read_cnt = 0;
+				while (bytes_to_read != 0) {
+					u32 val_from_arg = 0;
+					if (arg_idx <= 1) {
+						val_from_arg = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+					} else if (arg_idx <= 5) {
+						val_from_arg = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+					} else {
+						int stack_idx = arg_idx - 6;
+						u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
+
+						if (!Memory::IsValidAddress(stack_cur)) {
+							ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
+							return 0;
+						}
+						val_from_arg = Memory::Read_U32(stack_cur);
+						DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
+					}
+					arg_idx++;
+
+					val = val | ((u64)val_from_arg << (read_cnt * 32));
+
+					bytes_to_read = bytes_to_read - 4;
+					read_cnt++;
+				}
+				char buf[128] = {0};
+				snprintf(buf, sizeof(buf), specifier.c_str(), val);
+				buf[sizeof(buf) - 1] = '\0';
+				result.append(buf);
+				processing_specifier = false;
+				break;
+			}
+			case 'h':
+			{
+				// allegrex calling convention is 4 bytes aligned
+				bytes_to_read = 4;
+				break;
+			}
+			case 'l':
+			{
+				bytes_to_read = bytes_to_read + 4;
+				break;
+			}
+			}
+		}
+	}
+
+	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d, content:", (int)result.length());
+	DEBUG_LOG(Log::sceKernel, "%s", result.c_str());
+	if (!Memory::IsValidRange(dst, (u32)result.length() + 1)) {
+		ERROR_LOG(Log::sceKernel, "sysclib_sprintf result string is too long or dst is invalid");
+		return 0;
+	}
+	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
+	return (int)result.length();
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
 	if (Memory::IsValidRange(destAddr, size)) {
 		memset(Memory::GetPointerWriteUnchecked(destAddr), data, size);
 	}
@@ -766,10 +883,10 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 }
 
 static int sysclib_strstr(u32 s1, u32 s2) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
-	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
-		std::string str1 = Memory::GetCharPointer(s1);
-		std::string str2 = Memory::GetCharPointer(s2);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
+	if (Memory::IsValidNullTerminatedString(s1) && Memory::IsValidNullTerminatedString(s2)) {
+		std::string str1 = Memory::GetCharPointerUnchecked(s1);
+		std::string str2 = Memory::GetCharPointerUnchecked(s2);
 		size_t index = str1.find(str2);
 		if (index == str1.npos) {
 			return 0;
@@ -780,38 +897,36 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 }
 
 static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
-	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
-		const char * str1 = Memory::GetCharPointer(s1);
-		const char * str2 = Memory::GetCharPointer(s2);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
+	if (Memory::IsValidRange(s1, size) && Memory::IsValidRange(s2, size)) {
+		const char * str1 = Memory::GetCharPointerUnchecked(s1);
+		const char * str2 = Memory::GetCharPointerUnchecked(s2);
 		return strncmp(str1, str2, size);
 	}
 	return 0;
 }
 
 static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
-		const std::string tag = GetMemWriteTagAt("KernelMemmove/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tag.c_str(), tag.size());
+		NotifyMemInfoCopy(dst, src, size, "KernelMemmove/");
 	}
 	return 0;
 }
 
 static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
-	if (!Memory::IsValidAddress(dest) || Memory::IsValidAddress(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+	if (!Memory::IsValidAddress(dest) || !Memory::IsValidAddress(src)) {
+		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 
 	// This is just regular strncpy, but being explicit to avoid warnings/safety fixes on missing null.
 	u32 i = 0;
 	u32 srcSize = Memory::ValidSize(src, size);
-	const u8 *srcp = Memory::GetPointer(src);
-	u8 *destp = Memory::GetPointerWrite(dest);
+	const u8 *srcp = Memory::GetPointerUnchecked(src);
+	u8 *destp = Memory::GetPointerWriteUnchecked(dest);
 	for (i = 0; i < srcSize; ++i) {
 		u8 c = *srcp++;
 		if (c == 0)
@@ -824,8 +939,49 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 		*destp++ = 0;
 	}
 
-	return hleLogSuccessX(SCEKERNEL, dest);
+	return hleLogDebug(Log::sceKernel, dest);
 }
+
+static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
+	if (!Memory::IsValidNullTerminatedString(strPtr)) {
+		return hleLogError(Log::sceKernel, 0, "invalid address");
+	}
+	const char* str = Memory::GetCharPointer(strPtr);
+	char* end = nullptr;
+	int result = (int)strtol(str, &end, base);
+	if (Memory::IsValidRange(endPtrPtr, 4))
+		Memory::WriteUnchecked_U32(strPtr + (end - str), endPtrPtr);
+	return result;
+}
+
+static u32 sysclib_strchr(u32 src, int c) {
+	if (!Memory::IsValidNullTerminatedString(src)) {
+		return hleLogError(Log::sceKernel, 0, "invalid address");
+	}
+	const std::string str = Memory::GetCharPointer(src);
+	size_t cpos = str.find(str, c);
+	if (cpos == std::string::npos) {
+		return 0;
+	}
+	return src + (int)cpos;
+}
+
+static u32 sysclib_strrchr(u32 src, int c) {
+	if (!Memory::IsValidNullTerminatedString(src)) {
+		return hleLogError(Log::sceKernel, 0, "invalid address");
+	}
+	const std::string str = Memory::GetCharPointer(src);
+	size_t cpos = str.rfind(str, c);
+	if (cpos == std::string::npos) {
+		return 0;
+	}
+	return src + (int)cpos;
+}
+
+static u32 sysclib_toupper(u32 c) {
+	return toupper(c);
+}
+
 
 const HLEFunction SysclibForKernel[] =
 {
@@ -841,16 +997,20 @@ const HLEFunction SysclibForKernel[] =
 	{0x7AB35214, &WrapI_UUU<sysclib_strncmp>,                  "strncmp",                             'i', "xxx",    HLE_KERNEL_SYSCALL },
 	{0xA48D2592, &WrapU_UUU<sysclib_memmove>,                  "memmove",                             'x', "xxx",    HLE_KERNEL_SYSCALL },
 	{0xB49A7697, &WrapU_UUU<sysclib_strncpy>,                  "strncpy",                             'x', "xxi",    HLE_KERNEL_SYSCALL },
+	{0x47DD934D, &WrapU_UUI<sysclib_strtol>,                   "strtol",                              'x', "xxi",    HLE_KERNEL_SYSCALL },
+	{0xB1DC2AE8, &WrapU_UI<sysclib_strchr>,                    "strchr",                              'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0x4C0E0274, &WrapU_UI<sysclib_strrchr>,                   "strrchr",                             'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
 {
-	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
+	RegisterHLEModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
 }
 
 void Register_SysclibForKernel()
 {
-	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
+	RegisterHLEModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);
 }
 
 const HLEFunction InterruptManager[] =
@@ -869,5 +1029,33 @@ const HLEFunction InterruptManager[] =
 
 void Register_InterruptManager()
 {
-	RegisterModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
+	RegisterHLEModule("InterruptManager", ARRAY_SIZE(InterruptManager), InterruptManager);
+}
+
+
+const HLEFunction InterruptManagerForKernel[] =
+{
+	{0x092968F4, &WrapI_V<sceKernelCpuSuspendIntr>,            "sceKernelCpuSuspendIntr",             'i', ""    ,HLE_KERNEL_SYSCALL },
+	{0X5F10D406, &WrapV_U<sceKernelCpuResumeIntr>,             "sceKernelCpuResumeIntr",              'v', "x"   ,HLE_KERNEL_SYSCALL },
+	{0X3B84732D, &WrapV_U<sceKernelCpuResumeIntrWithSync>,     "sceKernelCpuResumeIntrWithSync",      'v', "x"   ,HLE_KERNEL_SYSCALL },
+	{0X47A0B729, &WrapI_I<sceKernelIsCpuIntrSuspended>,        "sceKernelIsCpuIntrSuspended",         'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0xb55249d2, &WrapI_V<sceKernelIsCpuIntrEnable>,           "sceKernelIsCpuIntrEnable",            'i', "",    HLE_KERNEL_SYSCALL },
+	{0XA089ECA4, &WrapU_UUU<sceKernelMemset>,                  "sceKernelMemset",                     'x', "xxx" ,HLE_KERNEL_SYSCALL },
+	{0XDC692EE3, &WrapI_UI<sceKernelTryLockLwMutex>,           "sceKernelTryLockLwMutex",             'i', "xi"  ,HLE_KERNEL_SYSCALL },
+	{0X37431849, &WrapI_UI<sceKernelTryLockLwMutex_600>,       "sceKernelTryLockLwMutex_600",         'i', "xi"  ,HLE_KERNEL_SYSCALL },
+	{0XBEA46419, &WrapI_UIU<sceKernelLockLwMutex>,             "sceKernelLockLwMutex",                'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL},
+	{0X1FC64E09, &WrapI_UIU<sceKernelLockLwMutexCB>,           "sceKernelLockLwMutexCB",              'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL},
+	{0X15B6446B, &WrapI_UI<sceKernelUnlockLwMutex>,            "sceKernelUnlockLwMutex",              'i', "xi"  ,HLE_KERNEL_SYSCALL },
+	{0XC1734599, &WrapI_UU<sceKernelReferLwMutexStatus>,       "sceKernelReferLwMutexStatus",         'i', "xp"  ,HLE_KERNEL_SYSCALL },
+	{0X293B45B8, &WrapI_V<sceKernelGetThreadId>,               "sceKernelGetThreadId",                'i', ""    ,HLE_KERNEL_SYSCALL },
+	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""    ,HLE_KERNEL_SYSCALL },
+	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx" ,HLE_KERNEL_SYSCALL },
+	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""    ,HLE_KERNEL_SYSCALL },
+	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"   ,HLE_KERNEL_SYSCALL },
+};
+
+void Register_InterruptManagerForKernel()
+{
+	RegisterHLEModule("InterruptManagerForKernel", ARRAY_SIZE(InterruptManagerForKernel), InterruptManagerForKernel);
 }

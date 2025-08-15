@@ -46,18 +46,16 @@ void DoSet(PointerWrap &p, std::set<T> &x) {
 			Do(p, *itr++);
 	}
 	break;
-
-	default:
-		ERROR_LOG(SAVESTATE, "Savestate error: invalid mode %d.", p.mode);
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 }
 
 template <class T>
 void Do(PointerWrap &p, std::set<T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (*it != nullptr)
-				delete *it;
+		for (T *s : x) {
+			delete s;
 		}
 	}
 	DoSet(p, x);

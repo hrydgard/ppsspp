@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+
 #include <png.h>
 #include "ext/jpge/jpge.h"
 
@@ -25,13 +26,15 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
 #include "Common/System/Display.h"
-#include "Core/Config.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Thread/Promise.h"
 #include "Core/Screenshot.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/GPUCommon.h"
 
 // This is used to make non-ASCII paths work for filename.
 // Technically only needed on Windows.
@@ -41,7 +44,7 @@ public:
 	JPEGFileStream(const Path &filename) {
 		fp_ = File::OpenCFile(filename, "wb");
 	}
-	~JPEGFileStream() override {
+	~JPEGFileStream() {
 		if (fp_ ) {
 			fclose(fp_);
 		}
@@ -69,7 +72,7 @@ private:
 static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, int num_channels, const uint8_t *image_data, const jpge::params &comp_params) {
 	JPEGFileStream dst_stream(filename);
 	if (!dst_stream.Valid()) {
-		ERROR_LOG(IO, "Unable to open screenshot file for writing.");
+		ERROR_LOG(Log::IO, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
@@ -91,7 +94,7 @@ static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, i
 	}
 
 	if (!dst_stream.Valid()) {
-		ERROR_LOG(SYSTEM, "Screenshot file write failed.");
+		ERROR_LOG(Log::System, "Screenshot file write failed.");
 	}
 
 	dst_image.deinit();
@@ -101,7 +104,7 @@ static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, i
 static bool WriteScreenshotToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(IO, "Unable to open screenshot file for writing.");
+		ERROR_LOG(Log::IO, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
@@ -109,7 +112,7 @@ static bool WriteScreenshotToPNG(png_imagep image, const Path &filename, int con
 		fclose(fp);
 		return true;
 	} else {
-		ERROR_LOG(IO, "Screenshot PNG encode failed.");
+		ERROR_LOG(Log::IO, "Screenshot PNG encode failed.");
 		fclose(fp);
 		// Should we even do this?
 		File::Delete(filename);
@@ -328,56 +331,54 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 	return rotated;
 }
 
-bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
-	if (!gpuDebug) {
-		ERROR_LOG(SYSTEM, "Can't take screenshots when GPU not running");
-		return false;
-	}
+ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes, std::function<void(bool success)> callback) {
 	GPUDebugBuffer buf;
-	bool success = false;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
 
 	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
-		success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
-
-		// Only crop to the top left when using a render screenshot.
+		if (!gpuDebug) {
+			ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
+			return ScreenshotResult::ScreenshotNotPossible;
+		}
+		if (!gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
+			return ScreenshotResult::ScreenshotNotPossible;
+		}
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
-	} else if (g_display_rotation != DisplayRotation::ROTATE_0) {
+	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
+		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
-		success = gpuDebug->GetOutputFramebuffer(temp);
-		if (success) {
-			buf = ApplyRotation(temp, g_display_rotation);
+		if (!::GetOutputFramebuffer(draw, temp)) {
+			return ScreenshotResult::ScreenshotNotPossible;
 		}
+		buf = ApplyRotation(temp, g_display.rotation);
 	} else {
-		success = gpuDebug->GetOutputFramebuffer(buf);
-	}
-
-	if (!success) {
-		ERROR_LOG(G3D, "Failed to obtain screenshot data.");
-		return false;
-	}
-
-	u8 *flipbuffer = nullptr;
-	if (success) {
-		const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
-		success = buffer != nullptr;
-		if (success) {
-			if (width)
-				*width = w;
-			if (height)
-				*height = h;
-
-			success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
+		_dbg_assert_(draw);
+		if (!GetOutputFramebuffer(draw, buf)) {
+			return ScreenshotResult::ScreenshotNotPossible;
 		}
 	}
-	delete [] flipbuffer;
 
-	if (!success) {
-		ERROR_LOG(IO, "Failed to write screenshot.");
+	if (callback) {
+		g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::LOW,
+			[buf = std::move(buf), callback = std::move(callback), filename, fmt, w, h]() {
+			u8 *flipbuffer = nullptr;
+			u32 width = w, height = h;
+			const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, width, height);
+			bool success = Save888RGBScreenshot(filename, fmt, buffer, width, height);
+			delete[] flipbuffer;
+			System_RunOnMainThread([success, callback = std::move(callback)]() {
+				callback(success);
+			});
+		}));
+		return ScreenshotResult::DelayedResult;
 	}
-	return success;
+	u8 *flipbuffer = nullptr;
+	const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
+	bool success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
+	delete[] flipbuffer;
+	return success ? ScreenshotResult::Success : ScreenshotResult::FailedToWriteFile;
 }
 
 bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
@@ -392,7 +393,7 @@ bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *
 		png_image_free(&png);
 
 		if (png.warning_or_error >= 2) {
-			ERROR_LOG(IO, "Saving screenshot to PNG produced errors.");
+			ERROR_LOG(Log::IO, "Saving screenshot to PNG produced errors.");
 			success = false;
 		}
 		return success;
@@ -415,7 +416,7 @@ bool Save8888RGBAScreenshot(const Path &filename, const u8 *buffer, int w, int h
 	png_image_free(&png);
 
 	if (png.warning_or_error >= 2) {
-		ERROR_LOG(IO, "Saving screenshot to PNG produced errors.");
+		ERROR_LOG(Log::IO, "Saving screenshot to PNG produced errors.");
 		success = false;
 	}
 	return success;
@@ -442,7 +443,7 @@ bool Save8888RGBAScreenshot(std::vector<uint8_t> &bufferPNG, const u8 *bufferRGB
 	png_image_free(&png);
 
 	if (!success) {
-		ERROR_LOG(IO, "Buffering screenshot to PNG produced errors.");
+		ERROR_LOG(Log::IO, "Buffering screenshot to PNG produced errors.");
 		bufferPNG.clear();
 	}
 	return success;

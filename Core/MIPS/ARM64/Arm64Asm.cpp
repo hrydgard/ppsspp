@@ -25,7 +25,7 @@
 #include "Common/Arm64Emitter.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -77,9 +77,9 @@ extern volatile CoreState coreState;
 void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
-		ERROR_LOG(JIT, "ShowPC : %08x  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
+		ERROR_LOG(Log::JIT, "ShowPC : %08x  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
 	} else {
-		ERROR_LOG(JIT, "Universe corrupt?");
+		ERROR_LOG(Log::JIT, "Universe corrupt?");
 	}
 	//if (count > 2000)
 	//	exit(0);
@@ -97,8 +97,8 @@ namespace MIPSComp {
 using namespace Arm64JitConstants;
 
 void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
+	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
-	BeginWrite();
 
 	if (jo.useStaticAlloc) {
 		saveStaticRegisters = AlignCode16();
@@ -312,9 +312,9 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
-		std::vector<std::string> lines = DisassembleArm64(start, GetCodePtr() - start);
+		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto s : lines) {
-			INFO_LOG(JIT, "%s", s.c_str());
+			INFO_LOG(Log::JIT, "%s", s.c_str());
 		}
 	}
 

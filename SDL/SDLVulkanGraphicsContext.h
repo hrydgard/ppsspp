@@ -1,5 +1,11 @@
+#include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_syswm.h"
+#else
 #include "SDL.h"
 #include "SDL_syswm.h"
+#endif
 
 #include "Common/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -16,20 +22,14 @@ public:
 		delete draw_;
 	}
 
-	bool Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+	bool Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
 
 	void Shutdown() override;
-
-	void SwapBuffers() override {
-		// We don't do it this way.
-	}
 
 	void Resize() override;
 
 	void Poll() override;
 
-	void SwapInterval(int interval) override {
-	}
 	void *GetAPIContext() override {
 		return vulkan_;
 	}

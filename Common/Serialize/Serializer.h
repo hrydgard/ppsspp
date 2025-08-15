@@ -30,21 +30,17 @@
 // - Serialization code for anything complex has to be manually written.
 
 #include <string>
+#include <cstring>
 #include <vector>
 #include <cstdlib>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/Data/Collections/LinkedList.h"
 
 namespace File {
 class IOFile;
-};
-
-template <class T>
-struct LinkedListItem : public T
-{
-	LinkedListItem<T> *next;
 };
 
 class PointerWrap;
@@ -52,8 +48,7 @@ class PointerWrap;
 class PointerWrapSection
 {
 public:
-	PointerWrapSection(PointerWrap &p, int ver, const char *title) : p_(p), ver_(ver), title_(title) {
-	}
+	PointerWrapSection(PointerWrap &p, int ver, const char *title) : p_(p), ver_(ver), title_(title) {}
 	~PointerWrapSection();
 	
 	bool operator == (const int &v) const { return ver_ == v; }
@@ -63,8 +58,12 @@ public:
 	bool operator <  (const int &v) const { return ver_ < v; }
 	bool operator >  (const int &v) const { return ver_ > v; }
 
-	operator bool() const  {
+	operator bool() const {
 		return ver_ > 0;
+	}
+
+	int Version() const {
+		return ver_;
 	}
 
 private:
@@ -73,15 +72,32 @@ private:
 	const char *title_;
 };
 
+// For measure vs write detailed verification
+struct SerializeCheckpoint {
+	char title[17];  // 16-byte section header, plus a zero terminator for debug printing.
+	size_t offset;
+
+	SerializeCheckpoint(char _title[16], size_t off) {
+		memcpy(title, _title, 16);
+		title[16] = 0;
+		offset = off;
+	}
+
+	bool Matches(const char *_title, size_t off) const {
+		return memcmp(title, _title, 16) == 0 && off == offset;
+	}
+};
+
 // Wrapper class
 class PointerWrap
 {
 public:
 	enum Mode {
 		MODE_READ = 1, // load
-		MODE_WRITE, // save
-		MODE_MEASURE, // calculate size
-		MODE_VERIFY, // compare
+		MODE_WRITE,    // save
+		MODE_MEASURE,  // calculate size
+		MODE_VERIFY,   // compare
+		MODE_NOOP,     // don't do anything. Useful to cleanly doing stuff once we've hit an error.
 	};
 
 	enum Error {
@@ -94,19 +110,30 @@ public:
 	Mode mode;
 	Error error = ERROR_NONE;
 
-	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_) {}
-	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_) {}
+	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), ptrStart_(*ptr), mode(mode_) {
+		if (mode == MODE_MEASURE) {
+			checkpoints_.reserve(750);
+		}
+	}
 
-	PointerWrapSection Section(const char *title, int ver);
+	bool Failed() const {
+		return error == ERROR_FAILURE;
+	}
+
+	void RewindForWrite(u8 *writePtr);
+	bool CheckAfterWrite();
 
 	// The returned object can be compared against the version that was loaded.
 	// This can be used to support versions as old as minVer.
 	// Version = 0 means the section was not found.
 	PointerWrapSection Section(const char *title, int minVer, int ver);
+	PointerWrapSection Section(const char *title, int ver) {
+		return Section(title, ver, ver);
+	}
 
-	void SetMode(Mode mode_) {mode = mode_;}
-	Mode GetMode() const {return mode;}
-	u8 **GetPPtr() {return ptr;}
+	void SetMode(Mode mode_) { mode = mode_; }
+	Mode GetMode() const { return mode; }
+	u8 **GetPPtr() { return ptr; }
 	void SetError(Error error_);
 
 	const char *GetBadSectionTitle() const {
@@ -119,8 +146,20 @@ public:
 
 	void DoMarker(const char *prevName, u32 arbitraryNumber = 0x42);
 
+	void SkipBytes(size_t bytes) {
+		// Should work in all modes.
+		*ptr += bytes;
+	}
+
+	size_t Offset() const { return *ptr - ptrStart_; }
+
 private:
 	const char *firstBadSectionTitle_ = nullptr;
+	const char *curTitle_;
+	u8 *ptrStart_;
+	std::vector<SerializeCheckpoint> checkpoints_;
+	size_t curCheckpoint_ = 0;
+	size_t measuredSize_ = 0;
 };
 
 class CChunkFileReader
@@ -152,26 +191,70 @@ public:
 	template<class T>
 	static size_t MeasurePtr(T &_class)
 	{
-		u8 *ptr = 0;
+		u8 *ptr = nullptr;
 		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
 		_class.DoState(p);
 		return (size_t)ptr;
 	}
 
-	// Expects ptr to have at least MeasurePtr bytes at ptr.
+	// If *saved is null, will allocate storage using malloc.
+	// If it's not null, it will be used, but only hope can save you from overruns at the end. For libretro.
 	template<class T>
-	static Error SavePtr(u8 *ptr, T &_class, size_t expected_size)
+	static Error MeasureAndSavePtr(T &_class, u8 **saved, size_t *savedSize)
 	{
-		const u8 *expected_end = ptr + expected_size;
-		PointerWrap p(&ptr, PointerWrap::MODE_WRITE);
+		u8 *ptr = nullptr;
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		_assert_(p.error == PointerWrap::ERROR_NONE);
+
+		size_t measuredSize = p.Offset();
+		u8 *data;
+		if (*saved) {
+			data = *saved;
+		} else {
+			data = (u8 *)malloc(measuredSize);
+			if (!data)
+				return ERROR_BAD_ALLOC;
+		}
+
+		p.RewindForWrite(data);
 		_class.DoState(p);
 
-		if (p.error != p.ERROR_FAILURE && (expected_end == ptr || expected_size == 0)) {
+		if (p.CheckAfterWrite()) {
+			*saved = data;
+			*savedSize = measuredSize;
 			return ERROR_NONE;
 		} else {
+			if (!*saved) {
+				free(data);
+			}
 			return ERROR_BROKEN_STATE;
 		}
 	}
+
+	// Duplicate of the above but takes and modifies a vector. Less invasive
+	// than modifying the rewind manager to keep things in something else than vectors.
+	template<class T>
+	static Error MeasureAndSavePtr(T &_class, std::vector<u8> *saved)
+	{
+		u8 *ptr = nullptr;
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		_assert_(p.error == PointerWrap::ERROR_NONE);
+
+		size_t measuredSize = p.Offset();
+		saved->resize(measuredSize);
+		u8 *data = saved->data();
+		p.RewindForWrite(data);
+		_class.DoState(p);
+		if (p.CheckAfterWrite()) {
+			return ERROR_NONE;
+		} else {
+			saved->clear();
+			return ERROR_BROKEN_STATE;
+		}
+	}
+
 
 	// Load file template
 	template<class T>
@@ -186,9 +269,9 @@ public:
 			failureReason->clear();
 			error = LoadPtr(ptr, _class, failureReason);
 			delete [] ptr;
-			INFO_LOG(SAVESTATE, "ChunkReader: Done loading '%s'", filename.c_str());
+			INFO_LOG(Log::SaveState, "ChunkReader: Done loading '%s'", filename.c_str());
 		} else {
-			WARN_LOG(SAVESTATE, "ChunkReader: Error found during load of '%s'", filename.c_str());
+			WARN_LOG(Log::SaveState, "ChunkReader: Error found during load of '%s'", filename.c_str());
 		}
 		return error;
 	}
@@ -197,19 +280,16 @@ public:
 	template<class T>
 	static Error Save(const Path &filename, const std::string &title, const char *gitVersion, T& _class)
 	{
-		// Get data
-		size_t const sz = MeasurePtr(_class);
-		u8 *buffer = (u8 *)malloc(sz);
-		if (!buffer)
-			return ERROR_BAD_ALLOC;
-		Error error = SavePtr(buffer, _class, sz);
+		u8 *buffer = nullptr;
+		size_t sz = 0;
+		Error error = MeasureAndSavePtr(_class, &buffer, &sz);
 
-		// SaveFile takes ownership of buffer
+		// SaveFile takes ownership of buffer (malloc/free)
 		if (error == ERROR_NONE)
 			error = SaveFile(filename, title, gitVersion, buffer, sz);
 		return error;
 	}
-	
+
 	template <class T>
 	static Error Verify(T& _class)
 	{

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include "Common/CommonWindows.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 class CtrlDisplayListView
 {
@@ -55,6 +55,10 @@ public:
 		validDisplayList = true;
 		list = displayList;
 		gotoAddr(list.pc);
+	}
+	void clearDisplayList()
+	{
+		validDisplayList = false;
 	}
 
 	void scrollWindow(int lines)

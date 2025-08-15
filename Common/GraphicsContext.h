@@ -8,15 +8,12 @@
 // expected to be implemented by subclasses.
 class GraphicsContext {
 public:
-	virtual ~GraphicsContext() {}
+	virtual ~GraphicsContext() = default;
 
 	virtual bool InitFromRenderThread(std::string *errorMessage) { return true; }
 	virtual void ShutdownFromRenderThread() {}
 
 	virtual void Shutdown() = 0;
-	virtual void SwapInterval(int interval) = 0;
-
-	virtual void SwapBuffers() = 0;
 
 	// Used during window resize. Must be called from the window thread,
 	// not the rendering thread or CPU thread.
@@ -24,6 +21,7 @@ public:
 	virtual void Resume() {}
 
 	virtual void Resize() = 0;
+	virtual void NotifyWindowRestored() {}
 
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
 	virtual void *GetAPIContext() { return nullptr; }

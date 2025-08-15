@@ -29,6 +29,11 @@ struct tm;
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen);
 
+// Called by sceIoIoctl, which normally applies the delay this function writes to usec.
+// If you need to call sceIoIoctl from a HLE function implementation more than once, use
+// __IoIoctl directly to avoid double-delays.
+int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
+
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
 void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in);
 

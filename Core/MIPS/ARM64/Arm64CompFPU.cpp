@@ -83,9 +83,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 	CONDITIONAL_DISABLE(LSU_FPU);
 	CheckMemoryBreakpoint();
 
-	// Surprisingly, these work fine alraedy.
-
-	s32 offset = (s16)(op & 0xFFFF);
+	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
 	// u32 addr = R(rs) + offset;
@@ -294,7 +292,7 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 			fp.FMOV(fpr.R(fd), S0);
 		} else {
 			fp.FCMP(fpr.R(fs), fpr.R(fs));
-			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);
 			FixupBranch skip_nan = B(CC_VC);
 			MOVI2R(SCRATCH1, 0x7FFFFFFF);
 			fp.FMOV(fpr.R(fd), SCRATCH1);

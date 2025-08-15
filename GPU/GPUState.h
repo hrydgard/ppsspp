@@ -17,11 +17,14 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "Common/Math/SIMDHeaders.h"
 
 class PointerWrap;
 
@@ -224,7 +227,7 @@ struct GPUgstate {
 
 	// Cull
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
-	int getCullMode()   const { return cullmode & 1; }
+	GECullMode getCullMode()   const { return (GECullMode)(cullmode & 1); }
 
 	// Color Mask
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
@@ -340,9 +343,6 @@ struct GPUgstate {
 	bool isPointLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_POINT; }
 	bool isSpotLight(int chan) const { return getLightType(chan) >= GE_LIGHTTYPE_SPOT; }
 	GEShadeMode getShadeMode() const { return static_cast<GEShadeMode>(shademodel & 1); }
-	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
-	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
-	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
 	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
 	unsigned int getAmbientRGBA() const { return (ambientcolor&0xFFFFFF) | ((ambientalpha&0xFF)<<24); }
 	unsigned int getMaterialUpdate() const { return materialupdate & 7; }
@@ -351,30 +351,12 @@ struct GPUgstate {
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
 	unsigned int getMaterialAmbientA() const { return materialalpha&0xFF; }
 	unsigned int getMaterialAmbientRGBA() const { return (materialambient & 0x00FFFFFF) | (materialalpha << 24); }
-	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
-	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
-	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
 	unsigned int getMaterialDiffuse() const { return materialdiffuse & 0xffffff; }
-	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
-	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
-	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
 	unsigned int getMaterialEmissive() const { return materialemissive & 0xffffff; }
-	unsigned int getMaterialSpecularR() const { return materialspecular&0xFF; }
-	unsigned int getMaterialSpecularG() const { return (materialspecular>>8)&0xFF; }
-	unsigned int getMaterialSpecularB() const { return (materialspecular>>16)&0xFF; }
 	unsigned int getMaterialSpecular() const { return materialspecular & 0xffffff; }
 	float getMaterialSpecularCoef() const { return getFloat24(materialspecularcoef); }
-	unsigned int getLightAmbientColorR(int chan) const { return lcolor[chan*3]&0xFF; }
-	unsigned int getLightAmbientColorG(int chan) const { return (lcolor[chan*3]>>8)&0xFF; }
-	unsigned int getLightAmbientColorB(int chan) const { return (lcolor[chan*3]>>16)&0xFF; }
 	unsigned int getLightAmbientColor(int chan) const { return lcolor[chan*3]&0xFFFFFF; }
-	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
-	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
-	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
 	unsigned int getDiffuseColor(int chan) const { return lcolor[1+chan*3]&0xFFFFFF; }
-	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
-	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
-	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
 	unsigned int getSpecularColor(int chan) const { return lcolor[2+chan*3]&0xFFFFFF; }
 
 	int getPatchDivisionU() const { return patchdivision & 0x7F; }
@@ -438,14 +420,13 @@ struct GPUgstate {
 	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
 	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
-
 	void FastLoadBoneMatrix(u32 addr);
 
 	// Real data in the context ends here
 
-	void Reset();
+	static void Reset();
 	void Save(u32_le *ptr);
-	void Restore(u32_le *ptr);
+	void Restore(const u32_le *ptr);
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);
@@ -470,6 +451,7 @@ struct UVScale {
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
+// NOTE: Do not forget to update the string array at the end of GPUState.cpp!
 enum {
 	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
@@ -477,7 +459,7 @@ enum {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
+	GPU_USE_FRAGMENT_UBERSHADER = FLAG_BIT(6),
 	GPU_USE_TEXTURE_NPOT = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
@@ -490,19 +472,23 @@ enum {
 	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
 	GPU_USE_ACCURATE_DEPTH = FLAG_BIT(17),
 	GPU_USE_GS_CULLING = FLAG_BIT(18),  // Geometry shader
-	GPU_USE_REVERSE_COLOR_ORDER = FLAG_BIT(19),
+	GPU_USE_FRAMEBUFFER_ARRAYS = FLAG_BIT(19),
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
 	GPU_USE_CULL_DISTANCE = FLAG_BIT(25),
+	GPU_USE_SHADER_BLENDING = FLAG_BIT(26),  // This is set to false when skip buffer effects is enabled and GPU_USE_FRAMEBUFFER_FETCH is not.
 
 	// VR flags (reserved or in-use)
 	GPU_USE_VIRTUAL_REALITY = FLAG_BIT(29),
 	GPU_USE_SINGLE_PASS_STEREO = FLAG_BIT(30),
 	GPU_USE_SIMPLE_STEREO_PERSPECTIVE = FLAG_BIT(31),
 };
+
+// Note that this take a flag index, not the bit value.
+const char *GpuUseFlagToString(int useFlag);
 
 struct KnownVertexBounds {
 	u16 minU;
@@ -519,9 +505,13 @@ enum class SubmitType {
 	HW_SPLINE,
 };
 
+extern GPUgstate gstate;
+
 struct GPUStateCache {
-	bool Use(u32 flags) { return (useFlags & flags) != 0; } // Return true if ANY of flags are true.
-	bool UseAll(u32 flags) { return (useFlags & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) const { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) const { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
+
+	u32 UseFlags() const { return useFlags_; }
 
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
@@ -545,7 +535,7 @@ struct GPUStateCache {
 	void SetTextureFullAlpha(bool fullAlpha) {
 		if (fullAlpha != textureFullAlpha) {
 			textureFullAlpha = fullAlpha;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
 	void SetNeedShaderTexclamp(bool need) {
@@ -563,10 +553,13 @@ struct GPUStateCache {
 		}
 	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
-		if (arrayTexture != isArrayTexture) {
-			arrayTexture = isArrayTexture;
+		if (textureIsArray != isArrayTexture) {
+			textureIsArray = isArrayTexture;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
+	}
+	void SetTextureIsVideo(bool isVideo) {
+		textureIsVideo = isVideo;
 	}
 	void SetTextureIsBGRA(bool isBGRA) {
 		if (bgraTexture != isBGRA) {
@@ -574,9 +567,42 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIsFramebuffer(bool isFramebuffer) {
+		if (textureIsFramebuffer != isFramebuffer) {
+			textureIsFramebuffer = isFramebuffer;
+			Dirty(DIRTY_UVSCALEOFFSET);
+		} else if (isFramebuffer) {
+			// Always dirty if it's a framebuffer, since the uniform value depends both
+			// on the specified texture size and the bound texture size. Makes things easier.
+			// TODO: Look at this again later.
+			Dirty(DIRTY_UVSCALEOFFSET);
+		}
+	}
+	bool SetUseFlags(u32 newFlags);
 
-	u32 useFlags;
+	// When checking for a single flag, use Use()/UseAll().
+	u32 GetUseFlags() const {
+		return useFlags_;
+	}
 
+	void UpdateUVScaleOffset() {
+#if defined(_M_SSE)
+		__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *)&gstate.texscaleu), 8);
+		_mm_storeu_si128((__m128i *)&uv, values);
+#elif PPSSPP_ARCH(ARM_NEON)
+		const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);
+		vst1q_u32((u32 *)&uv, values);
+#else
+		uv.uScale = getFloat24(gstate.texscaleu);
+		uv.vScale = getFloat24(gstate.texscalev);
+		uv.uOff = getFloat24(gstate.texoffsetu);
+		uv.vOff = getFloat24(gstate.texoffsetv);
+#endif
+	}
+
+private:
+	u32 useFlags_;
+public:
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;
@@ -595,7 +621,10 @@ struct GPUStateCache {
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool arrayTexture;
+	bool textureIsArray;
+	bool textureIsFramebuffer;
+	bool textureIsVideo;
+	bool useFlagsChanged;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;
@@ -627,6 +656,9 @@ struct GPUStateCache {
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
 
+	// U/V is 1:1 to pixels. Can influence texture sampling.
+	bool pixelMapped;
+
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
@@ -651,14 +683,13 @@ struct GPUStateCache {
 	GEBufferFormat depalFramebufferFormat;
 
 	u32 getRelativeAddress(u32 data) const;
-	void Reset();
+	static void Reset();
 	void DoState(PointerWrap &p);
 };
 
 class GPUInterface;
 class GPUDebugInterface;
 
-extern GPUgstate gstate;
 extern GPUStateCache gstate_c;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {

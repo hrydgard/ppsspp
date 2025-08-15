@@ -4,6 +4,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -75,6 +79,7 @@ public class ShortcutActivity extends Activity {
 	}
 
 	public static native String queryGameName(String path);
+	public static native byte[] queryGameIcon(String path);
 
 	// Create shortcut as response for ACTION_CREATE_SHORTCUT intent.
 	private void respondToShortcutRequest(Uri uri) {
@@ -82,8 +87,7 @@ public class ShortcutActivity extends Activity {
 		// homescreen. Set our app as target Context. Set Main activity as
 		// target class. Add any parameter as data.
 		Intent shortcutIntent = new Intent(getApplicationContext(), PpssppActivity.class);
-		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		Log.i(TAG, "Shortcut URI: " + uri.toString());
 		shortcutIntent.setData(uri);
 		String path = uri.toString();
@@ -99,13 +103,13 @@ public class ShortcutActivity extends Activity {
 		if (path.startsWith("content://")) {
 			String [] segments = path.split("/");
 			try {
-				pathStr = java.net.URLDecoder.decode(segments[segments.length - 1], StandardCharsets.UTF_8.name());
+				pathStr = java.net.URLDecoder.decode(segments[segments.length - 1], "UTF-8");
 			} catch (Exception e) {
 				Log.i(TAG, "Exception getting name: " + e);
 			}
 		} else if (path.startsWith("file:///")) {
 			try {
-				pathStr = java.net.URLDecoder.decode(path.substring(7), StandardCharsets.UTF_8.name());
+				pathStr = java.net.URLDecoder.decode(path.substring(7), "UTF-8");
 			} catch (Exception e) {
 				Log.i(TAG, "Exception getting name: " + e);
 			}
@@ -116,16 +120,19 @@ public class ShortcutActivity extends Activity {
 		String[] pathSegments = pathStr.split("/");
 		name = pathSegments[pathSegments.length - 1];
 
-		/*
-		// No longer working for various reasons.
-
 		PpssppActivity.CheckABIAndLoadLibrary();
-		String name = queryGameName(path);
-		if (name.equals("")) {
+		String gameName = queryGameName(path);
+		byte [] iconData = null;
+		if (gameName.isEmpty()) {
 			Log.i(TAG, "Failed to retrieve game name - ignoring.");
-			showBadGameMessage();
-			return;
-		}*/
+			// This probably happened because PPSSPP isn't running so the GameInfoCache isn't working.
+			// Let's just continue with our fallback name until we can fix that.
+			// showBadGameMessage();
+			// return;
+		} else {
+			name = gameName;
+			iconData = queryGameIcon(path);
+		}
 
 		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + uri.toString());
 
@@ -134,9 +141,34 @@ public class ShortcutActivity extends Activity {
 		Intent responseIntent = new Intent();
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name);
-		ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.drawable.ic_launcher);
-		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
 
+		boolean setIcon = false;
+		if (iconData != null) {
+			// Try to create a PNG from the iconData.
+			Bitmap bmp = BitmapFactory.decodeByteArray(iconData, 0, iconData.length);
+			if (bmp != null) {
+				// Pad the bitmap into a square, to keep it a nice 2:1 aspect ratio.
+				Bitmap paddedBitmap = Bitmap.createBitmap(
+					bmp.getWidth(), bmp.getWidth(),
+					Bitmap.Config.ARGB_8888);
+				Canvas canvas = new Canvas(paddedBitmap);
+				canvas.drawARGB(0, 0, 0, 0);
+				int y = (bmp.getWidth() - bmp.getHeight()) / 2;
+				if (y < 0) {
+					// To be safe from wacky-aspect-ratio bitmaps.
+					y = 0;
+				}
+				canvas.drawBitmap(bmp, 0, y, new Paint(Paint.FILTER_BITMAP_FLAG));
+				// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
+				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
+			}
+			setIcon = true;
+		}
+		if (!setIcon) {
+			// Fall back to the PPSSPP icon.
+			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.mipmap.ic_launcher);
+			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
+		}
 		setResult(RESULT_OK, responseIntent);
 
 		// Must call finish for result to be returned immediately

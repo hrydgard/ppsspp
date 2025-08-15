@@ -15,17 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <map>
+#include <vector>
+#include <string>
 
-#include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "GPU/GPUState.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/Draw2D.h"
-#include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
@@ -53,7 +53,7 @@ void TextureShaderCache::DeviceLost() {
 	draw_ = nullptr;
 }
 
-ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut) {
 	// Simplistic, but works well enough.
 	u32 clutId = clutHash ^ (uint32_t)clutFormat;
 
@@ -96,33 +96,43 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 		break;
 	}
 
-	int lastR = 0;
-	int lastG = 0;
-	int lastB = 0;
-	int lastA = 0;
 
-	int rampLength = 0;
+	for (int i = 0; i < 3; i++) {
+		tex->rampLengths[i] = 0;
+		tex->rampStarts[i] = 0;
+	}
 	// Quick check for how many continuously growing entries we have at the start.
 	// Bilinearly filtering CLUTs only really makes sense for this kind of ramp.
-	for (int i = 0; i < maxClutEntries; i++) {
-		rampLength = i;
-		int r = desc.initData[0][i * 4];
-		int g = desc.initData[0][i * 4 + 1];
-		int b = desc.initData[0][i * 4 + 2];
-		int a = desc.initData[0][i * 4 + 3];
-		if (r < lastR || g < lastG || b < lastB || a < lastA) {
+	int i = 0;
+	for (int j = 0; j < ClutTexture::MAX_RAMPS; j++) {
+		tex->rampStarts[j] = i;
+		int lastR = 0;
+		int lastG = 0;
+		int lastB = 0;
+		int lastA = 0;
+		for (; i < maxClutEntries; i++) {
+			int r = desc.initData[0][i * 4];
+			int g = desc.initData[0][i * 4 + 1];
+			int b = desc.initData[0][i * 4 + 2];
+			int a = desc.initData[0][i * 4 + 3];
+			if (r < lastR || g < lastG || b < lastB || a < lastA) {
+				lastR = r; lastG = g; lastB = b; lastA = a;
+				break;
+			} else {
+				lastR = r;
+				lastG = g;
+				lastB = b;
+				lastA = a;
+			}
+		}
+		tex->rampLengths[j] = i - tex->rampStarts[j];
+		if (i >= maxClutEntries) {
 			break;
-		} else {
-			lastR = r;
-			lastG = g;
-			lastB = b;
-			lastA = a;
 		}
 	}
 
 	tex->texture = draw_->CreateTexture(desc);
 	tex->lastFrame = gpuStats.numFlips;
-	tex->rampLength = rampLength;
 
 	texCache_[clutId] = tex;
 	return *tex;
@@ -185,6 +195,7 @@ void TextureShaderCache::Decimate() {
 			++tex;
 		}
 	}
+	gpuStats.numClutTextures = (int)texCache_.size();
 }
 
 Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal, u32 depthUpperBits) {
@@ -232,8 +243,8 @@ std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType t
 	return ids;
 }
 
-std::string TextureShaderCache::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
-	uint32_t id;
+std::string TextureShaderCache::DebugGetShaderString(const std::string &idstr, DebugShaderType type, DebugShaderStringType stringType) {
+	uint32_t id = 0;
 	sscanf(idstr.c_str(), "%08x", &id);
 	auto iter = depalCache_.find(id);
 	if (iter == depalCache_.end())

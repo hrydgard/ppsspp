@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\ext\lua\lapi.c" />
+    <ClCompile Include="..\..\ext\lua\lauxlib.c" />
+    <ClCompile Include="..\..\ext\lua\lbaselib.c" />
+    <ClCompile Include="..\..\ext\lua\lcode.c" />
+    <ClCompile Include="..\..\ext\lua\lcorolib.c" />
+    <ClCompile Include="..\..\ext\lua\lctype.c" />
+    <ClCompile Include="..\..\ext\lua\ldblib.c" />
+    <ClCompile Include="..\..\ext\lua\ldebug.c" />
+    <ClCompile Include="..\..\ext\lua\ldo.c" />
+    <ClCompile Include="..\..\ext\lua\ldump.c" />
+    <ClCompile Include="..\..\ext\lua\lfunc.c" />
+    <ClCompile Include="..\..\ext\lua\lgc.c" />
+    <ClCompile Include="..\..\ext\lua\linit.c" />
+    <ClCompile Include="..\..\ext\lua\liolib.c" />
+    <ClCompile Include="..\..\ext\lua\llex.c" />
+    <ClCompile Include="..\..\ext\lua\lmathlib.c" />
+    <ClCompile Include="..\..\ext\lua\lmem.c" />
+    <ClCompile Include="..\..\ext\lua\loadlib.c" />
+    <ClCompile Include="..\..\ext\lua\lobject.c" />
+    <ClCompile Include="..\..\ext\lua\lopcodes.c" />
+    <ClCompile Include="..\..\ext\lua\loslib.c" />
+    <ClCompile Include="..\..\ext\lua\lparser.c" />
+    <ClCompile Include="..\..\ext\lua\lstate.c" />
+    <ClCompile Include="..\..\ext\lua\lstring.c" />
+    <ClCompile Include="..\..\ext\lua\lstrlib.c" />
+    <ClCompile Include="..\..\ext\lua\ltable.c" />
+    <ClCompile Include="..\..\ext\lua\ltablib.c" />
+    <ClCompile Include="..\..\ext\lua\ltm.c" />
+    <ClCompile Include="..\..\ext\lua\lundump.c" />
+    <ClCompile Include="..\..\ext\lua\lutf8lib.c" />
+    <ClCompile Include="..\..\ext\lua\lvm.c" />
+    <ClCompile Include="..\..\ext\lua\lzio.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\ext\lua\lapi.h" />
+    <ClInclude Include="..\..\ext\lua\lauxlib.h" />
+    <ClInclude Include="..\..\ext\lua\lcode.h" />
+    <ClInclude Include="..\..\ext\lua\lctype.h" />
+    <ClInclude Include="..\..\ext\lua\ldebug.h" />
+    <ClInclude Include="..\..\ext\lua\ldo.h" />
+    <ClInclude Include="..\..\ext\lua\lfunc.h" />
+    <ClInclude Include="..\..\ext\lua\lgc.h" />
+    <ClInclude Include="..\..\ext\lua\ljumptab.h" />
+    <ClInclude Include="..\..\ext\lua\llex.h" />
+    <ClInclude Include="..\..\ext\lua\llimits.h" />
+    <ClInclude Include="..\..\ext\lua\lmem.h" />
+    <ClInclude Include="..\..\ext\lua\lobject.h" />
+    <ClInclude Include="..\..\ext\lua\lopcodes.h" />
+    <ClInclude Include="..\..\ext\lua\lopnames.h" />
+    <ClInclude Include="..\..\ext\lua\lparser.h" />
+    <ClInclude Include="..\..\ext\lua\lprefix.h" />
+    <ClInclude Include="..\..\ext\lua\lstate.h" />
+    <ClInclude Include="..\..\ext\lua\lstring.h" />
+    <ClInclude Include="..\..\ext\lua\ltable.h" />
+    <ClInclude Include="..\..\ext\lua\ltm.h" />
+    <ClInclude Include="..\..\ext\lua\lua.h" />
+    <ClInclude Include="..\..\ext\lua\luaconf.h" />
+    <ClInclude Include="..\..\ext\lua\lualib.h" />
+    <ClInclude Include="..\..\ext\lua\lundump.h" />
+    <ClInclude Include="..\..\ext\lua\lvm.h" />
+    <ClInclude Include="..\..\ext\lua\lzio.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\ext\lua\makefile" />
+    <None Include="..\..\ext\lua\README.md" />
+  </ItemGroup>
+</Project>

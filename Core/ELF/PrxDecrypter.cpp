@@ -119,9 +119,20 @@ static const u8 key_D91624F0[] = {0x61, 0xB7, 0x26, 0xAF, 0x8B, 0xF1, 0x41, 0x58
 static const u8 key_D91628F0[] = {0x49, 0xA4, 0xFC, 0x66, 0xDC, 0xE7, 0x62, 0x21, 0xDB, 0x18, 0xA7, 0x50, 0xD6, 0xA8, 0xC1, 0xB6};
 static const u8 key_D91680F0[] = {0x2C, 0x22, 0x9B, 0x12, 0x36, 0x74, 0x11, 0x67, 0x49, 0xD1, 0xD1, 0x88, 0x92, 0xF6, 0xA1, 0xD8};
 static const u8 key_D91681F0[] = {0x52, 0xB6, 0x36, 0x6C, 0x8C, 0x46, 0x7F, 0x7A, 0xCC, 0x11, 0x62, 0x99, 0xC1, 0x99, 0xBE, 0x98};
+static const u8 key_2E5E0AF0[] = {0xAC, 0xD7, 0x6D, 0x90, 0x33, 0x37, 0x38, 0x92, 0x31, 0x41, 0xD6, 0x36, 0xAF, 0x9F, 0x17, 0x15};
+static const u8 xor_2E5E0AF0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
 static const u8 key_2E5E10F0[] = {0x9D, 0x5C, 0x5B, 0xAF, 0x8C, 0xD8, 0x69, 0x7E, 0x51, 0x9F, 0x70, 0x96, 0xE6, 0xD5, 0xC4, 0xE8};
+static const u8 xor_2E5E10F0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
+static const u8 key_2E5E11F0[] = {0x75, 0xEB, 0xE8, 0x43, 0xF4, 0x87, 0x8F, 0xD0, 0x14, 0x7F, 0x7E, 0x39, 0xAD, 0xAF, 0x04, 0x9D};
+static const u8 xor_2E5E11F0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
 static const u8 key_2E5E12F0[] = {0x8A, 0x7B, 0xC9, 0xD6, 0x52, 0x58, 0x88, 0xEA, 0x51, 0x83, 0x60, 0xCA, 0x16, 0x79, 0xE2, 0x07};
+static const u8 xor_2E5E12F0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
 static const u8 key_2E5E13F0[] = {0xFF, 0xA4, 0x68, 0xC3, 0x31, 0xCA, 0xB7, 0x4C, 0xF1, 0x23, 0xFF, 0x01, 0x65, 0x3D, 0x26, 0x36};
+static const u8 xor_2E5E13F0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
+static const u8 key_2E5E80F0[] = {0x0F, 0x74, 0xAF, 0x43, 0x75, 0xCD, 0xDA, 0x39, 0x81, 0x56, 0xD9, 0x61, 0x3E, 0x16, 0xC8, 0x92};
+static const u8 xor_2E5E80F0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
+static const u8 key_2E5E90F0[] = {0x67, 0xE4, 0x8F, 0x4C, 0x08, 0xA0, 0x7D, 0xB1, 0x5F, 0x51, 0xA7, 0x72, 0x98, 0xA8, 0x2D, 0x7E};
+static const u8 xor_2E5E90F0[] = {0x69, 0xBA, 0x55, 0x34, 0xF0, 0xC0, 0xD6, 0x71, 0xE3, 0x1F, 0xDB, 0x97, 0xE0, 0x7C, 0xD2, 0x2A};
 static const u8 key_2FD30BF0[] = {0xD8, 0x58, 0x79, 0xF9, 0xA4, 0x22, 0xAF, 0x86, 0x90, 0xAC, 0xDA, 0x45, 0xCE, 0x60, 0x40, 0x3F};
 static const u8 keys02G_E[] = {0x9D, 0x09, 0xFD, 0x20, 0xF3, 0x8F, 0x10, 0x69, 0x0D, 0xB2, 0x6F, 0x00, 0xCC, 0xC5, 0x51, 0x2E};
 static const u8 keys03G_E[] = {0x4F, 0x44, 0x5C, 0x62, 0xB3, 0x53, 0xC4, 0x30, 0xFC, 0x3A, 0xA4, 0x5B, 0xEC, 0xFE, 0x51, 0xEA};
@@ -398,9 +409,13 @@ static const TAG_INFO2 g_tagInfo2[] =
 	{ 0x4467415D, key_22E0, 0x59 },
 	{ 0x00000000, key_21C0, 0x42 },
 	{ 0x01000000, key_2250, 0x43 },
-	{ 0x2E5E10F0, key_2E5E10F0, 0x48 },
-	{ 0x2E5E12F0, key_2E5E12F0, 0x48 },
-	{ 0x2E5E13F0, key_2E5E13F0, 0x48 },
+	{ 0x2E5E0AF0, key_2E5E0AF0, 0x48, 5, xor_2E5E0AF0 }, //[32]6.20
+	{ 0x2E5E10F0, key_2E5E10F0, 0x48, 5, xor_2E5E10F0 }, //[32]5.00 PSP-2000 (Game PSN Update 2 LBP)
+	{ 0x2E5E11F0, key_2E5E11F0, 0x48, 5, xor_2E5E11F0 }, //[32]6.00
+	{ 0x2E5E12F0, key_2E5E12F0, 0x48, 5, xor_2E5E12F0 },
+	{ 0x2E5E13F0, key_2E5E13F0, 0x48, 5, xor_2E5E13F0 },
+	{ 0x2E5E80F0, key_2E5E80F0, 0x48, 5, xor_2E5E80F0 }, //[32]6.30
+	{ 0x2E5E90F0, key_2E5E90F0, 0x48, 5, xor_2E5E90F0 },
 	{ 0x2FD30BF0, key_2FD30BF0, 0x47 },
 	{ 0xD91605F0, key_D91605F0, 0x5D, 2},
 	{ 0xD91606F0, key_D91606F0, 0x5D, 2},
@@ -696,9 +711,9 @@ struct PRXType6
 };
 static_assert(sizeof(PRXType6) == 0x150, "inconsistent size of PRX Type 6");
 
-static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
-	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -742,7 +757,7 @@ static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type0.prxHeader, sizeof(type0.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type0.kirkBlock, xorbuf, pti->code);
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -750,9 +765,9 @@ static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
 	return decryptSize;
 }
 
-static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
-	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -797,7 +812,7 @@ static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type1.prxHeader, sizeof(type1.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type1.kirkBlock, xorbuf, pti->code);
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -805,9 +820,9 @@ static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
 	return decryptSize;
 }
 
-static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
-	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -861,7 +876,7 @@ static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -869,9 +884,9 @@ static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
 	return decryptSize;
 }
 
-static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
+static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 	{
-	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -925,7 +940,7 @@ static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -933,9 +948,9 @@ static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed
 	return decryptSize;
 	}
 
-static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
-	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -992,7 +1007,7 @@ static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
 	header->mode = 1;
 	header->ecdsa_hash = 1;
 
-	if (kirk_sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<const u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
@@ -1002,30 +1017,31 @@ static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
 
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 {
-	kirk_init();
+	KirkState kirk{};
+	kirk_init(&kirk);
 
 	// this would be significantly better if we had a log of the tags
 	// and their appropriate prx types
 	// since we don't know the PRX type we attempt a decrypt using all
-	auto res = pspDecryptType0(inbuf, outbuf, size);
+	auto res = pspDecryptType0(&kirk, inbuf, outbuf, size);
 
 	if (res >= 0)
 		return res;
 	
-	res = pspDecryptType1(inbuf, outbuf, size);
+	res = pspDecryptType1(&kirk, inbuf, outbuf, size);
 
 	if (res >= 0)
 		return res;
 	
-	res = pspDecryptType2(inbuf, outbuf, size);
+	res = pspDecryptType2(&kirk, inbuf, outbuf, size);
 
 	if (res >= 0)
 		return res;
 	
-	res = pspDecryptType5(inbuf, outbuf, size, seed);
+	res = pspDecryptType5(&kirk, inbuf, outbuf, size, seed);
 
 	if (res >= 0)
 		return res;
 	
-	return pspDecryptType6(inbuf, outbuf, size);
+	return pspDecryptType6(&kirk, inbuf, outbuf, size);
 }

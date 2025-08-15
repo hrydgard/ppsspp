@@ -16,3 +16,9 @@ typedef unsigned int Color;
 inline Color darkenColor(Color color) {
 	return (color & 0xFF000000) | ((color >> 1) & 0x7F7F7F);
 }
+
+inline Color lightenColor(Color color) {
+	color = ~color;
+	color = (color & 0xFF000000) | ((color >> 1) & 0x7F7F7F);
+	return ~color;
+}

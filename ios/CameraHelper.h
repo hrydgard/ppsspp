@@ -10,8 +10,7 @@
 
 @property (nonatomic, strong) id<CameraFrameDelegate> delegate;
 
-- (void) setCameraSize:(int)width h:(int)height;
-- (void) startVideo;
+- (void) startVideo:(int)width h:(int)height;
 - (void) stopVideo;
 
 @end
