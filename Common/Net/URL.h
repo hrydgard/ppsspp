@@ -31,6 +31,15 @@ struct UrlEncoder
 		AppendEscaped(value);
 	}
 
+	// No proper implementation of this yet, as we don't have any string vectors that really need reporting.
+	virtual void Add(const std::string &key, const std::vector<std::string> &value)
+	{
+		if (++paramCount > 1)
+			data += '&';
+		AppendEscaped(key);
+		data += "=";
+	}
+
 	void Add(const std::string &key, const char *value)
 	{
 		Add(key, std::string(value));

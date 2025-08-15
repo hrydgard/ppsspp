@@ -25,6 +25,7 @@ struct ConfigSetting {
 		TYPE_UINT64,
 		TYPE_FLOAT,
 		TYPE_STRING,
+		TYPE_STRING_VECTOR,
 		TYPE_TOUCH_POS,
 		TYPE_PATH,
 		TYPE_CUSTOM_BUTTON
@@ -37,6 +38,7 @@ struct ConfigSetting {
 		float f;
 		const char *s;
 		const char *p;  // not sure how much point..
+		const std::vector<std::string> *v;
 		ConfigTouchPos touchPos;
 		ConfigCustomButton customButton;
 	};
@@ -47,6 +49,7 @@ struct ConfigSetting {
 		uint64_t *lu;
 		float *f;
 		std::string *s;
+		std::vector<std::string> *v;
 		Path *p;
 		ConfigTouchPos *touchPos;
 		ConfigCustomButton *customButton;
@@ -90,7 +93,7 @@ struct ConfigSetting {
 		getPtrLUT()[v] = this;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, std::string(*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT) noexcept
+	ConfigSetting(const char *ini, int *v, int def, std::string (*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT) noexcept
 		: iniKey_(ini), type_(TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = nullptr;
@@ -127,6 +130,13 @@ struct ConfigSetting {
 		ptr_.s = v;
 		cb_.s = nullptr;
 		default_.s = def;
+		getPtrLUT()[v] = this;
+	}
+
+	ConfigSetting(const char *ini, std::vector<std::string> *v, const std::vector<std::string> *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(TYPE_STRING_VECTOR), flags_(flags) {
+		ptr_.v = v;
+		default_.v = def;
 		getPtrLUT()[v] = this;
 	}
 

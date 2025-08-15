@@ -102,7 +102,7 @@ public:
 	bool Get(std::string_view key, bool* value, bool defaultValue = false) const;
 	bool Get(std::string_view key, float* value, float defaultValue = false) const;
 	bool Get(std::string_view key, double* value, double defaultValue = false) const;
-	bool Get(std::string_view key, std::vector<std::string>& values) const;
+	bool Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValue = nullptr) const;
 
 	// Return a list of all keys in this section
 	bool GetKeys(std::vector<std::string> &keys) const;
@@ -143,7 +143,7 @@ public:
 	bool Get(const char* sectionName, const char* key, uint32_t* value, uint32_t defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, uint64_t* value, uint64_t defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, bool* value, bool defaultValue = false);
-	bool Get(const char* sectionName, const char* key, std::vector<std::string>& values);
+	bool Get(const char* sectionName, const char* key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues = nullptr);
 
 	bool GetKeys(const char* sectionName, std::vector<std::string>& keys) const;
 

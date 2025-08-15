@@ -89,7 +89,6 @@ private:
 	UI::EventReturn OnChangeQuickChat2(UI::EventParams &e);
 	UI::EventReturn OnChangeQuickChat3(UI::EventParams &e);
 	UI::EventReturn OnChangeQuickChat4(UI::EventParams &e);
-	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeBackground(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnFullscreenMultiChange(UI::EventParams &e);
@@ -131,8 +130,8 @@ private:
 
 class HostnameSelectScreen : public PopupScreen {
 public:
-	HostnameSelectScreen(std::string *value, std::string_view title)
-		: PopupScreen(title, "OK", "Cancel"), value_(value) {
+	HostnameSelectScreen(std::string *value, std::vector<std::string> *listItems, std::string_view title)
+		: PopupScreen(title, "OK", "Cancel"), listItems_(listItems), value_(value) {
 		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
 			thiz->ResolverThread();
 		}, this);
@@ -175,6 +174,7 @@ private:
 	};
 
 	std::string *value_;
+	std::vector<std::string> *listItems_;
 	UI::TextEdit *addrView_ = nullptr;
 	UI::TextView *progressView_ = nullptr;
 	UI::LinearLayout *ipRows_ = nullptr;

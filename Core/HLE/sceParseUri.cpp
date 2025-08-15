@@ -326,7 +326,7 @@ static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBuffe
 		}
 	}
 
-	Memory::MemcpyUnchecked(escapedAddr, escaped.c_str(), escaped.length() + 1);
+	Memory::MemcpyUnchecked(escapedAddr, escaped.c_str(), (u32)escaped.length() + 1);
 
 	return hleLogDebug(Log::sceNet, 0, "escaped '%s' to '%s'", source, escaped.c_str());
 }

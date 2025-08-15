@@ -37,6 +37,9 @@ bool ConfigSetting::Get(const Section *section) const {
 		return section->Get(iniKey_, ptr_.f, cb_.f ? cb_.f() : default_.f);
 	case TYPE_STRING:
 		return section->Get(iniKey_, ptr_.s, cb_.s ? cb_.s().c_str() : default_.s);
+	case TYPE_STRING_VECTOR:
+		// No support for callbacks for these yet. that's not an issue.
+		return section->Get(iniKey_, ptr_.v, default_.v);
 	case TYPE_TOUCH_POS:
 	{
 		ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
@@ -97,6 +100,8 @@ void ConfigSetting::Set(Section *section) const {
 		return section->Set(iniKey_, *ptr_.f);
 	case TYPE_STRING:
 		return section->Set(iniKey_, *ptr_.s);
+	case TYPE_STRING_VECTOR:
+		return section->Set(iniKey_, *ptr_.v);
 	case TYPE_PATH:
 		return section->Set(iniKey_, ptr_.p->ToString());
 	case TYPE_TOUCH_POS:
@@ -128,6 +133,7 @@ void ConfigSetting::RestoreToDefault() const {
 	case TYPE_UINT64: *ptr_.lu = cb_.lu ? cb_.lu() : default_.lu; break;
 	case TYPE_FLOAT:  *ptr_.f = cb_.f ? cb_.f() : default_.f; break;
 	case TYPE_STRING: *ptr_.s = cb_.s ? cb_.s() : default_.s; break;
+	case TYPE_STRING_VECTOR: *ptr_.v = *default_.v; break;
 	case TYPE_TOUCH_POS: *ptr_.touchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos; break;
 	case TYPE_PATH: *ptr_.p = Path(cb_.p ? cb_.p() : default_.p); break;
 	case TYPE_CUSTOM_BUTTON: *ptr_.customButton = cb_.customButton ? cb_.customButton() : default_.customButton; break;
@@ -147,6 +153,7 @@ void ConfigSetting::ReportSetting(UrlEncoder &data, const std::string &prefix) c
 	case TYPE_UINT64: return data.Add(prefix + iniKey_, *ptr_.lu);
 	case TYPE_FLOAT:  return data.Add(prefix + iniKey_, *ptr_.f);
 	case TYPE_STRING: return data.Add(prefix + iniKey_, *ptr_.s);
+	case TYPE_STRING_VECTOR: return data.Add(prefix + iniKey_, *ptr_.v);
 	case TYPE_PATH:   return data.Add(prefix + iniKey_, ptr_.p->ToString());
 	case TYPE_TOUCH_POS: return;   // Doesn't report.
 	case TYPE_CUSTOM_BUTTON: return; // Doesn't report.

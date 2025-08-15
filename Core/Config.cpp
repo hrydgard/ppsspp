@@ -76,6 +76,10 @@ static const char * const logSectionName = "Log";
 
 bool TryUpdateSavedPath(Path *path);
 
+static const std::vector<std::string> defaultProAdhocServerList = {
+	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
+};
+
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:
@@ -958,6 +962,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "socom.cc", CfgFlag::PER_GAME),
+	ConfigSetting("proAdhocServerList", &g_Config.proAdhocServerList, &defaultProAdhocServerList, CfgFlag::DEFAULT),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 10000, CfgFlag::PER_GAME),
 	ConfigSetting("PrimaryDNSServer", &g_Config.sInfrastructureDNSServer, "67.222.156.250", CfgFlag::PER_GAME),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 0, CfgFlag::PER_GAME),
