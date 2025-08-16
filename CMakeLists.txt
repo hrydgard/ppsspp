@@ -1989,7 +1989,6 @@ set(GPU_SOURCES
 	GPU/Debugger/State.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
-	GPU/Debugger/Watch.h
 	GPU/ge_constants.h
 	GPU/GeConstants.cpp
 	GPU/GPUDefinitions.h
@@ -2075,6 +2074,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/MemBlockInfo.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
+	Core/Debugger/Watch.h
 	Core/Debugger/DisassemblyManager.cpp
 	Core/Debugger/DisassemblyManager.h
 	Core/Debugger/WebSocket.cpp

@@ -2159,7 +2159,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 					System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 				}
 			}
-			ImGui::Separator();
+			ImGui::Separator(); 
 			if (ImGui::MenuItem("Close")) {
 				g_Config.bShowImDebugger = false;
 			}
@@ -2175,6 +2175,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
 			ImGui::MenuItem("FPR regs", nullptr, &cfg_.fprOpen);
 			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
+			ImGui::Separator();
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
 			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
