@@ -1,18 +1,12 @@
 #pragma once
 
-#include "../../Core/Debugger/DebugInterface.h"
-#include "../../Core/HLE/sceKernelThread.h"
-#include "../../Core/Debugger/Breakpoints.h"
-#include "../../Core/Debugger/SymbolMap.h"
-#include "../../Core/MIPS/MIPSStackWalk.h"
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/Watch.h"
+#include "Core/MIPS/MIPSStackWalk.h"
 #include "Windows/W32Util/Misc.h"
-
-enum class WatchFormat {
-	HEX,
-	INT,
-	FLOAT,
-	STR,
-};
 
 class CtrlThreadList: public GenericListControl
 {
@@ -111,16 +105,6 @@ private:
 	void DeleteWatch(int pos);
 	bool HasWatchChanged(int pos);
 
-	struct WatchInfo {
-		std::string name;
-		std::string originalExpression;
-		PostfixExpression expression;
-		WatchFormat format = WatchFormat::HEX;
-		uint32_t currentValue = 0;
-		uint32_t lastValue = 0;
-		int steppingCounter = -1;
-		bool evaluateFailed = false;
-	};
 	std::vector<WatchInfo> watches_;
 	DebugInterface *cpu_;
 };

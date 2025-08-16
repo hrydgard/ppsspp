@@ -1002,6 +1002,7 @@
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="ConfigValues.h" />
     <ClInclude Include="Debugger\MemBlockInfo.h" />
+    <ClInclude Include="Debugger\Watch.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
     <ClInclude Include="Debugger\WebSocket\BreakpointSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\ClientConfigSubscriber.h" />

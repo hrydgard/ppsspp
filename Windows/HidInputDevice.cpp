@@ -386,7 +386,7 @@ HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize, int *
 					*reportSize = caps.InputReportByteLength;
 					*outReportSize = caps.OutputReportByteLength;
 
-					INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", outReportSize);
+					INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", *outReportSize);
 					bool result;
 					switch (*subType) {
 					case HIDControllerType::DS5:
