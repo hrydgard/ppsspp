@@ -1817,6 +1817,131 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 	ImGui::End();
 }
 
+ImWatchWindow::ImWatchWindow() {}
+
+void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug) {
+	if (!ImGui::Begin("Watch", &cfg.atracToolOpen) || !g_symbolMap) {
+		ImGui::End();
+		return;
+	}
+
+	// Refresh watches
+	int steppingCounter = Core_GetSteppingCounter();
+	int changes = false;
+	for (auto &watch : watches_) {
+		if (watch.steppingCounter != steppingCounter) {
+			watch.lastValue = watch.currentValue;
+			watch.steppingCounter = steppingCounter;
+		}
+
+		uint32_t prevValue = watch.currentValue;
+		watch.evaluateFailed = !parseExpression(mipsDebug, watch.expression, watch.currentValue);
+	}
+
+	if (ImGui::Button("Add Watch")) {
+		watches_.push_back(WatchInfo("untitled", "[0x88000000]", mipsDebug));
+	}
+
+	if (ImGui::BeginTable("watches", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+		ImGui::TableSetupColumn("Expression", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+		ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < (int)watches_.size(); i++) {
+			auto &watch = watches_[i];
+			ImGui::PushID(i);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(watch.name.c_str());
+			ImGui::TableNextColumn();
+			if (editingWatchIndex_ == i && editingColumn_ == 1) {
+				ImGui::SetNextItemWidth(-1.0f);  // Full width
+				if (setEditFocus_) {
+					ImGui::FocusItem();
+					setEditFocus_ = false;
+				}
+				bool confirmed = ImGui::InputText("##edit", editBuffer_, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+				// Filter for only enter presses
+				confirmed = confirmed && ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
+				if (confirmed || ImGui::IsItemDeactivated()) {
+					watch.SetExpression(editBuffer_, mipsDebug);
+					editingWatchIndex_ = -1;
+				}
+			} else {
+				ImGui::SetNextItemWidth(-1.0f);  // Full width
+				ImGui::TextUnformatted(watch.originalExpression.c_str());
+				auto cellRect = ImGui::TableGetCellBgRect(ImGui::GetCurrentTable(), 1);
+				bool cellHovered = ImGui::IsMouseHoveringRect(cellRect.Min, cellRect.Max);
+				if (cellHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+					editingWatchIndex_ = i;
+					editingColumn_ = 1;
+					truncate_cpy(editBuffer_, watch.originalExpression.c_str());
+					setEditFocus_ = true;
+				}
+			}
+			ImGui::TableNextColumn();
+			if (watch.evaluateFailed) {
+				ImGui::TextUnformatted("(Error)");
+			} else {
+				bool changed = watch.currentValue != watch.lastValue;
+				if (changed) {
+					//ImGui::PushStyleColor(ImGuiCol_Text, ImDebuggerColor_Diff);
+				}
+				const uint32_t value = watch.currentValue;
+				float valuef = 0.0f;
+				switch (watch.format) {
+				case WatchFormat::HEX:
+					ImGui::Text("%08x", value);
+					break;
+				case WatchFormat::INT:
+					ImGui::Text("%d", value);
+					break;
+				case WatchFormat::FLOAT:
+					memcpy(&valuef, &value, sizeof(valuef));
+					ImGui::Text("%f", value);
+					break;
+				case WatchFormat::STR:
+					if (Memory::IsValidAddress(value)) {
+						uint32_t len = Memory::ValidSize(value, 255);
+						ImGui::Text("%.*s", len, Memory::GetCharPointer(value));
+					} else {
+						ImGui::Text("%08x", value);
+					}
+					break;
+				}
+				if (changed) {
+					//ImGui::PopStyleColor(ImGuiCol_Text);
+				}
+			}
+			ImGui::TableNextColumn();
+			if (ImGui::SmallButton("X")) {
+				watches_.erase(watches_.begin() + i);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Type")) {
+				ImGui::OpenPopup("watchType");
+			}
+			if (ImGui::BeginPopup("watchType")) {
+				ImGui::Text("Watch type");
+				if (ImGui::MenuItem("Hex", nullptr, watch.format == WatchFormat::HEX)) { watch.format = WatchFormat::HEX; }
+				if (ImGui::MenuItem("Int", nullptr, watch.format == WatchFormat::INT)) { watch.format = WatchFormat::INT; }
+				if (ImGui::MenuItem("Float", nullptr, watch.format == WatchFormat::FLOAT)) { watch.format = WatchFormat::FLOAT; }
+				if (ImGui::MenuItem("Str", nullptr, watch.format == WatchFormat::STR)) { watch.format = WatchFormat::STR; }
+				ImGui::EndPopup();
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+
+	ImGui::End();
+}
+
 void ImAtracToolWindow::Load() {
 	if (File::ReadBinaryFileToString(Path(atracPath_), &data_)) {
 		track_.reset(new Track());
@@ -2034,7 +2159,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 					System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 				}
 			}
-			ImGui::Separator();
+			ImGui::Separator(); 
 			if (ImGui::MenuItem("Close")) {
 				g_Config.bShowImDebugger = false;
 			}
@@ -2050,8 +2175,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
 			ImGui::MenuItem("FPR regs", nullptr, &cfg_.fprOpen);
 			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
+			ImGui::Separator();
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
+			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Symbols")) {
@@ -2305,6 +2432,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		memDumpWindow_.Draw(cfg_, mipsDebug);
 	}
 
+	if (cfg_.watchOpen) {
+		watchWindow_.Draw(cfg_, control, mipsDebug);
+	}
+
 	for (int i = 0; i < 4; i++) {
 		if (cfg_.memViewOpen[i]) {
 			mem_[i].Draw(mipsDebug, cfg_, control, i);
@@ -2475,6 +2606,8 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("logConfigOpen", &logConfigOpen, false);
 	sync.Sync("luaConsoleOpen", &luaConsoleOpen, false);
 	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
+	sync.Sync("memDumpOpen", &memDumpOpen, false);
+	sync.Sync("watchOpen", &watchOpen, false);
 	sync.Sync("atracToolOpen", &atracToolOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];

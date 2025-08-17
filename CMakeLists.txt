@@ -2074,6 +2074,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/MemBlockInfo.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
+	Core/Debugger/Watch.h
 	Core/Debugger/DisassemblyManager.cpp
 	Core/Debugger/DisassemblyManager.h
 	Core/Debugger/WebSocket.cpp

@@ -2241,6 +2241,9 @@
     <ClInclude Include="..\ext\loongarch-disasm.h">
       <Filter>Ext</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\Watch.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE.TXT" />
