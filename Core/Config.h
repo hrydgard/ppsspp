@@ -168,6 +168,8 @@ public:
 	bool bCameraMirrorHorizontal;
 	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
 	int iDisplayRefreshRate = 60;
+	int iVulkanPresentationMode;
+	bool bVSync;
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
@@ -196,7 +198,6 @@ public:
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
-	bool bVSync;
 
 	bool bShowImDebugger;
 

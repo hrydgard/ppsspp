@@ -25,10 +25,6 @@
 
 enum class VulkanInitFlags : uint32_t {
 	VALIDATE = (1 << 0),
-	PRESENT_MAILBOX = (1 << 1),
-	PRESENT_IMMEDIATE = (1 << 2),
-	PRESENT_FIFO_RELAXED = (1 << 3),
-	PRESENT_FIFO = (1 << 4),
 	DISABLE_IMPLICIT_LAYERS = (1 << 5),
 };
 ENUM_CLASS_BITOPS(VulkanInitFlags);
@@ -185,6 +181,7 @@ public:
 		int app_ver;
 		VulkanInitFlags flags;
 		std::string customDriver;
+		VkPresentModeKHR presentMode;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
@@ -415,6 +412,15 @@ public:
 
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
+	}
+
+	bool PresentModeSupported(VkPresentModeKHR mode) const {
+		for (const auto &m : availablePresentModes_) {
+			if (m == mode) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	int GetLastDeleteCount() const {

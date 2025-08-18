@@ -36,9 +36,25 @@ const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMP
 const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY };
 const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 
+VkPresentModeKHR ConfigPresentModeToVulkan(PresentMode presentMode) {
+	switch (presentMode) {
+	case PresentMode::Immediate:
+		return VK_PRESENT_MODE_IMMEDIATE_KHR;
+	case PresentMode::Mailbox:
+		return VK_PRESENT_MODE_MAILBOX_KHR;
+	case PresentMode::FifoLatestReady:
+		return VK_PRESENT_MODE_FIFO_LATEST_READY_KHR;
+	case PresentMode::FifoRelaxed:
+		return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+	case PresentMode::Fifo:
+	default:
+		return VK_PRESENT_MODE_FIFO_KHR;
+	}
+}
+
 // TODO: Share this between backends.
 static VulkanInitFlags VulkanInitFlagsFromConfig() {
-	VulkanInitFlags flags = g_Config.bVSync ? VulkanInitFlags::PRESENT_FIFO : VulkanInitFlags::PRESENT_MAILBOX;
+	VulkanInitFlags flags = (VulkanInitFlags)0;
 	if (g_Validate) {
 		flags |= VulkanInitFlags::VALIDATE;
 	}
@@ -54,6 +70,7 @@ void InitVulkanCreateInfoFromConfig(VulkanContext::CreateInfo *info) {
 	info->app_ver = gitVer.ToInteger();
 	info->flags = VulkanInitFlagsFromConfig();
 	info->customDriver = g_Config.sCustomDriver;
+	info->presentMode = ConfigPresentModeToVulkan((PresentMode)g_Config.iVulkanPresentationMode);
 }
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error) {
