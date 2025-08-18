@@ -87,3 +87,5 @@ private:
 
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error);
+
+void InitVulkanCreateInfoFromConfig(VulkanContext::CreateInfo *info);

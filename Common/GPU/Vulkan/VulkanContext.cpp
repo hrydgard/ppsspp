@@ -136,7 +136,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		init_error_ = "Vulkan not loaded - no surface extension";
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
-	flags_ = info.flags;
+	createInfo_ = info;
 
 	// List extensions to try to enable.
 	instance_extensions_enabled_.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -170,7 +170,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 #endif
 
-	if ((flags_ & VulkanInitFlags::VALIDATE) && info.customDriver.empty()) {
+	if ((createInfo_.flags & VulkanInitFlags::VALIDATE) && info.customDriver.empty()) {
 		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
@@ -182,7 +182,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			INFO_LOG(Log::G3D, "Vulkan debug_utils validation enabled.");
 		} else {
 			ERROR_LOG(Log::G3D, "Validation layer extension not available - not enabling Vulkan validation.");
-			flags_ &= ~VulkanInitFlags::VALIDATE;
+			createInfo_.flags &= ~VulkanInitFlags::VALIDATE;
 		}
 	}
 
@@ -1399,10 +1399,10 @@ bool VulkanContext::InitSwapchain() {
 
 	for (size_t i = 0; i < presentModeCount; i++) {
 		bool match = false;
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR);
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_FIFO) && presentModes[i] == VK_PRESENT_MODE_FIFO_KHR);
+		match = match || ((createInfo_.flags & VulkanInitFlags::PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
+		match = match || ((createInfo_.flags & VulkanInitFlags::PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR);
+		match = match || ((createInfo_.flags & VulkanInitFlags::PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
+		match = match || ((createInfo_.flags & VulkanInitFlags::PRESENT_FIFO) && presentModes[i] == VK_PRESENT_MODE_FIFO_KHR);
 
 		// Default to the first present mode from the list.
 		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {

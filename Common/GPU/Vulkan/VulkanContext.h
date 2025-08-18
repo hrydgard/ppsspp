@@ -208,8 +208,10 @@ public:
 
 	VkDevice GetDevice() const { return device_; }
 	VkInstance GetInstance() const { return instance_; }
-	VulkanInitFlags GetInitFlags() const { return flags_; }
-	void UpdateInitFlags(VulkanInitFlags flags) { flags_ = flags; }
+	VulkanInitFlags GetInitFlags() const { return createInfo_.flags; }
+
+	// Of course, this won't update things that can only change on first init.
+	void UpdateCreateInfo(const VulkanContext::CreateInfo &info) { createInfo_ = info; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
@@ -487,7 +489,8 @@ private:
 	// Swap chain extent
 	VkExtent2D swapChainExtent_{};
 
-	VulkanInitFlags flags_{};
+	VulkanContext::CreateInfo createInfo_{};
+
 	PerfClass devicePerfClass_ = PerfClass::SLOW;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
