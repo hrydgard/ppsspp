@@ -542,6 +542,14 @@ InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage) {
 	case UIKeyboardHIDUsageKeyboardMute: return NKCODE_MUTE;
 	case UIKeyboardHIDUsageKeyboardVolumeUp: return NKCODE_VOLUME_UP;
 	case UIKeyboardHIDUsageKeypadComma: return NKCODE_NUMPAD_COMMA;
+	case UIKeyboardHIDUsageKeyboardLeftShift: return NKCODE_SHIFT_LEFT;
+	case UIKeyboardHIDUsageKeyboardRightShift: return NKCODE_SHIFT_RIGHT;
+	case UIKeyboardHIDUsageKeyboardLeftControl: return NKCODE_CTRL_LEFT;
+	case UIKeyboardHIDUsageKeyboardRightControl: return NKCODE_CTRL_RIGHT;
+	case UIKeyboardHIDUsageKeyboardLeftAlt: return NKCODE_ALT_LEFT;
+	case UIKeyboardHIDUsageKeyboardRightAlt: return NKCODE_ALT_RIGHT;
+	case UIKeyboardHIDUsageKeyboardLeftGUI: return NKCODE_META_LEFT;
+	case UIKeyboardHIDUsageKeyboardRightGUI: return NKCODE_META_RIGHT;
 	default: return NKCODE_UNKNOWN;
 	}
 }
