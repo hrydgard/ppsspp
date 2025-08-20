@@ -90,7 +90,7 @@ impl Section {
         // Then, find a suitable insertion spot
         for (i, iter_line) in self.lines.iter().enumerate() {
             if iter_line.to_ascii_lowercase() > prefix {
-                println!("Inserting line {} into {}", line, self.name);
+                println!("{}: Inserting line {line}", self.name);
                 self.lines.insert(i, line.to_owned());
                 return true;
             }
@@ -100,12 +100,12 @@ impl Section {
             if self.lines[i].is_empty() {
                 continue;
             }
-            println!("Inserting line {} into {}", line, self.name);
+            println!("{}: Inserting line {line}", self.name);
             self.lines.insert(i + 1, line.to_owned());
             return true;
         }
 
-        println!("failed to insert {line}");
+        println!("{}: failed to insert {line}", self.name);
         true
     }
 
