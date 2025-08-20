@@ -367,11 +367,11 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		// In Vulkan, we can now explicitly let the user choose the presentation mode.
 		static const char *presentationModes[] = {
-			"Immediate (low latency, tearing)",
-			"Mailbox (low latency, recommended)",
-			"FIFO latest ready",
-			"FIFO relaxed",
-			"FIFO (high latency, low power)",
+			"Immediate (lower latency, tearing)",
+			"Mailbox (lower latency, recommended)",
+			"FIFO: latest ready",
+			"FIFO: relaxed",
+			"FIFO (higher latency, framerate stability)",
 		};
 		UI::PopupMultiChoice *presentationMode = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iVulkanPresentationMode, gr->T("Frame presentation mode"), presentationModes, 0, ARRAY_SIZE(presentationModes), I18NCat::GRAPHICS, screenManager()));
 		presentationMode->SetChoiceIcon(0, ImageID("I_WARNING"));
