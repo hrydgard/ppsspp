@@ -390,6 +390,16 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO)) {
 			presentationMode->HideChoice(4);
 		}
+
+		// Force the setting to a good supported mode if the current one is not supported, otherwise this will look weird.
+		if (presentationMode->IsChoiceHidden(g_Config.iVulkanPresentationMode)) {
+			if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
+				g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::MAILBOX;
+			} else if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) {
+				g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::FIFO;
+			}
+		}
+
 		presentationMode->OnChoice.Add([=](EventParams &e) {
 			NativeResized();
 			return UI::EVENT_CONTINUE;
