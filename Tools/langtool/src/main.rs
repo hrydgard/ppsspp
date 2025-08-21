@@ -1,6 +1,5 @@
 use std::io;
 
-use serde_json;
 use std::collections::BTreeMap;
 
 mod section;
@@ -341,7 +340,10 @@ fn main() {
         println!("generated prompt:\n{prompt}");
         if let Some(ai) = &ai {
             println!("Using AI for translation...");
-            let response = ai.chat(&prompt).unwrap();
+            let response = ai
+                .chat(&prompt)
+                .map_err(|e| anyhow::anyhow!("chat failed: {e}"))
+                .unwrap();
             println!("AI response: {response}");
             if let Some(parsed) = parse_response(&response) {
                 println!("Parsed: {:?}", parsed);
@@ -408,7 +410,7 @@ fn main() {
             Command::AddNewKeyAI {
                 ref section,
                 ref key,
-                ref extra,
+                extra: _,
             } => {
                 let lang = filename.split_once('.').unwrap().0;
                 if let Some(ai_response) = &ai_response {
