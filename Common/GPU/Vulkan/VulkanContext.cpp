@@ -71,6 +71,7 @@ const char *VulkanPresentModeToString(VkPresentModeKHR presentMode) {
 	case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "FIFO_RELAXED";
 	case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR: return "SHARED_DEMAND_REFRESH_KHR";
 	case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "SHARED_CONTINUOUS_REFRESH_KHR";
+	case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR: return "FIFO_LATEST_READY";
 	default: return "UNKNOWN";
 	}
 }
@@ -136,7 +137,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		init_error_ = "Vulkan not loaded - no surface extension";
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
-	flags_ = info.flags;
+	createInfo_ = info;
 
 	// List extensions to try to enable.
 	instance_extensions_enabled_.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -170,7 +171,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 #endif
 
-	if ((flags_ & VulkanInitFlags::VALIDATE) && info.customDriver.empty()) {
+	if ((createInfo_.flags & VulkanInitFlags::VALIDATE) && info.customDriver.empty()) {
 		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
@@ -182,7 +183,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			INFO_LOG(Log::G3D, "Vulkan debug_utils validation enabled.");
 		} else {
 			ERROR_LOG(Log::G3D, "Validation layer extension not available - not enabling Vulkan validation.");
-			flags_ &= ~VulkanInitFlags::VALIDATE;
+			createInfo_.flags &= ~VulkanInitFlags::VALIDATE;
 		}
 	}
 
@@ -709,6 +710,12 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	}
 
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
+
+	extensionsLookup_.KHR_present_mode_fifo_latest_ready = EnableDeviceExtension(VK_KHR_PRESENT_MODE_FIFO_LATEST_READY_EXTENSION_NAME, 0);
+	if (!extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
+		// Enable the EXT extension instead if available, it's equivalent (was promoted).
+		extensionsLookup_.KHR_present_mode_fifo_latest_ready = EnableDeviceExtension(VK_EXT_PRESENT_MODE_FIFO_LATEST_READY_EXTENSION_NAME, 0);
+	}
 
 	// Optional features
 	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
@@ -1397,13 +1404,9 @@ bool VulkanContext::InitSwapchain() {
 		availablePresentModes_.push_back(presentModes[i]);
 	}
 
+	// Kind of silly logic now, but at least it performs a final sanity check of the chosen value.
 	for (size_t i = 0; i < presentModeCount; i++) {
-		bool match = false;
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR);
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
-		match = match || ((flags_ & VulkanInitFlags::PRESENT_FIFO) && presentModes[i] == VK_PRESENT_MODE_FIFO_KHR);
-
+		bool match = presentModes[i] == createInfo_.presentMode;
 		// Default to the first present mode from the list.
 		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
 			swapchainPresentMode = presentModes[i];

@@ -59,6 +59,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Data/Text/Parsers.h"
+#include "GPU/Vulkan/VulkanUtil.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 
 #ifdef _DEBUG
@@ -66,17 +67,6 @@ static const bool g_validate_ = true;
 #else
 static const bool g_validate_ = false;
 #endif
-
-static VulkanInitFlags FlagsFromConfig() {
-	VulkanInitFlags flags = g_Config.bVSync ? VulkanInitFlags::PRESENT_FIFO : VulkanInitFlags::PRESENT_MAILBOX;
-	if (g_validate_) {
-		flags |= VulkanInitFlags::VALIDATE;
-	}
-	if (g_Config.bVulkanDisableImplicitLayers) {
-		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
-	}
-	return flags;
-}
 
 bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_message) {
 	*error_message = "N/A";
@@ -104,9 +94,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	vulkan_ = new VulkanContext();
 
 	VulkanContext::CreateInfo info{};
-	info.app_name = "PPSSPP";
-	info.app_ver = gitVer.ToInteger();
-	info.flags = FlagsFromConfig();
+	InitVulkanCreateInfoFromConfig(&info);
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
@@ -177,7 +165,8 @@ void WindowsVulkanContext::Shutdown() {
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	vulkan_->DestroySwapchain();
-	vulkan_->UpdateInitFlags(FlagsFromConfig());
+	VulkanContext::CreateInfo info{};
+	InitVulkanCreateInfoFromConfig(&info);
 	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }

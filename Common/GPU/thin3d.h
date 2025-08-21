@@ -581,6 +581,8 @@ enum class PresentMode {
 	FIFO = 1,
 	IMMEDIATE = 2,
 	MAILBOX = 4,
+	FIFO_RELAXED = 8,  // Vulkan only
+	FIFO_LATEST_READY = 16,  // Vulkan only
 };
 ENUM_CLASS_BITOPS(PresentMode);
 
@@ -627,7 +629,7 @@ struct DeviceCaps {
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;
 
-	// Presentation caps
+	// Presentation caps (simplified). Note: Vulkan supports more, we handle that separately now.
 	int presentMaxInterval; // 1 on many backends
 	bool presentInstantModeChange;
 	PresentMode presentModesSupported;

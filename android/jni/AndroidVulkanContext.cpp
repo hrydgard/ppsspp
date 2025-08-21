@@ -12,30 +12,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-
-
-#ifdef _DEBUG
-static const bool g_Validate = true;
-#else
-static const bool g_Validate = false;
-#endif
-
-// TODO: Share this between backends.
-static VulkanInitFlags FlagsFromConfig() {
-	VulkanInitFlags flags;
-	if (g_Config.bVSync) {
-		flags = VulkanInitFlags::PRESENT_FIFO;
-	} else {
-		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
-	}
-	if (g_Validate) {
-		flags |= VulkanInitFlags::VALIDATE;
-	}
-	if (g_Config.bVulkanDisableImplicitLayers) {
-		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
-	}
-	return flags;
-}
+#include "GPU/Vulkan/VulkanUtil.h"
 
 AndroidVulkanContext::AndroidVulkanContext() {}
 
@@ -53,7 +30,6 @@ bool AndroidVulkanContext::InitAPI() {
 	g_LogOptions.msgBoxOnError = false;
 
 	INFO_LOG(Log::G3D, "Creating Vulkan context");
-	Version gitVer(PPSSPP_GIT_VERSION);
 
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
@@ -68,10 +44,7 @@ bool AndroidVulkanContext::InitAPI() {
 	}
 
 	VulkanContext::CreateInfo info{};
-	info.app_name = "PPSSPP";
-	info.app_ver = gitVer.ToInteger();
-	info.flags = FlagsFromConfig();
-	info.customDriver = g_Config.sCustomDriver;
+	InitVulkanCreateInfoFromConfig(&info);
 	if (!g_Vulkan->CreateInstanceAndDevice(info)) {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
@@ -152,7 +125,9 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->DestroySurface();
 
-	g_Vulkan->UpdateInitFlags(FlagsFromConfig());
+	VulkanContext::CreateInfo info{};
+	InitVulkanCreateInfoFromConfig(&info);
+	g_Vulkan->UpdateCreateInfo(info);
 
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();

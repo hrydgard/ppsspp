@@ -232,6 +232,9 @@ public:
 	void SetChoiceIcon(int c, ImageID id) {
 		icons_[c] = id;
 	}
+	bool IsChoiceHidden(int c) const {
+		return hidden_.find(c) != hidden_.end();
+	}
 
 	UI::Event OnChoice;
 

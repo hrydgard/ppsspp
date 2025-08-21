@@ -8,6 +8,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Data/Text/Parsers.h"
+#include "GPU/Vulkan/VulkanUtil.h"
 
 #include "Core/System.h"
 #if PPSSPP_PLATFORM(MAC)
@@ -26,23 +27,6 @@ static const bool g_Validate = true;
 #else
 static const bool g_Validate = false;
 #endif
-
-// TODO: Share this between backends.
-static VulkanInitFlags FlagsFromConfig() {
-	VulkanInitFlags flags;
-	if (g_Config.bVSync) {
-		flags = VulkanInitFlags::PRESENT_FIFO;
-	} else {
-		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
-	}
-	if (g_Validate) {
-		flags |= VulkanInitFlags::VALIDATE;
-	}
-	if (g_Config.bVulkanDisableImplicitLayers) {
-		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
-	}
-	return flags;
-}
 
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message) {
 	window = SDL_CreateWindow("Initializing Vulkan...", x, y, w, h, mode);
@@ -69,10 +53,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 	vulkan_ = new VulkanContext();
 
 	VulkanContext::CreateInfo info{};
-	info.app_name = "PPSSPP";
-	info.app_ver = gitVer.ToInteger();
-	info.flags = FlagsFromConfig();
-	info.customDriver = g_Config.sCustomDriver;
+	InitVulkanCreateInfoFromConfig(&info);
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
@@ -186,7 +167,9 @@ void SDLVulkanGraphicsContext::Shutdown() {
 void SDLVulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	vulkan_->DestroySwapchain();
-	vulkan_->UpdateInitFlags(FlagsFromConfig());
+	VulkanContext::CreateInfo info{};
+	InitVulkanCreateInfoFromConfig(&info);
+	vulkan_->UpdateCreateInfo(info);
 	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }

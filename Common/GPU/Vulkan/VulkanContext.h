@@ -25,10 +25,6 @@
 
 enum class VulkanInitFlags : uint32_t {
 	VALIDATE = (1 << 0),
-	PRESENT_MAILBOX = (1 << 1),
-	PRESENT_IMMEDIATE = (1 << 2),
-	PRESENT_FIFO_RELAXED = (1 << 3),
-	PRESENT_FIFO = (1 << 4),
 	DISABLE_IMPLICIT_LAYERS = (1 << 5),
 };
 ENUM_CLASS_BITOPS(VulkanInitFlags);
@@ -185,6 +181,7 @@ public:
 		int app_ver;
 		VulkanInitFlags flags;
 		std::string customDriver;
+		VkPresentModeKHR presentMode;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
@@ -208,8 +205,10 @@ public:
 
 	VkDevice GetDevice() const { return device_; }
 	VkInstance GetInstance() const { return instance_; }
-	VulkanInitFlags GetInitFlags() const { return flags_; }
-	void UpdateInitFlags(VulkanInitFlags flags) { flags_ = flags; }
+	VulkanInitFlags GetInitFlags() const { return createInfo_.flags; }
+
+	// Of course, this won't update things that can only change on first init.
+	void UpdateCreateInfo(const VulkanContext::CreateInfo &info) { createInfo_ = info; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
@@ -415,6 +414,15 @@ public:
 		return availablePresentModes_;
 	}
 
+	bool PresentModeSupported(VkPresentModeKHR mode) const {
+		for (const auto &m : availablePresentModes_) {
+			if (m == mode) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	int GetLastDeleteCount() const {
 		return frame_[curFrame_].deleteList.GetLastDeleteCount();
 	}
@@ -487,7 +495,8 @@ private:
 	// Swap chain extent
 	VkExtent2D swapChainExtent_{};
 
-	VulkanInitFlags flags_{};
+	VulkanContext::CreateInfo createInfo_{};
+
 	PerfClass devicePerfClass_ = PerfClass::SLOW;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;

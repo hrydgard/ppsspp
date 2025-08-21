@@ -27,22 +27,10 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 
+#include "GPU/Vulkan/VulkanUtil.h"
+
 // ViewController lifecycle:
 // https://www.progressconcepts.com/blog/ios-appdelegate-viewcontroller-method-order/
-
-// TODO: Share this between backends.
-static VulkanInitFlags FlagsFromConfig() {
-	VulkanInitFlags flags;
-	if (g_Config.bVSync) {
-		flags = VulkanInitFlags::PRESENT_FIFO;
-	} else {
-		flags = VulkanInitFlags::PRESENT_MAILBOX | VulkanInitFlags::PRESENT_IMMEDIATE;
-	}
-	if (g_Config.bVulkanDisableImplicitLayers) {
-		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
-	}
-	return flags;
-}
 
 enum class GraphicsContextState {
 	PENDING,
@@ -148,7 +136,9 @@ void IOSVulkanContext::Resize() {
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->DestroySurface();
 
-	g_Vulkan->UpdateInitFlags(FlagsFromConfig());
+	VulkanContext::CreateInfo info{};
+	InitVulkanCreateInfoFromConfig(&info);
+	g_Vulkan->UpdateCreateInfo(info);
 
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();
@@ -180,9 +170,7 @@ bool IOSVulkanContext::InitAPI() {
 	}
 
 	VulkanContext::CreateInfo info{};
-	info.app_name = "PPSSPP";
-	info.app_ver = gitVer.ToInteger();
-	info.flags = FlagsFromConfig();
+	InitVulkanCreateInfoFromConfig(&info);
 	if (!g_Vulkan->CreateInstanceAndDevice(info)) {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;

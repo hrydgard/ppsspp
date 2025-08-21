@@ -364,13 +364,55 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		}
 #endif
 
-	// All backends support FIFO. Check if any immediate modes are supported, if so we can allow the user to choose.
-	if (draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::IMMEDIATE | Draw::PresentMode::MAILBOX)) {
-		CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
-		vSync->OnClick.Add([=](EventParams &e) {
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		// In Vulkan, we can now explicitly let the user choose the presentation mode.
+		static const char *presentationModes[] = {
+			"Immediate (lower latency, tearing)",
+			"Mailbox (lower latency, recommended)",
+			"FIFO: latest ready",
+			"FIFO: relaxed",
+			"FIFO (higher latency, framerate stability)",
+		};
+		UI::PopupMultiChoice *presentationMode = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iVulkanPresentationMode, gr->T("Frame presentation mode"), presentationModes, 0, ARRAY_SIZE(presentationModes), I18NCat::GRAPHICS, screenManager()));
+		presentationMode->SetChoiceIcon(0, ImageID("I_WARNING"));
+		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE)) {
+			presentationMode->HideChoice(0);
+		}
+		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX)) {
+			presentationMode->HideChoice(1);
+		}
+		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_LATEST_READY)) {
+			presentationMode->HideChoice(2);
+		}
+		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_RELAXED)) {
+			presentationMode->HideChoice(3);
+		}
+		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO)) {
+			presentationMode->HideChoice(4);
+		}
+
+		// Force the setting to a good supported mode if the current one is not supported, otherwise this will look weird.
+		if (presentationMode->IsChoiceHidden(g_Config.iVulkanPresentationMode)) {
+			if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
+				g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::MAILBOX;
+			} else if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) {
+				g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::FIFO;
+			}
+		}
+
+		presentationMode->OnChoice.Add([=](EventParams &e) {
 			NativeResized();
 			return UI::EVENT_CONTINUE;
 		});
+	} else {
+		// All backends support FIFO. Check if any immediate modes are supported, if so we can allow the user to choose.
+		if (draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::IMMEDIATE | Draw::PresentMode::MAILBOX)) {
+			CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+			vSync->OnClick.Add([=](EventParams &e) {
+				NativeResized();
+				return UI::EVENT_CONTINUE;
+			});
+		}
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)

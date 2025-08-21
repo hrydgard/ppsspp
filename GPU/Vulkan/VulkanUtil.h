@@ -26,6 +26,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDescSet.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/ConfigValues.h"
 
 extern const VkComponentMapping VULKAN_4444_SWIZZLE;
 extern const VkComponentMapping VULKAN_1555_SWIZZLE;
@@ -87,3 +88,6 @@ private:
 
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error);
+
+VkPresentModeKHR ConfigPresentModeToVulkan(PresentMode presentMode);
+void InitVulkanCreateInfoFromConfig(VulkanContext::CreateInfo *info);

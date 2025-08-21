@@ -1,11 +1,15 @@
 use std::io;
 
+use serde_json;
+use std::collections::BTreeMap;
+
 mod section;
-use section::{line_value, Section};
+use section::{Section, line_value};
 
 mod inifile;
 use inifile::IniFile;
 
+mod chatgpt;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -16,6 +20,9 @@ struct Args {
     dry_run: bool,
     #[arg(short, long)]
     verbose: bool,
+    // gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini,  gpt-4.1-nano, o3, o4-mini, gpt-4o, gpt-4o-realtime-preview
+    #[arg(short, long, default_value = "gpt-4o-mini")]
+    model: String,
 }
 
 #[derive(Parser, Debug)]
@@ -29,6 +36,11 @@ enum Command {
     AddNewKey {
         section: String,
         key: String,
+    },
+    AddNewKeyAI {
+        section: String,
+        key: String,
+        extra: Option<String>,
     },
     AddNewKeyValue {
         section: String,
@@ -212,10 +224,63 @@ fn sort_section(target_ini: &mut IniFile, section: &str) -> io::Result<()> {
     Ok(())
 }
 
+fn generate_prompt(filenames: &[String], section: &str, value: &str, extra: &str) -> String {
+    let languages = filenames
+        .iter()
+        .map(|filename| filename.split_once(".").unwrap().0)
+        .collect::<Vec<&str>>()
+        .join(", ");
+
+    let base_str = format!("Please translate '{value}' from US English to all of these languages: {languages}.
+    Output in json format, a single dictionary, key=value. Include en_US first (the original string).
+    For context, the string will be in the translation section '{section}', and these strings are UI strings for my PSP emulator application.
+    'frame' refers to a displayed image frame of the running game, not a photo frame. In Swedish, frame is best translated as bildruta, and similar
+    may apply in other Nordic languages. Keep the strings relatively short, don't let them become more than 40% longer than the original string.
+    Do not output any text before or after the list of translated strings, do not ask followups.
+    {extra}");
+
+    base_str
+}
+
+fn parse_response(response: &str) -> Option<BTreeMap<String, String>> {
+    // Try to find JSON in the response (it might have other text around it)
+    let response = response.trim();
+
+    // Look for JSON object boundaries
+    let start = response.find('{')?;
+    let end = response.rfind('}')? + 1;
+    let json_str = &response[start..end];
+
+    // Parse the JSON into a BTreeMap
+    match serde_json::from_str::<BTreeMap<String, serde_json::Value>>(json_str) {
+        Ok(json_map) => {
+            let mut result = BTreeMap::new();
+            for (key, value) in json_map {
+                // Convert JSON values to strings
+                let string_value = match value {
+                    serde_json::Value::String(s) => s,
+                    _ => value.to_string().trim_matches('"').to_string(),
+                };
+                result.insert(key, string_value);
+            }
+            Some(result)
+        }
+        Err(e) => {
+            eprintln!("Failed to parse JSON response: {}", e);
+            eprintln!("JSON string was: {}", json_str);
+            None
+        }
+    }
+}
+
 // TODO: Look into using https://github.com/Byron/google-apis-rs/tree/main/gen/translate2 for initial translations.
 
 fn main() {
     let opt = Args::parse();
+
+    let api_key = std::env::var("OPENAI_API_KEY").ok();
+
+    let ai = api_key.map(|key| chatgpt::ChatGPT::new(key, opt.model));
 
     // TODO: Grab extra arguments from opt somehow.
     let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
@@ -224,8 +289,7 @@ fn main() {
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
-    let mut reference_ini =
-        IniFile::parse(&format!("{root}/{reference_ini_filename}")).unwrap();
+    let mut reference_ini = IniFile::parse(&format!("{root}/{reference_ini_filename}")).unwrap();
 
     if filenames.is_empty() {
         // Grab them all.
@@ -262,7 +326,48 @@ fn main() {
         }
     }
 
-    for filename in filenames {
+    let ai_response = if let Command::AddNewKeyAI {
+        section,
+        key,
+        extra,
+    } = &opt.cmd
+    {
+        let prompt = generate_prompt(
+            &filenames,
+            section,
+            key,
+            &extra.clone().unwrap_or("".to_string()),
+        );
+        println!("generated prompt:\n{prompt}");
+        if let Some(ai) = &ai {
+            println!("Using AI for translation...");
+            let response = ai.chat(&prompt).unwrap();
+            println!("AI response: {response}");
+            if let Some(parsed) = parse_response(&response) {
+                println!("Parsed: {:?}", parsed);
+
+                if parsed.len() < filenames.len() {
+                    println!(
+                        "Not enough languages generated! {} vs {}",
+                        parsed.len(),
+                        filenames.len()
+                    );
+                }
+
+                Some(parsed)
+            } else {
+                println!("Failed to parse AI response, not doing anything.");
+                return;
+            }
+        } else {
+            println!("AI key not set, skipping AI command.");
+            return;
+        }
+    } else {
+        None
+    };
+
+    for filename in &filenames {
         let reference_ini = &reference_ini;
         if filename == "langtool" {
             // Get this from cargo run for some reason.
@@ -300,6 +405,23 @@ fn main() {
                 ref section,
                 ref key,
             } => add_new_key(&mut target_ini, section, key, key).unwrap(),
+            Command::AddNewKeyAI {
+                ref section,
+                ref key,
+                ref extra,
+            } => {
+                let lang = filename.split_once('.').unwrap().0;
+                if let Some(ai_response) = &ai_response {
+                    // Process it.
+                    if let Some(translated_string) = ai_response.get(lang) {
+                        println!("{lang}:");
+                        add_new_key(&mut target_ini, section, key, translated_string).unwrap();
+                    } else {
+                        println!("Language {lang} not found in response. Bailing.");
+                        return;
+                    }
+                }
+            }
             Command::AddNewKeyValue {
                 ref section,
                 ref key,
@@ -379,6 +501,16 @@ fn main() {
             ref key,
         } => {
             add_new_key(&mut reference_ini, section, key, key).unwrap();
+        }
+        Command::AddNewKeyAI {
+            ref section,
+            ref key,
+            ref extra,
+        } => {
+            if ai_response.is_some() {
+                let _ = extra;
+                add_new_key(&mut reference_ini, section, key, key).unwrap();
+            }
         }
         Command::AddNewKeyValue {
             ref section,
