@@ -17,9 +17,10 @@ std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent
 	const wchar_t*_pInitialFolder, const wchar_t*_pFilter, const wchar_t*_pExtension);
 
 bool MoveToTrash(const Path &path);
+void OpenDisplaySettings();
 std::string UserDocumentsPath();
 
 bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameTitle, const Path &icoFile);
 bool CreateICOFromPNGData(const uint8_t *imageData, size_t imageDataSize, const Path &icoPath);
 
-} //  namespace
+}  // namespace W32Util

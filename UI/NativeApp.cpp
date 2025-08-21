@@ -876,10 +876,16 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	// Warn about low refresh rates on desktop. Might add other platforms later.
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)
 	const double displayHz = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
-	if (displayHz < 55.0f) {
+	if (displayHz < 355.0f) {
 		// This is a warning, not an error.
 		auto g = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(g->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), 8.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(g->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), 8.0f, "low_refresh");
+		g_OSD.SetClickCallback("low_refresh", [](bool clicked, void *) {
+			if (clicked) {
+				// Open the display settings.
+				System_OpenDisplaySettings();
+			}
+		}, nullptr);
 	}
 #endif
 

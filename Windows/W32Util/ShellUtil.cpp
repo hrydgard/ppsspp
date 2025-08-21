@@ -20,6 +20,15 @@
 namespace W32Util {
 using Microsoft::WRL::ComPtr;
 
+void OpenDisplaySettings() {
+	// Windows 10/11 Settings URI
+	HINSTANCE res = ShellExecuteW(NULL, L"open", L"ms-settings:display-advanced", NULL, NULL, SW_SHOWNORMAL);
+	if ((INT_PTR)res <= 32) {
+		// Fallback for Windows 7/8
+		ShellExecuteW(NULL, L"open", L"desk.cpl", NULL, NULL, SW_SHOWNORMAL);
+	}
+}
+
 bool MoveToTrash(const Path &path) {
 	ComPtr<IFileOperation> pFileOp;
 

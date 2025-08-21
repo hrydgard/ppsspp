@@ -200,6 +200,10 @@ inline void System_IAPMakePurchase(RequesterToken token, std::string_view produc
 	g_requestManager.MakeSystemRequest(SystemRequestType::IAP_MAKE_PURCHASE, token, callback, failedCallback, productID, "", 0);
 }
 
+inline void System_OpenDisplaySettings() {
+	g_requestManager.MakeSystemRequest(SystemRequestType::OPEN_DISPLAY_SETTINGS, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", 0);
+}
+
 void System_MoveToTrash(const Path &path);
 void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata);
 
