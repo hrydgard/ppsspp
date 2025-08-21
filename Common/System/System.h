@@ -104,6 +104,8 @@ enum class SystemRequestType {
 	// for iOS IAP support
 	IAP_RESTORE_PURCHASES,
 	IAP_MAKE_PURCHASE,
+
+	OPEN_DISPLAY_SETTINGS,
 };
 
 // Run a closure on the main thread. Used to safely implement UI that runs on another thread.

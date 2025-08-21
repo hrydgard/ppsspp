@@ -757,6 +757,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		W32Util::MoveToTrash(Path(param1));
 		return true;
 	}
+	case SystemRequestType::OPEN_DISPLAY_SETTINGS:
+	{
+		W32Util::OpenDisplaySettings();
+		return true;
+	}
 	default:
 		return false;
 	}

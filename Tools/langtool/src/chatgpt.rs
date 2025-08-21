@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, time::Duration};
 
@@ -23,6 +24,7 @@ pub struct Choice {
     pub message: MessageResponse,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct MessageResponse {
     pub content: String,
@@ -56,8 +58,10 @@ impl ChatGPT {
             .post("https://api.openai.com/v1/chat/completions")
             .bearer_auth(&self.api_key)
             .json(&req_body)
-            .send()?
-            .json()?;
+            .send()
+            .context("response")?
+            .json()
+            .context("json")?;
 
         Ok(res.choices[0].message.content.clone())
     }
