@@ -356,6 +356,7 @@ fn finish_language_with_ai(
     not the position of a 'notification screen', no such thing.
     %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.
     A 'driver manager' is a built-in tool to manage drivers, not a human boss. Same goes for other types of manager.
+    The '=' at the end of the lines to translate is not part of the translation keys.
     ";
 
     for section in sections {
@@ -464,7 +465,9 @@ fn finish_language_with_ai(
                             } else {
                                 println!();
                             }
-                            target_section.set_value(key, value);
+                            if !target_section.set_value(&original_key, value) {
+                                println!("Failed to update '{}'", original_key);
+                            }
                         }
                     }
                 } else {
