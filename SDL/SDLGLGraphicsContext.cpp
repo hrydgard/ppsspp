@@ -332,7 +332,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 		// that do not match, which may be all of them - e.g.
 		// requesting nonsensical "--graphics=opengl0" reliably
 		// skips straight to fallback code below.
-		if(force_gl_version >= 0 && 10*ver.major + ver.minor != force_gl_version)
+		if (force_gl_version >= 0 && 10 * ver.major + ver.minor != force_gl_version)
 			continue;
 		// Make sure to request a somewhat modern GL context at least - the
 		// latest supported by MacOS X (really, really sad...)

@@ -1036,7 +1036,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			// Convenience subset of what
 			// "Enable standard shortcut keys"
 			// does on Windows.
-			if(g_Config.bSystemControls) {
+			if (g_Config.bSystemControls) {
 				bool ctrl = bool(event.key.keysym.mod & KMOD_CTRL);
 				if (ctrl && (k == SDLK_w))
 				{
@@ -1443,34 +1443,27 @@ int main(int argc, char *argv[]) {
 			set_ipad = true;
 		else if (!strcmp(argv[i],"--portrait"))
 			portrait = true;
-		else if (!strncmp(argv[i],"--graphics=",strlen("--graphics="))) {
+		else if (!strncmp(argv[i],"--graphics=", strlen("--graphics="))) {
 			const char *restOfOption = argv[i] + strlen("--graphics=");
 			double val=-1.0; // Yes, floating point.
-			if (!strcmp(restOfOption,"vulkan")) {
+			if (!strcmp(restOfOption, "vulkan")) {
 				g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
 				g_Config.bSoftwareRendering = false;
-			}
-			else if (!strcmp(restOfOption,"software")) {
+			} else if (!strcmp(restOfOption, "software")) {
 				// Same as on Windows, software presently implies OpenGL.
 				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 				g_Config.bSoftwareRendering = true;
-			}
-			// NOTE: OpenGL and GLES are treated the same for
-			// the purposes of option parsing.
-			else if (!strcmp(restOfOption,"gles") ||
-			         !strcmp(restOfOption,"opengl")) {
+			} else if (!strcmp(restOfOption, "gles") || !strcmp(restOfOption, "opengl")) {
+				// NOTE: OpenGL and GLES are treated the same for
+				// the purposes of option parsing.
 				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 				g_Config.bSoftwareRendering = false;
-			}
-			else if (sscanf(restOfOption,"gles%lg",&val) == 1 ||
-			         sscanf(restOfOption,"opengl%lg",&val) == 1)
-			{
+			} else if (sscanf(restOfOption, "gles%lg", &val) == 1 || sscanf(restOfOption, "opengl%lg", &val) == 1) {
 				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 				g_Config.bSoftwareRendering = false;
-				force_gl_version = int(10.0*val+0.5);
+				force_gl_version = int(10.0 * val + 0.5);
 			}
-		}
-		else {
+		} else {
 			remain_argv[remain_argc++] = argv[i];
 		}
 	}
