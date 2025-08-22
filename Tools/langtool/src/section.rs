@@ -248,4 +248,15 @@ impl Section {
             false
         }
     }
+
+    pub fn get_value(&self, key: &str) -> Option<String> {
+        for line in &self.lines {
+            if let Some((ref_key, value)) = split_line(line) {
+                if key.eq_ignore_ascii_case(ref_key) {
+                    return Some(value.to_string());
+                }
+            }
+        }
+        None
+    }
 }

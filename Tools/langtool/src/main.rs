@@ -84,7 +84,11 @@ enum Command {
         key: String,
     },
     CheckRefKeys,
-    FixupRefKeys,
+    FixupRefKeys, // This was too big a job.
+    FinishLanguageWithAI {
+        language: String,
+        section: Option<String>,
+    },
 }
 
 fn copy_missing_lines(
@@ -313,6 +317,121 @@ fn fixup_keys(target_ini: IniFile, dry_run: bool) -> io::Result<()> {
     Ok(())
 }
 
+fn finish_language_with_ai(
+    target_language: &str,
+    target_ini: &mut IniFile,
+    ref_ini: &IniFile,
+    section: Option<&str>,
+    ai: &ChatGPT,
+    dry_run: bool,
+) -> anyhow::Result<()> {
+    println!("Finishing language with AI");
+    println!(
+        "Step 1: Compare all strings in the section with the matching strings from the reference."
+    );
+
+    let sections: Vec<Section> = if let Some(section_name) = section {
+        vec![target_ini.get_section(section_name).unwrap().clone()]
+    } else {
+        target_ini.sections.iter().cloned().collect()
+    };
+
+    let base_prompt = format!(
+        "Please translate the below list of strings from US English to {target_language}.
+    After the strings to translate, there are related already-translated strings that may help for context.
+    Note that the strings are UI strings for my PSP emulator application.
+    Also, please output similarly to the input, with section headers and key=value pairs.
+    Do not output any text before or after the list of translated strings, do not ask followups.
+    'undo state' means a saved state that's been saved so that the last save state operation can be undone.
+    Date strings like YYMMDD and similar technical letters and designations should not be translated.
+    %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.
+
+    Here are the strings to translate:
+    "
+    );
+
+    for section in sections {
+        if let Some(ref_section) = ref_ini.get_section(&section.name).clone() {
+            let mut untranslated_keys = vec![];
+            let mut translated_keys = vec![];
+            for line in &section.lines {
+                if let Some((key, value)) = split_line(line) {
+                    if let Some(ref_value) = ref_section.get_value(key) {
+                        if value == ref_value {
+                            untranslated_keys.push((key, ref_value));
+                        } else {
+                            translated_keys.push((key, value));
+                        }
+                    } else {
+                        println!(
+                            "Key '{}' not found in reference section '{}'",
+                            key, ref_section.name
+                        );
+                    }
+                }
+            }
+
+            println!(
+                "[{}]: Found {} untranslated keys",
+                section.name,
+                untranslated_keys.len()
+            );
+            if untranslated_keys.is_empty() {
+                continue;
+            }
+
+            for (key, ref_value) in &untranslated_keys {
+                println!(" - '{} (ref: '{}')", key, ref_value);
+            }
+
+            // Here you would call the AI to translate the keys.
+            let section_prompt = format!(
+                "{base_prompt}\n\n[{}]\n{}\n\n\n\nBelow are the already translated strings for context, don't re-translate these:\n\n{}",
+                section.name,
+                untranslated_keys
+                    .iter()
+                    .map(|(k, _v)| format!("{} = ", k))
+                    .collect::<Vec<String>>()
+                    .join("\n"),
+                translated_keys
+                    .iter()
+                    .map(|(k, v)| format!("{} = {}", k, v))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+            println!(
+                "[{}] AI prompt:\n{}\n\nRunning...",
+                section.name, section_prompt
+            );
+            if !dry_run {
+                let response = ai
+                    .chat(&section_prompt)
+                    .map_err(|e| anyhow::anyhow!("chat failed: {e}"))?;
+                println!("[{}] AI response:\n{}", section.name, response);
+                // Now we just need to merge the AI response into the target_ini.
+                let parsed_response = IniFile::parse_string(&response)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse AI response: {e}"))?;
+                for parsed_section in parsed_response.sections {
+                    if parsed_section.name == section.name {
+                        for line in &parsed_section.lines {
+                            if let Some((key, value)) = split_line(line) {
+                                target_ini
+                                    .get_section_mut(&section.name)
+                                    .unwrap()
+                                    .insert_line_if_missing(&format!("{key} = {value}"));
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            println!("Section '{}' not found in reference file", section.name);
+        }
+    }
+
+    Ok(())
+}
+
 fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.rename_key(old, new);
@@ -405,7 +524,8 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
-    let mut reference_ini = IniFile::parse(&format!("{root}/{reference_ini_filename}")).unwrap();
+    let mut reference_ini =
+        IniFile::parse_file(&format!("{root}/{reference_ini_filename}")).unwrap();
 
     let mut filenames = Vec::new();
     if filenames.is_empty() {
@@ -431,7 +551,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         key: _,
     } = &cmd
     {
-        if let Ok(single_ini) = IniFile::parse(filename) {
+        if let Ok(single_ini) = IniFile::parse_file(filename) {
             if let Some(single_section) = single_ini.get_section("Single") {
                 single_ini_section = Some(single_section.clone());
             } else {
@@ -441,6 +561,32 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             println!("Failed to parse {filename}");
             return;
         }
+    }
+
+    if let Command::FinishLanguageWithAI { language, section } = &cmd {
+        if let Some(ai) = &ai {
+            let target_ini_filename = format!("{root}/{language}.ini");
+            let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
+            finish_language_with_ai(
+                language,
+                &mut target_ini,
+                &reference_ini,
+                section.as_deref(),
+                ai,
+                dry_run,
+            )
+            .unwrap();
+            if !dry_run {
+                println!(
+                    "Writing modified file for target language: {}",
+                    target_language
+                );
+                target_ini.write().unwrap();
+            }
+        } else {
+            println!("AI key not set, skipping AI command.");
+        }
+        return;
     }
 
     let ai_response = if let Command::AddNewKeyAI {
@@ -498,9 +644,13 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             println!("Langtool processing {target_ini_filename}");
         }
 
-        let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
+        let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
 
         match cmd {
+            Command::FinishLanguageWithAI {
+                language: _,
+                section: _,
+            } => {}
             Command::FixupRefKeys => {}
             Command::CheckRefKeys => {}
             Command::CopyMissingLines {
@@ -618,6 +768,10 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
 
     // Some commands also apply to the reference ini.
     match cmd {
+        Command::FinishLanguageWithAI {
+            language: _,
+            section: _,
+        } => {}
         Command::CheckRefKeys => check_keys(&reference_ini).unwrap(),
         Command::FixupRefKeys => fixup_keys(reference_ini.clone(), dry_run).unwrap(),
         Command::AddNewKey {
