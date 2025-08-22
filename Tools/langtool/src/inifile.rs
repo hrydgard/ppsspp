@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::section::Section;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IniFile {
     pub filename: PathBuf,
     pub preamble: Vec<String>,

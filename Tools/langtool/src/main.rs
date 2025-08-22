@@ -11,6 +11,10 @@ use inifile::IniFile;
 mod chatgpt;
 use clap::Parser;
 
+mod util;
+
+use crate::{chatgpt::ChatGPT, section::split_line, util::ask_letter};
+
 #[derive(Parser, Debug)]
 struct Args {
     #[command(subcommand)]
@@ -79,6 +83,8 @@ enum Command {
         section: String,
         key: String,
     },
+    CheckRefKeys,
+    FixupRefKeys,
 }
 
 fn copy_missing_lines(
@@ -196,6 +202,117 @@ fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str, value: &str) 
     Ok(())
 }
 
+fn check_keys(target_ini: &IniFile) -> io::Result<()> {
+    for section in &target_ini.sections {
+        let mut mismatches = Vec::new();
+
+        if section.name == "DesktopUI" {
+            // ignore the ampersands for now
+            continue;
+        }
+
+        for line in &section.lines {
+            if let Some((key, value)) = split_line(line) {
+                if key != value {
+                    mismatches.push((key, value));
+                }
+            }
+        }
+
+        if !mismatches.is_empty() {
+            println!("[{}]", section.name);
+            for (key, value) in mismatches {
+                print!("  {key} != {value}\n");
+            }
+        }
+    }
+    Ok(())
+}
+
+fn fixup_keys(target_ini: IniFile, dry_run: bool) -> io::Result<()> {
+    for section in &target_ini.sections {
+        let mut mismatches = Vec::new();
+
+        if section.name == "DesktopUI"
+            || section.name == "MappableControls"
+            || section.name == "PostShaders"
+        {
+            // ignore the ampersands for now, also mappable controls, we don't want to change those strings.
+            continue;
+        }
+
+        for line in &section.lines {
+            if let Some((key, value)) = split_line(line) {
+                if key != value {
+                    mismatches.push((key, value));
+                }
+            }
+        }
+
+        if !mismatches.is_empty() {
+            println!("[{}]", section.name);
+            for (key, value) in mismatches {
+                if (key.len() as i32 - value.len() as i32).abs() > 15 {
+                    println!("  (skipping {key} = {value} (probably an alias))");
+                    continue;
+                }
+                if value.contains(r"\n") {
+                    println!("  (skipping {key} = {value} (line break))");
+                    continue;
+                }
+                if value.contains("×") || value.contains("\"") {
+                    println!("  (skipping {key} = {value} (symbol))");
+                    continue;
+                }
+                if key.contains("ardboard") {
+                    println!("  (skipping {key} = {value} (cardboard))");
+                    continue;
+                }
+                if key.contains("translators") {
+                    continue;
+                }
+
+                let _ = cli_clipboard::set_contents(format!("\"{key}\""));
+
+                match ask_letter(&format!("  '{key}' != '{value}' ? >\n"), "ynrd") {
+                    'y' => execute_command(
+                        Command::RenameKey {
+                            section: section.name.clone(),
+                            old: key.to_string(),
+                            new: value.to_string(),
+                        },
+                        None,
+                        dry_run,
+                        false,
+                    ),
+                    'r' => {
+                        println!("reverse fixup not supported yet");
+                    }
+                    'q' => {
+                        println!("Cancelled! Quitting.");
+                        return Ok(());
+                    }
+                    'd' => execute_command(
+                        Command::RemoveKey {
+                            section: section.name.clone(),
+                            key: key.to_string(),
+                        },
+                        None,
+                        dry_run,
+                        false,
+                    ),
+
+                    'n' => {}
+                    _ => {
+                        println!("Invalid response, ignoring.");
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.rename_key(old, new);
@@ -272,8 +389,6 @@ fn parse_response(response: &str) -> Option<BTreeMap<String, String>> {
     }
 }
 
-// TODO: Look into using https://github.com/Byron/google-apis-rs/tree/main/gen/translate2 for initial translations.
-
 fn main() {
     let opt = Args::parse();
 
@@ -282,14 +397,17 @@ fn main() {
     let ai = api_key.map(|key| chatgpt::ChatGPT::new(key, opt.model));
 
     // TODO: Grab extra arguments from opt somehow.
-    let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
-    let mut filenames = args;
+    // let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
+    execute_command(opt.cmd, ai.as_ref(), opt.dry_run, opt.verbose);
+}
 
+fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: bool) {
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
     let mut reference_ini = IniFile::parse(&format!("{root}/{reference_ini_filename}")).unwrap();
 
+    let mut filenames = Vec::new();
     if filenames.is_empty() {
         // Grab them all.
         for path in std::fs::read_dir(root).unwrap() {
@@ -311,7 +429,7 @@ fn main() {
         filename,
         section,
         key: _,
-    } = &opt.cmd
+    } = &cmd
     {
         if let Ok(single_ini) = IniFile::parse(filename) {
             if let Some(single_section) = single_ini.get_section("Single") {
@@ -329,7 +447,7 @@ fn main() {
         section,
         key,
         extra,
-    } = &opt.cmd
+    } = &cmd
     {
         let prompt = generate_prompt(
             &filenames,
@@ -376,13 +494,15 @@ fn main() {
             continue;
         }
         let target_ini_filename = format!("{root}/{filename}");
-        if opt.verbose {
+        if verbose {
             println!("Langtool processing {target_ini_filename}");
         }
 
         let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
 
-        match opt.cmd {
+        match cmd {
+            Command::FixupRefKeys => {}
+            Command::CheckRefKeys => {}
             Command::CopyMissingLines {
                 dont_comment_missing,
             } => {
@@ -489,15 +609,17 @@ fn main() {
             }
         }
 
-        if !opt.dry_run {
+        if !dry_run {
             target_ini.write().unwrap();
         }
     }
 
-    println!("Langtool processing {reference_ini_filename}");
+    println!("Langtool processing reference {reference_ini_filename}");
 
     // Some commands also apply to the reference ini.
-    match opt.cmd {
+    match cmd {
+        Command::CheckRefKeys => check_keys(&reference_ini).unwrap(),
+        Command::FixupRefKeys => fixup_keys(reference_ini.clone(), dry_run).unwrap(),
         Command::AddNewKey {
             ref section,
             ref key,
@@ -564,7 +686,7 @@ fn main() {
         _ => {}
     }
 
-    if !opt.dry_run {
+    if !dry_run {
         reference_ini.write().unwrap();
     }
 }
