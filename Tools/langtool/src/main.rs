@@ -343,7 +343,9 @@ fn finish_language_with_ai(
     Also, please output similarly to the input, with section headers and key=value pairs.
     Do not output any text before or after the list of translated strings, do not ask followups.
     'undo state' means a saved state that's been saved so that the last save state operation can be undone.
-    Date strings like YYMMDD and similar technical letters and designations should not be translated.
+    Date strings like DDMMYYYY and similar technical letters and designations should NOT be translated. Not even
+    translating the individual letters, they need to be kept as-is.
+    'Jit using IR' should be interpreted as 'JIT, but using IR'.
     %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.
 
     Here are the strings to translate:
@@ -351,81 +353,102 @@ fn finish_language_with_ai(
     );
 
     for section in sections {
-        if let Some(ref_section) = ref_ini.get_section(&section.name).clone() {
-            let mut untranslated_keys = vec![];
-            let mut translated_keys = vec![];
-            for line in &section.lines {
-                if let Some((key, value)) = split_line(line) {
-                    if let Some(ref_value) = ref_section.get_value(key) {
-                        if value == ref_value {
-                            untranslated_keys.push((key, ref_value));
-                        } else {
-                            translated_keys.push((key, value));
-                        }
-                    } else {
-                        println!(
-                            "Key '{}' not found in reference section '{}'",
-                            key, ref_section.name
-                        );
-                    }
-                }
-            }
-
-            println!(
-                "[{}]: Found {} untranslated keys",
-                section.name,
-                untranslated_keys.len()
-            );
-            if untranslated_keys.is_empty() {
-                continue;
-            }
-
-            for (key, ref_value) in &untranslated_keys {
-                println!(" - '{} (ref: '{}')", key, ref_value);
-            }
-
-            // Here you would call the AI to translate the keys.
-            let section_prompt = format!(
-                "{base_prompt}\n\n[{}]\n{}\n\n\n\nBelow are the already translated strings for context, don't re-translate these:\n\n{}",
-                section.name,
-                untranslated_keys
-                    .iter()
-                    .map(|(k, _v)| format!("{} = ", k))
-                    .collect::<Vec<String>>()
-                    .join("\n"),
-                translated_keys
-                    .iter()
-                    .map(|(k, v)| format!("{} = {}", k, v))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            );
-            println!(
-                "[{}] AI prompt:\n{}\n\nRunning...",
-                section.name, section_prompt
-            );
-            if !dry_run {
-                let response = ai
-                    .chat(&section_prompt)
-                    .map_err(|e| anyhow::anyhow!("chat failed: {e}"))?;
-                println!("[{}] AI response:\n{}", section.name, response);
-                // Now we just need to merge the AI response into the target_ini.
-                let parsed_response = IniFile::parse_string(&response)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse AI response: {e}"))?;
-                for parsed_section in parsed_response.sections {
-                    if parsed_section.name == section.name {
-                        for line in &parsed_section.lines {
-                            if let Some((key, value)) = split_line(line) {
-                                target_ini
-                                    .get_section_mut(&section.name)
-                                    .unwrap()
-                                    .insert_line_if_missing(&format!("{key} = {value}"));
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
+        let Some(ref_section) = ref_ini.get_section(&section.name).clone() else {
             println!("Section '{}' not found in reference file", section.name);
+            continue;
+        };
+        let mut alias_map = BTreeMap::new();
+        let mut alias_inverse_map = BTreeMap::new();
+        for line in &ref_section.lines {
+            if let Some((key, value)) = split_line(line) {
+                // I need a better way to do case insensitive comparison.
+                if key.to_lowercase() != value.to_lowercase() {
+                    println!("Saving alias: {key} = {value}");
+                    alias_map.insert(key, value.to_string());
+                    alias_inverse_map.insert(value.to_string(), key);
+                }
+            }
+        }
+
+        // When just testing aliases.
+        return Ok(());
+
+        let mut untranslated_keys = vec![];
+        let mut translated_keys = vec![];
+        for line in &section.lines {
+            if let Some((key, value)) = split_line(line) {
+                if let Some(ref_value) = ref_section.get_value(key) {
+                    if value == ref_value {
+                        untranslated_keys.push((key, ref_value));
+                    } else {
+                        translated_keys.push((key, value));
+                    }
+                } else {
+                    println!(
+                        "Key '{}' not found in reference section '{}'",
+                        key, ref_section.name
+                    );
+                }
+            }
+        }
+
+        println!(
+            "[{}]: Found {} untranslated keys",
+            section.name,
+            untranslated_keys.len()
+        );
+        if untranslated_keys.is_empty() {
+            continue;
+        }
+
+        for (key, ref_value) in &untranslated_keys {
+            println!(" - '{} (ref: '{}')", key, ref_value);
+        }
+
+        // Here you would call the AI to translate the keys.
+        let section_prompt = format!(
+            "{base_prompt}\n\n[{}]\n{}\n\n\n\nBelow are the already translated strings for context, don't re-translate these:\n\n{}",
+            section.name,
+            untranslated_keys
+                .iter()
+                .map(|(k, _v)| format!("{} = ", alias_map.get(k).unwrap_or(&k.to_string())))
+                .collect::<Vec<String>>()
+                .join("\n"),
+            translated_keys
+                .iter()
+                .map(|(k, v)| format!("{} = {}", k, v))
+                .collect::<Vec<String>>()
+                .join("\n")
+        );
+        println!("[{}] AI prompt:\n{}", section.name, section_prompt);
+        if !dry_run {
+            println!("Running AI translation...");
+            let response = ai
+                .chat(&section_prompt)
+                .map_err(|e| anyhow::anyhow!("chat failed: {e}"))?;
+            println!("AI response:\n{}", response);
+            // Now we just need to merge the AI response into the target_ini.
+            let parsed_response = IniFile::parse_string(&response)
+                .map_err(|e| anyhow::anyhow!("Failed to parse AI response: {e}"))?;
+            if parsed_response.sections.is_empty() {
+                println!("No sections found in AI response! bad!");
+            }
+            let target_section = target_ini.get_section_mut(&section.name).unwrap();
+            for parsed_section in parsed_response.sections {
+                if parsed_section.name == section.name {
+                    println!("Merging AI response for section '{}'", parsed_section.name);
+                    for line in &parsed_section.lines {
+                        if let Some((key, value)) = split_line(line) {
+                            // Put the key through the inverse alias map.
+                            let original_key = alias_inverse_map.get(key).unwrap_or(&key);
+                            println!("Updating translation for key '{}': {}", original_key, value);
+                            target_section.set_value(key, value);
+                        }
+                    }
+                } else {
+                    println!("Mismatched section name '{}'", parsed_section.name);
+                }
+            }
         }
     }
 
@@ -577,10 +600,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             )
             .unwrap();
             if !dry_run {
-                println!(
-                    "Writing modified file for target language: {}",
-                    target_language
-                );
+                println!("Writing modified file for target language: {}", language);
                 target_ini.write().unwrap();
             }
         } else {
