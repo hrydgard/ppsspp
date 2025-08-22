@@ -354,7 +354,9 @@ fn finish_language_with_ai(
     Don't translate strings about 'load undo state' or 'save undo state', also not about savestate slots.
     IMPORTANT! 'Notification screen position' means the position on the screen where notifications are displayed,
     not the position of a 'notification screen', no such thing.
-    %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.";
+    %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.
+    A 'driver manager' is a built-in tool to manage drivers, not a human boss. Same goes for other types of manager.
+    ";
 
     for section in sections {
         let Some(ref_section) = ref_ini.get_section(&section.name).clone() else {
@@ -365,8 +367,9 @@ fn finish_language_with_ai(
         let mut alias_inverse_map = BTreeMap::new();
         for line in &ref_section.lines {
             if let Some((key, value)) = split_line(line) {
-                // I need a better way to do case insensitive comparison.
-                if key.to_lowercase() != value.to_lowercase() {
+                // We actually process almost everything here, we could check for case but we don't
+                // since the aliased case is better.
+                if key != value {
                     println!("Saving alias: {key} = {value}");
                     alias_map.insert(key, value.to_string());
                     alias_inverse_map.insert(value.to_string(), key);
@@ -455,7 +458,12 @@ fn finish_language_with_ai(
                         if let Some((key, value)) = split_line(line) {
                             // Put the key through the inverse alias map.
                             let original_key = alias_inverse_map.get(key).unwrap_or(&key);
-                            println!("Updating translation for key '{}': {}", original_key, value);
+                            print!("Updating '{}': {}", original_key, value);
+                            if key != *original_key {
+                                println!(" ({})", key);
+                            } else {
+                                println!();
+                            }
                             target_section.set_value(key, value);
                         }
                     }

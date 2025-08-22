@@ -20,7 +20,7 @@ pub fn ask_yes_no(question: &str) -> bool {
 pub fn ask_letter(question: &str, allowed_chars: &str) -> char {
     loop {
         println!("{question} ({allowed_chars}): ");
-        io::stdout().flush();
+        let _ = io::stdout().flush();
 
         let mut input = String::new();
         io::stdin()
