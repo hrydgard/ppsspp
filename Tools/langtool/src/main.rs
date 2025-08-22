@@ -340,17 +340,21 @@ fn finish_language_with_ai(
         "Please translate the below list of strings from US English to {target_language}.
     After the strings to translate, there are related already-translated strings that may help for context.
     Note that the strings are UI strings for my PSP emulator application.
-    Also, please output similarly to the input, with section headers and key=value pairs.
-    Do not output any text before or after the list of translated strings, do not ask followups.
-    'undo state' means a saved state that's been saved so that the last save state operation can be undone.
-    Date strings like DDMMYYYY and similar technical letters and designations should NOT be translated. Not even
-    translating the individual letters, they need to be kept as-is.
-    'Jit using IR' should be interpreted as 'JIT, but using IR'.
-    %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.
+    Also, please output similarly to the input, with section headers and key=value pairs. The section name
+    is not to be translated.
 
     Here are the strings to translate:
     "
     );
+    let suffix = "    Do not output any text before or after the list of translated strings, do not ask followups.
+    'undo state' means a saved state that's been saved so that the last save state operation can be undone.
+    DO NOT translate strings like DDMMYYYY, MMDDYYYY and similar technical letters and designations. Not even
+    translating the individual letters, they need to be kept as-is.
+    'JIT using IR' should be interpreted as 'JIT, with IR'.
+    Don't translate strings about 'load undo state' or 'save undo state', also not about savestate slots.
+    IMPORTANT! 'Notification screen position' means the position on the screen where notifications are displayed,
+    not the position of a 'notification screen', no such thing.
+    %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.";
 
     for section in sections {
         let Some(ref_section) = ref_ini.get_section(&section.name).clone() else {
@@ -371,7 +375,7 @@ fn finish_language_with_ai(
         }
 
         // When just testing aliases.
-        return Ok(());
+        // return Ok(());
 
         let mut untranslated_keys = vec![];
         let mut translated_keys = vec![];
@@ -379,6 +383,15 @@ fn finish_language_with_ai(
             if let Some((key, value)) = split_line(line) {
                 if let Some(ref_value) = ref_section.get_value(key) {
                     if value == ref_value {
+                        // Key not translated.
+                        // However, we need to reject some things that the AI likes to mishandle.
+                        if value.to_uppercase() == value {
+                            println!(
+                                "Skipping untranslated key '{}' with uppercase value '{}'",
+                                key, value
+                            );
+                            continue;
+                        }
                         untranslated_keys.push((key, ref_value));
                     } else {
                         translated_keys.push((key, value));
@@ -407,7 +420,7 @@ fn finish_language_with_ai(
 
         // Here you would call the AI to translate the keys.
         let section_prompt = format!(
-            "{base_prompt}\n\n[{}]\n{}\n\n\n\nBelow are the already translated strings for context, don't re-translate these:\n\n{}",
+            "{base_prompt}\n\n[{}]\n{}\n\n\n\nBelow are the already translated strings for context, don't re-translate these:\n\n{}\n\n{}",
             section.name,
             untranslated_keys
                 .iter()
@@ -418,7 +431,8 @@ fn finish_language_with_ai(
                 .iter()
                 .map(|(k, v)| format!("{} = {}", k, v))
                 .collect::<Vec<String>>()
-                .join("\n")
+                .join("\n"),
+            suffix
         );
         println!("[{}] AI prompt:\n{}", section.name, section_prompt);
         if !dry_run {
