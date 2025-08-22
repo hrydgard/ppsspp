@@ -106,8 +106,7 @@ protected:
 // Easy to swap out for a UrlEncoder.
 struct MultipartFormDataEncoder : UrlEncoder
 {
-	MultipartFormDataEncoder() : UrlEncoder()
-	{
+	MultipartFormDataEncoder() : UrlEncoder() {
 		data.reserve(8192);
 		int r1 = rand();
 		int r2 = rand();

@@ -976,6 +976,11 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("AllowSpeedControlWhileConnected", &g_Config.bAllowSpeedControlWhileConnected, false, CfgFlag::PER_GAME),
 	ConfigSetting("DontDownloadInfraJson", &g_Config.bDontDownloadInfraJson, false, CfgFlag::DONT_SAVE),
 
+	// See comment in header
+	ConfigSetting("PSNNPID", &g_Config.sPSNNPID, "", CfgFlag::PER_GAME),
+	ConfigSetting("PSNPassword", &g_Config.sPSNPassword, "", CfgFlag::PER_GAME),
+	ConfigSetting("PSNToken", &g_Config.sPSNToken, "", CfgFlag::PER_GAME),
+
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, CfgFlag::PER_GAME),
 	ConfigSetting("ChatButtonPosition", &g_Config.iChatButtonPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("ChatScreenPosition", &g_Config.iChatScreenPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),

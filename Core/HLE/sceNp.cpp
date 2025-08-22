@@ -147,8 +147,9 @@ static int sceNpInit()
 	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
 
 	// We'll sanitize an extra time here, just to be safe from ini modifications.
-	if (g_Config.sInfrastructureUsername == SanitizeString(g_Config.sInfrastructureUsername, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
-		npOnlineId = g_Config.sInfrastructureUsername;
+	if (g_Config.sPSNNPID == SanitizeString(g_Config.sPSNNPID, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
+		npOnlineId = g_Config.sPSNNPID;
+		// There is also sPSNToken and sPSNPassword
 	} else {
 		npOnlineId.clear();
 	}
