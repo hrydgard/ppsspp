@@ -11,6 +11,10 @@ use inifile::IniFile;
 mod chatgpt;
 use clap::Parser;
 
+mod util;
+
+use crate::{chatgpt::ChatGPT, section::split_line, util::ask_letter};
+
 #[derive(Parser, Debug)]
 struct Args {
     #[command(subcommand)]
@@ -78,6 +82,12 @@ enum Command {
         filename: String,
         section: String,
         key: String,
+    },
+    CheckRefKeys,
+    FixupRefKeys, // This was too big a job.
+    FinishLanguageWithAI {
+        language: String,
+        section: Option<String>,
     },
 }
 
@@ -196,6 +206,280 @@ fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str, value: &str) 
     Ok(())
 }
 
+fn check_keys(target_ini: &IniFile) -> io::Result<()> {
+    for section in &target_ini.sections {
+        let mut mismatches = Vec::new();
+
+        if section.name == "DesktopUI" {
+            // ignore the ampersands for now
+            continue;
+        }
+
+        for line in &section.lines {
+            if let Some((key, value)) = split_line(line) {
+                if key != value {
+                    mismatches.push((key, value));
+                }
+            }
+        }
+
+        if !mismatches.is_empty() {
+            println!("[{}]", section.name);
+            for (key, value) in mismatches {
+                print!("  {key} != {value}\n");
+            }
+        }
+    }
+    Ok(())
+}
+
+fn fixup_keys(target_ini: IniFile, dry_run: bool) -> io::Result<()> {
+    for section in &target_ini.sections {
+        let mut mismatches = Vec::new();
+
+        if section.name == "DesktopUI"
+            || section.name == "MappableControls"
+            || section.name == "PostShaders"
+        {
+            // ignore the ampersands for now, also mappable controls, we don't want to change those strings.
+            continue;
+        }
+
+        for line in &section.lines {
+            if let Some((key, value)) = split_line(line) {
+                if key != value {
+                    mismatches.push((key, value));
+                }
+            }
+        }
+
+        if !mismatches.is_empty() {
+            println!("[{}]", section.name);
+            for (key, value) in mismatches {
+                if (key.len() as i32 - value.len() as i32).abs() > 15 {
+                    println!("  (skipping {key} = {value} (probably an alias))");
+                    continue;
+                }
+                if value.contains(r"\n") {
+                    println!("  (skipping {key} = {value} (line break))");
+                    continue;
+                }
+                if value.contains("×") || value.contains("\"") {
+                    println!("  (skipping {key} = {value} (symbol))");
+                    continue;
+                }
+                if key.contains("ardboard") {
+                    println!("  (skipping {key} = {value} (cardboard))");
+                    continue;
+                }
+                if key.contains("translators") {
+                    continue;
+                }
+
+                let _ = cli_clipboard::set_contents(format!("\"{key}\""));
+
+                match ask_letter(&format!("  '{key}' != '{value}' ? >\n"), "ynrd") {
+                    'y' => execute_command(
+                        Command::RenameKey {
+                            section: section.name.clone(),
+                            old: key.to_string(),
+                            new: value.to_string(),
+                        },
+                        None,
+                        dry_run,
+                        false,
+                    ),
+                    'r' => {
+                        println!("reverse fixup not supported yet");
+                    }
+                    'q' => {
+                        println!("Cancelled! Quitting.");
+                        return Ok(());
+                    }
+                    'd' => execute_command(
+                        Command::RemoveKey {
+                            section: section.name.clone(),
+                            key: key.to_string(),
+                        },
+                        None,
+                        dry_run,
+                        false,
+                    ),
+
+                    'n' => {}
+                    _ => {
+                        println!("Invalid response, ignoring.");
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn finish_language_with_ai(
+    target_language: &str,
+    target_ini: &mut IniFile,
+    ref_ini: &IniFile,
+    section: Option<&str>,
+    ai: &ChatGPT,
+    dry_run: bool,
+) -> anyhow::Result<()> {
+    println!("Finishing language with AI");
+    println!(
+        "Step 1: Compare all strings in the section with the matching strings from the reference."
+    );
+
+    let sections: Vec<Section> = if let Some(section_name) = section {
+        vec![target_ini.get_section(section_name).unwrap().clone()]
+    } else {
+        target_ini.sections.iter().cloned().collect()
+    };
+
+    let base_prompt = format!(
+        "Please translate the below list of strings from US English to {target_language}.
+    After the strings to translate, there are related already-translated strings that may help for context.
+    Note that the strings are UI strings for my PSP emulator application.
+    Also, please output similarly to the input, with section headers and key=value pairs. The section name
+    is not to be translated.
+
+    Here are the strings to translate:
+    "
+    );
+    let suffix = "    Do not output any text before or after the list of translated strings, do not ask followups.
+    'undo state' means a saved state that's been saved so that the last save state operation can be undone.
+    DO NOT translate strings like DDMMYYYY, MMDDYYYY and similar technical letters and designations. Not even
+    translating the individual letters, they need to be kept as-is.
+    'JIT using IR' should be interpreted as 'JIT, with IR'.
+    Don't translate strings about 'load undo state' or 'save undo state', also not about savestate slots.
+    IMPORTANT! 'Notification screen position' means the position on the screen where notifications are displayed,
+    not the position of a 'notification screen', no such thing.
+    %1 is a placeholder for a number or word, do not change it, just make sure it ends up in the right location.
+    A 'driver manager' is a built-in tool to manage drivers, not a human boss. Same goes for other types of manager.
+    The '=' at the end of the lines to translate is not part of the translation keys.
+    ";
+
+    for section in sections {
+        let Some(ref_section) = ref_ini.get_section(&section.name).clone() else {
+            println!("Section '{}' not found in reference file", section.name);
+            continue;
+        };
+        let mut alias_map = BTreeMap::new();
+        let mut alias_inverse_map = BTreeMap::new();
+        for line in &ref_section.lines {
+            if let Some((key, value)) = split_line(line) {
+                // We actually process almost everything here, we could check for case but we don't
+                // since the aliased case is better.
+                if key != value {
+                    println!("Saving alias: {key} = {value}");
+                    alias_map.insert(key, value.to_string());
+                    alias_inverse_map.insert(value.to_string(), key);
+                }
+            }
+        }
+
+        // When just testing aliases.
+        // return Ok(());
+
+        let mut untranslated_keys = vec![];
+        let mut translated_keys = vec![];
+        for line in &section.lines {
+            if let Some((key, value)) = split_line(line) {
+                if let Some(ref_value) = ref_section.get_value(key) {
+                    if value == ref_value {
+                        // Key not translated.
+                        // However, we need to reject some things that the AI likes to mishandle.
+                        if value.to_uppercase() == value {
+                            println!(
+                                "Skipping untranslated key '{}' with uppercase value '{}'",
+                                key, value
+                            );
+                            continue;
+                        }
+                        untranslated_keys.push((key, ref_value));
+                    } else {
+                        translated_keys.push((key, value));
+                    }
+                } else {
+                    println!(
+                        "Key '{}' not found in reference section '{}'",
+                        key, ref_section.name
+                    );
+                }
+            }
+        }
+
+        println!(
+            "[{}]: Found {} untranslated keys",
+            section.name,
+            untranslated_keys.len()
+        );
+        if untranslated_keys.is_empty() {
+            continue;
+        }
+
+        for (key, ref_value) in &untranslated_keys {
+            println!(" - '{} (ref: '{}')", key, ref_value);
+        }
+
+        // Here you would call the AI to translate the keys.
+        let section_prompt = format!(
+            "{base_prompt}\n\n[{}]\n{}\n\n\n\nBelow are the already translated strings for context, don't re-translate these:\n\n{}\n\n{}",
+            section.name,
+            untranslated_keys
+                .iter()
+                .map(|(k, _v)| format!("{} = ", alias_map.get(k).unwrap_or(&k.to_string())))
+                .collect::<Vec<String>>()
+                .join("\n"),
+            translated_keys
+                .iter()
+                .map(|(k, v)| format!("{} = {}", k, v))
+                .collect::<Vec<String>>()
+                .join("\n"),
+            suffix
+        );
+        println!("[{}] AI prompt:\n{}", section.name, section_prompt);
+        if !dry_run {
+            println!("Running AI translation...");
+            let response = ai
+                .chat(&section_prompt)
+                .map_err(|e| anyhow::anyhow!("chat failed: {e}"))?;
+            println!("AI response:\n{}", response);
+            // Now we just need to merge the AI response into the target_ini.
+            let parsed_response = IniFile::parse_string(&response)
+                .map_err(|e| anyhow::anyhow!("Failed to parse AI response: {e}"))?;
+            if parsed_response.sections.is_empty() {
+                println!("No sections found in AI response! bad!");
+            }
+            let target_section = target_ini.get_section_mut(&section.name).unwrap();
+            for parsed_section in parsed_response.sections {
+                if parsed_section.name == section.name {
+                    println!("Merging AI response for section '{}'", parsed_section.name);
+                    for line in &parsed_section.lines {
+                        if let Some((key, value)) = split_line(line) {
+                            // Put the key through the inverse alias map.
+                            let original_key = alias_inverse_map.get(key).unwrap_or(&key);
+                            print!("Updating '{}': {}", original_key, value);
+                            if key != *original_key {
+                                println!(" ({})", key);
+                            } else {
+                                println!();
+                            }
+                            if !target_section.set_value(&original_key, value) {
+                                println!("Failed to update '{}'", original_key);
+                            }
+                        }
+                    }
+                } else {
+                    println!("Mismatched section name '{}'", parsed_section.name);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.rename_key(old, new);
@@ -272,8 +556,6 @@ fn parse_response(response: &str) -> Option<BTreeMap<String, String>> {
     }
 }
 
-// TODO: Look into using https://github.com/Byron/google-apis-rs/tree/main/gen/translate2 for initial translations.
-
 fn main() {
     let opt = Args::parse();
 
@@ -282,14 +564,18 @@ fn main() {
     let ai = api_key.map(|key| chatgpt::ChatGPT::new(key, opt.model));
 
     // TODO: Grab extra arguments from opt somehow.
-    let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
-    let mut filenames = args;
+    // let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
+    execute_command(opt.cmd, ai.as_ref(), opt.dry_run, opt.verbose);
+}
 
+fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: bool) {
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
-    let mut reference_ini = IniFile::parse(&format!("{root}/{reference_ini_filename}")).unwrap();
+    let mut reference_ini =
+        IniFile::parse_file(&format!("{root}/{reference_ini_filename}")).unwrap();
 
+    let mut filenames = Vec::new();
     if filenames.is_empty() {
         // Grab them all.
         for path in std::fs::read_dir(root).unwrap() {
@@ -311,9 +597,9 @@ fn main() {
         filename,
         section,
         key: _,
-    } = &opt.cmd
+    } = &cmd
     {
-        if let Ok(single_ini) = IniFile::parse(filename) {
+        if let Ok(single_ini) = IniFile::parse_file(filename) {
             if let Some(single_section) = single_ini.get_section("Single") {
                 single_ini_section = Some(single_section.clone());
             } else {
@@ -325,11 +611,34 @@ fn main() {
         }
     }
 
+    if let Command::FinishLanguageWithAI { language, section } = &cmd {
+        if let Some(ai) = &ai {
+            let target_ini_filename = format!("{root}/{language}.ini");
+            let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
+            finish_language_with_ai(
+                language,
+                &mut target_ini,
+                &reference_ini,
+                section.as_deref(),
+                ai,
+                dry_run,
+            )
+            .unwrap();
+            if !dry_run {
+                println!("Writing modified file for target language: {}", language);
+                target_ini.write().unwrap();
+            }
+        } else {
+            println!("AI key not set, skipping AI command.");
+        }
+        return;
+    }
+
     let ai_response = if let Command::AddNewKeyAI {
         section,
         key,
         extra,
-    } = &opt.cmd
+    } = &cmd
     {
         let prompt = generate_prompt(
             &filenames,
@@ -376,13 +685,19 @@ fn main() {
             continue;
         }
         let target_ini_filename = format!("{root}/{filename}");
-        if opt.verbose {
+        if verbose {
             println!("Langtool processing {target_ini_filename}");
         }
 
-        let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
+        let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
 
-        match opt.cmd {
+        match cmd {
+            Command::FinishLanguageWithAI {
+                language: _,
+                section: _,
+            } => {}
+            Command::FixupRefKeys => {}
+            Command::CheckRefKeys => {}
             Command::CopyMissingLines {
                 dont_comment_missing,
             } => {
@@ -489,15 +804,21 @@ fn main() {
             }
         }
 
-        if !opt.dry_run {
+        if !dry_run {
             target_ini.write().unwrap();
         }
     }
 
-    println!("Langtool processing {reference_ini_filename}");
+    println!("Langtool processing reference {reference_ini_filename}");
 
     // Some commands also apply to the reference ini.
-    match opt.cmd {
+    match cmd {
+        Command::FinishLanguageWithAI {
+            language: _,
+            section: _,
+        } => {}
+        Command::CheckRefKeys => check_keys(&reference_ini).unwrap(),
+        Command::FixupRefKeys => fixup_keys(reference_ini.clone(), dry_run).unwrap(),
         Command::AddNewKey {
             ref section,
             ref key,
@@ -564,7 +885,7 @@ fn main() {
         _ => {}
     }
 
-    if !opt.dry_run {
+    if !dry_run {
         reference_ini.write().unwrap();
     }
 }

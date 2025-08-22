@@ -10,16 +10,20 @@ pub struct Section {
     pub lines: Vec<String>,
 }
 
-pub fn line_value(line: &str) -> Option<&str> {
+pub fn split_line(line: &str) -> Option<(&str, &str)> {
     let line = line.trim();
     if let Some(pos) = line.find(" =") {
         let value = &line[pos + 2..];
         if value.is_empty() {
             return None;
         }
-        return Some(value.trim());
+        return Some((&line[0..pos].trim(), value.trim()));
     }
     None
+}
+
+pub fn line_value(line: &str) -> Option<&str> {
+    split_line(line).map(|tuple| tuple.1)
 }
 
 impl Section {
@@ -243,5 +247,16 @@ impl Section {
         } else {
             false
         }
+    }
+
+    pub fn get_value(&self, key: &str) -> Option<String> {
+        for line in &self.lines {
+            if let Some((ref_key, value)) = split_line(line) {
+                if key.eq_ignore_ascii_case(ref_key) {
+                    return Some(value.to_string());
+                }
+            }
+        }
+        None
     }
 }
