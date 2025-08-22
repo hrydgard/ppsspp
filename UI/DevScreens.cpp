@@ -156,6 +156,11 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		return UI::EVENT_DONE;
 	});
 
+	items->Add(new Choice(dev->T("Remote debugger")))->OnClick.Add([](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://ppsspp-debugger.unknownbrackets.org/cpu");  // NOTE: https doesn't work
+		return UI::EVENT_DONE;
+	});
+
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 
 	// Debug overlay
