@@ -1934,10 +1934,8 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
    }
 }
 
-int64_t System_GetPropertyInt(SystemProperty prop)
-{
-   switch (prop)
-   {
+int64_t System_GetPropertyInt(SystemProperty prop) {
+   switch (prop) {
       case SYSPROP_AUDIO_SAMPLE_RATE:
          return SAMPLERATE;
 #if PPSSPP_PLATFORM(ANDROID)

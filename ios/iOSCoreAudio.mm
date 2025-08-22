@@ -74,7 +74,7 @@ void iOSCoreAudioSetDisplayConnected(bool connected) {
 	iOSCoreAudioUpdateSession();
 }
 
-void NativeMix(short *audio, int numSamples, int sampleRate, void *userdata);
+void NativeMix(short *audio, int numSamples, int sampleRateHz, void *userdata);
 
 OSStatus iOSCoreAudioCallback(void *inRefCon,
 							  AudioUnitRenderActionFlags *ioActionFlags,

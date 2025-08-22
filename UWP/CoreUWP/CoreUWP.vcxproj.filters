@@ -165,6 +165,7 @@
     <ClCompile Include="..\..\Core\HW\Atrac3Standalone.cpp" />
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp" />
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp" />
+    <ClCompile Include="..\..\Core\HW\GranularMixer.cpp" />
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
     <ClCompile Include="..\..\Core\KeyMapDefaults.cpp" />
     <ClCompile Include="..\..\Core\Loaders.cpp" />
@@ -679,6 +680,10 @@
     <ClInclude Include="..\..\ext\xxhash.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
+<<<<<<< HEAD
+=======
+    <ClInclude Include="..\..\Core\HW\GranularMixer.h" />
+>>>>>>> cfb162d436 (Integrate Dolphin's granule based audio resampler.)
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE" />
