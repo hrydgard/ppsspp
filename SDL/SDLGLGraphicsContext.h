@@ -16,7 +16,7 @@
 class SDLGLGraphicsContext : public GraphicsContext {
 public:
 	// Returns 0 on success.
-	int Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
+	int Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message, int force_gl_version);
 
 	bool InitFromRenderThread(std::string *errorMessage) override;
 

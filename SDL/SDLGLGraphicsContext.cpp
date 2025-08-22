@@ -307,7 +307,7 @@ bool SDLGLGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 }
 
 // Returns 0 on success.
-int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message) {
+int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message, int force_gl_version) {
 	struct GLVersionPair {
 		int major;
 		int minor;
@@ -328,6 +328,12 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 	SDL_GLContext glContext = nullptr;
 	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
 		const auto &ver = attemptVersions[i];
+		// If we force a specific OpenGL version, skip the ones
+		// that do not match, which may be all of them - e.g.
+		// requesting nonsensical "--graphics=opengl0" reliably
+		// skips straight to fallback code below.
+		if (force_gl_version >= 0 && 10 * ver.major + ver.minor != force_gl_version)
+			continue;
 		// Make sure to request a somewhat modern GL context at least - the
 		// latest supported by MacOS X (really, really sad...)
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);

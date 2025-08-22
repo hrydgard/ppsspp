@@ -1036,7 +1036,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			// Convenience subset of what
 			// "Enable standard shortcut keys"
 			// does on Windows.
-			if(g_Config.bSystemControls) {
+			if (g_Config.bSystemControls) {
 				bool ctrl = bool(event.key.keysym.mod & KMOD_CTRL);
 				if (ctrl && (k == SDLK_w))
 				{
@@ -1410,6 +1410,14 @@ int main(int argc, char *argv[]) {
 	int remain_argc = 1;
 	const char *remain_argv[256] = { argv[0] };
 
+	// Option to force a specific OpenGL version (42="4.2",
+	// etc.; -1 means "try them all").
+	// Implemented as a workaround for https://github.com/hrydgard/ppsspp/issues/20687
+	// NOTE: this is currently not persistent (doesn't
+	// go to config), even though --graphics=openglX.Y
+	// also sets the GPU backend which does persist.
+	int force_gl_version = -1;
+
 	Uint32 mode = 0;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen")) {
@@ -1435,7 +1443,27 @@ int main(int argc, char *argv[]) {
 			set_ipad = true;
 		else if (!strcmp(argv[i],"--portrait"))
 			portrait = true;
-		else {
+		else if (!strncmp(argv[i],"--graphics=", strlen("--graphics="))) {
+			const char *restOfOption = argv[i] + strlen("--graphics=");
+			double val=-1.0; // Yes, floating point.
+			if (!strcmp(restOfOption, "vulkan")) {
+				g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
+				g_Config.bSoftwareRendering = false;
+			} else if (!strcmp(restOfOption, "software")) {
+				// Same as on Windows, software presently implies OpenGL.
+				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+				g_Config.bSoftwareRendering = true;
+			} else if (!strcmp(restOfOption, "gles") || !strcmp(restOfOption, "opengl")) {
+				// NOTE: OpenGL and GLES are treated the same for
+				// the purposes of option parsing.
+				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+				g_Config.bSoftwareRendering = false;
+			} else if (sscanf(restOfOption, "gles%lg", &val) == 1 || sscanf(restOfOption, "opengl%lg", &val) == 1) {
+				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+				g_Config.bSoftwareRendering = false;
+				force_gl_version = int(10.0 * val + 0.5);
+			}
+		} else {
 			remain_argv[remain_argc++] = argv[i];
 		}
 	}
@@ -1592,7 +1620,7 @@ int main(int argc, char *argv[]) {
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-		if (glctx->Init(window, x, y, w, h, mode, &error_message) != 0) {
+		if (glctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version) != 0) {
 			// Let's try the fallback once per process run.
 			printf("GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
@@ -1622,7 +1650,7 @@ int main(int argc, char *argv[]) {
 
 			// NOTE : This should match the three lines above in the OpenGL case.
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-			if (glctx->Init(window, x, y, w, h, mode, &error_message) != 0) {
+			if (glctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version) != 0) {
 				printf("GL fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
@@ -1786,7 +1814,7 @@ int main(int argc, char *argv[]) {
 
 			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
-				if (!ctx->Init(window, x, y, w, h, mode, &error_message)) {
+				if (!ctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version)) {
 					printf("Failed to reinit graphics.\n");
 				}
 			}
