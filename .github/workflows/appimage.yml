@@ -91,36 +91,22 @@ jobs:
           # Archlinux
           set -ex
 
-          sed -i 's/DownloadUser/#DownloadUser/g' /etc/pacman.conf
-
           ARCH=$(uname -m)
           echo "ARCH=$ARCH" >> $GITHUB_ENV # Export ARCH to be reused on other steps
-          if [[ "$ARCH" == "x86_64" ]]; then
-          	PKG_TYPE='x86_64.pkg.tar.zst'
-          else
-          	PKG_TYPE='aarch64.pkg.tar.xz'
-          fi
-
-          LLVM_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/llvm-libs-nano-$PKG_TYPE"
-          LIBXML_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/libxml2-iculess-$PKG_TYPE"
-          OPUS_URL="https://github.com/pkgforge-dev/llvm-libs-debloated/releases/download/continuous/opus-nano-$PKG_TYPE"
+          EXTRA_PACKAGES="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/get-debloated-pkgs.sh"
 
           echo "Installing build dependencies..."
           echo "---------------------------------------------------------------"
           pacman -Syu --noconfirm \
             base-devel \
             curl \
-            desktop-file-utils \
             git \
             cmake \
             ninja \
             clang \
             ccache \
-            llvm-libs \
-            llvm \
             lld \
             libxss \
-            mesa \
             fontconfig \
             gcc-libs \
             glibc \
@@ -138,28 +124,16 @@ jobs:
             wget \
             xorg-server-xvfb \
             zsync \
-            vulkan-nouveau \
-            vulkan-radeon \
             vulkan-headers \
             alsa-lib sndio hidapi ibus jack libdecor libgl libpulse libusb \
             libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
             wayland wayland-protocols
-          
-          if [[ "$ARCH" == "x86_64" ]]; then
-            pacman -Syu --noconfirm vulkan-intel
-          fi
-
-          echo "Installing debloated pckages..."
-          echo "---------------------------------------------------------------"
-          wget --retry-connrefused --tries=30 "$LLVM_URL" -O   ./llvm-libs.pkg.tar.zst
-          wget --retry-connrefused --tries=30 "$LIBXML_URL" -O ./libxml2.pkg.tar.zst
-          wget --retry-connrefused --tries=30 "$OPUS_URL" -O   ./opus-nano.pkg.tar.zst
-
-          pacman -U --noconfirm ./*.pkg.tar.zst
-          rm -f ./*.pkg.tar.zst
-
-          echo "All done!"
-          echo "---------------------------------------------------------------"
+  
+            echo "Installing debloated packages..."
+            echo "---------------------------------------------------------------"
+            wget --retry-connrefused --tries=30 "$EXTRA_PACKAGES" -O ./get-debloated-pkgs.sh
+            chmod +x ./get-debloated-pkgs.sh
+            ./get-debloated-pkgs.sh --add-mesa libxml2-mini opus-mini llvm-libs-nano
 
       - name: Build Release
         id: version
