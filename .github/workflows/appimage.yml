@@ -131,7 +131,7 @@ jobs:
             echo "---------------------------------------------------------------"
             wget --retry-connrefused --tries=30 "$EXTRA_PACKAGES" -O ./get-debloated-pkgs.sh
             chmod +x ./get-debloated-pkgs.sh
-            ./get-debloated-pkgs.sh --add-mesa libxml2-mini opus-mini llvm-nano
+            ./get-debloated-pkgs.sh --add-mesa libxml2-mini opus-mini llvm-libs-nano
 
       - name: Build Release
         id: version
