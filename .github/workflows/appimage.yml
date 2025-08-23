@@ -91,6 +91,8 @@ jobs:
           # Archlinux
           set -ex
 
+          ARCH=$(uname -m)
+          echo "ARCH=$ARCH" >> $GITHUB_ENV # Export ARCH to be reused on other steps
           EXTRA_PACKAGES="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/get-debloated-pkgs.sh"
 
           echo "Installing build dependencies..."
