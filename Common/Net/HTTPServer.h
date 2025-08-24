@@ -30,7 +30,7 @@ public:
 	ServerRequest(int fd);
 	~ServerRequest();
 
-	const char *resource() const {
+	std::string_view resource() const {
 		return header_.resource;
 	}
 
@@ -76,7 +76,7 @@ public:
 	virtual ~Server();
 
 	typedef std::function<void(const ServerRequest &)> UrlHandlerFunc;
-	typedef std::map<std::string, UrlHandlerFunc> UrlHandlerMap;
+	typedef std::map<std::string, UrlHandlerFunc, std::less<>> UrlHandlerMap;
 
 	// Runs forever, serving request. If you want to do something else than serve pages,
 	// better put this on a thread. Returns false if failed to start serving, never

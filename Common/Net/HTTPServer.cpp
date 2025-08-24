@@ -335,7 +335,7 @@ void Server::HandleRequest(const ServerRequest &request) {
 }
 
 void Server::HandleRequestDefault(const ServerRequest &request) {
-	if (request.resource() == nullptr) {
+	if (request.resource().empty()) {
 		fallback_(request);
 		return;
 	}

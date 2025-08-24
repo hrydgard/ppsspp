@@ -1220,8 +1220,6 @@ skip:
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
-		_assert_(((startAddr | endAddr) & 3) == 0);
-
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		// It makes sense to forget functions as modules are unloaded but it breaks

@@ -26,6 +26,7 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Config.h"

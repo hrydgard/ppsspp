@@ -209,8 +209,9 @@ void SetCurrentThreadNameThroughException(const char *threadName) {
 
 void AssertCurrentThreadName(const char *threadName) {
 #ifdef TLS_SUPPORTED
-	if (strcmp(curThreadName, threadName) != 0) {
+	if (curThreadName && strcmp(curThreadName, threadName) != 0) {
 		ERROR_LOG(Log::System, "Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
+		_dbg_assert_msg_(false, "Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
 	}
 #endif
 }

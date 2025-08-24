@@ -170,7 +170,7 @@ static std::string RemotePathForRecent(const std::string &filename) {
 	return std::string();
 }
 
-static Path LocalFromRemotePath(const std::string &path) {
+static Path LocalFromRemotePath(const std::string_view &path) {
 	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 	case RemoteISOShareType::RECENT:
 		for (const std::string &filename : g_recentFiles.GetRecentFiles()) {
@@ -281,7 +281,7 @@ static void HandleListing(const http::ServerRequest &request) {
 		{
 			std::vector<File::FileInfo> entries;
 
-			std::string resource = request.resource();
+			std::string resource(request.resource());
 			Path localDir = LocalFromRemotePath(resource);
 
 			File::GetFilesInDir(localDir, &entries);
@@ -308,12 +308,13 @@ static void HandleListing(const http::ServerRequest &request) {
 
 static bool ServeDebuggerFile(const http::ServerRequest &request) {
 	// Skip the slash at the start of the resource path.
-	const char *filename = request.resource() + 1;
-	if (strstr(filename, "..") != nullptr)
+	std::string_view filename = request.resource().substr(1);
+	if (filename.find("..") != std::string_view::npos)
 		return false;
 
 	size_t size;
-	uint8_t *data = g_VFS.ReadFile(filename, &size);
+	// TODO: ReadFile should take a string_view.
+	uint8_t *data = g_VFS.ReadFile(std::string(filename).c_str(), &size);
 	if (!data)
 		return false;
 
@@ -351,10 +352,24 @@ static void HandleFallback(const http::ServerRequest &request) {
 
 	AndroidJNIThreadContext jniContext;
 
+	if ((serverFlags & (int)WebServerFlags::DEBUGGER) != 0) {
+		if (request.resource() == "/debugger/") {
+			RedirectToDebugger(request);
+			return;
+		}
+
+		// Actually serve debugger files.
+		if (startsWith(request.resource(), "/debugger/")) {
+			if (ServeDebuggerFile(request)) {
+				return;
+			}
+		}
+	}
+
 	if (serverFlags & (int)WebServerFlags::DISCS) {
-		std::string resource = request.resource();
+		std::string_view resource = request.resource();
 		Path localPath = LocalFromRemotePath(resource);
-		INFO_LOG(Log::Loader, "Serving %s from %s", resource.c_str(), localPath.c_str());
+		INFO_LOG(Log::Loader, "Serving %.*s from %s", (int)resource.size(), resource.data(), localPath.c_str());
 		if (!localPath.empty()) {
 			if (File::IsDirectory(localPath)) {
 				HandleListing(request);
@@ -363,16 +378,6 @@ static void HandleFallback(const http::ServerRequest &request) {
 			}
 			return;
 		}
-	}
-
-	if ((serverFlags & (int)WebServerFlags::DEBUGGER) != 0) {
-		if (!strcmp(request.resource(), "/debugger/")) {
-			RedirectToDebugger(request);
-			return;
-		}
-
-		if (startsWith(request.resource(), "/debugger/") && ServeDebuggerFile(request))
-			return;
 	}
 
 	static const std::string payload = "404 not found\r\n";
@@ -410,7 +415,7 @@ static void ExecuteWebServer() {
 
 	auto http = new http::Server(new NewThreadExecutor());
 	http->RegisterHandler("/", &HandleListing);
-	// This lists all the (current) recent ISOs.
+	// This lists all the (current) recent ISOs. It also handles the debugger, which is very ugly.
 	http->SetFallbackHandler(&HandleFallback);
 	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
 
@@ -500,4 +505,8 @@ void ShutdownWebServer() {
 	if (serverStatus != ServerStatus::STOPPED)
 		serverThread.join();
 	serverStatus = ServerStatus::STOPPED;
+}
+
+bool WebServerRunning(WebServerFlags flags) {
+	return RetrieveStatus() == ServerStatus::RUNNING && (serverFlags & (int)flags) != 0;
 }

@@ -560,7 +560,6 @@ fn main() {
     let opt = Args::parse();
 
     let api_key = std::env::var("OPENAI_API_KEY").ok();
-
     let ai = api_key.map(|key| chatgpt::ChatGPT::new(key, opt.model));
 
     // TODO: Grab extra arguments from opt somehow.
@@ -629,7 +628,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                 target_ini.write().unwrap();
             }
         } else {
-            println!("AI key not set, skipping AI command.");
+            println!("FinishLanguageWithAI: AI key not set, skipping AI command.");
         }
         return;
     }
