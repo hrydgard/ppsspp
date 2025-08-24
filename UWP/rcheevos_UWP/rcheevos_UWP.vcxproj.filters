@@ -149,5 +149,8 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rc_util.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\rcheevos\src\rhash\hash.c">
+      <Filter>rhash</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

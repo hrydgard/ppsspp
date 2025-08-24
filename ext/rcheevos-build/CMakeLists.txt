@@ -35,9 +35,10 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rcheevos/runtime_progress.c
 	${SRC_DIR}/rcheevos/trigger.c
 	${SRC_DIR}/rcheevos/value.c
-	# rhash (still need just md5)
+	# rhash (still need just md5, hash)
 	${SRC_DIR}/rhash/md5.c
 	${SRC_DIR}/rhash/md5.h
+	${SRC_DIR}/rhash/hash.c
 	)
 
 add_library(rcheevos STATIC ${ALL_SOURCE_FILES})
