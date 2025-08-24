@@ -161,6 +161,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		items->Add(new Choice(dev->T("Remote debugger")))->OnClick.Add([](UI::EventParams &e) {
 			int port = g_Config.iRemoteISOPort;  // Also used for serving a local remote debugger.
 			if (g_Config.bRemoteDebuggerLocal) {
+				// TODO: Need to modify this URL to add /cpu when we upgrade to the latest version of the web debugger.
 				char uri[64];
 				snprintf(uri, sizeof(uri), "http://localhost:%d/debugger/", port);
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, uri);
