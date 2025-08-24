@@ -31,6 +31,7 @@
     <ClCompile Include="..\..\ext\zstd\lib\dictBuilder\divsufsort.c" />
     <ClCompile Include="..\..\ext\zstd\lib\dictBuilder\fastcover.c" />
     <ClCompile Include="..\..\ext\zstd\lib\dictBuilder\zdict.c" />
+    <ClCompile Include="..\..\ext\zstd\lib\compress\zstd_preSplit.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -57,5 +58,6 @@
     <ClInclude Include="..\..\ext\zstd\lib\compress\zstd_opt.h" />
     <ClInclude Include="..\..\ext\zstd\lib\compress\zstdmt_compress.h" />
     <ClInclude Include="..\..\ext\zstd\lib\decompress\zstd_ddict.h" />
+    <ClInclude Include="..\..\ext\zstd\lib\compress\zstd_preSplit.h" />
   </ItemGroup>
 </Project>
