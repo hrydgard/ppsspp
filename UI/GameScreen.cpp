@@ -387,8 +387,8 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
 			tvInstallDataSize_->SetText(temp);
 			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
+			updateMaxY(tvInstallDataSize_);
 		}
-		updateMaxY(tvInstallDataSize_);
 	}
 
 	if (tvRegion_) {
