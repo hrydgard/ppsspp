@@ -1899,7 +1899,7 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 				}
 				bool confirmed = ImGui::InputText("##edit", editBuffer_, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
 				// Filter for only enter presses
-				confirmed = confirmed && ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
+				confirmed = confirmed && (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter));
 				if (confirmed || ImGui::IsItemDeactivated()) {
 					watch.SetExpression(editBuffer_, mipsDebug);
 					editingWatchIndex_ = -1;
@@ -1935,7 +1935,7 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 					break;
 				case WatchFormat::FLOAT:
 					memcpy(&valuef, &value, sizeof(valuef));
-					ImGui::Text("%f", value);
+					ImGui::Text("%f", static_cast<float>(value));
 					break;
 				case WatchFormat::STR:
 					if (Memory::IsValidAddress(value)) {
