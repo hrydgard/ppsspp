@@ -585,14 +585,14 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	_assert_msg_(!g_loadingThread.joinable(), "%s", coreParam.fileToStart.c_str());
 
+	Core_NotifyLifecycle(CoreLifecycle::STARTING);
+
 	g_loadingThread = std::thread([error_string]() {
 		SetCurrentThreadName("ExecLoader");
 
 		AndroidJNIThreadContext jniContext;
 
 		NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
-
-		Core_NotifyLifecycle(CoreLifecycle::STARTING);
 
 		Path filename = g_CoreParameter.fileToStart;
 		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));

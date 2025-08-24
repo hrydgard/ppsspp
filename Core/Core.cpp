@@ -26,6 +26,7 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -143,6 +144,8 @@ void Core_ListenLifecycle(CoreLifecycleFunc func) {
 }
 
 void Core_NotifyLifecycle(CoreLifecycle stage) {
+	AssertCurrentThreadName("EmuThread");
+
 	if (stage == CoreLifecycle::STARTING) {
 		Core_ResetException();
 	}
