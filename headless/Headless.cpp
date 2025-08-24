@@ -289,6 +289,8 @@ std::vector<std::string> ReadFromListFile(const std::string &listFilename) {
 	char temp[2048]{};
 
 	if (listFilename == "-") {
+		// If you get stuck here in the debugger, you accidentally passed '@-' on the command line, meaning we expect
+		// a list of files on stdin.
 		while (scanf("%2047s", temp) == 1)
 			testFilenames.push_back(temp);
 	} else {

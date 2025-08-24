@@ -144,8 +144,6 @@ void Core_ListenLifecycle(CoreLifecycleFunc func) {
 }
 
 void Core_NotifyLifecycle(CoreLifecycle stage) {
-	AssertCurrentThreadName("EmuThread");
-
 	if (stage == CoreLifecycle::STARTING) {
 		Core_ResetException();
 	}
