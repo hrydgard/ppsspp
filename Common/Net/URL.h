@@ -120,6 +120,8 @@ struct MultipartFormDataEncoder : UrlEncoder
 		Add(key, value, "", "");
 	}
 
+	using UrlEncoder::Add;
+
 	void Add(const std::string &key, const std::string &value, const std::string &filename, const std::string &mimeType)
 	{
 		data += "--" + boundary + "\r\n";
