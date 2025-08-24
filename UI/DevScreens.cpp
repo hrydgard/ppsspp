@@ -53,6 +53,7 @@
 #include "Common/StringUtils.h"
 #include "Common/GPU/ShaderWriter.h"
 
+#include "Core/WebServer.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -156,10 +157,19 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		return UI::EVENT_DONE;
 	});
 
-	items->Add(new Choice(dev->T("Remote debugger")))->OnClick.Add([](UI::EventParams &e) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://ppsspp-debugger.unknownbrackets.org/cpu");  // NOTE: https doesn't work
-		return UI::EVENT_DONE;
-	});
+	if (WebServerRunning(WebServerFlags::DEBUGGER)) {
+		items->Add(new Choice(dev->T("Remote debugger")))->OnClick.Add([](UI::EventParams &e) {
+			int port = g_Config.iRemoteISOPort;  // Also used for serving a local remote debugger.
+			if (g_Config.bRemoteDebuggerLocal) {
+				char uri[64];
+				snprintf(uri, sizeof(uri), "http://localhost:%d/debugger/", port);
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, uri);
+			} else {
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://ppsspp-debugger.unknownbrackets.org/cpu");  // NOTE: https doesn't work
+			}
+			return UI::EVENT_DONE;
+		});
+	}
 
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 
