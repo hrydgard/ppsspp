@@ -38,7 +38,6 @@ set(ALL_SOURCE_FILES
 	# rhash (still need just md5, hash)
 	${SRC_DIR}/rhash/md5.c
 	${SRC_DIR}/rhash/md5.h
-	${SRC_DIR}/rhash/hash.c
 	)
 
 add_library(rcheevos STATIC ${ALL_SOURCE_FILES})
