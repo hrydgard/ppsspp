@@ -48,6 +48,7 @@
     <ClCompile Include="zstd\lib\compress\zstd_opt.c" />
     <ClCompile Include="zstd\lib\compress\zstd_ldm.c" />
     <ClCompile Include="zstd\lib\compress\zstdmt_compress.c" />
+    <ClCompile Include="zstd\lib\compress\zstd_preSplit.c" />
     <ClCompile Include="zstd\lib\decompress\huf_decompress.c" />
     <ClCompile Include="zstd\lib\decompress\zstd_decompress.c" />
     <ClCompile Include="zstd\lib\decompress\zstd_decompress_block.c" />
@@ -69,6 +70,7 @@
     <ClInclude Include="zstd\lib\common\threading.h" />
     <ClInclude Include="zstd\lib\common\bitstream.h" />
     <ClInclude Include="zstd\lib\common\error_private.h" />
+    <ClInclude Include="zstd\lib\compress\zstd_preSplit.h" />
     <ClInclude Include="zstd\lib\zstd_errors.h" />
     <ClInclude Include="zstd\lib\common\mem.h" />
     <ClInclude Include="zstd\lib\common\fse.h" />

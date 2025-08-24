@@ -69,7 +69,6 @@
     <ClInclude Include="..\rcheevos\include\rc_hash.h" />
     <ClInclude Include="..\rcheevos\include\rc_runtime.h" />
     <ClInclude Include="..\rcheevos\include\rc_runtime_types.h" />
-    <ClInclude Include="..\rcheevos\include\rc_url.h" />
     <ClInclude Include="..\rcheevos\include\rc_util.h" />
     <ClInclude Include="..\rcheevos\src\rapi\rc_api_common.h" />
     <ClInclude Include="..\rcheevos\src\rcheevos\rc_internal.h" />

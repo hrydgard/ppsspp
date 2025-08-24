@@ -24,6 +24,7 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/compress/zstd_lazy.c
 	${SRC_DIR}/compress/zstd_ldm.c
 	${SRC_DIR}/compress/zstd_opt.c
+	${SRC_DIR}/compress/zstd_preSplit.c
 	${SRC_DIR}/compress/zstdmt_compress.c
 	${SRC_DIR}/decompress/huf_decompress.c
 	${SRC_DIR}/decompress/zstd_ddict.c

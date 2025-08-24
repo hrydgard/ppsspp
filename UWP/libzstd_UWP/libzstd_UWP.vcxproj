@@ -67,6 +67,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\ext\zstd\lib\compress\zstd_preSplit.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\ext\zstd\lib\common\error_private.h" />
@@ -114,6 +115,7 @@
     <ClCompile Include="..\..\ext\zstd\lib\compress\zstd_ldm.c" />
     <ClCompile Include="..\..\ext\zstd\lib\compress\zstd_opt.c" />
     <ClCompile Include="..\..\ext\zstd\lib\compress\zstdmt_compress.c" />
+    <ClCompile Include="..\..\ext\zstd\lib\compress\zstd_preSplit.c" />
     <ClCompile Include="..\..\ext\zstd\lib\decompress\huf_decompress.c" />
     <ClCompile Include="..\..\ext\zstd\lib\decompress\zstd_ddict.c" />
     <ClCompile Include="..\..\ext\zstd\lib\decompress\zstd_decompress.c" />

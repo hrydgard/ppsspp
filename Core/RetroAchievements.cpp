@@ -24,8 +24,6 @@
 #include "ext/rcheevos/include/rc_api_info.h"
 #include "ext/rcheevos/include/rc_api_request.h"
 #include "ext/rcheevos/include/rc_api_runtime.h"
-#include "ext/rcheevos/include/rc_api_user.h"
-#include "ext/rcheevos/include/rc_url.h"
 
 #include "ext/rapidjson/include/rapidjson/document.h"
 

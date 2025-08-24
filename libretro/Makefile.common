@@ -999,7 +999,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
 	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
 
-INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
+INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include/DX11
 
 endif
 
@@ -1029,6 +1029,7 @@ SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/compress/zstd_lazy.c \
                $(ZSTDDIR)/compress/zstd_ldm.c \
                $(ZSTDDIR)/compress/zstd_opt.c \
+               $(ZSTDDIR)/compress/zstd_preSplit.c \
                $(ZSTDDIR)/compress/zstdmt_compress.c \
                $(ZSTDDIR)/decompress/huf_decompress.c \
                $(ZSTDDIR)/decompress/zstd_ddict.c \

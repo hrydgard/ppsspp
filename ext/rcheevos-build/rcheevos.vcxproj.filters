@@ -125,9 +125,6 @@
     <ClInclude Include="..\rcheevos\include\rc_runtime_types.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\rcheevos\include\rc_url.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\rcheevos\include\rcheevos.h">
       <Filter>include</Filter>
     </ClInclude>

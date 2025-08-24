@@ -858,6 +858,7 @@ LIBZSTD_FILES := \
   $(SRC)/ext/zstd/lib/compress/zstd_lazy.c \
   $(SRC)/ext/zstd/lib/compress/zstd_ldm.c \
   $(SRC)/ext/zstd/lib/compress/zstd_opt.c \
+  $(SRC)/ext/zstd/lib/compress/zstd_preSplit.c \
   $(SRC)/ext/zstd/lib/compress/zstdmt_compress.c \
   $(SRC)/ext/zstd/lib/decompress/huf_decompress.c \
   $(SRC)/ext/zstd/lib/decompress/zstd_ddict.c \
