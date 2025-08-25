@@ -233,7 +233,7 @@ void System_Toast(std::string_view text) {
 	std::wstring str = ConvertUTF8ToWString(text);
 	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);
 #else
-    printf("%*.s", (int)text.length(), text.data());
+    fprintf(stderr, "%*.s", (int)text.length(), text.data());
 #endif
 }
 
@@ -800,7 +800,7 @@ void System_Notify(SystemNotification notification) {
 static int parseInt(const char *str) {
 	int val;
 	int retval = sscanf(str, "%d", &val);
-	printf("%i = scanf %s\n", retval, str);
+	fprintf(stderr, "%i = scanf %s\n", retval, str);
 	if (retval != 1) {
 		return -1;
 	} else {
@@ -811,7 +811,7 @@ static int parseInt(const char *str) {
 static float parseFloat(const char *str) {
 	float val;
 	int retval = sscanf(str, "%f", &val);
-	printf("%i = sscanf %s\n", retval, str);
+	fprintf(stderr, "%i = sscanf %s\n", retval, str);
 	if (retval != 1) {
 		return -1.0f;
 	} else {
@@ -1351,12 +1351,63 @@ void UpdateSDLCursor() {
 #endif
 }
 
+static int printUsage(const char *progname)
+{
+	// NOTE: by convention, --help outputs to stdout,
+	// not to stderr, since it is intended output in this
+	// case (usage printed under different circumstances,
+	// say in response to error during parsing commandline,
+	// may go to stderr).
+	FILE *dst = stdout;
+
+	// NOTE: wording largely taken from
+	// https://www.ppsspp.org/docs/reference/command-line/
+	fprintf(dst, "PPSSPP - a PSP emulator (SDL build)\n");
+	fprintf(dst, "Usage: %s [options] [FILE]\n\n", progname);
+	fprintf(dst, "Launches FILE (e.g. ISO image) if present.\n");
+	fprintf(dst, "Options (some of these are specific to SDL backend):\n");
+	fprintf(dst, "  -h, --help            show this message and exit\n");
+	fprintf(dst, "  --version             show version information and exit\n");
+
+	fprintf(dst, "  -d                    set the log level to debug\n");
+	fprintf(dst, "  -v                    set the log level to verbose\n");
+	fprintf(dst, "  --loglevel=INTEGER    set the log level to specified value\n");
+	fprintf(dst, "  --log=FILE            output log to FILE\n");
+	fprintf(dst, "  --state=FILE          load state from FILE\n");
+
+	fprintf(dst, "  -i                    use the interpreter\n");
+	fprintf(dst, "  -r                    use IR interpreter\n");
+	fprintf(dst, "  -j                    use JIT\n");
+	fprintf(dst, "  -J                    use IR JIT\n");
+
+	fprintf(dst, "  --fullscreen          force full screen mode, ignoring saved configuration\n");
+	fprintf(dst, "  --windowed            force windowed mode, ignoring saved configuration\n");
+	fprintf(dst, "  --xres PIXELS         set X resolution\n");
+	fprintf(dst, "  --yres PIXELS         set Y resolution\n");
+	fprintf(dst, "  --dpi  FACTOR         set DPI\n");
+	fprintf(dst, "  --scale FACTOR        set scale\n");
+	fprintf(dst, "  --ipad                set resolution to 1024x768\n");
+	fprintf(dst, "  --portrait            portrait mode\n");
+	fprintf(dst, "  --graphics=BACKEND    use a different gpu backend\n");
+	fprintf(dst, "                        options: gles, software, etc. (also opengl3.1, etc.)\n");
+
+	fprintf(dst, "  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
+	fprintf(dst, "  --escape-exit         escape key exits the application\n");
+	fprintf(dst, "  --gamesettings        go directly to settings\n");
+    fprintf(dst, "  --touchscreentest     go directly to the touchscreentest screen\n");
+    fprintf(dst, "  --appendconfig=FILE   merge config FILE into the current configuration\n");
+
+	return 0;
+}
+
 #ifdef _WIN32
 #undef main
 #endif
 int main(int argc, char *argv[]) {
 	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--version")) {
+		if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
+			return printUsage(argv[0]);
+		else if (!strcmp(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);
 			return 0;
 		}
@@ -1391,10 +1442,10 @@ int main(int argc, char *argv[]) {
 
 	bool vulkanMayBeAvailable = false;
 	if (VulkanMayBeAvailable()) {
-		printf("DEBUG: Vulkan might be available.\n");
+		fprintf(stderr, "DEBUG: Vulkan might be available.\n");
 		vulkanMayBeAvailable = true;
 	} else {
-		printf("DEBUG: Vulkan is not available, not using Vulkan.\n");
+		fprintf(stderr, "DEBUG: Vulkan is not available, not using Vulkan.\n");
 	}
 
 	SDL_version compiled;
@@ -1486,11 +1537,11 @@ int main(int argc, char *argv[]) {
 
 	SDL_VERSION(&compiled);
 	SDL_GetVersion(&linked);
-	printf("Info: We compiled against SDL version %d.%d.%d", compiled.major, compiled.minor, compiled.patch);
+	fprintf(stderr, "Info: We compiled against SDL version %d.%d.%d", compiled.major, compiled.minor, compiled.patch);
 	if (compiled.minor != linked.minor || compiled.patch != linked.patch) {
-		printf(", but we are linking against SDL version %d.%d.%d., be aware that this can lead to unexpected behaviors\n", linked.major, linked.minor, linked.patch);
+		fprintf(stderr, ", but we are linking against SDL version %d.%d.%d., be aware that this can lead to unexpected behaviors\n", linked.major, linked.minor, linked.patch);
 	} else {
-		printf(" and we are linking against SDL version %d.%d.%d. :)\n", linked.major, linked.minor, linked.patch);
+		fprintf(stderr, " and we are linking against SDL version %d.%d.%d. :)\n", linked.major, linked.minor, linked.patch);
 	}
 
 	// Get the video info before doing anything else, so we don't get skewed resolution results.
@@ -1622,7 +1673,7 @@ int main(int argc, char *argv[]) {
 		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
 		if (glctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version) != 0) {
 			// Let's try the fallback once per process run.
-			printf("GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
+			fprintf(stderr, "GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			delete glctx;
@@ -1630,7 +1681,7 @@ int main(int argc, char *argv[]) {
 			// NOTE : This should match the lines below in the Vulkan case.
 			SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
 			if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
-				printf("Vulkan fallback failed: %s\n", error_message.c_str());
+				fprintf(stderr, "Vulkan fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
 			graphicsContext = vkctx;
@@ -1643,7 +1694,7 @@ int main(int argc, char *argv[]) {
 		if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
 			// Let's try the fallback once per process run.
 
-			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
+			fprintf(stderr, "Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			delete vkctx;
@@ -1651,7 +1702,7 @@ int main(int argc, char *argv[]) {
 			// NOTE : This should match the three lines above in the OpenGL case.
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
 			if (glctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version) != 0) {
-				printf("GL fallback failed: %s\n", error_message.c_str());
+				fprintf(stderr, "GL fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
 			graphicsContext = glctx;
@@ -1693,7 +1744,7 @@ int main(int argc, char *argv[]) {
 
 	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
 	if (!graphicsContext->InitFromRenderThread(&error_message)) {
-		printf("Init from thread error: '%s'\n", error_message.c_str());
+		fprintf(stderr, "Init from thread error: '%s'\n", error_message.c_str());
 		return 1;
 	}
 
@@ -1799,7 +1850,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (g_rebootEmuThread) {
-			printf("rebooting emu thread");
+			fprintf(stderr, "rebooting emu thread");
 			g_rebootEmuThread = false;
 			EmuThreadStop("shutdown");
 			// Skipping GL calls, the old context is gone.
@@ -1810,12 +1861,12 @@ int main(int argc, char *argv[]) {
 			graphicsContext->ThreadEnd();
 			graphicsContext->ShutdownFromRenderThread();
 
-			printf("OK, shutdown complete. starting up graphics again.\n");
+			fprintf(stderr, "OK, shutdown complete. starting up graphics again.\n");
 
 			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
 				if (!ctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version)) {
-					printf("Failed to reinit graphics.\n");
+					fprintf(stderr, "Failed to reinit graphics.\n");
 				}
 			}
 
@@ -1861,7 +1912,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 	glslang::FinalizeProcess();
-	printf("Leaving main\n");
+	fprintf(stderr, "Leaving main\n");
 #ifdef HAVE_LIBNX
 	socketExit();
 #endif
