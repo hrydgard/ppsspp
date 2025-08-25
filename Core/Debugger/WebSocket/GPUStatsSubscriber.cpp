@@ -89,8 +89,8 @@ protected:
 
 DebuggerSubscriber *WebSocketGPUStatsInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketGPUStatsState();
-	map["gpu.stats.get"] = std::bind(&WebSocketGPUStatsState::Get, p, std::placeholders::_1);
-	map["gpu.stats.feed"] = std::bind(&WebSocketGPUStatsState::Feed, p, std::placeholders::_1);
+	map["gpu.stats.get"] = [p](DebuggerRequest &req) { p->Get(req); };
+	map["gpu.stats.feed"] = [p](DebuggerRequest &req) { p->Feed(req); };
 
 	return p;
 }

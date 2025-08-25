@@ -52,11 +52,10 @@ protected:
 
 DebuggerSubscriber *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketDisasmState();
-	map["memory.base"] = std::bind(&WebSocketDisasmState::Base, p, std::placeholders::_1);
-	map["memory.disasm"] = std::bind(&WebSocketDisasmState::Disasm, p, std::placeholders::_1);
-	map["memory.searchDisasm"] = std::bind(&WebSocketDisasmState::SearchDisasm, p, std::placeholders::_1);
-	map["memory.assemble"] = std::bind(&WebSocketDisasmState::Assemble, p, std::placeholders::_1);
-
+	map["memory.base"] = [p](DebuggerRequest &req) { p->Base(req); };
+	map["memory.disasm"] = [p](DebuggerRequest &req) { p->Disasm(req); };
+	map["memory.searchDisasm"] = [p](DebuggerRequest &req) { p->SearchDisasm(req); };
+	map["memory.assemble"] = [p](DebuggerRequest &req) { p->Assemble(req); };
 	return p;
 }
 

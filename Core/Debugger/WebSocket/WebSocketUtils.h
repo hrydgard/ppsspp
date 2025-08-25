@@ -38,7 +38,7 @@ struct WebSocketClientInfo {
 
 	std::string name;
 	std::string version;
-	std::map <std::string, bool> disallowed;
+	std::map<std::string, bool> disallowed;
 };
 
 struct DebuggerErrorEvent {
@@ -117,6 +117,6 @@ public:
 };
 
 typedef std::function<void(DebuggerRequest &req)> DebuggerEventHandler;
-typedef std::unordered_map<std::string, DebuggerEventHandler> DebuggerEventHandlerMap;
+typedef std::unordered_map<std::string_view, DebuggerEventHandler> DebuggerEventHandlerMap;
 
 uint32_t RoundMemAddressUp(uint32_t addr);

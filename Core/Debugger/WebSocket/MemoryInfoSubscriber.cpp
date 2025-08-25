@@ -45,11 +45,11 @@ protected:
 
 DebuggerSubscriber *WebSocketMemoryInfoInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketMemoryInfoState();
-	map["memory.mapping"] = std::bind(&WebSocketMemoryInfoState::Mapping, p, std::placeholders::_1);
-	map["memory.info.config"] = std::bind(&WebSocketMemoryInfoState::Config, p, std::placeholders::_1);
-	map["memory.info.set"] = std::bind(&WebSocketMemoryInfoState::Set, p, std::placeholders::_1);
-	map["memory.info.list"] = std::bind(&WebSocketMemoryInfoState::List, p, std::placeholders::_1);
-	map["memory.info.search"] = std::bind(&WebSocketMemoryInfoState::Search, p, std::placeholders::_1);
+	map["memory.mapping"] = [p](DebuggerRequest &req) { p->Mapping(req); };
+	map["memory.info.config"] = [p](DebuggerRequest &req) { p->Config(req); };
+	map["memory.info.set"] = [p](DebuggerRequest &req) { p->Set(req); };
+	map["memory.info.list"] = [p](DebuggerRequest &req) { p->List(req); };
+	map["memory.info.search"] = [p](DebuggerRequest &req) { p->Search(req); };
 
 	return p;
 }
