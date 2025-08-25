@@ -346,8 +346,17 @@ void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	list->Add(new ItemHeader(ms->T("Networking")));
 	list->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
+
+	// Note: Intensionally didn't use translation here, until we move these to the
+	// regular settings after the code is merged.
+	list->Add(new ItemHeader("PSN replacement"));
+	PopupTextInputChoice *usernameChoice = list->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sPSNNPID, di->T("Username"), "", 64, screenManager()));
+	usernameChoice->SetRestriction(StringRestriction::AlphaNumDashUnderscore, 3);
+	list->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sPSNPassword, di->T("Password"), "", 64, screenManager()));
+	list->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sPSNToken, "Token", "", 64, screenManager()));
 }
 
 void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
