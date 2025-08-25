@@ -687,7 +687,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
-	{
+		// Launch on a thread to avoid blocking the main thread. Can feel slow.
 		std::thread([=] {
 			SetCurrentThreadName("BrowseForFolder");
 			std::string folder = W32Util::BrowseForFolder2(MainWindow::GetHWND(), param1, param2);
@@ -698,10 +698,13 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		}).detach();
 		return true;
-	}
 
 	case SystemRequestType::SHOW_FILE_IN_FOLDER:
-		W32Util::ShowFileInFolder(param1);
+		// Launch on a thread to avoid blocking the main thread. Can feel slow.
+		std::thread([=] {
+			SetCurrentThreadName("ShowFileInFolder");
+			W32Util::ShowFileInFolder(param1);
+		}).detach();
 		return true;
 
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:

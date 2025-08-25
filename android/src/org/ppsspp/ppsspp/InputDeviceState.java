@@ -16,15 +16,15 @@ public class InputDeviceState {
 
 	private int deviceId = NativeApp.DEVICE_ID_DEFAULT;
 
-	private InputDevice mDevice;
-	private int[] mAxes;
+	private final InputDevice mDevice;
+	private final int[] mAxes;
 	private float[] mAxisPrevValue;
 
 	// Buffers for the native calls.
-	private int[] mAxisIds = null;
-	private float[] mValues = null;
+	private final int[] mAxisIds;
+	private final float[] mValues;
 
-	private int sources;
+	private final int sources;
 
 	InputDevice getDevice() {
 		return mDevice;

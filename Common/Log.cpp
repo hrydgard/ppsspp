@@ -95,7 +95,6 @@ void BreakIntoPSPDebugger(const char *reason) {
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
 	char text[LOG_BUF_SIZE];
-	const char *caption = "Critical";
 	va_list args;
 	va_start(args, format);
 	vsnprintf(text, sizeof(text), format, args);
@@ -136,7 +135,8 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 		const char *threadName = GetCurrentThreadName();
 		OutputDebugStringA(formatted);
 		printf("%s\n", formatted);
-		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
+		static const std::string caption = "Critical";
+		std::wstring wcaption = ConvertUTF8ToWString(caption + " " + (threadName ? threadName : "(unknown thread)"));
 		switch (MessageBox(g_dialogParent, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle)) {
 		case IDYES:
 			return true;

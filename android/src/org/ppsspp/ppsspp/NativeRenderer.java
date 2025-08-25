@@ -2,7 +2,6 @@ package org.ppsspp.ppsspp;
 
 import android.opengl.GLSurfaceView;
 import android.util.Log;
-import android.widget.Toast;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -12,8 +11,8 @@ import javax.microedition.khronos.opengles.GL10;
 
 // Only used for the OpenGL backend.
 public class NativeRenderer implements GLSurfaceView.Renderer {
-	private static String TAG = "NativeRenderer";
-	private NativeActivity mActivity;
+	private static final String TAG = "NativeRenderer";
+	private final NativeActivity mActivity;
 	private boolean inFrame = false;
 	private boolean failed = false;
 

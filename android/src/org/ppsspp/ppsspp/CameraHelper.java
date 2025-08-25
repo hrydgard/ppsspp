@@ -170,7 +170,7 @@ class CameraHelper {
 				String devName = index + ":" + (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK ? "Back Camera" : "Front Camera");
 				deviceList.add(devName);
 			} catch (Exception e) {
-				Log.e(TAG, "Failed to get camera info: " + e.toString());
+				Log.e(TAG, "Failed to get camera info: " + e);
 			}
 		}
 		return deviceList;
@@ -262,7 +262,7 @@ class CameraHelper {
 			mCamera.startPreview();
 			mIsCameraRunning = true;
 		} catch (Exception e) {
-			Log.e(TAG, "Cannot start camera: " + e.toString());
+			Log.e(TAG, "Cannot start camera: " + e);
 		}
 	}
 
