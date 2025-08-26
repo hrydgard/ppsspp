@@ -49,14 +49,9 @@ void WebSocketGameReset(DebuggerRequest &req) {
 	if (needBreak)
 		PSP_CoreParameter().startBreak = true;
 
-	std::string resetError;
-	if (PSP_Reboot(&resetError) != BootState::Complete) {
-		ERROR_LOG(Log::Boot, "Error resetting: %s", resetError.c_str());
-		return req.Fail("Could not reset");
-	}
-
-	System_Notify(SystemNotification::BOOT_DONE);
-	System_Notify(SystemNotification::DISASSEMBLY);
+	// We can only support async resets here. A lot of the stuff in init must happen on the EmuThread,
+	// and we are not on it here.
+	System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 
 	req.Respond();
 }
