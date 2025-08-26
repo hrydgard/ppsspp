@@ -49,6 +49,8 @@ protected:
 	UI::TextView *firewallWarning_ = nullptr;
 	bool serverRunning_ = false;
 	bool serverStopping_ = false;
+
+	int frameCount_ = 0;
 };
 
 enum class ScanStatus {
