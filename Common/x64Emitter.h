@@ -399,7 +399,7 @@ public:
 	XEmitter(u8 *code_ptr) { code = code_ptr; flags_locked = false; }
 	virtual ~XEmitter() {}
 
-	void WriteModRM(int mod, int rm, int reg);
+	void WriteModRM(int mod, int reg, int rm);
 	void WriteSIB(int scale, int index, int base);
 
 	void SetCodePointer(u8 *ptr, u8 *writePtr);
@@ -699,7 +699,7 @@ public:
 	void HADDPS(X64Reg dest, OpArg src);
 
 	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
-	void DPPS(X64Reg dest, OpArg src, u8 arg);
+	void DPPS(X64Reg dest, OpArg arg, u8 mask);
 
 	void UNPCKLPS(X64Reg dest, OpArg src);
 	void UNPCKHPS(X64Reg dest, OpArg src);
@@ -1066,11 +1066,11 @@ public:
 	void VMOVLHPS(X64Reg regOp1, X64Reg regOp2, X64Reg arg);
 	void VMOVHPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VMOVHPS(OpArg arg, X64Reg regOp1);
-	void VMOVHPD(X64Reg regOp2, X64Reg regOp1, OpArg arg);
+	void VMOVHPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VMOVHPD(OpArg arg, X64Reg regOp1);
-	void VMOVLPS(X64Reg regOp2, X64Reg regOp1, OpArg arg);
+	void VMOVLPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VMOVLPS(OpArg arg, X64Reg regOp1);
-	void VMOVLPD(X64Reg regOp2, X64Reg regOp1, OpArg arg);
+	void VMOVLPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VMOVLPD(OpArg arg, X64Reg regOp1);
 	void VMOVMSKPS(int bits, X64Reg genReg, X64Reg xmmReg);
 	void VMOVMSKPD(int bits, X64Reg genReg, X64Reg xmmReg);
