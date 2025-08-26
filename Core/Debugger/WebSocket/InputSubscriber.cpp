@@ -95,9 +95,9 @@ const std::unordered_map<std::string, uint32_t> &WebSocketInputButtonLookup() {
 
 DebuggerSubscriber *WebSocketInputInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketInputState();
-	map["input.buttons.send"] = std::bind(&WebSocketInputState::ButtonsSend, p, std::placeholders::_1);
-	map["input.buttons.press"] = std::bind(&WebSocketInputState::ButtonsPress, p, std::placeholders::_1);
-	map["input.analog.send"] = std::bind(&WebSocketInputState::AnalogSend, p, std::placeholders::_1);
+	map["input.buttons.send"] = [p](DebuggerRequest &req) { p->ButtonsSend(req); };
+	map["input.buttons.press"] = [p](DebuggerRequest &req) { p->ButtonsPress(req); };
+	map["input.analog.send"] = [p](DebuggerRequest &req) { p->AnalogSend(req); };
 
 	return p;
 }

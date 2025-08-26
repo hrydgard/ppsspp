@@ -170,7 +170,7 @@ static std::string RemotePathForRecent(const std::string &filename) {
 	return std::string();
 }
 
-static Path LocalFromRemotePath(const std::string_view &path) {
+static Path LocalFromRemotePath(std::string_view path) {
 	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 	case RemoteISOShareType::RECENT:
 		for (const std::string &filename : g_recentFiles.GetRecentFiles()) {

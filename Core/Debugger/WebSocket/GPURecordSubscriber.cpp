@@ -38,7 +38,7 @@ protected:
 
 DebuggerSubscriber *WebSocketGPURecordInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketGPURecordState();
-	map["gpu.record.dump"] = std::bind(&WebSocketGPURecordState::Dump, p, std::placeholders::_1);
+	map["gpu.record.dump"] = [p](DebuggerRequest &req) { p->Dump(req); };
 
 	return p;
 }

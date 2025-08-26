@@ -89,8 +89,8 @@ protected:
 
 DebuggerSubscriber *WebSocketGPUStatsInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketGPUStatsState();
-	map["gpu.stats.get"] = std::bind(&WebSocketGPUStatsState::Get, p, std::placeholders::_1);
-	map["gpu.stats.feed"] = std::bind(&WebSocketGPUStatsState::Feed, p, std::placeholders::_1);
+	map["gpu.stats.get"] = [p](DebuggerRequest &req) { p->Get(req); };
+	map["gpu.stats.feed"] = [p](DebuggerRequest &req) { p->Feed(req); };
 
 	return p;
 }
@@ -126,11 +126,12 @@ void WebSocketGPUStatsState::FlipListener() {
 	float *sleepHistory;
 	float *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
 
-	// TODO: 'valid' could be 0 => frameTimes[0] and sleepTimes[0] could lead to a crash
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
-	memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
-	memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(double) * valid);
+	if (valid > 0) {
+		memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
+		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(double) * valid);
+	}
 
 	sendNext_ = false;
 }

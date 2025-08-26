@@ -346,8 +346,13 @@ void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	list->Add(new ItemHeader(ms->T("Networking")));
 	list->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
+
+	// This is shared between RemoteISO and the remote debugger.
+	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
+	list->Add(portChoice);
 }
 
 void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {

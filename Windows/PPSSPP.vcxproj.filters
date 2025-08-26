@@ -806,6 +806,9 @@
     <None Include="..\ios\ViewControllerMetal.mm">
       <Filter>Other Platforms\iOS</Filter>
     </None>
+    <None Include="..\scripts\websocket-test.py">
+      <Filter>Other Platforms</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

@@ -759,9 +759,9 @@ bool DetectRectangleFromPair(const RasterizerState &state, const ClipVertexData 
 bool DetectRectangleThroughModeSlices(const RasterizerState &state, const ClipVertexData data[4]) {
 	// Color and Z must be flat.
 	for (int i = 1; i < 4; ++i) {
-		if (!(data[i].v.color0 == data[0].v.color0))
+		if (data[i].v.color0 != data[0].v.color0)
 			return false;
-		if (!(data[i].v.screenpos.z == data[0].v.screenpos.z)) {
+		if (data[i].v.screenpos.z != data[0].v.screenpos.z) {
 			// Sometimes, we don't actually care about z.
 			if (state.pixelID.depthWrite || state.pixelID.DepthTestFunc() != GE_COMP_ALWAYS)
 				return false;

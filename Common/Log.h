@@ -53,6 +53,7 @@ enum class Log {
 	HTTP,
 	Printf,
 	TexReplacement,
+	Debugger,
 	GeDebugger,
 	UI,
 	IAP,

@@ -51,12 +51,11 @@ protected:
 
 DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketSteppingState();
-	map["cpu.stepInto"] = std::bind(&WebSocketSteppingState::Into, p, std::placeholders::_1);
-	map["cpu.stepOver"] = std::bind(&WebSocketSteppingState::Over, p, std::placeholders::_1);
-	map["cpu.stepOut"] = std::bind(&WebSocketSteppingState::Out, p, std::placeholders::_1);
-	map["cpu.runUntil"] = std::bind(&WebSocketSteppingState::RunUntil, p, std::placeholders::_1);
-	map["cpu.nextHLE"] = std::bind(&WebSocketSteppingState::HLE, p, std::placeholders::_1);
-
+	map["cpu.stepInto"] = [p](DebuggerRequest &req) { p->Into(req); };
+	map["cpu.stepOver"] = [p](DebuggerRequest &req) { p->Over(req); };
+	map["cpu.stepOut"]  = [p](DebuggerRequest &req) { p->Out(req); };
+	map["cpu.runUntil"] = [p](DebuggerRequest &req) { p->RunUntil(req); };
+	map["cpu.nextHLE"]  = [p](DebuggerRequest &req) { p->HLE(req); };
 	return p;
 }
 
