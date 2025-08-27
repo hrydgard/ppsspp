@@ -283,6 +283,7 @@ namespace CustomKeyData {
 		ImageID i; // UI ImageID
 		uint32_t c; // Key code
 	};
+	// NOTE: This list can be freely reordered, we store the keycode, not the index.
 	static const keyList customKeyList[] = {
 		{ ImageID("I_SQUARE"), CTRL_SQUARE },
 		{ ImageID("I_TRIANGLE"), CTRL_TRIANGLE },
@@ -316,6 +317,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_ANALOG_ROTATE_CW },
 		{ ImageID::invalid(), VIRTKEY_ANALOG_ROTATE_CCW },
 		{ ImageID::invalid(), VIRTKEY_PAUSE },
+		{ ImageID::invalid(), VIRTKEY_PAUSE_NO_MENU },
 		{ ImageID::invalid(), VIRTKEY_RESET_EMULATION },
 		{ ImageID::invalid(), VIRTKEY_DEVMENU },
 #ifndef MOBILE_DEVICE

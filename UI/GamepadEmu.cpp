@@ -49,7 +49,8 @@ void GamepadUpdateOpacity(float force) {
 		g_gamepadOpacity = force;
 		return;
 	}
-	if (coreState != CORE_RUNNING_CPU) {
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN || coreState == CORE_STEPPING_GE) {
+		// No need to show the controls.
 		g_gamepadOpacity = 0.0f;
 		return;
 	}

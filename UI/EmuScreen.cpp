@@ -1807,7 +1807,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (hasVisibleUI()) {
 		draw->SetViewport(viewport);
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
-		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
 	}
 
