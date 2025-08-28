@@ -1854,7 +1854,7 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 ImWatchWindow::ImWatchWindow() {}
 
 void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug) {
-	if (!ImGui::Begin("Watch", &cfg.atracToolOpen) || !g_symbolMap) {
+	if (!ImGui::Begin("Watch", &cfg.watchOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
