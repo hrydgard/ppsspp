@@ -203,6 +203,28 @@ impl Section {
         });
     }
 
+    pub fn get_lines_not_in(&self, other: &Section) -> Vec<String> {
+        let mut missing_lines = Vec::new();
+        // Brute force (O(n^2)). Bad but not a problem.
+        for line in &self.lines {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos + 2]
+            } else {
+                // Keep non-key lines.
+                continue;
+            };
+            if prefix.starts_with("Font") || prefix.starts_with('#') {
+                continue;
+            }
+
+            // keeps the line if this expression returns true.
+            if !other.lines.iter().any(|line| line.starts_with(prefix)) {
+                missing_lines.push(line.clone());
+            }
+        }
+        missing_lines
+    }
+
     pub fn get_keys_if_not_in(&mut self, other: &Section) -> Vec<String> {
         let mut missing_lines = Vec::new();
         // Brute force (O(n^2)). Bad but not a problem.
