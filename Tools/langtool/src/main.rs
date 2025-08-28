@@ -34,6 +34,7 @@ enum Command {
         #[arg(short, long)]
         dont_comment_missing: bool,
     },
+    ListUnknownLines {},
     CommentUnknownLines {},
     RemoveUnknownLines {},
     AddNewKey {
@@ -118,17 +119,35 @@ fn copy_missing_lines(
     Ok(())
 }
 
+enum UnknownLineAction {
+    Remove,
+    Comment,
+    Log,
+}
+
 fn deal_with_unknown_lines(
     reference_ini: &IniFile,
     target_ini: &mut IniFile,
-    remove: bool,
+    action: UnknownLineAction,
 ) -> io::Result<()> {
     for reference_section in &reference_ini.sections {
         if let Some(target_section) = target_ini.get_section_mut(&reference_section.name) {
-            if remove {
-                target_section.remove_lines_if_not_in(reference_section);
-            } else {
-                target_section.comment_out_lines_if_not_in(reference_section);
+            match action {
+                UnknownLineAction::Remove => {
+                    target_section.remove_lines_if_not_in(reference_section)
+                }
+                UnknownLineAction::Comment => {
+                    target_section.comment_out_lines_if_not_in(reference_section)
+                }
+                UnknownLineAction::Log => {
+                    let unknown_lines = target_section.get_lines_not_in(reference_section);
+                    if !unknown_lines.is_empty() {
+                        println!("Unknown lines in section [{}]:", target_section.name);
+                        for line in unknown_lines {
+                            println!("  {}", line);
+                        }
+                    }
+                }
             }
         }
     }
@@ -703,10 +722,16 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                 copy_missing_lines(reference_ini, &mut target_ini, !dont_comment_missing).unwrap();
             }
             Command::CommentUnknownLines {} => {
-                deal_with_unknown_lines(reference_ini, &mut target_ini, false).unwrap();
+                deal_with_unknown_lines(reference_ini, &mut target_ini, UnknownLineAction::Comment)
+                    .unwrap();
             }
             Command::RemoveUnknownLines {} => {
-                deal_with_unknown_lines(reference_ini, &mut target_ini, true).unwrap();
+                deal_with_unknown_lines(reference_ini, &mut target_ini, UnknownLineAction::Remove)
+                    .unwrap();
+            }
+            Command::ListUnknownLines {} => {
+                deal_with_unknown_lines(reference_ini, &mut target_ini, UnknownLineAction::Log)
+                    .unwrap();
             }
             Command::GetNewKeys => {
                 print_keys_if_not_in(reference_ini, &mut target_ini, &target_ini_filename).unwrap();
