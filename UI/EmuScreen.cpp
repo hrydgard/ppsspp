@@ -455,7 +455,7 @@ EmuScreen::~EmuScreen() {
 	SetExtraAssertInfo(nullptr);
 	SetAssertCancelCallback(nullptr, nullptr);
 
-	g_logManager.EnableOutput(LogOutput::RingBuffer);
+	g_logManager.DisableOutput(LogOutput::RingBuffer);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && startDumping_)

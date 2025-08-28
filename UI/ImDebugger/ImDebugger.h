@@ -83,6 +83,7 @@ struct ImConfig {
 	bool internalsOpen;
 	bool sasAudioOpen;
 	bool logConfigOpen;
+	bool logOpen;
 	bool utilityModulesOpen;
 	bool atracToolOpen;
 	bool memViewOpen[4];
@@ -150,6 +151,15 @@ private:
 	bool setEditFocus_ = false;
 };
 
+class ImLogWindow {
+public:
+	ImLogWindow() {}
+	void Draw(ImConfig &cfg);
+
+private:
+	bool                AutoScroll = true;  // Keep scrolling if already at the bottom.
+};
+
 enum class ImCmd {
 	NONE = 0,
 	TRIGGER_FIND_POPUP,
@@ -204,6 +214,7 @@ private:
 	ImWatchWindow watchWindow_;
 	ImAtracToolWindow atracToolWindow_;
 	ImConsole luaConsole_;
+	ImLogWindow logWindow_;
 
 	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;
