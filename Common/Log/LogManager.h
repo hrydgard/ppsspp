@@ -137,8 +137,8 @@ public:
 	}
 #endif
 
-	const RingbufferLog *GetRingbuffer() const {
-		return &ringLog_;
+	const RingbufferLog &GetRingbuffer() const {
+		return ringLog_;
 	}
 
 	void Init(bool *enabledSetting, bool headless = false);
@@ -156,6 +156,18 @@ public:
 	void LoadConfig(const Section *section);
 
 	static const char *GetLogTypeName(Log type);
+
+	static u32 GetLevelColor(LogLevel level) {
+		switch (level) {
+		case LogLevel::LDEBUG: return 0xE0E0E0;
+		case LogLevel::LWARNING: return 0x50FFFF;
+		case LogLevel::LERROR: return 0x5050FF;
+		case LogLevel::LNOTICE: return 0x30FF30;
+		case LogLevel::LINFO: return 0xFFFF60;
+		case LogLevel::LVERBOSE:
+		default: return 0xC0C0C0;
+		}
+	}
 
 private:
 	// Prevent copies.

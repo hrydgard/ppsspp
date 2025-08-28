@@ -260,23 +260,13 @@ void GPIGPOScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void LogViewScreen::UpdateLog() {
 	using namespace UI;
-	const RingbufferLog *ring = g_logManager.GetRingbuffer();
-	if (!ring)
-		return;
+	const RingbufferLog &ring = g_logManager.GetRingbuffer();
 	vert_->Clear();
 
 	// TODO: Direct rendering without TextViews.
-	for (int i = ring->GetCount() - 1; i >= 0; i--) {
-		TextView *v = vert_->Add(new TextView(StripSpaces(ring->TextAt(i)), FLAG_DYNAMIC_ASCII, true));
-		uint32_t color = 0xFFFFFF;
-		switch (ring->LevelAt(i)) {
-		case LogLevel::LDEBUG: color = 0xE0E0E0; break;
-		case LogLevel::LWARNING: color = 0x50FFFF; break;
-		case LogLevel::LERROR: color = 0x5050FF; break;
-		case LogLevel::LNOTICE: color = 0x30FF30; break;
-		case LogLevel::LINFO: color = 0xFFFFFF; break;
-		case LogLevel::LVERBOSE: color = 0xC0C0C0; break;
-		}
+	for (int i = ring.GetCount() - 1; i >= 0; i--) {
+		TextView *v = vert_->Add(new TextView(StripSpaces(ring.TextAt(i)), FLAG_DYNAMIC_ASCII, true));
+		uint32_t color = LogManager::GetLevelColor(ring.LevelAt(i));
 		v->SetTextColor(0xFF000000 | color);
 	}
 	toBottom_ = true;

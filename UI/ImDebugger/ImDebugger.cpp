@@ -1440,6 +1440,60 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 	ImGui::End();
 }
 
+void ImLogWindow::Draw(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Log", &cfg.logOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	const RingbufferLog &ring = g_logManager.GetRingbuffer();
+
+	// Options menu
+	if (ImGui::BeginPopup("Options")) {
+		ImGui::Checkbox("Auto-scroll", &AutoScroll);
+		ImGui::EndPopup();
+	}
+
+	// Main window
+	if (ImGui::Button("Options"))
+		ImGui::OpenPopup("Options");
+	ImGui::SameLine();
+	bool copy = ImGui::Button("Copy");
+	ImGui::Separator();
+
+	if (ImGui::BeginChild("scrolling", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar)) {
+		if (copy)
+			ImGui::LogToClipboard();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+
+		ImGuiListClipper clipper;
+		clipper.Begin(ring.GetCount());
+		while (clipper.Step()) {
+			for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
+				int n = ring.GetCount() - 1 - line_no;
+
+				const std::string_view line = ring.TextAt(n);
+				const LogLevel level = ring.LevelAt(n);
+				const u32 color = 0xFF000000 | LogManager::GetLevelColor(level);
+				ImGui::PushStyleColor(ImGuiCol_Text, color);
+				ImGui::TextUnformatted(line);
+				ImGui::PopStyleColor();
+			}
+		}
+		clipper.End();
+		ImGui::PopStyleVar();
+
+		// Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
+		// Using a scrollbar or mouse-wheel will take away from the bottom edge.
+		if (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 20)
+			ImGui::SetScrollHereY(1.0f);
+	}
+	ImGui::EndChild();
+	ImGui::End();
+}
+
 void DrawLogConfig(ImConfig &cfg) {
 	if (!ImGui::Begin("Logs", &cfg.logConfigOpen)) {
 		ImGui::End();
@@ -1854,7 +1908,7 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 ImWatchWindow::ImWatchWindow() {}
 
 void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug) {
-	if (!ImGui::Begin("Watch", &cfg.atracToolOpen) || !g_symbolMap) {
+	if (!ImGui::Begin("Watch", &cfg.watchOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
@@ -2115,6 +2169,9 @@ ImDebugger::ImDebugger() {
 	reqToken_ = g_requestManager.GenerateRequesterToken();
 	cfg_.LoadConfig(ConfigPath());
 	g_normalTextColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+
+	// Just enable ring buffer logging here, it's cheap (but needed for the log window)
+	g_logManager.EnableOutput(LogOutput::RingBuffer);
 }
 
 ImDebugger::~ImDebugger() {
@@ -2308,6 +2365,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		}
 		if (ImGui::BeginMenu("Tools")) {
 			ImGui::MenuItem("Lua Console", nullptr, &cfg_.luaConsoleOpen);
+			ImGui::MenuItem("Log", nullptr, &cfg_.logOpen);
 			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
@@ -2430,6 +2488,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.logConfigOpen) {
 		DrawLogConfig(cfg_);
+	}
+
+	if (cfg_.logOpen) {
+		logWindow_.Draw(cfg_);
 	}
 
 	if (cfg_.displayOpen) {
@@ -2645,6 +2707,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("internalsOpen", &internalsOpen, false);
 	sync.Sync("sasAudioOpen", &sasAudioOpen, false);
 	sync.Sync("logConfigOpen", &logConfigOpen, false);
+	sync.Sync("logOpen", &logOpen, false);
 	sync.Sync("luaConsoleOpen", &luaConsoleOpen, false);
 	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
 	sync.Sync("memDumpOpen", &memDumpOpen, false);
