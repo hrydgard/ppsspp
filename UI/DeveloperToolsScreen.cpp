@@ -488,7 +488,7 @@ void DeveloperToolsScreen::CreateTabs() {
 	AddTab("Tests", dev->T("Tests"), [this](UI::LinearLayout *parent) {
 		CreateTestsTab(parent);
 	});
-	AddTab("DumpFiles", sy->T("Dump files"), [this](UI::LinearLayout *parent) {
+	AddTab("DumpFiles", dev->T("Dump files"), [this](UI::LinearLayout *parent) {
 		CreateDumpFileTab(parent);
 	});
 	// Need a better title string.
