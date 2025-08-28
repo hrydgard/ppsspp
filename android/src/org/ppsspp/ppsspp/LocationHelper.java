@@ -20,7 +20,7 @@ class LocationHelper implements LocationListener {
 	private static final int GPGGA_ID_INDEX = 0;
 	private static final int GPGGA_HDOP_INDEX = 8;
 	private static final int GPGGA_ALTITUDE_INDEX = 9;
-	private LocationManager mLocationManager;
+	private final LocationManager mLocationManager;
 	private boolean mLocationEnable;
 	private GpsStatus.Listener mGpsStatusListener;
 	private GnssStatus.Callback mGnssStatusCallback;
@@ -77,7 +77,7 @@ class LocationHelper implements LocationListener {
 				}
 				mLocationEnable = true;
 			} catch (SecurityException e) {
-				Log.e(TAG, "Cannot start location updates: " + e.toString());
+				Log.e(TAG, "Cannot start location updates: " + e);
 			}
 			if (!isGPSEnabled && !isNetworkEnabled) {
 				Log.i(TAG, "No location provider found");
@@ -171,8 +171,7 @@ class LocationHelper implements LocationListener {
 					Iterable<GpsSatellite> satellites = gpsStatus.getSatellites();
 
 					short index = 0;
-					for (Iterator<GpsSatellite> iterator = satellites.iterator(); iterator.hasNext(); ) {
-						GpsSatellite satellite = iterator.next();
+					for (GpsSatellite satellite : satellites) {
 						if (satellite.getPrn() > 37) {
 							continue;
 						}

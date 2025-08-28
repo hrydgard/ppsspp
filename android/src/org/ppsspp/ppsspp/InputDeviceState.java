@@ -8,8 +8,6 @@ import android.view.InputDevice.MotionRange;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-import java.lang.annotation.Target;
-
 @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";

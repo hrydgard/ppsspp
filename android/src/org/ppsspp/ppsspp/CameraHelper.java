@@ -22,7 +22,7 @@ import java.util.List;
 @SuppressWarnings("deprecation")
 class CameraHelper {
 	private static final String TAG = CameraHelper.class.getSimpleName();
-	private Display mDisplay;
+	private final Display mDisplay;
 	private int mTargetWidth = 0;
 	private int mTargetHeight = 0;
 	private Camera mCamera = null;
@@ -31,7 +31,7 @@ class CameraHelper {
 	private int mCameraOrientation = 0;
 	private Camera.Size mPreviewSize = null;
 	private long mLastFrameTime = 0;
-	private SurfaceTexture mSurfaceTexture;
+	private final SurfaceTexture mSurfaceTexture;
 
 	private static boolean firstRotation = true;
 
@@ -123,7 +123,7 @@ class CameraHelper {
 		return output;
 	}
 
-	private Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
+	private final Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
 		@Override
 		public void onPreviewFrame(byte[] previewData, Camera camera) {
 			// throttle at 16 ms

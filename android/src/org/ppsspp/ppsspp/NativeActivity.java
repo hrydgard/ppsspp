@@ -19,7 +19,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.database.Cursor;
-import android.graphics.PixelFormat;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -80,9 +79,6 @@ public abstract class NativeActivity extends Activity {
 	private String shortcutParam = "";
 	private static String overrideShortcutParam = null;
 
-	public static String runCommand;
-	public static String commandParameter;
-
 	// Remember settings for best audio latency
 	private int optimalFramesPerBuffer;
 	private int optimalSampleRate;
@@ -107,7 +103,7 @@ public abstract class NativeActivity extends Activity {
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
-	private ArrayList<InputDeviceState> inputPlayers = new ArrayList<InputDeviceState>();
+	private final ArrayList<InputDeviceState> inputPlayers = new ArrayList<>();
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
 	private SizeManager sizeManager = null;
@@ -148,10 +144,6 @@ public abstract class NativeActivity extends Activity {
 	public native void registerCallbacks();
 	public native void unregisterCallbacks();
 
-	NativeRenderer getRenderer() {
-		return nativeRenderer;
-	}
-
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	private void detectOptimalAudioSettings() {
 		try {
@@ -172,10 +164,9 @@ public abstract class NativeActivity extends Activity {
 			// Starting from Android 2.3, nativeLibraryDir is available:
 			Field field = ApplicationInfo.class.getField("nativeLibraryDir");
 			libdir = (String) field.get(application);
-		} catch (SecurityException e1) {
-		} catch (NoSuchFieldException e1) {
-		} catch (IllegalArgumentException e) {
-		} catch (IllegalAccessException e) {
+		} catch (SecurityException | NoSuchFieldException | IllegalArgumentException |
+				 IllegalAccessException e1) {
+			Log.e(TAG, e1.toString());
 		}
 		if (libdir == null) {
 			// Fallback for Android < 2.3:
@@ -266,7 +257,7 @@ public abstract class NativeActivity extends Activity {
 			Log.i(TAG, "getSdCardPaths: Attempting fallback");
 			// Try another method.
 			String removableStoragePath;
-			list = new ArrayList<String>();
+			list = new ArrayList<>();
 			File[] fileList = new File("/storage/").listFiles();
 			if (fileList != null) {
 				for (File file : fileList) {
@@ -283,7 +274,7 @@ public abstract class NativeActivity extends Activity {
 				Log.i(TAG, "getSdCardPaths: Checking env " + var);
 				String secStore = System.getenv("SECONDARY_STORAGE");
 				if (secStore != null && !secStore.isEmpty()) {
-					list = new ArrayList<String>();
+					list = new ArrayList<>();
 					list.add(secStore);
 					break;
 				}
@@ -600,7 +591,6 @@ public abstract class NativeActivity extends Activity {
 		// whether to start at 1x or 2x.
 		sizeManager.updateDisplayMeasurements();
 
-		boolean wasInitialized = initialized;
 		if (!initialized) {
 			Initialize();
 			initialized = true;
@@ -1250,11 +1240,11 @@ public abstract class NativeActivity extends Activity {
 
 		try {
 			if (requestCode == RESULT_LOAD_IMAGE) {
-				Log.i(TAG, "data: " + data.toString());
+				Log.i(TAG, "data: " + data);
 				Uri selectedImage = data.getData();
 				if (selectedImage != null) {
 					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-						Log.i(TAG, "Selected image: " + selectedImage.toString());
+						Log.i(TAG, "Selected image: " + selectedImage);
 						NativeApp.sendRequestResult(requestId, true, selectedImage.toString(), 0);
 					} else {
 						String[] filePathColumn = {MediaStore.Images.Media.DATA};
@@ -1264,7 +1254,7 @@ public abstract class NativeActivity extends Activity {
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
-							Log.i(TAG, "Selected picture path: " + selectedImage.toString());
+							Log.i(TAG, "Selected picture path: " + selectedImage);
 							NativeApp.sendRequestResult(requestId, true, picturePath, 0);
 						}
 					}
@@ -1563,7 +1553,7 @@ public abstract class NativeActivity extends Activity {
 			String defString = "";
 			String[] param = params.split(":@:", 3);
 			int requestID = Integer.parseInt(param[0]);
-			if (param.length > 1 && param[1].length() > 0)
+			if (param.length > 1 && !param[1].isEmpty())
 				title = param[1];
 			if (param.length > 2)
 				defString = param[2];

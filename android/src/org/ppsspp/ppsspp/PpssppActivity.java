@@ -139,7 +139,9 @@ public class PpssppActivity extends NativeActivity {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				processCommand(cmd, param);
+				if (!processCommand(cmd, param)) {
+					Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
+				}
 			}
 		});
 	}
