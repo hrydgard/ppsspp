@@ -106,11 +106,11 @@ void Buffer::Printf(const char *fmt, ...) {
 		// Output was truncated. TODO: Do something.
 		ERROR_LOG(Log::IO, "Buffer::Printf truncated output");
 	}
+	va_end(vl);
 	if (retval < 0) {
 		ERROR_LOG(Log::IO, "Buffer::Printf failed, bad args?");
 		return;
 	}
-	va_end(vl);
 	char *ptr = Append(retval);
 	memcpy(ptr, buffer, retval);
 }
