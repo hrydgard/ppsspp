@@ -241,8 +241,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE) {
-		// Same formulas as D3D9 now. Should work for both Vulkan and D3D11.
-
 		// Depth is [0, 1] mapping to [minz, maxz], not too hard.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
