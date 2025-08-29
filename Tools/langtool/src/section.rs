@@ -36,7 +36,7 @@ impl Section {
                 continue;
             };
 
-            if prefix.eq_ignore_ascii_case(key) {
+            if prefix.eq(key) {
                 remove_index = Some(index);
                 break;
             }
@@ -57,7 +57,7 @@ impl Section {
                 continue;
             };
 
-            if prefix.eq_ignore_ascii_case(key) {
+            if prefix.eq(key) {
                 return Some(line.clone());
             }
         }
@@ -257,7 +257,7 @@ impl Section {
                 continue;
             };
 
-            if prefix.eq_ignore_ascii_case(key) {
+            if prefix.eq(key) {
                 found_index = Some(index);
                 break;
             }
@@ -274,7 +274,7 @@ impl Section {
     pub fn get_value(&self, key: &str) -> Option<String> {
         for line in &self.lines {
             if let Some((ref_key, value)) = split_line(line) {
-                if key.eq_ignore_ascii_case(ref_key) {
+                if key.eq(ref_key) {
                     return Some(value.to_string());
                 }
             }

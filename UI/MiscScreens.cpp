@@ -898,13 +898,13 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 
 #if !PPSSPP_PLATFORM(UWP) || defined(_DEBUG)
 	// Draw the graphics API, except on UWP where it's always D3D11
-	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
+	std::string apiName(gr->T(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME)));
 #ifdef _DEBUG
 	apiName += ", debug build ";
 	// Add some emoji for testing.
 	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
-	dc.DrawText(gr->T(apiName.c_str()), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
+	dc.DrawText(apiName, bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
 
 	dc.Flush();

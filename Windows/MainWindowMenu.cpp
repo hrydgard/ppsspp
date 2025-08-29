@@ -148,7 +148,7 @@ namespace MainWindow {
 			wchar_t *buffer = new wchar_t[++menuInfo.cch];
 			menuInfo.dwTypeData = buffer;
 			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
-			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);
+			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);  // note, this is buffer.
 			delete[] buffer;
 		}
 
@@ -168,7 +168,7 @@ namespace MainWindow {
 
 		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
 		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
-		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy Gold"));
+		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy PPSSPP Gold"));
 		const std::wstring gitHub = ConvertUTF8ToWString(des->T("GitHub"));
 		const std::wstring discord = ConvertUTF8ToWString(des->T("Discord"));
 		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(des->T("About PPSSPP..."));
@@ -193,7 +193,10 @@ namespace MainWindow {
 
 		std::wstring translated;
 		if (key == nullptr || !strcmp(key, "")) {
-			translated = ConvertUTF8ToWString(des->T(GetMenuItemInitialText(hMenu, menuID)));
+			std::string_view initialText = GetMenuItemInitialText(hMenu, menuID);
+			if (!initialText.empty()) {
+				translated = ConvertUTF8ToWString(des->T(initialText));
+			}
 		} else {
 			translated = ConvertUTF8ToWString(des->T(key));
 		}
