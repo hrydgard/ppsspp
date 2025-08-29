@@ -21,19 +21,10 @@ import android.view.SurfaceView;
 
 import androidx.annotation.RequiresApi;
 
-import com.bda.controller.Controller;
-import com.bda.controller.ControllerListener;
-import com.bda.controller.KeyEvent;
-import com.bda.controller.StateEvent;
-
-public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
+public class NativeSurfaceView extends SurfaceView implements SensorEventListener {
 	private static final String TAG = "NativeSurfaceView";
 	private final SensorManager mSensorManager;
 	private final Sensor mAccelerometer;
-
-	// Moga controller
-	private final Controller mController;
-	private boolean isMogaPro = false;
 
 	public NativeSurfaceView(NativeActivity activity) {
 		super(activity);
@@ -42,16 +33,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 
 		mSensorManager = (SensorManager) activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-
-		mController = Controller.getInstance(activity);
-
-		try {
-			MogaHack.init(mController, activity);
-			Log.i(TAG, "MOGA initialized");
-			mController.setListener(this, new Handler());
-		} catch (Exception e) {
-			// Ignore.
-		}
 	}
 
 	private int getToolType(final MotionEvent ev, int pointer) {
@@ -170,118 +151,9 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 
 	public void onPause() {
 		mSensorManager.unregisterListener(this);
-		if (mController != null) {
-			mController.onPause();
-		}
 	}
 
 	public void onResume() {
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-		if (mController != null) {
-			mController.onResume();
-			// According to the docs, the Moga's state can be inconsistent here.
-			// Should we do a one time poll?
-		}
-	}
-
-	public void onDestroy() {
-		if (mController != null) {
-			mController.exit();
-		}
-	}
-
-	// MOGA Controller - from ControllerListener
-	@Override
-	public void onKeyEvent(KeyEvent event) {
-		// The Moga left stick doubles as a D-pad. This creates mapping conflicts so let's turn it off.
-		// Unfortunately this breaks menu navigation in PPSSPP currently but meh.
-		// This is different on Moga Pro though.
-
-		if (!isMogaPro) {
-			switch (event.getKeyCode()) {
-			case KeyEvent.KEYCODE_DPAD_DOWN:
-			case KeyEvent.KEYCODE_DPAD_UP:
-			case KeyEvent.KEYCODE_DPAD_LEFT:
-			case KeyEvent.KEYCODE_DPAD_RIGHT:
-				return;
-			default:
-				break;
-			}
-		}
-
-		boolean repeat = false; // Moga has no repeats?
-		switch (event.getAction()) {
-		case KeyEvent.ACTION_DOWN:
-			NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode(), repeat);
-			break;
-		case KeyEvent.ACTION_UP:
-			NativeApp.keyUp(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode());
-			break;
-		}
-	}
-
-	// MOGA Controller - from ControllerListener
-	@Override
-	public void onMotionEvent(com.bda.controller.MotionEvent event) {
-		int [] axisIds = new int[]{
-			com.bda.controller.MotionEvent.AXIS_X,
-			com.bda.controller.MotionEvent.AXIS_Y,
-			com.bda.controller.MotionEvent.AXIS_Z,
-			com.bda.controller.MotionEvent.AXIS_RZ,
-			com.bda.controller.MotionEvent.AXIS_LTRIGGER,
-			com.bda.controller.MotionEvent.AXIS_RTRIGGER,
-		};
-		float [] values = new float[]{
-			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X),
-			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y),
-			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z),
-			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ),
-			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER),
-			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER),
-		};
-
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, axisIds, values, 6);
-	}
-
-	// MOGA Controller - from ControllerListener
-	@Override
-	public void onStateEvent(StateEvent state) {
-		switch (state.getState()) {
-		case StateEvent.STATE_CONNECTION:
-			switch (state.getAction()) {
-			case StateEvent.ACTION_CONNECTED:
-				Log.i(TAG, "Moga Connected");
-				if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGA) {
-					NativeApp.sendMessageFromJava("moga", "Moga");
-				} else {
-					Log.i(TAG, "MOGA Pro detected");
-					isMogaPro = true;
-					NativeApp.sendMessageFromJava("moga", "MogaPro");
-				}
-				break;
-			case StateEvent.ACTION_CONNECTING:
-				Log.i(TAG, "Moga Connecting...");
-				break;
-			case StateEvent.ACTION_DISCONNECTED:
-				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
-				NativeApp.sendMessageFromJava("moga", "");
-				break;
-			}
-			break;
-
-		case StateEvent.STATE_POWER_LOW:
-			switch (state.getAction()) {
-			case StateEvent.ACTION_TRUE:
-				Log.i(TAG, "Moga Power Low");
-				break;
-			case StateEvent.ACTION_FALSE:
-				Log.i(TAG, "Moga Power OK");
-				break;
-			}
-			break;
-
-		default:
-			break;
-		}
 	}
 }
