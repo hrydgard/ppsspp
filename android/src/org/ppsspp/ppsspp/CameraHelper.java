@@ -39,7 +39,7 @@ class CameraHelper {
 		int displayRotation = mDisplay.getRotation();
 		int displayDegrees = 0;
 		switch (displayRotation) {
-			case Surface.ROTATION_0:   displayDegrees =   0; break;
+			case Surface.ROTATION_0:   /* displayDegrees = 0; */ break;
 			case Surface.ROTATION_90:  displayDegrees =  90; break;
 			case Surface.ROTATION_180: displayDegrees = 180; break;
 			case Surface.ROTATION_270: displayDegrees = 270; break;
@@ -52,6 +52,8 @@ class CameraHelper {
 	}
 
 	// Does not work if the source is smaller than the destination!
+	// TODO: Should probably move this to C++... Maybe even share the full preview image with C++
+	// and do all the reordering and JPG compression on the C++ side.
 	static byte[] rotateNV21(final byte[] input, final int inWidth, final int inHeight,
 							 final int outWidth, final int outHeight, final int rotation) {
 		if (firstRotation) {
