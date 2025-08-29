@@ -12,9 +12,7 @@ androidGitVersion {
 
 dependencies {
 	// 1.2.0 is the newest version we can use that won't complain about minSdk version.
-	def appcompat_version = "1.2.0"
-
-	implementation "androidx.appcompat:appcompat:$appcompat_version"
+	implementation "androidx.appcompat:appcompat:1.6.1"
 
 	// Convenient wrapper around DocumentContract. Might look into writing our own
 	// to see if there's some performance to squeeze at some point, but doubt it.
@@ -80,8 +78,8 @@ android {
 		minSdk = 21
 		targetSdk = 36
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
-			versionCode ANDROID_VERSION_CODE
-			versionName ANDROID_VERSION_NAME
+			versionCode = ANDROID_VERSION_CODE
+			versionName = ANDROID_VERSION_NAME
 		}
 		signingConfig = signingConfigs.debug
 	}
@@ -177,7 +175,6 @@ android {
 		legacy {
 			applicationId 'org.ppsspp.ppsspplegacy'
 			dimension "variant"
-			minSdkVersion 17  // To be compatible as far back as possible. This does cause build warnings.
 			targetSdkVersion 29  // This is the point of legacy.
 			externalNativeBuild {
 				cmake {
@@ -192,6 +189,7 @@ android {
 				}
 			}
 			ndk {
+				//noinspection ChromeOsAbiSupport
 				abiFilters 'armeabi-v7a', 'arm64-v8a'
 			}
 		}
@@ -214,6 +212,7 @@ android {
 				}
 			}
 			ndk {
+				//noinspection ChromeOsAbiSupport
 				abiFilters 'arm64-v8a'
 			}
 		}

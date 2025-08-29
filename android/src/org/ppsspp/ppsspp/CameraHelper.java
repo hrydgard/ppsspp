@@ -146,7 +146,7 @@ class CameraHelper {
 			try {
 				baos.close();
 			} catch (IOException e) {
-				e.printStackTrace();
+				Log.e(TAG,"Camera I/O exception: " + e);
 			}
 		}
 	};
