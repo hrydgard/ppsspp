@@ -617,9 +617,8 @@ void UIDialogScreenWithBackground::sendMessage(UIMessage message, const char *va
 
 PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)
 	: UIDialogScreenWithGameBackground(gamePath), message_(message), callback_(callback) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	yesButtonText_ = di->T(yesButtonText);
-	noButtonText_ = di->T(noButtonText);
+	yesButtonText_ = yesButtonText;
+	noButtonText_ = noButtonText;
 }
 
 void PromptScreen::CreateViews() {
