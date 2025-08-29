@@ -1,6 +1,5 @@
 package org.ppsspp.ppsspp;
 
-import android.annotation.TargetApi;
 import androidx.annotation.Keep;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -139,7 +138,9 @@ public class PpssppActivity extends NativeActivity {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				processCommand(cmd, param);
+				if (!processCommand(cmd, param)) {
+					Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
+				}
 			}
 		});
 	}
@@ -154,7 +155,8 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
+	@Keep
+	@SuppressWarnings("unused")
 	public int openContentUri(String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
@@ -179,7 +181,6 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.KITKAT)
 	private static final String[] columns = new String[] {
 		DocumentsContract.Document.COLUMN_DISPLAY_NAME,
 		DocumentsContract.Document.COLUMN_SIZE,
@@ -188,7 +189,6 @@ public class PpssppActivity extends NativeActivity {
 		DocumentsContract.Document.COLUMN_LAST_MODIFIED
 	};
 
-	@TargetApi(Build.VERSION_CODES.KITKAT)
 	private String cursorToString(Cursor c) {
 		final int flags = c.getInt(2);
 		// Filter out any virtual or partial nonsense.
@@ -211,7 +211,6 @@ public class PpssppActivity extends NativeActivity {
 		return str + size + "|" + documentName + "|" + lastModified;
 	}
 
-	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 	private long directorySizeRecursion(Uri uri) {
 		Cursor c = null;
 		try {
@@ -266,7 +265,6 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 	@Keep
 	@SuppressWarnings("unused")
 	public long computeRecursiveDirectorySize(String uriString) {
@@ -284,7 +282,6 @@ public class PpssppActivity extends NativeActivity {
 	// TODO: Replace with a proper query:
 	// * https://stackoverflow.com/q
 	// uestions/42186820/documentfile-is-very-slow
-	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 	@Keep
 	@SuppressWarnings("unused")
 	public String[] listContentUriDir(String uriString) {
@@ -381,7 +378,7 @@ public class PpssppActivity extends NativeActivity {
 
 	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
 	// cannot rename things as part of the operation.
-	@TargetApi(Build.VERSION_CODES.N)
+	@RequiresApi(Build.VERSION_CODES.N)
 	@Keep
 	@SuppressWarnings("unused")
 	public int contentUriCopyFile(String srcFileUri, String dstParentDirUri) {
@@ -397,7 +394,7 @@ public class PpssppActivity extends NativeActivity {
 
 	// NOTE: The destination is the parent directory! This means that contentUriCopyFile
 	// cannot rename things as part of the operation.
-	@TargetApi(Build.VERSION_CODES.N_MR1)
+	@RequiresApi(Build.VERSION_CODES.N_MR1)
 	@Keep
 	@SuppressWarnings("unused")
 	public int contentUriMoveFile(String srcFileUri, String srcParentDirUri, String dstParentDirUri) {
@@ -415,7 +412,6 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 	@Keep
 	@SuppressWarnings("unused")
 	public int contentUriRenameFileTo(String fileUri, String newName) {
@@ -437,9 +433,7 @@ public class PpssppActivity extends NativeActivity {
 	private static void closeQuietly(AutoCloseable closeable) {
 		if (closeable != null) {
 			try {
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-					closeable.close();
-				}
+				closeable.close();
 			} catch (RuntimeException rethrown) {
 				throw rethrown;
 			} catch (Exception ignored) {
@@ -449,7 +443,6 @@ public class PpssppActivity extends NativeActivity {
 
 	// Probably slightly faster than contentUriGetFileInfo.
 	// Smaller difference now than before I changed that one to a query...
-	@TargetApi(Build.VERSION_CODES.KITKAT)
 	@Keep
 	@SuppressWarnings("unused")
 	public boolean contentUriFileExists(String fileUri) {
@@ -466,11 +459,7 @@ public class PpssppActivity extends NativeActivity {
 			// Log.w(TAG, "Failed query: " + e);
 			return false;
 		} finally {
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-				closeQuietly(c);
-			} else if (c != null) {
-				c.close();
-			}
+			closeQuietly(c);
 		}
 	}
 
@@ -540,7 +529,7 @@ public class PpssppActivity extends NativeActivity {
 		return -1;
 	}
 
-	@TargetApi(Build.VERSION_CODES.O)
+	@RequiresApi(Build.VERSION_CODES.O)
 	@Keep
 	@SuppressWarnings("unused")
 	public long filePathGetFreeStorageSpace(String filePath) {

@@ -16,7 +16,7 @@ public class SimpleFileChooser {
 		void onFileSelected(File file);
 	}
 
-	private FileSelectedListener mFileListener;
+	private final FileSelectedListener mFileListener;
 
 	private final Activity mActivity;
 	private static final String PARENT_DIR = "..";
@@ -42,7 +42,7 @@ public class SimpleFileChooser {
 	// Create list of files and directories.
 	private void rebuildFileList(File path) {
 		this.mCurrentPath = path;
-		List<String> r = new ArrayList<String>();
+		List<String> r = new ArrayList<>();
 
 		if (path.getParentFile() != null)
 			r.add(PARENT_DIR);
@@ -54,7 +54,7 @@ public class SimpleFileChooser {
 				r.add(file.getName());
 			}
 		}
-		mFileList = (String[]) r.toArray(new String[0]);
+		mFileList = r.toArray(new String[0]);
 	}
 
 	// Get selected file, dir, or parent dir.
@@ -67,7 +67,7 @@ public class SimpleFileChooser {
 
 	// Comparator for Arrays.sort(). Separate folders from files, order
 	// alphabetically, ignore case.
-	private Comparator<File> fileArrayComparator = new Comparator<File>() {
+	private final Comparator<File> fileArrayComparator = new Comparator<>() {
 		public int compare(File file1, File file2) {
 			if (file1 == null || file2 == null) // if either null, assume equal
 				return 0;
@@ -83,7 +83,7 @@ public class SimpleFileChooser {
 	};
 
 	// Event when user click item on dialog
-	private DialogInterface.OnClickListener onDialogItemClickedListener = new DialogInterface.OnClickListener() {
+	private final DialogInterface.OnClickListener onDialogItemClickedListener = new DialogInterface.OnClickListener() {
 		public void onClick(DialogInterface dialog, int which) {
 			String selectedFileName = mFileList[which];
 			File selectedFile = getSelectedFile(selectedFileName);

@@ -22,7 +22,7 @@ import java.util.List;
 @SuppressWarnings("deprecation")
 class CameraHelper {
 	private static final String TAG = CameraHelper.class.getSimpleName();
-	private Display mDisplay;
+	private final Display mDisplay;
 	private int mTargetWidth = 0;
 	private int mTargetHeight = 0;
 	private Camera mCamera = null;
@@ -31,7 +31,7 @@ class CameraHelper {
 	private int mCameraOrientation = 0;
 	private Camera.Size mPreviewSize = null;
 	private long mLastFrameTime = 0;
-	private SurfaceTexture mSurfaceTexture;
+	private final SurfaceTexture mSurfaceTexture;
 
 	private static boolean firstRotation = true;
 
@@ -39,7 +39,7 @@ class CameraHelper {
 		int displayRotation = mDisplay.getRotation();
 		int displayDegrees = 0;
 		switch (displayRotation) {
-			case Surface.ROTATION_0:   displayDegrees =   0; break;
+			case Surface.ROTATION_0:   /* displayDegrees = 0; */ break;
 			case Surface.ROTATION_90:  displayDegrees =  90; break;
 			case Surface.ROTATION_180: displayDegrees = 180; break;
 			case Surface.ROTATION_270: displayDegrees = 270; break;
@@ -52,6 +52,8 @@ class CameraHelper {
 	}
 
 	// Does not work if the source is smaller than the destination!
+	// TODO: Should probably move this to C++... Maybe even share the full preview image with C++
+	// and do all the reordering and JPG compression on the C++ side.
 	static byte[] rotateNV21(final byte[] input, final int inWidth, final int inHeight,
 							 final int outWidth, final int outHeight, final int rotation) {
 		if (firstRotation) {
@@ -123,7 +125,7 @@ class CameraHelper {
 		return output;
 	}
 
-	private Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
+	private final Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
 		@Override
 		public void onPreviewFrame(byte[] previewData, Camera camera) {
 			// throttle at 16 ms
@@ -146,7 +148,7 @@ class CameraHelper {
 			try {
 				baos.close();
 			} catch (IOException e) {
-				e.printStackTrace();
+				Log.e(TAG,"Camera I/O exception: " + e);
 			}
 		}
 	};

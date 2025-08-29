@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-@RequiresApi(api = Build.VERSION_CODES.KITKAT)
 class InfraredHelper {
 	private static final String TAG = InfraredHelper.class.getSimpleName();
 	private static final int SIRC_FREQ = 40000;
