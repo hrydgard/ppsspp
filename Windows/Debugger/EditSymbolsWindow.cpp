@@ -165,7 +165,7 @@ void EditSymbolsWindow::Remove() {
 	}
 
 	if (counter) {
-		MIPSAnalyst::ForgetFunctions(address_, address_ + size_ - 1);
+		MIPSAnalyst::ForgetFunctions(address_, address_ + size_);
 
 		// The following was copied from hle.func.remove:
 		g_symbolMap->SortSymbols();
