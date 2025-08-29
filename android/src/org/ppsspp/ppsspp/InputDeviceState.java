@@ -1,14 +1,11 @@
 package org.ppsspp.ppsspp;
 
-import android.annotation.TargetApi;
-import android.os.Build;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputDevice.MotionRange;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 
@@ -16,7 +13,7 @@ public class InputDeviceState {
 
 	private final InputDevice mDevice;
 	private final int[] mAxes;
-	private float[] mAxisPrevValue;
+	private final float[] mAxisPrevValue;
 
 	// Buffers for the native calls.
 	private final int[] mAxisIds;
@@ -28,73 +25,71 @@ public class InputDeviceState {
 		return mDevice;
 	}
 
-	@TargetApi(19)
 	static void logAdvanced(InputDevice device) {
 		Log.i(TAG, "Vendor ID:" + device.getVendorId() + " productId: " + device.getProductId() + " sources: " + String.format("%08x", device.getSources()));
 	}
 
-	@TargetApi(19)
 	public String getDebugString() {
-		String str = mDevice.getName() + " sources: " + String.format("%08x", sources) + "\n  classes: ";
+		StringBuilder str = new StringBuilder(mDevice.getName() + " sources: " + String.format("%08x", sources) + "\n  classes: ");
 
 		String[] classes = { "BUTTON ", "POINTER ", "TRACKBALL ", "POSITION ", "JOYSTICK " };
 		for (int i = 0; i < 5; i++) {
 			if ((sources & (1 << i)) != 0) {
-				str += classes[i];
+				str.append(classes[i]);
 			}
 		}
-		str += "\n  ";
+		str.append("\n  ");
 
 		// Check the full identifications.
 		if ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
-			str += "GAMEPAD ";
+			str.append("GAMEPAD ");
 		}
 
 		if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD) {
-			str += "KEYBOARD";
+			str.append("KEYBOARD");
 			if (mDevice.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
-				str += "(alpha) ";
+				str.append("(alpha) ");
 			} else {
-				str += " ";
+				str.append(" ");
 			}
 		}
 
 		if ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-			str += "JOYSTICK ";
+			str.append("JOYSTICK ");
 		}
 		if ((sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD) {
-			str += "DPAD ";
+			str.append("DPAD ");
 		}
 		if ((sources & InputDevice.SOURCE_HDMI) == InputDevice.SOURCE_HDMI) {
 			// what?
-			str += "HDMI ";
+			str.append("HDMI ");
 		}
 		if ((sources & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
-			str += "MOUSE ";
+			str.append("MOUSE ");
 		}
 		if ((sources & InputDevice.SOURCE_MOUSE_RELATIVE) == InputDevice.SOURCE_MOUSE_RELATIVE) {
-			str += "MOUSE_RELATIVE ";
+			str.append("MOUSE_RELATIVE ");
 		}
 		if ((sources & InputDevice.SOURCE_ROTARY_ENCODER) == InputDevice.SOURCE_ROTARY_ENCODER) {
-			str += "ROTARY_ENCODER ";
+			str.append("ROTARY_ENCODER ");
 		}
 		if ((sources & InputDevice.SOURCE_STYLUS) == InputDevice.SOURCE_STYLUS) {
-			str += "STYLUS ";
+			str.append("STYLUS ");
 		}
 		if ((sources & InputDevice.SOURCE_TOUCHPAD) == InputDevice.SOURCE_TOUCHPAD) {
-			str += "TOUCHPAD ";
+			str.append("TOUCHPAD ");
 		}
 		if ((sources & InputDevice.SOURCE_TOUCHSCREEN) == InputDevice.SOURCE_TOUCHSCREEN) {
-			str += "TOUCHSCREEN ";
+			str.append("TOUCHSCREEN ");
 		}
 		if ((sources & InputDevice.SOURCE_TOUCH_NAVIGATION) == InputDevice.SOURCE_TOUCH_NAVIGATION) {
-			str += "TOUCH_NAVIGATION ";
+			str.append("TOUCH_NAVIGATION ");
 		}
 		if ((sources & InputDevice.SOURCE_BLUETOOTH_STYLUS) == InputDevice.SOURCE_BLUETOOTH_STYLUS) {
-			str += "BLUETOOTH_STYLUS ";
+			str.append("BLUETOOTH_STYLUS ");
 		}
-		str += "\n";
-		return str;
+		str.append("\n");
+		return str.toString();
 	}
 
 	public static boolean inputSourceIsJoystick(int source) {
@@ -120,10 +115,7 @@ public class InputDeviceState {
 		}
 
 		mDevice = device;
-		int numAxes = 0;
-		for (MotionRange range : device.getMotionRanges()) {
-			numAxes += 1;
-		}
+		final int numAxes = device.getMotionRanges().size();
 
 		mAxes = new int[numAxes];
 		mAxisPrevValue = new float[numAxes];
@@ -136,9 +128,7 @@ public class InputDeviceState {
 		}
 
 		Log.i(TAG, "Registering input device with " + numAxes + " axes: " + device.getName());
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-			logAdvanced(device);
-		}
+		logAdvanced(device);
 		NativeApp.sendMessageFromJava("inputDeviceConnectedID", String.valueOf(this.deviceId));
 		NativeApp.sendMessageFromJava("inputDeviceConnected", device.getName());
 	}

@@ -49,7 +49,6 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 import java.io.File;
 import java.lang.reflect.Field;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -590,7 +589,7 @@ public abstract class NativeActivity extends Activity {
 
 		if (javaGL) {
 			mGLSurfaceView = new NativeGLView(this);
-			nativeRenderer = new NativeRenderer(this);
+			nativeRenderer = new NativeRenderer();
 			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
 			sizeManager.setSurfaceView(mGLSurfaceView);
 

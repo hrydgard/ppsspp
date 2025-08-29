@@ -12,13 +12,8 @@ import javax.microedition.khronos.opengles.GL10;
 // Only used for the OpenGL backend.
 public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static final String TAG = "NativeRenderer";
-	private final NativeActivity mActivity;
 	private boolean inFrame = false;
 	private boolean failed = false;
-
-	NativeRenderer(NativeActivity act) {
-		mActivity = act;
-	}
 
 	public boolean isRenderingFrame() {
 		return inFrame;

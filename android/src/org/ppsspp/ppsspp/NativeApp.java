@@ -64,21 +64,21 @@ public class NativeApp {
 
 	// Wrappers
 	public static void reportException(Exception e, String data) {
-		String str = e.toString() + "\n" + e.getMessage() + "\n";
+		StringBuilder str = new StringBuilder(e.toString() + "\n" + e.getMessage() + "\n");
 		if (data != null) {
-			str += data + "\n";
+			str.append(data).append("\n");
 		}
 		// could also use import android.util.Log; String stackTrace = Log.getStackTraceString(exception);
 		int count = 0;
 		for (StackTraceElement ste : e.getStackTrace()) {
-			str += ste + "\n";
+			str.append(ste).append("\n");
 			// Only bother with the top of the stack.
 			if (count > 3) {
 				break;
 			}
 			count++;
 		}
-		NativeApp.sendMessageFromJava("exception", str);
+		NativeApp.sendMessageFromJava("exception", str.toString());
 	}
 
 	public static void reportError(String errorStr) {

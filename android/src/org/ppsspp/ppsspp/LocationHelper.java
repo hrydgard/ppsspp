@@ -13,6 +13,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import java.util.Iterator;
 
 class LocationHelper implements LocationListener {
@@ -134,14 +136,12 @@ class LocationHelper implements LocationListener {
 	}
 
 	@Override
-	public void onProviderEnabled(String provider) {
+	public void onProviderEnabled(@NonNull String provider) {
 	}
 
 	@Override
-	public void onProviderDisabled(String provider) {
+	public void onProviderDisabled(@NonNull String provider) {
 	}
-
-
 
 	@TargetApi(Build.VERSION_CODES.N)
 	private void onSatelliteStatus(GnssStatus status) {

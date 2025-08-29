@@ -7,20 +7,16 @@ package org.ppsspp.ppsspp;
 // DPI scaling is handled by the native code.
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
-import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.MotionEvent;
-import android.view.Surface;
-import android.view.SurfaceControl;
 
 import com.bda.controller.Controller;
 import com.bda.controller.ControllerListener;
@@ -28,12 +24,12 @@ import com.bda.controller.KeyEvent;
 import com.bda.controller.StateEvent;
 
 public class NativeGLView extends GLSurfaceView implements SensorEventListener, ControllerListener {
-	private static String TAG = "NativeGLView";
-	private SensorManager mSensorManager;
-	private Sensor mAccelerometer;
+	private final static String TAG = "NativeGLView";
+	private final SensorManager mSensorManager;
+	private final Sensor mAccelerometer;
 
 	// Moga controller
-	private Controller mController = null;
+	private final Controller mController;
 	private boolean isMogaPro = false;
 
 	NativeActivity mActivity;
@@ -56,12 +52,10 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	private int getToolType(final MotionEvent ev, int pointer) {
 		return ev.getToolType(pointer);
 	}
 
-	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
 	private void onMouseEventMotion(final MotionEvent ev) {
 		switch (ev.getActionMasked()) {
 			case MotionEvent.ACTION_DOWN: {
@@ -96,13 +90,12 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1 && NativeSurfaceView.isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
+		if (NativeSurfaceView.isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
 			// This is where workable mouse support arrived.
 			onMouseEventMotion(ev);
 			return true;
 		}
 
-		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -129,10 +122,8 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			}
 
 			if (code != 0) {
-				if (canReadToolType) {
-					int tool = getToolType(ev, i);
-					code |= tool << 10; // We use the Android tool type codes
-				}
+				int tool = getToolType(ev, i);
+				code |= tool << 10; // We use the Android tool type codes
 				// Can't use || due to short circuit evaluation
 				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
