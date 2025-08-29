@@ -233,7 +233,7 @@ void System_Toast(std::string_view text) {
 	std::wstring str = ConvertUTF8ToWString(text);
 	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);
 #else
-    fprintf(stderr, "%*.s", (int)text.length(), text.data());
+	fprintf(stderr, "%*.s", (int)text.length(), text.data());
 #endif
 }
 
@@ -1029,7 +1029,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 #ifdef _DEBUG
 			if (k == SDLK_F7) {
-				printf("f7 pressed - rebooting emuthread\n");
+				fprintf("f7 pressed - rebooting emuthread\n");
 				g_rebootEmuThread = true;
 			}
 #endif
@@ -1394,8 +1394,8 @@ static int printUsage(const char *progname)
 	fprintf(dst, "  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
 	fprintf(dst, "  --escape-exit         escape key exits the application\n");
 	fprintf(dst, "  --gamesettings        go directly to settings\n");
-    fprintf(dst, "  --touchscreentest     go directly to the touchscreentest screen\n");
-    fprintf(dst, "  --appendconfig=FILE   merge config FILE into the current configuration\n");
+	fprintf(dst, "  --touchscreentest     go directly to the touchscreentest screen\n");
+	fprintf(dst, "  --appendconfig=FILE   merge config FILE into the current configuration\n");
 
 	return 0;
 }
@@ -1471,7 +1471,7 @@ int main(int argc, char *argv[]) {
 
 	Uint32 mode = 0;
 	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i],"--fullscreen")) {
+		if (!strcmp(argv[i], "--fullscreen")) {
 			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 			g_Config.iForceFullScreen = 1;
 		} else if (set_xres == -2)
@@ -1482,19 +1482,19 @@ int main(int argc, char *argv[]) {
 			set_dpi = parseFloat(argv[i]);
 		else if (set_scale == -2)
 			set_scale = parseFloat(argv[i]);
-		else if (!strcmp(argv[i],"--xres"))
+		else if (!strcmp(argv[i], "--xres"))
 			set_xres = -2;
-		else if (!strcmp(argv[i],"--yres"))
+		else if (!strcmp(argv[i], "--yres"))
 			set_yres = -2;
-		else if (!strcmp(argv[i],"--dpi"))
+		else if (!strcmp(argv[i], "--dpi"))
 			set_dpi = -2;
-		else if (!strcmp(argv[i],"--scale"))
+		else if (!strcmp(argv[i], "--scale"))
 			set_scale = -2;
-		else if (!strcmp(argv[i],"--ipad"))
+		else if (!strcmp(argv[i], "--ipad"))
 			set_ipad = true;
-		else if (!strcmp(argv[i],"--portrait"))
+		else if (!strcmp(argv[i], "--portrait"))
 			portrait = true;
-		else if (!strncmp(argv[i],"--graphics=", strlen("--graphics="))) {
+		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics="))) {
 			const char *restOfOption = argv[i] + strlen("--graphics=");
 			double val=-1.0; // Yes, floating point.
 			if (!strcmp(restOfOption, "vulkan")) {
