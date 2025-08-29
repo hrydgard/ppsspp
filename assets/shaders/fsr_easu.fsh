@@ -20,226 +20,163 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Set precision for OpenGL ES
 #ifdef GL_ES
 precision mediump float;
 precision mediump int;
 #endif
 
-// Texture sampler for input image
 uniform sampler2D sampler0;
+uniform vec2 u_texelDelta;   // = 1 / textureSize
+uniform vec2 u_pixelDelta;   // not used
 
-// Texture coordinate deltas:
-// u_texelDelta = 1.0 / input texture size (texel size)
-// u_pixelDelta = 1.0 / output resolution (pixel size)
-uniform vec2 u_texelDelta;
-uniform vec2 u_pixelDelta;
-
-// Interpolated texture coordinates from vertex shader
 varying vec2 v_texcoord0;
 
-// Precision definition for high precision calculations when available
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 #define HIGHP highp
 #else
 #define HIGHP mediump
 #endif
 
-// ---------------- Luminance ----------------
-// Calculate luminance from RGB color using standard weights
-// Based on Rec. 709 luma coefficients for perceptual brightness
-HIGHP float Luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+// ---------- FSR-EASU core (unchanged) ----------
+void FsrEasuCon(
+    out vec4 con0, out vec4 con1, out vec4 con2, out vec4 con3,
+    vec2  inputViewportInPixels,
+    vec2  inputSizeInPixels,
+    vec2  outputSizeInPixels)
+{
+    con0 = vec4(
+        inputViewportInPixels.x / outputSizeInPixels.x,
+        inputViewportInPixels.y / outputSizeInPixels.y,
+        0.5 * inputViewportInPixels.x / outputSizeInPixels.x - 0.5,
+        0.5 * inputViewportInPixels.y / outputSizeInPixels.y - 0.5);
 
-// ---------------- Cubic kernel (Catmull-Rom, B=0, C=0.5) ----------------
-// Separable cubic weights in 1D, evaluated at fractional position t in [0,1)
-// Implements Catmull-Rom spline with B=0, C=0.5 for smooth interpolation
-// Returns weights for 4 taps at positions: -1, 0, +1, +2
-HIGHP vec4 cubicWeights(HIGHP float t) {
-    HIGHP float t2 = t * t;
-    HIGHP float t3 = t2 * t;
-    
-    // Calculate weights for each of the 4 taps using Catmull-Rom formula
-    HIGHP float w0 = -0.5 * t + 1.0 * t2 - 0.5 * t3;  // Tap at -1
-    HIGHP float w1 =  1.0       - 2.5 * t2 + 1.5 * t3; // Tap at 0
-    HIGHP float w2 =  0.5 * t + 2.0 * t2 - 1.5 * t3;   // Tap at +1
-    HIGHP float w3 = -0.5 * t2 + 0.5 * t3;             // Tap at +2
-    
-    return vec4(w0, w1, w2, w3);
+    con1 = vec4(1.0, 1.0, 1.0, -1.0) / inputSizeInPixels.xyxy;
+    con2 = vec4(-1.0,  2.0,  1.0,  2.0) / inputSizeInPixels.xyxy;
+    con3 = vec4( 0.0,  4.0,  0.0,  0.0) / inputSizeInPixels.xyxy;
 }
 
-// ---------------- Neighborhood & gradients ----------------
-// Structure to hold a 3x3 neighborhood of color values and luminance
-struct N3x3 {
-    vec3 c[3][3];      // RGB color values for 3x3 grid
-    HIGHP float l[3][3]; // Luminance values for 3x3 grid
-};
-
-// Load a 3x3 neighborhood around the given UV coordinate
-// Samples 9 texels and calculates their luminance values
-N3x3 load3x3(HIGHP vec2 uv) {
-    N3x3 nb;
-    // Loop through the 3x3 grid centered at uv
-    for (int j = -1; j <= 1; ++j) {
-        for (int i = -1; i <= 1; ++i) {
-            // Calculate texture coordinate for this grid position
-            HIGHP vec2 t = uv + vec2(float(i), float(j)) * u_texelDelta;
-            
-            // Sample color and calculate luminance
-            vec3 s = texture2D(sampler0, t).rgb;
-            nb.c[j+1][i+1] = s;
-            nb.l[j+1][i+1] = Luma(s);
-        }
-    }
-    return nb;
+void FsrEasuTapF(
+    inout vec3 aC, inout float aW,
+    vec2  off,
+    vec2  dir, vec2 len,
+    float lob, float clp,
+    vec3  c)
+{
+    vec2 v = vec2(dot(off, dir), dot(off, vec2(-dir.y, dir.x))) * len;
+    float d2 = min(dot(v, v), clp);
+    float wB = 0.4 * d2 - 1.0;
+    float wA = lob * d2 - 1.0;
+    wB *= wB; wA *= wA;
+    wB = 1.5625 * wB - 0.5625;
+    float w = wB * wA;
+    aC += c * w;
+    aW += w;
 }
 
-// Calculate gradient using Sobel operator on luminance values
-// Returns gradient vector (gx, gy) representing edge direction and magnitude
-HIGHP vec2 sobelGrad(in HIGHP float l[3][3]) {
-    // Sobel X kernel (horizontal edge detection)
-    HIGHP float gx = (l[0][2] + 2.0*l[1][2] + l[2][2]) - (l[0][0] + 2.0*l[1][0] + l[2][0]);
-    
-    // Sobel Y kernel (vertical edge detection)
-    HIGHP float gy = (l[2][0] + 2.0*l[2][1] + l[2][2]) - (l[0][0] + 2.0*l[0][1] + l[0][2]);
-    
-    return vec2(gx, gy);
+void FsrEasuSetF(
+    inout vec2 dir, inout float len,
+    float w,
+    float lA, float lB, float lC, float lD, float lE)
+{
+    float lenX = max(abs(lD - lC), abs(lC - lB));
+    float dirX = lD - lB;
+    dir.x += dirX * w;
+    lenX = clamp(abs(dirX) / (lenX + 1e-5), 0.0, 1.0);
+    lenX *= lenX;
+    len += lenX * w;
+
+    float lenY = max(abs(lE - lC), abs(lC - lA));
+    float dirY = lE - lA;
+    dir.y += dirY * w;
+    lenY = clamp(abs(dirY) / (lenY + 1e-5), 0.0, 1.0);
+    lenY *= lenY;
+    len += lenY * w;
 }
 
-// ---------------- Anti-ringing clamp vs. base 2x2 ----------------
-// Clamp the color to prevent ringing artifacts by constraining it 
-// within the range of the base 2x2 pixel block
-void clampToBase2x2(inout vec3 color, HIGHP vec2 srcPxCenter) {
-    // Find the base pixel coordinates (integer grid)
-    HIGHP vec2 ip = floor(srcPxCenter);
-    HIGHP vec2 baseUV = ip * u_texelDelta;
+vec3 FsrEasuF(vec2 ip, vec4 con0, vec4 con1, vec4 con2, vec4 con3)
+{
+    vec2 pp = ip * con0.xy + con0.zw;
+    vec2 fp = floor(pp);
+    pp -= fp;
 
-    // Sample the four corners of the 2x2 base block
-    vec3 c00 = texture2D(sampler0, baseUV).rgb;
-    vec3 c10 = texture2D(sampler0, baseUV + vec2(u_texelDelta.x, 0.0)).rgb;
-    vec3 c01 = texture2D(sampler0, baseUV + vec2(0.0, u_texelDelta.y)).rgb;
-    vec3 c11 = texture2D(sampler0, baseUV + u_texelDelta).rgb;
+    vec2 p0 = fp * con1.xy + con1.zw;
+    vec2 p1 = p0 + con2.xy;
+    vec2 p2 = p0 + con2.zw;
+    vec2 p3 = p0 + con3.xy;
 
-    // Find the minimum and maximum colors in the 2x2 block
-    vec3 lo = min(min(c00, c10), min(c01, c11));
-    vec3 hi = max(max(c00, c10), max(c01, c11));
-    
-    // Clamp the color to be within the range of the base block
-    color = clamp(color, lo, hi);
+    vec4 off = vec4(-0.5, 0.5, -0.5, 0.5) * con1.xxyy;
+
+    vec3 bC = texture2D(sampler0, p0 + off.xw).rgb; float bL = bC.g + 0.5*(bC.r + bC.b);
+    vec3 cC = texture2D(sampler0, p0 + off.yw).rgb; float cL = cC.g + 0.5*(cC.r + cC.b);
+    vec3 iC = texture2D(sampler0, p1 + off.xw).rgb; float iL = iC.g + 0.5*(iC.r + iC.b);
+    vec3 jC = texture2D(sampler0, p1 + off.yw).rgb; float jL = jC.g + 0.5*(jC.r + jC.b);
+    vec3 fC = texture2D(sampler0, p1 + off.yz).rgb; float fL = fC.g + 0.5*(fC.r + fC.b);
+    vec3 eC = texture2D(sampler0, p1 + off.xz).rgb; float eL = eC.g + 0.5*(eC.r + eC.b);
+    vec3 kC = texture2D(sampler0, p2 + off.xw).rgb; float kL = kC.g + 0.5*(kC.r + kC.b);
+    vec3 lC = texture2D(sampler0, p2 + off.yw).rgb; float lL = lC.g + 0.5*(lC.r + lC.b);
+    vec3 hC = texture2D(sampler0, p2 + off.yz).rgb; float hL = hC.g + 0.5*(hC.r + hC.b);
+    vec3 gC = texture2D(sampler0, p2 + off.xz).rgb; float gL = gC.g + 0.5*(gC.r + gC.b);
+    vec3 oC = texture2D(sampler0, p3 + off.yz).rgb; float oL = oC.g + 0.5*(oC.r + oC.b);
+    vec3 nC = texture2D(sampler0, p3 + off.xz).rgb; float nL = nC.g + 0.5*(nC.r + nC.b);
+
+    vec2  dir = vec2(0.0);
+    float len = 0.0;
+
+    FsrEasuSetF(dir, len, (1.0 - pp.x)*(1.0 - pp.y), bL, eL, fL, gL, jL);
+    FsrEasuSetF(dir, len,        pp.x *(1.0 - pp.y), cL, fL, gL, hL, kL);
+    FsrEasuSetF(dir, len, (1.0 - pp.x)*       pp.y , fL, iL, jL, kL, nL);
+    FsrEasuSetF(dir, len,        pp.x *       pp.y , gL, jL, kL, lL, oL);
+
+    vec2 dir2 = dir * dir;
+    float dirR = dir2.x + dir2.y;
+    bool zro = dirR < 1.0/32768.0;
+    dirR = inversesqrt(dirR);
+    dirR = zro ? 1.0 : dirR;
+    dir  = zro ? vec2(1.0, 0.0) : (dir * dirR);
+
+    len = len * 0.5;
+    len *= len;
+
+    float stretch = dot(dir, dir) / max(abs(dir.x), abs(dir.y));
+    vec2  len2 = vec2(1.0 + (stretch - 1.0)*len,
+                      1.0 - 0.5*len);
+
+    float lob = 0.5 - 0.29*len;
+    float clp = 1.0/lob;
+
+    vec3  aC = vec3(0.0);
+    float aW = 0.0;
+
+    FsrEasuTapF(aC, aW, vec2( 0,-1)-pp, dir, len2, lob, clp, bC);
+    FsrEasuTapF(aC, aW, vec2( 1,-1)-pp, dir, len2, lob, clp, cC);
+    FsrEasuTapF(aC, aW, vec2(-1, 1)-pp, dir, len2, lob, clp, iC);
+    FsrEasuTapF(aC, aW, vec2( 0, 1)-pp, dir, len2, lob, clp, jC);
+    FsrEasuTapF(aC, aW, vec2( 0, 0)-pp, dir, len2, lob, clp, fC);
+    FsrEasuTapF(aC, aW, vec2(-1, 0)-pp, dir, len2, lob, clp, eC);
+    FsrEasuTapF(aC, aW, vec2( 1, 1)-pp, dir, len2, lob, clp, kC);
+    FsrEasuTapF(aC, aW, vec2( 2, 1)-pp, dir, len2, lob, clp, lC);
+    FsrEasuTapF(aC, aW, vec2( 2, 0)-pp, dir, len2, lob, clp, hC);
+    FsrEasuTapF(aC, aW, vec2( 1, 0)-pp, dir, len2, lob, clp, gC);
+    FsrEasuTapF(aC, aW, vec2( 1, 2)-pp, dir, len2, lob, clp, oC);
+    FsrEasuTapF(aC, aW, vec2( 0, 2)-pp, dir, len2, lob, clp, nC);
+
+    vec3 min4 = min(min(fC, gC), min(jC, kC));
+    vec3 max4 = max(max(fC, gC), max(jC, kC));
+    return min(max4, max(min4, aC / aW));
 }
 
-// ---------------- Edge-adaptive anisotropic 4x4 reconstruction ----------------
-// Main EASU (Edge Adaptive Spatial Upsampling) function
-// Performs edge-adaptive upscaling using anisotropic filtering
-vec4 FsrEasu(vec2 uvOut) {
-    // Calculate input and output dimensions
-    HIGHP vec2 inSize  = 1.0 / u_texelDelta;   // Input texture size
-    HIGHP vec2 outSize = 1.0 / u_pixelDelta;   // Output resolution
-    
-    // Map output UV coordinate to input pixel space
-    HIGHP vec2 srcPx = uvOut / u_texelDelta;
-    
-    // Align to pixel centers in input space
-    HIGHP vec2 center = floor(srcPx - 0.5) + 0.5;
-    HIGHP vec2 phase  = fract(srcPx - 0.5);
-
-    // Load 3x3 neighborhood and calculate local gradients
-    N3x3 nb = load3x3(uvOut);
-    HIGHP vec2 g = sobelGrad(nb.l);           // Edge gradient
-    HIGHP float gLen = length(g);             // Edge strength
-
-    // Calculate edge basis vectors:
-    // nrm: Normal to the edge (points toward edge direction)
-    // tan: Tangent to the edge (along edge direction)
-    HIGHP vec2 nrm = (gLen > 1e-4) ? (g / gLen) : vec2(0.0, 1.0);
-    HIGHP vec2 tan = vec2(-nrm.y, nrm.x);
-
-    // Calculate anisotropy based on edge strength:
-    // Stronger edges = more anisotropy (directional filtering)
-    HIGHP float anis = clamp(gLen * 0.35, 0.0, 1.0);
-    HIGHP float rTan = mix(1.0, 1.6, anis);   // Support radius along tangent
-    HIGHP float rNrm = mix(1.0, 0.7, anis);   // Support radius along normal
-
-    // Define 4x4 sampling footprint anchored at (center - 1, center - 1)
-    HIGHP vec2 basePx = center - 1.0;
-    HIGHP vec2 baseUV = basePx * u_texelDelta;
-
-    // Precompute separable cubic weights for the current phase
-    HIGHP vec4 wx = cubicWeights(phase.x);
-    HIGHP vec4 wy = cubicWeights(phase.y);
-
-    // Initialize accumulator for weighted samples
-    vec3 accum = vec3(0.0);
-    HIGHP float wsum = 0.0;
-
-    // Process all 16 samples in the 4x4 footprint
-    for (int j = 0; j < 4; ++j) {
-        for (int i = 0; i < 4; ++i) {
-            // Calculate offset from center in pixel units
-            HIGHP vec2 d = vec2(float(i) - 1.0 - (1.0 - phase.x),
-                                float(j) - 1.0 - (1.0 - phase.y));
-
-            // Project offset onto tangent and normal directions
-            HIGHP float dt = dot(d, tan) / rTan;  // Distance along tangent
-            HIGHP float dn = dot(d, nrm) / rNrm;  // Distance along normal
-
-            // Calculate anisotropic weights using Catmull-Rom splines
-            HIGHP float at = abs(dt);  // Absolute distance along tangent
-            HIGHP float an = abs(dn);  // Absolute distance along normal
-
-            // Calculate cubic weights for tangent direction
-            HIGHP float at2 = at * at; HIGHP float at3 = at2 * at;
-            HIGHP float wt = (at < 1.0)
-                ? (1.0 - 2.5*at2 + 1.5*at3)          // For |d| < 1
-                : ((at < 2.0) ? (-0.5*at + 2.0*at2 - 1.5*at3) : 0.0);  // For 1 ≤ |d| < 2
-
-            // Calculate cubic weights for normal direction
-            HIGHP float an2 = an * an; HIGHP float an3 = an2 * an;
-            HIGHP float wn = (an < 1.0)
-                ? (1.0 - 2.5*an2 + 1.5*an3)          // For |d| < 1
-                : ((an < 2.0) ? (-0.5*an + 2.0*an2 - 1.5*an3) : 0.0);  // For 1 ≤ |d| < 2
-
-            // Combine directional weights
-            HIGHP float wAniso = max(0.0, wt) * max(0.0, wn);
-
-            // Calculate baseline separable grid weight
-            HIGHP float wSep = wx[i] * wy[j];
-
-            // Blend between separable and anisotropic weights based on edge strength
-            HIGHP float kEdge = clamp(gLen * 0.4, 0.0, 1.0);
-            HIGHP float w = mix(wSep, wAniso, kEdge);
-
-            // Sample texture and accumulate weighted color
-            vec2 uv = baseUV + vec2(float(i) * u_texelDelta.x,
-                                    float(j) * u_texelDelta.y);
-            vec3 s = texture2D(sampler0, uv).rgb;
-
-            accum += s * w;
-            wsum += w;
-        }
-    }
-
-    // Normalize accumulated color by total weight
-    vec3 recon = (wsum > 0.0) ? (accum / wsum) : texture2D(sampler0, uvOut).rgb;
-
-    // Early-out optimization for very flat regions to avoid unnecessary processing
-    HIGHP float lMin = min(min(nb.l[0][0], nb.l[0][1]), min(nb.l[0][2], min(min(nb.l[1][0], nb.l[1][1]), min(nb.l[1][2], min(nb.l[2][0], min(nb.l[2][1], nb.l[2][2]))))));
-    HIGHP float lMax = max(max(nb.l[0][0], nb.l[0][1]), max(nb.l[0][2], max(max(nb.l[1][0], nb.l[1][1]), max(nb.l[1][2], max(nb.l[2][0], max(nb.l[2][1], nb.l[2][2]))))));
-    HIGHP float contrast = lMax - lMin;
-    
-    // Skip sharpening in low-contrast regions
-    if (contrast < 0.02) {
-        return vec4(texture2D(sampler0, uvOut).rgb, 1.0);
-    }
-
-    // Apply anti-ringing clamp to prevent overshoots
-    clampToBase2x2(recon, center);
-
-    // Final clamp to valid color range
-    return vec4(clamp(recon, 0.0, 1.0), 1.0);
-}
-
-// Main fragment shader entry point
+// ---------- entry point ----------
 void main() {
-    // Apply EASU upscaling to the current fragment
-    gl_FragColor = FsrEasu(v_texcoord0);
+    vec2 texSize   = vec2(1.0) / u_texelDelta;  // texture resolution
+    vec2 outSize   = vec2(1.0) / u_texelDelta;  // if canvas == texture, same
+
+    vec4 con0, con1, con2, con3;
+    FsrEasuCon(con0, con1, con2, con3,
+               texSize, texSize, outSize);
+
+    // Convert 0-1 texcoord to integer pixel in output space
+    vec2 ip = v_texcoord0 * outSize - vec2(0.5);
+
+    vec3 rgb = FsrEasuF(ip, con0, con1, con2, con3);
+    gl_FragColor = vec4(rgb, 1.0);
 }
