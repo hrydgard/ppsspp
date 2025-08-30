@@ -271,8 +271,6 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	case GE_FORMAT_DEPTH16:
 	{
 		// TODO: I think we can handle most scenarios here, but texturing from depth buffers requires an extension on ES 2.0 anyway.
-		// Not on D3D9 though, so this path is still relevant.
-
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
 			writer.C("  float depth = (index.x - z_offset) * z_scale;\n");
