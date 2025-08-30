@@ -32,8 +32,6 @@ jobs:
         find $PKGNAME/ext -name '*.dylib' -delete || true
         find $PKGNAME/ext -name '*.lib' -delete || true
         find $PKGNAME/ext -name '*.so.*' -delete || true
-        find $PKGNAME/dx9sdk -name '*.lib' -delete || true
-        find $PKGNAME/dx9sdk -name '*.dll' -delete || true
         rm -rf $PKGNAME/ext/rapidjson/thirdparty/gtest || true
         sed -i "s;unknown;${VERSION};" $PKGNAME/git-version.cmake || true
         TARBALL=$PKGNAME.tar.xz
