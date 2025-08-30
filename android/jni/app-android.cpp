@@ -260,7 +260,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 
 // Only used in OpenGL mode.
 static void EmuThreadFunc() {
-	SetCurrentThreadName("EmuThread");
+	SetCurrentThreadName("Entering EmuThread");
 
 	// Name the thread in the JVM, because why not (might result in better debug output in Play Console).
 	// TODO: Do something clever with getEnv() and stored names from SetCurrentThreadName?
@@ -315,7 +315,7 @@ static void EmuThreadFunc() {
 		ProcessFrameCommands(env);
 	}
 
-	INFO_LOG(Log::System, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
+	INFO_LOG(Log::System, "emuThreadState was set to QUIT_REQUESTED, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
@@ -324,7 +324,7 @@ static void EmuThreadFunc() {
 	graphicsContext->StopThread();
 
 	gJvm->DetachCurrentThread();
-	INFO_LOG(Log::System, "Leaving emu thread");
+	INFO_LOG(Log::System, "Leaving EmuThread");
 }
 
 static void EmuThreadStart() {
@@ -916,8 +916,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		graphicsContext->ShutdownFromRenderThread();
 		INFO_LOG(Log::System, "Graphics context now shut down from NativeApp_shutdown");
 
-		INFO_LOG(Log::System, "Joining emuthread");
+		INFO_LOG(Log::System, "Joining emuthread begin");
 		EmuThreadJoin();
+		INFO_LOG(Log::System, "Joining emuthread end");
 	}
 
 	{

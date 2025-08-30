@@ -294,8 +294,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		}
 	}
 
-	private static ArrayList<String> getSdCardPaths19(final Context context)
-	{
+	private static ArrayList<String> getSdCardPaths19(final Context context) {
 		final File[] externalCacheDirs = context.getExternalCacheDirs();
 		if (externalCacheDirs == null || externalCacheDirs.length==0)
 			return null;
@@ -330,8 +329,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	}
 
 	/** Given any file/folder inside an sd card, this will return the path of the sd card */
-	private static String getRootOfInnerSdCardFolder(File file)
-	{
+	private static String getRootOfInnerSdCardFolder(File file) {
 		if (file == null)
 			return null;
 		final long totalSpace = file.getTotalSpace();
@@ -580,6 +578,8 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
+		Log.i(TAG, "onCreate begin");
+
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
@@ -648,9 +648,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 
 			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
 			sizeManager.setSurfaceView(mSurfaceView);
-			Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
-			Log.i(TAG, "setcontentview after");
 			startRenderLoopThread();
 		}
 
@@ -660,16 +658,20 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
 			shortcutParam = null;
 		}
+
+		Log.i(TAG, "onCreate end");
 	}
 
 	@Override
 	public void onWindowFocusChanged(boolean hasFocus) {
+		Log.i(TAG, "onWindowFocusChanged");
 		super.onWindowFocusChanged(hasFocus);
 		updateSustainedPerformanceMode();
 		updateSystemUiVisibility();
 	}
 
 	private void applyFrameRate(Surface surface, float frameRateHz) {
+		Log.i(TAG, "applyFramerate");
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
 			return;
 		if (surface != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -701,6 +703,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	}
 
 	public void notifySurface(Surface surface) {
+		Log.i(TAG, "notifySurface begin");
 		mSurface = surface;
 
 		if (!initialized) {
@@ -719,6 +722,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			applyFrameRate(mSurface, 60.0f);
 		}
 		updateSustainedPerformanceMode();
+		Log.i(TAG, "notifySurface end");
 	}
 
 	// The render loop thread (EmuThread) is now spawned from the native side.
@@ -762,7 +766,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		Log.i(TAG, "onDestroy");
+		Log.i(TAG, "onDestroy begin");
 		if (javaGL) {
 			if (nativeRenderer != null) {
 				if (nativeRenderer.isRenderingFrame()) {
@@ -806,19 +810,23 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			NativeApp.shutdown();
 			unregisterCallbacks();
 			initialized = false;
+		} else {
+			Log.i(TAG, "in onDestroy, but not shutting down.");
 		}
 		navigationCallbackView = null;
 
-		// Workaround for VR issues when PPSSPP restarts
+		// Really ugly workaround for VR issues when PPSSPP restarts
 		if (isVRDevice()) {
 			System.exit(0);
 		}
-		Log.i(TAG, "onDestroy done.");
+		Log.i(TAG, "onDestroy end");
 	}
 
 	@Override
 	protected void onPause() {
 		super.onPause();
+		Log.i(TAG, "onPause begin");
+
 		mSensorManager.unregisterListener(this);
 
 		Log.i(TAG, "onPause");
@@ -833,14 +841,14 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		if (mCameraHelper != null) {
 			mCameraHelper.pause();
 		}
-		Log.i(TAG, "onPause completed");
+		Log.i(TAG, "onPause end");
 	}
 
 	@Override
 	protected void onResume() {
 		super.onResume();
 
-		Log.i(TAG, "onResume");
+		Log.i(TAG, "onResume begin");
 
 		updateSustainedPerformanceMode();
 		sizeManager.onResume();
@@ -861,6 +869,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			// Restart the render loop.
 			startRenderLoopThread();
 		}
+		Log.i(TAG, "onResume end");
 	}
 
 	// Sensor management
@@ -951,8 +960,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	public boolean dispatchKeyEvent(KeyEvent event) {
 		// Log.d(TAG, "key event source: " + event.getSource());
 		if (NativeApp.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
-			Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode());
-			Log.i(TAG, "usemodernb2: " + useModernMouseEventsB2);
+			Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode() + " useModernB2: " + useModernMouseEventsB2);
 			if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && !useModernMouseEventsB2) {
 				// Probably a right click
 				switch (event.getAction()) {
@@ -1027,7 +1035,6 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 
 	@Override
 	public boolean onGenericMotionEvent(MotionEvent event) {
-		// Log.i(TAG, "NativeActivity onGenericMotionEvent: " + event);
 		if (InputDeviceState.inputSourceIsJoystick(event.getSource())) {
 			InputDeviceState state = getInputDeviceState(event);
 			if (state == null) {
@@ -1531,27 +1538,34 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			Log.i(TAG, "Setting shuttingDown = true and calling Finish");
 			shuttingDown = true;
 			finish();
+			return true;
 		} else if (command.equals("rotate")) {
 			updateScreenRotation("rotate");
+			return true;
 		} else if (command.equals("sustainedPerfMode")) {
 			updateSustainedPerformanceMode();
+			return true;
 		} else if (command.equals("immersive")) {
 			updateSystemUiVisibility();
+			return true;
 		} else if (command.equals("recreate")) {
 			recreate();
+			return true;
 		} else if (command.equals("graphics_restart")) {
-			Log.i(TAG, "graphics_restart");
+			Log.i(TAG, "graphics_restart: Calling recreate() on activity");
 			if (params != null && !params.isEmpty()) {
 				overrideShortcutParam = params;
 			}
 			shuttingDown = true;
 			recreate();
+			return true;
 		} else if (command.equals("ask_permission") && params.equals("storage")) {
 			if (askForPermissions(permissionsForStorage, REQUEST_CODE_STORAGE_PERMISSION)) {
 				NativeApp.sendMessageFromJava("permission_pending", "storage");
 			} else {
 				NativeApp.sendMessageFromJava("permission_granted", "storage");
 			}
+			return true;
 		} else if (command.equals("gps_command")) {
 			if (params.equals("open")) {
 				if (!askForPermissions(permissionsForLocation, REQUEST_CODE_LOCATION_PERMISSION)) {
@@ -1560,6 +1574,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			} else if (params.equals("close")) {
 				mLocationHelper.stopLocationUpdates();
 			}
+			return true;
 		} else if (command.equals("infrared_command")) {
 			if (mInfraredHelper == null) {
 				return false;
@@ -1575,6 +1590,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 				int ir_count   = Integer.parseInt(matcher.group(4));
 				mInfraredHelper.sendSircCommand(ir_version, ir_command, ir_address, ir_count);
 			}
+			return true;
 		} else if (command.equals("camera_command")) {
 			if (mCameraHelper == null) {
 				return false;
@@ -1593,6 +1609,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
 			}
+			return true;
 		} else if (command.equals("microphone_command")) {
 			if (params.startsWith("startRecording:")) {
 				int sampleRate = Integer.parseInt(params.replace("startRecording:", ""));
@@ -1613,12 +1630,14 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 				// Only keep the screen bright ingame.
 				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 			}
+			return true;
 		} else if (command.equals("testException")) {
 			try {
 				throw new Exception();
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
 			}
+			return true;
 		} else if (command.equals("show_folder")) {
 			try {
 				Uri selectedUri = Uri.parse(params);
@@ -1642,8 +1661,10 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
 			ClipData clip = ClipData.newPlainText("Copied Text", params);
 			clipboard.setPrimaryClip(clip);
+			return true;
 		} else {
 			Log.w(TAG, "Unknown string command " + command);
+			return false;
 		}
 		return false;
 	}

@@ -143,7 +143,6 @@ public class NativeApp {
 	}
 
 	// Forwarded from onTouchEvent in the SurfaceView classes.
-	@SuppressLint("ClickableViewAccessibility")
 	public static void processTouchEvent(final MotionEvent ev) {
 		if (isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
 			// This is where workable mouse support arrived.

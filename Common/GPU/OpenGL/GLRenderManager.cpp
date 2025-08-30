@@ -99,7 +99,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 }
 
 void GLRenderManager::ThreadEnd() {
-	INFO_LOG(Log::G3D, "ThreadEnd");
+	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd");
 
 	queueRunner_.DestroyDeviceObjects();
 	VLOG("  PULL: Quitting");
@@ -168,9 +168,9 @@ bool GLRenderManager::ThreadFrame() {
 }
 
 void GLRenderManager::StopThread() {
-	// There's not really a lot to do here anymore.
 	INFO_LOG(Log::G3D, "GLRenderManager::StopThread()");
 	if (runCompileThread_) {
+		// TODO: We're using runCompileThread_ a bit too much as a universal "running" flag here.
 		runCompileThread_ = false;
 
 		INFO_LOG(Log::G3D, "Locking pushMutex...");
@@ -417,9 +417,9 @@ void GLRenderManager::Finish() {
 	task->frame = curFrame;
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
+		task->initSteps = std::move(initSteps_);
+		task->steps = std::move(steps_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
-		renderThreadQueue_.back()->steps = std::move(steps_);
 		initSteps_.clear();
 		steps_.clear();
 		pushCondVar_.notify_one();
