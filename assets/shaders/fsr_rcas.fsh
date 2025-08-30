@@ -20,98 +20,79 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Set precision for OpenGL ES
 #ifdef GL_ES
 precision mediump float;
 precision mediump int;
 #endif
 
-// Texture sampler for input image
+// ------------------------------------------------------------------
+//  Texture & uniforms
+// ------------------------------------------------------------------
+#ifdef SHADER_API_D3D11
+uniform sampler2D sampler0 : register(s0);
+#else
 uniform sampler2D sampler0;
+#endif
 
-// Texture coordinate delta (1.0 / viewport size)
-uniform vec2 u_texelDelta;
+uniform vec2  u_texelDelta;    // 1.0 / viewportSize
+uniform vec4  u_setting;       // x = user sharpness (0…1)
 
-// User settings:
-// u_setting.x = sharpness value (0.0 to 1.0)
-uniform vec4 u_setting;
+varying vec2  v_texcoord0;
 
-// Interpolated texture coordinates from vertex shader
-varying vec2 v_texcoord0;
+// ------------------------------------------------------------------
+//  Constants
+// ------------------------------------------------------------------
+const vec3  lumCoef    = vec3(0.2126, 0.7152, 0.0722);   // Rec.709
+const float rcasPeak   = 8.0 - 3.0;                      // = 5.0
+const float rcasInvP   = 1.0 / rcasPeak;
+const float FSR_EPS    = 0.0001;
 
-// Split-screen divider width for comparison views
-const float lineWidth = 0.005;
+// Offsets for 4-tap cross pattern
+const vec2 offN = vec2( 0.0,-1.0);
+const vec2 offW = vec2(-1.0, 0.0);
+const vec2 offE = vec2( 1.0, 0.0);
+const vec2 offS = vec2( 0.0, 1.0);
 
-// Luminance coefficients based on Rec. 709 standard
-// Used for converting RGB to perceptually weighted luminance
-const vec3 lumCoef = vec3(0.2126, 0.7152, 0.0722);
-
-// RCAS (Robust Contrast Adaptive Sharpening) constants
-// Peak negative lobe strength and its inverse
-const float rcasPeak = 8.0 - 3.0;      // Peak negative lobe strength
-const float rcasInvPeak = 1.0 / rcasPeak; // Inverse of peak strength
-
-// Small epsilon value for numerical stability
-// Matches AMD's reference implementation
-const float FSR_EPS = 0.0001;
-
-// Cross-shaped sampling pattern offsets (N, W, E, S)
-// Used for 4-tap cross sampling around center pixel
-const vec2 crossOffsets[4] = vec2[4](
-    vec2( 0.0, -1.0),  // North
-    vec2(-1.0,  0.0),  // West
-    vec2( 1.0,  0.0),  // East
-    vec2( 0.0,  1.0)   // South
-);
-
-// Vanilla RCAS kernel implementation (no edge-aware weighting)
-// Performs contrast adaptive sharpening on the input texture
-vec4 FsrRcasVanilla(vec2 uv) {
-    // Sample center pixel and convert to luminance
+// ------------------------------------------------------------------
+//  RCAS kernel – unchanged logic
+// ------------------------------------------------------------------
+vec4 FsrRcasVanilla(vec2 uv)
+{
     vec3 C = texture2D(sampler0, uv).rgb;
     float CL = dot(C, lumCoef);
 
-    // Sample the 4 cross neighbors and convert to luminance
-    vec3 N = texture2D(sampler0, uv + crossOffsets[0] * u_texelDelta).rgb;  // North
-    vec3 W = texture2D(sampler0, uv + crossOffsets[1] * u_texelDelta).rgb;  // West
-    vec3 E = texture2D(sampler0, uv + crossOffsets[2] * u_texelDelta).rgb;  // East
-    vec3 S = texture2D(sampler0, uv + crossOffsets[3] * u_texelDelta).rgb;  // South
+    vec3 N = texture2D(sampler0, uv + offN * u_texelDelta).rgb;
+    vec3 W = texture2D(sampler0, uv + offW * u_texelDelta).rgb;
+    vec3 E = texture2D(sampler0, uv + offE * u_texelDelta).rgb;
+    vec3 S = texture2D(sampler0, uv + offS * u_texelDelta).rgb;
 
-    float NL = dot(N, lumCoef);  // North luminance
-    float WL = dot(W, lumCoef);  // West luminance
-    float EL = dot(E, lumCoef);  // East luminance
-    float SL = dot(S, lumCoef);  // South luminance
+    float NL = dot(N, lumCoef);
+    float WL = dot(W, lumCoef);
+    float EL = dot(E, lumCoef);
+    float SL = dot(S, lumCoef);
 
-    // Calculate adaptive amplification factor to prevent oversharpening
-    // Uses min/max range analysis to determine safe sharpening strength
-    vec3 minRGB = min(min(min(N, W), min(E, S)), C);  // Minimum RGB in 5-tap neighborhood
-    vec3 maxRGB = max(max(max(N, W), max(E, S)), C);  // Maximum RGB in 5-tap neighborhood
-    vec3 invMax = 1.0 / (maxRGB + FSR_EPS);          // Inverse of maximum (with epsilon)
-    vec3 amp = clamp(min(minRGB, 2.0 - maxRGB) * invMax, 0.0, 1.0);  // Amplification factor
-    amp = inversesqrt(amp + FSR_EPS);                // Inverse square root for non-linearity
+    // Adaptive range
+    vec3 minRGB = min(min(min(N, W), min(E, S)), C);
+    vec3 maxRGB = max(max(max(N, W), max(E, S)), C);
+    vec3 invMax = 1.0 / (maxRGB + FSR_EPS);
+    vec3 amp    = clamp(min(minRGB, 2.0 - maxRGB) * invMax, 0.0, 1.0);
+    amp         = inversesqrt(amp + FSR_EPS);
 
-    // Calculate sharpening weight based on amplification
-    float w = -rcasInvPeak / dot(amp, lumCoef);
+    float w = -rcasInvP / dot(amp, lumCoef);
 
-    // Compute sharpened luminance using contrast adaptive formula
-    float sumL = NL + WL + EL + SL;                 // Sum of neighbor luminances
-    float invDen = 1.0 / (4.0 * w + 1.0);           // Inverse denominator
-    float sharpL = clamp((sumL * w + CL) * invDen, 0.0, 1.0);  // Sharpened luminance
+    float sumL   = NL + WL + EL + SL;
+    float invDen = 1.0 / (4.0 * w + 1.0);
+    float sharpL = clamp((sumL * w + CL) * invDen, 0.0, 1.0);
 
-    // Reconstruct color by preserving chroma (hue/saturation)
-    // This prevents color shifts during sharpening
-    vec3 chroma = C - vec3(CL);                      // Extract chroma (color without brightness)
-    vec3 sharpColor = chroma + vec3(sharpL);        // Apply sharpened luminance to chroma
+    vec3  chroma      = C - vec3(CL);
+    vec3  sharpColor  = chroma + vec3(sharpL);
 
-    // Blend between original and sharpened based on user sharpness setting
-    // u_setting.x controls the blend: 0.0 = original, 1.0 = fully sharpened
-    vec3 outColor = mix(C, sharpColor, u_setting.x);
-    
+    vec3  outColor    = mix(C, sharpColor, u_setting.x);
     return vec4(outColor, 1.0);
 }
 
-// Main fragment shader entry point
-void main() {
-    // Apply RCAS sharpening to the current fragment
+// ------------------------------------------------------------------
+void main()
+{
     gl_FragColor = FsrRcasVanilla(v_texcoord0);
 }
