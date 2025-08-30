@@ -149,7 +149,13 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	}
 
 	//Set platform flags
-	if (strcmp(vendor, "PICO") == 0) {
+	
+	if (strcmp(vendor, "PLAY FOR DREAM") == 0) {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
+		VR_SetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING, 1.0f);
+	} else if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PASSTHROUGH, true);

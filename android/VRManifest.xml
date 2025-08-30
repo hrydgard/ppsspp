@@ -5,6 +5,8 @@
     <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
     <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="false" />
     <uses-feature android:name="oculus.software.handtracking" android:required="false" />
+    <uses-permission android:name="org.khronos.openxr.permission.OPENXR"/>
+    <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM"/>
 
     <application
         android:allowBackup="true"
@@ -17,6 +19,7 @@
 
         <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>
         <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s"/>
+        <meta-data android:name="com.yvr.intent.category.VR" android:value="vr_only" />
         <meta-data android:name="pvr.app.type" android:value="vr" />
     </application>
 </manifest>
