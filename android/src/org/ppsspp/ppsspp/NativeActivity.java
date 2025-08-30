@@ -950,7 +950,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent event) {
 		// Log.d(TAG, "key event source: " + event.getSource());
-		if (NativeSurfaceView.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
+		if (NativeApp.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
 			Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode());
 			Log.i(TAG, "usemodernb2: " + useModernMouseEventsB2);
 			if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && !useModernMouseEventsB2) {
