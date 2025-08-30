@@ -19,6 +19,10 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.database.Cursor;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -55,7 +59,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @SuppressWarnings("ConstantConditions")
-public abstract class NativeActivity extends Activity {
+public abstract class NativeActivity extends Activity implements SensorEventListener {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
@@ -72,8 +76,12 @@ public abstract class NativeActivity extends Activity {
 	private Surface mSurface;
 
 	// Graphics and audio interfaces for Java EGL (javaGL = true)
-	private NativeGLView mGLSurfaceView;
+	private NativeGLSurfaceView mGLSurfaceView;
 	protected NativeRenderer nativeRenderer;
+
+	// For accelerometer sensing.
+	private SensorManager mSensorManager;
+	private Sensor mAccelerometer;
 
 	private String shortcutParam = "";
 	private static String overrideShortcutParam = null;
@@ -343,6 +351,18 @@ public abstract class NativeActivity extends Activity {
 		return file.getAbsolutePath();
 	}
 
+	private boolean detectOpenGLES20() {
+		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+		ConfigurationInfo info = am.getDeviceConfigurationInfo();
+		return info.reqGlEsVersion >= 0x20000;
+	}
+
+	private boolean detectOpenGLES30() {
+		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+		ConfigurationInfo info = am.getDeviceConfigurationInfo();
+		return info.reqGlEsVersion >= 0x30000;
+	}
+
 	public void Initialize() {
 		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
@@ -559,6 +579,10 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
+		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+
 		sizeManager = new SizeManager(this);
 		TextRenderer.init(this);
 		shuttingDown = false;
@@ -588,9 +612,10 @@ public abstract class NativeActivity extends Activity {
 		NativeApp.audioInit();
 
 		if (javaGL) {
-			mGLSurfaceView = new NativeGLView(this);
+			mGLSurfaceView = new NativeGLSurfaceView(this);
 			nativeRenderer = new NativeRenderer();
 			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
+
 			sizeManager.setSurfaceView(mGLSurfaceView);
 
 			// Setup the GLSurface and ask android for the correct
@@ -751,7 +776,7 @@ public abstract class NativeActivity extends Activity {
 						tries--;
 					} while (nativeRenderer.isRenderingFrame() && tries > 0);
 				} else {
-					Log.i(TAG, "nativerenderer done.");
+					Log.i(TAG, "NativeRenderer done.");
 					nativeRenderer = null;
 				}
 			}
@@ -760,6 +785,9 @@ public abstract class NativeActivity extends Activity {
 			mSurfaceView = null;
 			mSurface = null;
 		}
+
+		mSensorManager = null;
+		mAccelerometer = null;
 
 		// Probably vain attempt to help the garbage collector...
 		audioFocusChangeListener = null;
@@ -791,21 +819,16 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onPause() {
 		super.onPause();
+		mSensorManager.unregisterListener(this);
+
 		Log.i(TAG, "onPause");
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		sizeManager.onPause();
 		NativeApp.pause();
 		if (!javaGL) {
-			mSurfaceView.onPause();
 			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
 			Log.i(TAG, "Joined render thread");
-		} else {
-			if (mGLSurfaceView != null) {
-				mGLSurfaceView.onPause();
-			} else {
-				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
-			}
 		}
 		if (mCameraHelper != null) {
 			mCameraHelper.pause();
@@ -813,21 +836,12 @@ public abstract class NativeActivity extends Activity {
 		Log.i(TAG, "onPause completed");
 	}
 
-	private boolean detectOpenGLES20() {
-		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-		ConfigurationInfo info = am.getDeviceConfigurationInfo();
-		return info.reqGlEsVersion >= 0x20000;
-	}
-
-	private boolean detectOpenGLES30() {
-		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-		ConfigurationInfo info = am.getDeviceConfigurationInfo();
-		return info.reqGlEsVersion >= 0x30000;
-	}
-
 	@Override
 	protected void onResume() {
 		super.onResume();
+
+		Log.i(TAG, "onResume");
+
 		updateSustainedPerformanceMode();
 		sizeManager.onResume();
 		updateSystemUiVisibility();
@@ -835,29 +849,31 @@ public abstract class NativeActivity extends Activity {
 		// OK, config should be initialized, we can query for screen rotation.
 		updateScreenRotation("onResume");
 
-		Log.i(TAG, "onResume");
-		if (javaGL) {
-			if (mGLSurfaceView != null) {
-				mGLSurfaceView.onResume();
-			} else {
-				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
-			}
-		} else {
-			if (mSurfaceView != null) {
-				mSurfaceView.onResume();
-			}
-		}
 		if (mCameraHelper != null) {
 			mCameraHelper.resume();
 		}
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
+		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 
 		if (!javaGL) {
 			// Restart the render loop.
 			startRenderLoopThread();
 		}
+	}
+
+	// Sensor management
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int arg1) {}
+
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) {
+			return;
+		}
+		// Can also look at event.timestamp for accuracy magic
+		NativeApp.accelerometer(event.values[0], event.values[1], event.values[2]);
 	}
 
 	@Override

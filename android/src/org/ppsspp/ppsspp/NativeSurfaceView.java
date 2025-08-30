@@ -6,13 +6,8 @@ package org.ppsspp.ppsspp;
 // Used by the Vulkan backend (and EGL, but that path is no longer active)
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
+import android.content.Context;
 import android.os.Build;
-import android.os.Handler;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputEvent;
@@ -21,22 +16,12 @@ import android.view.SurfaceView;
 
 import androidx.annotation.RequiresApi;
 
-public class NativeSurfaceView extends SurfaceView implements SensorEventListener {
+public class NativeSurfaceView extends SurfaceView {
 	private static final String TAG = "NativeSurfaceView";
-	private final SensorManager mSensorManager;
-	private final Sensor mAccelerometer;
 
-	public NativeSurfaceView(NativeActivity activity) {
-		super(activity);
-
-		Log.i(TAG, "NativeSurfaceView");
-
-		mSensorManager = (SensorManager) activity.getSystemService(Activity.SENSOR_SERVICE);
-		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-	}
-
-	private int getToolType(final MotionEvent ev, int pointer) {
-		return ev.getToolType(pointer);
+	public NativeSurfaceView(Context context) {
+		super(context);
+		Log.i(TAG, "NativeSurfaceView constructor");
 	}
 
 	@RequiresApi(Build.VERSION_CODES.N)
@@ -127,33 +112,11 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			}
 
 			if (code != 0) {
-				int tool = getToolType(ev, i);
+				int tool = ev.getToolType(i);
 				code |= tool << 10; // We use the Android tool type codes
 				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
 		return true;
-	}
-
-	// Sensor management
-	@Override
-	public void onAccuracyChanged(Sensor sensor, int arg1) {
-	}
-
-	@Override
-	public void onSensorChanged(SensorEvent event) {
-		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) {
-			return;
-		}
-		// Can also look at event.timestamp for accuracy magic
-		NativeApp.accelerometer(event.values[0], event.values[1], event.values[2]);
-	}
-
-	public void onPause() {
-		mSensorManager.unregisterListener(this);
-	}
-
-	public void onResume() {
-		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 	}
 }
