@@ -939,7 +939,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	{
 		std::lock_guard<std::mutex> guard(frameCommandLock);
-		while (frameCommands.size())
+		while (!frameCommands.empty())
 			frameCommands.pop();
 	}
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");

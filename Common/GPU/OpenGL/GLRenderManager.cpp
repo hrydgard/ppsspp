@@ -140,7 +140,7 @@ bool GLRenderManager::ThreadFrame() {
 			while (renderThreadQueue_.empty()) {
 				pushCondVar_.wait(lock);
 			}
-			task = std::move(renderThreadQueue_.front());
+			task = renderThreadQueue_.front();
 			renderThreadQueue_.pop();
 		}
 
