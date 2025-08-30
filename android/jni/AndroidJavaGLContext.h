@@ -7,7 +7,7 @@
 class AndroidJavaEGLGraphicsContext : public AndroidGraphicsContext {
 public:
 	AndroidJavaEGLGraphicsContext();
-	~AndroidJavaEGLGraphicsContext() { delete draw_; }
+	~AndroidJavaEGLGraphicsContext() override { delete draw_; }
 
 	// This performs the actual initialization,
 	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
@@ -25,8 +25,8 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame() override {
-		return renderManager_->ThreadFrame();
+	bool ThreadFrame(bool waitIfEmpty) override {
+		return renderManager_->ThreadFrame(waitIfEmpty);
 	}
 
 	void BeginAndroidShutdown() override {
@@ -35,10 +35,6 @@ public:
 
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
-	}
-
-	void StopThread() override {
-		renderManager_->StopThread();
 	}
 
 private:

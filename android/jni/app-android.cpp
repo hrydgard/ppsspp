@@ -179,7 +179,6 @@ static jobject nativeActivity;
 static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
-static std::mutex renderLock;
 
 static bool sustainedPerfSupported = false;
 
@@ -299,10 +298,7 @@ static void EmuThreadFunc() {
 	// We just call the update/render loop here.
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		{
-			std::lock_guard<std::mutex> renderGuard(renderLock);
-			NativeFrame(graphicsContext);
-		}
+		NativeFrame(graphicsContext);
 
 		std::lock_guard<std::mutex> guard(frameCommandLock);
 		if (!nativeActivity) {
@@ -319,9 +315,6 @@ static void EmuThreadFunc() {
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
-
-	// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-	graphicsContext->StopThread();
 
 	gJvm->DetachCurrentThread();
 	INFO_LOG(Log::System, "Leaving EmuThread");
@@ -698,7 +691,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	std::lock_guard<std::mutex> guard(renderLock);
 	renderer_inited = false;
 	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
@@ -881,17 +873,19 @@ bool System_AudioRecordingState() {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
-	INFO_LOG(Log::System, "NativeApp.resume() - resuming audio");
+	INFO_LOG(Log::System, "NativeApp.resume() - begin");
 	AndroidAudio_Resume(g_audioState);
 
 	System_PostUIMessage(UIMessage::APP_RESUMED, bFirstResume ? "first" : "");
 
 	bFirstResume = false;
+	INFO_LOG(Log::System, "NativeApp.resume() - end");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
-	INFO_LOG(Log::System, "NativeApp.pause() - pausing audio");
+	INFO_LOG(Log::System, "NativeApp.pause() - begin");
 	AndroidAudio_Pause(g_audioState);
+	INFO_LOG(Log::System, "NativeApp.pause() - end");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
@@ -900,30 +894,31 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	if (renderer_inited && useCPUThread && graphicsContext) {
 		// Only used in Java EGL path.
 
-		// We can't lock renderLock here because the emu thread will be in NativeFrame
-		// which locks renderLock already, and only gets out once we call ThreadFrame()
-		// in a loop before, to empty the queue.
 		EmuThreadStop("shutdown");
+		// NOTE: We know that the GLSurfaceView render thread is stopped here, since we now
+		// correctly call GLSurfaceView.onPause/onResume. However, there may still be queued frames.
+		// We can't join until we've cleared the queue by calling ThreadFrame.
+
+		// Now we know that more frames won't be coming in.
+
 		INFO_LOG(Log::System, "BeginAndroidShutdown");
-		graphicsContext->BeginAndroidShutdown();
+		graphicsContext->BeginAndroidShutdown();  // Makes sure we don't actually perform draws.
+
 		// Now, it could be that we had some frames queued up. Get through them.
 		// We're on the render thread, so this is synchronous.
-		do {
-			INFO_LOG(Log::System, "Executing graphicsContext->ThreadFrame to clear buffers");
-		} while (graphicsContext->ThreadFrame());
+		graphicsContext->ThreadFrameUntilCondition([]() -> bool {
+			return emuThreadState == (int)EmuThreadState::STOPPED;
+		});
 		graphicsContext->ThreadEnd();
+
+		EmuThreadJoin();
+
 		INFO_LOG(Log::System, "ThreadEnd called.");
 		graphicsContext->ShutdownFromRenderThread();
 		INFO_LOG(Log::System, "Graphics context now shut down from NativeApp_shutdown");
-
-		INFO_LOG(Log::System, "Joining emuthread begin");
-		EmuThreadJoin();
-		INFO_LOG(Log::System, "Joining emuthread end");
 	}
 
 	{
-		std::lock_guard<std::mutex> guard(renderLock);
-
 		if (graphicsContext) {
 			INFO_LOG(Log::G3D, "Shutting down renderer");
 			graphicsContext->Shutdown();
@@ -966,8 +961,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		graphicsContext->BeginAndroidShutdown();
 		INFO_LOG(Log::G3D, "BeginAndroidShutdown. Looping until emu thread done...");
 		// Skipping GL calls here because the old context is lost.
-		while (graphicsContext->ThreadFrame()) {
-		}
+		graphicsContext->ThreadFrameUntilCondition([]() -> bool {
+			return emuThreadState == (int)EmuThreadState::STOPPED;
+		});
 		INFO_LOG(Log::G3D, "Joining emu thread");
 		EmuThreadJoin();
 
@@ -1163,7 +1159,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		return;
 
 	// This is the "GPU thread". Call ThreadFrame.
-	if (!graphicsContext || !graphicsContext->ThreadFrame()) {
+	if (!graphicsContext || !graphicsContext->ThreadFrame(true)) {
 		return;
 	}
 
@@ -1679,7 +1675,6 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 
 		while (!exitRenderLoop) {
 			{
-				std::lock_guard<std::mutex> renderGuard(renderLock);
 				NativeFrame(graphicsContext);
 			}
 			{

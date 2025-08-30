@@ -561,7 +561,7 @@ void BinManager::Flush(const char *reason) {
 	if (queueRange_.x1 == 0x7FFFFFFF)
 		return;
 
-	double st;
+	double st = 0.0;
 	if (coreCollectDebugStats)
 		st = time_now_d();
 	Drain(true);

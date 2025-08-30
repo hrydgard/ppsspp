@@ -1415,7 +1415,6 @@ namespace Libretro
             default:
             case EmuThreadState::QUIT_REQUESTED:
                emuThreadState = EmuThreadState::STOPPED;
-               ctx->StopThread();
                return;
          }
       }
@@ -1441,8 +1440,9 @@ namespace Libretro
       emuThreadState = EmuThreadState::QUIT_REQUESTED;
 
       // Need to keep eating frames to allow the EmuThread to exit correctly.
-      while (ctx->ThreadFrame())
-         ;
+      ctx->ThreadFrameUntilCondition([]() -> bool {
+         return emuThreadState == EmuThreadState::STOPPED;
+      });
 
       emuThread.join();
       emuThread = std::thread();
@@ -1456,7 +1456,8 @@ namespace Libretro
 
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
-      ctx->ThreadFrame(); // Eat 1 frame
+      // Is this safe?
+      ctx->ThreadFrame(true); // Eat 1 frame
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1, "libretro-pause-poll");
@@ -1748,7 +1749,7 @@ void retro_run(void)
       if (emuThreadState != EmuThreadState::RUNNING)
          EmuThreadStart();
 
-      if (!ctx->ThreadFrame())
+      if (!ctx->ThreadFrame(true))
       {
          VsyncSwapIntervalDetect();
          return;

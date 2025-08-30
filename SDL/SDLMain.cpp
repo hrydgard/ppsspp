@@ -866,7 +866,6 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 		NativeFrame(graphicsContext);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
-	graphicsContext->StopThread();
 
 	NativeShutdownGraphics();
 }
@@ -1029,7 +1028,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 #ifdef _DEBUG
 			if (k == SDLK_F7) {
-				fprintf("f7 pressed - rebooting emuthread\n");
+				fprintf(stderr, "f7 pressed - rebooting emuthread\n");
 				g_rebootEmuThread = true;
 			}
 #endif
@@ -1838,7 +1837,7 @@ int main(int argc, char *argv[]) {
 
 		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
 		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
-			if (!graphicsContext->ThreadFrame())
+			if (!graphicsContext->ThreadFrame(true))
 				break;
 		}
 
@@ -1853,10 +1852,9 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "rebooting emu thread");
 			g_rebootEmuThread = false;
 			EmuThreadStop("shutdown");
-			// Skipping GL calls, the old context is gone.
-			while (graphicsContext->ThreadFrame()) {
-				INFO_LOG(Log::System, "graphicsContext->ThreadFrame executed to clear buffers");
-			}
+			graphicsContext->ThreadFrameUntilCondition([]() {
+				return emuThreadState == (int)EmuThreadState::STOPPED || emuThreadState == (int)EmuThreadState::DISABLED;
+			});
 			EmuThreadJoin();
 			graphicsContext->ThreadEnd();
 			graphicsContext->ShutdownFromRenderThread();
@@ -1883,10 +1881,9 @@ int main(int argc, char *argv[]) {
 	EmuThreadStop("shutdown");
 
 	if (waitOnExit) {
-		while (graphicsContext->ThreadFrame()) {
-			// Need to keep eating frames to allow the EmuThread to exit correctly.
-			continue;
-		}
+		graphicsContext->ThreadFrameUntilCondition([]() {
+			return emuThreadState == (int)EmuThreadState::STOPPED || emuThreadState == (int)EmuThreadState::DISABLED;
+		});
 	}
 
 	EmuThreadJoin();

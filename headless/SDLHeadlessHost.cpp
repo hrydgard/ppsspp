@@ -35,6 +35,7 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -79,18 +80,12 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame() override {
-		return renderManager_->ThreadFrame();
+	bool ThreadFrame(bool waitIfEmpty) override {
+		return renderManager_->ThreadFrame(waitIfEmpty);
 	}
 
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
-	}
-
-	void StopThread() override {
-		if (renderManager_) {
-			renderManager_->StopThread();
-		}
 	}
 
 	void Shutdown() override {}
@@ -174,6 +169,9 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 	gfx_ = graphicsContext;
 
 	std::thread th([&]{
+		// This is the "EmuThread".
+		SetCurrentThreadName("SDL-EmuThread");
+
 		while (threadState_ == RenderThreadState::IDLE)
 			sleep_ms(1, "sdl-idle-poll");
 		threadState_ = RenderThreadState::STARTING;
@@ -187,7 +185,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 		threadState_ = RenderThreadState::STARTED;
 
 		while (threadState_ != RenderThreadState::STOP_REQUESTED) {
-			if (!gfx_->ThreadFrame()) {
+			if (!gfx_->ThreadFrame(true)) {
 				break;
 			}
 		}
@@ -207,7 +205,6 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 }
 
 void SDLHeadlessHost::ShutdownGraphics() {
-	gfx_->StopThread();
 	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
 		sleep_ms(1, "sdl-stop-poll");
 

@@ -30,7 +30,7 @@ bool TestRiscVEmitter() {
 	cpu_info.RiscV_F = true;
 	cpu_info.RiscV_M = true;
 
-	u32 code[1024];
+	u32 code[1024]{};
 	RiscVEmitter emitter((u8 *)code, (u8 *)code);
 
 	emitter.SetAutoCompress(false);

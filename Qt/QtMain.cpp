@@ -332,6 +332,12 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 			break;
 		case BrowseFileType::ANY:
 			break;
+		case BrowseFileType::SYMBOL_MAP:
+			filter = "PPSSPP symbol map files (*.ppmap)";
+			break;
+		case BrowseFileType::SYMBOL_MAP_NOCASH:
+			filter = "NoCash symbol map files (*.sym)";
+			break;
 		}
 
 		QString fileName = QFileDialog::getOpenFileName(nullptr, g_param1.c_str(), g_Config.currentDirectory.c_str(), filter);
@@ -497,7 +503,6 @@ void MainUI::EmuThreadFunc() {
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
-	graphicsContext->StopThread();
 }
 
 void MainUI::EmuThreadStart() {
@@ -535,10 +540,9 @@ MainUI::~MainUI() {
 	if (emuThreadState != (int)EmuThreadState::DISABLED) {
 		INFO_LOG(Log::System, "EmuThreadStop");
 		EmuThreadStop();
-		while (graphicsContext->ThreadFrame()) {
-			// Need to keep eating frames to allow the EmuThread to exit correctly.
-			continue;
-		}
+		graphicsContext->ThreadFrameUntilCondition([this]() -> bool {
+			return emuThreadState == (int)EmuThreadState::STOPPED;
+		});
 		EmuThreadJoin();
 	}
 #if defined(MOBILE_DEVICE)
@@ -738,7 +742,7 @@ void MainUI::paintGL() {
 	if (emuThreadState == (int)EmuThreadState::DISABLED) {
 		NativeFrame(graphicsContext);
 	} else {
-		graphicsContext->ThreadFrame();
+		graphicsContext->ThreadFrame(true);
 		// Do the rest in EmuThreadFunc
 	}
 }

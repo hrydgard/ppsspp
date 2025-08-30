@@ -1560,10 +1560,6 @@ void NativeShutdown() {
 
 	ShutdownWebServer();
 
-#if PPSSPP_PLATFORM(ANDROID)
-	System_ExitApp();
-#endif
-
 	__UPnPShutdown();
 
 	g_PortManager.Shutdown();
@@ -1581,7 +1577,7 @@ void NativeShutdown() {
 
 	g_threadManager.Teardown();
 
-#if !(PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS))
+#if !PPSSPP_PLATFORM(IOS)
 	System_ExitApp();
 #endif
 

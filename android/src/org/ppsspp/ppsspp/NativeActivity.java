@@ -707,7 +707,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		mSurface = surface;
 
 		if (!initialized) {
-			Log.e(TAG, "Can't deal with surfaces while not initialized");
+			Log.e(TAG, "notifySurface end: Can't deal with surfaces while not initialized");
 			return;
 		}
 
@@ -768,22 +768,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		super.onDestroy();
 		Log.i(TAG, "onDestroy begin");
 		if (javaGL) {
-			if (nativeRenderer != null) {
-				if (nativeRenderer.isRenderingFrame()) {
-					Log.i(TAG, "Waiting for renderer to finish.");
-					int tries = 200;
-					do {
-						try {
-							Thread.sleep(10);
-						} catch (InterruptedException ignored) {
-						}
-						tries--;
-					} while (nativeRenderer.isRenderingFrame() && tries > 0);
-				} else {
-					Log.i(TAG, "NativeRenderer done.");
-					nativeRenderer = null;
-				}
-			}
+			nativeRenderer = null;
 			mGLSurfaceView = null;
 		} else {
 			mSurfaceView = null;
@@ -807,6 +792,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
 		if (shuttingDown) {
+			Log.i(TAG, "in onDestroy, shutting down. Calling NativeApp.shutdown().");
 			NativeApp.shutdown();
 			unregisterCallbacks();
 			initialized = false;
@@ -825,19 +811,22 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	@Override
 	protected void onPause() {
 		super.onPause();
-		Log.i(TAG, "onPause begin");
 
-		mSensorManager.unregisterListener(this);
-
-		Log.i(TAG, "onPause");
-		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		sizeManager.onPause();
-		NativeApp.pause();
 		if (!javaGL) {
 			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
 			Log.i(TAG, "Joined render thread");
+		} else if (mGLSurfaceView != null) {
+			mGLSurfaceView.onPause();
 		}
+
+		Log.i(TAG, "onPause begin");
+
+		mSensorManager.unregisterListener(this);
+
+		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		sizeManager.onPause();
+		NativeApp.pause();
 		if (mCameraHelper != null) {
 			mCameraHelper.pause();
 		}
@@ -868,6 +857,8 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		if (!javaGL) {
 			// Restart the render loop.
 			startRenderLoopThread();
+		} else if (mGLSurfaceView != null) {
+			mGLSurfaceView.onResume();
 		}
 		Log.i(TAG, "onResume end");
 	}

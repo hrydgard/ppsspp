@@ -100,9 +100,6 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
-
-	// Ask the main thread to stop.  This prevents a hang on a race condition.
-	graphicsContext->StopThread();
 }
 
 static void EmuThreadStart(GraphicsContext *graphicsContext) {
@@ -277,7 +274,7 @@ void MainThreadFunc() {
 
 	if (useEmuThread) {
 		while (emuThreadState != (int)EmuThreadState::DISABLED) {
-			graphicsContext->ThreadFrame();
+			graphicsContext->ThreadFrame(true);
 			if (GetUIState() == UISTATE_EXIT) {
 				break;
 			}
@@ -303,10 +300,10 @@ void MainThreadFunc() {
 
 	if (useEmuThread) {
 		EmuThreadStop();
-		while (graphicsContext->ThreadFrame()) {
+		graphicsContext->ThreadFrameUntilCondition([] {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
-			continue;
-		}
+			return emuThreadState == (int)EmuThreadState::STOPPED;
+		});
 		EmuThreadJoin();
 	}
 
