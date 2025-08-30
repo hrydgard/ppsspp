@@ -133,13 +133,11 @@ bool GLRenderManager::ThreadFrame() {
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	while (true) {
-		// Pop a task of the queue and execute it.
-		// NOTE: We need to actually wait for a task, we can't just bail!
+		// Pop a task off the queue and execute it. Exiting this loop is done with a special EXIT task,
+		// to keep things uniform.
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
-			while (renderThreadQueue_.empty()) {
-				pushCondVar_.wait(lock);
-			}
+			pushCondVar_.wait(lock, [this] { return !renderThreadQueue_.empty(); });
 			task = renderThreadQueue_.front();
 			renderThreadQueue_.pop();
 		}
@@ -175,7 +173,9 @@ void GLRenderManager::StopThread() {
 	if (runCompileThread_) {
 		runCompileThread_ = false;
 
+		INFO_LOG(Log::G3D, "Locking pushMutex...");
 		std::unique_lock<std::mutex> lock(pushMutex_);
+		INFO_LOG(Log::G3D, "Pushing exit task to GL submission thread.");
 		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
 		pushCondVar_.notify_one();
 	} else {

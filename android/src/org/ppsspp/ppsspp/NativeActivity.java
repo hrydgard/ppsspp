@@ -813,7 +813,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		if (isVRDevice()) {
 			System.exit(0);
 		}
-		Log.i(TAG, "onDestroy");
+		Log.i(TAG, "onDestroy done.");
 	}
 
 	@Override
