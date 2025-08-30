@@ -1001,8 +1001,10 @@ skip:
 		return furthestJumpbackAddr;
 	}
 
+	// endAddr is exclusive.
 	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
 		_assert_((startAddr & 3) == 0);
+		_assert_((endAddr & 3) == 0);
 
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
@@ -1017,7 +1019,7 @@ skip:
 		bool decreasedSp = false;
 
 		u32 addr;
-		for (addr = startAddr; addr <= endAddr; addr += 4) {
+		for (addr = startAddr; addr < endAddr; addr += 4) {
 			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
@@ -1141,7 +1143,7 @@ skip:
 			}
 		}
 
-		if (addr <= endAddr) {
+		if (addr < endAddr) {
 			currentFunction.end = addr + 4;
 			new_functions.push_back(currentFunction);
 		}
@@ -1186,6 +1188,7 @@ skip:
 
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
 		_assert_((startAddr & 3) == 0);
+		_assert_((size & 3) == 0);
 
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
@@ -1219,19 +1222,23 @@ skip:
 		HashFunctions();
 	}
 
+	// endAddr is exclusive.
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+
+		_assert_((startAddr & 3) == 0);
+		_assert_((endAddr & 3) == 0);
 
 		// It makes sense to forget functions as modules are unloaded but it breaks
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.
 
-		// Most of the time, functions from the same module will be contiguous in functions.
+		// Most of the time, functions from the same module will be contiguous in the vector, in address order.
 		FunctionsVector::iterator prevMatch = functions.end();
 		size_t originalSize = functions.size();
 		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
 			const bool hadPrevMatch = prevMatch != functions.end();
-			const bool match = iter->start >= startAddr && iter->start <= endAddr;
+			const bool match = iter->start >= startAddr && iter->start < endAddr;
 
 			if (!hadPrevMatch && match) {
 				// Entering a range.
