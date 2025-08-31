@@ -25,6 +25,12 @@
 #include "Core/Config.h"
 #include "Windows/InputDevice.h"
 
+#if !PPSSPP_PLATFORM(UWP)
+#include "Windows/DinputDevice.h"
+#include "Windows/HidInputDevice.h"
+#include "Windows/XinputDevice.h"
+#endif
+
 InputManager g_InputManager;
 
 void InputManager::InputThread() {
@@ -64,6 +70,14 @@ void InputManager::InputThread() {
 void InputManager::BeginPolling() {
 	runThread_.store(true, std::memory_order_relaxed);
 	inputThread_ = std::thread([this]() {
+		// In UWP, we add the devices from the main thread, before launching the thread.
+		// This is a bit awkward but worth the startup speed boost on non-UWP until we refactor it.
+#if !PPSSPP_PLATFORM(UWP)
+		//add first XInput device to respond
+		AddDevice(new XinputDevice());
+		AddDevice(new DInputMetaDevice());
+		AddDevice(new HidInputDevice());
+#endif
 		InputThread();
 	});
 }

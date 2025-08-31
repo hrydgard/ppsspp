@@ -475,10 +475,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
-	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
+	g_Config.flash0Directory = Path(external_dir) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
-	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
+	g_Config.flash0Directory = Path(external_dir) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
 	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
@@ -580,7 +580,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = Path(std::string(argv[i] + strlen("--state=")));
+					stateToLoad = Path(argv[i] + strlen("--state="));
 				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
 					g_Config.bPauseExitsEmulator = true;
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
@@ -600,7 +600,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strcmp(argv[i], "--developertools"))
 					gotoDeveloperTools = true;
 				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
-					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + strlen("--appendconfig="))));
+					g_Config.SetAppendedConfigIni(Path(argv[i] + strlen("--appendconfig=")));
 					g_Config.LoadAppendedConfig();
 				}
 				break;

@@ -212,7 +212,7 @@ void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float 
 	}
 	if (!format) return;
 
-	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str), "\n", "\r\n"));
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
 	format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 		
