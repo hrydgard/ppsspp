@@ -833,7 +833,7 @@ void VulkanRenderManager::ReportBadStateForDraw() {
 	if (curRenderStep_ && curRenderStep_->stepType != VKRStepType::RENDER) {
 		cause1 = "Not a render step: ";
 		std::string str = VulkanQueueRunner::StepToString(vulkan_, *curRenderStep_);
-		truncate_cpy(cause2, str.c_str());
+		truncate_cpy(cause2, str);
 	}
 	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }

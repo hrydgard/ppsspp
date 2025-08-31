@@ -190,7 +190,7 @@ static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
 	if (MIPSComp::jit) {
 		std::string name;
 		if (MIPSComp::jit->DescribeCodePtr(address, name)) {
-			truncate_cpy(buffer, bufsize, name.c_str());
+			truncate_cpy(buffer, bufsize, name);
 			return true;
 		}
 	}
@@ -283,7 +283,7 @@ const char *ppsspp_resolver(struct ud*,
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
 		*offset = 0;
-		truncate_cpy(buf, sizeof(buf), str.c_str());
+		truncate_cpy(buf, sizeof(buf), str);
 		return buf;
 	}
 	return NULL;

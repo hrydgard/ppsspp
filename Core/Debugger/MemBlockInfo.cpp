@@ -268,7 +268,7 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 	} else {
 		std::string stringTag;
 		Do(p, stringTag);
-		truncate_cpy(tag, stringTag.c_str());
+		truncate_cpy(tag, stringTag);
 	}
 }
 

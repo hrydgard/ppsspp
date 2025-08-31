@@ -986,7 +986,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				{
 					char name[256];
 					std::string newname;
-					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
+					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin));
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
 						g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
 						u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
