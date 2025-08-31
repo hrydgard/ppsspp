@@ -1511,7 +1511,7 @@ bool retro_load_game(const struct retro_game_info *game)
 
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
-   coreParam.fileToStart     = Path(std::string(game->path));
+   coreParam.fileToStart     = Path(game->path);
    coreParam.startBreak      = false;
    coreParam.headLess        = true;  // really?
    coreParam.graphicsContext = ctx;

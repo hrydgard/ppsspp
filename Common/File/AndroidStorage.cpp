@@ -159,14 +159,14 @@ StorageError Android_RenameFileTo(const std::string &fileUri, const std::string 
 }
 
 // NOTE: Does not set fullName - you're supposed to already know it.
-static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
+static bool ParseFileInfo(std::string_view line, File::FileInfo *fileInfo) {
 	std::vector<std::string> parts;
 	SplitString(line, '|', parts);
 	if (parts.size() != 4) {
 		ERROR_LOG(Log::FileSystem, "Bad format (1): %s", line.c_str());
 		return false;
 	}
-	fileInfo->name = std::string(parts[2]);
+	fileInfo->name = parts[2];
 	fileInfo->isDirectory = parts[0][0] == 'D';
 	fileInfo->exists = true;
 	if (1 != sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size)) {
@@ -206,7 +206,7 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 		return false;
 	}
 	const char *charArray = env->GetStringUTFChars(str, 0);
-	bool retval = ParseFileInfo(std::string(charArray), fileInfo);
+	bool retval = ParseFileInfo(charArray, fileInfo);
 	fileInfo->fullName = Path(fileUri);
 
 	env->DeleteLocalRef(str);

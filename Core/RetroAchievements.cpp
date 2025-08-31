@@ -879,9 +879,9 @@ bool HasAchievementsOrLeaderboards() {
 	return IsActive();
 }
 
-void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
+void DownloadImageIfMissing(const std::string &cache_key, std::string_view url) {
 	if (g_iconCache.MarkPending(cache_key)) {
-		INFO_LOG(Log::Achievements, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
+		INFO_LOG(Log::Achievements, "Downloading image: %.*s (%s)", (int)url.size(), url.data(), cache_key.c_str());
 		g_DownloadManager.StartDownloadWithCallback(url, Path(), http::RequestFlags::Default, [cache_key](http::Request &download) {
 			if (download.ResultCode() != 200)
 				return;
@@ -947,7 +947,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 
 		char temp[512];
 		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
-			Achievements::DownloadImageIfMissing(cacheId, std::string(temp));
+			Achievements::DownloadImageIfMissing(cacheId, temp);
 		}
 
 		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());

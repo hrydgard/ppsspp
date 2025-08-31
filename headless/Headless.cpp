@@ -494,8 +494,8 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
-	coreParameter.mountIso = mountIso ? Path(std::string(mountIso)) : Path();
-	coreParameter.mountRoot = mountRoot ? Path(std::string(mountRoot)) : Path();
+	coreParameter.mountIso = mountIso ? Path(mountIso) : Path();
+	coreParameter.mountRoot = mountRoot ? Path(mountRoot) : Path();
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
 	coreParameter.renderScaleFactor = 1;
