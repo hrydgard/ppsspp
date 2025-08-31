@@ -199,7 +199,7 @@ void LogManager::SetFileLogPath(const Path &filename) {
 		fclose(fp_);
 	}
 
-	if (!filename.empty()) {
+	if (!filename.empty() && (outputs_ & LogOutput::File)) {
 		logFilename_ = Path(filename);
 		File::CreateFullPath(logFilename_.NavigateUp());
 		fp_ = File::OpenCFile(logFilename_, "at");
