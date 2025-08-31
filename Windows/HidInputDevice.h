@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Input/InputState.h"
+#include "Common/Input/InputState.h"
 #include "Windows/InputDevice.h"
 #include <set>
 #include <windows.h>
