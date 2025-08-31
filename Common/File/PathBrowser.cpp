@@ -18,7 +18,7 @@
 #include "android/jni/app-android.h"
 #endif
 
-bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *cancel, std::vector<File::FileInfo> &files) {
+static bool LoadRemoteFileList(const Path &url, std::string_view userAgent, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
 
 	http::Client http(nullptr);
@@ -263,7 +263,7 @@ void PathBrowser::NavigateUp() {
 }
 
 // TODO: Support paths like "../../hello"
-void PathBrowser::Navigate(const std::string &path) {
+void PathBrowser::Navigate(std::string_view path) {
 	if (path == ".")
 		return;
 	if (path == "..") {

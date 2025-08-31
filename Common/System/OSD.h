@@ -71,15 +71,15 @@ public:
 	void ShowAchievementUnlocked(int achievementID);
 	void ShowAchievementProgress(int achievementID, bool show);  // call with show=false to hide.  There can only be one of these. When hiding it's ok to not pass a valid achievementID.
 	void ShowChallengeIndicator(int achievementID, bool show);  // call with show=false to hide.
-	void ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show);   // show=true is used both for create and update.
-	void ShowLeaderboardStartEnd(const std::string &title, const std::string &description, bool started);  // started = true for started, false for ended.
-	void ShowLeaderboardSubmitted(const std::string &title, const std::string &value);
+	void ShowLeaderboardTracker(int leaderboardTrackerID, std::string_view trackerText, bool show);   // show=true is used both for create and update.
+	void ShowLeaderboardStartEnd(std::string_view title, std::string_view description, bool started);  // started = true for started, false for ended.
+	void ShowLeaderboardSubmitted(std::string_view title, std::string_view value);
 
 	// Progress bar controls
 	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
 	// bar that doesn't show a specific amount of progress.
 	void SetProgressBar(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay_s);
-	void RemoveProgressBar(const std::string &id, bool success, float delay_s);
+	void RemoveProgressBar(std::string_view id, bool success, float delay_s);
 
 	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.
 	void NudgeSidebar();

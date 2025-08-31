@@ -439,7 +439,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_HIDE:
 		// A leaderboard_tracker has become inactive. The handler should hide the tracker text from the screen.
 		INFO_LOG(Log::Achievements, "Leaderboard tracker hide: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
-		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, nullptr, false);
+		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, "", false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_UPDATE:
 		// A leaderboard_tracker value has been updated. The handler should update the tracker text on the screen.

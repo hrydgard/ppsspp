@@ -196,7 +196,7 @@ std::string LineNumberString(const std::string &str) {
 	return output.str();
 }
 
-std::string IndentString(const std::string &str, const std::string &sep, bool skipFirst) {
+std::string IndentString(const std::string &str, std::string_view sep, bool skipFirst) {
 	std::stringstream input(str);
 	std::stringstream output;
 	std::string line;

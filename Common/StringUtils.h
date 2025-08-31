@@ -33,7 +33,7 @@
 
 // Useful for shaders with error messages..
 std::string LineNumberString(const std::string &str);
-std::string IndentString(const std::string &str, const std::string &sep, bool skipFirst = false);
+std::string IndentString(const std::string &str, std::string_view sep, bool skipFirst = false);
 
 // Other simple string utilities.
 

@@ -340,9 +340,9 @@ static void EmuThreadJoin() {
 	INFO_LOG(Log::System, "EmuThreadJoin - joined");
 }
 
-static void PushCommand(std::string cmd, std::string param) {
+static void PushCommand(std::string_view cmd, std::string_view param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
-	frameCommands.push(FrameCommand(std::move(cmd), std::move(param)));
+	frameCommands.emplace(std::string(cmd), std::string(param));
 }
 
 // Android implementation of callbacks to the Java part of the app

@@ -421,7 +421,7 @@ uint64_t ComputeRecursiveDirectorySize(const Path &path) {
 }
 
 // Returns true if file filename exists. Will return true on directories.
-bool ExistsInDir(const Path &path, const std::string &filename) {
+bool ExistsInDir(const Path &path, std::string_view filename) {
 	return Exists(path / filename);
 }
 
@@ -1315,7 +1315,7 @@ uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
 	return contents;
 }
 
-bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename) {
+bool WriteStringToFile(bool text_file, std::string_view str, const Path &filename) {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
