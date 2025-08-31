@@ -233,6 +233,8 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		return -1;
 	}
 
+	bool knownExists = false;
+
 	if (flags & OPEN_CREATE) {
 		if (!File::Exists(path)) {
 			INFO_LOG(Log::IO, "OpenFD(%s): Creating file.", path.c_str());
@@ -243,17 +245,19 @@ int OpenFD(const Path &path, OpenFlag flags) {
 					WARN_LOG(Log::IO, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 					return -1;
 				}
+				knownExists = true;
 			} else {
 				INFO_LOG(Log::IO, "Failed to navigate up to create file: %s", path.c_str());
 				return -1;
 			}
 		} else {
 			INFO_LOG(Log::IO, "OpenCFile(%s): Opening existing content file ('%s')", path.c_str(), OpenFlagToString(flags).c_str());
+			knownExists = true;
 		}
 	}
 
 	Android_OpenContentUriMode mode;
-	if (flags == OPEN_READ) {
+	if (flags == OPEN_READ) {  // Intentionally not a bitfield check.
 		mode = Android_OpenContentUriMode::READ;
 	} else if (flags & OPEN_WRITE) {
 		if (flags & OPEN_TRUNCATE) {
@@ -271,14 +275,16 @@ int OpenFD(const Path &path, OpenFlag flags) {
 	INFO_LOG(Log::IO, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
 	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
 	if (descriptor < 0) {
-		ERROR_LOG(Log::IO, "Android_OpenContentUriFd failed: '%s'", path.c_str());
-	}
-
-	if (flags & OPEN_APPEND) {
+		// File probably just doesn't exist. No biggie.
+		if (knownExists) {
+			ERROR_LOG(Log::IO, "Android_OpenContentUriFd failed for existing file: '%s'", path.c_str());
+		} else {
+			INFO_LOG(Log::IO, "Android_OpenContentUriFd failed, probably doesn't exist: '%s'", path.c_str());
+		}
+	} else if (flags & OPEN_APPEND) {
 		// Simply seek to the end of the file to simulate append mode.
 		lseek(descriptor, 0, SEEK_END);
 	}
-
 	return descriptor;
 }
 
