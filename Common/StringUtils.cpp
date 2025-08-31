@@ -361,27 +361,7 @@ std::string StringFromInt(int value) {
 	return temp;
 }
 
-// Turns "  hej " into "hej". Also handles tabs.
-std::string StripSpaces(const std::string &str) {
-	const size_t s = str.find_first_not_of(" \t\r\n");
-	if (std::string::npos != s)
-		return str.substr(s, str.find_last_not_of(" \t\r\n") - s + 1);
-	else
-		return "";
-}
-
-// "\"hello\"" is turned to "hello"
-// This one assumes that the string has already been space stripped in both
-// ends, as done by StripSpaces above, for example.
-std::string StripQuotes(const std::string& s)
-{
-	if (s.size() && '\"' == s[0] && '\"' == *s.rbegin())
-		return s.substr(1, s.size() - 2);
-	else
-		return s;
-}
-
-// Turns "  hej " into "hej". Also handles tabs.
+// Turns "  hej " into "hej". Also handles tabs and line breaks.
 std::string_view StripSpaces(std::string_view str) {
 	const size_t s = str.find_first_not_of(" \t\r\n");
 	if (std::string::npos != s)

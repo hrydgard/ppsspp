@@ -95,9 +95,6 @@ void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t
 std::string StringFromFormat(const char* format, ...);
 std::string StringFromInt(int value);
 
-std::string StripSpaces(const std::string &s);
-std::string StripQuotes(const std::string &s);
-
 std::string_view KeepAfterLast(std::string_view s, char c);
 std::string_view KeepIncludingLast(std::string_view s, char c);
 

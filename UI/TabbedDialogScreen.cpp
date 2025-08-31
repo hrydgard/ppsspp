@@ -82,7 +82,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 
 				searchSettings->Add(new ItemHeader(se->T("Find settings")));
 				searchSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([=](UI::EventParams &e) {
-					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, StripSpaces(searchFilter_));
+					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, std::string(StripSpaces(searchFilter_)));
 					return UI::EVENT_DONE;
 				});
 
