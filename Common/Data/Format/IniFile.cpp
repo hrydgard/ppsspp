@@ -308,7 +308,7 @@ void Section::Set(std::string_view key, const std::vector<std::string>& newValue
 		temp += value + ",";
 	}
 	// remove last ,
-	if (temp.length())
+	if (!temp.empty())
 		temp.resize(temp.length() - 1);
 	Set(key, temp.c_str());
 }

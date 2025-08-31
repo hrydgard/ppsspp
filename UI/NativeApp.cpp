@@ -672,6 +672,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (forceLogLevel) {
+		NOTICE_LOG(Log::System, "Setting log level to %d due to command line override", (int)logLevel);
 		g_logManager.SetAllLogLevels(logLevel);
 	}
 

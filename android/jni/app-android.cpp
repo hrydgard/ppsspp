@@ -1621,7 +1621,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
 	g_renderLoopThread.join();
-	_assert_(!g_renderLoopThread.joinable());
 	g_renderLoopThread = std::thread();
 }
 
