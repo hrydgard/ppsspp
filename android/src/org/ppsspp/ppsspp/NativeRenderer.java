@@ -12,24 +12,12 @@ import javax.microedition.khronos.opengles.GL10;
 // Only used for the OpenGL backend.
 public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static final String TAG = "NativeRenderer";
-	private boolean inFrame = false;
-	private boolean failed = false;
-
-	public boolean isRenderingFrame() {
-		return inFrame;
-	}
-
-	// TODO: Make use of this somehow.
-	public boolean hasFailedInit() { return failed; }
 
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
-		inFrame = true;
 		displayRender();
-		inFrame = false;
 	}
 
 	public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-		failed = false;
 		Log.i(TAG, "NativeRenderer (OpenGL): onSurfaceCreated");
 
 		EGL10 egl = (EGL10)EGLContext.getEGL();
@@ -51,11 +39,12 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 
 		if (!displayInit()) {
 			Log.e(TAG, "Display init failed");
-			failed = true;
 		}
 	}
 
-	public void onSurfaceChanged(GL10 unused, int width, int height) {}
+	public void onSurfaceChanged(GL10 unused, int width, int height) {
+		Log.i(TAG, "NativeRenderer (OpenGL): onSurfaceChanged: width=" + width + " height=" + height);
+	}
 
 	// Note: This also means "device lost" and you should reload
 	// all buffered objects.

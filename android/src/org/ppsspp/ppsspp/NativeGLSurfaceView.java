@@ -1,16 +1,15 @@
 package org.ppsspp.ppsspp;
 
-// Touch-enabled SurfaceView.
-// Supports simple multitouch and pressure.
-// Used by the Vulkan backend.
+// Touch-enabled GLSurfaceView.
+// Used when javaGL = true.
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
-import android.view.SurfaceView;
 
-public class NativeSurfaceView extends SurfaceView {
-	public NativeSurfaceView(Context context) {
+public class NativeGLSurfaceView extends GLSurfaceView {
+	public NativeGLSurfaceView(Context context) {
 		super(context);
 	}
 

@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.WindowInsets;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 public class SizeManager implements SurfaceHolder.Callback {
 	private static final String TAG = "PPSSPPSizeManager";
@@ -60,7 +61,6 @@ public class SizeManager implements SurfaceHolder.Callback {
 		earlySurface = null;
 	}
 
-	@TargetApi(Build.VERSION_CODES.P)
 	public void setSurfaceView(SurfaceView view) {
 		surfaceView = view;
 		if (surfaceView == null)
@@ -125,6 +125,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 			// We have called setFixedSize which will trigger another surfaceChanged after the initial
 			// one. This one is the original one and we don't care about it.
 			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
+
+			// TODO: Should we still set earlySurface here, to be sure?
 			return;
 		}
 
@@ -195,8 +197,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 				// act as if it's visible if it's not.
 				navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
 				// TODO: Check here if it's the state we want.
-				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
-				Log.i(TAG, "decorView: " + view.getWidth() + "x" + view.getHeight());
+				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden + " decorView: " + view.getWidth() + "x" + view.getHeight());
 				checkDisplayMeasurements();
 			}
 		});
@@ -212,27 +213,25 @@ public class SizeManager implements SurfaceHolder.Callback {
 		sz.y = NativeApp.getDesiredBackbufferHeight();
 	}
 
-	@TargetApi(Build.VERSION_CODES.P)
+	@RequiresApi(Build.VERSION_CODES.P)
 	private void updateInsets(WindowInsets insets) {
 		if (insets == null) {
 			return;
 		}
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			DisplayCutout cutout = insets.getDisplayCutout();
-			if (cutout != null) {
-				safeInsetLeft = cutout.getSafeInsetLeft();
-				safeInsetRight = cutout.getSafeInsetRight();
-				safeInsetTop = cutout.getSafeInsetTop();
-				safeInsetBottom = cutout.getSafeInsetBottom();
-				Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
-			} else {
-				Log.i(TAG, "Safe insets: Cutout was null");
-				safeInsetLeft = 0;
-				safeInsetRight = 0;
-				safeInsetTop = 0;
-				safeInsetBottom = 0;
-			}
-			NativeApp.sendMessageFromJava("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
+		DisplayCutout cutout = insets.getDisplayCutout();
+		if (cutout != null) {
+			safeInsetLeft = cutout.getSafeInsetLeft();
+			safeInsetRight = cutout.getSafeInsetRight();
+			safeInsetTop = cutout.getSafeInsetTop();
+			safeInsetBottom = cutout.getSafeInsetBottom();
+			Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
+		} else {
+			Log.i(TAG, "Safe insets: Cutout was null");
+			safeInsetLeft = 0;
+			safeInsetRight = 0;
+			safeInsetTop = 0;
+			safeInsetBottom = 0;
 		}
+		NativeApp.sendMessageFromJava("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 	}
 }

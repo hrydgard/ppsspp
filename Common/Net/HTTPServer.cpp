@@ -350,7 +350,7 @@ void Server::HandleRequestDefault(const ServerRequest &request) {
 }
 
 void Server::Handle404(const ServerRequest &request) {
-	INFO_LOG(Log::IO, "No handler for '%s', falling back to 404.", request.resource());
+	INFO_LOG(Log::IO, "No handler for '%.*s', falling back to 404.", (int)request.resource().size(), request.resource().data());
 	const char *payload = "<html><body>404 not found</body></html>\r\n";
 	request.WriteHttpResponseHeader("1.0", 404, strlen(payload));
 	request.Out()->Push(payload);

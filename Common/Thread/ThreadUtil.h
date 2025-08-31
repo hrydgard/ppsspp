@@ -1,6 +1,8 @@
 #pragma once
 
 #include <mutex>
+#include <atomic>
+#include <utility>
 
 // Note that the string pointed to must have a lifetime until the end of the thread,
 // for AssertCurrentThreadName to work.
@@ -36,3 +38,18 @@ public:
 		DetachThreadFromJNI();
 	}
 };
+
+// Use on atomics to check if they're equal to one of multiple values.
+template <typename T, typename... Ts>
+bool equals_any(const T& first, const Ts... rest) {
+	// Make a single copy (or single load, if atomic)
+	auto value = [&]() {
+		if constexpr (std::is_same_v<T, std::atomic<typename T::value_type>>) {
+			return first.load();
+		} else {
+			return first;
+		}
+	}();
+
+	return ((value == rest) || ...);
+}

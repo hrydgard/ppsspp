@@ -28,8 +28,7 @@ public:
 
 	void ThreadStart() override;
 	void ThreadEnd() override;
-	bool ThreadFrame() override;
-	void StopThread() override;
+	bool ThreadFrame(bool waitIfEmpty) override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 

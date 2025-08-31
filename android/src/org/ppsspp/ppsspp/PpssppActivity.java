@@ -79,6 +79,7 @@ public class PpssppActivity extends NativeActivity {
 				e.printStackTrace();
 			}
 
+			// We don't call super.onCreate, we just bail in an ugly way.
 			System.exit(-1);
 			return;
 		}
@@ -86,22 +87,20 @@ public class PpssppActivity extends NativeActivity {
 		// In case app launched from homescreen shortcut, get shortcut parameter
 		// using Intent extra string. Intent extra will be null if launch normal
 		// (from app drawer or file explorer).
-		String param = parseIntent(getIntent());
-		if (param != null) {
-			Log.i(TAG, "Found Shortcut Parameter in data, passing on: " + param);
-			super.setShortcutParam(param);
+		String shortcutParam = parseIntent(getIntent());
+		if (shortcutParam != null) {
+			Log.i(TAG, "Found Shortcut Parameter in data, passing on: " + shortcutParam);
+			super.setShortcutParam(shortcutParam);
 		}
 		super.onCreate(savedInstanceState);
 	}
 
 	private static String parseIntent(Intent intent) {
-		// String action = intent.getAction();
 		Uri data = intent.getData();
 		if (data != null) {
 			String path = data.toString();
 			// Do some unescaping. Not really sure why needed.
 			return "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-			// Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
 		} else {
 			String param = intent.getStringExtra(SHORTCUT_EXTRA_KEY);
 			String args = intent.getStringExtra(ARGS_EXTRA_KEY);
@@ -515,13 +514,8 @@ public class PpssppActivity extends NativeActivity {
 	@Keep
 	@SuppressWarnings("unused")
 	public long contentUriGetFreeStorageSpace(String str) {
-		Uri uri = Uri.parse(str);
-		if (uri == null) {
-			Log.e(TAG, "Failed to parse uri " + str);
-			return -1;
-		}
-
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			Uri uri = Uri.parse(str);
 			return contentUriGetFreeStorageSpaceSlow(uri);
 		}
 

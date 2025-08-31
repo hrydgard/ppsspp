@@ -482,14 +482,10 @@ void WindowsGLContext::ThreadStart() {
 	renderManager_->ThreadStart(draw_);
 }
 
-bool WindowsGLContext::ThreadFrame() {
-	return renderManager_->ThreadFrame();
+bool WindowsGLContext::ThreadFrame(bool waitIfEmpty) {
+	return renderManager_->ThreadFrame(waitIfEmpty);
 }
 
 void WindowsGLContext::ThreadEnd() {
 	renderManager_->ThreadEnd();
-}
-
-void WindowsGLContext::StopThread() {
-	renderManager_->StopThread();
 }

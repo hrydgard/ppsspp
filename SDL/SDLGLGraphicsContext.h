@@ -33,16 +33,12 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame() override {
-		return renderManager_->ThreadFrame();
+	bool ThreadFrame(bool waitIfEmpty) override {
+		return renderManager_->ThreadFrame(waitIfEmpty);
 	}
 
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
-	}
-
-	void StopThread() override {
-		renderManager_->StopThread();
 	}
 
 private:

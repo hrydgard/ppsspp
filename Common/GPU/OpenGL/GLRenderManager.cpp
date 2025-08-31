@@ -99,9 +99,12 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 }
 
 void GLRenderManager::ThreadEnd() {
-	INFO_LOG(Log::G3D, "ThreadEnd");
+	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd begin");
+
+	runCompileThread_ = false;
 
 	queueRunner_.DestroyDeviceObjects();
+
 	VLOG("  PULL: Quitting");
 
 	// Good time to run all the deleters to get rid of leftover objects.
@@ -116,6 +119,7 @@ void GLRenderManager::ThreadEnd() {
 	}
 	steps_.clear();
 	initSteps_.clear();
+	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd end");
 }
 
 // Unlike in Vulkan, this isn't a full independent function, instead it gets called every frame.
@@ -124,36 +128,31 @@ void GLRenderManager::ThreadEnd() {
 // at which point we can leave.
 //
 // NOTE: If run_ is true, we WILL run a task!
-bool GLRenderManager::ThreadFrame() {
-	if (!runCompileThread_) {
-		return false;
-	}
+bool GLRenderManager::ThreadFrame(bool waitIfEmpty) {
+	_assert_(runCompileThread_);
 
 	GLRRenderThreadTask *task = nullptr;
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	while (true) {
-		// Pop a task of the queue and execute it.
-		// NOTE: We need to actually wait for a task, we can't just bail!
+		// Pop a task off the queue and execute it. Exiting this loop is done with a special EXIT task,
+		// to keep things uniform.
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
-			while (renderThreadQueue_.empty()) {
-				pushCondVar_.wait(lock);
-			}
-			task = std::move(renderThreadQueue_.front());
-			renderThreadQueue_.pop();
-		}
 
-		// We got a task! We can now have pushMutex_ unlocked, allowing the host to
-		// push more work when it feels like it, and just start working.
-		if (task->runType == GLRRunType::EXIT) {
-			delete task;
-			// Oh, host wanted out. Let's leave, and also let's notify the host.
-			// This is unlike Vulkan too which can just block on the thread existing.
-			std::unique_lock<std::mutex> lock(syncMutex_);
-			syncCondVar_.notify_one();
-			syncDone_ = true;
-			break;
+			if (!waitIfEmpty && renderThreadQueue_.empty()) {
+				lock.unlock();
+				// Oh, host wanted out. Let's leave, and also let's notify the host.
+				// This is unlike Vulkan too which can just block on the thread existing.
+				std::unique_lock<std::mutex> lock(syncMutex_);
+				syncCondVar_.notify_one();
+				syncDone_ = true;
+				return false;
+			}
+
+			pushCondVar_.wait(lock, [this] { return !renderThreadQueue_.empty(); });
+			task = renderThreadQueue_.front();
+			renderThreadQueue_.pop();
 		}
 
 		// Render the scene.
@@ -167,20 +166,6 @@ bool GLRenderManager::ThreadFrame() {
 	};
 
 	return true;
-}
-
-void GLRenderManager::StopThread() {
-	// There's not really a lot to do here anymore.
-	INFO_LOG(Log::G3D, "GLRenderManager::StopThread()");
-	if (runCompileThread_) {
-		runCompileThread_ = false;
-
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
-		pushCondVar_.notify_one();
-	} else {
-		WARN_LOG(Log::G3D, "GL submission thread was already paused.");
-	}
 }
 
 void GLRenderManager::StartThread() {
@@ -417,9 +402,9 @@ void GLRenderManager::Finish() {
 	task->frame = curFrame;
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
+		task->initSteps = std::move(initSteps_);
+		task->steps = std::move(steps_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
-		renderThreadQueue_.back()->steps = std::move(steps_);
 		initSteps_.clear();
 		steps_.clear();
 		pushCondVar_.notify_one();

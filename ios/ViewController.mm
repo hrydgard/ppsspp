@@ -66,12 +66,16 @@ public:
 	void Resize() override {}
 	void Shutdown() override {}
 
+	void BeginShutdown() {
+		renderManager_->SetSkipGLCalls();
+	}
+
 	void ThreadStart() override {
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame() override {
-		return renderManager_->ThreadFrame();
+	bool ThreadFrame(bool waitIfEmpty) override {
+		return renderManager_->ThreadFrame(waitIfEmpty);
 	}
 
 	void ThreadEnd() override {
@@ -80,10 +84,6 @@ public:
 
 	void StartThread() {
 		renderManager_->StartThread();
-	}
-
-	void StopThread() override {
-		renderManager_->StopThread();
 	}
 
 private:
@@ -225,10 +225,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
-	graphicsContext->StopThread();
-	while (graphicsContext->ThreadFrame()) {
-		continue;
-	}
+	graphicsContext->ThreadFrameUntilCondition([]() -> bool {
+		return !renderLoopRunning.load();
+	});
 	g_renderLoopThread.join();
 	_assert_(!g_renderLoopThread.joinable());
 }
@@ -373,11 +372,13 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	self.gameController = nil;
 
-	graphicsContext->StopThread();
+	graphicsContext->BeginShutdown();
 	// Skipping GL calls here because the old context is lost.
-	while (graphicsContext->ThreadFrame()) {
-		continue;
-	}
+	graphicsContext->ThreadFrameUntilCondition([]() -> bool {
+		return !renderLoopRunning;
+	});
+	graphicsContext->ThreadEnd();
+
 	graphicsContext->Shutdown();
 	delete graphicsContext;
 	graphicsContext = nullptr;
@@ -401,7 +402,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		return;
 	}
 	if (sharedViewController) {
-		graphicsContext->ThreadFrame();
+		graphicsContext->ThreadFrame(true);
 	}
 }
 

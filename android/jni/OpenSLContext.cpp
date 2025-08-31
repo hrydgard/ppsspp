@@ -271,7 +271,7 @@ OpenSLContext::~OpenSLContext() {
 		CheckResult(result, "SetPlayState(stopped) failed");
 	}
 
-	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting player object");
+	DEBUG_LOG(Log::Audio, "OpenSL: Shutdown - deleting player object");
 
 	if (bqPlayerObject) {
 		(*bqPlayerObject)->Destroy(bqPlayerObject);
@@ -281,7 +281,7 @@ OpenSLContext::~OpenSLContext() {
 		bqPlayerVolume = nullptr;
 	}
 
-	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting mix object");
+	DEBUG_LOG(Log::Audio, "OpenSL: Shutdown - deleting mix object");
 
 	if (outputMixObject) {
 		(*outputMixObject)->Destroy(outputMixObject);
@@ -289,7 +289,7 @@ OpenSLContext::~OpenSLContext() {
 	}
 	OpenSLContext::AudioRecord_Stop();
 
-	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting engine object");
+	DEBUG_LOG(Log::Audio, "OpenSL: Shutdown - deleting engine object");
 
 	if (engineObject) {
 		(*engineObject)->Destroy(engineObject);

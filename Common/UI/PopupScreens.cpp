@@ -96,6 +96,11 @@ std::string ChopTitle(const std::string &title) {
 }
 
 UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
+	if (!callbackExecuted_ && preOpenCallback_) {
+		preOpenCallback_(this);
+		callbackExecuted_ = true;
+	}
+
 	restoreFocus_ = HasFocus();
 
 	auto category = GetI18NCategory(category_);

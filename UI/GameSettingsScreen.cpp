@@ -267,15 +267,19 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 #if !PPSSPP_PLATFORM(UWP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
-	renderingBackendChoice->HideChoice(1);
-	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+	renderingBackendChoice->SetPreOpenCallback([this](UI::PopupMultiChoice *choice) {
+		// Don't filter until the last possible moment, since it involves trying to initialize Vulkan, if we were
+		// started in OpenGL mode on Android.
+		choice->HideChoice(1);
+		choice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 
-	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
-		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
-	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
-		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
-	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
-		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
+		if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
+			choice->HideChoice((int)GPUBackend::OPENGL);
+		if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
+			choice->HideChoice((int)GPUBackend::DIRECT3D11);
+		if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
+			choice->HideChoice((int)GPUBackend::VULKAN);
+	});
 
 	if (!IsFirstInstance()) {
 		// If we're not the first instance, can't save the setting, and it requires a restart, so...
