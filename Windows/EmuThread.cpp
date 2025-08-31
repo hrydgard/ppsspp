@@ -40,7 +40,7 @@ enum class EmuThreadState {
 };
 
 static std::thread emuThread;
-static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
+static std::atomic<EmuThreadState> g_emuThreadState(EmuThreadState::DISABLED);
 
 static std::thread mainThread;
 static bool useEmuThread;
@@ -78,11 +78,11 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
-	emuThreadState = (int)EmuThreadState::RUNNING;
+	g_emuThreadState = EmuThreadState::RUNNING;
 
 	NativeInitGraphics(graphicsContext);
 
-	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
+	while (g_emuThreadState != EmuThreadState::QUIT_REQUESTED) {
 		// We're here again, so the game quit.  Restart Run() which controls the UI.
 		// This way they can load a new game.
 		if (!Core_IsActive()) {
@@ -93,24 +93,25 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 		NativeFrame(graphicsContext);
 
 		if (GetUIState() == UISTATE_EXIT) {
-			emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+			g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
 		}
 	}
 
-	emuThreadState = (int)EmuThreadState::STOPPED;
+	g_emuThreadState = EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
 }
 
 static void EmuThreadStart(GraphicsContext *graphicsContext) {
-	emuThreadState = (int)EmuThreadState::START_REQUESTED;
+	g_emuThreadState = EmuThreadState::START_REQUESTED;
 	emuThread = std::thread(&EmuThreadFunc, graphicsContext);
 }
 
 static void EmuThreadStop() {
-	if (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED &&
-		emuThreadState != (int)EmuThreadState::STOPPED) {
-		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+	const EmuThreadState state = g_emuThreadState;
+	if (state != EmuThreadState::QUIT_REQUESTED &&
+		state != EmuThreadState::STOPPED) {
+		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
 	}
 }
 
@@ -273,7 +274,10 @@ void MainThreadFunc() {
 	}
 
 	if (useEmuThread) {
-		while (emuThreadState != (int)EmuThreadState::DISABLED) {
+		while (true) {
+			if (equals_any(g_emuThreadState, EmuThreadState::QUIT_REQUESTED, EmuThreadState::STOPPED)) {
+				break;
+			}
 			graphicsContext->ThreadFrame(true);
 			if (GetUIState() == UISTATE_EXIT) {
 				break;
@@ -302,7 +306,7 @@ void MainThreadFunc() {
 		EmuThreadStop();
 		graphicsContext->ThreadFrameUntilCondition([] {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
-			return emuThreadState == (int)EmuThreadState::STOPPED;
+			return g_emuThreadState == EmuThreadState::STOPPED;
 		});
 		EmuThreadJoin();
 	}
