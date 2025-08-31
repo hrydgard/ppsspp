@@ -111,7 +111,7 @@ int CountChar(std::string_view haystack, char needle);
 // NOTE: str must live at least as long as all uses of output.
 void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output);
 // Try to avoid this when possible, in favor of the string_view version.
-void SplitString(std::string_view str, const char delim, std::vector<std::string> &output);
+void SplitString(std::string_view str, const char delim, std::vector<std::string> &output, bool trimOutput = false);
 
 void GetQuotedStrings(std::string_view str, std::vector<std::string> &output);
 
@@ -152,6 +152,8 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
+
+void MakeUnique(std::vector<std::string> &vec);
 
 // Replaces %1, %2, %3 in format with arg1, arg2, arg3.
 // Much safer than snprintf and friends.

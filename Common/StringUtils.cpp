@@ -16,7 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include <cstring>
-
+#include <unordered_set>
 #include "ppsspp_config.h"
 
 #ifdef _WIN32
@@ -418,7 +418,7 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 	}
 }
 
-void SplitString(std::string_view str, const char delim, std::vector<std::string> &output) {
+void SplitString(std::string_view str, const char delim, std::vector<std::string> &output, bool trimOutput) {
 	size_t next = 0;
 	size_t pos = 0;
 	while (pos < str.length()) {
@@ -427,6 +427,9 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 			break;
 		}
 		output.emplace_back(str.substr(next, delimPos - next));
+		if (trimOutput) {
+			output.back() = StripSpaces(output.back());
+		}
 		next = delimPos + 1;
 		pos = delimPos + 1;
 	}
@@ -435,6 +438,11 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 		output.emplace_back(str);
 	} else if (next < str.length()) {
 		output.emplace_back(str.substr(next));
+	} else {
+		return;
+	}
+	if (trimOutput) {
+		output.back() = StripSpaces(output.back());
 	}
 }
 
@@ -581,4 +589,18 @@ std::string ApplySafeSubstitutions(std::string_view format, int i1, int i2, int 
 		}
 	}
 	return output;
+}
+
+void MakeUnique(std::vector<std::string> &v) {
+	std::unordered_set<std::string> seen;
+	std::vector<std::string> result;
+	result.reserve(v.size()); // minimize reallocations
+	for (const auto &s : v) {
+		if (seen.insert(s).second) {
+			// insert returns {iterator, bool}
+			// bool == true if it was newly inserted (didn't already exist)
+			result.push_back(s);
+		}
+	}
+	v.swap(result);
 }
