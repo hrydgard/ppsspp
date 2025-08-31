@@ -300,21 +300,17 @@ void Section::Set(std::string_view key, bool newValue, bool defaultValue)
 		Delete(key);
 }
 
-void Section::Set(std::string_view key, const std::vector<std::string>& newValues)
-{
+void Section::Set(std::string_view key, const std::vector<std::string> &newValues) {
 	std::string temp;
 	// Join the strings with ,
 	for (const auto &value : newValues) {
-		temp += value + ",";
+		temp += value;
+		temp.push_back(',');
 	}
 	// remove last ,
-	if (temp.length())
-		temp.resize(temp.length() - 1);
+	if (!temp.empty())
+		temp.pop_back();
 	Set(key, temp.c_str());
-}
-
-void Section::AddComment(const std::string &comment) {
-	lines_.emplace_back(ParsedIniLine::CommentOnly("# " + comment));
 }
 
 bool Section::Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues) const {
@@ -326,23 +322,8 @@ bool Section::Get(std::string_view key, std::vector<std::string> *values, const 
 		}
 		return false;
 	}
-	// ignore starting , if any
-	size_t subStart = temp.find_first_not_of(',');
-	size_t subEnd;
 
-	// split by , 
-	while (subStart != std::string::npos) {
-		// Find next , 
-		subEnd = temp.find_first_of(',', subStart);
-		if (subStart != subEnd) {
-			// take from first char until next , 
-			values->push_back(StripSpaces(temp.substr(subStart, subEnd - subStart)));
-		}
-	
-		// Find the next non , char
-		subStart = temp.find_first_not_of(',', subEnd);
-	} 
-	
+	SplitString(temp, ',', *values, true);
 	return true;
 }
 
@@ -406,6 +387,10 @@ bool Section::Exists(std::string_view key) const {
 			return true;
 	}
 	return false;
+}
+
+void Section::AddComment(const std::string &comment) {
+	lines_.emplace_back(ParsedIniLine::CommentOnly("# " + comment));
 }
 
 std::map<std::string, std::string> Section::ToMap() const {
@@ -502,8 +487,7 @@ void IniFile::SortSections()
 	std::sort(sections.begin(), sections.end());
 }
 
-bool IniFile::Load(const Path &path)
-{
+bool IniFile::Load(const Path &path) {
 	sections.clear();
 	sections.push_back(std::make_unique<Section>(""));
 	// first section consists of the comments before the first real section
@@ -531,15 +515,10 @@ bool IniFile::LoadFromVFS(VFSInterface &vfs, const std::string &filename) {
 }
 
 bool IniFile::Load(std::istream &in) {
-	// Maximum number of letters in a line
-	static const int MAX_BYTES = 1024*32;
-	char *templine = new char[MAX_BYTES];  // avoid using up massive stack space
+	std::string linebuf;
 
-	while (!(in.eof() || in.fail()))
-	{
-		in.getline(templine, MAX_BYTES);
-		std::string_view line = templine;
-
+	while (std::getline(in, linebuf)) {
+		std::string_view line = StripSpaces(std::string_view(linebuf));
 		// Remove UTF-8 byte order marks.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
 			line = line.substr(3);
@@ -575,7 +554,6 @@ bool IniFile::Load(std::istream &in) {
 		}
 	}
 
-	delete[] templine;
 	return true;
 }
 

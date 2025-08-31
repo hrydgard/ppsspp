@@ -672,6 +672,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (forceLogLevel) {
+		NOTICE_LOG(Log::System, "Setting log level to %d due to command line override", (int)logLevel);
 		g_logManager.SetAllLogLevels(logLevel);
 	}
 
@@ -1508,11 +1509,11 @@ void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_Z] = tiltZ;
 }
 
-void System_PostUIMessage(UIMessage message, const std::string &value) {
+void System_PostUIMessage(UIMessage message, std::string_view param) {
 	std::lock_guard<std::mutex> lock(g_pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.message = message;
-	pendingMessage.value = value;
+	pendingMessage.value = param;
 	pendingMessages.push_back(pendingMessage);
 }
 

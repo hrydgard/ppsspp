@@ -1442,7 +1442,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 		// TODO: Is this after the specified files?  Probably before?
 		param->sizeInfo->freeKB = (int)(freeBytes / 1024);
 		std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes, false);
-		truncate_cpy(param->sizeInfo->freeString, spaceTxt.c_str());
+		truncate_cpy(param->sizeInfo->freeString, spaceTxt);
 
 		if (writeBytes - overwriteBytes < (s64)freeBytes) {
 			param->sizeInfo->neededKB = 0;

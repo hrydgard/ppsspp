@@ -71,6 +71,9 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	// False to use Vulkan, queried from C++ after NativeApp.init.
 	private static boolean javaGL = true;
 
+	// Lifecycle tracker, to detect erroneous states.
+	private final LifeCycle lifeCycle = new LifeCycle();
+
 	// Graphics and audio interfaces for Vulkan (javaGL = false)
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
@@ -578,7 +581,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		Log.i(TAG, "onCreate begin");
+		lifeCycle.onCreate();
 
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -706,12 +709,12 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		Log.i(TAG, "notifySurface begin");
 		mSurface = surface;
 
-		if (!initialized) {
-			Log.e(TAG, "notifySurface end: Can't deal with surfaces while not initialized");
-			return;
-		}
-
 		if (!javaGL) {
+			if (!initialized) {
+				Log.e(TAG, "notifySurface end: Saving surface, but can't start/stop threads while not initialized");
+				return;
+			}
+
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
 				joinRenderLoopThread();
@@ -766,7 +769,8 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		Log.i(TAG, "onDestroy begin");
+		lifeCycle.onDestroy();
+
 		if (javaGL) {
 			nativeRenderer = null;
 			mGLSurfaceView = null;
@@ -809,8 +813,21 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	}
 
 	@Override
+	protected void onStart() {
+		super.onStart();
+		lifeCycle.onStart();
+	}
+
+	@Override
+	protected void onStop() {
+		super.onStop();
+		lifeCycle.onStop();
+	}
+
+	@Override
 	protected void onPause() {
 		super.onPause();
+		lifeCycle.onPause();
 
 		if (!javaGL) {
 			Log.i(TAG, "Joining render thread...");
@@ -819,8 +836,6 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		} else if (mGLSurfaceView != null) {
 			mGLSurfaceView.onPause();
 		}
-
-		Log.i(TAG, "onPause begin");
 
 		mSensorManager.unregisterListener(this);
 
@@ -836,8 +851,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 	@Override
 	protected void onResume() {
 		super.onResume();
-
-		Log.i(TAG, "onResume begin");
+		lifeCycle.onResume();
 
 		updateSustainedPerformanceMode();
 		sizeManager.onResume();

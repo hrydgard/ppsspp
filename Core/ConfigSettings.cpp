@@ -1,6 +1,7 @@
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Net/URL.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
@@ -38,8 +39,14 @@ bool ConfigSetting::Get(const Section *section) const {
 	case TYPE_STRING:
 		return section->Get(iniKey_, ptr_.s, cb_.s ? cb_.s().c_str() : default_.s);
 	case TYPE_STRING_VECTOR:
+	{
 		// No support for callbacks for these yet. that's not an issue.
-		return section->Get(iniKey_, ptr_.v, default_.v);
+		bool success = section->Get(iniKey_, ptr_.v, default_.v);
+		if (success) {
+			MakeUnique(*ptr_.v);
+		}
+		return success;
+	}
 	case TYPE_TOUCH_POS:
 	{
 		ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;

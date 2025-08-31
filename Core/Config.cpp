@@ -548,7 +548,9 @@ int Config::NextValidBackend() {
 #endif
 
 		// They've all failed.  Let them try the default - or on Android, OpenGL.
-		sFailedGPUBackends += ",ALL";
+		if (sFailedGPUBackends.find(",ALL") == std::string::npos) {
+			sFailedGPUBackends += ",ALL";
+		}
 		ERROR_LOG(Log::Loader, "All graphics backends failed");
 #if PPSSPP_PLATFORM(ANDROID)
 		return (int)GPUBackend::OPENGL;

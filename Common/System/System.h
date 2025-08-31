@@ -311,7 +311,7 @@ bool System_AudioRecordingIsAvailable();
 bool System_AudioRecordingState();
 
 // This will be changed to take an enum. Replacement for the old NativeMessageReceived.
-void System_PostUIMessage(UIMessage message, const std::string &param = "");
+void System_PostUIMessage(UIMessage message, std::string_view param = "");
 
 // For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
 // no need to implement separately.

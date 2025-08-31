@@ -291,7 +291,7 @@ void CPUInfo::Detect()
 		}
 	}
 #elif PPSSPP_PLATFORM(WINDOWS)
-	truncate_cpy(brand_string, GetCPUBrandString().c_str());
+	truncate_cpy(brand_string, GetCPUBrandString());
 	isVFP3 = true;
 	isVFP4 = false;
 	SYSTEM_INFO sysInfo;
@@ -319,8 +319,8 @@ void CPUInfo::Detect()
 	bFP = false;
 	bASIMD = false;
 #else // PPSSPP_PLATFORM(LINUX)
-	truncate_cpy(cpu_string, GetCPUString().c_str());
-	truncate_cpy(brand_string, GetCPUBrandString().c_str());
+	truncate_cpy(cpu_string, GetCPUString());
+	truncate_cpy(brand_string, GetCPUBrandString());
 
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");

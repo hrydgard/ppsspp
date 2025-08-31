@@ -780,7 +780,7 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 		if (ImGui::MenuItem("Rename function")) {
 			funcBegin_ = g_symbolMap->GetFunctionStart(curAddress_);
 			if (funcBegin_ != -1) {
-				truncate_cpy(funcNameTemp_, g_symbolMap->GetLabelString(funcBegin_).c_str());
+				truncate_cpy(funcNameTemp_, g_symbolMap->GetLabelString(funcBegin_));
 				renameFunctionPopup = true;
 				statusBarText_ = funcNameTemp_;
 			} else {
@@ -1327,7 +1327,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
-						truncate_cpy(selectedSymbolName_, symCache_[i].name.c_str());
+						truncate_cpy(selectedSymbolName_, symCache_[i].name);
 						selectedSymbol_ = i;
 					}
 				}

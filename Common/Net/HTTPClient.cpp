@@ -226,8 +226,10 @@ Client::~Client() {
 
 // Ignores line folding (deprecated), but respects field combining.
 // Don't use for Set-Cookie, which is a special header per RFC 7230.
-bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::string &header, std::string *value) {
-	std::string search = header + ":";
+bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string_view header, std::string *value) {
+	std::string search(header);
+	search.push_back(':');
+
 	bool found = false;
 
 	value->clear();
@@ -242,7 +244,7 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::
 			if (!found)
 				*value = stripped.substr(value_pos);
 			else
-				*value += "," + stripped.substr(value_pos);
+				*value += "," + std::string(stripped.substr(value_pos));
 			found = true;
 		}
 	}

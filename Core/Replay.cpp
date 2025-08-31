@@ -531,7 +531,7 @@ static void ConvertToTm(struct tm *t, int64_t sec) {
 
 ReplayFileInfo ConvertFileInfo(const PSPFileInfo &data) {
 	ReplayFileInfo info;
-	truncate_cpy(info.filename, data.name.c_str());
+	truncate_cpy(info.filename, data.name);
 	info.size = data.size;
 	info.access = (uint16_t)data.access;
 	info.exists = data.exists ? 1 : 0;

@@ -521,7 +521,7 @@ void InitLocalhostIP() {
 	g_localhostIP.in.sin_addr.s_addr = htonl(localIP);
 	g_localhostIP.in.sin_port = 0;
 
-	std::string serverStr = StripSpaces(g_Config.proAdhocServer);
+	std::string serverStr(StripSpaces(g_Config.proAdhocServer));
 	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 

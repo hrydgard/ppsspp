@@ -1222,7 +1222,7 @@ void FrameDumpTestScreen::update() {
 			// We rely slightly on nginx listing format here. Not great.
 			SplitString(listingHtml, '\n', lines);
 			for (auto &line : lines) {
-				std::string trimmed = StripSpaces(line);
+				std::string trimmed(StripSpaces(line));
 				if (startsWith(trimmed, "<a href=\"")) {
 					trimmed = trimmed.substr(strlen("<a href=\""));
 					size_t offset = trimmed.find('\"');

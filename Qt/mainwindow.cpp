@@ -130,7 +130,7 @@ void MainWindow::loadAct()
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
-		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename.toStdString().c_str());
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename.toStdString());
 	}
 }
 

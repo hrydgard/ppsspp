@@ -162,7 +162,7 @@ bool CheckGLExtensions() {
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
 	// TODO: move this stuff to gpu_features.cpp
 	if (cvendor) {
-		const std::string vendor = StripSpaces(std::string(cvendor));
+		const std::string vendor(StripSpaces(cvendor));
 		if (vendor == "NVIDIA Corporation"
 			|| vendor == "Nouveau"
 			|| vendor == "nouveau") {
