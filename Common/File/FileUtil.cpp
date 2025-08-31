@@ -132,6 +132,8 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			return fdopen(descriptor, "rb");
 		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt") || !strcmp(mode, "at") || !strcmp(mode, "a")) {
 			// Need to be able to create the file here if it doesn't exist.
+			// NOTE: The existance check is important, otherwise Android will create a numbered file by the side!
+			// This is also a terrible possible data race, ugh. Anyway...
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
 				INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
