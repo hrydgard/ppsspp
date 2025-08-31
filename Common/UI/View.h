@@ -722,7 +722,7 @@ public:
 class Choice : public ClickableItem {
 public:
 	Choice(std::string_view text, LayoutParams *layoutParams = nullptr)
-		: Choice(text, std::string(), false, layoutParams) {}
+		: Choice(text, "", false, layoutParams) { }
 	Choice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), image_(image) {}
 	Choice(std::string_view text, std::string_view smallText, bool selected = false, LayoutParams *layoutParams = nullptr)

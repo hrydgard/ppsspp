@@ -44,21 +44,25 @@ struct IndexTable
 	u32_le data_table_offset; /* Offset of the param_data from start of data_table */
 };
 
-void ParamSFOData::SetValue(const std::string &key, unsigned int value, int max_size) {
-	values[key].type = VT_INT;
-	values[key].i_value = value;
-	values[key].max_size = max_size;
-}
-void ParamSFOData::SetValue(const std::string &key, const std::string &value, int max_size) {
-	values[key].type = VT_UTF8;
-	values[key].s_value = value;
-	values[key].max_size = max_size;
+void ParamSFOData::SetValue(std::string_view key, unsigned int value, int max_size) {
+	auto [it, inserted] = values.try_emplace(std::string(key));  // The string construction only happens if inserted is true.
+	it->second.type = VT_INT;
+	it->second.i_value = value;
+	it->second.max_size = max_size;
 }
 
-void ParamSFOData::SetValue(const std::string &key, const u8 *value, unsigned int size, int max_size) {
-	values[key].type = VT_UTF8_SPE;
-	values[key].SetData(value, size);
-	values[key].max_size = max_size;
+void ParamSFOData::SetValue(std::string_view key, std::string_view value, int max_size) {
+	auto [it, inserted] = values.try_emplace(std::string(key));
+	it->second.type = VT_UTF8;
+	it->second.s_value = value;
+	it->second.max_size = max_size;
+}
+
+void ParamSFOData::SetValue(std::string_view key, const u8 *value, unsigned int size, int max_size) {
+	auto [it, inserted] = values.try_emplace(std::string(key));
+	it->second.type = VT_UTF8_SPE;
+	it->second.SetData(value, size);
+	it->second.max_size = max_size;
 }
 
 int ParamSFOData::GetValueInt(std::string_view key) const {

@@ -28,9 +28,9 @@ class Path;
 
 class ParamSFOData {
 public:
-	void SetValue(const std::string &key, unsigned int value, int max_size);
-	void SetValue(const std::string &key, const std::string &value, int max_size);
-	void SetValue(const std::string &key, const u8 *value, unsigned int size, int max_size);
+	void SetValue(std::string_view key, unsigned int value, int max_size);
+	void SetValue(std::string_view key, std::string_view value, int max_size);
+	void SetValue(std::string_view key, const u8 *value, unsigned int size, int max_size);
 
 	int GetValueInt(std::string_view key) const;
 	std::string GetValueString(std::string_view key) const;  // Common keys: "TITLE", "DISC_VERSION"
