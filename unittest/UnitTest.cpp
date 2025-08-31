@@ -112,7 +112,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 void System_Notify(SystemNotification notification) {}
-void System_PostUIMessage(UIMessage message, const std::string &param) {}
+void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}

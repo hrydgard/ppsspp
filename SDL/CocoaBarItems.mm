@@ -641,7 +641,7 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
-    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, g_recentFiles.GetRecentFiles()[item.tag].c_str());
+    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, g_recentFiles.GetRecentFiles()[item.tag]);
 }
 
 -(void)openSystemFileBrowser {
