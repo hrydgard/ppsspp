@@ -90,7 +90,7 @@ enum class StringRestriction {
 std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength = 0, int maxLength = -1);
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool lineBreaks = true);
-void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
+void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string *output);
 
 std::string StringFromFormat(const char* format, ...);
 std::string StringFromInt(int value);
@@ -131,7 +131,9 @@ inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
 }
 
-const char* safe_string(const char* s);
+inline const char *safe_string(const char *s) {
+	return s ? s : "(null)";
+}
 
 long parseHexLong(const std::string &s);
 long parseLong(std::string s);
@@ -146,9 +148,6 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 	CharArrayFromFormatV(out, Count, format, args);
 	va_end(args);
 }
-
-// "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
-bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
 
 void MakeUnique(std::vector<std::string> &vec);
 

@@ -64,10 +64,6 @@ size_t truncate_cpy(char *dest, size_t destSize, std::string_view src) {
 	}
 }
 
-const char* safe_string(const char* s) {
-	return s ? s : "(null)";
-}
-
 long parseHexLong(const std::string &s) {
 	long value = 0;
 
@@ -187,38 +183,6 @@ bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list ar
 	}
 }
 
-bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension)
-{
-	if (full_path.empty())
-		return false;
-
-	size_t dir_end = full_path.find_last_of("/"
-	// windows needs the : included for something like just "C:" to be considered a directory
-#ifdef _WIN32
-		":"
-#endif
-	);
-	if (std::string::npos == dir_end)
-		dir_end = 0;
-	else
-		dir_end += 1;
-
-	size_t fname_end = full_path.rfind('.');
-	if (fname_end < dir_end || std::string::npos == fname_end)
-		fname_end = full_path.size();
-
-	if (_pPath)
-		*_pPath = full_path.substr(0, dir_end);
-
-	if (_pFilename)
-		*_pFilename = full_path.substr(dir_end, fname_end - dir_end);
-
-	if (_pExtension)
-		*_pExtension = full_path.substr(fname_end);
-
-	return true;
-}
-
 std::string LineNumberString(const std::string &str) {
 	std::stringstream input(str);
 	std::stringstream output;
@@ -291,7 +255,7 @@ void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool
 	buffer.TakeAll(output);
 }
 
-void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output) {
+void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string *output) {
 	Buffer buffer;
 	size_t i = 0;
 	for (; i < size; i++) {
@@ -321,8 +285,7 @@ void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t
 	buffer.TakeAll(output);
 }
 
-std::string StringFromFormat(const char* format, ...)
-{
+std::string StringFromFormat(const char* format, ...) {
 	va_list args;
 	std::string temp;
 #ifdef _WIN32
