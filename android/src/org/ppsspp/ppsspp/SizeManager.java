@@ -224,9 +224,9 @@ public class SizeManager implements SurfaceHolder.Callback {
 			safeInsetRight = cutout.getSafeInsetRight();
 			safeInsetTop = cutout.getSafeInsetTop();
 			safeInsetBottom = cutout.getSafeInsetBottom();
-			Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
+			// Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
 		} else {
-			Log.i(TAG, "Safe insets: Cutout was null");
+			// Log.i(TAG, "Safe insets: Cutout was null");
 			safeInsetLeft = 0;
 			safeInsetRight = 0;
 			safeInsetTop = 0;
