@@ -48,7 +48,7 @@ jobs:
       - name: Install git
         run: pacman -Syu --noconfirm git
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
