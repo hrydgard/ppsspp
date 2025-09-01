@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 /** Simple dialog to pick file. */
 public class SimpleFileChooser {
@@ -78,7 +79,7 @@ public class SimpleFileChooser {
 				return 1;
 			else
 				// when both are folders or both are files, sort by name
-				return file1.getName().toUpperCase().compareTo(file2.getName().toUpperCase());
+				return file1.getName().toUpperCase(Locale.ROOT).compareTo(file2.getName().toUpperCase(Locale.ROOT));
 		}
 	};
 
