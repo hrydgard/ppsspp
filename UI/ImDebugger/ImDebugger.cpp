@@ -473,6 +473,51 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 	ImGui::End();
 }
 
+void DrawParamSFO(ImConfig &cfg, ImControl &control) {
+	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("PARAMS.SFO", &cfg.paramSFOOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	std::vector<DebugThreadInfo> info = GetThreadsInfo();
+	if (ImGui::BeginTable("paramsfo", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
+		// .initialStack, .stackSize, etc
+		ImGui::TableHeadersRow();
+
+		auto map = g_paramSFO.Values();
+
+		for (auto &[key, value] : map) {
+			ImGui::TableNextRow();
+			ImGui::PushID(key.c_str());
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", key.c_str());
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", ParamSFOData::ValueTypeToString(value.type));
+			ImGui::TableNextColumn();
+			switch (value.type) {
+			case ParamSFOData::VT_UTF8:
+			case ParamSFOData::VT_UTF8_SPE:
+				ImGui::Text("%s", value.s_value.c_str());
+				break;
+			case ParamSFOData::VT_INT:
+				ImGui::Text("%d", value.i_value);
+				break;
+			default:
+				ImGui::TextUnformatted("N/A");
+				break;
+			}
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
 // TODO: Add popup menu, export file, export dir, etc...
 static void RecurseFileSystem(IFileSystem *fs, std::string path, RequesterToken token) {
 	std::vector<PSPFileInfo> fileInfo = fs->GetDirListing(path);
@@ -2366,9 +2411,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Tools")) {
 			ImGui::MenuItem("Lua Console", nullptr, &cfg_.luaConsoleOpen);
 			ImGui::MenuItem("Log", nullptr, &cfg_.logOpen);
-			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
-			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
+			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
+			ImGui::Separator();
+			ImGui::MenuItem("ParamSFO viewer", nullptr, &cfg_.paramSFOOpen);
+			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Atrac Tool", nullptr, &cfg_.atracToolOpen);
 			ImGui::EndMenu();
 		}
@@ -2504,6 +2551,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(cfg_, control, mipsDebug);
+	}
+
+	if (cfg_.paramSFOOpen) {
+		DrawParamSFO(cfg_, control);
 	}
 
 	if (cfg_.geDebuggerOpen) {
@@ -2712,6 +2763,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
 	sync.Sync("memDumpOpen", &memDumpOpen, false);
 	sync.Sync("watchOpen", &watchOpen, false);
+	sync.Sync("paramSFOOpen", &paramSFOOpen, false);
 	sync.Sync("atracToolOpen", &atracToolOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];

@@ -89,6 +89,7 @@ struct ImConfig {
 	bool memViewOpen[4];
 	bool luaConsoleOpen;
 	bool audioOutOpen;
+	bool paramSFOOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
