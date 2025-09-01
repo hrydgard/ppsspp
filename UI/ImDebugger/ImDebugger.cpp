@@ -480,41 +480,76 @@ void DrawParamSFO(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	if (ImGui::BeginTable("paramsfo", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-		ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
-		// .initialStack, .stackSize, etc
-		ImGui::TableHeadersRow();
-
-		auto map = g_paramSFO.Values();
-
-		for (auto &[key, value] : map) {
-			ImGui::TableNextRow();
-			ImGui::PushID(key.c_str());
-			ImGui::TableNextColumn();
-			ImGui::Text("%s", key.c_str());
-			ImGui::TableNextColumn();
-			ImGui::Text("%s", ParamSFOData::ValueTypeToString(value.type));
-			ImGui::TableNextColumn();
-			switch (value.type) {
-			case ParamSFOData::VT_UTF8:
-			case ParamSFOData::VT_UTF8_SPE:
-				ImGui::Text("%s", value.s_value.c_str());
-				break;
-			case ParamSFOData::VT_INT:
-				ImGui::Text("%d", value.i_value);
-				break;
-			default:
-				ImGui::TextUnformatted("N/A");
-				break;
+	auto renderParamSFOTable = [](ParamSFOData &data) {
+		const auto &map = data.Values();
+		if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD) && ImGui::Button("Copy to clipboard")) {
+			char buffer[4096];
+			StringWriter w(buffer);
+			for (auto &[key, value] : map) {
+				switch (value.type) {
+				case ParamSFOData::VT_UTF8:
+					w.F("%s: %s\n", key.c_str(), value.s_value.c_str());
+					break;
+				case ParamSFOData::VT_UTF8_SPE:
+					w.F("%s: %d raw bytes\n", key.c_str(), (int)value.s_value.size());
+					break;
+				case ParamSFOData::VT_INT:
+					w.F("%s: %d\n", key.c_str(), value.i_value);
+					break;
+				default:
+					break;
+				}
 			}
-			ImGui::PopID();
+			System_CopyStringToClipboard(w.as_view());
 		}
 
-		ImGui::EndTable();
+		if (ImGui::BeginTable("paramsfo", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+			ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+			ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 120.f);
+			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 50.f);
+			ImGui::TableHeadersRow();
+
+			for (auto &[key, value] : map) {
+				ImGui::TableNextRow();
+				ImGui::PushID(key.c_str());
+				ImGui::TableNextColumn();
+				ImGui::Text("%s", key.c_str());
+				ImGui::TableNextColumn();
+				switch (value.type) {
+				case ParamSFOData::VT_UTF8:
+					ImGui::Text("%s", value.s_value.c_str());
+					break;
+				case ParamSFOData::VT_UTF8_SPE:
+					ImGui::Text("%d raw bytes", (int)value.s_value.size());
+					break;
+				case ParamSFOData::VT_INT:
+					ImGui::Text("%d", value.i_value);
+					break;
+				default:
+					ImGui::TextUnformatted("N/A");
+					break;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%s", ParamSFOData::ValueTypeToString(value.type));
+				ImGui::PopID();
+			}
+
+			ImGui::EndTable();
+		}
+	};
+
+	if (ImGui::BeginTabBar("ParamSFOTabs")) {
+		if (ImGui::BeginTabItem("Active")) {
+			renderParamSFOTable(g_paramSFO);
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Original")) {
+			renderParamSFOTable(g_paramSFORaw);
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
 	}
+
 	ImGui::End();
 }
 

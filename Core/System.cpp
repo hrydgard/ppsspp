@@ -81,6 +81,7 @@ enum CPUThreadState {
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
+ParamSFOData g_paramSFORaw;
 static GlobalUIState globalUIState;
 CoreParameter g_CoreParameter;
 static FileLoader *g_loadedFile;
@@ -724,6 +725,7 @@ void PSP_Shutdown(bool success) {
 	CPU_Shutdown(success);
 	GPU_Shutdown();
 	g_paramSFO.Clear();
+	g_paramSFORaw.Clear();
 	System_SetWindowTitle("");
 
 	currentMIPS = nullptr;

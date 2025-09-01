@@ -93,6 +93,7 @@ bool LoadParamSFOFromDisc() {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
+			g_paramSFORaw = g_paramSFO;
 			return true;
 		}
 	}
@@ -146,6 +147,7 @@ bool LoadParamSFOFromPBP(FileLoader *fileLoader) {
 			// Carefully parse param SFO for PBP files.
 			ParamSFOData paramSFO;
 			if (paramSFO.ReadSFO(sfoData)) {
+				g_paramSFORaw = paramSFO;
 				std::string title = paramSFO.GetValueString("TITLE");
 				if (g_paramSFO.GetValueString("TITLE").empty() && !title.empty()) {
 					g_paramSFO.SetValue("TITLE", title, (int)title.size());

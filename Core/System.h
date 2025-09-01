@@ -28,6 +28,7 @@ class ParamSFOData;
 
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;
+extern ParamSFOData g_paramSFORaw;
 
 // To synchronize the two UIs, we need to know which state we're in.
 enum GlobalUIState {
