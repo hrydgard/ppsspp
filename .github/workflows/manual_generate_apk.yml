@@ -41,7 +41,7 @@ jobs:
           git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
         
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
