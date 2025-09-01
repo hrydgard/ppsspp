@@ -126,7 +126,8 @@ namespace MainWindow
 	HWND hwndMain;
 	HWND hwndGameList;
 	TouchInputHandler touchHandler;
-	static HMENU menu;
+
+	static HMENU g_hMenu;
 
 	HINSTANCE hInst;
 	static int cursorCounter = 0;
@@ -293,7 +294,7 @@ namespace MainWindow
 		WINDOWPLACEMENT placement = { sizeof(WINDOWPLACEMENT) };
 		GetWindowPlacement(hwndMain, &placement);
 
-		int oldWindowState = g_WindowState;
+		const int oldWindowState = g_WindowState;
 		inFullscreenResize = true;
 		g_IgnoreWM_SIZE = true;
 
@@ -322,8 +323,8 @@ namespace MainWindow
 
 		::SetWindowLong(hWnd, GWL_STYLE, dwStyle);
 
-		// Remove the menu bar. This can trigger WM_SIZE because the contents change size.
-		::SetMenu(hWnd, goingFullscreen || !g_Config.bShowMenuBar ? NULL : menu);
+		// Remove the menu bar if going fullscreen. This can trigger WM_SIZE because the contents change size.
+		::SetMenu(hWnd, goingFullscreen || !g_Config.bShowMenuBar ? NULL : g_hMenu);
 
 		if (g_Config.UseFullScreen() != goingFullscreen) {
 			g_Config.bFullScreen = goingFullscreen;
@@ -339,10 +340,10 @@ namespace MainWindow
 			if (g_Config.bFullScreenMulti) {
 				// Maximize isn't enough to display on all monitors.
 				// Remember that negative coordinates may be valid.
-				int totalX = GetSystemMetrics(SM_XVIRTUALSCREEN);
-				int totalY = GetSystemMetrics(SM_YVIRTUALSCREEN);
-				int totalWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-				int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+				const int totalX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+				const int totalY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+				const int totalWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+				const int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 				MoveWindow(hwndMain, totalX, totalY, totalWidth, totalHeight, TRUE);
 				HandleSizeChange(oldWindowState);
 				ShowWindow(hwndMain, SW_SHOW);
@@ -468,7 +469,7 @@ namespace MainWindow
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
-		hwndMain = CreateWindowEx(0,szWindowClass, L"", style,
+		hwndMain = CreateWindowEx(0, szWindowClass, L"", style,
 			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 		if (!hwndMain)
 			return FALSE;
@@ -478,21 +479,9 @@ namespace MainWindow
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 
-		menu = GetMenu(hwndMain);
+		g_hMenu = GetMenu(hwndMain);
 
-		MENUINFO info;
-		ZeroMemory(&info,sizeof(MENUINFO));
-		info.cbSize = sizeof(MENUINFO);
-		info.cyMax = 0;
-		info.dwStyle = MNS_CHECKORBMP;
-		info.fMask = MIM_STYLE;
-		for (int i = 0; i < GetMenuItemCount(menu); i++) {
-			SetMenuInfo(GetSubMenu(menu,i), &info);
-		}
-
-		// Always translate first: translating resets the menu.
-		TranslateMenus(hwndMain, menu);
-		UpdateMenus();
+		MainMenuInit(hwndMain, g_hMenu);
 
 		// Accept dragged files.
 		DragAcceptFiles(hwndMain, TRUE);
@@ -955,9 +944,9 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_UI:
-			TranslateMenus(hwndMain, menu);
+			TranslateMenus(hwndMain, g_hMenu);
 			// Update checked status immediately for accelerators.
-			UpdateMenus();
+			UpdateMenus(nullptr);
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
@@ -983,7 +972,7 @@ namespace MainWindow
 
 		case WM_MENUSELECT:
 			// Called when a menu is opened. Also when an item is selected, but meh.
-			UpdateMenus(true);
+			UpdateMenus((HMENU)lParam);
 			WindowsRawInput::NotifyMenu();
 			trapMouse = false;
 			break;
@@ -1204,11 +1193,11 @@ namespace MainWindow
 	void ToggleDebugConsoleVisibility() {
 		if (!g_Config.bEnableLogging) {
 			g_logManager.GetConsoleListener()->Show(false);
-			EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
+			EnableMenuItem(g_hMenu, ID_DEBUG_LOG, MF_GRAYED);
 		}
 		else {
 			g_logManager.GetConsoleListener()->Show(true);
-			EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
+			EnableMenuItem(g_hMenu, ID_DEBUG_LOG, MF_ENABLED);
 		}
 	}
 
