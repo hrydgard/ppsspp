@@ -340,9 +340,9 @@ static void EmuThreadJoin() {
 	INFO_LOG(Log::System, "EmuThreadJoin - joined");
 }
 
-static void PushCommand(std::string cmd, std::string param) {
+static void PushCommand(std::string_view cmd, std::string_view param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
-	frameCommands.push(FrameCommand(std::move(cmd), std::move(param)));
+	frameCommands.emplace(std::string(cmd), std::string(param));
 }
 
 // Android implementation of callbacks to the Java part of the app
@@ -758,6 +758,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 		}
 	}
 
+	// TODO: We should be able to do the Vulkan init in parallel with NativeInit.
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
 
 	bFirstResume = true;

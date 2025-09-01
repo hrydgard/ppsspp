@@ -209,14 +209,14 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	entries_.insert(entries_.begin(), entry);
 }
 
-void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show) {   // show=true is used both for create and update.
+void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, std::string_view trackerText, bool show) {   // show=true is used both for create and update.
 	double now = time_now_d();
 
 	for (auto &entry : entries_) {
 		if (entry.numericID == leaderboardTrackerID && entry.type == OSDType::LEADERBOARD_TRACKER) {
 			if (show) {
 				// Just an update.
-				entry.text = trackerText ? trackerText : "";
+				entry.text = trackerText;
 				// Bump the end-time, in case it was fading out.
 				entry.endTime = now + forever_s;
 			} else {
@@ -239,17 +239,15 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 	entry.type = OSDType::LEADERBOARD_TRACKER;
 	entry.startTime = now;
 	entry.endTime = now + forever_s;
-	if (trackerText) {
-		entry.text = trackerText;
-	}
+	entry.text = trackerText;
 	entries_.insert(entries_.begin(), entry);
 }
 
-void OnScreenDisplay::ShowLeaderboardStartEnd(const std::string &title, const std::string &description, bool started) {
+void OnScreenDisplay::ShowLeaderboardStartEnd(std::string_view title, std::string_view description, bool started) {
 	g_OSD.Show(OSDType::LEADERBOARD_STARTED_FAILED, title, description, 3.0f);
 }
 
-void OnScreenDisplay::ShowLeaderboardSubmitted(const std::string &title, const std::string &value) {
+void OnScreenDisplay::ShowLeaderboardSubmitted(std::string_view title, std::string_view value) {
 	g_OSD.Show(OSDType::LEADERBOARD_SUBMITTED, title, value, 3.0f);
 }
 
@@ -285,7 +283,7 @@ void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view messa
 	entries_.push_back(bar);
 }
 
-void OnScreenDisplay::RemoveProgressBar(const std::string &id, bool success, float delay_s) {
+void OnScreenDisplay::RemoveProgressBar(std::string_view id, bool success, float delay_s) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &ent : entries_) {
 		if (ent.type == OSDType::PROGRESS_BAR && ent.id == id) {

@@ -284,38 +284,39 @@ public class PpssppActivity extends NativeActivity {
 	@Keep
 	@SuppressWarnings("unused")
 	public String[] listContentUriDir(String uriString) {
-		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(uriString);
 			final ContentResolver resolver = getContentResolver();
 			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-					uri, DocumentsContract.getDocumentId(uri));
+				uri, DocumentsContract.getDocumentId(uri));
 			final ArrayList<String> listing = new ArrayList<>();
 
-			c = resolver.query(childrenUri, columns, null, null, null);
-			if (c == null) {
-				return new String[]{ "X" };
-			}
-			while (c.moveToNext()) {
-				String str = cursorToString(c);
-				if (str != null) {
-					listing.add(str);
+			String[] projection = {
+				DocumentsContract.Document.COLUMN_DISPLAY_NAME,   // index 0
+				DocumentsContract.Document.COLUMN_SIZE,           // index 1
+				DocumentsContract.Document.COLUMN_FLAGS,          // index 2
+				DocumentsContract.Document.COLUMN_MIME_TYPE,      // index 3
+				DocumentsContract.Document.COLUMN_LAST_MODIFIED   // index 4
+			};
+
+			try (Cursor c = resolver.query(childrenUri, projection, null, null, null)) {
+				if (c == null) {
+					return new String[]{"X"};
+				}
+				while (c.moveToNext()) {
+					String str = cursorToString(c);
+					if (str != null) {
+						listing.add(str);
+					}
 				}
 			}
-			// Is ArrayList weird or what?
-			String[] strings = new String[listing.size()];
-			return listing.toArray(strings);
+
+			return listing.toArray(new String[0]);
 		} catch (IllegalArgumentException e) {
-			// Due to sloppy exception handling in resolver.query, we get this wrapping
-			// a FileNotFoundException if the directory doesn't exist.
-			return new String[]{ "X" };
+			return new String[]{"X"};
 		} catch (Exception e) {
 			Log.e(TAG, "listContentUriDir exception: " + e);
-			return new String[]{ "X" };
-		} finally {
-			if (c != null) {
-				c.close();
-			}
+			return new String[]{"X"};
 		}
 	}
 
@@ -346,6 +347,7 @@ public class PpssppActivity extends NativeActivity {
 			DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 			if (documentFile != null) {
 				// TODO: Check the file extension and choose MIME type appropriately.
+				// Or actually, let's not bother.
 				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
 				return createdFile != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
@@ -465,12 +467,16 @@ public class PpssppActivity extends NativeActivity {
 	@Keep
 	@SuppressWarnings("unused")
 	public String contentUriGetFileInfo(String fileName) {
-		Cursor c = null;
-		try {
-			Uri uri = Uri.parse(fileName);
-			final ContentResolver resolver = getContentResolver();
-			c = resolver.query(uri, columns, null, null, null);
-			if (c != null && c.moveToNext()) {
+		String[] projection = {
+			DocumentsContract.Document.COLUMN_DISPLAY_NAME,   // index 0
+			DocumentsContract.Document.COLUMN_SIZE,           // index 1
+			DocumentsContract.Document.COLUMN_FLAGS,          // index 2
+			DocumentsContract.Document.COLUMN_MIME_TYPE,      // index 3
+			DocumentsContract.Document.COLUMN_LAST_MODIFIED   // index 4
+		};
+
+		try (Cursor c = getContentResolver().query(Uri.parse(fileName), projection, null, null, null)) {
+			if (c != null && c.moveToFirst()) {
 				return cursorToString(c);
 			} else {
 				return null;
@@ -478,10 +484,6 @@ public class PpssppActivity extends NativeActivity {
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriGetFileInfo exception: " + e);
 			return null;
-		} finally {
-			if (c != null) {
-				c.close();
-			}
 		}
 	}
 

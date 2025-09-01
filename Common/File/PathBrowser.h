@@ -2,7 +2,7 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <string>
+#include <string_view>
 #include <cstring>
 #include <thread>
 #include <vector>
@@ -31,17 +31,17 @@ public:
 	bool CanNavigateUp();
 	void NavigateUp();
 
-	void Navigate(const std::string &subdir);
+	void Navigate(std::string_view subdir);
 
 	const Path &GetPath() const {
 		return path_;
 	}
 	std::string GetFriendlyPath() const;
 
-	void SetUserAgent(const std::string &s) {
+	void SetUserAgent(std::string_view s) {
 		userAgent_ = s;
 	}
-	void SetRootAlias(const std::string &alias, const Path &rootPath) {
+	void SetRootAlias(std::string_view alias, const Path &rootPath) {
 		aliasDisplay_ = alias;
 		aliasMatch_ = rootPath;
 	}

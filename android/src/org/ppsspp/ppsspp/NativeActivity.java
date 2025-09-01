@@ -716,9 +716,9 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			}
 
 			// If we got a surface, this starts the thread. If not, it doesn't.
-			if (mSurface == null) {
-				joinRenderLoopThread();
-			} else {
+			// NOTE: We do not try to join the thread here
+			if (mSurface != null) {
+				// applyFramerate is called in here.
 				startRenderLoopThread();
 			}
 		} else if (mSurface != null) {

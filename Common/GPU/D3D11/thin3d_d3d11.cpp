@@ -807,7 +807,7 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 
 class D3D11ShaderModule : public ShaderModule {
 public:
-	D3D11ShaderModule(const std::string &tag) : tag_(tag) { }
+	D3D11ShaderModule(std::string_view tag) : tag_(tag) { }
 	~D3D11ShaderModule() {
 	}
 	ShaderStage GetStage() const override { return stage; }

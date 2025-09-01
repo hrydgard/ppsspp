@@ -12,63 +12,6 @@
 
 namespace fd_util {
 
-// Slow as hell and should only be used for prototyping.
-// Reads from a socket, up to an '\n'. This means that if the line ends
-// with '\r', the '\r' will be returned.
-size_t ReadLine(int fd, char *vptr, size_t buf_size) {
-	char *buffer = vptr;
-	size_t n;
-	for (n = 1; n < buf_size; n++) {
-		char c;
-		size_t rc;
-		if ((rc = read(fd, &c, 1)) == 1) {
-			*buffer++ = c;
-			if (c == '\n')
-				break;
-		} else if (rc == 0) {
-			if (n == 1)
-				return 0;
-			else
-				break;
-		} else {
-			if (errno == EINTR)
-				continue;
-			_assert_msg_(false, "Error in Readline()");
-		}
-	}
-
-	*buffer = 0;
-	return n;
-}
-
-// Misnamed, it just writes raw data in a retry loop.
-size_t WriteLine(int fd, const char *vptr, size_t n) {
-	const char *buffer = vptr;
-	size_t nleft = n;
-
-	while (nleft > 0) {
-		int nwritten;
-		if ((nwritten = (int)write(fd, buffer, (unsigned int)nleft)) <= 0) {
-			if (errno == EINTR)
-				nwritten = 0;
-			else
-				_assert_msg_(false, "Error in Writeline()");
-		}
-		nleft  -= nwritten;
-		buffer += nwritten;
-	}
-
-	return n;
-}
-
-size_t WriteLine(int fd, const char *buffer) {
-	return WriteLine(fd, buffer, strlen(buffer));
-}
-
-size_t Write(int fd, const std::string &str) {
-	return WriteLine(fd, str.c_str(), str.size());
-}
-
 bool WaitUntilReady(int fd, double timeout, bool for_write) {
 	struct timeval tv;
 	tv.tv_sec = (long)floor(timeout);

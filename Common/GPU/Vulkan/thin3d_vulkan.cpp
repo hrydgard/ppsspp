@@ -184,7 +184,7 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 // invoke Compile again to recreate the shader then link them together.
 class VKShaderModule : public ShaderModule {
 public:
-	VKShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {
+	VKShaderModule(ShaderStage stage, std::string_view tag) : stage_(stage), tag_(tag) {
 		vkstage_ = StageToVulkan(stage);
 	}
 	bool Compile(VulkanContext *vulkan, const uint8_t *data, size_t size);
