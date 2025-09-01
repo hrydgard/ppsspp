@@ -61,7 +61,6 @@ public:
 	bool IsValid() const { return !values.empty(); }
 	void Clear();
 
-private:
 	enum ValueType {
 		VT_INT,
 		VT_UTF8,
@@ -85,6 +84,21 @@ private:
 		}
 	};
 
+	// ImDebugger access to the map.
+	const std::map<std::string, ValueData, std::less<>> &Values() {
+		return values;
+	}
+
+	static const char *ValueTypeToString(ValueType t) {
+		switch (t) {
+		case ParamSFOData::VT_INT: return "INT";
+		case ParamSFOData::VT_UTF8: return "UTF8";
+		case ParamSFOData::VT_UTF8_SPE: return "UTF8_SPE";
+		default: return "N/A";
+		}
+	}
+
+private:
 	std::map<std::string, ValueData, std::less<>> values;
 };
 
