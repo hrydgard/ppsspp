@@ -970,9 +970,9 @@ namespace MainWindow
 			DestroyWindow(hWnd);
 			break;
 
-		case WM_MENUSELECT:
-			// Called when a menu is opened. Also when an item is selected, but meh.
-			UpdateMenus((HMENU)lParam);
+		case WM_INITMENUPOPUP:
+			// Called when a menu or submenu is about to be opened.
+			UpdateMenus((HMENU)wParam);
 			WindowsRawInput::NotifyMenu();
 			trapMouse = false;
 			break;
