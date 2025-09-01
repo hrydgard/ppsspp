@@ -63,13 +63,13 @@ extern bool g_TakeScreenshot;
 namespace MainWindow {
 	extern HINSTANCE hInst;
 	extern bool noFocusPause;
-	static bool browsePauseAfter;
+	std::vector<HMENU> g_topLevelMenus;
+	HMENU g_hMenuBackend;
 
 	static std::unordered_map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> availableShaders;
 	static std::string menuLanguageID = "";
 	static int menuKeymapGeneration = -1;
-	static bool menuShaderInfoLoaded = false;
 	std::vector<ShaderInfo> menuShaderInfo;
 
 	LRESULT CALLBACK AboutDlgProc(HWND, UINT, WPARAM, LPARAM);
@@ -162,30 +162,31 @@ namespace MainWindow {
 		return initialMenuKeys[menuID];
 	}
 
-	// TODO: Why isn't this just defined in the resoucre
-	void CreateHelpMenu(HMENU menu) {
-		auto des = GetI18NCategory(I18NCat::DESKTOPUI);
-
-		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
-		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
-		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy PPSSPP Gold"));
-		const std::wstring gitHub = ConvertUTF8ToWString(des->T("GitHub"));
-		const std::wstring discord = ConvertUTF8ToWString(des->T("Discord"));
-		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(des->T("About PPSSPP..."));
-
-		HMENU helpMenu = GetSubmenuById(menu, ID_HELP_MENU);
-		EmptySubMenu(helpMenu);
-
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
-		// Repeat the process for other languages, if necessary.
-		if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
+	void MainMenuInit(HWND hwndMain, HMENU hMenu) {
+		MENUINFO info;
+		ZeroMemory(&info, sizeof(MENUINFO));
+		info.cbSize = sizeof(MENUINFO);
+		info.cyMax = 0;
+		info.dwStyle = MNS_CHECKORBMP;
+		info.fMask = MIM_STYLE;
+		g_topLevelMenus.clear();
+		for (int i = 0; i < GetMenuItemCount(hMenu); i++) {
+			HMENU subMenu = GetSubMenu(hMenu, i);
+			SetMenuInfo(subMenu, &info);
+			g_topLevelMenus.push_back(subMenu);
 		}
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_GITHUB, gitHub.c_str());
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_DISCORD, discord.c_str());
-		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
+
+		// Always translate first: translating resets the menu.
+		TranslateMenus(hwndMain, hMenu);
+		// Don't need to update here, happens later.
+
+		HMENU helpMenu = GetSubmenuById(hMenu, ID_HELP_MENU);
+		if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+			RemoveMenu(helpMenu, ID_HELP_BUYGOLD, MF_BYCOMMAND);
+		}
+
+		HMENU hMenuOptions = GetSubmenuById(hMenu, ID_OPTIONS_MENU);
+		g_hMenuBackend = GetSubmenuById(hMenuOptions, ID_OPTIONS_BACKEND_MENU);
 	}
 
 	static void TranslateMenuItem(const HMENU hMenu, const int menuID, const std::wstring& accelerator = L"", const char *key = nullptr) {
@@ -321,7 +322,12 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_EMULATION_CHAT, g_Config.bSystemControls ? L"\tCtrl+C" : L"");
 
 		// Help menu: it's translated in CreateHelpMenu.
-		CreateHelpMenu(menu);
+		TranslateMenuItem(menu, ID_HELP_OPENWEBSITE);
+		TranslateMenuItem(menu, ID_HELP_OPENFORUM);
+		TranslateMenuItem(menu, ID_HELP_BUYGOLD);
+		TranslateMenuItem(menu, ID_HELP_GITHUB);
+		TranslateMenuItem(menu, ID_HELP_DISCORD);
+		TranslateMenuItem(menu, ID_HELP_ABOUT);
 	}
 
 	void TranslateMenus(HWND hWnd, HMENU menu) {
@@ -342,7 +348,7 @@ namespace MainWindow {
 	void BrowseAndBootDone(std::string filename);
 
 	void BrowseAndBoot(RequesterToken token, std::string defaultPath, bool browseDirectory) {
-		browsePauseAfter = false;
+		bool browsePauseAfter = false;
 		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
@@ -990,12 +996,30 @@ namespace MainWindow {
 			vfpudlg->Show(false);
 	}
 
-	void UpdateMenus(bool isMenuSelect) {
-		if (isMenuSelect) {
-			menuShaderInfoLoaded = false;
+	static void UpdateBackendSubMenu(HMENU menu);
+
+	void UpdateMenus(HMENU menuSelected) {
+		HMENU menu = GetMenu(GetHWND());
+
+		if (menuSelected) {
+			// Technically we only need to update the selected menu.
+			if (menuSelected == g_hMenuBackend) {
+				UpdateBackendSubMenu(menu);
+				return;
+			}
+			bool found = false;
+			for (auto topLevelMenu : g_topLevelMenus) {
+				if (menuSelected == topLevelMenu) {
+					found = true;
+				}
+			}
+
+			if (!found) {
+				// Don't do anything
+				return;
+			}
 		}
 
-		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
@@ -1203,6 +1227,15 @@ namespace MainWindow {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
+#if !PPSSPP_API(ANY_GL)
+		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);
+#endif
+
+		UpdateCommands();
+	}
+
+	// This one is pretty expensive so we handle it separately.
+	static void UpdateBackendSubMenu(HMENU menu) {
 		bool allowD3D11 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11);
 		bool allowOpenGL = g_Config.IsBackendEnabled(GPUBackend::OPENGL);
 		bool allowVulkan = g_Config.IsBackendEnabled(GPUBackend::VULKAN);
@@ -1233,12 +1266,6 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		}
-
-#if !PPSSPP_API(ANY_GL)
-		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);
-#endif
-
-		UpdateCommands();
 	}
 
 	void UpdateCommands() {
