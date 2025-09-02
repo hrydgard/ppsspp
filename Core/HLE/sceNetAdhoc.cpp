@@ -4281,7 +4281,7 @@ int FlushPtpSocket(int socketId) {
 
 	// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
 	//changeBlockingMode(socket->id, nonblock);
-	int ret = send(socketId, nullptr, 0, MSG_NOSIGNAL);
+	int ret = send(socketId, "", 0, MSG_NOSIGNAL);
 	if (ret == SOCKET_ERROR) ret = socket_errno;
 	//changeBlockingMode(socket->id, 1);
 

@@ -113,8 +113,8 @@ static inline bool IsGPR(LoongArch64Reg reg) { return (reg & ~0x1F) == 0; }
 static inline bool IsFPR(LoongArch64Reg reg) { return (reg & ~0x1F) == 0x20; }
 static inline bool IsVPR(LoongArch64Reg reg) { return (reg & ~0x1F) == 0x40; }
 static inline bool IsXPR(LoongArch64Reg reg) { return (reg & ~0x1F) == 0x60; }
-static inline bool IsCFR(LoongArch64CFR cfr) { return (cfr < 8); }
-static inline bool IsFCSR(LoongArch64FCSR fcsr) { return (fcsr < 4); }
+static inline bool IsCFR(LoongArch64CFR cfr) { return ((int)cfr < 8); }
+static inline bool IsFCSR(LoongArch64FCSR fcsr) { return ((int)fcsr < 4); }
 inline LoongArch64Reg EncodeRegToV(LoongArch64Reg reg) { return (LoongArch64Reg)(DecodeReg(reg) + V0); }
 
 struct FixupBranch {

@@ -1,6 +1,7 @@
 plugins {
 	id 'com.gladed.androidgitversion' version '0.4.14'
 }
+
 apply plugin: 'com.android.application'
 
 androidGitVersion {
@@ -20,7 +21,7 @@ dependencies {
 }
 
 android {
-	flavorDimensions += "variant"
+	flavorDimensions "variant"
 	namespace = 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
@@ -38,15 +39,12 @@ android {
 				keyAlias RELEASE_KEY_ALIAS
 				keyPassword RELEASE_KEY_PASSWORD
 			}
-		} else {
-			release {
-			}
 		}
 	}
 
 	compileSdk = 36
 
-	ndkVersion = "27.2.12479018"
+	ndkVersion = "28.2.13676358"
 
 	compileOptions {
 		sourceCompatibility JavaVersion.VERSION_11
@@ -54,16 +52,6 @@ android {
 	}
 
 	defaultConfig {
-		/*
-		configurations.all {
-			resolutionStrategy {
-				// Newer versions are not compatible with our minsdk. Should find a way to exclude it entirely
-				// since we have no use for this transitive dependency.
-				force 'androidx.emoji2:emoji2-views-helper:1.0.0'
-			}
-		}
-		*/
-
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown") {
 			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
@@ -116,7 +104,7 @@ android {
 			aidl.srcDirs = ['src']
 			resources.srcDirs = ['src']
 			assets.srcDirs = [
-					'../assets',
+				'../assets',
 			]
 		}
 		normal {
@@ -141,11 +129,10 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-21',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
-							'-DANDROID_STL=c++_static'
+						'-DANDROID_PLATFORM=android-21',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static'
 				}
 			}
 			ndk {
@@ -159,13 +146,12 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-21',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
-							'-DGOLD=TRUE'
+						'-DANDROID_PLATFORM=android-21',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static',
+						'-DANDROID_ARM_NEON=TRUE',
+						'-DGOLD=TRUE'
 				}
 			}
 			ndk {
@@ -175,7 +161,7 @@ android {
 		legacy {
 			applicationId 'org.ppsspp.ppsspplegacy'
 			dimension "variant"
-			targetSdkVersion 29  // This is the point of legacy.
+			// targetSdk is overridden in androidComponents below.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
@@ -184,7 +170,6 @@ android {
 						'-DANDROID_TOOLCHAIN=clang',
 						'-DANDROID_CPP_FEATURES=',
 						'-DANDROID_STL=c++_static',
-						'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
 						'-DANDROID_LEGACY=TRUE'
 				}
 			}
@@ -196,19 +181,18 @@ android {
 		vr {
 			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
-			targetSdkVersion 29  // Do not upgrade this, we depend on not requiring scoped storage on Oculus.
+			// targetSdk is overridden in androidComponents below.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-21',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR=TRUE',
-							'-DANDROID_LEGACY=TRUE',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+						'-DANDROID_PLATFORM=android-21',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static',
+						'-DANDROID_ARM_NEON=TRUE',
+						'-DOPENXR=TRUE',
+						'-DANDROID_LEGACY=TRUE'
 				}
 			}
 			ndk {
@@ -217,10 +201,15 @@ android {
 			}
 		}
 	}
-	// TODO: This is deprecated and needs a replacement. See https://stackoverflow.com/questions/67330818/android-gradle-plugin7-0-0-alpha15-removed-variantfilter-property-how-to-rest
-	// Though, not really that important.
-	variantFilter { variant ->
-		def needed = variant.name in [
+	buildFeatures {
+		aidl = true
+		buildConfig = true
+	}
+}
+
+androidComponents {
+	beforeVariants(selector().all()) { variantBuilder ->
+		def needed = variantBuilder.name in [
 			'normalDebug',      // for debugging
 			'normalOptimized',  // for testing/user build
 			'normalRelease',    // for Google Play releases
@@ -233,13 +222,17 @@ android {
 			'legacyOptimized',  // for legacy testing/user build
 			'legacyRelease',    // for buildbot releases
 		]
-		variant.setIgnore(!needed)
-	}
-	buildFeatures {
-		aidl = true
-		buildConfig = true
+		variantBuilder.enable = needed
+
+		// Override targetSdk for legacy and VR variants
+		if (variantBuilder.flavorName.contains("legacy")) {
+			variantBuilder.targetSdk = 29
+		} else if (variantBuilder.flavorName.contains("vr")) {
+			variantBuilder.targetSdk = 29
+		}
 	}
 }
+
 afterEvaluate {
 	android.sourceSets.main.assets.getSrcDirs().each { println it }
 }
