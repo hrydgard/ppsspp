@@ -33,6 +33,7 @@ import android.os.Vibrator;
 import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.documentfile.provider.DocumentFile;
 import android.text.InputType;
 import android.util.Log;
@@ -184,7 +185,6 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return libdir;
 	}
 
-	@TargetApi(Build.VERSION_CODES.M)
 	boolean askForPermissions(String[] permissions, int requestCode) {
 		boolean shouldAsk = false;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -200,7 +200,6 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return shouldAsk;
 	}
 
-	@TargetApi(Build.VERSION_CODES.M)
 	public void sendInitialGrants() {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			// Let's start out granted if it was granted already.
@@ -1030,7 +1029,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return super.dispatchKeyEvent(event);
 	}
 
-	@TargetApi(Build.VERSION_CODES.N)
+	@RequiresApi(Build.VERSION_CODES.N)
 	void sendMouseDelta(float dx, float dy) {
 		// Ignore zero deltas.
 		if (Math.abs(dx) > 0.001 || Math.abs(dx) > 0.001) {
@@ -1281,7 +1280,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return bld;
 	}
 
-	@TargetApi(Build.VERSION_CODES.M)
+	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
 		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -1313,12 +1312,12 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		input.setText(defaultText);
 		input.selectAll();
 
-		// Lovely!
 		AlertDialog.Builder bld;
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
-			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
-		else
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			bld = createDialogBuilderNew();
+		} else {
+			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
+		}
 
 		AlertDialog.Builder builder = bld
 			.setView(fl)
