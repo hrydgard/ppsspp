@@ -21,7 +21,7 @@ dependencies {
 }
 
 android {
-	flavorDimensions += "variant"
+	flavorDimensions "variant"
 	namespace = 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
@@ -38,9 +38,6 @@ android {
 				storePassword RELEASE_STORE_PASSWORD
 				keyAlias RELEASE_KEY_ALIAS
 				keyPassword RELEASE_KEY_PASSWORD
-			}
-		} else {
-			release {
 			}
 		}
 	}
@@ -107,7 +104,7 @@ android {
 			aidl.srcDirs = ['src']
 			resources.srcDirs = ['src']
 			assets.srcDirs = [
-					'../assets',
+				'../assets',
 			]
 		}
 		normal {
@@ -132,10 +129,10 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-21',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static'
+						'-DANDROID_PLATFORM=android-21',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static'
 				}
 			}
 			ndk {
@@ -149,12 +146,12 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-21',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE',
-							'-DGOLD=TRUE'
+						'-DANDROID_PLATFORM=android-21',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static',
+						'-DANDROID_ARM_NEON=TRUE',
+						'-DGOLD=TRUE'
 				}
 			}
 			ndk {
@@ -164,7 +161,7 @@ android {
 		legacy {
 			applicationId 'org.ppsspp.ppsspplegacy'
 			dimension "variant"
-			targetSdkVersion 29  // This is the point of legacy.
+			// targetSdk is overridden in androidComponents below.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
@@ -184,18 +181,18 @@ android {
 		vr {
 			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
-			targetSdkVersion 29  // Do not upgrade this, we depend on not requiring scoped storage on Oculus.
+			// targetSdk is overridden in androidComponents below.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-21',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR=TRUE',
-							'-DANDROID_LEGACY=TRUE'
+						'-DANDROID_PLATFORM=android-21',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static',
+						'-DANDROID_ARM_NEON=TRUE',
+						'-DOPENXR=TRUE',
+						'-DANDROID_LEGACY=TRUE'
 				}
 			}
 			ndk {
@@ -226,6 +223,13 @@ androidComponents {
 			'legacyRelease',    // for buildbot releases
 		]
 		variantBuilder.enable = needed
+
+		// Override targetSdk for legacy and VR variants
+		if (variantBuilder.flavorName.contains("legacy")) {
+			variantBuilder.targetSdk = 29
+		} else if (variantBuilder.flavorName.contains("vr")) {
+			variantBuilder.targetSdk = 29
+		}
 	}
 }
 
