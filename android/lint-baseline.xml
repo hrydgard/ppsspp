@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.12.2" type="baseline" client="gradle" dependencies="false" name="AGP (8.12.2)" variant="all" version="8.12.2">
+
+    <issue
+        id="ScopedStorage"
+        message="WRITE_EXTERNAL_STORAGE is deprecated (and is not granted) when targeting Android 13+. If you need to write to shared storage, use the `MediaStore.createWriteRequest` intent."
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.WRITE_EXTERNAL_STORAGE&quot; />"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="AndroidManifest.xml"
+            line="24"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="ScopedStorage"
+        message="READ_EXTERNAL_STORAGE is deprecated (and is not granted) when targeting Android 13+. If you need to query or interact with MediaStore or media files on the shared storage, you should instead use one or more new storage permissions: `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO` or `READ_MEDIA_AUDIO`."
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.READ_EXTERNAL_STORAGE&quot; />"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="AndroidManifest.xml"
+            line="25"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="GestureBackNavigation"
+        message="If intercepting back events, this should be handled through the registration of callbacks; see https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture"
+        errorLine1="  case KeyEvent.KEYCODE_BACK:"
+        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/org/ppsspp/ppsspp/NativeActivity.java"
+            line="1021"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GestureBackNavigation"
+        message="If intercepting back events, this should be handled through the registration of callbacks; see https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture"
+        errorLine1="  case KeyEvent.KEYCODE_BACK:"
+        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/org/ppsspp/ppsspp/NativeActivity.java"
+            line="1135"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GestureBackNavigation"
+        message="If intercepting back events, this should be handled through the registration of callbacks; see https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture"
+        errorLine1="  case KeyEvent.KEYCODE_BACK:"
+        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/org/ppsspp/ppsspp/NativeActivity.java"
+            line="1169"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `appCategory` is only used in API level 26 and higher (current min is 21)"
+        errorLine1="        android:appCategory=&quot;game&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="AndroidManifest.xml"
+            line="47"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `preserveLegacyExternalStorage` is only used in API level 30 and higher (current min is 21)"
+        errorLine1="        android:preserveLegacyExternalStorage=&quot;true&quot;>"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="AndroidManifest.xml"
+            line="51"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `shell` is only used in API level 29 and higher (current min is 21)"
+        errorLine1="        &lt;profileable android:shell=&quot;true&quot; android:enabled=&quot;true&quot; />"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="AndroidManifest.xml"
+            line="118"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="QueryPermissionsNeeded"
+        message="Consider adding a `&lt;queries>` declaration to your manifest when calling this method; see https://g.co/dev/packagevisibility for details"
+        errorLine1="    if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/org/ppsspp/ppsspp/NativeActivity.java"
+            line="1669"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="SourceLockedOrientationActivity"
+        message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
+        errorLine1="   setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);"
+        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/org/ppsspp/ppsspp/NativeActivity.java"
+            line="538"
+            column="4"/>
+    </issue>
+
+    <issue
+        id="SourceLockedOrientationActivity"
+        message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
+        errorLine1="   setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);"
+        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/org/ppsspp/ppsspp/NativeActivity.java"
+            line="544"
+            column="4"/>
+    </issue>
+
+</issues>

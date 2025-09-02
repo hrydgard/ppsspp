@@ -223,6 +223,7 @@ public abstract class NativeActivity extends AppCompatActivity implements Sensor
 
 	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String [] permissions, @NonNull int[] grantResults) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 		switch (requestCode) {
 		case REQUEST_CODE_STORAGE_PERMISSION:
 			if (permissionsGranted(permissions, grantResults)) {

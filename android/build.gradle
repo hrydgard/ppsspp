@@ -51,6 +51,10 @@ android {
 		targetCompatibility JavaVersion.VERSION_11
 	}
 
+	lint {
+		baseline = file("lint-baseline.xml")
+	}
+
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown") {
