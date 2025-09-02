@@ -1,6 +1,7 @@
 plugins {
 	id 'com.gladed.androidgitversion' version '0.4.14'
 }
+
 apply plugin: 'com.android.application'
 
 androidGitVersion {
@@ -54,16 +55,6 @@ android {
 	}
 
 	defaultConfig {
-		/*
-		configurations.all {
-			resolutionStrategy {
-				// Newer versions are not compatible with our minsdk. Should find a way to exclude it entirely
-				// since we have no use for this transitive dependency.
-				force 'androidx.emoji2:emoji2-views-helper:1.0.0'
-			}
-		}
-		*/
-
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown") {
 			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
@@ -213,10 +204,15 @@ android {
 			}
 		}
 	}
-	// TODO: This is deprecated and needs a replacement. See https://stackoverflow.com/questions/67330818/android-gradle-plugin7-0-0-alpha15-removed-variantfilter-property-how-to-rest
-	// Though, not really that important.
-	variantFilter { variant ->
-		def needed = variant.name in [
+	buildFeatures {
+		aidl = true
+		buildConfig = true
+	}
+}
+
+androidComponents {
+	beforeVariants(selector().all()) { variantBuilder ->
+		def needed = variantBuilder.name in [
 			'normalDebug',      // for debugging
 			'normalOptimized',  // for testing/user build
 			'normalRelease',    // for Google Play releases
@@ -229,13 +225,10 @@ android {
 			'legacyOptimized',  // for legacy testing/user build
 			'legacyRelease',    // for buildbot releases
 		]
-		variant.setIgnore(!needed)
-	}
-	buildFeatures {
-		aidl = true
-		buildConfig = true
+		variantBuilder.enable = needed
 	}
 }
+
 afterEvaluate {
 	android.sourceSets.main.assets.getSrcDirs().each { println it }
 }
