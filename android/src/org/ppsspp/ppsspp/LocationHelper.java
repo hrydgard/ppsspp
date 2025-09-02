@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import java.util.Iterator;
 
@@ -143,7 +144,7 @@ class LocationHelper implements LocationListener {
 	public void onProviderDisabled(@NonNull String provider) {
 	}
 
-	@TargetApi(Build.VERSION_CODES.N)
+	@RequiresApi(Build.VERSION_CODES.N)
 	private void onSatelliteStatus(GnssStatus status) {
 		short index = 0;
 		for (short i = 0; i < status.getSatelliteCount(); i++) {

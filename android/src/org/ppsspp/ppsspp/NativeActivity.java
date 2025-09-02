@@ -32,7 +32,10 @@ import android.os.PowerManager;
 import android.os.Vibrator;
 import android.provider.MediaStore;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.documentfile.provider.DocumentFile;
 import android.text.InputType;
 import android.util.Log;
@@ -59,7 +62,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @SuppressWarnings("ConstantConditions")
-public abstract class NativeActivity extends Activity implements SensorEventListener {
+public abstract class NativeActivity extends AppCompatActivity implements SensorEventListener {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
@@ -184,7 +187,6 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return libdir;
 	}
 
-	@TargetApi(Build.VERSION_CODES.M)
 	boolean askForPermissions(String[] permissions, int requestCode) {
 		boolean shouldAsk = false;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -200,7 +202,6 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return shouldAsk;
 	}
 
-	@TargetApi(Build.VERSION_CODES.M)
 	public void sendInitialGrants() {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			// Let's start out granted if it was granted already.
@@ -222,6 +223,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 
 	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String [] permissions, @NonNull int[] grantResults) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 		switch (requestCode) {
 		case REQUEST_CODE_STORAGE_PERMISSION:
 			if (permissionsGranted(permissions, grantResults)) {
@@ -649,7 +651,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		} else {
 			updateSystemUiVisibility();
 
-			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
+			mSurfaceView = new NativeSurfaceView(this);
 			sizeManager.setSurfaceView(mSurfaceView);
 			setContentView(mSurfaceView);
 			startRenderLoopThread();
@@ -661,6 +663,29 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
 			shortcutParam = null;
 		}
+
+		// Set up the back key handling to be future-compatible
+		OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+			// Note: For "pretty" back handling internally, we could handle things like handleOnBackProgressed etc
+			// if we want to implement our own back previews.
+			@Override
+			public void handleOnBackPressed() {
+				if (NativeApp.isAtTopLevel()) {
+					// Pass through to normal logic, allowing backing out of the main screen.
+					// The setEnabled dance seems to be the normal way of handling this, to avoid recursive loops.
+					setEnabled(false);
+					NativeActivity.this.getOnBackPressedDispatcher().onBackPressed();
+					setEnabled(true);
+				} else {
+					// Pass straight into the native code.
+					NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, KeyEvent.KEYCODE_BACK, false);
+					NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, KeyEvent.KEYCODE_BACK);
+				}
+			}
+		};
+
+		// Add the callback to the dispatcher
+		getOnBackPressedDispatcher().addCallback(this, callback);
 
 		Log.i(TAG, "onCreate end");
 	}
@@ -1030,7 +1055,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return super.dispatchKeyEvent(event);
 	}
 
-	@TargetApi(Build.VERSION_CODES.N)
+	@RequiresApi(Build.VERSION_CODES.N)
 	void sendMouseDelta(float dx, float dy) {
 		// Ignore zero deltas.
 		if (Math.abs(dx) > 0.001 || Math.abs(dx) > 0.001) {
@@ -1110,12 +1135,8 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
 				NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, 1004, repeat); // special custom keycode for the O button on Xperia Play
-			} else if (NativeApp.isAtTopLevel()) {
-				Log.i(TAG, "IsAtTopLevel returned true.");
-				// Pass through the back event.
-				return super.onKeyDown(keyCode, event);
 			} else {
-				NativeApp.keyDown(NativeApp.DEVICE_ID_DEFAULT, keyCode, repeat);
+				super.onKeyDown(keyCode, event);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
@@ -1148,11 +1169,8 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
 				NativeApp.keyUp(NativeApp.DEVICE_ID_PAD_0, 1004); // special custom keycode
-			} else if (NativeApp.isAtTopLevel()) {
-				Log.i(TAG, "IsAtTopLevel returned true.");
-				return super.onKeyUp(keyCode, event);
 			} else {
-				NativeApp.keyUp(NativeApp.DEVICE_ID_DEFAULT, keyCode);
+				return super.onKeyUp(keyCode, event);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
@@ -1281,7 +1299,7 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		return bld;
 	}
 
-	@TargetApi(Build.VERSION_CODES.M)
+	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
 		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -1313,12 +1331,12 @@ public abstract class NativeActivity extends Activity implements SensorEventList
 		input.setText(defaultText);
 		input.selectAll();
 
-		// Lovely!
 		AlertDialog.Builder bld;
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
-			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
-		else
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			bld = createDialogBuilderNew();
+		} else {
+			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
+		}
 
 		AlertDialog.Builder builder = bld
 			.setView(fl)

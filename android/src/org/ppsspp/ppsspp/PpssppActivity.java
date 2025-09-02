@@ -118,6 +118,7 @@ public class PpssppActivity extends NativeActivity {
 
 	@Override
 	public void onNewIntent(Intent intent) {
+		super.onNewIntent(intent);
 		String value = parseIntent(intent);
 		if (value != null) {
 			// TODO: Actually send a command to the native code to launch the new game.
