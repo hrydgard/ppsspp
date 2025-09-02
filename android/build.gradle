@@ -46,7 +46,7 @@ android {
 
 	compileSdk = 36
 
-	ndkVersion = "27.2.12479018"
+	ndkVersion = "28.2.13676358"
 
 	compileOptions {
 		sourceCompatibility JavaVersion.VERSION_11
@@ -144,7 +144,6 @@ android {
 							'-DANDROID_PLATFORM=android-21',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
 							'-DANDROID_STL=c++_static'
 				}
 			}
@@ -164,7 +163,6 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
 							'-DGOLD=TRUE'
 				}
 			}
@@ -184,7 +182,6 @@ android {
 						'-DANDROID_TOOLCHAIN=clang',
 						'-DANDROID_CPP_FEATURES=',
 						'-DANDROID_STL=c++_static',
-						'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
 						'-DANDROID_LEGACY=TRUE'
 				}
 			}
@@ -207,8 +204,7 @@ android {
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
 							'-DOPENXR=TRUE',
-							'-DANDROID_LEGACY=TRUE',
-							'-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+							'-DANDROID_LEGACY=TRUE'
 				}
 			}
 			ndk {
