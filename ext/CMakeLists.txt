@@ -15,6 +15,9 @@ set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "let's not build binaries we don't ne
 set(SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS ON CACHE BOOL "let's not use exceptions" FORCE)
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "we don't need spvremapper" FORCE)
 
+# not really needed since we currently bypass the official cmakelists...
+set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "we don't need zlib examples" FORCE)
+
 # This is really a workaround for an NDK 20 compiler issue (PPSSPP issue #12105), but shouldn't hurt.
 if(ANDROID)
 set(ENABLE_HLSL OFF CACHE BOOL "let's not build HLSL support we don't need" FORCE)

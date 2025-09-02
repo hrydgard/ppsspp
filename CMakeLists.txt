@@ -1059,7 +1059,6 @@ else()
 		ext/zlib/inflate.h
 		ext/zlib/inftrees.c
 		ext/zlib/inftrees.h
-		ext/zlib/make_vms.com
 		ext/zlib/trees.c
 		ext/zlib/trees.h
 		ext/zlib/uncompr.c
