@@ -114,8 +114,10 @@ enum class GameRegion {
 	ASIA,
 	KOREA,
 	COUNT,
-	HOMEBREW = COUNT,  // Like other but we actually know it's homebrew.
-	OTHER,
+	HOMEBREW = COUNT,
+	INTERNAL,
+	TEST,
+	DIAGNOSTIC,
 };
 
 GameRegion DetectGameRegionFromID(std::string_view id_version);

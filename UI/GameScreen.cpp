@@ -392,11 +392,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (tvRegion_) {
-		if (info->region == GameRegion::OTHER) {
-			tvRegion_->SetText(ga->T("Homebrew"));
-		} else {
-			tvRegion_->SetText(ga->T(GameRegionToString(info->region)));
-		}
+		tvRegion_->SetText(ga->T(GameRegionToString(info->region)));
 		updateMaxY(tvRegion_);
 	}
 
