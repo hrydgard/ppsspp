@@ -534,3 +534,29 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 		info->contents = ZipFileContents::UNKNOWN;
 	}
 }
+
+const char *IdentifiedFileTypeToString(IdentifiedFileType type) {
+	switch (type) {
+	case IdentifiedFileType::ERROR_IDENTIFYING: return "ERROR_IDENTIFYING";
+	case IdentifiedFileType::PSP_PBP_DIRECTORY: return "PSP_PBP_DIRECTORY";
+	case IdentifiedFileType::PSP_PBP: return "PSP_PBP";
+	case IdentifiedFileType::PSP_ELF: return "PSP_ELF";
+	case IdentifiedFileType::PSP_ISO: return "PSP_ISO";
+	case IdentifiedFileType::PSP_ISO_NP: return "PSP_ISO_NP";
+	case IdentifiedFileType::PSP_DISC_DIRECTORY: return "PSP_DISC_DIRECTORY";
+	case IdentifiedFileType::UNKNOWN_BIN: return "UNKNOWN_BIN";
+	case IdentifiedFileType::UNKNOWN_ELF: return "UNKNOWN_ELF";
+	case IdentifiedFileType::UNKNOWN_ISO: return "UNKNOWN_ISO";
+	case IdentifiedFileType::ARCHIVE_RAR: return "ARCHIVE_RAR";
+	case IdentifiedFileType::ARCHIVE_ZIP: return "ARCHIVE_ZIP";
+	case IdentifiedFileType::ARCHIVE_7Z: return "ARCHIVE_7Z";
+	case IdentifiedFileType::PSP_PS1_PBP: return "PSP_PS1_PBP";
+	case IdentifiedFileType::ISO_MODE2: return "ISO_MODE2";
+	case IdentifiedFileType::NORMAL_DIRECTORY: return "NORMAL_DIRECTORY";
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: return "PSP_SAVEDATA_DIRECTORY";
+	case IdentifiedFileType::PPSSPP_SAVESTATE: return "PPSSPP_SAVESTATE";
+	case IdentifiedFileType::PPSSPP_GE_DUMP: return "PPSSPP_GE_DUMP";
+	case IdentifiedFileType::UNKNOWN: return "UNKNOWN";
+	default: return "INVALID_TYPE";
+	}
+}
