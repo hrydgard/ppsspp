@@ -23,6 +23,8 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/File/Path.h"
 
+#include "UI/GameInfoCache.h"
+
 class NoticeView;
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
@@ -46,8 +48,6 @@ protected:
 	void CreateViews() override;
 
 private:
-	UI::Choice *AddOtherChoice(UI::Choice *choice);
-
 	// Event handlers
 	UI::EventReturn OnPlay(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
@@ -59,31 +59,14 @@ private:
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
 	UI::EventReturn OnSetBackground(UI::EventParams &e);
-	UI::EventReturn OnDoCRC32(UI::EventParams& e);
 
-	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextView *tvTitle_ = nullptr;
-	UI::TextView *tvGameSize_ = nullptr;
-	UI::TextView *tvSaveDataSize_ = nullptr;
-	UI::TextView *tvInstallDataSize_ = nullptr;
-	UI::TextView *tvRegion_ = nullptr;
-	UI::TextView *tvPlayTime_ = nullptr;
-	UI::TextView *tvCRC_ = nullptr;
-	UI::TextView *tvID_ = nullptr;
-	UI::Button *tvCRCCopy_ = nullptr;
-	NoticeView *tvVerified_ = nullptr;
-
-	UI::Choice *btnGameSettings_ = nullptr;
-	UI::Choice *btnCreateGameConfig_ = nullptr;
-	UI::Choice *btnDeleteGameConfig_ = nullptr;
-	UI::Choice *btnDeleteSaveData_ = nullptr;
-	UI::Choice *btnSetBackground_ = nullptr;
-
-	UI::Choice *btnCalcCRC_ = nullptr;
-
-	std::vector<UI::Choice *> otherChoices_;
 	std::string CRC32string;
 
 	bool isHomebrew_ = false;
 	bool inGame_ = false;
+
+	// Keep track of progressive loading of metadata.
+	GameInfoFlags knownFlags_ = GameInfoFlags::EMPTY;
+
+	bool knownHasCRC_ = false;
 };

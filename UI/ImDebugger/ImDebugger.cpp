@@ -65,6 +65,7 @@
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/AudioCommon.h"
+#include "UI/GameInfoCache.h"
 
 extern bool g_TakeScreenshot;
 static ImVec4 g_normalTextColor;
@@ -545,6 +546,50 @@ void DrawParamSFO(ImConfig &cfg, ImControl &control) {
 		}
 		if (ImGui::BeginTabItem("Original")) {
 			renderParamSFOTable(g_paramSFORaw);
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("GameInfo")) {
+			Path path = PSP_CoreParameter().fileToStart;
+			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
+
+			if (info && ImGui::BeginTable("paramsfo", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+				ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+				ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 270.0f);
+
+				ImGui::TableHeadersRow();
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Title");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(info->GetTitle());
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Path");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(path.ToVisualString());
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Detected type");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(IdentifiedFileTypeToString(info->fileType));
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Detected region");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(GameRegionToString(info->region));
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("HasConfig");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(BoolStr(info->hasConfig));
+
+				ImGui::EndTable();
+			}
 			ImGui::EndTabItem();
 		}
 		ImGui::EndTabBar();

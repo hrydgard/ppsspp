@@ -984,7 +984,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 
 // Call on the main thread ONLY - that is from stuff called from NativeFrame.
 // Can also be called from the audio thread for menu background music, but that cannot request images!
-std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags) {
+std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags) {
 	const std::string &pathStr = gamePath.ToString();
 
 	// _dbg_assert_(gamePath != GetSysDirectory(DIRECTORY_SAVEDATA));
@@ -1006,9 +1006,12 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 		{
 			// Careful now!
 			std::unique_lock<std::mutex> lock(info->lock);
-			GameInfoFlags hasFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
-			wanted = (GameInfoFlags)((int)wantFlags & ~(int)hasFlags);  // & is reserved for testing. ugh.
+			GameInfoFlags willHaveFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
+			wanted = (GameInfoFlags)((int)wantFlags & ~(int)willHaveFlags);  // & is reserved for testing so we have to cast to int. ugh.
 			info->pendingFlags |= wanted;
+			if (outHasFlags) {
+				*outHasFlags = info->hasFlags;
+			}
 		}
 		if (wanted != (GameInfoFlags)0) {
 			// We're missing info that we want. Go get it!
@@ -1022,6 +1025,9 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	info->pendingFlags = wantFlags;
 	info->lastAccessedTime = time_now_d();
 	info_.insert(std::make_pair(pathStr, info));
+	if (outHasFlags) {
+		*outHasFlags = info->hasFlags;
+	}
 	mapLock_.unlock();
 
 	// Just get all the stuff we wanted.

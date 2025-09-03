@@ -61,6 +61,8 @@ enum class IdentifiedFileType {
 	UNKNOWN,
 };
 
+const char *IdentifiedFileTypeToString(IdentifiedFileType type);
+
 // NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
 // TOOD: actually, is it really?
 class FileLoader {
