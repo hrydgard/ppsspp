@@ -50,11 +50,16 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/SavedataScreen.h"
-#include "Core/Reporting.h"
+
+constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE;
 
 GameScreen::GameScreen(const Path &gamePath, bool inGame) : UIDialogScreenWithGameBackground(gamePath), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
+
+	// Start fetching info, we'll display it as it arrives. We keep the known fetch status in knownFlags_,
+	// and recreate views whenever info->hasFlags != knownFlags_.
+	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_);
 }
 
 GameScreen::~GameScreen() {
@@ -75,28 +80,39 @@ template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 
 void GameScreen::update() {
 	UIScreen::update();
 
+	GameInfoFlags hasFlags;
+	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
+
+	bool recreate = false;
+
+	if (knownFlags_ != hasFlags) {
+		knownFlags_ = hasFlags;
+		recreate = true;
+	}
+
 	// Has the user requested a CRC32?
 	if (CRC32string == "...") {
 		// Wait until the CRC32 is ready.  It might take time on some devices.
-		if (Reporting::HasCRC(gamePath_)) {
-			uint32_t crcvalue = Reporting::RetrieveCRC(gamePath_);
-			CRC32string = int2hexstr(crcvalue);
-			if (tvCRC_) {
-				tvCRC_->SetVisibility(UI::V_VISIBLE);
-				tvCRC_->SetText(CRC32string);
-			}
-			if (tvCRCCopy_) {
-				tvCRCCopy_->SetVisibility(UI::V_VISIBLE);
-			}
-			if (btnCalcCRC_) {
-				btnCalcCRC_->SetVisibility(UI::V_GONE);
-			}
+		const bool hasCRC = Reporting::HasCRC(gamePath_);
+		if (hasCRC != knownHasCRC_) {
+			knownHasCRC_ = hasCRC;
+			recreate = true;
+			RecreateViews();
 		}
+	}
+
+	if (recreate) {
+		RecreateViews();
 	}
 }
 
 void GameScreen::CreateViews() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1);
+	GameInfoFlags hasFlags;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
+	if (!info) {
+		// Shouldn't happen
+		return;
+	}
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
@@ -129,52 +145,77 @@ void GameScreen::CreateViews() {
 	}
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
-	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-		ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(10, 10, 110, NONE));
-		LinearLayout *mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-		mainGameInfo->SetSpacing(3.0f);
 
-		// Need an explicit size here because homebrew uses screenshots as icons.
-		badgeHolder->Add(new GameIconView(gamePath_, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
-		badgeHolder->Add(mainGameInfo);
+	ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(10, 10, 110, NONE));
+	LinearLayout *mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	mainGameInfo->SetSpacing(3.0f);
 
-		leftColumn->Add(badgeHolder);
+	// Need an explicit size here because homebrew uses screenshots as icons.
+	badgeHolder->Add(new GameIconView(gamePath_, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
+	badgeHolder->Add(mainGameInfo);
+	leftColumn->Add(badgeHolder);
 
-		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
-		leftColumn->Add(infoLayout);
+	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
+	leftColumn->Add(infoLayout);
 
+	if (hasFlags & GameInfoFlags::PARAM_SFO) {
 		// TODO: Add non-translated title here if available in gameDB.
-		tvTitle_ = mainGameInfo->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvTitle_->SetShadow(true);
-		tvID_ = mainGameInfo->Add(new TextView("", ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvID_->SetShadow(true);
-		tvRegion_ = mainGameInfo->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvRegion_->SetShadow(true);
-		tvGameSize_ = mainGameInfo->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvGameSize_->SetShadow(true);
+		TextView *tvTitle = mainGameInfo->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvTitle->SetShadow(true);
 
-		// This one doesn't need to be updated.
-		infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
-		tvSaveDataSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvSaveDataSize_->SetShadow(true);
-		tvInstallDataSize_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvInstallDataSize_->SetShadow(true);
-		tvInstallDataSize_->SetVisibility(V_GONE);
-		tvPlayTime_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvPlayTime_->SetShadow(true);
-		tvPlayTime_->SetVisibility(V_GONE);
+		TextView *tvID = mainGameInfo->Add(new TextView(ReplaceAll(info->id_version, "_", " v"), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvID->SetShadow(true);
+
+		TextView *tvRegion = mainGameInfo->Add(new TextView(ga->T(GameRegionToString(info->region)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvRegion->SetShadow(true);
+	}
+
+	if ((hasFlags & GameInfoFlags::UNCOMPRESSED_SIZE) && (hasFlags & GameInfoFlags::SIZE)) {
+		char temp[256];
+		snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("Game"), NiceSizeFormat(info->gameSizeOnDisk).c_str());
+		if (info->gameSizeUncompressed != info->gameSizeOnDisk) {
+			size_t len = strlen(temp);
+			snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
+		}
+		TextView *tvGameSize = mainGameInfo->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvGameSize->SetShadow(true);
 		
-		LinearLayout *crcHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));
+		if (info->saveDataSize > 0) {
+			snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
+			TextView *tvSaveDataSize = infoLayout->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			tvSaveDataSize->SetShadow(true);
+		}
+		if (info->installDataSize > 0) {
+			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float)(info->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
+			TextView *tvInstallDataSize = infoLayout->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			tvInstallDataSize->SetShadow(true);
+		}
+	}
 
-		if (fileTypeSupportCRC) {
+	infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
+
+	std::string str;
+	if (g_Config.TimeTracker().GetPlayedTimeString(info->id, &str)) {
+		TextView *tvPlayTime = infoLayout->Add(new TextView(str, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvPlayTime->SetShadow(true);
+		tvPlayTime->SetText(str);
+	}
+
+	LinearLayout *crcHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));
+
+	if (fileTypeSupportCRC) {
+		if (Reporting::HasCRC(gamePath_)) {
+			auto rp = GetI18NCategory(I18NCat::REPORTING);
+			uint32_t crcVal = Reporting::RetrieveCRC(gamePath_);
+			std::string crc = StringFromFormat("%08X", crcVal);
+
 			// CRC button makes sense.
-			tvCRC_ = crcHoriz->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(0.0, G_VCENTER)));
-			tvCRC_->SetShadow(true);
-			Visibility crcVisibility = Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE;
-			tvCRC_->SetVisibility(crcVisibility);
+			TextView *tvCRC = crcHoriz->Add(new TextView(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc), ALIGN_LEFT, true, new LinearLayoutParams(0.0, G_VCENTER)));
+			tvCRC->SetShadow(true);
+
 			if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
-				tvCRCCopy_ = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, G_VCENTER)));
-				tvCRCCopy_->OnClick.Add([this](UI::EventParams &) {
+				Button *tvCRCCopy = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, G_VCENTER)));
+				tvCRCCopy->OnClick.Add([this](UI::EventParams &) {
 					u32 crc = Reporting::RetrieveCRC(gamePath_);
 					char buffer[16];
 					snprintf(buffer, sizeof(buffer), "%08X", crc);
@@ -183,37 +224,63 @@ void GameScreen::CreateViews() {
 					g_OSD.Show(OSDType::MESSAGE_SUCCESS, buffer, 1.0f);
 					return UI::EVENT_DONE;
 				});
-				tvCRCCopy_->SetVisibility(crcVisibility);
-				tvCRCCopy_->SetScale(0.82f);
-			} else {
-				tvCRCCopy_ = nullptr;
+			}
+
+			// Let's check the CRC in the game database, looking up the ID and also matching the crc.
+			std::vector<GameDBInfo> dbInfos;
+			if ((hasFlags & GameInfoFlags::PARAM_SFO) && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+				bool found = false;
+				for (auto &dbInfo : dbInfos) {
+					if (dbInfo.crc == crcVal) {
+						found = true;
+					}
+				}
+				if (found) {
+					NoticeView *tvVerified = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("ISO OK according to the ReDump project"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+					tvVerified->SetLevel(NoticeLevel::SUCCESS);
+				}
+			}
+		} else if (!isHomebrew_) {
+			GameDBInfo dbInfo;
+			std::vector<GameDBInfo> dbInfos;
+			if ((hasFlags & GameInfoFlags::PARAM_SFO) && !g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
+				// tvVerified_->SetVisibility(UI::V_VISIBLE);
+				// tvVerified_->SetLevel(NoticeLevel::WARN);
+			} else if ((hasFlags & GameInfoFlags::UNCOMPRESSED_SIZE) && info->gameSizeUncompressed != 0) {  // don't do this check if info still pending
+				bool found = false;
+				for (auto &dbInfo : dbInfos) {
+					// TODO: Doesn't take CSO/CHD into account.
+					if (info->gameSizeUncompressed == dbInfo.size) {
+						found = true;
+					}
+				}
+				if (!found) {
+					// tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
+					// tvVerified_->SetVisibility(UI::V_VISIBLE);
+					// tvVerified_->SetLevel(NoticeLevel::ERROR);
+					// INFO_LOG(Log::Loader, "File size %d not matching game DB", (int)info->gameSizeUncompressed);
+				}
+
+				NoticeView *tvVerified = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+				tvVerified->SetVisibility(UI::V_VISIBLE);
+				tvVerified->SetLevel(NoticeLevel::INFO);
 			}
 		}
+	}
 
-		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvVerified_->SetVisibility(UI::V_GONE);
-		tvVerified_->SetSquishy(true);
+	NoticeView *tvVerified = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	tvVerified->SetVisibility(UI::V_GONE);
+	tvVerified->SetSquishy(true);
 
-		// Show plugin info, if any. Later might add checkboxes.
-		auto plugins = HLEPlugins::FindPlugins(info->id, g_Config.sLanguageIni);
-		if (!plugins.empty()) {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			infoLayout->Add(new TextView(sy->T("Plugins"), ALIGN_LEFT, true));
-			for (const auto &plugin : plugins) {
-				infoLayout->Add(new TextView(ApplySafeSubstitutions("* %1", plugin.name), ALIGN_LEFT, true));
-			}
+	// Show plugin info, if any. Later might add checkboxes.
+	auto plugins = HLEPlugins::FindPlugins(info->id, g_Config.sLanguageIni);
+	if (!plugins.empty()) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		infoLayout->Add(new TextView(sy->T("Plugins"), ALIGN_LEFT, true));
+		for (const auto &plugin : plugins) {
+			infoLayout->Add(new TextView(ApplySafeSubstitutions("* %1", plugin.name), ALIGN_LEFT, true));
 		}
-	} else {
-		tvTitle_ = nullptr;
-		tvID_ = nullptr;
-		tvGameSize_ = nullptr;
-		tvSaveDataSize_ = nullptr;
-		tvInstallDataSize_ = nullptr;
-		tvRegion_ = nullptr;
-		tvPlayTime_ = nullptr;
-		tvCRC_ = nullptr;
-		tvCRCCopy_ = nullptr;
-		tvVerified_ = nullptr;
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -227,43 +294,44 @@ void GameScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
 	}
 
-	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
-	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	if (inGame_)
-		btnGameSettings_->SetEnabled(false);
+	if (!info->id.empty()) {
+		Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+		btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
+		if (inGame_)
+			btnGameSettings->SetEnabled(false);
 
-	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
-	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
-	if (inGame_)
-		btnDeleteGameConfig_->SetEnabled(false);
+		if (info->hasConfig) {
+			Choice *btnDeleteGameConfig = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
+			btnDeleteGameConfig->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+			if (inGame_)
+				btnDeleteGameConfig->SetEnabled(false);
+		} else {
+			Choice *btnCreateGameConfig = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
+			btnCreateGameConfig->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+			if (inGame_)
+				btnCreateGameConfig->SetEnabled(false);
+		}
+	}
 
-	btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
-	btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
-	if (inGame_)
-		btnCreateGameConfig_->SetEnabled(false);
-
-	btnGameSettings_->SetVisibility(V_GONE);
-	btnDeleteGameConfig_->SetVisibility(V_GONE);
-	btnCreateGameConfig_->SetVisibility(V_GONE);
-
-	btnDeleteSaveData_ = new Choice(ga->T("Delete Save Data"));
-	rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-	btnDeleteSaveData_->SetVisibility(V_GONE);
-
-	otherChoices_.clear();
+	if (info->saveDataSize) {
+		Choice *btnDeleteSaveData = new Choice(ga->T("Delete Save Data"));
+		rightColumnItems->Add(btnDeleteSaveData)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	}
 
 	// Don't want to be able to delete the game while it's running.
-	Choice *deleteChoice = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))));
+	Choice *deleteChoice = rightColumnItems->Add(new Choice(ga->T("Delete Game")));
 	deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (inGame_) {
 		deleteChoice->SetEnabled(false);
 	}
-	if (System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
-		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Add([=](UI::EventParams &e) {
-			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-			if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-				// TODO: Should we block on Ready?
+
+	if ((hasFlags & GameInfoFlags::PARAM_SFO) && System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
+		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Add([this](UI::EventParams &e) {
+			GameInfoFlags hasFlags;
+			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO, &hasFlags);
+			if (hasFlags & GameInfoFlags::PARAM_SFO) {
 				System_CreateGameShortcut(gamePath_, info->GetTitle());
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetI18NCategory(I18NCat::DIALOG)->T("Desktop shortcut created"), 2.0f);
 			}
 			return UI::EVENT_DONE;
 		});
@@ -271,7 +339,7 @@ void GameScreen::CreateViews() {
 
 	// TODO: This is synchronous, bad!
 	if (g_recentFiles.ContainsFile(gamePath_.ToString())) {
-		Choice *removeButton = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))));
+		Choice *removeButton = rightColumnItems->Add(new Choice(ga->T("Remove From Recent")));
 		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 		if (inGame_) {
 			removeButton->SetEnabled(false);
@@ -279,7 +347,7 @@ void GameScreen::CreateViews() {
 	}
 
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		rightColumnItems->Add(AddOtherChoice(new Choice(di->T("Show in folder"))))->OnClick.Add([this](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(di->T("Show in folder")))->OnClick.Add([this](UI::EventParams &e) {
 			System_ShowFileInFolder(gamePath_);
 			return UI::EVENT_DONE;
 		});
@@ -287,27 +355,24 @@ void GameScreen::CreateViews() {
 
 	if (g_Config.bEnableCheats) {
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
-		rightColumnItems->Add(AddOtherChoice(new Choice(pa->T("Cheats"))))->OnClick.Handle(this, &GameScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GameScreen::OnCwCheat);
 	}
 
-	btnSetBackground_ = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
-	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
-	btnSetBackground_->SetVisibility(V_GONE);
+	if (info->pic1.texture) {
+		Choice *btnSetBackground = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
+		btnSetBackground->OnClick.Handle(this, &GameScreen::OnSetBackground);
+		btnSetBackground->SetVisibility(V_GONE);
+	}
 
 	isHomebrew_ = info && info->region == GameRegion::HOMEBREW;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
-		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
-		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
-	} else {
-		btnCalcCRC_ = nullptr;
+		Choice *btnCalcCRC = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
+		btnCalcCRC->OnClick.Add([this](UI::EventParams &) {
+			CRC32string = "...";
+			Reporting::QueueCRC(gamePath_);
+			return UI::EVENT_DONE;
+		});
 	}
-}
-
-UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
-	otherChoices_.push_back(choice);
-	// While loading.
-	choice->SetVisibility(UI::V_GONE);
-	return choice;
 }
 
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
@@ -336,172 +401,21 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e) {
 			}
 			g_Config.deleteGameConfig(info->id);
 			info->hasConfig = false;
-			screenManager()->RecreateAllViews();
+			RecreateViews();
 		}
 	}));
 	return UI::EVENT_DONE;
 }
 
 ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
-	ScreenRenderFlags flags = UIScreen::render(mode);
-
-	auto ga = GetI18NCategory(I18NCat::GAME);
-
+	// Draw PIC0 as an underlay.
 	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
 
-	float maxY = 0;
-	// NOTE: This won't be correct the first frame.
-	auto updateMaxY = [&](UI::View *v) {
-		maxY = std::max(maxY, v->GetBounds().y2());
-	};
+	GameInfoFlags hasFlags;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::PARAM_SFO, &hasFlags);
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::PIC1 | GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE);
-
-	if (tvTitle_) {
-		tvTitle_->SetText(info->GetTitle());
-		updateMaxY(tvTitle_);
-	}
-
-	if (info->Ready(GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE)) {
-		char temp[256];
-		if (tvGameSize_) {
-			snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("Game"), NiceSizeFormat(info->gameSizeOnDisk).c_str());
-			if (info->gameSizeUncompressed != info->gameSizeOnDisk) {
-				size_t len = strlen(temp);
-				snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
-			}
-			tvGameSize_->SetText(temp);
-			updateMaxY(tvGameSize_);
-		}
-		if (tvSaveDataSize_) {
-			if (info->saveDataSize > 0) {
-				snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
-				tvSaveDataSize_->SetText(temp);
-			} else {
-				tvSaveDataSize_->SetVisibility(UI::V_GONE);
-			}
-			updateMaxY(tvSaveDataSize_);
-		}
-		if (info->installDataSize > 0 && tvInstallDataSize_) {
-			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
-			tvInstallDataSize_->SetText(temp);
-			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
-			updateMaxY(tvInstallDataSize_);
-		}
-	}
-
-	if (tvRegion_) {
-		tvRegion_->SetText(ga->T(GameRegionToString(info->region)));
-		updateMaxY(tvRegion_);
-	}
-
-	if (tvPlayTime_) {
-		std::string str;
-		if (g_Config.TimeTracker().GetPlayedTimeString(info->id, &str)) {
-			tvPlayTime_->SetText(str);
-			tvPlayTime_->SetVisibility(UI::V_VISIBLE);
-		}
-		updateMaxY(tvPlayTime_);
-	}
-
-	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
-		auto rp = GetI18NCategory(I18NCat::REPORTING);
-		uint32_t crcVal = Reporting::RetrieveCRC(gamePath_);
-		std::string crc = StringFromFormat("%08X", crcVal);
-		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc));
-		tvCRC_->SetVisibility(UI::V_VISIBLE);
-		if (tvCRCCopy_) {
-			tvCRCCopy_->SetVisibility(UI::V_VISIBLE);
-		}
-
-		// Let's check the CRC in the game database, looking up the ID and also matching the crc.
-		std::vector<GameDBInfo> dbInfos;
-		if (tvVerified_ && info->Ready(GameInfoFlags::PARAM_SFO) && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
-			bool found = false;
-			for (auto &dbInfo : dbInfos) {
-				if (dbInfo.crc == crcVal) {
-					found = true;
-				}
-			}
-			if (found) {
-				tvVerified_->SetText(ga->T("ISO OK according to the ReDump project"));
-				tvVerified_->SetLevel(NoticeLevel::SUCCESS);
-				tvVerified_->SetVisibility(UI::V_VISIBLE);
-			} else {
-				// Like the other messages below, disabled until we have a database we have confidence in.
-				// tvVerified_->SetText(ga->T("CRC checksum does not match, bad or modified ISO"));
-				// tvVerified_->SetLevel(NoticeLevel::ERROR);
-				tvVerified_->SetVisibility(UI::V_GONE);
-			}
-		} else if (tvVerified_) {
-			// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
-			// tvVerified_->SetVisibility(UI::V_VISIBLE);
-			// tvVerified_->SetLevel(NoticeLevel::WARN);
-			tvVerified_->SetVisibility(UI::V_GONE);
-		}
-
-		updateMaxY(tvCRC_);
-		updateMaxY(tvVerified_);
-	} else if (!isHomebrew_) {
-		GameDBInfo dbInfo;
-		if (tvVerified_) {
-			std::vector<GameDBInfo> dbInfos;
-			if (info->Ready(GameInfoFlags::PARAM_SFO) && !g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
-				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
-				// tvVerified_->SetVisibility(UI::V_VISIBLE);
-				// tvVerified_->SetLevel(NoticeLevel::WARN);
-			} else if (info->Ready(GameInfoFlags::UNCOMPRESSED_SIZE) && info->gameSizeUncompressed != 0) {  // don't do this check if info still pending
-				bool found = false;
-				for (auto &dbInfo : dbInfos) {
-					// TODO: Doesn't take CSO/CHD into account.
-					if (info->gameSizeUncompressed == dbInfo.size) {
-						found = true;
-					}
-				}
-				if (!found) {
-					// tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
-					// tvVerified_->SetVisibility(UI::V_VISIBLE);
-					// tvVerified_->SetLevel(NoticeLevel::ERROR);
-					// INFO_LOG(Log::Loader, "File size %d not matching game DB", (int)info->gameSizeUncompressed);
-				} else {
-					tvVerified_->SetText(ga->T("Click \"Calculate CRC\" to verify ISO"));
-					tvVerified_->SetVisibility(UI::V_VISIBLE);
-					tvVerified_->SetLevel(NoticeLevel::INFO);
-				}
-			}
-			updateMaxY(tvVerified_);
-		}
-	}
-
-	if (tvID_) {
-		tvID_->SetText(ReplaceAll(info->id_version, "_", " v"));
-		updateMaxY(tvID_);
-	}
-
-	if (!info->id.empty()) {
-		btnGameSettings_->SetVisibility(info->hasConfig ? UI::V_VISIBLE : UI::V_GONE);
-		btnDeleteGameConfig_->SetVisibility(info->hasConfig ? UI::V_VISIBLE : UI::V_GONE);
-		btnCreateGameConfig_->SetVisibility(info->hasConfig ? UI::V_GONE : UI::V_VISIBLE);
-
-		if (info->saveDataSize) {
-			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
-		}
-		if (info->pic1.texture) {
-			btnSetBackground_->SetVisibility(UI::V_VISIBLE);
-		}
-	}
-
-	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-		// At this point, the above buttons won't become visible.  We can show these now.
-		for (UI::Choice *choice : otherChoices_) {
-			choice->SetVisibility(UI::V_VISIBLE);
-		}
-	}
-
-	if (info->Ready(GameInfoFlags::PIC0) && info->pic0.texture) {
-		// Draw PIC0 as an overlay.
-
+	if ((knownFlags_ & GameInfoFlags::PIC0) && info->pic0.texture) {
 		bool draw = true;
 
 		const float w = dc.GetBounds().w - 500;
@@ -510,7 +424,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		// Bottom align the image.
 		Bounds bounds(180, dc.GetBounds().h - h - 10, w, h);
 
-		maxY += 20;
+		float maxY = bounds.h / 2.0f;
 
 		if (bounds.y < maxY) {
 			// Recalculate.
@@ -533,23 +447,14 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 			dc.Begin();
 		}
 	}
-	return flags;
+
+	return UIScreen::render(mode);
 }
 
 UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
-
-UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
-	CRC32string = "...";
-	Reporting::QueueCRC(gamePath_);
-	if (btnCalcCRC_) {
-		btnCalcCRC_->SetEnabled(false);
-	}
-	return UI::EVENT_DONE;
-}
-
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
 	TriggerFinish(DR_OK);
