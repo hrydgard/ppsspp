@@ -7,12 +7,12 @@
 #include <cstring>
 #include <cstdint>
 
-inline bool isPowerOf2(int n) {
+inline constexpr bool isPowerOf2(int n) {
 	return n == 1 || (n & (n - 1)) == 0;
 }
 
-// Next power of 2.
-inline uint32_t RoundUpToPowerOf2(uint32_t v) {
+// Next power of 2 (NOTE: Not next multiple of a power of two, like the below function!)
+inline constexpr uint32_t RoundToNextPowerOf2(uint32_t v) {
 	v--;
 	v |= v >> 1;
 	v |= v >> 2;
@@ -23,8 +23,13 @@ inline uint32_t RoundUpToPowerOf2(uint32_t v) {
 	return v;
 }
 
-inline uint32_t RoundUpToPowerOf2(uint32_t v, uint32_t power) {
-	return (v + power - 1) & ~(power - 1);
+// NOTE: multiple must be a power of two!
+inline constexpr uint32_t RoundUpToMultipleOf(uint32_t v, uint32_t multiple) {
+	return (v + multiple - 1) & ~(multiple - 1);
+}
+
+inline constexpr uint32_t RoundDownToMultipleOf(uint32_t v, uint32_t multiple) {
+	return v & ~(multiple - 1);
 }
 
 // TODO: this should just use a bitscan.

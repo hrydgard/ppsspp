@@ -27,6 +27,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Math/math_util.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -191,7 +192,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 {
 	u32 end = address+size;
 
-	address &= ~3;
+	address = RoundDownToMultipleOf(address, 4);
 	u32 start = address;
 
 	while (address < end && start <= address)

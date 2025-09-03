@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -29,6 +30,10 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Reporting.h"
+
+// General note: Function addresses will be snapped appropriately to full instructions
+// if they are not divisible by four. Addresses downwards, sizes upwards.
+// It's recommended to use correctly aligned addresses instead.
 
 DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.thread.list"] = &WebSocketHLEThreadList;
@@ -247,11 +252,15 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 	u32 addr;
 	if (!req.ParamU32("address", &addr))
 		return;
+
 	u32 size = -1;
 	if (!req.ParamU32("size", &size, false, DebuggerParamType::OPTIONAL))
 		return;
 	if (size == 0)
 		size = -1;
+
+	addr = RoundDownToMultipleOf(addr, 4);
+	size = RoundUpToMultipleOf(size, 4);
 
 	std::string name;
 	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL))
@@ -260,7 +269,7 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 		name = StringFromFormat("z_un_%08x", addr);
 
 	u32 prevBegin = g_symbolMap->GetFunctionStart(addr);
-	u32 endBegin = size == -1 ? prevBegin : g_symbolMap->GetFunctionStart(addr + size - 1);
+	u32 endBegin = size == -1 ? prevBegin : g_symbolMap->GetFunctionStart(addr + size - 4);
 	if (prevBegin == addr) {
 		return req.Fail("Function already exists at 'address'");
 	} else if (endBegin != prevBegin) {
@@ -275,7 +284,7 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 			size = prevSize - newPrevSize;
 
 		// Make sure we register the new length for replacements too.
-		MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + newPrevSize - 1);
+		MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + newPrevSize);
 		g_symbolMap->SetFunctionSize(prevBegin, newPrevSize);
 		MIPSAnalyst::RegisterFunction(prevBegin, newPrevSize, prevName.c_str());
 	} else {
@@ -285,7 +294,7 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 	}
 
 	// To ensure we restore replacements.
-	MIPSAnalyst::ForgetFunctions(addr, addr + size - 1);
+	MIPSAnalyst::ForgetFunctions(addr, addr + size);
 	g_symbolMap->AddFunction(name.c_str(), addr, size);
 	g_symbolMap->SortSymbols();
 	MIPSAnalyst::RegisterFunction(addr, size, name.c_str());
@@ -326,6 +335,8 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("address", &addr))
 		return;
 
+	addr = RoundDownToMultipleOf(addr, 4);
+
 	u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
 	if (funcBegin == -1)
 		return req.Fail("No function found at 'address'");
@@ -337,10 +348,10 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 		std::string prevName = g_symbolMap->GetLabelString(prevBegin);
 		u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + funcSize;
 		g_symbolMap->SetFunctionSize(prevBegin, expandedSize);
-		MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + expandedSize - 1);
+		MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + expandedSize);
 		MIPSAnalyst::RegisterFunction(prevBegin, expandedSize, prevName.c_str());
 	} else {
-		MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize - 1);
+		MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize);
 	}
 
 	g_symbolMap->RemoveFunction(funcBegin, true);
@@ -378,7 +389,7 @@ static u32 RemoveFuncSymbolsInRange(u32 addr, u32 size) {
 	}
 
 	if (counter) {
-		MIPSAnalyst::ForgetFunctions(addr, addr + size - 1);
+		MIPSAnalyst::ForgetFunctions(addr, addr + size);
 
 		// The following was copied from hle.func.remove:
 		g_symbolMap->SortSymbols();
@@ -413,9 +424,13 @@ void WebSocketHLEFuncRemoveRange(DebuggerRequest &req) {
 	u32 addr;
 	if (!req.ParamU32("address", &addr))
 		return;
+
 	u32 size;
 	if (!req.ParamU32("size", &size))
 		return;
+
+	addr = RoundDownToMultipleOf(addr, 4);
+	size = RoundUpToMultipleOf(size, 4);
 
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
@@ -449,6 +464,8 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 	if (!req.ParamString("name", &name))
 		return;
 
+	addr = RoundDownToMultipleOf(addr, 4);
+
 	u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
 	if (funcBegin == -1)
 		return req.Fail("No function found at 'address'");
@@ -456,7 +473,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 
 	g_symbolMap->SetLabelName(name.c_str(), funcBegin);
 	// To ensure we reapply replacements (in case we check name there.)
-	MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize - 1);
+	MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize);
 	MIPSAnalyst::RegisterFunction(funcBegin, funcSize, name.c_str());
 	MIPSAnalyst::UpdateHashMap();
 	MIPSAnalyst::ApplyHashMap();
@@ -487,9 +504,14 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 	u32 addr;
 	if (!req.ParamU32("address", &addr))
 		return;
+
+
 	u32 size;
 	if (!req.ParamU32("size", &size))
 		return;
+
+	addr = RoundDownToMultipleOf(addr, 4);
+	size = RoundUpToMultipleOf(size, 4);
 
 	bool remove = false;
 	if (!req.ParamBool("remove", &remove, DebuggerParamType::OPTIONAL))
@@ -502,7 +524,7 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 		RemoveFuncSymbolsInRange(addr, size);
 	}
 
-	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size - 1, true);
+	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size, true);
 	MIPSAnalyst::FinalizeScan(insertSymbols);
 
 	req.Respond();
