@@ -378,8 +378,14 @@ GameRegion DetectGameRegionFromID(std::string_view id_full) {
 			case 'J': return GameRegion::JAPAN; break;
 			case 'K': return GameRegion::KOREA; break;
 			case 'A': return GameRegion::ASIA; break;
-			case 'H': return GameRegion::HONGKONG; break;
-			default:  return id_letters == "NPIA" ? GameRegion::INTERNAL : GameRegion::HOMEBREW ;
+			default:
+				if (id_letters.substr(0, 3) == "NPH") {
+					return GameRegion::HONGKONG; // All games in this region are PSN.
+				} else if (id_letters == "NPIA") {
+					return GameRegion::INTERNAL;
+				} else {
+					return GameRegion::HOMEBREW;
+				}
 			}
 			// The fourth letter could be used to determine the type of product. It isn't useful to us.
 			// Guesswork of what they could possibly mean:
