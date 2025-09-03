@@ -38,21 +38,21 @@
 
 #ifndef ENUM_CLASS_BITOPS
 #define ENUM_CLASS_BITOPS(T) \
-	static inline T operator |(const T &lhs, const T &rhs) { \
+	static inline constexpr T operator |(const T &lhs, const T &rhs) { \
 		return T((int)lhs | (int)rhs); \
 	} \
 	static inline T &operator |= (T &lhs, const T &rhs) { \
 		lhs = lhs | rhs; \
 		return lhs; \
 	} \
-	static inline bool operator &(const T &lhs, const T &rhs) { \
+	static inline constexpr bool operator &(const T &lhs, const T &rhs) { \
 		return ((int)lhs & (int)rhs) != 0; \
 	} \
 	static inline T &operator &= (T &lhs, const T &rhs) { \
 		lhs = (T)((int)lhs & (int)rhs); \
 		return lhs; \
 	} \
-	static inline T operator ~(const T &rhs) { \
+	static inline constexpr T operator ~(const T &rhs) { \
 		return (T)(~((int)rhs)); \
 	}
 #endif
