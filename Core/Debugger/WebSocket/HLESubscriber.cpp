@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -29,6 +30,10 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Reporting.h"
+
+// General note: Function addresses will be snapped appropriately to full instructions
+// if they are not divisible by four. Addresses downwards, sizes upwards.
+// It's recommended to use correctly aligned addresses instead.
 
 DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.thread.list"] = &WebSocketHLEThreadList;
@@ -254,8 +259,8 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 	if (size == 0)
 		size = -1;
 
-	addr &= ~0x3; // Align.
-	size = (size + 3) & ~0x3; // Align.
+	addr = RoundDownToMultipleOf(addr, 4);
+	size = RoundUpToMultipleOf(size, 4);
 
 	std::string name;
 	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL))
@@ -330,7 +335,7 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("address", &addr))
 		return;
 
-	addr &= ~0x3; // Align.
+	addr = RoundDownToMultipleOf(addr, 4);
 
 	u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
 	if (funcBegin == -1)
@@ -424,8 +429,8 @@ void WebSocketHLEFuncRemoveRange(DebuggerRequest &req) {
 	if (!req.ParamU32("size", &size))
 		return;
 
-	addr &= ~0x3; // Align.
-	size = (size + 3) & ~0x3; // Align.
+	addr = RoundDownToMultipleOf(addr, 4);
+	size = RoundUpToMultipleOf(size, 4);
 
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
@@ -459,7 +464,7 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 	if (!req.ParamString("name", &name))
 		return;
 
-	addr &= ~0x3; // Align.
+	addr = RoundDownToMultipleOf(addr, 4);
 
 	u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
 	if (funcBegin == -1)
@@ -505,8 +510,8 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 	if (!req.ParamU32("size", &size))
 		return;
 
-	addr &= ~0x3; // Align.
-	size = (size + 3) & ~0x3; // Align.
+	addr = RoundDownToMultipleOf(addr, 4);
+	size = RoundUpToMultipleOf(size, 4);
 
 	bool remove = false;
 	if (!req.ParamBool("remove", &remove, DebuggerParamType::OPTIONAL))

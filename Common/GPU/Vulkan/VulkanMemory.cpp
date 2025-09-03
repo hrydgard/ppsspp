@@ -145,7 +145,7 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 	}
 
 	double start = time_now_d();
-	VkDeviceSize newBlockSize = std::max(originalBlockSize_ * 2, (VkDeviceSize)RoundUpToPowerOf2((uint32_t)allocationSize));
+	VkDeviceSize newBlockSize = std::max(originalBlockSize_ * 2, (VkDeviceSize)RoundToNextPowerOf2((uint32_t)allocationSize));
 
 	// We're still here and ran off the end of blocks. Create a new one.
 	blocks_.push_back(CreateBlock(newBlockSize));

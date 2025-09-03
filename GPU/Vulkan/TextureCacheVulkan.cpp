@@ -582,8 +582,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
 		int bpp = VkFormatBytesPerPixel(actualFmt);
-		int optimalStrideAlignment = std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment);
-		int byteStride = RoundUpToPowerOf2(mipWidth * bpp, optimalStrideAlignment);  // output stride
+		// RoundToNextPowerOf2 is probably not necessary as the optimal alignment is gonna be a power of 2.
+		int optimalStrideAlignment = RoundToNextPowerOf2(std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment));
+		int byteStride = RoundUpToMultipleOf(mipWidth * bpp, optimalStrideAlignment);  // output stride
 		int pixelStride = byteStride / bpp;
 		int uploadSize = byteStride * mipHeight;
 
