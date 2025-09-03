@@ -399,6 +399,7 @@ std::string_view GameRegionToString(GameRegion region) {
 	case GameRegion::ASIA: return "Asia";
 	case GameRegion::KOREA: return "Korea";
 	case GameRegion::HOMEBREW: return "Homebrew";
+	case GameRegion::OTHER: return "(Unknown)";
 	default: return "Other";
 	}
 }
