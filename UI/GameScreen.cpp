@@ -324,13 +324,14 @@ void GameScreen::CreateViews() {
 	if (inGame_) {
 		deleteChoice->SetEnabled(false);
 	}
-	if (System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
+
+	if ((hasFlags & GameInfoFlags::PARAM_SFO) && System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
 		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Add([this](UI::EventParams &e) {
 			GameInfoFlags hasFlags;
 			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO, &hasFlags);
 			if (hasFlags & GameInfoFlags::PARAM_SFO) {
-				// TODO: Should we block on Ready?
 				System_CreateGameShortcut(gamePath_, info->GetTitle());
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetI18NCategory(I18NCat::DIALOG)->T("Desktop shortcut created"), 2.0f);
 			}
 			return UI::EVENT_DONE;
 		});
