@@ -954,7 +954,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string_view regionStr = ga->T(GameRegionToString(region));
 		std::string title(gameInfo->title);
-		if (region != GameRegion::OTHER) {
+		if (region <= GameRegion::HOMEBREW) {
 			title += " (";
 			title += regionStr;
 			title += ")";
@@ -968,7 +968,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string_view regionStr = ga->T(GameRegionToString(region));
 		std::string title(g_paramSFO.GetValueString("TITLE"));
-		if (region != GameRegion::OTHER) {
+		if (region <= GameRegion::HOMEBREW) {
 			title += " (";
 			title += regionStr;
 			title += ")";

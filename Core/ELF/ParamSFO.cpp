@@ -358,36 +358,59 @@ std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 	return fakeID;
 }
 
-GameRegion DetectGameRegionFromID(std::string_view id_version) {
-	if (id_version.size() >= 4) {
-		std::string_view regStr = id_version.substr(0, 4);
+GameRegion DetectGameRegionFromID(std::string_view id_full) {
+	// DISC_ID format consists of a 4-letter categorization followed by a 5-digit catalog number.
+	if (id_full.size() == 9 || (id_full.size() == 10 && id_full[4] == '-')) {
+		std::string_view id_letters = id_full.substr(0, 4);
+		std::string_view id_release_type = id_letters.substr(0, 2);
 
-		// Guesswork
-		switch (regStr[2]) {
-		case 'E': return GameRegion::EUROPE; break;
-		case 'U': return GameRegion::USA; break;
-		case 'J': return GameRegion::JAPAN; break;
-		case 'H': return GameRegion::HONGKONG; break;
-		case 'A': return GameRegion::ASIA; break;
-		case 'K': return GameRegion::KOREA; break;
-		default:  return GameRegion::OTHER;
+		// Determine the type of release from the first two letters,
+		// must be one of the following:
+		//   "UC" -> first-party UMD game
+		//   "UL" -> third-party (licensed) UMD game
+		//   "NP" -> PSN digital download game or internal application
+		if (id_release_type == "UL" || id_release_type == "UC" || id_release_type == "NP") {
+			// Determine the region from the third letter.
+			// This isn't super accurate but it's all we have.
+			switch (id_letters[2]) {
+			case 'E': return GameRegion::EUROPE; break;
+			case 'U': return GameRegion::USA; break;
+			case 'J': return GameRegion::JAPAN; break;
+			case 'K': return GameRegion::KOREA; break;
+			case 'A': return GameRegion::ASIA; break;
+			default:
+				if (id_letters.substr(0, 3) == "NPH") {
+					return GameRegion::HONGKONG; // All games in this region are PSN.
+				} else if (id_letters == "NPIA") {
+					return GameRegion::INTERNAL;
+				} else {
+					return GameRegion::HOMEBREW;
+				}
+			}
+			// The fourth letter could be used to determine the type of product. It isn't useful to us.
+			// Guesswork of what they could possibly mean:
+			//   'S' -> full (S)oftware (used by most games)
+			//   'M' -> (M)edia (typically used by Japanese games)
+			//   'A' -> (A)pplication
+			//   'B' -> (B)undle
+			//   'D' -> (D)emo
+			//   'G' -> digital download (G)ame
+			//   'H' -> digital download: game -or- Neo Geo series -or- PlayView series
+			//   'F' -> digital download: PC Engine series, (F)oreign (English port)
+			//   'J' -> digital download: PC Engine series, (J)apanese
+			//   'Z' -> digital download: Minis series, third-party
+			//   'X' -> e(X)perimental -or- digital download: Minis series, first-party
+			//   'P' -> (P)re-production
+			//   'T' -> (T)est
+		} // Misc patterns
+		else if (id_letters == "UTST") {
+			return GameRegion::TEST;
+		} else if (id_letters == "UMDT") {
+			return GameRegion::DIAGNOSTIC;
 		}
-		/*
-		if (regStr == "NPEZ" || regStr == "NPEG" || regStr == "ULES" || regStr == "UCES" ||
-			  regStr == "NPEX") {
-			region = GameRegion::EUROPE;
-		} else if (regStr == "NPUG" || regStr == "NPUZ" || regStr == "ULUS" || regStr == "UCUS") {
-			region = GameRegion::USA;
-		} else if (regStr == "NPJH" || regStr == "NPJG" || regStr == "ULJM"|| regStr == "ULJS") {
-			region = GameRegion::JAPAN;
-		} else if (regStr == "NPHG") {
-			region = GameRegion::HONGKONG;
-		} else if (regStr == "UCAS") {
-			region = GameRegion::CHINA;
-		}*/
-	} else {
-		return GameRegion::OTHER;
 	}
+
+	return GameRegion::HOMEBREW;
 }
 
 std::string_view GameRegionToString(GameRegion region) {
@@ -399,7 +422,9 @@ std::string_view GameRegionToString(GameRegion region) {
 	case GameRegion::ASIA: return "Asia";
 	case GameRegion::KOREA: return "Korea";
 	case GameRegion::HOMEBREW: return "Homebrew";
-	case GameRegion::OTHER: return "(Unknown)";
-	default: return "Other";
+	case GameRegion::INTERNAL: return "Internal application";
+	case GameRegion::TEST: return "Test disc";
+	case GameRegion::DIAGNOSTIC: return "Diagnostic tool";
+	default: return "unknown region";
 	}
 }
