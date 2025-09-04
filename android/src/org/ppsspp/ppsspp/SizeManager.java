@@ -130,7 +130,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 			return;
 		}
 
-		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
+		Log.i(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// The window size might have changed (immersive mode, native fullscreen on some devices)
 		NativeApp.backbufferResize(width, height, format);
 		updateDisplayMeasurements();
