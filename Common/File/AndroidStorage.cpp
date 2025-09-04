@@ -69,6 +69,8 @@ bool Android_IsContentUri(std::string_view filename) {
 
 int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMode mode) {
 	if (!g_nativeActivity) {
+		// Hit this in shortcut creation.
+		ERROR_LOG(Log::IO, "Android_OpenContentUriFd: No native activity");
 		return -1;
 	}
 

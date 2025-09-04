@@ -98,7 +98,6 @@ struct JNIEnv {};
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 #include "Common/CPUDetect.h"
-#include "Common/Log.h"
 #include "UI/GameInfoCache.h"
 
 #include "app-android.h"
@@ -1703,13 +1702,17 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 
 // NOTE: This is defunct and not working, due to how the Android storage functions currently require
 // a PpssppActivity specifically and we don't have one here.
+// We need to make openContentUri and friends into static functions that take a jobject activity, and here
+// we need to feed the ShortcutActivity to them.
 extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv * env, jclass, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
-		INFO_LOG(Log::System, "No thread manager - initializing one");
 		// Need a thread manager.
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);
+		g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
+		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 
 	Path path = Path(GetJavaString(env, jpath));
@@ -1746,6 +1749,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	delete cache;
 
 	if (teardownThreadManager) {
+		g_logManager.SetOutputsEnabled((LogOutput)0);
 		g_threadManager.Teardown();
 	}
 
@@ -1758,10 +1762,12 @@ JNIEXPORT jbyteArray JNICALL
 Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
-		INFO_LOG(Log::System, "No thread manager - initializing one");
 		// Need a thread manager.
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);
+		g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
+		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 	// TODO: implement requestIcon()
 
@@ -1801,7 +1807,8 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
     delete cache;
 
     if (teardownThreadManager) {
-        g_threadManager.Teardown();
+		g_logManager.SetOutputsEnabled((LogOutput)0);
+		g_threadManager.Teardown();
     }
 
     return result;
