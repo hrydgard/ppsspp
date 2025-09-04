@@ -27,40 +27,46 @@ static jmethodID isExternalStoragePreservedLegacy;
 static jmethodID computeRecursiveDirectorySize;
 
 static jobject g_nativeActivity;
+static jclass g_classActivity;
 
 void Android_StorageSetNativeActivity(jobject nativeActivity) {
 	g_nativeActivity = nativeActivity;
 }
 
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
-	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;Ljava/lang/String;)I");
+	jclass localClass = env->GetObjectClass(obj);
+
+	openContentUri = env->GetStaticMethodID(localClass, "openContentUri", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
-	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
+	listContentUriDir = env->GetMethodID(localClass, "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
-	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriCreateDirectory = env->GetMethodID(localClass, "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
-	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriCreateFile = env->GetMethodID(localClass, "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateFile);
-	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriCopyFile = env->GetMethodID(localClass, "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCopyFile);
-	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)I");
+	contentUriRemoveFile = env->GetMethodID(localClass, "contentUriRemoveFile", "(Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRemoveFile);
-	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriMoveFile = env->GetMethodID(localClass, "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriMoveFile);
-	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriRenameFileTo = env->GetMethodID(localClass, "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRenameFileTo);
-	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
+	contentUriGetFileInfo = env->GetMethodID(localClass, "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(contentUriGetFileInfo);
-	contentUriFileExists = env->GetMethodID(env->GetObjectClass(obj), "contentUriFileExists", "(Ljava/lang/String;)Z");
+	contentUriFileExists = env->GetMethodID(localClass, "contentUriFileExists", "(Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriFileExists);
-	contentUriGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFreeStorageSpace", "(Ljava/lang/String;)J");
+	contentUriGetFreeStorageSpace = env->GetMethodID(localClass, "contentUriGetFreeStorageSpace", "(Ljava/lang/String;)J");
 	_dbg_assert_(contentUriGetFreeStorageSpace);
-	filePathGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
+	filePathGetFreeStorageSpace = env->GetMethodID(localClass, "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
 	_dbg_assert_(filePathGetFreeStorageSpace);
-	isExternalStoragePreservedLegacy = env->GetMethodID(env->GetObjectClass(obj), "isExternalStoragePreservedLegacy", "()Z");
+	isExternalStoragePreservedLegacy = env->GetMethodID(localClass, "isExternalStoragePreservedLegacy", "()Z");
 	_dbg_assert_(isExternalStoragePreservedLegacy);
-	computeRecursiveDirectorySize = env->GetMethodID(env->GetObjectClass(obj), "computeRecursiveDirectorySize", "(Ljava/lang/String;)J");
+	computeRecursiveDirectorySize = env->GetMethodID(localClass, "computeRecursiveDirectorySize", "(Ljava/lang/String;)J");
 	_dbg_assert_(computeRecursiveDirectorySize);
+
+	g_classActivity = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
+	env->DeleteLocalRef(localClass); // cleanup local ref
 }
 
 bool Android_IsContentUri(std::string_view filename) {
@@ -96,7 +102,7 @@ int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMo
 	}
 	jstring j_filename = env->NewStringUTF(fname.c_str());
 	jstring j_mode = env->NewStringUTF(modeStr);
-	int fd = env->CallIntMethod(g_nativeActivity, openContentUri, j_filename, j_mode);
+	int fd = env->CallStaticIntMethod(g_classActivity, openContentUri, g_nativeActivity, j_filename, j_mode);
 	return fd;
 }
 

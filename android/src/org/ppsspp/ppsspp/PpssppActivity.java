@@ -1,6 +1,8 @@
 package org.ppsspp.ppsspp;
 
 import androidx.annotation.Keep;
+
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
@@ -157,10 +159,10 @@ public class PpssppActivity extends NativeActivity {
 
 	@Keep
 	@SuppressWarnings("unused")
-	public int openContentUri(String uriString, String mode) {
+	public static int openContentUri(Activity activity, String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			try (ParcelFileDescriptor filePfd = getContentResolver().openFileDescriptor(uri, mode)) {
+			try (ParcelFileDescriptor filePfd = activity.getContentResolver().openFileDescriptor(uri, mode)) {
 				if (filePfd == null) {
 					// I'd expect an exception to happen before we get here, so this is probably
 					// never reached.
