@@ -780,8 +780,7 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes) {
 UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-		ParamSFOData paramSFO = info->GetParamSFO();
-		std::string gameId = paramSFO.GetDiscID();  // This will end up generating the fake ID properly.
+		std::string gameId = info->id;
 		g_Config.createGameConfig(gameId);
 		g_Config.changeGameSpecific(gameId, info->GetTitle());
 		g_Config.saveGameConfig(gameId, info->GetTitle());
