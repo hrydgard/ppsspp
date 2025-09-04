@@ -336,6 +336,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Math/expression_parser.cpp \
   $(SRC)/Common/Math/lin/vec3.cpp.arm \
   $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
+  $(SRC)/Common/Net/Connection.cpp \
   $(SRC)/Common/Net/HTTPClient.cpp \
   $(SRC)/Common/Net/HTTPHeaders.cpp \
   $(SRC)/Common/Net/HTTPRequest.cpp \

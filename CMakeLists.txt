@@ -804,6 +804,8 @@ add_library(Common STATIC
 	Common/Math/math_util.h
 	Common/Math/Statistics.h
 	Common/Math/Statistics.cpp
+	Common/Net/Connection.cpp
+	Common/Net/Connection.h
 	Common/Net/HTTPClient.cpp
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp

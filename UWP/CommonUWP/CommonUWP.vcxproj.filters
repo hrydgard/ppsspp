@@ -520,6 +520,9 @@
     <ClCompile Include="..\..\ext\imgui\imgui_extras.cpp">
       <Filter>ext\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Net\Connection.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -998,6 +1001,9 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\imgui\imgui_extras.h">
       <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\Connection.h">
+      <Filter>Net</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
