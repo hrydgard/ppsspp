@@ -570,7 +570,7 @@ public abstract class NativeActivity extends AppCompatActivity implements Sensor
 		if (decorView != null) {
 			decorView.setSystemUiVisibility(flags);
 		} else {
-			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
+			Log.i(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
 		}
 		sizeManager.checkDisplayMeasurements();
 	}
