@@ -168,6 +168,8 @@ bool LoadParamSFOFromPBP(FileLoader *fileLoader) {
 				bool regionCheck = region != 'A' && region != 'E' && region != 'H' && region != 'I' && region != 'J' && region != 'K' && region != 'U' && region != 'X';
 				bool systemVerCheck = !systemVer.empty() && systemVer[0] >= '5';
 				if ((formatCheck || regionCheck || discTotalCheck || systemVerCheck) && !discID.empty()) {
+					// This is NOT a homebrew, so we set the ID (so it won't get set later).
+					// This is backwards and weird.
 					g_paramSFO.SetValue("DISC_ID", discID, (int)discID.size());
 					std::string ver = paramSFO.GetValueString("DISC_VERSION");
 					if (ver.empty())
