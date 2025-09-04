@@ -738,6 +738,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 			icoPath = iconFolder / (info->id + ".ico");
 			if (!File::Exists(icoPath)) {
+				// NOTE: This simply wraps raw PNG data in an ICO container, which works fine for Windows.
+				// However, this doesn't allow us to modify the aspect ratio - it gets displayed as a square, even though it isn't.
+				// So ideally we should re-encode.
 				if (!W32Util::CreateICOFromPNGData((const uint8_t *)info->icon.data.data(), info->icon.data.size(), icoPath)) {
 					ERROR_LOG(Log::System, "ICO creation failed");
 					icoPath.clear();

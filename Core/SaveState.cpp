@@ -534,6 +534,7 @@ double g_lastSaveTime = -1.0;
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
 		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
 		if (discId.empty()) {
+			// Should never happen.
 			discId = g_paramSFO.GenerateFakeID(Path());
 			discVer = "1.00";
 		}

@@ -577,6 +577,7 @@ struct PipelineDesc {
 	const Slice<SamplerDef> samplers;
 };
 
+// Not normally used as a bitfield, but useful as a capability flag.
 enum class PresentMode {
 	FIFO = 1,
 	IMMEDIATE = 2,

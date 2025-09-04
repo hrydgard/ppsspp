@@ -555,14 +555,10 @@ static void NotifyUserIfSlow() {
 	if (!g_Config.bHideSlowWarnings &&
 		!hasNotifiedSlow &&
 		PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL &&
-		DisplayIsRunningSlow()) {
+		DisplayIsRunningSlow() && g_Config.bSoftwareRendering) {
 #ifndef _DEBUG
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		if (g_Config.bSoftwareRendering) {
-			g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: Try turning off Software Rendering"), 5.0f);
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: try frameskip, sound is choppy when slow"));
-		}
+		g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: Try turning off Software Rendering"), 5.0f);
 #endif
 		hasNotifiedSlow = true;
 	}

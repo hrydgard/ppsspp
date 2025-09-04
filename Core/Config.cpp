@@ -1676,6 +1676,8 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	KeyMap::SaveToIni(iniFile);
 	iniFile.Save(fullIniFilePath);
 
+	INFO_LOG(Log::Loader, "Game-specific config saved: '%s'", fullIniFilePath.c_str());
+
 	PostSaveCleanup(true);
 	return true;
 }
