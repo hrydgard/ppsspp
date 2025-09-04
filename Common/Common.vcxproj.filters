@@ -493,7 +493,7 @@
     <ClInclude Include="System\OSD.h">
       <Filter>System</Filter>
     </ClInclude>
-    <ClInclude Include="Net\HTTPRequest.h">
+    <ClInclude Include="Net\HTTPRequestBase.h">
       <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\naett\naett.h">
@@ -693,6 +693,9 @@
       <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="Net\HTTPRequestManager.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\HTTPRequest.h">
       <Filter>Net</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1124,7 +1127,7 @@
     <ClCompile Include="System\OSD.cpp">
       <Filter>System</Filter>
     </ClCompile>
-    <ClCompile Include="Net\HTTPRequest.cpp">
+    <ClCompile Include="Net\HTTPRequestBase.cpp">
       <Filter>Net</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\naett\naett.c">
@@ -1300,6 +1303,9 @@
       <Filter>Net</Filter>
     </ClCompile>
     <ClCompile Include="Net\HTTPRequestManager.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="net\HTTPRequest.cpp">
       <Filter>Net</Filter>
     </ClCompile>
   </ItemGroup>

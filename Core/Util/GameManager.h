@@ -26,7 +26,7 @@
 #include <atomic>
 #include <optional>
 
-#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPRequestBase.h"
 
 enum class GameManagerState {
 	IDLE,

@@ -30,7 +30,6 @@
 #include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
-#include "Common/Net/HTTPRequest.h"
 #include "Common/Net/HTTPRequestManager.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"

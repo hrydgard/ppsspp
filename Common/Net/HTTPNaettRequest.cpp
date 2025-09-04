@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "Common/Net/HTTPRequest.h"
+#include "Common/Net/HTTPRequestBase.h"
 #include "Common/Net/HTTPNaettRequest.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/StringUtils.h"

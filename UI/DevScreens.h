@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "Common/Data/Text/I18n.h"
-#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPRequestBase.h"
 #include "Common/UI/UIScreen.h"
 #include "UI/TabbedDialogScreen.h"
 #include "UI/MiscScreens.h"

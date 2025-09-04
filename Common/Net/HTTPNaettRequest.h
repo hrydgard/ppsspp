@@ -3,7 +3,7 @@
 #include <thread>
 #include <string_view>
 
-#include "Common/Net/HTTPRequest.h"
+#include "Common/Net/HTTPRequestBase.h"
 
 #ifndef HTTPS_NOT_AVAILABLE
 

@@ -8,8 +8,6 @@
 
 namespace net {
 
-typedef std::function<std::string(const std::string &)> ResolveFunc;
-
 class Connection {
 public:
 	virtual ~Connection();

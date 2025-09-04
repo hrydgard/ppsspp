@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <string_view>
-#include "Common/Net/HTTPRequest.h"
+#include "Common/Net/HTTPRequestBase.h"
 #include "Common/Net/NetBuffer.h"
 
 namespace http {

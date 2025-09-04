@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <functional>
 
 struct addrinfo;
 
@@ -26,5 +27,7 @@ int inet_pton(int af, const char* src, void* dst);
 
 // Does a DNS lookup without involving the OS, so you can hit any DNS server.
 bool DirectDNSLookupIPV4(const char *dnsServer, const char *host, uint32_t *ipv4_addr);
+
+typedef std::function<std::string(const std::string &)> ResolveFunc;
 
 }  // namespace net

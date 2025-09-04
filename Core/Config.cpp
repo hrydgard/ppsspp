@@ -26,7 +26,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPRequestBase.h"
 #include "Common/Net/URL.h"
 
 #include "Common/Log.h"
