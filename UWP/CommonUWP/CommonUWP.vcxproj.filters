@@ -523,6 +523,9 @@
     <ClCompile Include="..\..\Common\Net\Connection.cpp">
       <Filter>Net</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPRequestManager.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -1003,6 +1006,9 @@
       <Filter>ext\imgui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Net\Connection.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPRequestManager.h">
       <Filter>Net</Filter>
     </ClInclude>
   </ItemGroup>

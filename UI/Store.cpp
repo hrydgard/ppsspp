@@ -28,7 +28,7 @@
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/StringUtils.h"
 #include "Common/Render/ManagedTexture.h"
-#include "Common/Net/NetBuffer.h"
+#include "Common/Net/HTTPRequestManager.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"

@@ -45,7 +45,7 @@
 #include "Windows/CaptureDevice.h"
 #endif
 
-#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPRequestManager.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
 #include "Common/Render/TextureAtlas.h"
@@ -77,7 +77,6 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
-#include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 #include "Common/MemArena.h"
@@ -87,6 +86,7 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"

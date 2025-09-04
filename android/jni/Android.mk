@@ -340,6 +340,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/HTTPClient.cpp \
   $(SRC)/Common/Net/HTTPHeaders.cpp \
   $(SRC)/Common/Net/HTTPRequest.cpp \
+  $(SRC)/Common/Net/HTTPRequestManager.cpp \
   $(SRC)/Common/Net/HTTPNaettRequest.cpp \
   $(SRC)/Common/Net/HTTPServer.cpp \
   $(SRC)/Common/Net/NetBuffer.cpp \

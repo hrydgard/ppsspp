@@ -38,6 +38,7 @@
 #include "Common/Log.h"
 #include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Net/HTTPRequestManager.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
