@@ -169,7 +169,7 @@ int CtrlVertexList::GetRowCount() {
 	// TODO: Maybe there are smarter ways?  Also, is this the best place to recalc?
 	auto state = gpuDebug->GetGState();
 
-	int rowCount_ = gpuDebug->GetCurrentPrimCount();
+	rowCount_ = gpuDebug->GetCurrentPrimCount();
 	if (!gpuDebug->GetCurrentDrawAsDebugVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}
