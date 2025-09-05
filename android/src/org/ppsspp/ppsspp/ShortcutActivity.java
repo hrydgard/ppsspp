@@ -74,8 +74,7 @@ public class ShortcutActivity extends Activity {
 		finish();
 	}
 
-	public static native String queryGameName(Activity activity, String path);
-	public static native byte[] queryGameIcon(Activity activity, String path);
+	private static native Object[] queryGameInfo(android.app.Activity activity, String path);
 
 	// Create shortcut as response for ACTION_CREATE_SHORTCUT intent.
 	private void respondToShortcutRequest(@NonNull Uri uri) {
@@ -84,7 +83,7 @@ public class ShortcutActivity extends Activity {
 		// target class. Add any parameter as data.
 		Intent shortcutIntent = new Intent(getApplicationContext(), PpssppActivity.class);
 		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-		Log.i(TAG, "Shortcut URI: " + uri.toString());
+		Log.i(TAG, "Shortcut URI: " + uri);
 		shortcutIntent.setData(uri);
 		String path = uri.toString();
 		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, path);
@@ -116,16 +115,18 @@ public class ShortcutActivity extends Activity {
 		String name = pathSegments[pathSegments.length - 1];
 
 		PpssppActivity.CheckABIAndLoadLibrary();
-		String gameName = queryGameName(this, path);
-		byte [] iconData = null;
-		if (gameName.isEmpty()) {
-			Log.i(TAG, "Failed to retrieve game name - ignoring.");
-			// This probably happened because PPSSPP isn't running so the GameInfoCache isn't working.
-			// Let's just continue with our fallback name until we can fix that.
-			// return;
+		String gameName = name;
+		byte[] iconData = null;
+		Object[] result = queryGameInfo(this, path);
+		if (result != null && result.length >= 2) {
+			if (result[0] != null) {
+				gameName = (String) result[0];     // index 0 = name
+			}
+			iconData = (byte[]) result[1];     // index 1 = raw PNG/JPEG bytes, or null
+
+			Log.i(TAG, "Game name: " + gameName);
 		} else {
-			name = gameName;
-			iconData = queryGameIcon(this, path);
+			Log.e(TAG, "Bad return value from queryGameInfo");
 		}
 
 		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + uri);
@@ -136,7 +137,6 @@ public class ShortcutActivity extends Activity {
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name);
 
-		boolean setIcon = false;
 		if (iconData != null) {
 			// Try to create a PNG from the iconData.
 			Bitmap bmp = BitmapFactory.decodeByteArray(iconData, 0, iconData.length);
@@ -156,13 +156,13 @@ public class ShortcutActivity extends Activity {
 				// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
 				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
 			}
-			setIcon = true;
-		}
-		if (!setIcon) {
+		} else {
+			Log.i(TAG, "No icon available, falling back to PPSSPP icon");
 			// Fall back to the PPSSPP icon.
 			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.mipmap.ic_launcher);
 			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
 		}
+
 		setResult(RESULT_OK, responseIntent);
 
 		// Must call finish for result to be returned immediately

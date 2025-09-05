@@ -29,12 +29,13 @@ static jmethodID computeRecursiveDirectorySize;
 static jobject g_nativeActivity;
 static jclass g_classActivity;
 
-void Android_StorageSetNativeActivity(jobject nativeActivity) {
+void Android_StorageSetActivity(jobject nativeActivity) {
 	g_nativeActivity = nativeActivity;
 }
 
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
-	jclass localClass = env->GetObjectClass(obj);
+	jclass localClass = env->FindClass("org/ppsspp/ppsspp/PpssppActivity");
+	_dbg_assert_(localClass);
 
 	openContentUri = env->GetStaticMethodID(localClass, "openContentUri", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
@@ -67,6 +68,28 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 
 	g_classActivity = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
 	env->DeleteLocalRef(localClass); // cleanup local ref
+}
+
+void Android_UnregisterStorageCallbacks(JNIEnv * env) {
+	if (g_classActivity) {
+		env->DeleteGlobalRef(g_classActivity);
+		g_classActivity = nullptr;
+	}
+	g_nativeActivity = nullptr;
+	openContentUri = nullptr;
+	listContentUriDir = nullptr;
+	contentUriCreateFile = nullptr;
+	contentUriCreateDirectory = nullptr;
+	contentUriCopyFile = nullptr;
+	contentUriMoveFile = nullptr;
+	contentUriRemoveFile = nullptr;
+	contentUriRenameFileTo = nullptr;
+	contentUriGetFileInfo = nullptr;
+	contentUriFileExists = nullptr;
+	contentUriGetFreeStorageSpace = nullptr;
+	filePathGetFreeStorageSpace = nullptr;
+	isExternalStoragePreservedLegacy = nullptr;
+	computeRecursiveDirectorySize = nullptr;
 }
 
 bool Android_IsContentUri(std::string_view filename) {
