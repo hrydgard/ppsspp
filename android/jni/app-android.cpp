@@ -1700,11 +1700,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
 
-// NOTE: This is defunct and not working, due to how the Android storage functions currently require
-// a PpssppActivity specifically and we don't have one here.
-// We need to make openContentUri and friends into static functions that take a jobject activity, and here
-// we need to feed the ShortcutActivity to them.
-extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv * env, jclass, jstring jpath) {
+extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGame(JNIEnv * env, jclass, jobject activity, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
 		// Need a thread manager.
@@ -1712,6 +1708,8 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 		g_threadManager.Init(1, 1);
 		g_logManager.SetOutputsEnabled(LogOutput::Stdio);
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
+		Android_StorageSetNativeActivity(activity);
+		Android_RegisterStorageCallbacks(env, activity);
 		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 
@@ -1759,7 +1757,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 
 extern "C"
 JNIEXPORT jbyteArray JNICALL
-Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz, jstring jpath) {
+Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass, jobject activity, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
 		// Need a thread manager.
@@ -1767,6 +1765,9 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
 		g_threadManager.Init(1, 1);
 		g_logManager.SetOutputsEnabled(LogOutput::Stdio);
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
+
+		Android_StorageSetNativeActivity(activity);
+		Android_RegisterStorageCallbacks(env, activity);
 		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 	// TODO: implement requestIcon()

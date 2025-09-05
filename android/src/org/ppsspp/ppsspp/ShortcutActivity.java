@@ -12,6 +12,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+
 import java.io.File;
 
 /**
@@ -71,11 +74,11 @@ public class ShortcutActivity extends Activity {
 		finish();
 	}
 
-	public static native String queryGameName(String path);
-	public static native byte[] queryGameIcon(String path);
+	public static native String queryGameName(Activity activity, String path);
+	public static native byte[] queryGameIcon(Activity activity, String path);
 
 	// Create shortcut as response for ACTION_CREATE_SHORTCUT intent.
-	private void respondToShortcutRequest(Uri uri) {
+	private void respondToShortcutRequest(@NonNull Uri uri) {
 		// This is Intent that will be sent when user execute our shortcut on
 		// homescreen. Set our app as target Context. Set Main activity as
 		// target class. Add any parameter as data.
@@ -113,7 +116,7 @@ public class ShortcutActivity extends Activity {
 		String name = pathSegments[pathSegments.length - 1];
 
 		PpssppActivity.CheckABIAndLoadLibrary();
-		String gameName = queryGameName(path);
+		String gameName = queryGameName(this, path);
 		byte [] iconData = null;
 		if (gameName.isEmpty()) {
 			Log.i(TAG, "Failed to retrieve game name - ignoring.");
@@ -122,7 +125,7 @@ public class ShortcutActivity extends Activity {
 			// return;
 		} else {
 			name = gameName;
-			iconData = queryGameIcon(path);
+			iconData = queryGameIcon(this, path);
 		}
 
 		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + uri);
