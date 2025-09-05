@@ -98,7 +98,6 @@ struct JNIEnv {};
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 #include "Common/CPUDetect.h"
-#include "Common/Log.h"
 #include "UI/GameInfoCache.h"
 
 #include "app-android.h"
@@ -555,11 +554,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *
 	_dbg_assert_(getDebugString);
 
 	Android_RegisterStorageCallbacks(env, obj);
-	Android_StorageSetNativeActivity(nativeActivity);
+	Android_StorageSetActivity(nativeActivity);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
-	Android_StorageSetNativeActivity(nullptr);
+	Android_StorageSetActivity(nullptr);
 	env->DeleteGlobalRef(nativeActivity);
 	nativeActivity = nullptr;
 }
@@ -1701,44 +1700,60 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
 
-// NOTE: This is defunct and not working, due to how the Android storage functions currently require
-// a PpssppActivity specifically and we don't have one here.
-extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv * env, jclass, jstring jpath) {
+extern "C" JNIEXPORT jobjectArray JNICALL
+Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobject activity, jstring jpath) {
+
+	jobject activityRef = nullptr;
+
 	bool teardownThreadManager = false;
+	// Maybe we should just check nativeActivity instead.
 	if (!g_threadManager.IsInitialized()) {
-		INFO_LOG(Log::System, "No thread manager - initializing one");
-		// Need a thread manager.
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);
+		g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
+		activityRef = env->NewGlobalRef(activity);
+		Android_StorageSetActivity(activityRef);
+		Android_RegisterStorageCallbacks(env, activityRef);
+		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 
 	Path path = Path(GetJavaString(env, jpath));
+	INFO_LOG(Log::System, "queryGameInfo(%s)", path.c_str());
 
-	INFO_LOG(Log::System, "queryGameName(%s)", path.c_str());
-
-	std::string result;
+	std::string gameName;
+	jbyteArray gameIcon = nullptr;
 
 	GameInfoCache *cache = new GameInfoCache();
-	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
-	// Wait until it's done: this is synchronous, unfortunately.
+	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON);
+
 	if (info) {
 		INFO_LOG(Log::System, "GetInfo successful, waiting");
-		while (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-			sleep_ms(1, "info-poll");
+
+		// Wait for both name and icon
+		int attempts = 1000;
+		while ((!info->Ready(GameInfoFlags::PARAM_SFO) || !info->Ready(GameInfoFlags::ICON)) && attempts > 0) {
+			sleep_ms(1, "info-icon-poll");
+			attempts--;
 		}
 		INFO_LOG(Log::System, "Done waiting");
+
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
-			result = info->GetTitle();
-
-			// Pretty arbitrary, but the home screen will often truncate titles.
-			// Let's remove "The " from names since it's common in English titles.
-			if (result.length() > strlen("The ") && startsWithNoCase(result, "The ")) {
-				result = result.substr(strlen("The "));
+			// Get the game title
+			gameName = info->GetTitle();
+			if (gameName.length() > strlen("The ") && startsWithNoCase(gameName, "The ")) {
+				gameName = gameName.substr(strlen("The "));
 			}
+			INFO_LOG(Log::System, "Got name: '%s'", gameName.c_str());
 
-			INFO_LOG(Log::System, "queryGameName: Got '%s'", result.c_str());
+			// Get the game icon if available
+			if (info->Ready(GameInfoFlags::ICON) && !info->icon.data.empty()) {
+				INFO_LOG(Log::System, "Got icon");
+				gameIcon = env->NewByteArray((jsize)info->icon.data.size());
+				env->SetByteArrayRegion(gameIcon, 0, (jsize)info->icon.data.size(), (const jbyte *)info->icon.data.data());
+			}
 		} else {
-			INFO_LOG(Log::System, "queryGameName: Filetype unknown");
+			INFO_LOG(Log::System, "Failed to query game info");
 		}
 	} else {
 		INFO_LOG(Log::System, "No info from cache");
@@ -1746,63 +1761,25 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	delete cache;
 
 	if (teardownThreadManager) {
+		g_logManager.SetOutputsEnabled((LogOutput)0);
+		Android_UnregisterStorageCallbacks(env);
+		Android_StorageSetActivity(nullptr);
 		g_threadManager.Teardown();
 	}
 
-	return env->NewStringUTF(result.c_str());
-}
+	// Construct a Java Object[] with two entries: name (String), icon (byte[])
+	jobjectArray result = env->NewObjectArray(2, env->FindClass("java/lang/Object"), nullptr);
 
+	jstring jname = env->NewStringUTF(gameName.c_str());
+	env->SetObjectArrayElement(result, 0, jname);
+	env->DeleteLocalRef(jname);
 
-extern "C"
-JNIEXPORT jbyteArray JNICALL
-Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz, jstring jpath) {
-	bool teardownThreadManager = false;
-	if (!g_threadManager.IsInitialized()) {
-		INFO_LOG(Log::System, "No thread manager - initializing one");
-		// Need a thread manager.
-		teardownThreadManager = true;
-		g_threadManager.Init(1, 1);
+	if (gameIcon != nullptr) {
+		env->SetObjectArrayElement(result, 1, gameIcon);
+		env->DeleteLocalRef(gameIcon);
 	}
-	// TODO: implement requestIcon()
-
-	Path path = Path(GetJavaString(env, jpath));
-
-	INFO_LOG(Log::System, "queryGameIcon(%s)", path.c_str());
-
-	jbyteArray result = nullptr;
-
-	GameInfoCache *cache = new GameInfoCache();
-	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::ICON);
-	// Wait until it's done: this is synchronous, unfortunately.
-	if (info) {
-		INFO_LOG(Log::System, "GetInfo successful, waiting");
-        int attempts = 1000;
-        while (!info->Ready(GameInfoFlags::ICON)) {
-            sleep_ms(1, "icon-poll");
-            attempts--;
-            if (!attempts) {
-                break;
-            }
-        }
-        INFO_LOG(Log::System, "Done waiting");
-        if (info->Ready(GameInfoFlags::ICON)) {
-            if (!info->icon.data.empty()) {
-                INFO_LOG(Log::System, "requestIcon: Got icon");
-                result = env->NewByteArray((jsize)info->icon.data.size());
-                env->SetByteArrayRegion(result, 0, (jsize)info->icon.data.size(), (const jbyte *)info->icon.data.data());
-            }
-        } else {
-            INFO_LOG(Log::System, "requestIcon: Filetype unknown");
-        }
-    } else {
-        INFO_LOG(Log::System, "No info from cache");
-    }
-
-    delete cache;
-
-    if (teardownThreadManager) {
-        g_threadManager.Teardown();
-    }
-
-    return result;
+	if (activityRef) {
+		env->DeleteGlobalRef(activityRef);
+	}
+	return result;
 }

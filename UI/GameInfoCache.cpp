@@ -895,15 +895,12 @@ private:
 };
 
 GameInfoCache::GameInfoCache() {
-	Init();
 }
 
 GameInfoCache::~GameInfoCache() {
 	Clear();
 	Shutdown();
 }
-
-void GameInfoCache::Init() {}
 
 void GameInfoCache::Shutdown() {
 	CancelAll();

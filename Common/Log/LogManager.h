@@ -43,7 +43,7 @@ struct LogMessage {
 };
 
 enum class LogOutput {
-	Stdio = (1 << 0),
+	Stdio = (1 << 0),  // Also android log.
 	DebugString = (1 << 1),
 	RingBuffer = (1 << 2),
 	File = (1 << 3),

@@ -201,7 +201,6 @@ public:
 	void CancelAll();
 
 private:
-	void Init();
 	void Shutdown();
 
 	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
