@@ -166,8 +166,13 @@ void GameScreen::CreateViews() {
 		TextView *tvID = mainGameInfo->Add(new TextView(ReplaceAll(info->id_version, "_", " v"), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvID->SetShadow(true);
 
-		TextView *tvRegion = mainGameInfo->Add(new TextView(ga->T(GameRegionToString(info->region)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvRegion->SetShadow(true);
+		if (info->region != GameRegion::UNKNOWN) {
+			TextView *tvRegion = mainGameInfo->Add(new TextView(ga->T(GameRegionToString(info->region)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			tvRegion->SetShadow(true);
+		} else {
+			TextView *tvFileType = mainGameInfo->Add(new TextView(ga->T(IdentifiedFileTypeToString(info->fileType)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			tvFileType->SetShadow(true);
+		}
 	}
 
 	if ((hasFlags & GameInfoFlags::UNCOMPRESSED_SIZE) && (hasFlags & GameInfoFlags::SIZE)) {

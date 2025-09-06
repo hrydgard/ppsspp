@@ -146,7 +146,7 @@ public:
 	std::string id_version;
 	int disc_total = 0;
 	int disc_number = 0;
-	GameRegion region = GameRegion::TEST;
+	GameRegion region = GameRegion::UNKNOWN;
 	IdentifiedFileType fileType;
 	bool hasConfig = false;
 

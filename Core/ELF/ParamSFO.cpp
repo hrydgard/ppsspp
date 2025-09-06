@@ -364,11 +364,10 @@ GameRegion DetectGameRegionFromID(std::string_view id_full) {
 		std::string_view id_letters = id_full.substr(0, 4);
 		std::string_view id_release_type = id_letters.substr(0, 2);
 
-		// Determine the type of release from the first two letters,
-		// must be one of the following:
-		//   "UC" -> first-party UMD game
-		//   "UL" -> third-party (licensed) UMD game
-		//   "NP" -> PSN digital download game or internal application
+		// Determine the type of release from the first two letters, must be one of the following:
+		//   "UC" -> (U)MD, (C)opyrighted (first-party)
+		//   "UL" -> (U)MD, (L)icensed (third-party)
+		//   "NP" -> PlayStation (N)etwork, (P)roduction environment (digital download)
 		if (id_release_type == "UL" || id_release_type == "UC" || id_release_type == "NP") {
 			// Determine the region from the third letter.
 			// This isn't super accurate but it's all we have.
@@ -387,21 +386,28 @@ GameRegion DetectGameRegionFromID(std::string_view id_full) {
 					return GameRegion::HOMEBREW;
 				}
 			}
-			// The fourth letter could be used to determine the type of product. It isn't useful to us.
-			// Guesswork of what they could possibly mean:
-			//   'S' -> full (S)oftware (used by most games)
-			//   'M' -> (M)edia (typically used by Japanese games)
-			//   'A' -> (A)pplication
-			//   'B' -> (B)undle
-			//   'D' -> (D)emo
-			//   'G' -> digital download (G)ame
-			//   'H' -> digital download: game -or- Neo Geo series -or- PlayView series
-			//   'F' -> digital download: PC Engine series, (F)oreign (English port)
-			//   'J' -> digital download: PC Engine series, (J)apanese
-			//   'Z' -> digital download: Minis series, third-party
-			//   'X' -> e(X)perimental -or- digital download: Minis series, first-party
-			//   'P' -> (P)re-production
-			//   'T' -> (T)est
+			/* The fourth letter could be used to determine the type of product. It isn't useful to us.
+			 * UMD:
+			 *   'S' -> full (S)oftware? (used by most games)
+			 *   'M' -> (M)edia? (used by some Japanese and Korean games)
+			 *   'B' -> (B)undled
+			 *   'D' -> (D)emo
+			 *   'P' -> (P)re-production
+			 *   'T' -> (T)est
+			 *   'X' -> e(X)perimental?
+			 * Digital:
+			 *   'A' -> first-party application
+			 *   'B' -> third-party PSP Remasters
+			 *   'E' -> first-party PAL PSOne
+			 *   'F' -> third-party PAL PSOne / American PC Engine (TurboGrafx-16 Classics)
+			 *   'G' -> first-party PSP / PlayView
+			 *   'H' -> third-party PSP / PlayView / Neo Geo
+			 *   'I' -> first-party NTSC PSOne
+			 *   'J' -> third-party NTSC PSOne / Japanese PC Engine
+			 *   'W' -> first-party tool?
+			 *   'X' -> first-party Minis
+			 *   'Z' -> third-party Minis
+			 */
 		} // Misc patterns
 		else if (id_letters == "UTST") {
 			return GameRegion::TEST;
@@ -422,7 +428,7 @@ std::string_view GameRegionToString(GameRegion region) {
 	case GameRegion::ASIA: return "Asia";
 	case GameRegion::KOREA: return "Korea";
 	case GameRegion::HOMEBREW: return "Homebrew";
-	case GameRegion::INTERNAL: return "Internal application";
+	case GameRegion::INTERNAL: return "Internal";
 	case GameRegion::TEST: return "Test disc";
 	case GameRegion::DIAGNOSTIC: return "Diagnostic tool";
 	default: return "unknown region";
