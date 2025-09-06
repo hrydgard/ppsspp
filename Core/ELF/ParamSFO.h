@@ -115,6 +115,7 @@ enum class GameRegion {
 	KOREA,
 	COUNT,
 	HOMEBREW = COUNT,
+	UNKNOWN,
 	INTERNAL,
 	TEST,
 	DIAGNOSTIC,
