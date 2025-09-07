@@ -326,13 +326,14 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 		return UI::EVENT_CONTINUE;
 	});
 
-	Button *FlushTrace = list->Add(new Button(dev->T("Flush the trace")));
+	list->Add(new ItemHeader(dev->T("MIPSTracer actions")));
+	Choice *FlushTrace = list->Add(new Choice(dev->T("Flush the trace")));
 	FlushTrace->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerFlushTrace);
 
-	Button *InvalidateJitCache = list->Add(new Button(dev->T("Clear the JIT cache")));
+	Choice *InvalidateJitCache = list->Add(new Choice(dev->T("Clear the JIT cache")));
 	InvalidateJitCache->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
 
-	Button *ClearMIPSTracer = list->Add(new Button(dev->T("Clear the MIPSTracer")));
+	Choice *ClearMIPSTracer = list->Add(new Choice(dev->T("Clear the MIPSTracer")));
 	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
 }
 
