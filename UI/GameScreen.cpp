@@ -366,7 +366,6 @@ void GameScreen::CreateViews() {
 	if (info->pic1.texture) {
 		Choice *btnSetBackground = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
 		btnSetBackground->OnClick.Handle(this, &GameScreen::OnSetBackground);
-		btnSetBackground->SetVisibility(V_GONE);
 	}
 
 	isHomebrew_ = info && info->region == GameRegion::HOMEBREW;
