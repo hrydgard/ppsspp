@@ -4,6 +4,9 @@
 #include "Common/StringUtils.h"
 #include "Core/LuaContext.h"
 #include "Core/MemMap.h"
+#include "Core/RetroAchievements.h"
+#include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 // Sol is expensive to include so we only do it here.
 #include "ext/sol/sol.hpp"
@@ -45,20 +48,76 @@ static void error(const std::string &message) {
 // TODO: We should probably disallow or at least discourage raw read/writes and instead
 // only support read/writes that refer to the name of a memory region.
 static int r32(int address) {
-	if (Memory::IsValid4AlignedAddress(address)) {
-		return Memory::Read_U32(address);
-	} else {
+	if (!Memory::IsValid4AlignedAddress(address)) {
 		g_lua.Print(LogLineType::Error, StringFromFormat("r32: bad address %08x", address));
 		return 0;
 	}
+
+	return Memory::ReadUnchecked_U32(address);
 }
 
 static void w32(int address, int value) {
-	if (Memory::IsValid4AlignedAddress(address)) {
-		Memory::Write_U32(value, address);  // NOTE: These are backwards for historical reasons.
-	} else {
+	if (!Memory::IsValid4AlignedAddress(address)) {
 		g_lua.Print(LogLineType::Error, StringFromFormat("w32: bad address %08x trying to write %08x", address, value));
 	}
+
+	Memory::WriteUnchecked_U32(value, address);  // NOTE: These are backwards for historical reasons.
+}
+
+static double bitcast_s32_to_float(int value) {
+	float fvalue;
+	memcpy(&fvalue, &value, 4);
+	return fvalue;
+}
+
+static int bitcast_float_to_s32(double value) {
+	float fvalue = value;
+	int ivalue;
+	memcpy(&ivalue, &value, 4);
+	return ivalue;
+}
+
+// TODO: We should probably disallow or at least discourage raw read/writes and instead
+// only support read/writes that refer to the name of a memory region.
+static double rf(int address) {
+	if (!Memory::IsValid4AlignedAddress(address)) {
+		g_lua.Print(LogLineType::Error, StringFromFormat("rf: bad address %08x", address));
+		return 0;
+	}
+
+	return Memory::ReadUnchecked_Float(address);
+}
+
+static void wf(int address, double value) {
+	float fvalue = (float)value;
+	if (!Memory::IsValid4AlignedAddress(address)) {
+		g_lua.Print(LogLineType::Error, StringFromFormat("w32: bad address %08x trying to write %08x", address, value));
+	}
+
+	Memory::WriteUnchecked_Float(value, address);  // NOTE: These are backwards for historical reasons.
+}
+
+static int scan32(int address, int size, int value) {
+	if (Memory::IsValidRange(address, size)) {
+		g_lua.Print(LogLineType::Error, "bad range");
+		return 0;
+	}
+
+	for (int i = 0; i < size; i += 4) {
+		if (Memory::ReadUnchecked_U32(address + i) == value) {
+			return address + i;
+		}
+	}
+
+	return 0;
+}
+
+static void stop() {
+	System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
+}
+
+static void reset() {
+	System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 }
 
 void LuaContext::Init() {
@@ -79,7 +138,21 @@ void LuaContext::Init() {
 	lua_->set("warn", &warn);
 	lua_->set("error", &error);
 
+	// lua_->set("list_modules", &list_modules);
+
+	// Memory accessors
 	lua_->set("r32", &r32);
+	lua_->set("w32", &w32);
+	lua_->set("wf", &wf);
+	lua_->set("rf", &rf);
+
+	lua_->set("bitcast_s32_to_float", &bitcast_s32_to_float);
+	lua_->set("bitcast_float_to_s32", &bitcast_float_to_s32);
+
+	lua_->set("scan32", &scan32);
+
+	lua_->set("stop", &stop);
+	lua_->set("reset", &reset);
 }
 
 void LuaContext::Shutdown() {
@@ -98,6 +171,11 @@ void LuaContext::Print(LogLineType type, std::string_view text) {
 }
 
 void LuaContext::ExecuteConsoleCommand(std::string_view cmd) {
+	if (Achievements::HardcoreModeActive()) {
+		Print(LogLineType::Error, "RetroAchievemnts hardcore mode is active, lua console disabled.");
+		return;
+	}
+
 	// TODO: Also rewrite expressions like:
 	// print "hello"
 	// to
