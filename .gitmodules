@@ -62,3 +62,6 @@
 [submodule "ext/lua"]
 	path = ext/lua
 	url = https://github.com/hrydgard/ppsspp-lua.git
+[submodule "ext/freetype"]
+	path = ext/freetype
+	url = https://gitlab.freedesktop.org/freetype/freetype.git
