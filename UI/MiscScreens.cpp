@@ -608,7 +608,7 @@ void UIScreenWithBackground::sendMessage(UIMessage message, const char *value) {
 void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void UIDialogScreenWithBackground::sendMessage(UIMessage message, const char *value) {

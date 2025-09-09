@@ -380,7 +380,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 	}
 	leftColumnItems->Add(new Spacer(0.0));
 
-	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL));
+	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 0))));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
 		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load")));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(gamePath_));
