@@ -100,7 +100,7 @@ static void wf(int address, double value) {
 static int scan32(int address, int size, int value) {
 	if (Memory::IsValidRange(address, size)) {
 		g_lua.Print(LogLineType::Error, "bad range");
-		return;
+		return 0;
 	}
 
 	for (int i = 0; i < size; i += 4) {
@@ -112,11 +112,11 @@ static int scan32(int address, int size, int value) {
 	return 0;
 }
 
-static int stop() {
+static void stop() {
 	System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
 }
 
-static int reset() {
+static void reset() {
 	System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 }
 
