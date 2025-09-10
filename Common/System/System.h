@@ -122,6 +122,7 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
 
 // This will get muddy with multi-screen support :/ But this will always be the type of the main device.
+// These are the return values from System_GetPropertyInt(SYSPROP_DEVICE_TYPE).
 enum SystemDeviceType {
 	DEVICE_TYPE_MOBILE = 0,  // phones and pads
 	DEVICE_TYPE_TV = 1,  // Android TV and similar
