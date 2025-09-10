@@ -689,6 +689,9 @@
       <Filter>Audio</Filter>
     </ClInclude>
     <ClInclude Include="LoongArch64Emitter.h" />
+    <ClInclude Include="Render\AtlasGen.h">
+      <Filter>Render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1290,6 +1293,9 @@
       <Filter>ext\imgui</Filter>
     </ClCompile>
     <ClCompile Include="LoongArch64Emitter.cpp" />
+    <ClCompile Include="Render\AtlasGen.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
