@@ -30,6 +30,7 @@
 #include <cmath>
 #include <zstd.h>
 
+#include "Common/StringUtils.h"
 #include "Common/Render/TextureAtlas.h"
 
 #include "Common/Data/Format/PNGLoad.h"
@@ -50,8 +51,8 @@
 #include "Common/Data/Encoding/Utf8.h"
 
 using namespace std;
+
 static int global_id;
-static bool highcolor = false;  // Low color mode is used by PPGE, can't delete.
 
 typedef unsigned short u16;
 
@@ -68,11 +69,11 @@ enum class Effect {
 	FX_INVALID = 5,
 };
 
-const char *effect_str[5] = {
-  "copy", "r2a", "r2i", "pre", "p2a",
+static const char * const effect_str[5] = {
+	"copy", "r2a", "r2i", "pre", "p2a",
 };
 
-Effect GetEffect(const char *text) {
+static Effect GetEffect(const char *text) {
 	for (int i = 0; i < 5; i++) {
 		if (!strcmp(text, effect_str[i])) {
 			return (Effect)i;
@@ -513,7 +514,6 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 	FT_Done_FreeType(freetype);
 }
 
-
 bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
 	Image<unsigned int> img;
 
@@ -635,13 +635,12 @@ struct FontDesc {
 		for (size_t r = 0; r < ranges.size(); r++) {
 			numChars += ranges[r].end - ranges[r].start;
 		}
-		AtlasFontHeader header;
+		AtlasFontHeader header{};
 		header.padding = height - ascend - descend;
 		header.height = ascend + descend;
 		header.ascend = ascend;
 		header.distslope = distmult / 256.0;
-		strncpy(header.name, name.c_str(), sizeof(header.name));
-		header.name[sizeof(header.name) - 1] = '\0';
+		truncate_cpy(header.name, name);
 		header.numChars = numChars;
 		header.numRanges = (int)ranges.size();
 		return header;
@@ -691,7 +690,7 @@ struct ImageDesc {
 	int result_index;
 
 	AtlasImage ToAtlasImage(float tw, float th, const vector<Data> &results) {
-		AtlasImage img;
+		AtlasImage img{};
 		int i = result_index;
 		float toffx = 0.5f / tw;
 		float toffy = 0.5f / th;
@@ -701,8 +700,7 @@ struct ImageDesc {
 		img.v2 = results[i].ey / th - toffy;
 		img.w = results[i].ex - results[i].sx;
 		img.h = results[i].ey - results[i].sy;
-		strncpy(img.name, name.c_str(), sizeof(img.name));
-		img.name[sizeof(img.name) - 1] = 0;
+		truncate_cpy(img.name, name);
 		return img;
 	}
 
@@ -724,7 +722,6 @@ struct ImageDesc {
 		fprintf(fil, "#define %s %i\n", name.c_str(), index);
 	}
 };
-
 
 CharRange range(int start, int end, const std::set<u16> &filter) {
 	CharRange r;
@@ -911,10 +908,13 @@ int main(int argc, char **argv) {
 	// /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
 	// /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
 	if (argc < 3) {
-		printf("Not enough arguments");
+		printf("Not enough arguments.\nSee buildatlas.sh for example.\n");
 		return 1;
 	}
 	assert(argc >= 3);
+
+	bool highcolor = false;
+
 	if (argc > 3) {
 		if (!strcmp(argv[3], "8888")) {
 			highcolor = true;
@@ -1032,7 +1032,7 @@ int main(int argc, char **argv) {
 	// Save all the metadata.
 	{
 		FILE *meta = fopen(meta_name.c_str(), "wb");
-		AtlasHeader header;
+		AtlasHeader header{};
 		header.magic = ATLAS_MAGIC;
 		header.version = 1;
 		header.numFonts = (int)fonts.size();
