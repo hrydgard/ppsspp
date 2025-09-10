@@ -57,6 +57,9 @@ do
 		--headless) echo "Headless mode enabled"
 			CMAKE_ARGS="-DHEADLESS=ON ${CMAKE_ARGS}"
 			;;
+		--atlas-tool) echo "Atlas tool enabled"
+			CMAKE_ARGS="-DATLAS_TOOL=ON ${CMAKE_ARGS}"
+			;;
 		--libretro) echo "Build Libretro core"
 			CMAKE_ARGS="-DLIBRETRO=ON ${CMAKE_ARGS}"
 			;;
