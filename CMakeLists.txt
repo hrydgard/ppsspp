@@ -937,6 +937,7 @@ if(IOS)
 endif()
 
 target_link_libraries(Common Ext::Snappy cpu_features)
+target_link_libraries(Common freetype)
 
 if(NOT LIBRETRO)
     target_link_libraries(Common imgui)
@@ -2874,7 +2875,7 @@ if(ATLAS_TOOL)
 		ext/native/tools/atlastool.cpp
 	)
 	add_executable(AtlasTool ${AtlasToolSource})
-	target_link_libraries(AtlasTool ${LinkCommon} freetype)
+	target_link_libraries(AtlasTool ${LinkCommon})
 	setup_target_project(AtlasTool atlastool)
 endif()
 
