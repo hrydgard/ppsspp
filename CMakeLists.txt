@@ -830,6 +830,8 @@ add_library(Common STATIC
 	Common/Profiler/Profiler.h
 	Common/Render/TextureAtlas.cpp
 	Common/Render/TextureAtlas.h
+	Common/Render/AtlasGen.cpp
+	Common/Render/AtlasGen.h
 	Common/Render/DrawBuffer.cpp
 	Common/Render/DrawBuffer.h
 	Common/Render/ManagedTexture.cpp

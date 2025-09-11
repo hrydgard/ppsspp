@@ -149,6 +149,47 @@ NAETT_FILES := \
 MINIMP3_FILES := \
     ${SRC}/ext/minimp3/minimp3.cpp
 
+FREEETYPE_FILES := \
+	${SRC}/ext/freetype/src/autofit/autofit.c \
+	${SRC}/ext/freetype/src/base/ftbase.c \
+	${SRC}/ext/freetype/src/base/ftbbox.c \
+	${SRC}/ext/freetype/src/base/ftbdf.c \
+	${SRC}/ext/freetype/src/base/ftbitmap.c \
+	${SRC}/ext/freetype/src/base/ftcid.c \
+	${SRC}/ext/freetype/src/base/ftfstype.c \
+	${SRC}/ext/freetype/src/base/ftgasp.c \
+	${SRC}/ext/freetype/src/base/ftglyph.c \
+	${SRC}/ext/freetype/src/base/ftgxval.c \
+	${SRC}/ext/freetype/src/base/ftinit.c \
+	${SRC}/ext/freetype/src/base/ftmm.c \
+	${SRC}/ext/freetype/src/base/ftotval.c \
+	${SRC}/ext/freetype/src/base/ftpatent.c \
+	${SRC}/ext/freetype/src/base/ftpfr.c \
+	${SRC}/ext/freetype/src/base/ftstroke.c \
+	${SRC}/ext/freetype/src/base/ftsynth.c \
+	${SRC}/ext/freetype/src/base/fttype1.c \
+	${SRC}/ext/freetype/src/base/ftwinfnt.c \
+	${SRC}/ext/freetype/src/bdf/bdf.c \
+	${SRC}/ext/freetype/src/cache/ftcache.c \
+	${SRC}/ext/freetype/src/cff/cff.c \
+	${SRC}/ext/freetype/src/cid/type1cid.c \
+	${SRC}/ext/freetype/src/dlg/dlgwrap.c \
+	${SRC}/ext/freetype/src/gzip/ftgzip.c \
+	${SRC}/ext/freetype/src/lzw/ftlzw.c \
+	${SRC}/ext/freetype/src/pcf/pcf.c \
+	${SRC}/ext/freetype/src/pfr/pfr.c \
+	${SRC}/ext/freetype/src/psaux/psaux.c \
+	${SRC}/ext/freetype/src/pshinter/pshinter.c \
+	${SRC}/ext/freetype/src/psnames/psmodule.c \
+	${SRC}/ext/freetype/src/raster/raster.c \
+	${SRC}/ext/freetype/src/sfnt/sfnt.c \
+	${SRC}/ext/freetype/src/smooth/smooth.c \
+	${SRC}/ext/freetype/src/sdf/sdf.c \
+	${SRC}/ext/freetype/src/svg/svg.c \
+	${SRC}/ext/freetype/src/truetype/truetype.c \
+	${SRC}/ext/freetype/src/type1/type1.c \
+	${SRC}/ext/freetype/src/type42/type42.c
+
 AT3_STANDALONE_FILES := \
 	${SRC}/ext/at3_standalone/atrac.cpp \
 	${SRC}/ext/at3_standalone/atrac3.cpp \
@@ -277,6 +318,7 @@ EXEC_AND_LIB_FILES := \
   $(RCHEEVOS_FILES) \
   $(NAETT_FILES) \
   $(MINIMP3_FILES) \
+  $(FREETYPE_FILES) \
   $(AT3_STANDALONE_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
@@ -325,6 +367,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Render/ManagedTexture.cpp \
   $(SRC)/Common/Render/DrawBuffer.cpp \
   $(SRC)/Common/Render/TextureAtlas.cpp \
+  $(SRC)/Common/Render/AtlasGen.cpp \
   $(SRC)/Common/Render/Text/draw_text.cpp \
   $(SRC)/Common/Render/Text/draw_text_android.cpp \
   $(SRC)/Common/Input/GestureDetector.cpp \

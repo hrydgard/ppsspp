@@ -11,6 +11,7 @@
 #include <cmath>
 #include <zstd.h>
 
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Render/TextureAtlas.h"
 
@@ -217,6 +218,8 @@ struct Bucket {
 	void AddItem(const Image<unsigned int> &img, const Data &dat) {
 		items.push_back(make_pair(img, dat));
 	}
+
+	// TODO: use stb_rectpack
 	vector<Data> Resolve(int image_width, Image<unsigned int> &dest) {
 		// Place all the little images - whatever they are.
 		// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
@@ -516,8 +519,7 @@ bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
 		return false;
 	}
 
-	Data dat;
-	memset(&dat, 0, sizeof(dat));
+	Data dat{};
 	dat.id = global_id++;
 	dat.sx = 0;
 	dat.sy = 0;
@@ -666,7 +668,8 @@ struct FontDesc {
 };
 
 struct ImageDesc {
-	string name;
+	std::string name;
+	std::string filename;
 	Effect effect;
 	int result_index;
 
@@ -726,9 +729,8 @@ inline bool operator <(const CharRange &a, const CharRange &b) {
 	return a.start < b.start;
 }
 
-
 void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, uint32_t lowerLimit, uint32_t upperLimit) {
-	FILE *f = fopen(filename, "rb");
+	FILE *f = File::OpenCFile(Path(filename), "rb");
 	if (f) {
 		fseek(f, 0, SEEK_END);
 		size_t sz = ftell(f);
@@ -754,16 +756,19 @@ void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, uin
 	}
 }
 
-void GetLocales(const char *locales, std::vector<CharRange> &ranges)
-{
+bool GetLocales(const char *locales, std::vector<CharRange> &ranges) {
 	std::set<u16> kanji;
 	std::set<u16> hangul1, hangul2, hangul3;
-	for (int i = 0; i < sizeof(kanjiFilter) / sizeof(kanjiFilter[0]); i += 2)
-	{
+	for (int i = 0; i < sizeof(kanjiFilter) / sizeof(kanjiFilter[0]); i += 2) {
 		// Kanji filtering.
 		if ((kanjiFilter[i + 1] & USE_KANJI) > 0) {
 			kanji.insert(kanjiFilter[i]);
 		}
+	}
+
+	if (!File::Exists(Path("assets/lang/zh_CN.ini"))) {
+		printf("you're running the atlas gen from the wrong dir");
+		return false;
 	}
 
 	LearnFile("assets/lang/zh_CN.ini", "Chinese", kanji, 0x3400, 0xFFFF);
@@ -858,6 +863,8 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 
 	ranges.push_back(range(0xFFFD, 0xFFFD));
 	std::sort(ranges.begin(), ranges.end());
+
+	return true;
 }
 
 static bool WriteCompressed(const void *src, size_t sz, size_t num, FILE *fp) {
@@ -897,22 +904,29 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 
 	const std::string out_prefix = atlas_name;
 
-	char line[512]{};
+	char line[1024]{};
 	FILE *script = fopen(script_file, "r");
 	if (!fgets(line, 512, script)) {
 		printf("Error fgets-ing\n");
+		return -1;
 	}
 	int image_width = 0;
-	sscanf(line, "%i", &image_width);
+	if (1 != sscanf(line, "%i", &image_width)) {
+		printf("missing image width (first line)");
+		return -1;
+	}
 	printf("Texture width: %i\n", image_width);
 	while (!feof(script)) {
-		if (!fgets(line, 511, script)) break;
+		if (!fgets(line, sizeof(line), script)) break;
 		if (!strlen(line)) break;
 		if (line[0] == '#') continue;
 		char *rest = strchr(line, ' ');
 		if (rest) {
 			*rest = 0;
 			rest++;
+		} else {
+			printf("Bad line in file: '%s'", line);
+			return -1;
 		}
 		char *word = line;
 		if (!strcmp(word, "font")) {
@@ -926,7 +940,9 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 			printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 
 			std::vector<CharRange> ranges;
-			GetLocales(locales, ranges);
+			if (!GetLocales(locales, ranges)) {
+				return -1;
+			}
 			printf("locales fetched.\n");
 
 			FontReference fnt(fontname, fontfile, ranges, pixheight, vertOffset);
@@ -935,35 +951,43 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 			char imagename[256];
 			char imagefile[256];
 			char effectname[256];
-			sscanf(rest, "%255s %255s %255s", imagename, imagefile, effectname);
+			if (3 != sscanf(rest, "%255s %255s %255s", imagename, imagefile, effectname)) {
+				printf("Bad line in file: '%s %s'", line, rest);
+				return -1;
+			}
 			Effect effect = GetEffect(effectname);
 			printf("Image %s with effect %s (%i)\n", imagefile, effectname, (int)effect);
-			ImageDesc desc;
+			ImageDesc desc{};
+			desc.filename = imagefile;
 			desc.name = imagename;
 			desc.effect = effect;
 			desc.result_index = (int)bucket.items.size();
 			images.push_back(desc);
-			if (!LoadImage(imagefile, effect, &bucket)) {
-				fprintf(stderr, "Failed to load image %s\n", imagefile);
-			}
 		} else {
 			fprintf(stderr, "Warning: Failed to parse line starting with %s\n", line);
 		}
 	}
 	fclose(script);
 
-	// Script fully read, now rasterize the fonts.
-	for (auto it = fontRefs.begin(), end = fontRefs.end(); it != end; ++it) {
+	// Script fully read, now load images and rasterize the fonts.
+
+	for (auto &image : images) {
+		if (!LoadImage(image.filename.c_str(), image.effect, &bucket)) {
+			fprintf(stderr, "Failed to load image %s\n", image.filename.c_str());
+		}
+	}
+
+	for (const auto &ref : fontRefs) {
 		FontDesc fnt;
 		fnt.first_char_id = (int)bucket.items.size();
 
 		vector<CharRange> finalRanges;
 		float metrics_height;
-		RasterizeFonts(it->second, finalRanges, &metrics_height, &bucket);
+		RasterizeFonts(ref.second, finalRanges, &metrics_height, &bucket);
 		printf("font rasterized.\n");
 
 		fnt.ranges = finalRanges;
-		fnt.name = it->first;
+		fnt.name = ref.first;
 		fnt.metrics_height = metrics_height;
 
 		fonts.push_back(fnt);

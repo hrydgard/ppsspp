@@ -9,7 +9,7 @@ copy ..\assets\*.png assets\
 copy ..\assets\*.zim assets\
 copy ..\assets\*.meta assets\
 copy ..\assets\*.wav assets\
-SET NDK=C:\Android\sdk\ndk\21.3.6528147
+SET NDK=C:\Android\ndk\27.0.12077973
 REM SET NDK=C:\Android\ndk
 SET NDK_MODULE_PATH=..\ext
 %NDK%/ndk-build -j32 %*
