@@ -24,9 +24,6 @@
 #include <cstring>
 
 int main(int argc, char **argv) {
-	// initProgram(&argc, const_cast<const char ***>(&argv));
-	// /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
-	// /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
 	if (argc < 3) {
 		printf("Not enough arguments.\nSee buildatlas.sh for example.\n");
 		return 1;
@@ -39,6 +36,8 @@ int main(int argc, char **argv) {
 		if (!strcmp(argv[3], "8888")) {
 			highcolor = true;
 			printf("RGBA8888 enabled!\n");
+		} else {
+			printf("Bad third argument\n");
 		}
 	}
 	printf("Reading script %s\n", argv[1]);

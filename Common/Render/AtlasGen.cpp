@@ -32,24 +32,11 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 
+#include "Common/Render/AtlasGen.h"
+
 using namespace std;
 
 static int global_id;
-
-typedef unsigned short u16;
-
-struct CharRange : public AtlasCharRange {
-	std::set<u16> filter;
-};
-
-enum class Effect {
-	FX_COPY = 0,
-	FX_RED_TO_ALPHA_SOLID_WHITE = 1,   // for alpha fonts
-	FX_RED_TO_INTENSITY_ALPHA_255 = 2,
-	FX_PREMULTIPLY_ALPHA = 3,
-	FX_PINK_TO_ALPHA = 4,   // for alpha fonts
-	FX_INVALID = 5,
-};
 
 static const char * const effect_str[5] = {
 	"copy", "r2a", "r2i", "pre", "p2a",
@@ -63,18 +50,6 @@ static Effect GetEffect(const char *text) {
 	}
 	return Effect::FX_INVALID;
 }
-
-struct FontReference {
-	FontReference(string name, string file, vector<CharRange> ranges, int pixheight, float vertOffset)
-		: name_(name), file_(file), ranges_(ranges), size_(pixheight), vertOffset_(vertOffset) {
-	}
-
-	string name_;
-	string file_;
-	vector<CharRange> ranges_;
-	int size_;
-	float vertOffset_;
-};
 
 typedef vector<FontReference> FontReferenceList;
 
@@ -183,25 +158,6 @@ struct Image {
 template<class S, class T>
 bool operator<(const Image<S> &lhs, const Image<T> &rhs) {
 	return lhs.dat.size() * lhs.dat[0].size() > rhs.dat.size() * rhs.dat[0].size();
-}
-
-struct Data {
-	// item ID
-	int id;
-	// dimensions of its spot in the world
-	int sx, sy, ex, ey;
-	// offset from the origin
-	float ox, oy;
-	float voffset;  // to apply at the end
-	// distance to move the origin forward
-	float wx;
-
-	int effect;
-	int charNum;
-};
-
-bool operator<(const Data &lhs, const Data &rhs) {
-	return lhs.id < rhs.id; // should be unique
 }
 
 string out_prefix;
@@ -667,45 +623,38 @@ struct FontDesc {
 	}
 };
 
-struct ImageDesc {
-	std::string name;
-	std::string filename;
-	Effect effect;
-	int result_index;
+AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const vector<Data> &results) {
+	AtlasImage img{};
+	int i = result_index;
+	float toffx = 0.5f / tw;
+	float toffy = 0.5f / th;
+	img.u1 = results[i].sx / tw + toffx;
+	img.v1 = results[i].sy / th + toffy;
+	img.u2 = results[i].ex / tw - toffx;
+	img.v2 = results[i].ey / th - toffy;
+	img.w = results[i].ex - results[i].sx;
+	img.h = results[i].ey - results[i].sy;
+	truncate_cpy(img.name, name);
+	return img;
+}
 
-	AtlasImage ToAtlasImage(float tw, float th, const vector<Data> &results) {
-		AtlasImage img{};
-		int i = result_index;
-		float toffx = 0.5f / tw;
-		float toffy = 0.5f / th;
-		img.u1 = results[i].sx / tw + toffx;
-		img.v1 = results[i].sy / th + toffy;
-		img.u2 = results[i].ex / tw - toffx;
-		img.v2 = results[i].ey / th - toffy;
-		img.w = results[i].ex - results[i].sx;
-		img.h = results[i].ey - results[i].sy;
-		truncate_cpy(img.name, name);
-		return img;
-	}
+void ImageDesc::OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
+	int i = result_index;
+	float toffx = 0.5f / tw;
+	float toffy = 0.5f / th;
+	fprintf(fil, "  {%ff, %ff, %ff, %ff, %d, %d, \"%s\"},\n",
+		results[i].sx / tw + toffx,
+		results[i].sy / th + toffy,
+		results[i].ex / tw - toffx,
+		results[i].ey / th - toffy,
+		results[i].ex - results[i].sx,
+		results[i].ey - results[i].sy,
+		name.c_str());
+}
 
-	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
-		int i = result_index;
-		float toffx = 0.5f / tw;
-		float toffy = 0.5f / th;
-		fprintf(fil, "  {%ff, %ff, %ff, %ff, %d, %d, \"%s\"},\n",
-			results[i].sx / tw + toffx,
-			results[i].sy / th + toffy,
-			results[i].ex / tw - toffx,
-			results[i].ey / th - toffy,
-			results[i].ex - results[i].sx,
-			results[i].ey - results[i].sy,
-			name.c_str());
-	}
-
-	void OutputHeader(FILE *fil, int index) {
-		fprintf(fil, "#define %s %i\n", name.c_str(), index);
-	}
-};
+void ImageDesc::OutputHeader(FILE *fil, int index) {
+	fprintf(fil, "#define %s %i\n", name.c_str(), index);
+}
 
 CharRange range(int start, int end, const std::set<u16> &filter) {
 	CharRange r;
@@ -1001,6 +950,20 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 	printf("Resolving...\n");
 
 	vector<Data> results = bucket.Resolve(image_width, dest);
+
+	std::vector<AtlasImage> atlas_images;
+	atlas_images.reserve(images.size());
+
+	for (int i = 0; i < images.size(); i++) {
+		atlas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
+	}
+
+	for (int i = 0; i < fonts.size(); i++) {
+		fonts[i].ComputeHeight(results, distmult);
+	}
+
+	// Here the data is ready.
+
 	if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZSTD_COMPRESSED);
@@ -1026,16 +989,10 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 		header.numFonts = (int)fonts.size();
 		header.numImages = (int)images.size();
 		fwrite(&header, 1, sizeof(header), meta);
-		// For each image
-		AtlasImage *atalas_images = new AtlasImage[images.size()];
-		for (int i = 0; i < (int)images.size(); i++) {
-			atalas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
-		}
-		WriteCompressed(atalas_images, sizeof(AtlasImage), images.size(), meta);
+		WriteCompressed(atlas_images.data(), sizeof(AtlasImage), images.size(), meta);
 		// For each font
 		for (int i = 0; i < (int)fonts.size(); i++) {
-			auto &font = fonts[i];
-			font.ComputeHeight(results, distmult);
+			const auto &font = fonts[i];
 			AtlasFontHeader font_header = font.GetHeader();
 			fwrite(&font_header, 1, sizeof(font_header), meta);
 			auto ranges = font.GetRanges();
