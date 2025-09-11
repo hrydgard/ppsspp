@@ -22,9 +22,6 @@
 [submodule "ext/rapidjson"]
 	path = ext/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
-[submodule "ext/native/tools/prebuilt"]
-	path = ext/native/tools/prebuilt
-	url = https://github.com/hrydgard/ppsspp-freetype.git
 [submodule "ext/miniupnp"]
 	path = ext/miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
@@ -62,3 +59,6 @@
 [submodule "ext/lua"]
 	path = ext/lua
 	url = https://github.com/hrydgard/ppsspp-lua.git
+[submodule "ext/freetype"]
+	path = ext/freetype
+	url = https://github.com/hrydgard/freetype.git 
