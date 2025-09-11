@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <string>
 #include <cmath>
-#include <zstd.h>
 
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -23,7 +22,7 @@
 //#define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
 // daily-use character only. However, it is too enough this.
 //#define USE_KANJI KANJI_STANDARD (texture size over)
-// Shift-JIS filtering. (texture size over)
+// Shift-JIS filtering. (texture size over)5
 //#define USE_KANJI KANJI_SJIS_L1 | KANJI_SJIS_L2
 // more conpact daily-use character. but, not enough this.
 // if when you find the unintelligible sequence of characters,
@@ -38,129 +37,93 @@ using namespace std;
 
 static int global_id;
 
-static const char * const effect_str[5] = {
-	"copy", "r2a", "r2i", "pre", "p2a",
-};
-
-static Effect GetEffect(const char *text) {
-	for (int i = 0; i < 5; i++) {
-		if (!strcmp(text, effect_str[i])) {
-			return (Effect)i;
-		}
-	}
-	return Effect::FX_INVALID;
-}
-
-typedef vector<FontReference> FontReferenceList;
-
-template<class T>
-struct Image {
-	vector<vector<T> > dat;
-	void resize(int x, int y) {
-		dat.resize(y);
-		for (int i = 0; i < y; i++)
-			dat[i].resize(x);
-	}
-	int width() const {
-		return (int)dat[0].size();
-	}
-	int height() const {
-		return (int)dat.size();
-	}
-	void copyfrom(const Image &img, int ox, int oy, Effect effect) {
-		assert(img.dat[0].size() + ox <= dat[0].size());
-		assert(img.dat.size() + oy <= dat.size());
-		for (int y = 0; y < (int)img.dat.size(); y++) {
-			for (int x = 0; x < (int)img.dat[y].size(); x++) {
-				switch (effect) {
-				case Effect::FX_COPY:
-					dat[y + oy][ox + x] = img.dat[y][x];
-					break;
-				case Effect::FX_RED_TO_ALPHA_SOLID_WHITE:
-					dat[y + oy][ox + x] = 0x00FFFFFF | (img.dat[y][x] << 24);
-					break;
-				case Effect::FX_RED_TO_INTENSITY_ALPHA_255:
-					dat[y + oy][ox + x] = 0xFF000000 | img.dat[y][x] | (img.dat[y][x] << 8) | (img.dat[y][x] << 16);
-					break;
-				case Effect::FX_PREMULTIPLY_ALPHA:
-				{
-					unsigned int color = img.dat[y][x];
-					unsigned int a = color >> 24;
-					unsigned int r = (color & 0xFF) * a >> 8, g = (color & 0xFF00) * a >> 8, b = (color & 0xFF0000) * a >> 8;
-					color = (color & 0xFF000000) | (r & 0xFF) | (g & 0xFF00) | (b & 0xFF0000);
-					// Simulate 4444
-					color = color & 0xF0F0F0F0;
-					color |= color >> 4;
-					dat[y + oy][ox + x] = color;
-					break;
-				}
-				case Effect::FX_PINK_TO_ALPHA:
-					dat[y + oy][ox + x] = ((img.dat[y][x] & 0xFFFFFF) == 0xFF00FF) ? 0x00FFFFFF : (img.dat[y][x] | 0xFF000000);
-					break;
-				default:
-					dat[y + oy][ox + x] = 0xFFFF00FF;
-					break;
-				}
+void Image::copyfrom(const Image &img, int ox, int oy, Effect effect) {
+	assert(img.dat[0].size() + ox <= dat[0].size());
+	assert(img.dat.size() + oy <= dat.size());
+	for (int y = 0; y < (int)img.dat.size(); y++) {
+		for (int x = 0; x < (int)img.dat[y].size(); x++) {
+			switch (effect) {
+			case Effect::FX_COPY:
+				dat[y + oy][ox + x] = img.dat[y][x];
+				break;
+			case Effect::FX_RED_TO_ALPHA_SOLID_WHITE:
+				dat[y + oy][ox + x] = 0x00FFFFFF | (img.dat[y][x] << 24);
+				break;
+			case Effect::FX_RED_TO_INTENSITY_ALPHA_255:
+				dat[y + oy][ox + x] = 0xFF000000 | img.dat[y][x] | (img.dat[y][x] << 8) | (img.dat[y][x] << 16);
+				break;
+			case Effect::FX_PREMULTIPLY_ALPHA:
+			{
+				unsigned int color = img.dat[y][x];
+				unsigned int a = color >> 24;
+				unsigned int r = (color & 0xFF) * a >> 8, g = (color & 0xFF00) * a >> 8, b = (color & 0xFF0000) * a >> 8;
+				color = (color & 0xFF000000) | (r & 0xFF) | (g & 0xFF00) | (b & 0xFF0000);
+				// Simulate 4444
+				color = color & 0xF0F0F0F0;
+				color |= color >> 4;
+				dat[y + oy][ox + x] = color;
+				break;
+			}
+			case Effect::FX_PINK_TO_ALPHA:
+				dat[y + oy][ox + x] = ((img.dat[y][x] & 0xFFFFFF) == 0xFF00FF) ? 0x00FFFFFF : (img.dat[y][x] | 0xFF000000);
+				break;
+			default:
+				dat[y + oy][ox + x] = 0xFFFF00FF;
+				break;
 			}
 		}
 	}
-	void set(int sx, int sy, int ex, int ey, unsigned char fil) {
-		for (int y = sy; y < ey; y++)
-			fill(dat[y].begin() + sx, dat[y].begin() + ex, fil);
+}
+void Image::set(int sx, int sy, int ex, int ey, unsigned char fil) {
+	for (int y = sy; y < ey; y++)
+		fill(dat[y].begin() + sx, dat[y].begin() + ex, fil);
+}
+bool Image::LoadPNG(const char *png_name) {
+	unsigned char *img_data;
+	int w, h;
+	if (1 != pngLoad(png_name, &w, &h, &img_data)) {
+		printf("Failed to load %s\n", png_name);
+		exit(1);
+		return false;
 	}
-	bool LoadPNG(const char *png_name) {
-		unsigned char *img_data;
-		int w, h;
-		if (1 != pngLoad(png_name, &w, &h, &img_data)) {
-			printf("Failed to load %s\n", png_name);
-			exit(1);
-			return false;
-		}
-		dat.resize(h);
-		for (int y = 0; y < h; y++) {
-			dat[y].resize(w);
-			memcpy(&dat[y][0], img_data + 4 * y * w, 4 * w);
-		}
-		free(img_data);
-		return true;
+	dat.resize(h);
+	for (int y = 0; y < h; y++) {
+		dat[y].resize(w);
+		memcpy(&dat[y][0], img_data + 4 * y * w, 4 * w);
 	}
-	void SavePNG(const char *png_name) {
-		// Save PNG
-		FILE *fil = fopen(png_name, "wb");
-		png_structp  png_ptr;
-		png_infop  info_ptr;
-		png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-		assert(png_ptr);
-		info_ptr = png_create_info_struct(png_ptr);
-		assert(info_ptr);
-		png_init_io(png_ptr, fil);
-		//png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
-		png_set_IHDR(png_ptr, info_ptr, (uint32_t)dat[0].size(), (uint32_t)dat.size(), 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-		png_write_info(png_ptr, info_ptr);
-		for (int y = 0; y < (int)dat.size(); y++) {
-			png_write_row(png_ptr, (png_byte*)&dat[y][0]);
-		}
-		png_write_end(png_ptr, NULL);
-		png_destroy_write_struct(&png_ptr, &info_ptr);
-	}
-	void SaveZIM(const char *zim_name, int zim_format) {
-		uint8_t *image_data = new uint8_t[width() * height() * 4];
-		for (int y = 0; y < height(); y++) {
-			memcpy(image_data + y * width() * 4, &dat[y][0], width() * 4);
-		}
-		FILE *f = fopen(zim_name, "wb");
-		// SaveZIM takes ownership over image_data, there's no leak.
-		::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
-		fclose(f);
-	}
-};
-
-template<class S, class T>
-bool operator<(const Image<S> &lhs, const Image<T> &rhs) {
-	return lhs.dat.size() * lhs.dat[0].size() > rhs.dat.size() * rhs.dat[0].size();
+	free(img_data);
+	return true;
 }
 
-string out_prefix;
+void Image::SavePNG(const char *png_name) {
+	// Save PNG
+	FILE *fil = fopen(png_name, "wb");
+	png_structp  png_ptr;
+	png_infop  info_ptr;
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	assert(png_ptr);
+	info_ptr = png_create_info_struct(png_ptr);
+	assert(info_ptr);
+	png_init_io(png_ptr, fil);
+	//png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
+	png_set_IHDR(png_ptr, info_ptr, (uint32_t)dat[0].size(), (uint32_t)dat.size(), 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	png_write_info(png_ptr, info_ptr);
+	for (int y = 0; y < (int)dat.size(); y++) {
+		png_write_row(png_ptr, (png_byte*)&dat[y][0]);
+	}
+	png_write_end(png_ptr, NULL);
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+}
+void Image::SaveZIM(const char *zim_name, int zim_format) {
+	uint8_t *image_data = new uint8_t[width() * height() * 4];
+	for (int y = 0; y < height(); y++) {
+		memcpy(image_data + y * width() * 4, &dat[y][0], width() * 4);
+	}
+	FILE *f = fopen(zim_name, "wb");
+	// SaveZIM takes ownership over image_data, there's no leak.
+	::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
+	fclose(f);
+}
 
 int NextPowerOf2(int x) {
 	int powof2 = 1;
@@ -170,16 +133,16 @@ int NextPowerOf2(int x) {
 }
 
 struct Bucket {
-	vector<pair<Image<unsigned int>, Data> > items;
-	void AddItem(const Image<unsigned int> &img, const Data &dat) {
+	vector<pair<Image, Data> > items;
+	void AddItem(const Image &img, const Data &dat) {
 		items.push_back(make_pair(img, dat));
 	}
 
 	// TODO: use stb_rectpack
-	vector<Data> Resolve(int image_width, Image<unsigned int> &dest) {
+	vector<Data> Resolve(int image_width, Image &dest) {
 		// Place all the little images - whatever they are.
 		// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
-		Image<unsigned char> masq;
+		Image masq;
 		masq.resize(image_width, 1);
 		dest.resize(image_width, 1);
 		sort(items.begin(), items.end());
@@ -245,16 +208,12 @@ struct Bucket {
 	}
 };
 
-const int supersample = 16;
-const int distmult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"
-const int maxsearch = (128 * supersample + distmult - 1) / distmult;
-
 struct Closest {
 	FT_Bitmap bmp;
 	Closest(FT_Bitmap bmp) : bmp(bmp) {}
 	float find_closest(int x, int y, char search) {
 		int best = 1 << 30;
-		for (int i = 1; i <= maxsearch; i++) {
+		for (int i = 1; i <= AtlasMaxSearch; i++) {
 			if (i * i >= best)
 				break;
 			for (int f = -i; f < i; f++) {
@@ -320,7 +279,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 		}
 		printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
 
-		if (FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) != 0) {
+		if (FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * AtlasSupersample) != 0) {
 			printf("ERROR: Failed to set font size\n");
 			exit(1);
 		}
@@ -366,7 +325,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				missing_chars++;
 			}
 
-			Image<unsigned int> img;
+			Image img;
 			if (!foundMatch || filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER | FT_LOAD_MONOCHROME)) {
 				img.resize(1, 1);
 				Data dat;
@@ -388,7 +347,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			}
 
 			// printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
-			const int bord = (128 + distmult - 1) / distmult + 1;
+			const int bord = (128 + AtlasDistMult - 1) / AtlasDistMult + 1;
 			if (font->glyph->bitmap.buffer) {
 				FT_Bitmap tempbitmap;
 				FT_Bitmap_New(&tempbitmap);
@@ -396,22 +355,22 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				Closest closest(tempbitmap);
 
 				// No resampling, just sets the size of the image.
-				img.resize((tempbitmap.width + supersample - 1) / supersample + bord * 2, (tempbitmap.rows + supersample - 1) / supersample + bord * 2);
+				img.resize((tempbitmap.width + AtlasSupersample - 1) / AtlasSupersample + bord * 2, (tempbitmap.rows + AtlasSupersample - 1) / AtlasSupersample + bord * 2);
 				int lmx = (int)img.dat[0].size();
 				int lmy = (int)img.dat.size();
 
 				// AA by finding distance to character. Probably a fairly decent approximation but why not do it right?
 				for (int y = 0; y < lmy; y++) {
-					int cty = (y - bord) * supersample + supersample / 2;
+					int cty = (y - bord) * AtlasSupersample + AtlasSupersample / 2;
 					for (int x = 0; x < lmx; x++) {
-						int ctx = (x - bord) * supersample + supersample / 2;
+						int ctx = (x - bord) * AtlasSupersample + AtlasSupersample / 2;
 						float dist;
 						if (closest.safe_access(ctx, cty)) {
 							dist = closest.find_closest(ctx, cty, 0);
 						} else {
 							dist = -closest.find_closest(ctx, cty, 1);
 						}
-						dist = dist / supersample * distmult + 127.5f;
+						dist = dist / AtlasSupersample * AtlasDistMult + 127.5f;
 						dist = floor(dist + 0.5f);
 						if (dist < 0) dist = 0;
 						if (dist > 255) dist = 255;
@@ -433,10 +392,10 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			dat.sy = 0;
 			dat.ex = (int)img.dat[0].size();
 			dat.ey = (int)img.dat.size();
-			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
-			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
+			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / AtlasSupersample - bord;
+			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / AtlasSupersample - bord;
 			dat.voffset = vertOffset;
-			dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
+			dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / AtlasSupersample;
 			dat.charNum = kar;
 
 			dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
@@ -455,7 +414,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 }
 
 bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
-	Image<unsigned int> img;
+	Image img;
 
 	bool success = false;
 	if (!strcmp(imagefile, "white.png")) {
@@ -486,142 +445,127 @@ bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
 	return true;
 }
 
-// Use the result array, and recorded data, to generate C++ tables for everything.
-struct FontDesc {
-	string name;
-
-	int first_char_id = -1;
-
-	float ascend = 0.0f;
-	float descend = 0.0f;
-	float height = 0.0f;
-
-	float metrics_height = 0.0f;
-
-	std::vector<CharRange> ranges;
-
-	void ComputeHeight(const vector<Data> &results, float distmult) {
-		ascend = 0;
-		descend = 0;
-		for (size_t r = 0; r < ranges.size(); r++) {
-			for (int i = ranges[r].start; i < ranges[r].end; i++) {
-				int idx = i - ranges[r].start + ranges[r].result_index;
-				ascend = max(ascend, -results[idx].oy);
-				descend = max(descend, results[idx].ey - results[idx].sy + results[idx].oy);
-			}
+void FontDesc::ComputeHeight(const vector<Data> &results, float distmult) {
+	ascend = 0;
+	descend = 0;
+	for (size_t r = 0; r < ranges.size(); r++) {
+		for (int i = ranges[r].start; i < ranges[r].end; i++) {
+			int idx = i - ranges[r].start + ranges[r].result_index;
+			ascend = max(ascend, -results[idx].oy);
+			descend = max(descend, results[idx].ey - results[idx].sy + results[idx].oy);
 		}
-
-		height = metrics_height / 64.0f / supersample;
 	}
 
-	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) const {
-		// Dump results as chardata.
-		fprintf(fil, "const AtlasChar font_%s_chardata[] = {\n", name.c_str());
-		int start_index = 0;
-		for (size_t r = 0; r < ranges.size(); r++) {
-			fprintf(fil, "// RANGE: 0x%x - 0x%x, start %d, result %d\n", ranges[r].start, ranges[r].end, start_index, ranges[r].result_index);
-			for (int i = ranges[r].start; i < ranges[r].end; i++) {
-				int idx = i - ranges[r].start + ranges[r].result_index;
-				fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %04x\n",
-					/*results[i].id, */
-					results[idx].sx / tw,
-					results[idx].sy / th,
-					results[idx].ex / tw,
-					results[idx].ey / th,
-					results[idx].ox,
-					results[idx].oy + results[idx].voffset,
-					results[idx].wx,
-					results[idx].ex - results[idx].sx, results[idx].ey - results[idx].sy,
-					results[idx].charNum);
-			}
-			start_index += ranges[r].end - ranges[r].start;
+	height = metrics_height / 64.0f / AtlasSupersample;
+}
+
+void FontDesc::OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) const {
+	// Dump results as chardata.
+	fprintf(fil, "const AtlasChar font_%s_chardata[] = {\n", name.c_str());
+	int start_index = 0;
+	for (size_t r = 0; r < ranges.size(); r++) {
+		fprintf(fil, "// RANGE: 0x%x - 0x%x, start %d, result %d\n", ranges[r].start, ranges[r].end, start_index, ranges[r].result_index);
+		for (int i = ranges[r].start; i < ranges[r].end; i++) {
+			int idx = i - ranges[r].start + ranges[r].result_index;
+			fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %04x\n",
+				/*results[i].id, */
+				results[idx].sx / tw,
+				results[idx].sy / th,
+				results[idx].ex / tw,
+				results[idx].ey / th,
+				results[idx].ox,
+				results[idx].oy + results[idx].voffset,
+				results[idx].wx,
+				results[idx].ex - results[idx].sx, results[idx].ey - results[idx].sy,
+				results[idx].charNum);
 		}
-		fprintf(fil, "};\n");
+		start_index += ranges[r].end - ranges[r].start;
+	}
+	fprintf(fil, "};\n");
 
-		fprintf(fil, "const AtlasCharRange font_%s_ranges[] = {\n", name.c_str());
-		// Write range information.
-		start_index = 0;
-		for (size_t r = 0; r < ranges.size(); r++) {
-			int first_char_id = ranges[r].start;
-			int last_char_id = ranges[r].end;
-			fprintf(fil, "  { %i, %i, %i },\n", first_char_id, last_char_id, start_index);
-			start_index += last_char_id - first_char_id;
+	fprintf(fil, "const AtlasCharRange font_%s_ranges[] = {\n", name.c_str());
+	// Write range information.
+	start_index = 0;
+	for (size_t r = 0; r < ranges.size(); r++) {
+		int first_char_id = ranges[r].start;
+		int last_char_id = ranges[r].end;
+		fprintf(fil, "  { %i, %i, %i },\n", first_char_id, last_char_id, start_index);
+		start_index += last_char_id - first_char_id;
+	}
+	fprintf(fil, "};\n");
+
+	fprintf(fil, "const AtlasFont font_%s = {\n", name.c_str());
+	fprintf(fil, "  %ff, // padding\n", height - ascend - descend);
+	fprintf(fil, "  %ff, // height\n", ascend + descend);
+	fprintf(fil, "  %ff, // ascend\n", ascend);
+	fprintf(fil, "  %ff, // distslope\n", AtlasDistMult / 256.0);
+	fprintf(fil, "  font_%s_chardata,\n", name.c_str());
+	fprintf(fil, "  font_%s_ranges,\n", name.c_str());
+	fprintf(fil, "  %i,\n", (int)ranges.size());
+	fprintf(fil, "  \"%s\", // name\n", name.c_str());
+	fprintf(fil, "};\n");
+}
+
+void FontDesc::OutputIndex(FILE *fil) const {
+	fprintf(fil, "  &font_%s,\n", name.c_str());
+}
+
+void FontDesc::OutputHeader(FILE *fil, int index) const {
+	fprintf(fil, "#define %s %i\n", name.c_str(), index);
+}
+
+AtlasFontHeader FontDesc::GetHeader() const {
+	int numChars = 0;
+	for (size_t r = 0; r < ranges.size(); r++) {
+		numChars += ranges[r].end - ranges[r].start;
+	}
+	AtlasFontHeader header{};
+	header.padding = height - ascend - descend;
+	header.height = ascend + descend;
+	header.ascend = ascend;
+	header.distslope = AtlasDistMult / 256.0;
+	truncate_cpy(header.name, name);
+	header.numChars = numChars;
+	header.numRanges = (int)ranges.size();
+	return header;
+}
+
+vector<AtlasCharRange> FontDesc::GetRanges() const {
+	int start_index = 0;
+	vector<AtlasCharRange> out_ranges;
+	for (size_t r = 0; r < ranges.size(); r++) {
+		int first_char_id = ranges[r].start;
+		int last_char_id = ranges[r].end;
+		AtlasCharRange range;
+		range.start = first_char_id;
+		range.end = last_char_id;
+		range.result_index = start_index;
+		start_index += last_char_id - first_char_id;
+		out_ranges.push_back(range);
+	}
+	return out_ranges;
+}
+
+vector<AtlasChar> FontDesc::GetChars(float tw, float th, const vector<Data> &results) const {
+	vector<AtlasChar> chars;
+	for (size_t r = 0; r < ranges.size(); r++) {
+		for (int i = ranges[r].start; i < ranges[r].end; i++) {
+			int idx = i - ranges[r].start + ranges[r].result_index;
+			AtlasChar c;
+			c.sx = results[idx].sx / tw;  // sx, sy, ex, ey
+			c.sy = results[idx].sy / th;
+			c.ex = results[idx].ex / tw;
+			c.ey = results[idx].ey / th;
+			c.ox = results[idx].ox; // ox, oy
+			c.oy = results[idx].oy + results[idx].voffset;
+			c.wx = results[idx].wx; //wx
+			c.pw = results[idx].ex - results[idx].sx; // pw, ph
+			c.ph = results[idx].ey - results[idx].sy;
+			chars.push_back(c);
 		}
-		fprintf(fil, "};\n");
-
-		fprintf(fil, "const AtlasFont font_%s = {\n", name.c_str());
-		fprintf(fil, "  %ff, // padding\n", height - ascend - descend);
-		fprintf(fil, "  %ff, // height\n", ascend + descend);
-		fprintf(fil, "  %ff, // ascend\n", ascend);
-		fprintf(fil, "  %ff, // distslope\n", distmult / 256.0);
-		fprintf(fil, "  font_%s_chardata,\n", name.c_str());
-		fprintf(fil, "  font_%s_ranges,\n", name.c_str());
-		fprintf(fil, "  %i,\n", (int)ranges.size());
-		fprintf(fil, "  \"%s\", // name\n", name.c_str());
-		fprintf(fil, "};\n");
 	}
-
-	void OutputIndex(FILE *fil) const {
-		fprintf(fil, "  &font_%s,\n", name.c_str());
-	}
-
-	void OutputHeader(FILE *fil, int index) const {
-		fprintf(fil, "#define %s %i\n", name.c_str(), index);
-	}
-
-	AtlasFontHeader GetHeader() const {
-		int numChars = 0;
-		for (size_t r = 0; r < ranges.size(); r++) {
-			numChars += ranges[r].end - ranges[r].start;
-		}
-		AtlasFontHeader header{};
-		header.padding = height - ascend - descend;
-		header.height = ascend + descend;
-		header.ascend = ascend;
-		header.distslope = distmult / 256.0;
-		truncate_cpy(header.name, name);
-		header.numChars = numChars;
-		header.numRanges = (int)ranges.size();
-		return header;
-	}
-
-	vector<AtlasCharRange> GetRanges() const {
-		int start_index = 0;
-		vector<AtlasCharRange> out_ranges;
-		for (size_t r = 0; r < ranges.size(); r++) {
-			int first_char_id = ranges[r].start;
-			int last_char_id = ranges[r].end;
-			AtlasCharRange range;
-			range.start = first_char_id;
-			range.end = last_char_id;
-			range.result_index = start_index;
-			start_index += last_char_id - first_char_id;
-			out_ranges.push_back(range);
-		}
-		return out_ranges;
-	}
-
-	vector<AtlasChar> GetChars(float tw, float th, const vector<Data> &results) const {
-		vector<AtlasChar> chars;
-		for (size_t r = 0; r < ranges.size(); r++) {
-			for (int i = ranges[r].start; i < ranges[r].end; i++) {
-				int idx = i - ranges[r].start + ranges[r].result_index;
-				AtlasChar c;
-				c.sx = results[idx].sx / tw;  // sx, sy, ex, ey
-				c.sy = results[idx].sy / th;
-				c.ex = results[idx].ex / tw;
-				c.ey = results[idx].ey / th;
-				c.ox = results[idx].ox; // ox, oy
-				c.oy = results[idx].oy + results[idx].voffset;
-				c.wx = results[idx].wx; //wx
-				c.pw = results[idx].ex - results[idx].sx; // pw, ph
-				c.ph = results[idx].ey - results[idx].sy;
-				chars.push_back(c);
-			}
-		}
-		return chars;
-	}
-};
+	return chars;
+}
 
 AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const vector<Data> &results) {
 	AtlasImage img{};
@@ -816,109 +760,8 @@ bool GetLocales(const char *locales, std::vector<CharRange> &ranges) {
 	return true;
 }
 
-static bool WriteCompressed(const void *src, size_t sz, size_t num, FILE *fp) {
-	size_t src_size = sz * num;
-	size_t compressed_size = ZSTD_compressBound(src_size);
-	uint8_t *compressed = new uint8_t[compressed_size];
-	compressed_size = ZSTD_compress(compressed, compressed_size, src, src_size, 22);
-	if (ZSTD_isError(compressed_size)) {
-		delete[] compressed;
-		return false;
-	}
-
-	uint32_t write_size = (uint32_t)compressed_size;
-	if (fwrite(&write_size, sizeof(uint32_t), 1, fp) != 1) {
-		delete[] compressed;
-		return false;
-	}
-	if (fwrite(compressed, 1, compressed_size, fp) != compressed_size) {
-		delete[] compressed;
-		return false;
-	}
-
-	delete[] compressed;
-	return true;
-}
-
-//argv[1], argv[2], argv[3]
-int GenerateFromScript(const char *script_file, const char *atlas_name, bool highcolor) {
-	map<string, FontReferenceList> fontRefs;
-	vector<FontDesc> fonts;
-	vector<ImageDesc> images;
-
+void LoadAndResolve(std::vector<ImageDesc> &images, std::map<std::string, FontReferenceList> &fontRefs, std::vector<FontDesc> &fonts, int image_width, std::vector<Data> &results, Image &dest) {
 	Bucket bucket;
-
-	std::string image_name = string(atlas_name) + "_atlas.zim";
-	std::string meta_name = string(atlas_name) + "_atlas.meta";
-
-	const std::string out_prefix = atlas_name;
-
-	char line[1024]{};
-	FILE *script = fopen(script_file, "r");
-	if (!fgets(line, 512, script)) {
-		printf("Error fgets-ing\n");
-		return -1;
-	}
-	int image_width = 0;
-	if (1 != sscanf(line, "%i", &image_width)) {
-		printf("missing image width (first line)");
-		return -1;
-	}
-	printf("Texture width: %i\n", image_width);
-	while (!feof(script)) {
-		if (!fgets(line, sizeof(line), script)) break;
-		if (!strlen(line)) break;
-		if (line[0] == '#') continue;
-		char *rest = strchr(line, ' ');
-		if (rest) {
-			*rest = 0;
-			rest++;
-		} else {
-			printf("Bad line in file: '%s'", line);
-			return -1;
-		}
-		char *word = line;
-		if (!strcmp(word, "font")) {
-			// Font!
-			char fontname[256];
-			char fontfile[256];
-			char locales[256];
-			int pixheight;
-			float vertOffset = 0;
-			sscanf(rest, "%255s %255s %255s %i %f", fontname, fontfile, locales, &pixheight, &vertOffset);
-			printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
-
-			std::vector<CharRange> ranges;
-			if (!GetLocales(locales, ranges)) {
-				return -1;
-			}
-			printf("locales fetched.\n");
-
-			FontReference fnt(fontname, fontfile, ranges, pixheight, vertOffset);
-			fontRefs[fontname].push_back(fnt);
-		} else if (!strcmp(word, "image")) {
-			char imagename[256];
-			char imagefile[256];
-			char effectname[256];
-			if (3 != sscanf(rest, "%255s %255s %255s", imagename, imagefile, effectname)) {
-				printf("Bad line in file: '%s %s'", line, rest);
-				return -1;
-			}
-			Effect effect = GetEffect(effectname);
-			printf("Image %s with effect %s (%i)\n", imagefile, effectname, (int)effect);
-			ImageDesc desc{};
-			desc.filename = imagefile;
-			desc.name = imagename;
-			desc.effect = effect;
-			desc.result_index = (int)bucket.items.size();
-			images.push_back(desc);
-		} else {
-			fprintf(stderr, "Warning: Failed to parse line starting with %s\n", line);
-		}
-	}
-	fclose(script);
-
-	// Script fully read, now load images and rasterize the fonts.
 
 	for (auto &image : images) {
 		if (!LoadImage(image.filename.c_str(), image.effect, &bucket)) {
@@ -945,125 +788,8 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 	// Script read, all subimages have been generated.
 
 	// Place the subimages onto the main texture. Also writes to png.
-	Image<unsigned int> dest;
 	// Place things on the bitmap.
 	printf("Resolving...\n");
 
-	vector<Data> results = bucket.Resolve(image_width, dest);
-
-	std::vector<AtlasImage> atlas_images;
-	atlas_images.reserve(images.size());
-
-	for (int i = 0; i < images.size(); i++) {
-		atlas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
-	}
-
-	for (int i = 0; i < fonts.size(); i++) {
-		fonts[i].ComputeHeight(results, distmult);
-	}
-
-	// Here the data is ready.
-
-	if (highcolor) {
-		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZSTD_COMPRESSED);
-	} else {
-		printf("Writing .ZIM %ix%i RGBA4444...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444 | ZIM_ZSTD_COMPRESSED);
-	}
-
-	// Also save PNG for debugging.
-	printf("Writing .PNG %s\n", (image_name + ".png").c_str());
-	dest.SavePNG((image_name + ".png").c_str());
-
-	printf("Done. Outputting source and meta files %s_atlas.cpp/h/meta.\n", out_prefix.c_str());
-	// Sort items by ID.
-	sort(results.begin(), results.end());
-
-	// Save all the metadata.
-	{
-		FILE *meta = fopen(meta_name.c_str(), "wb");
-		AtlasHeader header{};
-		header.magic = ATLAS_MAGIC;
-		header.version = 1;
-		header.numFonts = (int)fonts.size();
-		header.numImages = (int)images.size();
-		fwrite(&header, 1, sizeof(header), meta);
-		WriteCompressed(atlas_images.data(), sizeof(AtlasImage), images.size(), meta);
-		// For each font
-		for (int i = 0; i < (int)fonts.size(); i++) {
-			const auto &font = fonts[i];
-			AtlasFontHeader font_header = font.GetHeader();
-			fwrite(&font_header, 1, sizeof(font_header), meta);
-			auto ranges = font.GetRanges();
-			WriteCompressed(ranges.data(), sizeof(AtlasCharRange), ranges.size(), meta);
-			auto chars = font.GetChars((float)dest.width(), (float)dest.height(), results);
-			WriteCompressed(chars.data(), sizeof(AtlasChar), chars.size(), meta);
-		}
-		fclose(meta);
-	}
-
-	FILE *cpp_file = fopen((out_prefix + "_atlas.cpp").c_str(), "wb");
-	fprintf(cpp_file, "// C++ generated by atlastool from %s (hrydgard@gmail.com)\n\n", script_file);
-	fprintf(cpp_file, "#include \"%s\"\n\n", (out_prefix + "_atlas.h").c_str());
-	for (int i = 0; i < (int)fonts.size(); i++) {
-		FontDesc &xfont = fonts[i];
-		xfont.ComputeHeight(results, distmult);
-		xfont.OutputSelf(cpp_file, (float)dest.width(), (float)dest.height(), results);
-	}
-
-	if (fonts.size()) {
-		fprintf(cpp_file, "const AtlasFont *%s_fonts[%i] = {\n", atlas_name, (int)fonts.size());
-		for (int i = 0; i < (int)fonts.size(); i++) {
-			fonts[i].OutputIndex(cpp_file);
-		}
-		fprintf(cpp_file, "};\n");
-	}
-
-	if (images.size()) {
-		fprintf(cpp_file, "const AtlasImage %s_images[%i] = {\n", atlas_name, (int)images.size());
-		for (int i = 0; i < (int)images.size(); i++) {
-			images[i].OutputSelf(cpp_file, (float)dest.width(), (float)dest.height(), results);
-		}
-		fprintf(cpp_file, "};\n");
-	}
-
-	fprintf(cpp_file, "const Atlas %s_atlas = {\n", atlas_name);
-	fprintf(cpp_file, "  \"%s\",\n", image_name.c_str());
-	if (fonts.size()) {
-		fprintf(cpp_file, "  %s_fonts, %i,\n", atlas_name, (int)fonts.size());
-	} else {
-		fprintf(cpp_file, "  0, 0,\n");
-	}
-	if (images.size()) {
-		fprintf(cpp_file, "  %s_images, %i,\n", atlas_name, (int)images.size());
-	} else {
-		fprintf(cpp_file, "  0, 0,\n");
-	}
-	fprintf(cpp_file, "};\n");
-	// Should output a list pointing to all the fonts as well.
-	fclose(cpp_file);
-
-	FILE *h_file = fopen((out_prefix + "_atlas.h").c_str(), "wb");
-	fprintf(h_file, "// Header generated by atlastool from %s (hrydgard@gmail.com)\n\n", script_file);
-	fprintf(h_file, "#pragma once\n");
-	fprintf(h_file, "#include \"gfx/texture_atlas.h\"\n\n");
-	if (fonts.size()) {
-		fprintf(h_file, "// FONTS_%s\n", atlas_name);
-		for (int i = 0; i < (int)fonts.size(); i++) {
-			fonts[i].OutputHeader(h_file, i);
-		}
-		fprintf(h_file, "\n\n");
-	}
-	if (images.size()) {
-		fprintf(h_file, "// IMAGES_%s\n", atlas_name);
-		for (int i = 0; i < (int)images.size(); i++) {
-			images[i].OutputHeader(h_file, i);
-		}
-		fprintf(h_file, "\n\n");
-	}
-	fprintf(h_file, "extern const Atlas %s_atlas;\n", atlas_name);
-	fprintf(h_file, "extern const AtlasImage %s_images[%i];\n", atlas_name, (int)images.size());
-	fclose(h_file);
-	return 0;
+	results = bucket.Resolve(image_width, dest);
 }

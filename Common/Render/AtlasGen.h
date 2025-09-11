@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <cstdio>
 
 #include "Common/CommonTypes.h"
@@ -65,5 +66,60 @@ struct ImageDesc {
 	void OutputHeader(FILE *f, int index);
 };
 
+// Use the result array, and recorded data, to generate C++ tables for everything.
+struct FontDesc {
+	std::string name;
 
-int GenerateFromScript(const char *script_file, const char *atlas_name, bool highcolor);
+	int first_char_id = -1;
+
+	float ascend = 0.0f;
+	float descend = 0.0f;
+	float height = 0.0f;
+
+	float metrics_height = 0.0f;
+
+	std::vector<CharRange> ranges;
+
+	void ComputeHeight(const std::vector<Data> &results, float distmult);
+
+	void OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const;
+	void OutputIndex(FILE *fil) const;
+	void OutputHeader(FILE *fil, int index) const;
+	AtlasFontHeader GetHeader() const;
+
+	std::vector<AtlasCharRange> GetRanges() const;
+	std::vector<AtlasChar> GetChars(float tw, float th, const std::vector<Data> &results) const;
+};
+
+struct Image {
+	std::vector<std::vector<u32>> dat;
+	void resize(int x, int y) {
+		dat.resize(y);
+		for (int i = 0; i < y; i++)
+			dat[i].resize(x);
+	}
+	int width() const {
+		return (int)dat[0].size();
+	}
+	int height() const {
+		return (int)dat.size();
+	}
+	void copyfrom(const Image &img, int ox, int oy, Effect effect);
+	void set(int sx, int sy, int ex, int ey, unsigned char fil);
+	bool LoadPNG(const char *png_name);
+	void SavePNG(const char *png_name);
+	void SaveZIM(const char *zim_name, int zim_format);
+};
+
+inline bool operator<(const Image &lhs, const Image &rhs) {
+	return lhs.dat.size() * lhs.dat[0].size() > rhs.dat.size() * rhs.dat[0].size();
+}
+
+
+constexpr int AtlasSupersample = 16;
+constexpr int AtlasDistMult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"
+constexpr int AtlasMaxSearch = (128 * AtlasSupersample + AtlasDistMult - 1) / AtlasDistMult;
+
+typedef std::vector<FontReference> FontReferenceList;
+bool GetLocales(const char *locales, std::vector<CharRange> &ranges);
+void LoadAndResolve(std::vector<ImageDesc> &images, std::map<std::string, FontReferenceList> &fontRefs, std::vector<FontDesc> &fonts, int image_width, std::vector<Data> &results, Image &dest);
