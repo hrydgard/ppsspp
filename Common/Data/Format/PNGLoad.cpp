@@ -5,6 +5,7 @@
 
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Log.h"
+#include "Common/File/FileUtil.h"
 
 // *image_data_ptr should be deleted with free()
 // return value of 1 == success.
@@ -129,5 +130,39 @@ bool PNGHeaderPeek::IsValidPNGHeader() const {
 	if (Width() > 32768 && Height() > 32768) {
 		return false;
 	}
+	return true;
+}
+
+bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel) {
+	png_image png{};
+	png.version = PNG_IMAGE_VERSION;
+	png.format = bytesPerPixel == 3 ? PNG_FORMAT_RGB : PNG_FORMAT_RGBA;
+	png.width = w;
+	png.height = h;
+	const int row_stride = w * bytesPerPixel;
+
+	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		ERROR_LOG(Log::IO, "Unable to open png file for writing: %s", filename.c_str());
+		return false;
+	}
+
+	int result = png_image_write_to_stdio(&png, fp, 0, buffer, row_stride, nullptr);
+
+	if (png.warning_or_error >= 2) {
+		ERROR_LOG(Log::IO, "Saving image to PNG produced errors.");
+	}
+
+	png_image_free(&png);
+	fclose(fp);
+
+	if (!result) {
+		// Should we even do this?
+		File::Delete(filename);
+
+		ERROR_LOG(Log::IO, "PNG encode failed.");
+		return false;
+	}
+
 	return true;
 }

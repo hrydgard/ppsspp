@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "Common/BitSet.h"
+#include "Common/File/Path.h"
 
 // *image_data_ptr should be deleted with free()
 // return value of 1 == success.
@@ -31,3 +32,5 @@ struct PNGHeaderPeek {
 	int Width() const { return swap32(be_width); }
 	int Height() const { return swap32(be_height); }
 };
+
+bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel);
