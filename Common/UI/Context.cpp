@@ -13,6 +13,11 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/LogReporting.h"
+#include "Common/Render/AtlasGen.h"
+
+// The generated atlas.. This is temporary.
+std::vector<AtlasImage> genAtlasImages;
+Atlas genAtlas;
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
@@ -41,25 +46,182 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 
 void UIContext::setUIAtlas(const std::string &name) {
 	_dbg_assert_(!name.empty());
-	UIAtlas_ = name;
+	UIAtlas_ = name;  // This triggers a load in BeginFrame.
+}
+
+void UIContext::GenerateUIAtlas() {
+	// can't be const, yet...
+	ImageDesc images[] = {
+		{"I_SOLIDWHITE", "white.png"},
+		{"I_CROSS", "source_assets/image/cross.png"},
+		{"I_CIRCLE", "source_assets/image/circle.png"},
+		{"I_SQUARE", "source_assets/image/square.png"},
+		{"I_TRIANGLE", "source_assets/image/triangle.png"},
+		{"I_SELECT", "source_assets/image/select.png"},
+		{"I_START", "source_assets/image/start.png"},
+		{"I_ARROW", "source_assets/image/arrow.png"},
+		{"I_DIR", "source_assets/image/dir.png"},
+		{"I_ROUND", "source_assets/image/round.png"},
+		{"I_RECT", "source_assets/image/rect.png"},
+		{"I_STICK", "source_assets/image/stick.png"},
+		{"I_STICK_BG", "source_assets/image/stick_bg.png"},
+		{"I_SHOULDER", "source_assets/image/shoulder.png"},
+		{"I_DIR_LINE", "source_assets/image/dir_line.png"},
+		{"I_ROUND_LINE", "source_assets/image/round_line.png"},
+		{"I_RECT_LINE", "source_assets/image/rect_line.png"},
+		{"I_SHOULDER_LINE", "source_assets/image/shoulder_line.png"},
+		{"I_STICK_LINE", "source_assets/image/stick_line.png"},
+		{"I_STICK_BG_LINE", "source_assets/image/stick_bg_line.png"},
+		{"I_CHECKEDBOX", "source_assets/image/checkedbox.png"},
+		{"I_BG", "source_assets/image/background2.png"},
+		{"I_L", "source_assets/image/L.png"},
+		{"I_R", "source_assets/image/R.png"},
+		{"I_DROP_SHADOW", "source_assets/image/dropshadow.png"},
+		{"I_LINES", "source_assets/image/lines.png"},
+		{"I_GRID", "source_assets/image/grid.png"},
+		{"I_LOGO", "source_assets/image/logo.png"},
+		{"I_ICON", "source_assets/image/icon_regular_72.png"},
+		{"I_ICONGOLD", "source_assets/image/icon_gold_72.png"},
+		{"I_FOLDER", "source_assets/image/folder_line.png"},
+		{"I_UP_DIRECTORY", "source_assets/image/up_line.png"},
+		{"I_GEAR", "source_assets/image/gear.png"},
+		{"I_1", "source_assets/image/1.png"},
+		{"I_2", "source_assets/image/2.png"},
+		{"I_3", "source_assets/image/3.png"},
+		{"I_4", "source_assets/image/4.png"},
+		{"I_5", "source_assets/image/5.png"},
+		{"I_6", "source_assets/image/6.png"},
+		{"I_PSP_DISPLAY", "source_assets/image/psp_display.png"},
+		{"I_FLAG_JP", "source_assets/image/flag_jp.png"},
+		{"I_FLAG_US", "source_assets/image/flag_us.png"},
+		{"I_FLAG_EU", "source_assets/image/flag_eu.png"},
+		{"I_FLAG_HK", "source_assets/image/flag_hk.png"},
+		{"I_FLAG_AS", "source_assets/image/flag_as.png"},
+		{"I_FLAG_KO", "source_assets/image/flag_ko.png"},
+		{"I_FULLSCREEN", "source_assets/image/fullscreen.png"},
+		{"I_RESTORE", "source_assets/image/restore.png"},
+		{"I_SDCARD", "source_assets/image/sdcard.png"},
+		{"I_HOME", "source_assets/image/home.png"},
+		{"I_A", "source_assets/image/a.png"},
+		{"I_B", "source_assets/image/b.png"},
+		{"I_C", "source_assets/image/c.png"},
+		{"I_D", "source_assets/image/d.png"},
+		{"I_E", "source_assets/image/e.png"},
+		{"I_F", "source_assets/image/f.png"},
+		{"I_SQUARE_SHAPE", "source_assets/image/square_shape.png"},
+		{"I_SQUARE_SHAPE_LINE", "source_assets/image/square_shape_line.png"},
+		{"I_FOLDER_OPEN", "source_assets/image/folder_open_line.png"},
+		{"I_WARNING", "source_assets/image/warning.png"},
+		{"I_TRASHCAN", "source_assets/image/trashcan.png"},
+		{"I_PLUS", "source_assets/image/plus.png"},
+		{"I_ROTATE_LEFT", "source_assets/image/rotate_left.png"},
+		{"I_ROTATE_RIGHT", "source_assets/image/rotate_right.png"},
+		{"I_ARROW_LEFT", "source_assets/image/arrow_left.png"},
+		{"I_ARROW_RIGHT", "source_assets/image/arrow_right.png"},
+		{"I_ARROW_UP", "source_assets/image/arrow_up.png"},
+		{"I_ARROW_DOWN", "source_assets/image/arrow_down.png"},
+		{"I_SLIDERS", "source_assets/image/sliders.png"},
+		{"I_THREE_DOTS", "source_assets/image/three_dots.png"},
+		{"I_INFO", "source_assets/image/info.png"},
+		{"I_RETROACHIEVEMENTS_LOGO", "source_assets/image/retroachievements_logo.png"},
+		{"I_CHECKMARK", "source_assets/image/checkmark.png"},
+		{"I_PLAY", "source_assets/image/play.png"},
+		{"I_STOP", "source_assets/image/stop.png"},
+		{"I_PAUSE", "source_assets/image/pause.png"},
+		{"I_FASTFORWARD", "source_assets/image/fast_forward.png"},
+		{"I_RECORD", "source_assets/image/record.png"},
+		{"I_SPEAKER", "source_assets/image/speaker.png"},
+		{"I_SPEAKER_MAX", "source_assets/image/speaker_max.png"},
+		{"I_SPEAKER_OFF", "source_assets/image/speaker_off.png"},
+		{"I_WINNER_CUP", "source_assets/image/winner_cup.png"},
+		{"I_EMPTY", "source_assets/image/empty.png"},
+	};
+	int global_id = 0;
+
+	Instant start = Instant::Now();
+	char cwd[512];
+	getcwd(cwd, 512);
+	INFO_LOG(Log::G3D, "Generating UI atlas... (cwd: %s)\n", cwd);
+
+	Bucket bucket;
+
+	// Script fully read, now read images and rasterize the fonts.
+	std::vector<int> resultIds;
+	resultIds.reserve(ARRAY_SIZE(images));
+	for (auto &image : images) {
+		std::string name = "../";
+		if (image.fileName == "white.png") {
+			name = "white.png";
+		} else {
+			name.append(image.fileName);
+		}
+		image.result_index = (int)bucket.items.size();
+		if (!LoadImage(name.c_str(), image.effect, &bucket, global_id)) {
+			ERROR_LOG(Log::G3D, "Failed to load image %s\n", image.fileName.c_str());
+		}
+	}
+
+	int image_width = 512;
+	Image dest;
+	std::vector<Data> results = bucket.Resolve(image_width, dest);
+	// Need to sort the results by ID, after the bucket messed up the order.
+	sort(results.begin(), results.end());
+
+	// Fill out the atlas structure.
+	genAtlasImages.reserve(ARRAY_SIZE(images));
+	for (int i = 0; i < ARRAY_SIZE(images); i++) {
+		genAtlasImages.push_back(images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results));
+	}
+
+	genAtlas.images = new AtlasImage[genAtlasImages.size()];
+	std::copy(genAtlasImages.begin(), genAtlasImages.end(), genAtlas.images);
+	genAtlas.num_images = (int)genAtlasImages.size();
+	ui_draw2d.SetAtlas(&genAtlas);
+
+	dest.SavePNG("../gen.png");
+
+	// Then, create the texture too.
+	Draw::TextureDesc desc{};
+	desc.width = image_width;
+	desc.height = dest.height();
+	desc.depth = 1;
+	desc.mipLevels = 1;
+	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+	desc.type = Draw::TextureType::LINEAR2D;
+	desc.initData.push_back((const u8 *)dest.data());
+	desc.tag = "UIAtlas";
+	uitexture_ = draw_->CreateTexture(desc);
+
+	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images\n", start.ElapsedMs(), desc.width, desc.height, genAtlasImages.size());
 }
 
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
 	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
-		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
+		if (uitexture_) {
+			uitexture_->Release();
+			uitexture_ = nullptr;
+		}
+
 		lastUIAtlas_ = UIAtlas_;
-		if (!fontTexture_) {
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
-			// Don't bother with loading font_atlas.zim
-#else
-			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
-#endif
+		if (UIAtlas_ == "gen") {
+			// We'll generate the UI atlas. This is a PoC.
+			GenerateUIAtlas();
+		} else {
+			uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
 			if (!fontTexture_) {
-				// Load the smaller ascii font only, like on Android. For debug ui etc.
-				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
+				// TODO: We don't need this on more platforms, like Mac and iOS these days.
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+				// Don't bother with loading font_atlas.zim
+#else
+				fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
+#endif
 				if (!fontTexture_) {
-					WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+					// Load the smaller ascii font only, like on Android. For debug ui etc.
+					fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
+					if (!fontTexture_) {
+						WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+					}
 				}
 			}
 		}

@@ -278,7 +278,8 @@ void UpdateTheme(UIContext *ctx) {
 	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
 #endif
 
-	ctx->setUIAtlas(themeInfo.sUIAtlas + ".zim");
+	// ctx->setUIAtlas(themeInfo.sUIAtlas + ".zim");
+	ctx->setUIAtlas("gen");
 }
 
 UI::Theme *GetTheme() {

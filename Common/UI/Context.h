@@ -117,6 +117,8 @@ public:
 	const UI::Theme *theme;
 
 private:
+	void GenerateUIAtlas();
+
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
 

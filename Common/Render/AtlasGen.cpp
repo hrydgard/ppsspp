@@ -17,8 +17,6 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/AtlasGen.h"
 
-using namespace std;
-
 typedef unsigned short u16;
 
 void Image::copyfrom(const Image &img, int ox, int oy, Effect effect) {
@@ -181,7 +179,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	}
 
 	// Output the glyph data.
-	vector<Data> dats;
+	std::vector<Data> dats;
 	for (int i = 0; i < (int)items.size(); i++)
 		dats.push_back(items[i].second);
 	return dats;
@@ -215,7 +213,7 @@ bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket, int &global
 	return true;
 }
 
-AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const vector<Data> &results) const {
+AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const std::vector<Data> &results) const {
 	AtlasImage img{};
 	int i = result_index;
 	float toffx = 0.5f / tw;
@@ -230,7 +228,7 @@ AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const vector<Data> &resul
 	return img;
 }
 
-void ImageDesc::OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) const {
+void ImageDesc::OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const {
 	int i = result_index;
 	float toffx = 0.5f / tw;
 	float toffy = 0.5f / th;
