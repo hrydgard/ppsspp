@@ -18,25 +18,25 @@
 // line height
 // dist-per-pixel
 
+#include <cstdio>
 #include <assert.h>
-#include <libpng17/png.h>
-#include <ft2build.h>
-#include <freetype/ftbitmap.h>
+#include <cstring>
 #include <set>
-#include <map>
 #include <vector>
-#include <algorithm>
+#include <map>
 #include <string>
-#include <cmath>
-#include <zstd.h>
+#include "ft2build.h"
+#include "freetype/ftbitmap.h"
+#include "zstd.h"
 
-#include "Common/StringUtils.h"
+#include "Common/Render/AtlasGen.h"
 #include "Common/Render/TextureAtlas.h"
-
-#include "Common/Data/Format/PNGLoad.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
+#include "Common/CommonTypes.h"
 #include "Common/Data/Format/ZIMSave.h"
-
 #include "kanjifilter.h"
+
 // extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)
 //#define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
 // daily-use character only. However, it is too enough this.
@@ -48,26 +48,7 @@
 // add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 
-#include "Common/Data/Encoding/Utf8.h"
-
 using namespace std;
-
-static int global_id;
-
-typedef unsigned short u16;
-
-struct CharRange : public AtlasCharRange {
-	std::set<u16> filter;
-};
-
-enum class Effect {
-	FX_COPY = 0,
-	FX_RED_TO_ALPHA_SOLID_WHITE = 1,   // for alpha fonts
-	FX_RED_TO_INTENSITY_ALPHA_255 = 2,
-	FX_PREMULTIPLY_ALPHA = 3,
-	FX_PINK_TO_ALPHA = 4,   // for alpha fonts
-	FX_INVALID = 5,
-};
 
 static const char * const effect_str[5] = {
 	"copy", "r2a", "r2i", "pre", "p2a",
@@ -82,256 +63,46 @@ static Effect GetEffect(const char *text) {
 	return Effect::FX_INVALID;
 }
 
+struct CharRange : public AtlasCharRange {
+	std::set<u16> filter;
+};
+
+CharRange range(int start, int end, const std::set<u16> &filter) {
+	CharRange r;
+	r.start = start;
+	r.end = end + 1;
+	r.result_index = 0;
+	r.filter = filter;
+	return r;
+}
+
+CharRange range(int start, int end) {
+	CharRange r;
+	r.start = start;
+	r.end = end + 1;
+	r.result_index = 0;
+	return r;
+}
+
+inline bool operator <(const CharRange &a, const CharRange &b) {
+	// These ranges should never overlap so this should be enough.
+	return a.start < b.start;
+}
+
+
 struct FontReference {
-	FontReference(string name, string file, vector<CharRange> ranges, int pixheight, float vertOffset)
+	FontReference(string name, string file, std::vector<CharRange> ranges, int pixheight, float vertOffset)
 		: name_(name), file_(file), ranges_(ranges), size_(pixheight), vertOffset_(vertOffset) {
 	}
 
-	string name_;
-	string file_;
-	vector<CharRange> ranges_;
+	std::string name_;
+	std::string file_;
+	std::vector<CharRange> ranges_;
 	int size_;
 	float vertOffset_;
 };
 
-typedef vector<FontReference> FontReferenceList;
-
-template<class T>
-struct Image {
-	vector<vector<T> > dat;
-	void resize(int x, int y) {
-		dat.resize(y);
-		for (int i = 0; i < y; i++)
-			dat[i].resize(x);
-	}
-	int width() const {
-		return (int)dat[0].size();
-	}
-	int height() const {
-		return (int)dat.size();
-	}
-	void copyfrom(const Image &img, int ox, int oy, Effect effect) {
-		assert(img.dat[0].size() + ox <= dat[0].size());
-		assert(img.dat.size() + oy <= dat.size());
-		for (int y = 0; y < (int)img.dat.size(); y++) {
-			for (int x = 0; x < (int)img.dat[y].size(); x++) {
-				switch (effect) {
-				case Effect::FX_COPY:
-					dat[y + oy][ox + x] = img.dat[y][x];
-					break;
-				case Effect::FX_RED_TO_ALPHA_SOLID_WHITE:
-					dat[y + oy][ox + x] = 0x00FFFFFF | (img.dat[y][x] << 24);
-					break;
-				case Effect::FX_RED_TO_INTENSITY_ALPHA_255:
-					dat[y + oy][ox + x] = 0xFF000000 | img.dat[y][x] | (img.dat[y][x] << 8) | (img.dat[y][x] << 16);
-					break;
-				case Effect::FX_PREMULTIPLY_ALPHA:
-				{
-					unsigned int color = img.dat[y][x];
-					unsigned int a = color >> 24;
-					unsigned int r = (color & 0xFF) * a >> 8, g = (color & 0xFF00) * a >> 8, b = (color & 0xFF0000) * a >> 8;
-					color = (color & 0xFF000000) | (r & 0xFF) | (g & 0xFF00) | (b & 0xFF0000);
-					// Simulate 4444
-					color = color & 0xF0F0F0F0;
-					color |= color >> 4;
-					dat[y + oy][ox + x] = color;
-					break;
-				}
-				case Effect::FX_PINK_TO_ALPHA:
-					dat[y + oy][ox + x] = ((img.dat[y][x] & 0xFFFFFF) == 0xFF00FF) ? 0x00FFFFFF : (img.dat[y][x] | 0xFF000000);
-					break;
-				default:
-					dat[y + oy][ox + x] = 0xFFFF00FF;
-					break;
-				}
-			}
-		}
-	}
-	void set(int sx, int sy, int ex, int ey, unsigned char fil) {
-		for (int y = sy; y < ey; y++)
-			fill(dat[y].begin() + sx, dat[y].begin() + ex, fil);
-	}
-	bool LoadPNG(const char *png_name) {
-		unsigned char *img_data;
-		int w, h;
-		if (1 != pngLoad(png_name, &w, &h, &img_data)) {
-			printf("Failed to load %s\n", png_name);
-			exit(1);
-			return false;
-		}
-		dat.resize(h);
-		for (int y = 0; y < h; y++) {
-			dat[y].resize(w);
-			memcpy(&dat[y][0], img_data + 4 * y * w, 4 * w);
-		}
-		free(img_data);
-		return true;
-	}
-	void SavePNG(const char *png_name) {
-		// Save PNG
-		FILE *fil = fopen(png_name, "wb");
-		png_structp  png_ptr;
-		png_infop  info_ptr;
-		png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-		assert(png_ptr);
-		info_ptr = png_create_info_struct(png_ptr);
-		assert(info_ptr);
-		png_init_io(png_ptr, fil);
-		//png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
-		png_set_IHDR(png_ptr, info_ptr, (uint32_t)dat[0].size(), (uint32_t)dat.size(), 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-		png_write_info(png_ptr, info_ptr);
-		for (int y = 0; y < (int)dat.size(); y++) {
-			png_write_row(png_ptr, (png_byte*)&dat[y][0]);
-		}
-		png_write_end(png_ptr, NULL);
-		png_destroy_write_struct(&png_ptr, &info_ptr);
-	}
-	void SaveZIM(const char *zim_name, int zim_format) {
-		uint8_t *image_data = new uint8_t[width() * height() * 4];
-		for (int y = 0; y < height(); y++) {
-			memcpy(image_data + y * width() * 4, &dat[y][0], width() * 4);
-		}
-		FILE *f = fopen(zim_name, "wb");
-		// SaveZIM takes ownership over image_data, there's no leak.
-		::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
-		fclose(f);
-	}
-};
-
-template<class S, class T>
-bool operator<(const Image<S> &lhs, const Image<T> &rhs) {
-	return lhs.dat.size() * lhs.dat[0].size() > rhs.dat.size() * rhs.dat[0].size();
-}
-
-struct Data {
-	// item ID
-	int id;
-	// dimensions of its spot in the world
-	int sx, sy, ex, ey;
-	// offset from the origin
-	float ox, oy;
-	float voffset;  // to apply at the end
-  // distance to move the origin forward
-	float wx;
-
-	int effect;
-	int charNum;
-};
-
-bool operator<(const Data &lhs, const Data &rhs) {
-	return lhs.id < rhs.id; // should be unique
-}
-
-string out_prefix;
-
-int NextPowerOf2(int x) {
-	int powof2 = 1;
-	// Double powof2 until >= val
-	while (powof2 < x) powof2 <<= 1;
-	return powof2;
-}
-
-struct Bucket {
-	vector<pair<Image<unsigned int>, Data> > items;
-	void AddItem(const Image<unsigned int> &img, const Data &dat) {
-		items.push_back(make_pair(img, dat));
-	}
-	vector<Data> Resolve(int image_width, Image<unsigned int> &dest) {
-		// Place all the little images - whatever they are.
-		// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
-		Image<unsigned char> masq;
-		masq.resize(image_width, 1);
-		dest.resize(image_width, 1);
-		sort(items.begin(), items.end());
-		for (int i = 0; i < (int)items.size(); i++) {
-			if ((i + 1) % 2000 == 0) {
-				printf("Resolving (%i / %i)\n", i, (int)items.size());
-			}
-			int idx = (int)items[i].first.dat[0].size();
-			int idy = (int)items[i].first.dat.size();
-			if (idx > 1 && idy > 1) {
-				assert(idx <= image_width);
-				for (int ty = 0; ty < 2047; ty++) {
-					if (ty + idy + 1 > (int)dest.dat.size()) {
-						masq.resize(image_width, ty + idy + 16);
-						dest.resize(image_width, ty + idy + 16);
-					}
-					// Brute force packing.
-					int sz = (int)items[i].first.dat[0].size();
-					auto &masq_ty = masq.dat[ty];
-					auto &masq_idy = masq.dat[ty + idy - 1];
-					for (int tx = 0; tx < image_width - sz; tx++) {
-						bool valid = !(masq_ty[tx] || masq_idy[tx] || masq_ty[tx + idx - 1] || masq_idy[tx + idx - 1]);
-						if (valid) {
-							for (int ity = 0; ity < idy && valid; ity++) {
-								for (int itx = 0; itx < idx && valid; itx++) {
-									if (masq.dat[ty + ity][tx + itx]) {
-										goto skip;
-									}
-								}
-							}
-							dest.copyfrom(items[i].first, tx, ty, (Effect)items[i].second.effect);
-							masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
-
-							items[i].second.sx = tx;
-							items[i].second.sy = ty;
-
-							items[i].second.ex = tx + idx;
-							items[i].second.ey = ty + idy;
-
-							// printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
-							goto found;
-						}
-					skip:
-						;
-					}
-				}
-			found:
-				;
-			}
-		}
-
-		if ((int)dest.dat.size() > image_width * 2) {
-			printf("PACKING FAIL : height=%i", (int)dest.dat.size());
-			exit(1);
-		}
-		dest.resize(image_width, (int)dest.dat.size());
-
-		// Output the glyph data.
-		vector<Data> dats;
-		for (int i = 0; i < (int)items.size(); i++)
-			dats.push_back(items[i].second);
-		return dats;
-	}
-};
-
-const int supersample = 16;
-const int distmult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"
-const int maxsearch = (128 * supersample + distmult - 1) / distmult;
-
-struct Closest {
-	FT_Bitmap bmp;
-	Closest(FT_Bitmap bmp) : bmp(bmp) { }
-	float find_closest(int x, int y, char search) {
-		int best = 1 << 30;
-		for (int i = 1; i <= maxsearch; i++) {
-			if (i * i >= best)
-				break;
-			for (int f = -i; f < i; f++) {
-				int dist = i * i + f * f;
-				if (dist >= best) continue;
-				if (safe_access(x + i, y + f) == search || safe_access(x - f, y + i) == search || safe_access(x - i, y - f) == search || safe_access(x + f, y - i) == search)
-					best = dist;
-			}
-		}
-		return sqrt((float)best);
-	}
-	char safe_access(int x, int y) {
-		if (x < 0 || y < 0 || x >= (int)bmp.width || y >= (int)bmp.rows)
-			return 0;
-		return bmp.buffer[x + y * bmp.width];
-	}
-};
+typedef std::vector<FontReference> FontReferenceList;
 
 typedef vector<FT_Face> FT_Face_List;
 
@@ -355,7 +126,31 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 	return result;
 }
 
-void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
+struct Closest {
+	FT_Bitmap bmp;
+	Closest(FT_Bitmap bmp) : bmp(bmp) {}
+	float find_closest(int x, int y, char search) {
+		int best = 1 << 30;
+		for (int i = 1; i <= maxsearch; i++) {
+			if (i * i >= best)
+				break;
+			for (int f = -i; f < i; f++) {
+				int dist = i * i + f * f;
+				if (dist >= best) continue;
+				if (safe_access(x + i, y + f) == search || safe_access(x - f, y + i) == search || safe_access(x - i, y - f) == search || safe_access(x + f, y - i) == search)
+					best = dist;
+			}
+		}
+		return (float)sqrt((float)best);
+	}
+	char safe_access(int x, int y) {
+		if (x < 0 || y < 0 || x >= (int)bmp.width || y >= (int)bmp.rows)
+			return 0;
+		return bmp.buffer[x + y * bmp.width];
+	}
+};
+
+void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket, int &global_id) {
 	FT_Library freetype = 0;
 	if (FT_Init_FreeType(&freetype) != 0) {
 		printf("ERROR: Failed to init freetype\n");
@@ -426,7 +221,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				missing_chars++;
 			}
 
-			Image<unsigned int> img;
+			Image img;
 			if (!foundMatch || filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER | FT_LOAD_MONOCHROME)) {
 				img.resize(1, 1);
 				Data dat;
@@ -457,8 +252,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 
 				// No resampling, just sets the size of the image.
 				img.resize((tempbitmap.width + supersample - 1) / supersample + bord * 2, (tempbitmap.rows + supersample - 1) / supersample + bord * 2);
-				int lmx = (int)img.dat[0].size();
-				int lmy = (int)img.dat.size();
+				int lmx = (int)img.width();
+				int lmy = (int)img.height();
 
 				// AA by finding distance to character. Probably a fairly decent approximation but why not do it right?
 				for (int y = 0; y < lmy; y++) {
@@ -472,12 +267,12 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 							dist = -closest.find_closest(ctx, cty, 1);
 						}
 						dist = dist / supersample * distmult + 127.5f;
-						dist = floor(dist + 0.5f);
-						if (dist < 0) dist = 0;
-						if (dist > 255) dist = 255;
+						dist = floorf(dist + 0.5f);
+						if (dist < 0.0f) dist = 0.0f;
+						if (dist > 255.0f) dist = 255.0f;
 
 						// Only set the red channel. We process when adding the image.
-						img.dat[y][x] = (unsigned char)dist;
+						img.set1(x, y, (u8)dist);
 					}
 				}
 				FT_Bitmap_Done(freetype, &tempbitmap);
@@ -491,8 +286,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 
 			dat.sx = 0;
 			dat.sy = 0;
-			dat.ex = (int)img.dat[0].size();
-			dat.ey = (int)img.dat.size();
+			dat.ex = (int)img.width();
+			dat.ey = (int)img.height();
 			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
 			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
 			dat.voffset = vertOffset;
@@ -512,39 +307,6 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 		FT_Done_Face(fonts[i]);
 	}
 	FT_Done_FreeType(freetype);
-}
-
-bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
-	Image<unsigned int> img;
-
-	bool success = false;
-	if (!strcmp(imagefile, "white.png")) {
-		img.dat.resize(16);
-		for (int i = 0; i < 16; i++) {
-			img.dat[i].resize(16);
-			for (int j = 0; j < 16; j++) {
-				img.dat[i][j] = 0xFFFFFFFF;
-			}
-		}
-		success = true;
-	} else {
-		success = img.LoadPNG(imagefile);
-		// printf("loaded image: %ix%i\n", (int)img.dat[0].size(), (int)img.dat.size());
-	}
-	if (!success) {
-		return false;
-	}
-
-	Data dat;
-	memset(&dat, 0, sizeof(dat));
-	dat.id = global_id++;
-	dat.sx = 0;
-	dat.sy = 0;
-	dat.ex = (int)img.dat[0].size();
-	dat.ey = (int)img.dat.size();
-	dat.effect = (int)effect;
-	bucket->AddItem(img, dat);
-	return true;
 }
 
 // Use the result array, and recorded data, to generate C++ tables for everything.
@@ -684,67 +446,6 @@ struct FontDesc {
 	}
 };
 
-struct ImageDesc {
-	string name;
-	Effect effect;
-	int result_index;
-
-	AtlasImage ToAtlasImage(float tw, float th, const vector<Data> &results) {
-		AtlasImage img{};
-		int i = result_index;
-		float toffx = 0.5f / tw;
-		float toffy = 0.5f / th;
-		img.u1 = results[i].sx / tw + toffx;
-		img.v1 = results[i].sy / th + toffy;
-		img.u2 = results[i].ex / tw - toffx;
-		img.v2 = results[i].ey / th - toffy;
-		img.w = results[i].ex - results[i].sx;
-		img.h = results[i].ey - results[i].sy;
-		truncate_cpy(img.name, name);
-		return img;
-	}
-
-	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
-		int i = result_index;
-		float toffx = 0.5f / tw;
-		float toffy = 0.5f / th;
-		fprintf(fil, "  {%ff, %ff, %ff, %ff, %d, %d, \"%s\"},\n",
-			results[i].sx / tw + toffx,
-			results[i].sy / th + toffy,
-			results[i].ex / tw - toffx,
-			results[i].ey / th - toffy,
-			results[i].ex - results[i].sx,
-			results[i].ey - results[i].sy,
-			name.c_str());
-	}
-
-	void OutputHeader(FILE *fil, int index) {
-		fprintf(fil, "#define %s %i\n", name.c_str(), index);
-	}
-};
-
-CharRange range(int start, int end, const std::set<u16> &filter) {
-	CharRange r;
-	r.start = start;
-	r.end = end + 1;
-	r.result_index = 0;
-	r.filter = filter;
-	return r;
-}
-
-CharRange range(int start, int end) {
-	CharRange r;
-	r.start = start;
-	r.end = end + 1;
-	r.result_index = 0;
-	return r;
-}
-
-inline bool operator <(const CharRange &a, const CharRange &b) {
-	// These ranges should never overlap so this should be enough.
-	return a.start < b.start;
-}
-
 
 void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, uint32_t lowerLimit, uint32_t upperLimit) {
 	FILE *f = fopen(filename, "rb");
@@ -854,7 +555,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			break;
 		case 'J':  // Shift JIS (for Japanese fonts)
 			ranges.push_back(range(0x2010, 0x2312)); // General Punctuation, Letterlike Symbols, Arrows, 
-													 // Mathematical Operators, Miscellaneous Technical
+			// Mathematical Operators, Miscellaneous Technical
 			ranges.push_back(range(0x2500, 0x254B)); // Box drawing
 			ranges.push_back(range(0x25A0, 0x266F)); // Geometric Shapes, Miscellaneous Symbols
 			break;
@@ -903,38 +604,22 @@ static bool WriteCompressed(const void *src, size_t sz, size_t num, FILE *fp) {
 	return true;
 }
 
-int main(int argc, char **argv) {
-	// initProgram(&argc, const_cast<const char ***>(&argv));
-	// /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
-	// /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
-	if (argc < 3) {
-		printf("Not enough arguments.\nSee buildatlas.sh for example.\n");
-		return 1;
-	}
-	assert(argc >= 3);
-
-	bool highcolor = false;
-
-	if (argc > 3) {
-		if (!strcmp(argv[3], "8888")) {
-			highcolor = true;
-			printf("RGBA8888 enabled!\n");
-		}
-	}
-	printf("Reading script %s\n", argv[1]);
-	const char *atlas_name = argv[2];
-	string image_name = string(atlas_name) + "_atlas.zim";
-	string meta_name = string(atlas_name) + "_atlas.meta";
-	out_prefix = argv[2];
-
+//argv[1], argv[2], argv[3]
+int GenerateFromScript(const char *script_file, const char *atlas_name, bool highcolor) {
 	map<string, FontReferenceList> fontRefs;
 	vector<FontDesc> fonts;
 	vector<ImageDesc> images;
 
-	Bucket bucket;
+	int global_id = 0;
+
+
+	std::string image_name = string(atlas_name) + "_atlas.zim";
+	std::string meta_name = string(atlas_name) + "_atlas.meta";
+
+	const std::string out_prefix = atlas_name;
 
 	char line[512]{};
-	FILE *script = fopen(argv[1], "r");
+	FILE *script = fopen(script_file, "r");
 	if (!fgets(line, 512, script)) {
 		printf("Error fgets-ing\n");
 	}
@@ -975,27 +660,34 @@ int main(int argc, char **argv) {
 			Effect effect = GetEffect(effectname);
 			printf("Image %s with effect %s (%i)\n", imagefile, effectname, (int)effect);
 			ImageDesc desc;
+			desc.fileName = imagefile;
 			desc.name = imagename;
 			desc.effect = effect;
-			desc.result_index = (int)bucket.items.size();
+			desc.result_index = 0;
 			images.push_back(desc);
-			if (!LoadImage(imagefile, effect, &bucket)) {
-				fprintf(stderr, "Failed to load image %s\n", imagefile);
-			}
 		} else {
 			fprintf(stderr, "Warning: Failed to parse line starting with %s\n", line);
 		}
 	}
 	fclose(script);
 
-	// Script fully read, now rasterize the fonts.
+	Bucket bucket;
+
+	// Script fully read, now read images and rasterize the fonts.
+	for (auto &image : images) {
+		image.result_index = (int)bucket.items.size();
+		if (!LoadImage(image.fileName.c_str(), image.effect, &bucket, global_id)) {
+			fprintf(stderr, "Failed to load image %s\n", image.fileName.c_str());
+		}
+	}
+
 	for (auto it = fontRefs.begin(), end = fontRefs.end(); it != end; ++it) {
 		FontDesc fnt;
 		fnt.first_char_id = (int)bucket.items.size();
 
 		vector<CharRange> finalRanges;
 		float metrics_height;
-		RasterizeFonts(it->second, finalRanges, &metrics_height, &bucket);
+		RasterizeFonts(it->second, finalRanges, &metrics_height, &bucket, global_id);
 		printf("font rasterized.\n");
 
 		fnt.ranges = finalRanges;
@@ -1008,11 +700,11 @@ int main(int argc, char **argv) {
 	// Script read, all subimages have been generated.
 
 	// Place the subimages onto the main texture. Also writes to png.
-	Image<unsigned int> dest;
+	Image dest;
 	// Place things on the bitmap.
 	printf("Resolving...\n");
 
-	vector<Data> results = bucket.Resolve(image_width, dest);
+	std::vector<Data> results = bucket.Resolve(image_width, dest);
 	if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZSTD_COMPRESSED);
@@ -1059,7 +751,7 @@ int main(int argc, char **argv) {
 	}
 
 	FILE *cpp_file = fopen((out_prefix + "_atlas.cpp").c_str(), "wb");
-	fprintf(cpp_file, "// C++ generated by atlastool from %s (hrydgard@gmail.com)\n\n", argv[1]);
+	fprintf(cpp_file, "// C++ generated by atlastool from %s (hrydgard@gmail.com)\n\n", script_file);
 	fprintf(cpp_file, "#include \"%s\"\n\n", (out_prefix + "_atlas.h").c_str());
 	for (int i = 0; i < (int)fonts.size(); i++) {
 		FontDesc &xfont = fonts[i];
@@ -1100,7 +792,7 @@ int main(int argc, char **argv) {
 	fclose(cpp_file);
 
 	FILE *h_file = fopen((out_prefix + "_atlas.h").c_str(), "wb");
-	fprintf(h_file, "// Header generated by atlastool from %s (hrydgard@gmail.com)\n\n", argv[1]);
+	fprintf(h_file, "// Header generated by atlastool from %s (hrydgard@gmail.com)\n\n", script_file);
 	fprintf(h_file, "#pragma once\n");
 	fprintf(h_file, "#include \"gfx/texture_atlas.h\"\n\n");
 	if (fonts.size()) {
@@ -1120,4 +812,28 @@ int main(int argc, char **argv) {
 	fprintf(h_file, "extern const Atlas %s_atlas;\n", atlas_name);
 	fprintf(h_file, "extern const AtlasImage %s_images[%i];\n", atlas_name, (int)images.size());
 	fclose(h_file);
+	return 0;
+}
+
+int main(int argc, char **argv) {
+	// initProgram(&argc, const_cast<const char ***>(&argv));
+	// /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
+	// /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
+	if (argc < 3) {
+		printf("Not enough arguments.\nSee buildatlas.sh for example.\n");
+		return 1;
+	}
+	assert(argc >= 3);
+
+	bool highcolor = false;
+
+	if (argc > 3) {
+		if (!strcmp(argv[3], "8888")) {
+			highcolor = true;
+			printf("RGBA8888 enabled!\n");
+		}
+	}
+	printf("Reading script %s\n", argv[1]);
+
+	return GenerateFromScript(argv[1], argv[2], highcolor);
 }

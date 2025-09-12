@@ -164,6 +164,10 @@ void StereoResampler::Mix(s16 *samples, unsigned int numSamples, bool consider_f
 	if (!samples)
 		return;
 
+	if (!buffer_) {
+		return;
+	}
+
 	unsigned int currentSample;
 
 	// Cache access in non-volatile variable

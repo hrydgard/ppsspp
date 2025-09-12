@@ -324,6 +324,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/GPU/ShaderTranslation.cpp \
   $(SRC)/Common/Render/ManagedTexture.cpp \
   $(SRC)/Common/Render/DrawBuffer.cpp \
+  $(SRC)/Common/Render/AtlasGen.cpp \
   $(SRC)/Common/Render/TextureAtlas.cpp \
   $(SRC)/Common/Render/Text/draw_text.cpp \
   $(SRC)/Common/Render/Text/draw_text_android.cpp \

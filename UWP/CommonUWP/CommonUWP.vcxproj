@@ -161,6 +161,7 @@
     <ClInclude Include="..\..\Common\Net\URL.h" />
     <ClInclude Include="..\..\Common\Net\WebsocketServer.h" />
     <ClInclude Include="..\..\Common\Profiler\Profiler.h" />
+    <ClInclude Include="..\..\Common\Render\AtlasGen.h" />
     <ClInclude Include="..\..\Common\Render\DrawBuffer.h" />
     <ClInclude Include="..\..\Common\Render\ManagedTexture.h" />
     <ClInclude Include="..\..\Common\Render\TextureAtlas.h" />
@@ -335,6 +336,7 @@
     <ClCompile Include="..\..\Common\Net\URL.cpp" />
     <ClCompile Include="..\..\Common\Net\WebsocketServer.cpp" />
     <ClCompile Include="..\..\Common\Profiler\Profiler.cpp" />
+    <ClCompile Include="..\..\Common\Render\AtlasGen.cpp" />
     <ClCompile Include="..\..\Common\Render\DrawBuffer.cpp" />
     <ClCompile Include="..\..\Common\Render\ManagedTexture.cpp" />
     <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp" />

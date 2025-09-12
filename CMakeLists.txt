@@ -828,6 +828,8 @@ add_library(Common STATIC
 	Common/Net/WebsocketServer.h
 	Common/Profiler/Profiler.cpp
 	Common/Profiler/Profiler.h
+	Common/Render/AtlasGen.cpp
+	Common/Render/AtlasGen.h
 	Common/Render/TextureAtlas.cpp
 	Common/Render/TextureAtlas.h
 	Common/Render/DrawBuffer.cpp

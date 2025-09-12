@@ -345,12 +345,14 @@ void WASAPIContext::AudioLoop() {
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
 			if (!tempBuf_) {
 				// Mix directly to the output buffer, avoiding a copy.
-				callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nSamplesPerSec, userdata_);
+				if (buffer) {
+					callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nSamplesPerSec, userdata_);
+				}
 			} else {
 				// We decided previously that we need conversion, so mix to our temp buffer...
 				callback_(tempBuf_, framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
-				if (format == AudioFormat::S16) {
+				if (format == AudioFormat::S16 && buffer) {
 					// Need to convert.
 					s16 *dest = reinterpret_cast<s16 *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {
@@ -367,7 +369,7 @@ void WASAPIContext::AudioLoop() {
 							}
 						}
 					}
-				} else if (format == AudioFormat::Float) {
+				} else if (format == AudioFormat::Float && buffer) {
 					// We have a non-2 number of channels (since we're in the tempBuf_ 'if'), so we contract/expand.
 					float *dest = reinterpret_cast<float *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {

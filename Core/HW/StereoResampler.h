@@ -53,7 +53,7 @@ private:
 	// This can be adjusted, for the case of non-60hz output (a few hz off).
 	int inputSampleRateHz_ = 44100;
 
-	int16_t *buffer_;
+	int16_t *buffer_ = nullptr;
 	std::atomic<u32> indexW_;
 	std::atomic<u32> indexR_;
 	float numLeftI_ = 0.0f;

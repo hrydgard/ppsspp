@@ -463,6 +463,7 @@
     <ClInclude Include="Net\URL.h" />
     <ClInclude Include="Net\WebsocketServer.h" />
     <ClInclude Include="Profiler\Profiler.h" />
+    <ClInclude Include="Render\AtlasGen.h" />
     <ClInclude Include="Render\DrawBuffer.h" />
     <ClInclude Include="Render\ManagedTexture.h" />
     <ClInclude Include="Render\TextureAtlas.h" />
@@ -917,6 +918,7 @@
     <ClCompile Include="Net\URL.cpp" />
     <ClCompile Include="Net\WebsocketServer.cpp" />
     <ClCompile Include="Profiler\Profiler.cpp" />
+    <ClCompile Include="Render\AtlasGen.cpp" />
     <ClCompile Include="Render\DrawBuffer.cpp" />
     <ClCompile Include="Render\ManagedTexture.cpp" />
     <ClCompile Include="Render\TextureAtlas.cpp" />
