@@ -68,7 +68,6 @@ struct Image {
 	}
 	u32 get1(int x, int y) const { return dat[y * w + x]; }
 	void copyfrom(const Image &img, int ox, int oy, Effect effect);
-	void set(int sx, int sy, int ex, int ey, u32 fil);
 	bool LoadPNG(const char *png_name);
 	void SavePNG(const char *png_name);
 	void SaveZIM(const char *zim_name, int zim_format);

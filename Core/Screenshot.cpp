@@ -25,6 +25,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "Common/Log.h"
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
@@ -38,8 +39,7 @@
 
 // This is used to make non-ASCII paths work for filename.
 // Technically only needed on Windows.
-class JPEGFileStream : public jpge::output_stream
-{
+class JPEGFileStream : public jpge::output_stream {
 public:
 	JPEGFileStream(const Path &filename) {
 		fp_ = File::OpenCFile(filename, "wb");
@@ -99,25 +99,6 @@ static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, i
 
 	dst_image.deinit();
 	return dst_stream.Valid();
-}
-
-static bool WriteScreenshotToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
-	FILE *fp = File::OpenCFile(filename, "wb");
-	if (!fp) {
-		ERROR_LOG(Log::IO, "Unable to open screenshot file for writing.");
-		return false;
-	}
-
-	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
-		fclose(fp);
-		return true;
-	} else {
-		ERROR_LOG(Log::IO, "Screenshot PNG encode failed.");
-		fclose(fp);
-		// Should we even do this?
-		File::Delete(filename);
-		return false;
-	}
 }
 
 static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, u8 &a, const void *buffer, int offset, bool rev) {
@@ -383,20 +364,7 @@ ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filenam
 
 bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
 	if (fmt == ScreenshotFormat::PNG) {
-		png_image png;
-		memset(&png, 0, sizeof(png));
-		png.version = PNG_IMAGE_VERSION;
-		png.format = PNG_FORMAT_RGB;
-		png.width = w;
-		png.height = h;
-		bool success = WriteScreenshotToPNG(&png, filename, 0, bufferRGB888, w * 3, nullptr);
-		png_image_free(&png);
-
-		if (png.warning_or_error >= 2) {
-			ERROR_LOG(Log::IO, "Saving screenshot to PNG produced errors.");
-			success = false;
-		}
-		return success;
+		return pngSave(filename, bufferRGB888, w, h, 3);
 	} else if (fmt == ScreenshotFormat::JPG) {
 		jpge::params params;
 		params.m_quality = 90;
@@ -407,19 +375,7 @@ bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *
 }
 
 bool Save8888RGBAScreenshot(const Path &filename, const u8 *buffer, int w, int h) {
-	png_image png{};
-	png.version = PNG_IMAGE_VERSION;
-	png.format = PNG_FORMAT_RGBA;
-	png.width = w;
-	png.height = h;
-	bool success = WriteScreenshotToPNG(&png, filename, 0, buffer, w * 4, nullptr);
-	png_image_free(&png);
-
-	if (png.warning_or_error >= 2) {
-		ERROR_LOG(Log::IO, "Saving screenshot to PNG produced errors.");
-		success = false;
-	}
-	return success;
+	return pngSave(filename, buffer, w, h, 4);
 }
 
 bool Save8888RGBAScreenshot(std::vector<uint8_t> &bufferPNG, const u8 *bufferRGBA8888, int w, int h) {
