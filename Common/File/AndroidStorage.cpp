@@ -27,40 +27,69 @@ static jmethodID isExternalStoragePreservedLegacy;
 static jmethodID computeRecursiveDirectorySize;
 
 static jobject g_nativeActivity;
+static jclass g_classActivity;
 
-void Android_StorageSetNativeActivity(jobject nativeActivity) {
+void Android_StorageSetActivity(jobject nativeActivity) {
 	g_nativeActivity = nativeActivity;
 }
 
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
-	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;Ljava/lang/String;)I");
+	jclass localClass = env->FindClass("org/ppsspp/ppsspp/PpssppActivity");
+	_dbg_assert_(localClass);
+
+	openContentUri = env->GetStaticMethodID(localClass, "openContentUri", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
-	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
+	listContentUriDir = env->GetStaticMethodID(localClass, "listContentUriDir", "(Landroid/app/Activity;Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
-	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriCreateDirectory = env->GetStaticMethodID(localClass, "contentUriCreateDirectory", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
-	contentUriCreateFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriCreateFile = env->GetStaticMethodID(localClass, "contentUriCreateFile", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateFile);
-	contentUriCopyFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriCopyFile", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriCopyFile = env->GetStaticMethodID(localClass, "contentUriCopyFile", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCopyFile);
-	contentUriRemoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriRemoveFile", "(Ljava/lang/String;)I");
+	contentUriRemoveFile = env->GetStaticMethodID(localClass, "contentUriRemoveFile", "(Landroid/app/Activity;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRemoveFile);
-	contentUriMoveFile = env->GetMethodID(env->GetObjectClass(obj), "contentUriMoveFile", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriMoveFile = env->GetStaticMethodID(localClass, "contentUriMoveFile", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriMoveFile);
-	contentUriRenameFileTo = env->GetMethodID(env->GetObjectClass(obj), "contentUriRenameFileTo", "(Ljava/lang/String;Ljava/lang/String;)I");
+	contentUriRenameFileTo = env->GetStaticMethodID(localClass, "contentUriRenameFileTo", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriRenameFileTo);
-	contentUriGetFileInfo = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFileInfo", "(Ljava/lang/String;)Ljava/lang/String;");
+	contentUriGetFileInfo = env->GetStaticMethodID(localClass, "contentUriGetFileInfo", "(Landroid/app/Activity;Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(contentUriGetFileInfo);
-	contentUriFileExists = env->GetMethodID(env->GetObjectClass(obj), "contentUriFileExists", "(Ljava/lang/String;)Z");
+	contentUriFileExists = env->GetStaticMethodID(localClass, "contentUriFileExists", "(Landroid/app/Activity;Ljava/lang/String;)Z");
 	_dbg_assert_(contentUriFileExists);
-	contentUriGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "contentUriGetFreeStorageSpace", "(Ljava/lang/String;)J");
+	contentUriGetFreeStorageSpace = env->GetStaticMethodID(localClass, "contentUriGetFreeStorageSpace", "(Landroid/app/Activity;Ljava/lang/String;)J");
 	_dbg_assert_(contentUriGetFreeStorageSpace);
-	filePathGetFreeStorageSpace = env->GetMethodID(env->GetObjectClass(obj), "filePathGetFreeStorageSpace", "(Ljava/lang/String;)J");
+	filePathGetFreeStorageSpace = env->GetStaticMethodID(localClass, "filePathGetFreeStorageSpace", "(Landroid/app/Activity;Ljava/lang/String;)J");
 	_dbg_assert_(filePathGetFreeStorageSpace);
-	isExternalStoragePreservedLegacy = env->GetMethodID(env->GetObjectClass(obj), "isExternalStoragePreservedLegacy", "()Z");
+	isExternalStoragePreservedLegacy = env->GetStaticMethodID(localClass, "isExternalStoragePreservedLegacy", "()Z");  // doesn't need an activity
 	_dbg_assert_(isExternalStoragePreservedLegacy);
-	computeRecursiveDirectorySize = env->GetMethodID(env->GetObjectClass(obj), "computeRecursiveDirectorySize", "(Ljava/lang/String;)J");
+	computeRecursiveDirectorySize = env->GetStaticMethodID(localClass, "computeRecursiveDirectorySize", "(Landroid/app/Activity;Ljava/lang/String;)J");
 	_dbg_assert_(computeRecursiveDirectorySize);
+
+	g_classActivity = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
+	env->DeleteLocalRef(localClass); // cleanup local ref
+}
+
+void Android_UnregisterStorageCallbacks(JNIEnv * env) {
+	if (g_classActivity) {
+		env->DeleteGlobalRef(g_classActivity);
+		g_classActivity = nullptr;
+	}
+	g_nativeActivity = nullptr;
+	openContentUri = nullptr;
+	listContentUriDir = nullptr;
+	contentUriCreateFile = nullptr;
+	contentUriCreateDirectory = nullptr;
+	contentUriCopyFile = nullptr;
+	contentUriMoveFile = nullptr;
+	contentUriRemoveFile = nullptr;
+	contentUriRenameFileTo = nullptr;
+	contentUriGetFileInfo = nullptr;
+	contentUriFileExists = nullptr;
+	contentUriGetFreeStorageSpace = nullptr;
+	filePathGetFreeStorageSpace = nullptr;
+	isExternalStoragePreservedLegacy = nullptr;
+	computeRecursiveDirectorySize = nullptr;
 }
 
 bool Android_IsContentUri(std::string_view filename) {
@@ -69,6 +98,8 @@ bool Android_IsContentUri(std::string_view filename) {
 
 int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMode mode) {
 	if (!g_nativeActivity) {
+		// Hit this in shortcut creation.
+		ERROR_LOG(Log::IO, "Android_OpenContentUriFd: No native activity");
 		return -1;
 	}
 
@@ -94,7 +125,7 @@ int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMo
 	}
 	jstring j_filename = env->NewStringUTF(fname.c_str());
 	jstring j_mode = env->NewStringUTF(modeStr);
-	int fd = env->CallIntMethod(g_nativeActivity, openContentUri, j_filename, j_mode);
+	int fd = env->CallStaticIntMethod(g_classActivity, openContentUri, g_nativeActivity, j_filename, j_mode);
 	return fd;
 }
 
@@ -105,7 +136,7 @@ StorageError Android_CreateDirectory(const std::string &rootTreeUri, const std::
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
 	jstring paramDirName = env->NewStringUTF(dirName.c_str());
-	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCreateDirectory, paramRoot, paramDirName));
+	return StorageErrorFromInt(env->CallStaticIntMethod(g_classActivity, contentUriCreateDirectory, g_nativeActivity, paramRoot, paramDirName));
 }
 
 StorageError Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
@@ -115,7 +146,7 @@ StorageError Android_CreateFile(const std::string &parentTreeUri, const std::str
 	auto env = getEnv();
 	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
 	jstring paramFileName = env->NewStringUTF(fileName.c_str());
-	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCreateFile, paramRoot, paramFileName));
+	return StorageErrorFromInt(env->CallStaticIntMethod(g_classActivity, contentUriCreateFile, g_nativeActivity, paramRoot, paramFileName));
 }
 
 StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {
@@ -125,7 +156,7 @@ StorageError Android_CopyFile(const std::string &fileUri, const std::string &des
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
-	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriCopyFile, paramFileName, paramDestParentUri));
+	return StorageErrorFromInt(env->CallStaticIntMethod(g_classActivity, contentUriCopyFile, g_nativeActivity, paramFileName, paramDestParentUri));
 }
 
 StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) {
@@ -136,7 +167,7 @@ StorageError Android_MoveFile(const std::string &fileUri, const std::string &src
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
-	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriMoveFile, paramFileName, paramSrcParentUri, paramDestParentUri));
+	return StorageErrorFromInt(env->CallStaticIntMethod(g_classActivity, contentUriMoveFile, g_nativeActivity, paramFileName, paramSrcParentUri, paramDestParentUri));
 }
 
 StorageError Android_RemoveFile(const std::string &fileUri) {
@@ -145,7 +176,7 @@ StorageError Android_RemoveFile(const std::string &fileUri) {
 	}
 	auto env = getEnv();
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
-	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriRemoveFile, paramFileName));
+	return StorageErrorFromInt(env->CallStaticIntMethod(g_classActivity, contentUriRemoveFile, g_nativeActivity, paramFileName));
 }
 
 StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
@@ -155,7 +186,7 @@ StorageError Android_RenameFileTo(const std::string &fileUri, const std::string 
 	auto env = getEnv();
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 	jstring paramNewName = env->NewStringUTF(newName.c_str());
-	return StorageErrorFromInt(env->CallIntMethod(g_nativeActivity, contentUriRenameFileTo, paramFileUri, paramNewName));
+	return StorageErrorFromInt(env->CallStaticIntMethod(g_classActivity, contentUriRenameFileTo, g_nativeActivity, paramFileUri, paramNewName));
 }
 
 // NOTE: Does not set fullName - you're supposed to already know it.
@@ -201,7 +232,7 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 	auto env = getEnv();
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 
-	jstring str = (jstring)env->CallObjectMethod(g_nativeActivity, contentUriGetFileInfo, paramFileUri);
+	jstring str = (jstring)env->CallStaticObjectMethod(g_classActivity, contentUriGetFileInfo, g_nativeActivity, paramFileUri);
 	if (!str) {
 		return false;
 	}
@@ -219,7 +250,7 @@ bool Android_FileExists(const std::string &fileUri) {
 	}
 	auto env = getEnv();
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
-	bool exists = env->CallBooleanMethod(g_nativeActivity, contentUriFileExists, paramFileUri);
+	bool exists = env->CallStaticBooleanMethod(g_classActivity, contentUriFileExists, g_nativeActivity, paramFileUri);
 	return exists;
 }
 
@@ -234,7 +265,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 	double start = time_now_d();
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	jobject retval = env->CallObjectMethod(g_nativeActivity, listContentUriDir, param);
+	jobject retval = env->CallStaticObjectMethod(g_classActivity, listContentUriDir, g_nativeActivity, param);
 
 	jobjectArray fileList = (jobjectArray)retval;
 	std::vector<File::FileInfo> items;
@@ -275,7 +306,7 @@ int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
 	auto env = getEnv();
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	return env->CallLongMethod(g_nativeActivity, contentUriGetFreeStorageSpace, param);
+	return env->CallStaticLongMethod(g_classActivity, contentUriGetFreeStorageSpace, g_nativeActivity, param);
 }
 
 // Hm, this is never used? We use statvfs instead.
@@ -291,7 +322,7 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 	}
 
 	jstring param = env->NewStringUTF(filePath.c_str());
-	return env->CallLongMethod(g_nativeActivity, filePathGetFreeStorageSpace, param);
+	return env->CallStaticLongMethod(g_classActivity, filePathGetFreeStorageSpace, g_nativeActivity, param);
 }
 
 int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
@@ -303,7 +334,7 @@ int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
 	jstring param = env->NewStringUTF(uri.c_str());
 
 	double start = time_now_d();
-	int64_t size = env->CallLongMethod(g_nativeActivity, computeRecursiveDirectorySize, param);
+	int64_t size = env->CallStaticLongMethod(g_classActivity, computeRecursiveDirectorySize, g_nativeActivity, param);
 	double elapsed = time_now_d() - start;
 
 	INFO_LOG(Log::IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
@@ -315,7 +346,8 @@ bool Android_IsExternalStoragePreservedLegacy() {
 		return false;
 	}
 	auto env = getEnv();
-	return env->CallBooleanMethod(g_nativeActivity, isExternalStoragePreservedLegacy);
+	// Note: No activity param
+	return env->CallStaticBooleanMethod(g_classActivity, isExternalStoragePreservedLegacy);
 }
 
 const char *Android_ErrorToString(StorageError error) {

@@ -41,7 +41,7 @@ extern std::string g_nativeLibDir;
 
 #include <jni.h>
 
-void Android_StorageSetNativeActivity(jobject nativeActivity);
+void Android_StorageSetActivity(jobject nativeActivity);
 
 bool Android_IsContentUri(std::string_view uri);
 int Android_OpenContentUriFd(std::string_view uri, const Android_OpenContentUriMode mode);
@@ -65,7 +65,9 @@ const char *Android_ErrorToString(StorageError error);
 // TODO: prefix doesn't do anything yet.
 std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const std::string &prefix, bool *exists);
 
+// Don't need to add these below, they're only used from app-android.cpp.
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
+void Android_UnregisterStorageCallbacks(JNIEnv * env);
 
 #else
 

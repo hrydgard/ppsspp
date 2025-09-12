@@ -267,7 +267,6 @@ public abstract class NativeActivity extends AppCompatActivity implements Sensor
 		if (list == null) {
 			Log.i(TAG, "getSdCardPaths: Attempting fallback");
 			// Try another method.
-			String removableStoragePath;
 			list = new ArrayList<>();
 			File[] fileList = new File("/storage/").listFiles();
 			if (fileList != null) {
