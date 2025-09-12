@@ -56,7 +56,7 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 	std::string temp_path = inZipPath_ + path;
 
 	std::lock_guard<std::mutex> guard(lock_);
-	// Figure out the file size first.
+	// Figure out the file size first. TODO: Can this part be done without locking the mutex?
 	struct zip_stat zstat;
 	int retval = zip_stat(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
 	if (retval != 0) {

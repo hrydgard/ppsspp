@@ -16,7 +16,6 @@ enum class Effect {
 	FX_RED_TO_ALPHA_SOLID_WHITE = 1,   // for alpha fonts
 	FX_RED_TO_INTENSITY_ALPHA_255 = 2,
 	FX_PREMULTIPLY_ALPHA = 3,
-	FX_PINK_TO_ALPHA = 4,   // for alpha fonts
 	FX_INVALID = 5,
 };
 
@@ -96,8 +95,8 @@ inline bool operator<(const Data &lhs, const Data &rhs) {
 
 struct Bucket {
 	std::vector<std::pair<Image, Data> > items;
-	void AddItem(const Image &img, const Data &dat) {
-		items.push_back(std::make_pair(img, dat));
+	void AddItem(const Image &&img, const Data &dat) {
+		items.emplace_back(std::move(img), dat);
 	}
 	std::vector<Data> Resolve(int image_width, Image &dest);
 };

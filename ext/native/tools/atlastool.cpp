@@ -221,8 +221,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				missing_chars++;
 			}
 
-			Image img;
 			if (!foundMatch || filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER | FT_LOAD_MONOCHROME)) {
+				Image img;
 				img.resize(1, 1);
 				Data dat;
 
@@ -238,9 +238,10 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				dat.voffset = 0;
 				dat.charNum = kar;
 				dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
-				bucket->AddItem(img, dat);
+				bucket->AddItem(std::move(img), dat);
 				continue;
 			}
+			Image img;
 
 			// printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
 			const int bord = (128 + distmult - 1) / distmult + 1;
@@ -295,7 +296,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			dat.charNum = kar;
 
 			dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
-			bucket->AddItem(img, dat);
+			bucket->AddItem(std::move(img), dat);
 		}
 	}
 
@@ -731,11 +732,11 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 		header.numImages = (int)images.size();
 		fwrite(&header, 1, sizeof(header), meta);
 		// For each image
-		AtlasImage *atalas_images = new AtlasImage[images.size()];
+		AtlasImage *atlas_images = new AtlasImage[images.size()];
 		for (int i = 0; i < (int)images.size(); i++) {
-			atalas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
+			atlas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
 		}
-		WriteCompressed(atalas_images, sizeof(AtlasImage), images.size(), meta);
+		WriteCompressed(atlas_images, sizeof(AtlasImage), images.size(), meta);
 		// For each font
 		for (int i = 0; i < (int)fonts.size(); i++) {
 			auto &font = fonts[i];

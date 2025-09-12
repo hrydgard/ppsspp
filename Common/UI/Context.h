@@ -128,6 +128,8 @@ public:
 	void SetAtlasProvider(UIAtlasProviderFunc func) { atlasProvider_ = func; }
 
 private:
+	void GenerateUIAtlas();
+
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
 

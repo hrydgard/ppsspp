@@ -51,18 +51,27 @@ private:
 	size_t size_;
 };
 
-bool Atlas::Load(const uint8_t *data, size_t data_size) {
+void Atlas::Clear() {
+	num_images = 0;
+	num_fonts = 0;
+	delete[] images;
+	delete[] fonts;
+	images = nullptr;
+	fonts = nullptr;
+}
+
+bool Atlas::LoadMeta(const uint8_t *data, size_t data_size) {
 	ByteReader reader(data, data_size);
 
 	AtlasHeader header = reader.Read<AtlasHeader>();
-	num_images = header.numImages;
-	num_fonts = header.numFonts;
 	if (header.magic != ATLAS_MAGIC) {
 		return false;
 	}
 
-	delete[] images;
-	delete[] fonts;
+	Clear();
+
+	num_images = header.numImages;
+	num_fonts = header.numFonts;
 
 	images = reader.ReadMultipleAlloc<AtlasImage>(num_images, header.version >= 1);
 	fonts = new AtlasFont[num_fonts];

@@ -13,6 +13,11 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/LogReporting.h"
+#include "Common/Render/AtlasGen.h"
+
+// The generated atlas.. This is temporary.
+std::vector<AtlasImage> genAtlasImages;
+Atlas genAtlas;
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();

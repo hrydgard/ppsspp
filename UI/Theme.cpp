@@ -27,6 +27,8 @@
 #include "Common/File/DirListing.h"
 #include "Common/Log/LogManager.h"
 #include "Common/Render/ManagedTexture.h"
+#include "Common/Render/AtlasGen.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/Config.h"
 
@@ -175,7 +177,7 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 static void LoadAtlasMetadata(Atlas &metadata, const char *filename) {
 	size_t atlas_data_size = 0;
 	const uint8_t *atlas_data = g_VFS.ReadFile(filename, &atlas_data_size);
-	bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
+	bool load_success = atlas_data != nullptr && metadata.LoadMeta(atlas_data, atlas_data_size);
 	if (!load_success) {
 		ERROR_LOG(Log::G3D, "Failed to load %s - graphics may be broken", filename);
 		// Stumble along with broken visuals instead of dying...
@@ -278,16 +280,171 @@ std::vector<std::string> GetThemeInfoNames() {
 	return names;
 }
 
+Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
+	// can't be const, yet...
+	ImageDesc images[] = {
+		{"I_SOLIDWHITE", "white.png"},
+		{"I_CROSS", "cross.png"},
+		{"I_CIRCLE", "circle.png"},
+		{"I_SQUARE", "square.png"},
+		{"I_TRIANGLE", "triangle.png"},
+		{"I_SELECT", "select.png"},
+		{"I_START", "start.png"},
+		{"I_ARROW", "arrow.png"},
+		{"I_DIR", "dir.png"},
+		{"I_ROUND", "round.png"},
+		{"I_RECT", "rect.png"},
+		{"I_STICK", "stick.png"},
+		{"I_STICK_BG", "stick_bg.png"},
+		{"I_SHOULDER", "shoulder.png"},
+		{"I_DIR_LINE", "dir_line.png"},
+		{"I_ROUND_LINE", "round_line.png"},
+		{"I_RECT_LINE", "rect_line.png"},
+		{"I_SHOULDER_LINE", "shoulder_line.png"},
+		{"I_STICK_LINE", "stick_line.png"},
+		{"I_STICK_BG_LINE", "stick_bg_line.png"},
+		{"I_CHECKEDBOX", "checkedbox.png"},
+		{"I_BG", "background2.png"},
+		{"I_L", "L.png"},
+		{"I_R", "R.png"},
+		{"I_DROP_SHADOW", "dropshadow.png"},
+		{"I_LINES", "lines.png"},
+		{"I_GRID", "grid.png"},
+		{"I_LOGO", "logo.png"},
+		{"I_ICON", "icon_regular_72.png"},
+		{"I_ICONGOLD", "icon_gold_72.png"},
+		{"I_FOLDER", "folder_line.png"},
+		{"I_UP_DIRECTORY", "up_line.png"},
+		{"I_GEAR", "gear.png"},
+		{"I_1", "1.png"},
+		{"I_2", "2.png"},
+		{"I_3", "3.png"},
+		{"I_4", "4.png"},
+		{"I_5", "5.png"},
+		{"I_6", "6.png"},
+		{"I_PSP_DISPLAY", "psp_display.png"},
+		{"I_FLAG_JP", "flag_jp.png"},
+		{"I_FLAG_US", "flag_us.png"},
+		{"I_FLAG_EU", "flag_eu.png"},
+		{"I_FLAG_HK", "flag_hk.png"},
+		{"I_FLAG_AS", "flag_as.png"},
+		{"I_FLAG_KO", "flag_ko.png"},
+		{"I_FULLSCREEN", "fullscreen.png"},
+		{"I_RESTORE", "restore.png"},
+		{"I_SDCARD", "sdcard.png"},
+		{"I_HOME", "home.png"},
+		{"I_A", "a.png"},
+		{"I_B", "b.png"},
+		{"I_C", "c.png"},
+		{"I_D", "d.png"},
+		{"I_E", "e.png"},
+		{"I_F", "f.png"},
+		{"I_SQUARE_SHAPE", "square_shape.png"},
+		{"I_SQUARE_SHAPE_LINE", "square_shape_line.png"},
+		{"I_FOLDER_OPEN", "folder_open_line.png"},
+		{"I_WARNING", "warning.png"},
+		{"I_TRASHCAN", "trashcan.png"},
+		{"I_PLUS", "plus.png"},
+		{"I_ROTATE_LEFT", "rotate_left.png"},
+		{"I_ROTATE_RIGHT", "rotate_right.png"},
+		{"I_ARROW_LEFT", "arrow_left.png"},
+		{"I_ARROW_RIGHT", "arrow_right.png"},
+		{"I_ARROW_UP", "arrow_up.png"},
+		{"I_ARROW_DOWN", "arrow_down.png"},
+		{"I_SLIDERS", "sliders.png"},
+		{"I_THREE_DOTS", "three_dots.png"},
+		{"I_INFO", "info.png"},
+		{"I_RETROACHIEVEMENTS_LOGO", "retroachievements_logo.png"},
+		{"I_CHECKMARK", "checkmark.png"},
+		{"I_PLAY", "play.png"},
+		{"I_STOP", "stop.png"},
+		{"I_PAUSE", "pause.png"},
+		{"I_FASTFORWARD", "fast_forward.png"},
+		{"I_RECORD", "record.png"},
+		{"I_SPEAKER", "speaker.png"},
+		{"I_SPEAKER_MAX", "speaker_max.png"},
+		{"I_SPEAKER_OFF", "speaker_off.png"},
+		{"I_WINNER_CUP", "winner_cup.png"},
+		{"I_EMPTY", "empty.png"},
+	};
+	int global_id = 0;
+
+	Instant start = Instant::Now();
+
+	Bucket bucket;
+
+	// Script fully read, now read images and rasterize the fonts.
+	std::vector<int> resultIds;
+	resultIds.reserve(ARRAY_SIZE(images));
+	for (auto &image : images) {
+		std::string name = "ui_images/";
+		if (image.fileName == "white.png") {
+			name = "white.png";
+		} else {
+			name.append(image.fileName);
+		}
+		image.result_index = (int)bucket.items.size();
+		if (!LoadImage(name.c_str(), image.effect, &bucket, global_id)) {
+			ERROR_LOG(Log::G3D, "Failed to load image %s\n", image.fileName.c_str());
+		}
+	}
+	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.items.size(), start.ElapsedMs());
+
+	int image_width = 512;
+	Image dest;
+
+	Instant now = Instant::Now();
+	std::vector<Data> results = bucket.Resolve(image_width, dest);
+	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms\n", results.size(), now.ElapsedMs());
+
+	// Need to sort the results by ID, after the bucket messed up the order.
+	sort(results.begin(), results.end());
+
+	// Fill out the atlas structure.
+	std::vector<AtlasImage> genAtlasImages;
+	genAtlasImages.reserve(ARRAY_SIZE(images));
+	for (int i = 0; i < ARRAY_SIZE(images); i++) {
+		genAtlasImages.push_back(images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results));
+	}
+
+	atlas->Clear();
+	atlas->images = new AtlasImage[genAtlasImages.size()];
+	std::copy(genAtlasImages.begin(), genAtlasImages.end(), atlas->images);
+	atlas->num_images = (int)genAtlasImages.size();
+
+	// For debug, write out the atlas.
+	// dest.SavePNG("../gen.png");
+
+	// Then, create the texture too.
+	Draw::TextureDesc desc{};
+	desc.width = image_width;
+	desc.height = dest.height();
+	desc.depth = 1;
+	desc.mipLevels = 1;
+	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+	desc.type = Draw::TextureType::LINEAR2D;
+	desc.initData.push_back((const u8 *)dest.data());
+	desc.tag = "UIAtlas";
+
+	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images\n", start.ElapsedMs(), desc.width, desc.height, genAtlasImages.size());
+	return draw->CreateTexture(desc);
+}
+
 AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas) {
 	switch (atlas) {
 	case AtlasChoice::General:
 	{
+		// Generate the atlas from scratch.
+		Draw::Texture *tex = GenerateUIAtlas(draw, &ui_atlas);
+		return { &ui_atlas, tex };
+
 		// Load any missing atlas metadata (the images are loaded from UIContext).
+		/*
 		LoadAtlasMetadata(ui_atlas, "ui_atlas.meta");
 		return {
 			&ui_atlas,
 			CreateTextureFromFile(draw, "ui_atlas.zim", ImageFileType::ZIM, false)
-		};
+		};*/
 	}
 	case AtlasChoice::Font:
 	{
