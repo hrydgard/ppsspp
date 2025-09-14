@@ -39,18 +39,12 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 	textDrawer_ = TextDrawer::Create(thin3d);  // May return nullptr if no implementation is available for this platform.
 }
 
-void UIContext::setUIAtlas(const std::string &name) {
-	_dbg_assert_(!name.empty());
-	UIAtlas_ = name;
-}
-
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
-	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
-		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
-		lastUIAtlas_ = UIAtlas_;
+	if (!uitexture_) {
+		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas.zim", ImageFileType::ZIM, false);
 		if (!fontTexture_) {
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 			// Don't bother with loading font_atlas.zim
 #else
 			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);

@@ -137,7 +137,4 @@ private:
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;
-
-	std::string lastUIAtlas_;
-	std::string UIAtlas_ = "ui_atlas.zim";
 };

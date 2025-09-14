@@ -62,8 +62,6 @@ struct ThemeInfo {
 	uint32_t uPopupSliderColor = 0xFFFFFFFF;
 	uint32_t uPopupSliderFocusedColor = 0xFFEDC24C;
 
-	std::string sUIAtlas = "ui_atlas";
-
 	bool operator == (const std::string &other) {
 		return name == other;
 	}
@@ -75,6 +73,7 @@ struct ThemeInfo {
 static UI::Theme ui_theme;
 static std::vector<ThemeInfo> themeInfos;
 
+// TODO: Don't really belong here.
 static Atlas ui_atlas;
 static Atlas font_atlas;
 
@@ -159,23 +158,6 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupSliderColor", &info.uPopupSliderColor, info.uPopupSliderColor);
 				section.Get("PopupSliderFocusedColor", &info.uPopupSliderFocusedColor, info.uPopupSliderFocusedColor);
 
-				std::string tmpPath;
-				section.Get("UIAtlas", &tmpPath, "");
-				if (!tmpPath.empty()) {
-					if (tmpPath == "../ui_atlas") {
-						// Do nothing.
-					} else {
-						// WARNING: Note that the below appears to be entirely broken. ..-navigation doesn't work on zip VFS.
-						INFO_LOG(Log::System, "Checking %s", tmpPath.c_str());
-						tmpPath = (path / tmpPath).ToString();
-						if (g_VFS.Exists((tmpPath + ".meta").c_str()) && g_VFS.Exists((tmpPath + ".zim").c_str())) {
-							// INFO_LOG(Log::System, "%s exists", tmpPath.c_str());
-							info.sUIAtlas = tmpPath;
-						} else {
-							INFO_LOG(Log::System, "%s.meta/zim doesn't exist, not overriding atlas", tmpPath.c_str());
-						}
-					}
-				}
 				appendTheme(info);
 			}
 		}
@@ -271,14 +253,12 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.popupSliderFocusedColor = themeInfo.uPopupSliderFocusedColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).
-	LoadAtlasMetadata(ui_atlas, (themeInfo.sUIAtlas + ".meta").c_str(), true);
+	LoadAtlasMetadata(ui_atlas, "ui_atlas.meta", true);
 #if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 	LoadAtlasMetadata(font_atlas, "font_atlas.meta", ui_atlas.num_fonts == 0);
 #else
 	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
 #endif
-
-	ctx->setUIAtlas(themeInfo.sUIAtlas + ".zim");
 }
 
 UI::Theme *GetTheme() {
