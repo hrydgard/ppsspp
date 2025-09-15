@@ -626,7 +626,7 @@ public:
 	void DrawPSP(UIContext &dc, float xoff, float yoff, uint32_t color) {
 		using namespace UI;
 
-		const AtlasImage *whiteImage = dc.Draw()->GetAtlas()->getImage(dc.theme->whiteImage);
+		const AtlasImage *whiteImage = dc.Draw()->GetAtlas()->getImage(dc.GetTheme().whiteImage);
 		float centerU = (whiteImage->u1 + whiteImage->u2) * 0.5f;
 		float centerV = (whiteImage->v1 + whiteImage->v2) * 0.5f;
 
@@ -702,7 +702,7 @@ public:
 	void Draw(UIContext &dc) override {
 		uint32_t c = 0xFFFFFFFF;
 		if (HasFocus() || Selected())
-			c = dc.theme->itemFocusedStyle.background.color;
+			c = dc.GetTheme().itemFocusedStyle.background.color;
 
 		float scales[2]{};
 		if (bgImg_.isValid())
@@ -713,7 +713,7 @@ public:
 			if (timeLastPressed_ >= 0.0) {
 				double sincePress = time_now_d() - timeLastPressed_;
 				if (sincePress < 1.0) {
-					c = colorBlend(c, dc.theme->itemDownStyle.background.color, (float)sincePress);
+					c = colorBlend(c, dc.GetTheme().itemDownStyle.background.color, (float)sincePress);
 				}
 			}
 			dc.Draw()->DrawImageRotatedStretch(img_, bounds_.Offset(offsetX_, offsetY_), scales, angle_, c);

@@ -458,7 +458,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 		// I_BG original color: 0xFF754D24
 		ImageID img = ImageID("I_BG");
 		dc.Begin();
-		dc.Draw()->DrawImageStretch(img, dc.GetBounds(), bgColor & dc.theme->backgroundColor);
+		dc.Draw()->DrawImageStretch(img, dc.GetBounds(), bgColor & dc.GetTheme().backgroundColor);
 		dc.Flush();
 	}
 
@@ -873,7 +873,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	float alphaText = alpha;
 	if (t > 2.0f)
 		alphaText = 3.0f - t;
-	uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alphaText);
+	uint32_t textColor = colorAlpha(dc.GetTheme().infoStyle.fgColor, alphaText);
 
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -889,7 +889,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, 0xFFFFFFFF, ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", bounds.w / 2, bounds.h / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
 	dc.DrawText(cr->T_cstr("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
 
@@ -1161,7 +1161,7 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	float y = bounds.y2() - fmodf(t, (float)totalHeight);
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
-		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);
+		uint32_t textColor = colorAlpha(dc.GetTheme().infoStyle.fgColor, alpha);
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
@@ -1217,7 +1217,7 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
 	}
 
-	UI::Style style = dc.theme->tooltipStyle;
+	UI::Style style = dc.GetTheme().tooltipStyle;
 
 	if (alpha >= 0.001f) {
 		uint32_t bgColor = alphaMul(style.background.color, alpha);

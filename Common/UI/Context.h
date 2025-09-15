@@ -111,14 +111,14 @@ public:
 	void PopTransform();
 	Bounds TransformBounds(const Bounds &bounds);
 
-	void setUIAtlas(const std::string &name);
-
-	// TODO: Move to private.
-	const UI::Theme *theme;
+	void SetTheme(const UI::Theme *theme) { this->theme = theme; }
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
+
+	// TODO: Move to private.
+	const UI::Theme *theme;
 
 	double frameStartTime_ = 0.0;
 

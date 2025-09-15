@@ -69,13 +69,13 @@ static NoticeLevel GetNoticeLevel(OSDType type) {
 
 // Align only matters here for the ASCII-only flag.
 static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float *width, float *height, float *height1) {
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text, width, height, align);
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text, width, height, align);
 
 	*height1 = *height;
 
 	float width2 = 0.0f, height2 = 0.0f;
 	if (!details.empty()) {
-		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, details, &width2, &height2, align);
+		dc.MeasureText(dc.GetTheme().uiFont, extraTextScale, extraTextScale, details, &width2, &height2, align);
 		*width = std::max(*width, width2);
 	}
 
@@ -232,7 +232,7 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &en
 		dc.FillRect(background, bounds);
 	}
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
 	dc.DrawTextShadowRect(entry.text, bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
@@ -250,7 +250,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	UI::Drawable background = UI::Drawable(backgroundColor);
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 	dc.FillRect(background, bounds);
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextShadowRect(text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
 }
@@ -317,7 +317,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::STATUS_ICON] = ScreenEdgePosition::TOP_LEFT;
 	typeEdges[(size_t)OSDType::PROGRESS_BAR] = ScreenEdgePosition::TOP_CENTER;  // These only function at the top currently, needs fixing.
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
 	// First pass: Measure all the sides.

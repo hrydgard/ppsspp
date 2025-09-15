@@ -192,7 +192,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	}
 
 	if (HasFocus()) {
-		dc.FillRect(dc.theme->itemFocusedStyle.background, bounds_.Expand(3));
+		dc.FillRect(dc.GetTheme().itemFocusedStyle.background, bounds_.Expand(3));
 	}
 
 	// TODO: involve sizemode

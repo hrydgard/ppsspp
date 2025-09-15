@@ -185,7 +185,7 @@ static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool requir
 	delete[] atlas_data;
 }
 
-void UpdateTheme(UIContext *ctx) {
+void UpdateTheme() {
 	// First run, get the default in at least
 	if (themeInfos.empty()) {
 		ReloadAllThemeInfo();

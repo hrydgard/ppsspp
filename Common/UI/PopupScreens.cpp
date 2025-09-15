@@ -428,7 +428,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
-	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
+	edit_->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = true;
@@ -436,7 +436,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	changing_ = false;
 	lin->Add(edit_);
 	if (!units_.empty())
-		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
+		lin->Add(new TextView(units_))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -587,7 +587,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
 	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(maxLen_);
-	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
+	edit_->SetTextColor(dc.GetTheme().popupStyle.fgColor);
 	edit_->SetPasswordMasking(passwordMasking_);
 	lin->Add(edit_);
 
@@ -615,7 +615,7 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 	Bounds availBounds(0, 0, availWidth, vert.size);
 
 	float valueW, valueH;
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText, availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	valueW += paddingX;
 
 	// Give the choice itself less space to grow in, so it shrinks if needed.
@@ -632,18 +632,18 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 }
 
 void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
+	Style style = dc.GetTheme().itemStyle;
 	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
+		style = dc.GetTheme().itemDisabledStyle;
 	}
 	if (HasFocus()) {
-		style = dc.theme->itemFocusedStyle;
+		style = dc.GetTheme().itemFocusedStyle;
 	}
 	if (down_) {
-		style = dc.theme->itemDownStyle;
+		style = dc.GetTheme().itemDownStyle;
 	}
 	int paddingX = 12;
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	std::string valueText = ValueText();
 
@@ -660,7 +660,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 
 		float w, h;
 		Bounds availBounds(0, 0, availWidth, bounds_.h);
-		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText, availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		textPadding_.right = w + paddingX;
 
 		Choice::Draw(dc);
@@ -684,7 +684,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const {
 	float actualWidth, actualHeight;
 	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, valueText, availBounds, &actualWidth, &actualHeight);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, valueText, availBounds, &actualWidth, &actualHeight);
 	if (actualWidth > availWidth) {
 		return std::max(0.8f, availWidth / actualWidth);
 	}

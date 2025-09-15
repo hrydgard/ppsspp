@@ -1244,8 +1244,8 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), I18NCat::SYSTEM, screenManager()));
 
 	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Theme"), GetThemeInfoNames(), I18NCat::THEMES, screenManager()));
-	theme->OnChoice.Add([=](EventParams &e) {
-		UpdateTheme(screenManager()->getUIContext());
+	theme->OnChoice.Add([](EventParams &e) {
+		UpdateTheme();
 		// Reset the tint/saturation if the theme changed.
 		if (e.b) {
 			g_Config.fUITint = 0.0f;

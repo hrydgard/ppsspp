@@ -417,7 +417,7 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	*w = 0.0f;
 	switch (style) {
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, achievement->measured_progress, w, h);
+		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, achievement->measured_progress, w, h);
 		*w += 44.0f + 4.0f * 3.0f;
 		*h = 44.0f;
 		break;
@@ -436,9 +436,9 @@ static void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	float tw, th;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
 
-	dc.MeasureText(dc.theme->uiFont, 0.66f, 0.66f, description, w, h);
+	dc.MeasureText(dc.GetTheme().uiFont, 0.66f, 0.66f, description, w, h);
 	*h += 8.0f + th;
 	*w += 8.0f;
 }
@@ -456,10 +456,10 @@ static void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderb
 // Graphical
 void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
-	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
+	UI::Drawable background = UI::Drawable(dc.GetTheme().backgroundColor);
 
 	if (hasFocus) {
-		background = dc.theme->itemFocusedStyle.background;
+		background = dc.GetTheme().itemFocusedStyle.background;
 	}
 
 	_assert_(achievement);
@@ -478,7 +478,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	int iconState = achievement->state;
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -503,7 +503,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.Flush();
 	dc.Begin();
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	char temp[512];
 
@@ -580,10 +580,10 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha, const rc_client_game_t *gameInfo) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = dc.GetTheme().itemStyle.background;
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	float iconSpace = 64.0f;
 	dc.Flush();
@@ -591,7 +591,7 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -620,13 +620,13 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 
 static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = dc.GetTheme().itemStyle.background;
 	if (hasFocus) {
-		background = dc.theme->itemFocusedStyle.background;
+		background = dc.GetTheme().itemFocusedStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -638,7 +638,7 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -663,16 +663,16 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 
 static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = dc.GetTheme().itemStyle.background;
 	if (hasFocus) {
-		background = dc.theme->itemFocusedStyle.background;
+		background = dc.GetTheme().itemFocusedStyle.background;
 	}
 	if (isCurrentUser) {
-		background = dc.theme->itemDownStyle.background;
+		background = dc.GetTheme().itemDownStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	float iconSize = 64.0f;
 	float numberSpace = 128.0f;
@@ -689,7 +689,7 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.5f, 1.5f);
 	dc.DrawTextRect(StringFromFormat("%d", entry->rank), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);

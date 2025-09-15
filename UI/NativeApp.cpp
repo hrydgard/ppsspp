@@ -842,8 +842,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_draw2d.SetFontAtlas(GetFontAtlas());
 
 	uiContext = new UIContext();
-	uiContext->theme = GetTheme();
-	UpdateTheme(uiContext);
+	uiContext->SetTheme(GetTheme());
+	UpdateTheme();
 
 	ui_draw2d.Init(g_draw, texColorPipeline);
 
