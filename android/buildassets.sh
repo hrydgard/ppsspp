@@ -10,3 +10,4 @@ cp ../assets/*.ini assets/
 cp ../assets/Roboto-Condensed.ttf assets/
 cp -r ../assets/flash0 assets/
 cp -r ../assets/lang assets/
+cp -r ../assets/ui_images assets/
