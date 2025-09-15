@@ -117,8 +117,7 @@ private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
 
-	// TODO: Move to private.
-	const UI::Theme *theme;
+	const UI::Theme *theme = nullptr;
 
 	double frameStartTime_ = 0.0;
 
