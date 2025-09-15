@@ -42,22 +42,17 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
 	if (!uitexture_) {
-		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas.zim", ImageFileType::ZIM, false);
-		if (!fontTexture_) {
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-			// Don't bother with loading font_atlas.zim
-#else
-			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
-#endif
-			if (!fontTexture_) {
-				// Load the smaller ascii font only, like on Android. For debug ui etc.
-				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
-				if (!fontTexture_) {
-					WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
-				}
-			}
-		}
+		AtlasData data = atlasProvider_(draw_, AtlasChoice::General);
+		uitexture_ = data.texture;
+		ui_draw2d.SetAtlas(data.atlas);
 	}
+
+	if (!fontTexture_) {
+		AtlasData data = atlasProvider_(draw_, AtlasChoice::Font);
+		fontTexture_ = data.texture;
+		ui_draw2d.SetFontAtlas(data.atlas);
+	}
+
 	uidrawbuffer_->SetCurZ(0.0f);
 	ActivateTopScissor();
 }
