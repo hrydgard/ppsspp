@@ -47,9 +47,7 @@
 #include "UI/RemoteISOScreen.h"
 #include "UI/OnScreenDisplay.h"
 
-using namespace UI;
-
-static const char *REPORT_HOSTNAME = "report.ppsspp.org";
+static const char * const REPORT_HOSTNAME = "report.ppsspp.org";
 static const int REPORT_PORT = 80;
 
 static bool scanCancelled = false;
@@ -296,9 +294,9 @@ void RemoteISOScreen::update() {
 	if (!WebServerStopped(WebServerFlags::DISCS) && frameCount_ > 60) {
 		auto result = IsServerAllowed(g_Config.iRemoteISOPort);
 		if (result == ServerAllowStatus::NO) {
-			firewallWarning_->SetVisibility(V_VISIBLE);
+			firewallWarning_->SetVisibility(UI::V_VISIBLE);
 		} else if (result == ServerAllowStatus::YES) {
-			firewallWarning_->SetVisibility(V_GONE);
+			firewallWarning_->SetVisibility(UI::V_GONE);
 		}
 		frameCount_ = 0;
 	}
@@ -317,6 +315,8 @@ void RemoteISOScreen::update() {
 void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
+
+	using namespace UI;
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -367,6 +367,8 @@ void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 
 void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 	serverRunning_ = !WebServerStopped(WebServerFlags::DISCS);
+
+	using namespace UI;
 
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
@@ -419,34 +421,28 @@ static void CleanupRemoteISOSubdir() {
 }
 
 
-UI::EventReturn RemoteISOScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
+void RemoteISOScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
 	CleanupRemoteISOSubdir();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
+void RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
 	frameCount_ = 0;
 	if (!StartWebServer(WebServerFlags::DISCS)) {
-		return EVENT_SKIPPED;
+		return;
 	}
-
-	return EVENT_DONE;
 }
 
-UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
+void RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 	if (!StopWebServer(WebServerFlags::DISCS)) {
-		return EVENT_SKIPPED;
+		return;
 	}
 
 	serverStopping_ = true;
 	RecreateViews();
-
-	return EVENT_DONE;
 }
 
-UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
+void RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 	screenManager()->push(new RemoteISOConnectScreen());
-	return EVENT_DONE;
 }
 
 RemoteISOConnectScreen::RemoteISOConnectScreen() {
@@ -477,6 +473,8 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 void RemoteISOConnectScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
+
+	using namespace UI;
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -594,6 +592,8 @@ void RemoteISOBrowseScreen::CreateViews() {
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	bool vertical = UseVerticalLayout();
+
+	using namespace UI;
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;

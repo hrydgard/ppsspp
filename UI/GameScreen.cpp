@@ -227,7 +227,6 @@ void GameScreen::CreateViews() {
 					System_CopyStringToClipboard(buffer);
 					// Success indication. Not worth a translatable string.
 					g_OSD.Show(OSDType::MESSAGE_SUCCESS, buffer, 1.0f);
-					return UI::EVENT_DONE;
 				});
 			}
 
@@ -338,7 +337,6 @@ void GameScreen::CreateViews() {
 				System_CreateGameShortcut(gamePath_, info->GetTitle());
 				g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetI18NCategory(I18NCat::DIALOG)->T("Desktop shortcut created"), 2.0f);
 			}
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -354,7 +352,6 @@ void GameScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 		rightColumnItems->Add(new Choice(di->T("Show in folder")))->OnClick.Add([this](UI::EventParams &e) {
 			System_ShowFileInFolder(gamePath_);
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -374,25 +371,23 @@ void GameScreen::CreateViews() {
 		btnCalcCRC->OnClick.Add([this](UI::EventParams &) {
 			CRC32string = "...";
 			Reporting::QueueCRC(gamePath_);
-			return UI::EVENT_DONE;
 		});
 	}
 }
 
-UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
+void GameScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-		return UI::EVENT_SKIPPED;
+		return;
 	}
 	g_Config.createGameConfig(info->id);
 	g_Config.saveGameConfig(info->id, info->GetTitle());
 	info->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e) {
+void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
@@ -408,7 +403,6 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e) {
 			RecreateViews();
 		}
 	}));
-	return UI::EVENT_DONE;
 }
 
 ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
@@ -455,22 +449,19 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	return UIScreen::render(mode);
 }
 
-UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
+void GameScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
+void GameScreen::OnSwitchBack(UI::EventParams &e) {
 	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
+void GameScreen::OnPlay(UI::EventParams &e) {
 	screenManager()->switchScreen(new EmuScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
+void GameScreen::OnGameSettings(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info && info->Ready(GameInfoFlags::PARAM_SFO)) {
 		std::string discID = info->GetParamSFO().GetValueString("DISC_ID");
@@ -478,10 +469,9 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 			discID = g_paramSFO.GenerateFakeID(gamePath_);
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
+void GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
 	if (info) {
 		// Check that there's any savedata to delete
@@ -502,10 +492,9 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 		}
 	}
 	RecreateViews();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
+void GameScreen::OnDeleteGame(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -527,13 +516,11 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 			}
 		}));
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
+void GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 	g_recentFiles.Remove(gamePath_.ToString());
 	screenManager()->switchScreen(new MainScreen());
-	return UI::EVENT_DONE;
 }
 
 class SetBackgroundPopupScreen : public PopupScreen {
@@ -596,7 +583,7 @@ void SetBackgroundPopupScreen::update() {
 	}
 }
 
-UI::EventReturn GameScreen::OnSetBackground(UI::EventParams &e) {
+void GameScreen::OnSetBackground(UI::EventParams &e) {
 	auto ga = GetI18NCategory(I18NCat::GAME);
 	// This popup is used to prevent any race condition:
 	// g_gameInfoCache may take time to load the data, and a crash could happen if they exit before then.
@@ -604,5 +591,4 @@ UI::EventReturn GameScreen::OnSetBackground(UI::EventParams &e) {
 	if (e.v)
 		pop->SetPopupOrigin(e.v);
 	screenManager()->push(pop);
-	return UI::EVENT_DONE;
 }

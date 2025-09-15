@@ -40,8 +40,8 @@ protected:
 	void CreateViews() override;
 
 private:
-	UI::EventReturn OnInstall(UI::EventParams &params);
-	UI::EventReturn OnPlay(UI::EventParams &params);
+	void OnInstall(UI::EventParams &params);
+	void OnPlay(UI::EventParams &params);
 
 	UI::Choice *installChoice_ = nullptr;
 	UI::Choice *playChoice_ = nullptr;

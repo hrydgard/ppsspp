@@ -158,7 +158,6 @@ void InstallZipScreen::CreateViews() {
 				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 					rightCompare->Add(new Button(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
 						System_ShowFileInFolder(savedataToOverwrite_);
-						return UI::EVENT_DONE;
 					});
 				}
 			}
@@ -207,7 +206,7 @@ bool InstallZipScreen::key(const KeyInput &key) {
 	return false;
 }
 
-UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
+void InstallZipScreen::OnInstall(UI::EventParams &params) {
 	ZipFileTask task;
 	task.url = zipPath_;
 	task.fileName = zipPath_;
@@ -225,12 +224,10 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 			installChoice_->SetEnabled(false);
 		}
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn InstallZipScreen::OnPlay(UI::EventParams &params) {
+void InstallZipScreen::OnPlay(UI::EventParams &params) {
 	screenManager()->switchScreen(new EmuScreen(zipPath_));
-	return UI::EVENT_DONE;
 }
 
 void InstallZipScreen::update() {

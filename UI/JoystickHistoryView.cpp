@@ -44,7 +44,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			bx = bx * minRadius + bounds_.centerX();
 			by = by * minRadius + bounds_.centerY();
 
-			dc.Draw()->Line(dc.theme->whiteImage, ax, ay, bx, by, 1.0, 0x70FFFFFF);
+			dc.Draw()->Line(dc.GetTheme().whiteImage, ax, ay, bx, by, 1.0, 0x70FFFFFF);
 		}
 	}
 
@@ -68,7 +68,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			bx = bx * minRadius + bounds_.centerX();
 			by = by * minRadius + bounds_.centerY();
 
-			dc.Draw()->Line(dc.theme->whiteImage, ax, ay, bx, by, 1.0, 0x70FFFFFF);
+			dc.Draw()->Line(dc.GetTheme().whiteImage, ax, ay, bx, by, 1.0, 0x70FFFFFF);
 		}
 	}
 

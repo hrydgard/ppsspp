@@ -98,10 +98,10 @@ public:
 		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
 	}
 
-	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
+	void ClickInternal() override;
 	const rc_client_achievement_t *achievement_;
 };
 

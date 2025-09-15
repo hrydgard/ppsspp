@@ -211,13 +211,6 @@ enum MeasureSpecType {
 	AT_MOST,
 };
 
-// I hope I can find a way to simplify this one day.
-enum EventReturn {
-	EVENT_DONE,  // Return this when no other view may process this event, for example if you changed the view hierarchy
-	EVENT_SKIPPED,  // Return this if you ignored an event
-	EVENT_CONTINUE,  // Return this if it's safe to send this event to further listeners. This should normally be the default choice but often EVENT_DONE is necessary.
-};
-
 enum FocusFlags {
 	FF_LOSTFOCUS = 1,
 	FF_GOTFOCUS = 2
@@ -253,9 +246,7 @@ struct EventParams {
 	std::string s;
 };
 
-struct HandlerRegistration {
-	std::function<EventReturn(EventParams&)> func;
-};
+typedef std::function<void(EventParams &)> EventCallback;
 
 class Event {
 public:
@@ -264,20 +255,20 @@ public:
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
 	// Call this from UI thread
-	EventReturn Dispatch(EventParams &e);
+	void Dispatch(EventParams &e);
 
 	// This is now the suggested default way to bind a handler - just used a lambda, and if necessary call other functions.
-	void Add(std::function<EventReturn(EventParams &)> func);
+	void Add(EventCallback func);
 
 	// The old way of doing things.
 	template<class T>
-	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &)) {
+	T *Handle(T *thiz, void (T::* theCallback)(EventParams &)) {
 		Add(std::bind(theCallback, thiz, std::placeholders::_1));
 		return thiz;
 	}
 
 private:
-	std::vector<HandlerRegistration> handlers_;
+	std::function<void(EventParams&)> func_;
 	DISALLOW_COPY_AND_ASSIGN(Event);
 };
 
@@ -542,7 +533,7 @@ protected:
 	// Internal method that fires on a click. Default behaviour is to trigger
 	// the event.
 	// Use it for checking/unchecking checkboxes, etc.
-	virtual void Click();
+	virtual void ClickInternal();
 	void DrawBG(UIContext &dc, const Style &style);
 
 	CallbackColorTween *bgColor_ = nullptr;
@@ -561,7 +552,6 @@ public:
 	Button(std::string_view text, ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
-	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	std::string_view GetText() const { return text_; }
@@ -581,6 +571,7 @@ public:
 		scale_ = f;
 	}
 private:
+	void ClickInternal() override;
 	Style style_;
 	std::string text_;
 	ImageID imageID_;
@@ -594,12 +585,12 @@ class RadioButton : public Clickable {
 public:
 	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
-	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	std::string DescribeText() const override;
 
 private:
+	void ClickInternal() override;
 	int *value_;
 	int thisButtonValue_;
 	std::string text_;
@@ -732,7 +723,6 @@ public:
 	Choice(ImageID image, float imgScale, float imgRot, bool imgFlipH = false, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()), imgScale_(imgScale), imgRot_(imgRot), imgFlipH_(imgFlipH) {}
 
-	void Click() override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -758,6 +748,7 @@ public:
 	}
 
 protected:
+	void ClickInternal() override;
 	// hackery
 	virtual bool IsSticky() const { return false; }
 
@@ -891,25 +882,24 @@ class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
-		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
 	// Image-only "checkbox", lights up instead of showing a checkmark.
 	CheckBox(bool *toggle, ImageID imageID, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), imageID_(imageID) {
-		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
-	EventReturn OnClicked(EventParams &e);
 	//allow external agents to toggle the checkbox
 	virtual void Toggle();
 	virtual bool Toggled() const;
 
 protected:
+	void ClickInternal() override;
+
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;

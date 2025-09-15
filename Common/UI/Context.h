@@ -111,14 +111,13 @@ public:
 	void PopTransform();
 	Bounds TransformBounds(const Bounds &bounds);
 
-	void setUIAtlas(const std::string &name);
-
-	// TODO: Move to private.
-	const UI::Theme *theme;
+	void SetTheme(const UI::Theme *theme) { this->theme = theme; }
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
+
+	const UI::Theme *theme = nullptr;
 
 	double frameStartTime_ = 0.0;
 
@@ -137,7 +136,4 @@ private:
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;
-
-	std::string lastUIAtlas_;
-	std::string UIAtlas_ = "ui_atlas.zim";
 };

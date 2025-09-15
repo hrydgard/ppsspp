@@ -49,7 +49,7 @@ protected:
 	void update() override;
 
 private:
-	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
+	void OnAutoConfigure(UI::EventParams &params);
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
@@ -135,7 +135,7 @@ protected:
 	void CreateViews() override;
 
 private:
-	UI::EventReturn OnResetToDefaults(UI::EventParams &e);
+	void OnResetToDefaults(UI::EventParams &e);
 
 	ControlMapper mapper_;
 
@@ -165,8 +165,8 @@ protected:
 	void resized() override;
 
 private:
-	UI::EventReturn OnMapButton(UI::EventParams &e);
-	UI::EventReturn OnBindAll(UI::EventParams &e);
+	void OnMapButton(UI::EventParams &e);
+	void OnBindAll(UI::EventParams &e);
 	void HandleKeyMapping(const KeyMap::MultiInputMapping &key);
 	void MapNext(bool successive);
 

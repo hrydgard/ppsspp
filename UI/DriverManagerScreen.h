@@ -19,9 +19,9 @@ protected:
 	bool ShowSearchControls() const override { return false; }
 
 private:
-	UI::EventReturn OnCustomDriverInstall(UI::EventParams &e);
-	UI::EventReturn OnCustomDriverUninstall(UI::EventParams &e);
-	UI::EventReturn OnCustomDriverChange(UI::EventParams &e);
+	void OnCustomDriverInstall(UI::EventParams &e);
+	void OnCustomDriverUninstall(UI::EventParams &e);
+	void OnCustomDriverChange(UI::EventParams &e);
 
 	void CreateDriverTab(UI::ViewGroup *drivers);
 };

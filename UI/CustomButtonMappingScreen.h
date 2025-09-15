@@ -46,7 +46,7 @@ private:
 	class ChoiceEventHandler{
 	public:
 		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
-		UI::EventReturn onChoiceClick(UI::EventParams &e);
+		void onChoiceClick(UI::EventParams &e);
 	private:
 		UI::CheckBox *checkbox_;
 	};

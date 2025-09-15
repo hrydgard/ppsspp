@@ -34,7 +34,7 @@ public:
 	void CreateTabs() override;
 
 protected:
-	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
+	void OnChangeRemoteISOSubdir(UI::EventParams &e);
 
 	void CreateConnectTab(UI::ViewGroup *viewGroup);
 	void CreateSettingsTab(UI::ViewGroup *viewGroup);
@@ -42,9 +42,9 @@ protected:
 
 	void update() override;
 
-	UI::EventReturn HandleStartServer(UI::EventParams &e);
-	UI::EventReturn HandleStopServer(UI::EventParams &e);
-	UI::EventReturn HandleBrowse(UI::EventParams &e);
+	void HandleStartServer(UI::EventParams &e);
+	void HandleStopServer(UI::EventParams &e);
+	void HandleBrowse(UI::EventParams &e);
 
 	UI::TextView *firewallWarning_ = nullptr;
 	bool serverRunning_ = false;

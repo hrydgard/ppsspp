@@ -49,16 +49,16 @@ protected:
 
 private:
 	// Event handlers
-	UI::EventReturn OnPlay(UI::EventParams &e);
-	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnDeleteSaveData(UI::EventParams &e);
-	UI::EventReturn OnDeleteGame(UI::EventParams &e);
-	UI::EventReturn OnSwitchBack(UI::EventParams &e);
-	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
-	UI::EventReturn OnCreateConfig(UI::EventParams &e);
-	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
-	UI::EventReturn OnCwCheat(UI::EventParams &e);
-	UI::EventReturn OnSetBackground(UI::EventParams &e);
+	void OnPlay(UI::EventParams &e);
+	void OnGameSettings(UI::EventParams &e);
+	void OnDeleteSaveData(UI::EventParams &e);
+	void OnDeleteGame(UI::EventParams &e);
+	void OnSwitchBack(UI::EventParams &e);
+	void OnRemoveFromRecent(UI::EventParams &e);
+	void OnCreateConfig(UI::EventParams &e);
+	void OnDeleteConfig(UI::EventParams &e);
+	void OnCwCheat(UI::EventParams &e);
+	void OnSetBackground(UI::EventParams &e);
 
 	std::string CRC32string;
 

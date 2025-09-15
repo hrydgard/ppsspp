@@ -41,13 +41,12 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }
 
-UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
+void ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
 	if (callback_)
 		callback_(adaptor_.GetSelected());
 	TriggerFinish(DR_OK);
 	OnChoice.Dispatch(e);
-	return UI::EVENT_DONE;
 }
 
 PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView)
@@ -71,10 +70,9 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		if (enabled_[i]) {
 			choice->OnClick.Add([=](EventParams &p) {
 				TriggerFinish(DR_OK);
-			p.a = (uint32_t)i;
-			OnChoice.Dispatch(p);
-			return EVENT_DONE;
-				});
+				p.a = (uint32_t)i;
+				OnChoice.Dispatch(p);
+			});
 		} else {
 			choice->SetEnabled(false);
 		}
@@ -95,7 +93,7 @@ std::string ChopTitle(const std::string &title) {
 	return title;
 }
 
-UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
+void PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	if (!callbackExecuted_ && preOpenCallback_) {
 		preOpenCallback_(this);
 		callbackExecuted_ = true;
@@ -117,7 +115,6 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
-	return UI::EVENT_DONE;
 }
 
 void PopupMultiChoice::Update() {
@@ -207,7 +204,7 @@ void PopupSliderChoiceFloat::SetFormat(std::string_view fmt) {
 	}
 }
 
-EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
+void PopupSliderChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
@@ -218,17 +215,15 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
-	return EVENT_DONE;
 }
 
-EventReturn PopupSliderChoice::HandleChange(EventParams &e) {
+void PopupSliderChoice::HandleChange(EventParams &e) {
 	e.v = this;
 	OnChange.Trigger(e);
 
 	if (restoreFocus_) {
 		SetFocusedView(this);
 	}
-	return EVENT_DONE;
 }
 
 static bool IsValidNumberFormatString(std::string_view s) {
@@ -273,7 +268,7 @@ std::string PopupSliderChoice::ValueText() const {
 	return std::string(temp);
 }
 
-EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
+void PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
 	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
@@ -282,17 +277,15 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
-	return EVENT_DONE;
 }
 
-EventReturn PopupSliderChoiceFloat::HandleChange(EventParams &e) {
+void PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 	e.v = this;
 	OnChange.Trigger(e);
 
 	if (restoreFocus_) {
 		SetFocusedView(this);
 	}
-	return EVENT_DONE;
 }
 
 std::string PopupSliderChoiceFloat::ValueText() const {
@@ -308,7 +301,7 @@ std::string PopupSliderChoiceFloat::ValueText() const {
 	return temp;
 }
 
-EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
+void SliderPopupScreen::OnDecrease(EventParams &params) {
 	if (sliderValue_ > minValue_ && sliderValue_ < maxValue_) {
 		sliderValue_ = step_ * floor((sliderValue_ / step_) + 0.5f);
 	}
@@ -318,10 +311,9 @@ EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
 	UpdateTextBox();
 	changing_ = false;
 	disabled_ = false;
-	return EVENT_DONE;
 }
 
-EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
+void SliderPopupScreen::OnIncrease(EventParams &params) {
 	if (sliderValue_ > minValue_ && sliderValue_ < maxValue_) {
 		sliderValue_ = step_ * floor((sliderValue_ / step_) + 0.5f);
 	}
@@ -331,24 +323,21 @@ EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
 	UpdateTextBox();
 	changing_ = false;
 	disabled_ = false;
-	return EVENT_DONE;
 }
 
-EventReturn SliderPopupScreen::OnSliderChange(EventParams &params) {
+void SliderPopupScreen::OnSliderChange(EventParams &params) {
 	changing_ = true;
 	UpdateTextBox();
 	changing_ = false;
 	disabled_ = false;
-	return EVENT_DONE;
 }
 
-EventReturn SliderPopupScreen::OnTextChange(EventParams &params) {
+void SliderPopupScreen::OnTextChange(EventParams &params) {
 	if (!changing_) {
 		sliderValue_ = atoi(edit_->GetText().c_str());
 		disabled_ = false;
 		slider_->Clamp();
 	}
-	return EVENT_DONE;
 }
 
 void SliderPopupScreen::UpdateTextBox() {
@@ -401,7 +390,6 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			changing_ = true;
 			UpdateTextBox();
 			changing_ = false;
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -428,7 +416,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
-	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
+	edit_->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = true;
@@ -436,7 +424,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	changing_ = false;
 	lin->Add(edit_);
 	if (!units_.empty())
-		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
+		lin->Add(new TextView(units_))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -445,7 +433,6 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			if (liveUpdate_) {
 				*value_ = defaultValue_;
 			}
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -454,7 +441,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		UI::SetFocusedView(slider_);
 }
 
-EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
+void SliderFloatPopupScreen::OnDecrease(EventParams &params) {
 	if (sliderValue_ > minValue_ && sliderValue_ < maxValue_) {
 		sliderValue_ = step_ * floor((sliderValue_ / step_) + 0.5f);
 	}
@@ -466,10 +453,9 @@ EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
 	if (liveUpdate_) {
 		*value_ = sliderValue_;
 	}
-	return EVENT_DONE;
 }
 
-EventReturn SliderFloatPopupScreen::OnIncrease(EventParams &params) {
+void SliderFloatPopupScreen::OnIncrease(EventParams &params) {
 	if (sliderValue_ > minValue_ && sliderValue_ < maxValue_) {
 		sliderValue_ = step_ * floor((sliderValue_ / step_) + 0.5f);
 	}
@@ -481,17 +467,15 @@ EventReturn SliderFloatPopupScreen::OnIncrease(EventParams &params) {
 	if (liveUpdate_) {
 		*value_ = sliderValue_;
 	}
-	return EVENT_DONE;
 }
 
-EventReturn SliderFloatPopupScreen::OnSliderChange(EventParams &params) {
+void SliderFloatPopupScreen::OnSliderChange(EventParams &params) {
 	changing_ = true;
 	UpdateTextBox();
 	changing_ = false;
 	if (liveUpdate_) {
 		*value_ = sliderValue_;
 	}
-	return EVENT_DONE;
 }
 
 void SliderFloatPopupScreen::UpdateTextBox() {
@@ -500,7 +484,7 @@ void SliderFloatPopupScreen::UpdateTextBox() {
 	edit_->SetText(temp);
 }
 
-EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
+void SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 	if (!changing_) {
 		sliderValue_ = atof(edit_->GetText().c_str());
 		slider_->Clamp();
@@ -508,7 +492,6 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 			*value_ = sliderValue_;
 		}
 	}
-	return EVENT_DONE;
 }
 
 void SliderPopupScreen::OnCompleted(DialogResult result) {
@@ -539,7 +522,7 @@ PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *va
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
-EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
+void PopupTextInputChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
 	// Choose method depending on platform capabilities.
@@ -549,7 +532,7 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 			EventParams params{};
 			OnChange.Trigger(params);
 		});
-		return EVENT_DONE;
+		return;
 	}
 
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
@@ -561,14 +544,13 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
-	return EVENT_DONE;
 }
 
 std::string PopupTextInputChoice::ValueText() const {
 	return *value_;
 }
 
-EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
+void PopupTextInputChoice::HandleChange(EventParams &e) {
 	*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
 	e.v = this;
 	OnChange.Trigger(e);
@@ -576,7 +558,6 @@ EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
 	if (restoreFocus_) {
 		SetFocusedView(this);
 	}
-	return EVENT_DONE;
 }
 
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -587,7 +568,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
 	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(maxLen_);
-	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
+	edit_->SetTextColor(dc.GetTheme().popupStyle.fgColor);
 	edit_->SetPasswordMasking(passwordMasking_);
 	lin->Add(edit_);
 
@@ -615,7 +596,7 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 	Bounds availBounds(0, 0, availWidth, vert.size);
 
 	float valueW, valueH;
-	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText, availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	valueW += paddingX;
 
 	// Give the choice itself less space to grow in, so it shrinks if needed.
@@ -632,18 +613,18 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 }
 
 void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
+	Style style = dc.GetTheme().itemStyle;
 	if (!IsEnabled()) {
-		style = dc.theme->itemDisabledStyle;
+		style = dc.GetTheme().itemDisabledStyle;
 	}
 	if (HasFocus()) {
-		style = dc.theme->itemFocusedStyle;
+		style = dc.GetTheme().itemFocusedStyle;
 	}
 	if (down_) {
-		style = dc.theme->itemDownStyle;
+		style = dc.GetTheme().itemDownStyle;
 	}
 	int paddingX = 12;
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	std::string valueText = ValueText();
 
@@ -660,7 +641,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 
 		float w, h;
 		Bounds availBounds(0, 0, availWidth, bounds_.h);
-		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText, availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		textPadding_.right = w + paddingX;
 
 		Choice::Draw(dc);
@@ -684,7 +665,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const {
 	float actualWidth, actualHeight;
 	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, valueText, availBounds, &actualWidth, &actualHeight);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, valueText, availBounds, &actualWidth, &actualHeight);
 	if (actualWidth > availWidth) {
 		return std::max(0.8f, availWidth / actualWidth);
 	}
@@ -718,7 +699,6 @@ FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, s
 				OnChange.Trigger(e);
 			}
 		});
-		return UI::EVENT_DONE;
 	});
 }
 
@@ -742,7 +722,6 @@ FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *valu
 				OnChange.Trigger(e);
 			}
 		});
-		return UI::EVENT_DONE;
 	});
 }
 

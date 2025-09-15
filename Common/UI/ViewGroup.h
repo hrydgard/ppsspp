@@ -283,7 +283,7 @@ public:
 
 private:
 	StickyChoice *Choice(int index);
-	EventReturn OnChoiceClick(EventParams &e);
+	void OnChoiceClick(EventParams &e);
 
 	int selected_ = 0;   // Can be controlled with L/R.
 	bool topTabs_ = false;
@@ -323,7 +323,7 @@ public:
 
 private:
 	void AddTabContents(std::string_view title, ViewGroup *tabContents);
-	EventReturn OnTabClick(EventParams &e);
+	void OnTabClick(EventParams &e);
 	bool EnsureTab(int index);  // return true if it actually created a tab.
 
 	View *bannerView_ = nullptr;

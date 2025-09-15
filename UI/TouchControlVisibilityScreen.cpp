@@ -38,7 +38,7 @@ public:
 	}
 
 private:
-	UI::EventReturn HandleClick(UI::EventParams &e);
+	void HandleClick(UI::EventParams &e);
 
 	UI::CheckBox *checkbox_;
 };
@@ -87,7 +87,6 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Right Analog Stick", &g_Config.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
 		screenManager()->push(new RightAnalogMappingScreen(gamePath_));
-		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
 
@@ -96,7 +95,6 @@ void TouchControlVisibilityScreen::CreateViews() {
 		snprintf(temp, sizeof(temp), "Custom %d", i + 1);
 		toggles_.push_back({ temp, &g_Config.touchCustom[i].show, ImageID::invalid(), [=](EventParams &e) {
 			screenManager()->push(new CustomButtonMappingScreen(gamePath_, i));
-			return UI::EVENT_DONE;
 		} });
 	}
 
@@ -171,17 +169,13 @@ void RightAnalogMappingScreen::CreateViews() {
 	rightAnalogPress->SetEnabledPtr(&g_Config.bRightAnalogCustom);
 }
 
-UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
+void TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 	for (auto toggle : toggles_) {
 		*toggle.show = nextToggleAll_;
 	}
 	nextToggleAll_ = !nextToggleAll_;
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CheckBoxChoice::HandleClick(UI::EventParams &e) {
+void CheckBoxChoice::HandleClick(UI::EventParams &e) {
 	checkbox_->Toggle();
-
-	return UI::EVENT_DONE;
 };

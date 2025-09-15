@@ -26,11 +26,11 @@ private:
 	UI::LinearLayout *statsView_ = nullptr;
 	UI::LinearLayout *statsContainer_ = nullptr;
 
-	UI::EventReturn OnSelectBlock(UI::EventParams &e);
-	UI::EventReturn OnBlockAddress(UI::EventParams &e);
-	UI::EventReturn OnAddressChange(UI::EventParams &e);
-	UI::EventReturn OnShowStats(UI::EventParams &e);
-	UI::EventReturn OnBlockClick(UI::EventParams &e);
+	void OnSelectBlock(UI::EventParams &e);
+	void OnBlockAddress(UI::EventParams &e);
+	void OnAddressChange(UI::EventParams &e);
+	void OnShowStats(UI::EventParams &e);
+	void OnBlockClick(UI::EventParams &e);
 
 	// To switch, change the below things and call RecreateViews();
 	enum class ViewMode {
@@ -78,8 +78,8 @@ public:
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void OnCompleted(DialogResult result) override;
-	UI::EventReturn OnDigitButton(UI::EventParams &e);
-	UI::EventReturn OnBackspace(UI::EventParams &e);
+	void OnDigitButton(UI::EventParams &e);
+	void OnBackspace(UI::EventParams &e);
 
 private:
 	void AddDigit(int n);

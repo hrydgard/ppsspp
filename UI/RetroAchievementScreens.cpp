@@ -38,7 +38,6 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
 		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
 		g_BackgroundAudio.SFX().Play(sound_, achievementVolume);
-		return UI::EVENT_DONE;
 	});
 	Add(new FileChooserChoice(token, value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
 		std::string path = e.s;
@@ -50,12 +49,10 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 			g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file format not supported. Must be WAV or MP3."));
 			value->clear();
 		}
-		return UI::EVENT_DONE;
 	});
 	Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
 		g_BackgroundAudio.SFX().UpdateSample(sound, nullptr);
 		value->clear();
-		return UI::EVENT_DONE;
 	});
 }
 
@@ -149,9 +146,8 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 
 	for (auto &leaderboard : leaderboards) {
 		int leaderboardID = leaderboard->id;
-		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([=](UI::EventParams &e) -> UI::EventReturn {
+		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([=](UI::EventParams &e) -> void {
 			screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));
-			return UI::EVENT_DONE;
 		});
 	}
 }
@@ -224,7 +220,6 @@ void RetroAchievementsLeaderboardScreen::CreateLeaderboardTab(UI::LinearLayout *
 		strip->SetSelection(e.a, false);
 		nearMe_ = e.a != 0;
 		FetchEntries();
-		return UI::EVENT_DONE;
 	});
 	strip->SetSelection(nearMe_ ? 1 : 0, false);
 
@@ -304,20 +299,18 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		}
 		viewGroup->Add(new InfoItem(di->T("Username"), info->username));
 		// viewGroup->Add(new InfoItem(ac->T("Unread messages"), info.numUnreadMessages));
-		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> void {
 			Achievements::Logout();
-			return UI::EVENT_DONE;
 		});
 	} else {
 		std::string errorMessage;
 		if (Achievements::LoginProblems(&errorMessage)) {
 			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
-			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> void {
 				Achievements::Logout();
-				return UI::EVENT_DONE;
 			});
 		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
-			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> void {
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
 				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](const std::string &value, int) {
 					std::vector<std::string> parts;
@@ -326,49 +319,43 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 						Achievements::LoginAsync(parts[0].c_str(), parts[1].c_str());
 					}
 				});
-				return UI::EVENT_DONE;
 			});
 		} else {
 			// Hack up a temporary quick login-form-ish-thing
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
 			Choice *loginButton = viewGroup->Add(new Choice(di->T("Log in")));
-			loginButton->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			loginButton->OnClick.Add([=](UI::EventParams &) -> void {
 				if (!g_Config.sAchievementsUserName.empty() && !password_.empty()) {
 					Achievements::LoginAsync(g_Config.sAchievementsUserName.c_str(), password_.c_str());
 					memset(&password_[0], 0, password_.size());
 					password_.clear();
 				}
-				return UI::EVENT_DONE;
 			});
 			loginButton->SetEnabledFunc([&]() {
 				return !g_Config.sAchievementsUserName.empty() && !password_.empty();
 			});
 		}
-		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> void {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
-			return UI::EVENT_DONE;
 		});
 	}
 
 	using namespace UI;
 	viewGroup->Add(new ItemHeader(di->T("Settings")));
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([&](UI::EventParams &e) -> UI::EventReturn {
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([&](UI::EventParams &e) -> void {
 		Achievements::UpdateSettings();
 		RecreateViews();
-		return UI::EVENT_DONE;
 	});
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsHardcoreMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
 	viewGroup->Add(new ItemHeader(di->T("Links")));
-	viewGroup->Add(new Choice(ac->T("RetroAchievements website")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+	viewGroup->Add(new Choice(ac->T("RetroAchievements website")))->OnClick.Add([&](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
-		return UI::EVENT_DONE;
 	});
-	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
-		return UI::EVENT_DONE;
 	});
 }
 
@@ -417,7 +404,7 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	*w = 0.0f;
 	switch (style) {
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, achievement->measured_progress, w, h);
+		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, achievement->measured_progress, w, h);
 		*w += 44.0f + 4.0f * 3.0f;
 		*h = 44.0f;
 		break;
@@ -436,9 +423,9 @@ static void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	float tw, th;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
 
-	dc.MeasureText(dc.theme->uiFont, 0.66f, 0.66f, description, w, h);
+	dc.MeasureText(dc.GetTheme().uiFont, 0.66f, 0.66f, description, w, h);
 	*h += 8.0f + th;
 	*w += 8.0f;
 }
@@ -456,10 +443,10 @@ static void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderb
 // Graphical
 void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
-	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
+	UI::Drawable background = UI::Drawable(dc.GetTheme().backgroundColor);
 
 	if (hasFocus) {
-		background = dc.theme->itemFocusedStyle.background;
+		background = dc.GetTheme().itemFocusedStyle.background;
 	}
 
 	_assert_(achievement);
@@ -478,7 +465,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	int iconState = achievement->state;
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -503,7 +490,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.Flush();
 	dc.Begin();
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	char temp[512];
 
@@ -580,10 +567,10 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha, const rc_client_game_t *gameInfo) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = dc.GetTheme().itemStyle.background;
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	float iconSpace = 64.0f;
 	dc.Flush();
@@ -591,7 +578,7 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -620,13 +607,13 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 
 static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = dc.GetTheme().itemStyle.background;
 	if (hasFocus) {
-		background = dc.theme->itemFocusedStyle.background;
+		background = dc.GetTheme().itemFocusedStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -638,7 +625,7 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -663,16 +650,16 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 
 static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = dc.GetTheme().itemStyle.background;
 	if (hasFocus) {
-		background = dc.theme->itemFocusedStyle.background;
+		background = dc.GetTheme().itemFocusedStyle.background;
 	}
 	if (isCurrentUser) {
-		background = dc.theme->itemDownStyle.background;
+		background = dc.GetTheme().itemDownStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
 
 	float iconSize = 64.0f;
 	float numberSpace = 128.0f;
@@ -689,7 +676,7 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.5f, 1.5f);
 	dc.DrawTextRect(StringFromFormat("%d", entry->rank), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
@@ -732,7 +719,7 @@ void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float 
 	MeasureAchievement(dc, achievement_, AchievementRenderStyle::LISTED, &w, &h);
 }
 
-void AchievementView::Click() {
+void AchievementView::ClickInternal() {
 	if (!achievement_) {
 		return;
 	}

@@ -75,42 +75,42 @@ private:
 	std::string memstickDisplay_;
 
 	// Event handlers
-	UI::EventReturn OnControlMapping(UI::EventParams &e);
-	UI::EventReturn OnCalibrateAnalogs(UI::EventParams &e);
-	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
-	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
+	void OnControlMapping(UI::EventParams &e);
+	void OnCalibrateAnalogs(UI::EventParams &e);
+	void OnTouchControlLayout(UI::EventParams &e);
+	void OnTiltCustomize(UI::EventParams &e);
 
 	// Global settings handlers
-	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
-	UI::EventReturn OnTextureShader(UI::EventParams &e);
-	UI::EventReturn OnTextureShaderChange(UI::EventParams &e);
-	UI::EventReturn OnChangeQuickChat0(UI::EventParams &e);
-	UI::EventReturn OnChangeQuickChat1(UI::EventParams &e);
-	UI::EventReturn OnChangeQuickChat2(UI::EventParams &e);
-	UI::EventReturn OnChangeQuickChat3(UI::EventParams &e);
-	UI::EventReturn OnChangeQuickChat4(UI::EventParams &e);
-	UI::EventReturn OnChangeBackground(UI::EventParams &e);
-	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
-	UI::EventReturn OnFullscreenMultiChange(UI::EventParams &e);
-	UI::EventReturn OnResolutionChange(UI::EventParams &e);
-	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
-	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
-	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
-	UI::EventReturn OnInflightFramesChoice(UI::EventParams &e);
-	UI::EventReturn OnCameraDeviceChange(UI::EventParams& e);
-	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
-	UI::EventReturn OnAudioDevice(UI::EventParams &e);
-	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
-	UI::EventReturn OnShowMemstickScreen(UI::EventParams &e);
+	void OnAutoFrameskip(UI::EventParams &e);
+	void OnTextureShader(UI::EventParams &e);
+	void OnTextureShaderChange(UI::EventParams &e);
+	void OnChangeQuickChat0(UI::EventParams &e);
+	void OnChangeQuickChat1(UI::EventParams &e);
+	void OnChangeQuickChat2(UI::EventParams &e);
+	void OnChangeQuickChat3(UI::EventParams &e);
+	void OnChangeQuickChat4(UI::EventParams &e);
+	void OnChangeBackground(UI::EventParams &e);
+	void OnFullscreenChange(UI::EventParams &e);
+	void OnFullscreenMultiChange(UI::EventParams &e);
+	void OnResolutionChange(UI::EventParams &e);
+	void OnRestoreDefaultSettings(UI::EventParams &e);
+	void OnRenderingBackend(UI::EventParams &e);
+	void OnRenderingDevice(UI::EventParams &e);
+	void OnInflightFramesChoice(UI::EventParams &e);
+	void OnCameraDeviceChange(UI::EventParams& e);
+	void OnMicDeviceChange(UI::EventParams& e);
+	void OnAudioDevice(UI::EventParams &e);
+	void OnJitAffectingSetting(UI::EventParams &e);
+	void OnShowMemstickScreen(UI::EventParams &e);
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	UI::EventReturn OnMemoryStickMyDoc(UI::EventParams &e);
-	UI::EventReturn OnMemoryStickOther(UI::EventParams &e);
+	void OnMemoryStickMyDoc(UI::EventParams &e);
+	void OnMemoryStickOther(UI::EventParams &e);
 #endif
-	UI::EventReturn OnScreenRotation(UI::EventParams &e);
-	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
-	UI::EventReturn OnSustainedPerformanceModeChange(UI::EventParams &e);
+	void OnScreenRotation(UI::EventParams &e);
+	void OnImmersiveModeChange(UI::EventParams &e);
+	void OnSustainedPerformanceModeChange(UI::EventParams &e);
 
-	UI::EventReturn OnAdhocGuides(UI::EventParams &e);
+	void OnAdhocGuides(UI::EventParams &e);
 
 	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_ = 0;
@@ -157,13 +157,13 @@ private:
 	void ResolverThread();
 	void SendEditKey(InputKeyCode keyCode, int flags = 0);
 
-	UI::EventReturn OnNumberClick(UI::EventParams &e);
-	UI::EventReturn OnPointClick(UI::EventParams &e);
-	UI::EventReturn OnDeleteClick(UI::EventParams &e);
-	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
-	UI::EventReturn OnEditClick(UI::EventParams& e);
-	UI::EventReturn OnShowIPListClick(UI::EventParams& e);
-	UI::EventReturn OnIPClick(UI::EventParams& e);
+	void OnNumberClick(UI::EventParams &e);
+	void OnPointClick(UI::EventParams &e);
+	void OnDeleteClick(UI::EventParams &e);
+	void OnDeleteAllClick(UI::EventParams &e);
+	void OnEditClick(UI::EventParams& e);
+	void OnShowIPListClick(UI::EventParams& e);
+	void OnIPClick(UI::EventParams& e);
 
 	enum class ResolverState {
 		WAITING,

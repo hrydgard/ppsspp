@@ -165,7 +165,7 @@ void ViewGroup::Draw(UIContext &dc) {
 		// Darken things behind.
 		dc.FillRect(UI::Drawable(0x60000000), dc.GetBounds().Expand(dropShadowExpand_));
 		const float dropsize = 30.0f;
-		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid,
+		dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid,
 			bounds_.x - dropsize, bounds_.y,
 			bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5f, 0xDF000000, 3.0f);
 	}
@@ -1071,7 +1071,6 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		tween = new AnchorTranslateTween(0.15f, bezierEaseInOut);
 		tween->Finish.Add([&](EventParams &e) {
 			e.v->SetVisibility(tabs_[currentTab_] == e.v ? V_VISIBLE : V_GONE);
-			return EVENT_DONE;
 		});
 		view->AddTween(tween)->Persist();
 	};
@@ -1113,14 +1112,13 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 	return created;
 }
 
-EventReturn TabHolder::OnTabClick(EventParams &e) {
+void TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
 		EnsureTab(e.a);
 		SetCurrentTab((int)e.a);
 	}
-	return EVENT_DONE;
 }
 
 void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
@@ -1176,7 +1174,7 @@ void ChoiceStrip::AddChoice(ImageID buttonImage) {
 		c->Press();
 }
 
-EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
+void ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
 	for (int i = 0; i < (int)views_.size(); i++) {
 		if (views_[i] != e.v) {
@@ -1192,7 +1190,7 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Set to 1 to indicate an explicit click.
 	e2.b = 1;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
-	return OnChoice.Dispatch(e2);
+	OnChoice.Dispatch(e2);
 }
 
 void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
@@ -1263,7 +1261,6 @@ CollapsibleSection::CollapsibleSection(std::string_view title, LayoutParams *lay
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.
 		UpdateVisibility();
-		return UI::EVENT_DONE;
 	});
 }
 

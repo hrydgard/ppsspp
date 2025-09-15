@@ -73,8 +73,8 @@ protected:
 
 private:
 	void CreateViews() override;
-	UI::EventReturn OnDevTools(UI::EventParams &params);
-	UI::EventReturn OnChat(UI::EventParams &params);
+	void OnDevTools(UI::EventParams &params);
+	void OnChat(UI::EventParams &params);
 
 	void HandleFlip();
 	void ProcessGameBoot(const Path &filename);

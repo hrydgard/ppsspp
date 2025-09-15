@@ -63,14 +63,12 @@ void IAPScreen::CreateViews() {
 				WARN_LOG(Log::System, "Purchase failed or cancelled!");
 			});
 			// TODO: What do we do here?
-			return UI::EVENT_DONE;
 		});
 	}
 
 	Choice *moreInfo = rightColumnItems->Add(new Choice(di->T("More info")));
 	moreInfo->OnClick.Add([](UI::EventParams &) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");
-		return UI::EVENT_DONE;
 	});
 
 	Choice *backButton = rightColumnItems->Add(new Choice(di->T("Back")));
@@ -89,7 +87,6 @@ void IAPScreen::CreateViews() {
 		}, []() {
 			WARN_LOG(Log::System, "Failed restoring purchases");
 		});
-		return UI::EVENT_DONE;
 	});
 	rightColumnItems->Add(restorePurchases);
 }

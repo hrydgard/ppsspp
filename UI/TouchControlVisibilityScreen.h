@@ -28,7 +28,7 @@ struct TouchButtonToggle {
 	std::string key;
 	bool *show;
 	ImageID img;
-	std::function<UI::EventReturn(UI::EventParams&)> handle;
+	std::function<void(UI::EventParams&)> handle;
 };
 
 class TouchControlVisibilityScreen : public UIDialogScreenWithGameBackground {
@@ -40,7 +40,7 @@ public:
 	const char *tag() const override { return "TouchControlVisibility"; }
 
 protected:
-	UI::EventReturn OnToggleAll(UI::EventParams &e);
+	void OnToggleAll(UI::EventParams &e);
 
 private:
 	std::vector<TouchButtonToggle> toggles_;

@@ -480,7 +480,7 @@ void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 
 	float testW = 170.f;
 	float padding = 20.0f;
-	UI::Style style = dc.theme->itemStyle;
+	UI::Style style = dc.GetTheme().itemStyle;
 
 	float y = 150;
 	for (int j = 0; j < numWriteModes; j++, y += 120.f + padding) {

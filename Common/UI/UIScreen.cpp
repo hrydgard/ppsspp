@@ -285,19 +285,16 @@ void UIDialogScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
+void UIScreen::OnBack(UI::EventParams &e) {
 	TriggerFinish(DR_BACK);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn UIScreen::OnOK(UI::EventParams &e) {
+void UIScreen::OnOK(UI::EventParams &e) {
 	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
+void UIScreen::OnCancel(UI::EventParams &e) {
 	TriggerFinish(DR_CANCEL);
-	return UI::EVENT_DONE;
 }
 
 PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
@@ -426,7 +423,7 @@ void PopupScreen::CreateViews() {
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
 
 	root_->Add(box_);
-	box_->SetBG(dc.theme->popupStyle.background);
+	box_->SetBG(dc.GetTheme().popupStyle.background);
 	box_->SetHasDropShadow(hasDropShadow_);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));

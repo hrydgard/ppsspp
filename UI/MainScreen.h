@@ -76,19 +76,19 @@ private:
 	std::vector<Path> GetPinnedPaths() const;
 	std::string GetBaseName(const std::string &path) const;
 
-	UI::EventReturn GameButtonClick(UI::EventParams &e);
-	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
-	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
-	UI::EventReturn NavigateClick(UI::EventParams &e);
-	UI::EventReturn LayoutChange(UI::EventParams &e);
-	UI::EventReturn LastClick(UI::EventParams &e);
-	UI::EventReturn BrowseClick(UI::EventParams &e);
-	UI::EventReturn StorageClick(UI::EventParams &e);
-	UI::EventReturn OnHomeClick(UI::EventParams &e);
-	UI::EventReturn PinToggleClick(UI::EventParams &e);
-	UI::EventReturn GridSettingsClick(UI::EventParams &e);
-	UI::EventReturn OnRecentClear(UI::EventParams &e);
-	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
+	void GameButtonClick(UI::EventParams &e);
+	void GameButtonHoldClick(UI::EventParams &e);
+	void GameButtonHighlight(UI::EventParams &e);
+	void NavigateClick(UI::EventParams &e);
+	void LayoutChange(UI::EventParams &e);
+	void LastClick(UI::EventParams &e);
+	void BrowseClick(UI::EventParams &e);
+	void StorageClick(UI::EventParams &e);
+	void OnHomeClick(UI::EventParams &e);
+	void PinToggleClick(UI::EventParams &e);
+	void GridSettingsClick(UI::EventParams &e);
+	void OnRecentClear(UI::EventParams &e);
+	void OnHomebrewStore(UI::EventParams &e);
 
 	enum class SearchState {
 		MATCH,
@@ -139,18 +139,18 @@ protected:
 
 	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);
 
-	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
-	UI::EventReturn OnGameHighlight(UI::EventParams &e);
+	void OnGameSelected(UI::EventParams &e);
+	void OnGameSelectedInstant(UI::EventParams &e);
+	void OnGameHighlight(UI::EventParams &e);
 	// Event handlers
-	UI::EventReturn OnLoadFile(UI::EventParams &e);
-	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnCredits(UI::EventParams &e);
-	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
-	UI::EventReturn OnForums(UI::EventParams &e);
-	UI::EventReturn OnExit(UI::EventParams &e);
-	UI::EventReturn OnAllowStorage(UI::EventParams &e);
-	UI::EventReturn OnFullScreenToggle(UI::EventParams &e);
+	void OnLoadFile(UI::EventParams &e);
+	void OnGameSettings(UI::EventParams &e);
+	void OnCredits(UI::EventParams &e);
+	void OnPPSSPPOrg(UI::EventParams &e);
+	void OnForums(UI::EventParams &e);
+	void OnExit(UI::EventParams &e);
+	void OnAllowStorage(UI::EventParams &e);
+	void OnFullScreenToggle(UI::EventParams &e);
 
 	UI::TabHolder *tabHolder_ = nullptr;
 	UI::Button *fullscreenButton_ = nullptr;
@@ -183,8 +183,8 @@ protected:
 	void update() override;
 
 private:
-	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnGameSettings(UI::EventParams &e);
+	void OnGameSelected(UI::EventParams &e);
+	void OnGameSettings(UI::EventParams &e);
 };
 
 class GridSettingsPopupScreen : public PopupScreen {
@@ -196,9 +196,9 @@ public:
 	const char *tag() const override { return "GridSettings"; }
 
 private:
-	UI::EventReturn GridPlusClick(UI::EventParams &e);
-	UI::EventReturn GridMinusClick(UI::EventParams &e);
-	UI::EventReturn OnRecentClearClick(UI::EventParams &e);
+	void GridPlusClick(UI::EventParams &e);
+	void GridMinusClick(UI::EventParams &e);
+	void OnRecentClearClick(UI::EventParams &e);
 	const float MAX_GAME_GRID_SCALE = 3.0f;
 	const float MIN_GAME_GRID_SCALE = 0.8f;
 };

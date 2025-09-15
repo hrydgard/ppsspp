@@ -35,11 +35,11 @@ public:
 
 	bool TryLoadCheatInfo();
 
-	UI::EventReturn OnAddCheat(UI::EventParams &params);
-	UI::EventReturn OnImportCheat(UI::EventParams &params);
-	UI::EventReturn OnImportBrowse(UI::EventParams &params);
-	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
-	UI::EventReturn OnDisableAll(UI::EventParams &params);
+	void OnAddCheat(UI::EventParams &params);
+	void OnImportCheat(UI::EventParams &params);
+	void OnImportBrowse(UI::EventParams &params);
+	void OnEditCheatFile(UI::EventParams &params);
+	void OnDisableAll(UI::EventParams &params);
 
 	void update() override;
 	void onFinish(DialogResult result) override;
@@ -50,7 +50,7 @@ protected:
 	void CreateViews() override;
 
 private:
-	UI::EventReturn OnCheckBox(int index);
+	void OnCheckBox(int index);
 	bool ImportCheats(const Path &cheatFile);
 
 	enum { INDEX_ALL = -1 };

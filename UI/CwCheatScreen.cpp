@@ -168,7 +168,7 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	}
 }
 
-UI::EventReturn CwCheatScreen::OnDisableAll(UI::EventParams &params) {
+void CwCheatScreen::OnDisableAll(UI::EventParams &params) {
 	// Disable all the switches.
 	for (auto &info : fileInfo_) {
 		info.enabled = false;
@@ -178,19 +178,15 @@ UI::EventReturn CwCheatScreen::OnDisableAll(UI::EventParams &params) {
 		// Probably the file was modified outside PPSSPP, refresh.
 		// TODO: Report error.
 		RecreateViews();
-		return UI::EVENT_SKIPPED;
 	}
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
+void CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 	TriggerFinish(DR_OK);
 	g_Config.bReloadCheats = true;
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
+void CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	g_Config.bReloadCheats = true;
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
@@ -199,7 +195,6 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (engine_) {
 		File::OpenFileInEditor(engine_->CheatFilename());
 	}
-	return UI::EVENT_DONE;
 }
 
 static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
@@ -214,7 +209,7 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 	return line;
 }
 
-UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
+void CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
 	System_BrowseForFile(GetRequesterToken(), "Open cheat DB file", BrowseFileType::DB, [&](const std::string &value, int) {
 		Path path(value);
 		INFO_LOG(Log::System, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
@@ -225,19 +220,16 @@ UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
 		}
 		RecreateViews();
 	});
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
+void CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	if (!ImportCheats(GetGlobalCheatFilePath())) {
 		// Show an error message?
 		errorMessageView_->SetVisibility(UI::V_VISIBLE);
-		return UI::EVENT_DONE;
 	}
 
 	g_Config.bReloadCheats = true;
 	RecreateViews();
-	return UI::EVENT_DONE;
 }
 
 bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
@@ -307,7 +299,7 @@ bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 
 	FILE *append = File::OpenCFile(engine_->CheatFilename(), "at");
 	if (!append)
-		return UI::EVENT_SKIPPED;
+		return false;
 
 	if (title2.size() == 0 || title2[0] != '_' || title2[1] != 'S') {
 		for (int i = (int)title.size(); i > 0; i--) {
@@ -330,14 +322,11 @@ bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 	return true;
 }
 
-UI::EventReturn CwCheatScreen::OnCheckBox(int index) {
+void CwCheatScreen::OnCheckBox(int index) {
 	if (!RebuildCheatFile(index)) {
 		// TODO: Report error.  Let's reload the file, presumably it changed.
 		RecreateViews();
-		return UI::EVENT_SKIPPED;
 	}
-
-	return UI::EVENT_DONE;
 }
 
 bool CwCheatScreen::HasCheatWithName(const std::string &name) {

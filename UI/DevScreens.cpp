@@ -143,18 +143,15 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Add([this](UI::EventParams & e) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new LogViewScreen());
-		return UI::EVENT_DONE;
 	});
 
 	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Add([this](UI::EventParams & e) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new LogConfigScreen());
-		return UI::EVENT_DONE;
 	});
 
 	items->Add(new Choice(dev->T("Debugger")))->OnClick.Add([](UI::EventParams &e) {
 		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
-		return UI::EVENT_DONE;
 	});
 
 	if (WebServerRunning(WebServerFlags::DEBUGGER)) {
@@ -168,7 +165,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			} else {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://ppsspp-debugger.unknownbrackets.org/cpu");  // NOTE: https doesn't work
 			}
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -186,20 +182,17 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		} else {
 			PSP_CoreParameter().freezeNext = true;
 		}
-		return UI::EVENT_DONE;
 	});
 
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
 	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
-		return UI::EVENT_DONE;
 	});
 
 	if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
 			SaveFrameDump();
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -207,7 +200,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
 			gpu->DumpNextFrame();
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -217,28 +209,24 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	g_logManager.EnableOutput(LogOutput::RingBuffer);
 }
 
-UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
+void DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
 	Reporting::ResetCounts();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
+void DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenuScreen::OnJitCompare(UI::EventParams &e) {
+void DevMenuScreen::OnJitCompare(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new JitCompareScreen());
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DevMenuScreen::OnShaderView(UI::EventParams &e) {
+void DevMenuScreen::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
 		screenManager()->push(new ShaderListScreen());
-	return UI::EVENT_DONE;
 }
 
 void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -336,36 +324,32 @@ void LogConfigScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
+void LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogChannel *chan = g_logManager.GetLogChannel((Log)i);
 		chan->enabled = !chan->enabled;
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
+void LogConfigScreen::OnEnableAll(UI::EventParams &e) {
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogChannel *chan = g_logManager.GetLogChannel((Log)i);
 		chan->enabled = true;
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
+void LogConfigScreen::OnDisableAll(UI::EventParams &e) {
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogChannel *chan = g_logManager.GetLogChannel((Log)i);
 		chan->enabled = false;
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
+void LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 	RecreateViews();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
+void LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
@@ -373,7 +357,6 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 	if (e.v)
 		logLevelScreen->SetPopupOrigin(e.v);
 	screenManager()->push(logLevelScreen);
-	return UI::EVENT_DONE;
 }
 
 LogLevelScreen::LogLevelScreen(std::string_view title) : ListPopupScreen(title) {
@@ -459,14 +442,12 @@ void JitDebugScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn JitDebugScreen::OnEnableAll(UI::EventParams &e) {
+void JitDebugScreen::OnEnableAll(UI::EventParams &e) {
 	g_Config.uJitDisableFlags &= ~(uint32_t)MIPSComp::JitDisable::ALL_FLAGS;
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn JitDebugScreen::OnDisableAll(UI::EventParams &e) {
+void JitDebugScreen::OnDisableAll(UI::EventParams &e) {
 	g_Config.uJitDisableFlags |= (uint32_t)MIPSComp::JitDisable::ALL_FLAGS;
-	return UI::EVENT_DONE;
 }
 
 void SystemInfoScreen::update() {
@@ -475,7 +456,7 @@ void SystemInfoScreen::update() {
 }
 
 // TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?
-UI::EventReturn SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
+void SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::DIALOG);
 
@@ -510,7 +491,6 @@ UI::EventReturn SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
 	delete[] summary;
 
 	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")));
-	return UI::EVENT_DONE;
 }
 
 void SystemInfoScreen::CreateTabs() {
@@ -968,7 +948,6 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	internals->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
 		g_iconCache.ClearData();
 		RecreateViews();
-		return UI::EVENT_DONE;
 	});
 
 	internals->Add(new ItemHeader(si->T("Font cache")));
@@ -985,15 +964,12 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
 		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
-		return UI::EVENT_DONE;
 	});
 	// This one is clickable
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
@@ -1003,45 +979,35 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
 			}
 		}, nullptr);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "RetroAchievements warning", "", "I_RETROACHIEVEMENTS_LOGO");
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new ItemHeader(si->T("Progress tests")));
 	internals->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30, 0.0f);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100, 1.0f);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0, 0.0f);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.RemoveProgressBar("testprogress", true, 0.5f);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Failure")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.RemoveProgressBar("testprogress", false, 0.5f);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new ItemHeader(si->T("Achievement tests")));
 	internals->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
 		g_OSD.ShowLeaderboardTracker(1, "My leaderboard tracker", true);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
 		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
-		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
 		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
-		return UI::EVENT_DONE;
 	});
 
 	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
@@ -1053,13 +1019,11 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	// Untranslated string because this is debug mode only, only for PPSSPP developers.
 	internals->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
 		_dbg_assert_msg_(false, "Test assert message");
-		return UI::EVENT_DONE;
 	});
 #endif
 #if PPSSPP_PLATFORM(ANDROID)
 	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
 		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
-		return UI::EVENT_DONE;
 	});
 #endif
 }
@@ -1109,12 +1073,11 @@ void ShaderListScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
+void ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 	using namespace UI;
 	std::string id = e.v->Tag();
 	DebugShaderType type = shaderTypes[tabs_->GetCurrentTab()].type;
 	screenManager()->push(new ShaderViewScreen(id, type));
-	return EVENT_DONE;
 }
 
 void ShaderViewScreen::CreateViews() {
@@ -1195,14 +1158,13 @@ void FrameDumpTestScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
+void FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
 	Path url = Path(params.v->Tag());
 	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
 	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
 	// except for some reason the game ID.
 	// TODO: Fix that since it can be important for compat settings.
 	screenManager()->switchScreen(new EmuScreen(url));
-	return UI::EVENT_DONE;
 }
 
 void FrameDumpTestScreen::update() {
@@ -1436,21 +1398,18 @@ void RecreateActivity() {
 	}
 }
 
-UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
+void TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
 	if (g_Config.iAndroidHwScale != 0) {
 		RecreateActivity();
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
+void TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 	g_Config.Save("GameSettingsScreen::RenderingBackend");
 	System_RestartApp("--touchscreentest");
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
+void TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
 	RecreateActivity();
-	return UI::EVENT_DONE;
 }
