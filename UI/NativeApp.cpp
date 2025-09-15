@@ -87,8 +87,6 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
-#include "Common/Render/ManagedTexture.h"
-
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -819,40 +817,6 @@ static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, v
 	for (int i = 0; i < framesToWrite * 2; i++) {
 		dest[i] = (float)buffer[i] * (float)(1.0f / 32767.0f);
 	}
-}
-
-static AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas) {
-	switch (atlas) {
-	case AtlasChoice::General:
-		return {
-			GetUIAtlas(),
-			CreateTextureFromFile(draw, "ui_atlas.zim", ImageFileType::ZIM, false)
-		};
-	case AtlasChoice::Font:
-	{
-		Draw::Texture *fontTexture = nullptr;
-		// NOTE: This ugly check must be the same as the one in UpdateTheme. This will be fixed.
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-		// Don't bother with loading font_atlas.zim
-#else
-		fontTexture = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
-#endif
-		if (!fontTexture) {
-			// Load the smaller ascii font only, like on Android. For debug ui etc.
-			// NOTE: We better be sure here that the correct metadata is loaded..
-			fontTexture = CreateTextureFromFile(draw, "asciifont_atlas.zim", ImageFileType::ZIM, false);
-			if (!fontTexture) {
-				WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
-			}
-		}
-		return {
-			GetFontAtlas(),
-			fontTexture,
-		};
-	}
-	default:
-		return {};
-	};
 }
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
