@@ -252,10 +252,6 @@ struct EventParams {
 	std::string s;
 };
 
-struct HandlerRegistration {
-	std::function<EventReturn(EventParams&)> func;
-};
-
 class Event {
 public:
 	Event() {}
@@ -276,7 +272,7 @@ public:
 	}
 
 private:
-	std::vector<HandlerRegistration> handlers_;
+	std::function<EventReturn(EventParams&)> func_;
 	DISALLOW_COPY_AND_ASSIGN(Event);
 };
 
@@ -541,7 +537,7 @@ protected:
 	// Internal method that fires on a click. Default behaviour is to trigger
 	// the event.
 	// Use it for checking/unchecking checkboxes, etc.
-	virtual void Click();
+	virtual void ClickInternal();
 	void DrawBG(UIContext &dc, const Style &style);
 
 	CallbackColorTween *bgColor_ = nullptr;
@@ -560,7 +556,6 @@ public:
 	Button(std::string_view text, ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
-	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	std::string_view GetText() const { return text_; }
@@ -580,6 +575,7 @@ public:
 		scale_ = f;
 	}
 private:
+	void ClickInternal() override;
 	Style style_;
 	std::string text_;
 	ImageID imageID_;
@@ -593,12 +589,12 @@ class RadioButton : public Clickable {
 public:
 	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
-	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	std::string DescribeText() const override;
 
 private:
+	void ClickInternal() override;
 	int *value_;
 	int thisButtonValue_;
 	std::string text_;
@@ -731,7 +727,6 @@ public:
 	Choice(ImageID image, float imgScale, float imgRot, bool imgFlipH = false, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()), imgScale_(imgScale), imgRot_(imgRot), imgFlipH_(imgFlipH) {}
 
-	void Click() override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -757,6 +752,7 @@ public:
 	}
 
 protected:
+	void ClickInternal() override;
 	// hackery
 	virtual bool IsSticky() const { return false; }
 
@@ -890,25 +886,24 @@ class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
-		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
 	// Image-only "checkbox", lights up instead of showing a checkmark.
 	CheckBox(bool *toggle, ImageID imageID, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), imageID_(imageID) {
-		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
-	EventReturn OnClicked(EventParams &e);
 	//allow external agents to toggle the checkbox
 	virtual void Toggle();
 	virtual bool Toggled() const;
 
 protected:
+	void ClickInternal() override;
+
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;

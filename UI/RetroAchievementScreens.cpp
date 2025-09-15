@@ -732,7 +732,7 @@ void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float 
 	MeasureAchievement(dc, achievement_, AchievementRenderStyle::LISTED, &w, &h);
 }
 
-void AchievementView::Click() {
+void AchievementView::ClickInternal() {
 	if (!achievement_) {
 		return;
 	}

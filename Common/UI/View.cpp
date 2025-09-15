@@ -65,14 +65,13 @@ void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert) {
 }
 
 void Event::Add(std::function<EventReturn(EventParams&)> func) {
-	HandlerRegistration reg;
-	reg.func = func;
-	handlers_.push_back(reg);
+	_dbg_assert_(!func_);
+	func_ = func;
 }
 
 // Call this from input thread or whatever, it doesn't matter
 void Event::Trigger(EventParams &e) {
-	if (handlers_.empty()) {
+	if (!func_) {
 		return;
 	}
 	EventTriggered(this, e);
@@ -80,17 +79,12 @@ void Event::Trigger(EventParams &e) {
 
 // Call this from UI thread
 EventReturn Event::Dispatch(EventParams &e) {
-	for (auto &handler : handlers_) {
-		if ((handler.func)(e) == UI::EVENT_DONE) {
-			// Event is handled, stop looping immediately. This event might even have gotten deleted.
-			return UI::EVENT_DONE;
-		}
-	}
+	if (func_)
+		func_(e);
 	return UI::EVENT_DONE;
 }
 
 Event::~Event() {
-	handlers_.clear();
 	RemoveQueuedEventsByEvent(this);
 }
 
@@ -227,7 +221,7 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 	}
 }
 
-void Clickable::Click() {
+void Clickable::ClickInternal() {
 	UI::EventParams e{};
 	e.v = this;
 	OnClick.Trigger(e);
@@ -270,7 +264,7 @@ bool Clickable::Touch(const TouchInput &input) {
 	}
 	if (input.flags & TOUCH_UP) {
 		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
-			Click();
+			ClickInternal();
 		}
 		down_ = false;
 		downCountDown_ = 0;
@@ -376,7 +370,7 @@ bool Clickable::Key(const KeyInput &key) {
 	if (key.flags & KEY_UP) {
 		if (IsAcceptKey(key)) {
 			if (down_) {
-				Click();
+				ClickInternal();
 				down_ = false;
 				ret = true;
 			}
@@ -400,7 +394,7 @@ bool StickyChoice::Touch(const TouchInput &touch) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
 			down_ = true;
-			Click();
+			ClickInternal();
 			return true;
 		}
 	}
@@ -417,7 +411,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 		if (IsAcceptKey(key)) {
 			down_ = true;
 			UI::PlayUISound(UI::UISound::TOGGLE_ON);
-			Click();
+			ClickInternal();
 			return true;
 		}
 	}
@@ -469,8 +463,8 @@ void ClickableItem::Draw(UIContext &dc) {
 	DrawBG(dc, style);
 }
 
-void Choice::Click() {
-	ClickableItem::Click();
+void Choice::ClickInternal() {
+	ClickableItem::ClickInternal();
 	UI::PlayUISound(UI::UISound::CONFIRM);
 }
 
@@ -744,9 +738,8 @@ bool CheckBox::Toggled() const {
 	return false;
 }
 
-EventReturn CheckBox::OnClicked(EventParams &e) {
+void CheckBox::ClickInternal() {
 	Toggle();
-	return EVENT_CONTINUE;  // It's safe to keep processing events.
 }
 
 void CheckBox::Draw(UIContext &dc) {
@@ -908,8 +901,8 @@ std::string Button::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 button"), GetText());
 }
 
-void Button::Click() {
-	Clickable::Click();
+void Button::ClickInternal() {
+	Clickable::ClickInternal();
 	UI::PlayUISound(UI::UISound::CONFIRM);
 }
 
@@ -970,8 +963,8 @@ std::string RadioButton::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 radio button"), text_);
 }
 
-void RadioButton::Click() {
-	Clickable::Click();
+void RadioButton::ClickInternal() {
+	Clickable::ClickInternal();
 	UI::PlayUISound(UI::UISound::CONFIRM);
 	*value_ = thisButtonValue_;
 }
