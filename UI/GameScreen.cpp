@@ -382,7 +382,7 @@ void GameScreen::CreateViews() {
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-		return UI::EVENT_SKIPPED;
+		return UI::EVENT_DONE;
 	}
 	g_Config.createGameConfig(info->id);
 	g_Config.saveGameConfig(info->id, info->GetTitle());

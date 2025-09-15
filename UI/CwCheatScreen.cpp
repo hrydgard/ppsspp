@@ -178,7 +178,6 @@ UI::EventReturn CwCheatScreen::OnDisableAll(UI::EventParams &params) {
 		// Probably the file was modified outside PPSSPP, refresh.
 		// TODO: Report error.
 		RecreateViews();
-		return UI::EVENT_SKIPPED;
 	}
 
 	return UI::EVENT_DONE;
@@ -307,7 +306,7 @@ bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 
 	FILE *append = File::OpenCFile(engine_->CheatFilename(), "at");
 	if (!append)
-		return UI::EVENT_SKIPPED;
+		return false;
 
 	if (title2.size() == 0 || title2[0] != '_' || title2[1] != 'S') {
 		for (int i = (int)title.size(); i > 0; i--) {
@@ -334,7 +333,6 @@ UI::EventReturn CwCheatScreen::OnCheckBox(int index) {
 	if (!RebuildCheatFile(index)) {
 		// TODO: Report error.  Let's reload the file, presumably it changed.
 		RecreateViews();
-		return UI::EVENT_SKIPPED;
 	}
 
 	return UI::EVENT_DONE;

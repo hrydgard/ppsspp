@@ -86,7 +86,7 @@ EventReturn Event::Dispatch(EventParams &e) {
 			return UI::EVENT_DONE;
 		}
 	}
-	return UI::EVENT_SKIPPED;
+	return UI::EVENT_DONE;
 }
 
 Event::~Event() {
