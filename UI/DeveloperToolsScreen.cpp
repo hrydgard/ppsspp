@@ -134,8 +134,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	static const char *cpuCores[] = { "Interpreter", "Dynarec/JIT (recommended)", "IR Interpreter", "JIT using IR" };
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, sy->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), I18NCat::SYSTEM, screenManager()));
-	core->OnChoice.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
-	core->OnChoice.Add([](UI::EventParams &) {
+	core->OnChoice.Add([=](UI::EventParams &e) {
+		OnJitAffectingSetting(e);
 		g_Config.NotifyUpdatedCpuCore();
 	});
 	if (!canUseJit) {
