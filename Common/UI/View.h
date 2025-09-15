@@ -211,12 +211,6 @@ enum MeasureSpecType {
 	AT_MOST,
 };
 
-// I hope I can find a way to simplify this one day.
-enum EventReturn {
-	EVENT_DONE,  // Return this when no other view may process this event, for example if you changed the view hierarchy
-	EVENT_CONTINUE,  // Return this if it's safe to send this event to further listeners. This should normally be the default choice but often EVENT_DONE is necessary.
-};
-
 enum FocusFlags {
 	FF_LOSTFOCUS = 1,
 	FF_GOTFOCUS = 2
@@ -252,6 +246,8 @@ struct EventParams {
 	std::string s;
 };
 
+typedef std::function<void(EventParams &)> EventCallback;
+
 class Event {
 public:
 	Event() {}
@@ -259,20 +255,20 @@ public:
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
 	// Call this from UI thread
-	EventReturn Dispatch(EventParams &e);
+	void Dispatch(EventParams &e);
 
 	// This is now the suggested default way to bind a handler - just used a lambda, and if necessary call other functions.
-	void Add(std::function<EventReturn(EventParams &)> func);
+	void Add(EventCallback func);
 
 	// The old way of doing things.
 	template<class T>
-	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &)) {
+	T *Handle(T *thiz, void (T::* theCallback)(EventParams &)) {
 		Add(std::bind(theCallback, thiz, std::placeholders::_1));
 		return thiz;
 	}
 
 private:
-	std::function<EventReturn(EventParams&)> func_;
+	std::function<void(EventParams&)> func_;
 	DISALLOW_COPY_AND_ASSIGN(Event);
 };
 

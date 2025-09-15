@@ -51,10 +51,10 @@ protected:
 	void UpdateCRCInfo();
 	void UpdateOverallDescription();
 
-	UI::EventReturn HandleChoice(UI::EventParams &e);
-	UI::EventReturn HandleSubmit(UI::EventParams &e);
-	UI::EventReturn HandleBrowser(UI::EventParams &e);
-	UI::EventReturn HandleReportingChange(UI::EventParams &e);
+	void HandleChoice(UI::EventParams &e);
+	void HandleSubmit(UI::EventParams &e);
+	void HandleBrowser(UI::EventParams &e);
+	void HandleReportingChange(UI::EventParams &e);
 
 	UI::Choice *submit_ = nullptr;
 	UI::View *screenshot_ = nullptr;
@@ -85,7 +85,7 @@ protected:
 	void CreateViews() override;
 	void ShowSuggestions();
 
-	UI::EventReturn HandleViewFeedback(UI::EventParams &e);
+	void HandleViewFeedback(UI::EventParams &e);
 
 	UI::TextView *resultNotice_ = nullptr;
 	UI::LinearLayout *resultItems_ = nullptr;

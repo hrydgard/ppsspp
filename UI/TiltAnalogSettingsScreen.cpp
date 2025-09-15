@@ -105,7 +105,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 			//refer to the ResetTiltEvents() function for a detailed explanation.
 			TiltEventProcessor::ResetTiltEvents();
 			RecreateViews();
-			return UI::EVENT_DONE;
 		});
 	settings->Add(new ItemHeader(co->T("Calibration")));
 	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
@@ -134,9 +133,8 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
+void TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 	g_Config.fTiltBaseAngleY = TiltEventProcessor::GetCurrentYAngle();
-	return UI::EVENT_DONE;
 }
 
 void TiltAnalogSettingsScreen::update() {

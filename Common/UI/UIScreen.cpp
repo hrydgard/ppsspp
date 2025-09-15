@@ -285,19 +285,16 @@ void UIDialogScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
+void UIScreen::OnBack(UI::EventParams &e) {
 	TriggerFinish(DR_BACK);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn UIScreen::OnOK(UI::EventParams &e) {
+void UIScreen::OnOK(UI::EventParams &e) {
 	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
+void UIScreen::OnCancel(UI::EventParams &e) {
 	TriggerFinish(DR_CANCEL);
-	return UI::EVENT_DONE;
 }
 
 PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)

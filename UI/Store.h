@@ -70,9 +70,9 @@ public:
 
 protected:
 	void CreateViews() override;
-	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnRetry(UI::EventParams &e);
-	UI::EventReturn OnGameLaunch(UI::EventParams &e);
+	void OnGameSelected(UI::EventParams &e);
+	void OnRetry(UI::EventParams &e);
+	void OnGameLaunch(UI::EventParams &e);
 
 private:
 	void ParseListing(const std::string &json);

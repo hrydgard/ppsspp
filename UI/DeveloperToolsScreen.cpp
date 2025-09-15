@@ -110,7 +110,6 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 				path = GetSysDirectory(DIRECTORY_TEXTURES);
 			}
 			System_ShowFileInFolder(path);
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -138,7 +137,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	core->OnChoice.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
 	core->OnChoice.Add([](UI::EventParams &) {
 		g_Config.NotifyUpdatedCpuCore();
-		return UI::EVENT_DONE;
 	});
 	if (!canUseJit) {
 		core->HideChoice(1);
@@ -175,7 +173,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
-		return UI::EVENT_DONE;
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -184,7 +181,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	framerateMode->SetEnabledFunc([]() { return System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30; });
 	framerateMode->OnChoice.Add([](UI::EventParams &e) {
 		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
-		return UI::EVENT_DONE;
 	});
 #endif
 
@@ -193,7 +189,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
 		[=](UI::EventParams &) {
 		SetMemStickDirDarwin(GetRequesterToken());
-		return UI::EVENT_DONE;
 	});
 #endif
 
@@ -213,7 +208,6 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	Choice *frameDumpTests = list->Add(new Choice(dev->T("Framedump tests")));
 	frameDumpTests->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new FrameDumpTestScreen());
-		return UI::EVENT_DONE;
 	});
 	frameDumpTests->SetEnabled(!PSP_IsInited());
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
@@ -227,7 +221,6 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	auto memmapTest = list->Add(new Choice(dev->T("Memory map test")));
 	memmapTest->OnClick.Add([this](UI::EventParams &e) {
 		MemoryMapTest();
-		return UI::EVENT_DONE;
 	});
 	memmapTest->SetEnabled(PSP_IsInited());
 	*/
@@ -312,7 +305,6 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 	storage_capacity->SetFormat("0x%x asm opcodes");
 	storage_capacity->OnChange.Add([&](UI::EventParams &) {
 		INFO_LOG(Log::JIT, "User changed the tracer's storage capacity to 0x%x", mipsTracer.in_storage_capacity);
-		return UI::EVENT_CONTINUE;
 	});
 
 	PopupSliderChoice* trace_max_size = list->Add(
@@ -323,7 +315,6 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 	trace_max_size->SetFormat("%d basic blocks");
 	trace_max_size->OnChange.Add([&](UI::EventParams &) {
 		INFO_LOG(Log::JIT, "User changed the tracer's max trace size to %d", mipsTracer.in_max_trace_size);
-		return UI::EVENT_CONTINUE;
 	});
 
 	list->Add(new ItemHeader(dev->T("MIPSTracer actions")));
@@ -385,7 +376,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
 			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
 			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -393,7 +383,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 		auto driverChoice = list->Add(new Choice(gr->T("AdrenoTools driver manager")));
 		driverChoice->OnClick.Add([=](UI::EventParams &e) {
 			screenManager()->push(new DriverManagerScreen(gamePath_));
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -443,7 +432,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
 			screenManager()->push(procScreen);
-			return UI::EVENT_DONE;
 		});
 		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
 		if (shaderInfo) {
@@ -511,12 +499,11 @@ void DeveloperToolsScreen::onFinish(DialogResult result) {
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 }
 
-UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
+void DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	System_Notify(SystemNotification::TOGGLE_DEBUG_CONSOLE);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
+void DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
 	Path generatedFilename;
 
@@ -531,35 +518,29 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 
 		hasTexturesIni_ = HasIni::YES;
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
+void DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 	screenManager()->push(new LogConfigScreen());
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
+void DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
 	screenManager()->push(new JitDebugScreen());
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
+void DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 	screenManager()->push(new GPUDriverTestScreen());
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
+void DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
 	screenManager()->push(new TouchTestScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
+void DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
+void DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 	Path root_dir = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
 
@@ -572,11 +553,9 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 		INFO_LOG(Log::System, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
 		File::Copy(src, dst);
 	}
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
+void DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	if (allowDebugger_) {
 		StartWebServer(WebServerFlags::DEBUGGER);
 	} else {
@@ -584,10 +563,9 @@ UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	}
 	// Persist the setting.  Maybe should separate?
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
+void DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
 	if (MIPSTracerEnabled_) {
 		u32 capacity = mipsTracer.in_storage_capacity;
 		u32 trace_size = mipsTracer.in_max_trace_size;
@@ -597,10 +575,9 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
 	} else {
 		mipsTracer.stop_tracing();
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
+void DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	System_BrowseForFileSave(
 		GetRequesterToken(),
@@ -613,27 +590,21 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e
 			MIPSTracerPath->SetRightText(MIPSTracerPath_);
 		}
 	);
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e) {
+void DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e) {
 	mipsTracer.flush_to_file();
 	// The error logs are emitted inside the tracer
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearJitCache(UI::EventParams &e) {
+void DeveloperToolsScreen::OnMIPSTracerClearJitCache(UI::EventParams &e) {
 	INFO_LOG(Log::JIT, "Clearing the jit cache...");
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearTracer(UI::EventParams &e) {
+void DeveloperToolsScreen::OnMIPSTracerClearTracer(UI::EventParams &e) {
 	INFO_LOG(Log::JIT, "Clearing the MIPSTracer...");
 	mipsTracer.clear();
-	return UI::EVENT_DONE;
 }
 
 void DeveloperToolsScreen::update() {
@@ -690,13 +661,11 @@ static bool RunMemstickTest(std::string *error) {
 	return true;
 }
 
-UI::EventReturn DeveloperToolsScreen::OnMemstickTest(UI::EventParams &e) {
+void DeveloperToolsScreen::OnMemstickTest(UI::EventParams &e) {
 	std::string error;
 	if (RunMemstickTest(&error)) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Memstick test passed", error, 6.0f);
 	} else {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, "Memstick test failed", error, 6.0f);
 	}
-
-	return UI::EVENT_DONE;
 }

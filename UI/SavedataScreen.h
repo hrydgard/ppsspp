@@ -56,7 +56,7 @@ private:
 	static bool ByDate(const UI::View *, const UI::View *);
 
 	void Refresh();
-	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
+	void SavedataButtonClick(UI::EventParams &e);
 
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	UI::ViewGroup *gameList_ = nullptr;
@@ -85,8 +85,8 @@ protected:
 	bool ShowSearchControls() const override { return false; }
 
 private:
-	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
-	UI::EventReturn OnSearch(UI::EventParams &e);
+	void OnSavedataButtonClick(UI::EventParams &e);
+	void OnSearch(UI::EventParams &e);
 
 	void CreateSavedataTab(UI::ViewGroup *savedata);
 	void CreateSavestateTab(UI::ViewGroup *savestate);

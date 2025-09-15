@@ -41,7 +41,7 @@ public:
 	const char *tag() const override { return "DisplayLayout"; }
 	
 protected:
-	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
+	void OnPostProcShaderChange(UI::EventParams &e);
 
 	void sendMessage(UIMessage message, const char *value) override;
 	void DrawBackground(UIContext &dc) override;

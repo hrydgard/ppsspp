@@ -64,7 +64,7 @@ void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert) {
 	ApplyBoundBySpec(bounds.h, vert);
 }
 
-void Event::Add(std::function<EventReturn(EventParams&)> func) {
+void Event::Add(std::function<void(EventParams&)> func) {
 	_dbg_assert_(!func_);
 	func_ = func;
 }
@@ -78,10 +78,9 @@ void Event::Trigger(EventParams &e) {
 }
 
 // Call this from UI thread
-EventReturn Event::Dispatch(EventParams &e) {
+void Event::Dispatch(EventParams &e) {
 	if (func_)
 		func_(e);
-	return UI::EVENT_DONE;
 }
 
 Event::~Event() {
@@ -137,7 +136,6 @@ void View::Query(float x, float y, std::vector<View *> &list) {
 std::string View::DescribeLog() const {
 	return StringFromFormat("%0.1f,%0.1f %0.1fx%0.1f", bounds_.x, bounds_.y, bounds_.w, bounds_.h);
 }
-
 
 void View::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
 	// Remember if this view was a focused view.

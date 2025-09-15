@@ -62,7 +62,7 @@ protected:
 	LinearLayout *group_;
 
 private:
-	EventReturn OnChoiceClick(EventParams &e);
+	void OnChoiceClick(EventParams &e);
 
 	int *value_;
 };
@@ -114,7 +114,7 @@ void RatingChoice::AddChoice(int i, std::string_view title) {
 	c->OnClick.Handle(this, &RatingChoice::OnChoiceClick);
 }
 
-EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
+void RatingChoice::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
 	int total = TotalChoices();
 	for (int i = 0; i < total; i++) {
@@ -131,7 +131,6 @@ EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 	e2.a = *value_;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
 	OnChoice.Dispatch(e2);
-	return EVENT_DONE;
 }
 
 class CompatRatingChoice : public RatingChoice {
@@ -218,7 +217,7 @@ void ReportScreen::resized() {
 	RecreateViews();
 }
 
-EventReturn ReportScreen::HandleChoice(EventParams &e) {
+void ReportScreen::HandleChoice(EventParams &e) {
 	if (overall_ == ReportingOverallScore::NONE) {
 		graphics_ = 0;
 		speed_ = 0;
@@ -243,10 +242,9 @@ EventReturn ReportScreen::HandleChoice(EventParams &e) {
 
 	UpdateSubmit();
 	UpdateOverallDescription();
-	return EVENT_DONE;
 }
 
-EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
+void ReportScreen::HandleReportingChange(EventParams &e) {
 	if (overall_ == ReportingOverallScore::NONE) {
 		ratingEnabled_ = false;
 	} else {
@@ -256,7 +254,6 @@ EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
 		reportingNotice_->SetTextColor(enableReporting_ ? 0xFFFFFFFF : 0xFF3030FF);
 	}
 	UpdateSubmit();
-	return EVENT_DONE;
 }
 
 void ReportScreen::CreateViews() {
@@ -379,7 +376,7 @@ void ReportScreen::UpdateOverallDescription() {
 	overallDescription_->SetTextColor(c);
 }
 
-EventReturn ReportScreen::HandleSubmit(EventParams &e) {
+void ReportScreen::HandleSubmit(EventParams &e) {
 	const char *compat;
 	switch (overall_) {
 	case ReportingOverallScore::PERFECT: compat = "perfect"; break;
@@ -399,13 +396,11 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_, overall_));
-	return EVENT_DONE;
 }
 
-EventReturn ReportScreen::HandleBrowser(EventParams &e) {
+void ReportScreen::HandleBrowser(EventParams &e) {
 	const std::string url = "https://" + Reporting::ServerHost() + "/";
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
-	return EVENT_DONE;
 }
 
 ReportFinishScreen::ReportFinishScreen(const Path &gamePath, ReportingOverallScore score)
@@ -519,8 +514,7 @@ void ReportFinishScreen::ShowSuggestions() {
 	}
 }
 
-UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
+void ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
 	const std::string url = "https://" + Reporting::ServerHost() + "/game/" + Reporting::CurrentGameID();
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
-	return EVENT_DONE;
 }

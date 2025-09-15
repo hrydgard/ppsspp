@@ -531,7 +531,6 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 		langScreen->OnChoice.Add([](UI::EventParams &) {
 			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 			System_Notify(SystemNotification::UI);
-			return UI::EVENT_DONE;
 		});
 		manager->push(langScreen);
 	} else if (message == UIMessage::WINDOW_MINIMIZED) {
@@ -649,14 +648,12 @@ void PromptScreen::CreateViews() {
 	yesButton->SetCentered(vertical);
 	yesButton->OnClick.Add([this](UI::EventParams &e) {
 		TriggerFinish(DR_OK);
-		return UI::EVENT_DONE;
 	});
 	if (!noButtonText_.empty()) {
 		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
 		noButton->SetCentered(vertical);
 		noButton->OnClick.Add([this](UI::EventParams &e) {
 			TriggerFinish(DR_CANCEL);
-			return UI::EVENT_DONE;
 		});
 		root_->SetDefaultFocusView(noButton);
 	} else {
@@ -930,7 +927,6 @@ void CreditsScreen::CreateViews() {
 		ScreenManager *sm = screenManager();
 		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Add([sm](UI::EventParams) {
 			LaunchBuyGold(sm);
-			return UI::EVENT_DONE;
 		});
 		rightYOffset = 74;
 	}
@@ -951,36 +947,30 @@ void CreditsScreen::CreateViews() {
 	}
 }
 
-UI::EventReturn CreditsScreen::OnX(UI::EventParams &e) {
+void CreditsScreen::OnX(UI::EventParams &e) {
 	// Not sure we should change to x.com here, given various platform URL handlers etc. We can probably change it soon.
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/PPSSPP_emu");
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
+void CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CreditsScreen::OnPrivacy(UI::EventParams &e) {
+void CreditsScreen::OnPrivacy(UI::EventParams &e) {
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
+void CreditsScreen::OnForums(UI::EventParams &e) {
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CreditsScreen::OnDiscord(UI::EventParams &e) {
+void CreditsScreen::OnDiscord(UI::EventParams &e) {
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
+void CreditsScreen::OnShare(UI::EventParams &e) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
-	return UI::EVENT_DONE;
 }
 
 CreditsScreen::CreditsScreen() {

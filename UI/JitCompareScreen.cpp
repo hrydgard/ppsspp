@@ -62,27 +62,23 @@ void JitCompareScreen::CreateViews() {
 	blockTopBar->Add(new Button("", ImageID("I_ARROW_UP")))->OnClick.Add([this](UI::EventParams &e) {
 		viewMode_ = ViewMode::BLOCK_LIST;
 		Flip();
-		return UI::EVENT_DONE;
 	});
 	blockTopBar->Add(new Button("", ImageID("I_ARROW_LEFT")))->OnClick.Add([=](UI::EventParams &e) {
 		if (currentBlock_ >= 1)
 			currentBlock_--;
 		UpdateDisasm();
-		return UI::EVENT_DONE;
 	});
 	blockTopBar->Add(new Button("", ImageID("I_ARROW_RIGHT")))->OnClick.Add([=](UI::EventParams &e) {
 		if (currentBlock_ < blockList_.size() - 1)
 			currentBlock_++;
 		UpdateDisasm();
-		return UI::EVENT_DONE;
 	});
 	blockTopBar->Add(new Button(dev->T("Random")))->OnClick.Add([=](UI::EventParams &e) {
 		if (blockList_.empty()) {
-			return UI::EVENT_DONE;
+			return;
 		}
 		currentBlock_ = rand() % blockList_.size();
 		UpdateDisasm();
-		return UI::EVENT_DONE;
 	});
 
 	blockAddr_ = blockTopBar->Add(new TextEdit("", dev->T("Block address"), ""));
@@ -128,14 +124,12 @@ void JitCompareScreen::CreateViews() {
 	listTopBar->Add(sortButton)->OnClick.Add([this, sortButton, sortCount](UI::EventParams &e) {
 		PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(sortMenu, sortCount, I18NCat::DEVELOPER, sortButton);
 		screenManager()->push(contextMenu);
-		contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+		contextMenu->OnChoice.Add([=](EventParams &e) -> void {
 			if (e.a < (int)ListSort::MAX) {
 				listSort_ = (ListSort)e.a;
 				UpdateDisasm();
 			}
-			return UI::EVENT_DONE;
 		});
-		return UI::EVENT_DONE;
 	});
 
 	ScrollView *blockScroll = blockListView_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
@@ -153,19 +147,16 @@ void JitCompareScreen::CreateViews() {
 		listType_ = ListType::ALL_BLOCKS;
 		viewMode_ = ViewMode::BLOCK_LIST;
 		UpdateDisasm();
-		return UI::EVENT_DONE;
 	});
 	leftColumn->Add(new Choice(dev->T("FPU")))->OnClick.Add([=](UI::EventParams &e) {
 		listType_ = ListType::FPU_BLOCKS;
 		viewMode_ = ViewMode::BLOCK_LIST;
 		UpdateDisasm();
-		return UI::EVENT_DONE;
 	});
 	leftColumn->Add(new Choice(dev->T("VFPU")))->OnClick.Add([=](UI::EventParams &e) {
 		listType_ = ListType::VFPU_BLOCKS;
 		viewMode_ = ViewMode::BLOCK_LIST;
 		UpdateDisasm();
-		return UI::EVENT_DONE;
 	});
 
 	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
@@ -365,66 +356,62 @@ void JitCompareScreen::UpdateDisasm() {
 	}
 }
 
-UI::EventReturn JitCompareScreen::OnBlockClick(UI::EventParams &e) {
+void JitCompareScreen::OnBlockClick(UI::EventParams &e) {
 	int blockIndex = blockListContainer_->IndexOfSubview(e.v);
 	if (blockIndex >= 0) {
 		viewMode_ = ViewMode::DISASM;
 		currentBlock_ = blockIndex;
 		UpdateDisasm();
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
+void JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
+		return;
 	}
 	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
-		return UI::EVENT_DONE;
+		return;
 	u32 addr;
 	if (blockAddr_->GetText().size() > 8)
-		return UI::EVENT_DONE;
+		return;
 	if (1 == sscanf(blockAddr_->GetText().c_str(), "%08x", &addr)) {
 		if (Memory::IsValidAddress(addr)) {
 			currentBlock_ = blockCache->GetBlockNumberFromStartAddress(addr);
 			UpdateDisasm();
 		}
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
+void JitCompareScreen::OnShowStats(UI::EventParams &e) {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
+		return;
 	}
 
 	viewMode_ = ViewMode::STATS;
 	UpdateDisasm();
-	return UI::EVENT_DONE;
 }
 
 
-UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
+void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
 	screenManager()->push(addressPrompt);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
+void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
+		return;
 	}
 
 	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
-		return UI::EVENT_DONE;
+		return;
 
 	if (Memory::IsValidAddress(e.a)) {
 		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
@@ -432,7 +419,6 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 		currentBlock_ = -1;
 	}
 	UpdateDisasm();
-	return UI::EVENT_DONE;
 }
 
 /*
@@ -504,18 +490,16 @@ void AddressPromptScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-UI::EventReturn AddressPromptScreen::OnDigitButton(UI::EventParams &e) {
+void AddressPromptScreen::OnDigitButton(UI::EventParams &e) {
 	for (int i = 0; i < 16; ++i) {
 		if (buttons_[i] == e.v) {
 			AddDigit(i);
 		}
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn AddressPromptScreen::OnBackspace(UI::EventParams &e) {
+void AddressPromptScreen::OnBackspace(UI::EventParams &e) {
 	BackspaceDigit();
-	return UI::EVENT_DONE;
 }
 
 void AddressPromptScreen::AddDigit(int n) {

@@ -167,12 +167,12 @@ public:
 	const char *tag() const override { return "Credits"; }
 
 private:
-	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
-	UI::EventReturn OnPrivacy(UI::EventParams &e);
-	UI::EventReturn OnForums(UI::EventParams &e);
-	UI::EventReturn OnDiscord(UI::EventParams &e);
-	UI::EventReturn OnShare(UI::EventParams &e);
-	UI::EventReturn OnX(UI::EventParams &e);
+	void OnPPSSPPOrg(UI::EventParams &e);
+	void OnPrivacy(UI::EventParams &e);
+	void OnForums(UI::EventParams &e);
+	void OnDiscord(UI::EventParams &e);
+	void OnShare(UI::EventParams &e);
+	void OnX(UI::EventParams &e);
 
 	double startTime_ = 0.0;
 };

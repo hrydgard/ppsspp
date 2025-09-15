@@ -129,7 +129,6 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 			UI::EventParams e{};
 			e.s = name_;
 			OnDelete.Trigger(e);
-			return UI::EVENT_DONE;
 		});
 	}
 	if (usable) {
@@ -138,7 +137,6 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 				UI::EventParams e{};
 				e.s = name_;
 				OnUse.Trigger(e);
-				return UI::EVENT_DONE;
 			});
 		}
 	} else {
@@ -166,7 +164,6 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 	auto customDriverInstallChoice = drivers->Add(new Choice(gr->T("Install custom driver...")));
 	drivers->Add(new Choice(di->T("More info")))->OnClick.Add([=](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/custom-drivers/");
-		return UI::EVENT_DONE;
 	});
 
 	customDriverInstallChoice->OnClick.Handle(this, &DriverManagerScreen::OnCustomDriverInstall);
@@ -187,7 +184,7 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 	drivers->Add(new Spacer(12.0));
 }
 
-UI::EventReturn DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
+void DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
@@ -197,12 +194,11 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
 			TriggerRestart("GameSettingsScreen::CustomDriverYes", false, gamePath_);
 		}
 	}));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e) {
+void DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e) {
 	if (e.s.empty()) {
-		return UI::EVENT_DONE;
+		return;
 	}
 	INFO_LOG(Log::G3D, "Uninstalling driver: %s", e.s.c_str());
 
@@ -210,10 +206,9 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e)
 	File::DeleteDirRecursively(folder);
 
 	RecreateViews();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
+void DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	System_BrowseForFile(GetRequesterToken(), gr->T("Install custom driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
@@ -275,5 +270,4 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, iz->T("Installed!"));
 		RecreateViews();
 	});
-	return UI::EVENT_DONE;
 }

@@ -129,10 +129,10 @@ protected:
 	}
 
 private:
-	UI::EventReturn OnSaveState(UI::EventParams &e);
-	UI::EventReturn OnLoadState(UI::EventParams &e);
-	UI::EventReturn OnUndoState(UI::EventParams &e);
-	UI::EventReturn OnDeleteState(UI::EventParams &e);
+	void OnSaveState(UI::EventParams &e);
+	void OnLoadState(UI::EventParams &e);
+	void OnUndoState(UI::EventParams &e);
+	void OnDeleteState(UI::EventParams &e);
 
 	Path filename_;
 	Path gamePath_;
@@ -140,33 +140,30 @@ private:
 	int slot_;
 };
 
-UI::EventReturn ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
+void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
 		TriggerFinish(DR_OK); //OK will close the pause screen as well
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
+void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
 		TriggerFinish(DR_OK);
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ScreenshotViewScreen::OnUndoState(UI::EventParams &e) {
+void ScreenshotViewScreen::OnUndoState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		SaveState::UndoSaveSlot(gamePath_, slot_);
 		TriggerFinish(DR_CANCEL);
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
+void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
@@ -183,8 +180,6 @@ UI::EventReturn ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 			TriggerFinish(DR_CANCEL);
 		}
 	}));
-
-	return UI::EVENT_DONE;
 }
 
 class SaveSlotView : public UI::LinearLayout {
@@ -214,9 +209,9 @@ public:
 	UI::Event OnScreenshotClicked;
 
 private:
-	UI::EventReturn OnScreenshotClick(UI::EventParams &e);
-	UI::EventReturn OnSaveState(UI::EventParams &e);
-	UI::EventReturn OnLoadState(UI::EventParams &e);
+	void OnScreenshotClick(UI::EventParams &e);
+	void OnSaveState(UI::EventParams &e);
+	void OnLoadState(UI::EventParams &e);
 
 	UI::Button *saveStateButton_ = nullptr;
 	UI::Button *loadStateButton_ = nullptr;
@@ -279,7 +274,7 @@ void SaveSlotView::Draw(UIContext &dc) {
 	UI::LinearLayout::Draw(dc);
 }
 
-UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
+void SaveSlotView::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
@@ -287,10 +282,9 @@ UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 		e2.v = this;
 		OnStateLoaded.Trigger(e2);
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
+void SaveSlotView::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
@@ -298,14 +292,12 @@ UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
 		e2.v = this;
 		OnStateSaved.Trigger(e2);
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn SaveSlotView::OnScreenshotClick(UI::EventParams &e) {
+void SaveSlotView::OnScreenshotClick(UI::EventParams &e) {
 	UI::EventParams e2{};
 	e2.v = this;
 	OnScreenshotClicked.Trigger(e2);
-	return UI::EVENT_DONE;
 }
 
 void GamePauseScreen::update() {
@@ -463,7 +455,6 @@ void GamePauseScreen::CreateViews() {
 						if (!dnsConfig.revivalTeamURL.empty()) {
 							System_LaunchUrl(LaunchUrlType::BROWSER_URL, dnsConfig.revivalTeamURL.c_str());
 						}
-						return UI::EVENT_DONE;
 					});
 				}
 			}
@@ -489,7 +480,6 @@ void GamePauseScreen::CreateViews() {
 			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)));
 			horiz->Add(new Button(di->T("More info")))->OnClick.Add([](UI::EventParams &e) {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps");
-				return UI::EVENT_DONE;
 			});
 		}
 
@@ -536,7 +526,6 @@ void GamePauseScreen::CreateViews() {
 	if (getUMDReplacePermit()) {
 		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Add([=](UI::EventParams &) {
 			screenManager()->push(new UmdReplaceScreen());
-			return UI::EVENT_DONE;
 		});
 	}
 	Choice *continueChoice = rightColumnItems->Add(new Choice(pa->T("Continue")));
@@ -557,20 +546,17 @@ void GamePauseScreen::CreateViews() {
 		createGameConfig->SetEnabled(!bootPending_);
 	}
 
-	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> void {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
-		return UI::EVENT_DONE;
 	});
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
-			return UI::EVENT_DONE;
 		});
 	}
 	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
 		rightColumnItems->Add(new Choice(ac->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
-			return UI::EVENT_DONE;
 		});
 	}
 
@@ -596,7 +582,6 @@ void GamePauseScreen::CreateViews() {
 	playButton_->OnClick.Add([=](UI::EventParams &e) {
 		g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
 		playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
-		return UI::EVENT_DONE;
 	});
 
 	bool mustRunBehind = MustRunBehind();
@@ -605,7 +590,6 @@ void GamePauseScreen::CreateViews() {
 	Button *infoButton = middleColumn->Add(new Button("", ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
 	infoButton->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GameScreen(gamePath_, true));
-		return UI::EVENT_DONE;
 	});
 
 	Button *menuButton = middleColumn->Add(new Button("", ImageID("I_THREE_DOTS"), new LinearLayoutParams(64, 64)));
@@ -616,7 +600,7 @@ void GamePauseScreen::CreateViews() {
 		};
 		PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(ingameContextMenu, ARRAY_SIZE(ingameContextMenu), I18NCat::DIALOG, menuButton);
 		screenManager()->push(contextMenu);
-		contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+		contextMenu->OnChoice.Add([=](EventParams &e) -> void {
 			switch (e.a) {
 			case 0:  // Reset
 			{
@@ -636,24 +620,19 @@ void GamePauseScreen::CreateViews() {
 			default:
 				break;
 			}
-			return UI::EVENT_DONE;
 		});
-
-		return UI::EVENT_DONE;
 	});
 
 	// What's this for?
 	rightColumnHolder->Add(new Spacer(10.0f));
 }
 
-UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
+void GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 	screenManager()->push(new GameSettingsScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
+void GamePauseScreen::OnState(UI::EventParams &e) {
 	TriggerFinish(DR_CANCEL);
-	return UI::EVENT_DONE;
 }
 
 void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
@@ -670,7 +649,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	}
 }
 
-UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
+void GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
 	int slot = v->GetSlot();
 	g_Config.iCurrentStateSlot = v->GetSlot();
@@ -680,7 +659,6 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
 		screenManager()->push(screen);
 	}
-	return UI::EVENT_DONE;
 }
 
 int GetUnsavedProgressSeconds() {
@@ -725,7 +703,7 @@ std::string GetConfirmExitMessage() {
 	return confirmMessage;
 }
 
-UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
+void GamePauseScreen::OnExit(UI::EventParams &e) {
 	std::string confirmExitMessage = GetConfirmExitMessage();
 
 	if (!confirmExitMessage.empty()) {
@@ -749,33 +727,28 @@ UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
 			TriggerFinish(DR_OK);
 		}
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
+void GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 	screenManager()->push(new ReportScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
+void GamePauseScreen::OnRewind(UI::EventParams &e) {
 	SaveState::Rewind(&AfterSaveStateAction);
 
 	TriggerFinish(DR_CANCEL);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnLoadUndo(UI::EventParams &e) {
+void GamePauseScreen::OnLoadUndo(UI::EventParams &e) {
 	SaveState::UndoLoad(gamePath_, &AfterSaveStateAction);
 
 	TriggerFinish(DR_CANCEL);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
+void GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	SaveState::UndoLastSave(gamePath_);
 
 	RecreateViews();
-	return UI::EVENT_DONE;
 }
 
 void GamePauseScreen::CallbackDeleteConfig(bool yes) {
@@ -790,7 +763,7 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes) {
 	}
 }
 
-UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
+void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		std::string gameId = info->id;
@@ -802,13 +775,11 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 		}
 		screenManager()->topScreen()->RecreateViews();
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
+void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	screenManager()->push(
 		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), di->T("Delete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
-	return UI::EVENT_DONE;
 }

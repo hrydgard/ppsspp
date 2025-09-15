@@ -96,15 +96,14 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	UpdateChat();
 }
 
-UI::EventReturn ChatMenu::OnSubmitMessage(UI::EventParams &e) {
+void ChatMenu::OnSubmitMessage(UI::EventParams &e) {
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
+void ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	using namespace UI;
@@ -122,37 +121,30 @@ UI::EventReturn ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 		}
 		popupScreen->OnChange.Add([=](UI::EventParams &e) {
 			sendChat(messageTemp_);
-			return UI::EVENT_DONE;
 		});
 		popupScreen->SetPopupOrigin(chatButton_);
 		screenManager_->push(popupScreen);
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ChatMenu::OnQuickChat1(UI::EventParams &e) {
+void ChatMenu::OnQuickChat1(UI::EventParams &e) {
 	sendChat(g_Config.sQuickChat0);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ChatMenu::OnQuickChat2(UI::EventParams &e) {
+void ChatMenu::OnQuickChat2(UI::EventParams &e) {
 	sendChat(g_Config.sQuickChat1);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ChatMenu::OnQuickChat3(UI::EventParams &e) {
+void ChatMenu::OnQuickChat3(UI::EventParams &e) {
 	sendChat(g_Config.sQuickChat2);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ChatMenu::OnQuickChat4(UI::EventParams &e) {
+void ChatMenu::OnQuickChat4(UI::EventParams &e) {
 	sendChat(g_Config.sQuickChat3);
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ChatMenu::OnQuickChat5(UI::EventParams &e) {
+void ChatMenu::OnQuickChat5(UI::EventParams &e) {
 	sendChat(g_Config.sQuickChat4);
-	return UI::EVENT_DONE;
 }
 
 void ChatMenu::UpdateChat() {

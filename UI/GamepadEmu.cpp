@@ -940,7 +940,6 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 			if (e.a && coreState == CORE_STEPPING_CPU) {
 				Core_Resume();
 			}
-			return UI::EVENT_DONE;
 		});
 	}
 

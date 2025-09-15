@@ -33,7 +33,7 @@ public:
 	const char *tag() const override { return "TiltAnalogSettings"; }
 
 private:
-	UI::EventReturn OnCalibrate(UI::EventParams &e);
+	void OnCalibrate(UI::EventParams &e);
 	
 	Lin::Vec3 down_{};
 	JoystickHistoryView *tilt_ = nullptr;

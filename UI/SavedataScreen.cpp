@@ -182,12 +182,10 @@ public:
 					TriggerFinish(DR_NO);
 				}
 			}));
-			return UI::EVENT_DONE;
 		});
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			buttonRow->Add(new Button(di->T("Show in folder"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
 				System_ShowFileInFolder(savePath_);
-				return UI::EVENT_DONE;
 			});
 		}
 		parent->Add(buttonRow);
@@ -597,14 +595,13 @@ void SavedataBrowser::Refresh() {
 		SetSearchFilter(searchFilter_);
 }
 
-UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
+void SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	SavedataButton *button = static_cast<SavedataButton *>(e.v);
 	UI::EventParams e2{};
 	e2.v = e.v;
 	e2.s = button->GamePath().ToString();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
-	return UI::EVENT_DONE;
 }
 
 SavedataScreen::~SavedataScreen() {
@@ -627,7 +624,6 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	sortStrip->OnChoice.Add([this](UI::EventParams &e) {
 		sortOption_ = SavedataSortOption(e.a);
 		dataBrowser_->SetSortOption(sortOption_);
-		return UI::EVENT_DONE;
 	});
 	savedata->Add(sortStrip);
 
@@ -651,7 +647,6 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 	sortStrip->OnChoice.Add([this](UI::EventParams &e) {
 		sortOption_ = SavedataSortOption(e.a);
 		stateBrowser_->SetSortOption(sortOption_);
-		return UI::EVENT_DONE;
 	});
 	savestate->Add(sortStrip);
 
@@ -684,20 +679,20 @@ void SavedataScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int ma
 	}
 }
 
-UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
+void SavedataScreen::OnSearch(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		System_InputBoxGetString(GetRequesterToken(), di->T("Filter"), searchFilter_, false, [](const std::string &value, int ivalue) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});
 	}
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
+void SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
+	// the game path: e.s;
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), Path(e.s), GameInfoFlags::PARAM_SFO);
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
-		return UI::EVENT_DONE;
+		return;
 	}
 
 	// Sanitize the title.
@@ -707,8 +702,6 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 		popupScreen->SetPopupOrigin(e.v);
 	}
 	screenManager()->push(popupScreen);
-	// the game path: e.s;
-	return UI::EVENT_DONE;
 }
 
 void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {

@@ -47,7 +47,6 @@ public:
 			c->OnClick.Add([=](UI::EventParams &e) {
 				*setting_ = i;
 				TriggerFinish(DR_OK);
-				return UI::EVENT_DONE;
 			});
 		}
 
@@ -77,7 +76,6 @@ public:
 			c->OnClick.Add([=](UI::EventParams &e) {
 				*setting_ = i;
 				TriggerFinish(DR_OK);
-				return UI::EVENT_DONE;
 			});
 		}
 
@@ -159,7 +157,6 @@ void CustomButtonMappingScreen::CreateViews() {
 			iconScreen->SetPopupOrigin(e.v);
 
 		screenManager()->push(iconScreen);
-		return UI::EVENT_DONE;
 	});
 
 	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
@@ -170,7 +167,6 @@ void CustomButtonMappingScreen::CreateViews() {
 			shape->SetPopupOrigin(e.v);
 
 		screenManager()->push(shape);
-		return UI::EVENT_DONE;
 	});
 
 	vertLayout->Add(new ItemHeader(co->T("Button Binding")));
@@ -234,7 +230,6 @@ void CustomButtonMappingScreen::onFinish(DialogResult result) {
 	g_Config.Save("CustomButtonMappingScreen::onFinish");
 }
 
-UI::EventReturn CustomButtonMappingScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
+void CustomButtonMappingScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
 	checkbox_->Toggle();
-	return UI::EVENT_DONE;
 };

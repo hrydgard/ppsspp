@@ -36,9 +36,9 @@ public:
 	const char *tag() const override { return "TouchControlLayout"; }
 
 protected:
-	UI::EventReturn OnReset(UI::EventParams &e);
-	UI::EventReturn OnVisibility(UI::EventParams &e);
-	UI::EventReturn OnMode(UI::EventParams &e);
+	void OnReset(UI::EventParams &e);
+	void OnVisibility(UI::EventParams &e);
+	void OnMode(UI::EventParams &e);
 
 private:
 	UI::ChoiceStrip *mode_ = nullptr;

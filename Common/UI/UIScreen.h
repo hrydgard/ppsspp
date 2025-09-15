@@ -53,9 +53,9 @@ public:
 	virtual void TriggerFinish(DialogResult result);
 
 	// Some useful default event handlers
-	UI::EventReturn OnOK(UI::EventParams &e);
-	UI::EventReturn OnCancel(UI::EventParams &e);
-	UI::EventReturn OnBack(UI::EventParams &e);
+	void OnOK(UI::EventParams &e);
+	void OnCancel(UI::EventParams &e);
+	void OnBack(UI::EventParams &e);
 
 protected:
 	virtual void CreateViews() = 0;

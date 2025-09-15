@@ -421,34 +421,28 @@ static void CleanupRemoteISOSubdir() {
 }
 
 
-UI::EventReturn RemoteISOScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
+void RemoteISOScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
 	CleanupRemoteISOSubdir();
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
+void RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
 	frameCount_ = 0;
 	if (!StartWebServer(WebServerFlags::DISCS)) {
-		return UI::EVENT_DONE;
+		return;
 	}
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
+void RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 	if (!StopWebServer(WebServerFlags::DISCS)) {
-		return UI::EVENT_DONE;
+		return;
 	}
 
 	serverStopping_ = true;
 	RecreateViews();
-
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
+void RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 	screenManager()->push(new RemoteISOConnectScreen());
-	return UI::EVENT_DONE;
 }
 
 RemoteISOConnectScreen::RemoteISOConnectScreen() {

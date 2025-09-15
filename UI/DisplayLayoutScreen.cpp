@@ -157,12 +157,11 @@ static void NotifyPostChanges() {
 	}
 }
 
-UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
+void DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
 	FixPostShaderOrder(&g_Config.vPostShaderNames);
 	NotifyPostChanges();
-	return UI::EVENT_DONE;
 }
 
 static std::string PostShaderTranslateName(std::string_view value) {
@@ -286,7 +285,6 @@ void DisplayLayoutScreen::CreateViews() {
 			g_Config.fDisplayScale = 1.0f;
 			g_Config.fDisplayOffsetX = 0.5f;
 			g_Config.fDisplayOffsetY = 0.5f;
-			return UI::EVENT_DONE;
 		});
 		rightColumn->Add(center);
 
@@ -352,7 +350,6 @@ void DisplayLayoutScreen::CreateViews() {
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
 			screenManager()->push(procScreen);
-			return UI::EVENT_DONE;
 		});
 		postProcChoice_->SetEnabledFunc([=] {
 			return !g_Config.bSkipBufferEffects && !enableStereo();
@@ -375,12 +372,11 @@ void DisplayLayoutScreen::CreateViews() {
 				auto settingsButton = shaderRow->Add(checkBox);
 				settingsButton->OnClick.Add([=](EventParams &e) {
 					RecreateViews();
-					return UI::EVENT_DONE;
 				});
 			}
 
 			auto removeButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
-			removeButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+			removeButton->OnClick.Add([=](EventParams &e) -> void {
 				// Protect against possible race conditions.
 				if (i < g_Config.vPostShaderNames.size()) {
 					g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
@@ -388,14 +384,13 @@ void DisplayLayoutScreen::CreateViews() {
 					NotifyPostChanges();
 					RecreateViews();
 				}
-				return UI::EVENT_DONE;
 			});
 
 			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
-			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+			moreButton->OnClick.Add([=](EventParams &e) -> void {
 				if (i >= g_Config.vPostShaderNames.size()) {
 					// Protect against possible race conditions.
-					return UI::EVENT_DONE;
+					return;
 				}
 
 				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), I18NCat::DIALOG, moreButton);
@@ -404,7 +399,7 @@ void DisplayLayoutScreen::CreateViews() {
 				bool usesLastFrame = info ? info->usePreviousFrame : false;
 				contextMenu->SetEnabled(0, i > 0 && !usesLastFrame);
 				contextMenu->SetEnabled(1, i < g_Config.vPostShaderNames.size() - 1);
-				contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+				contextMenu->OnChoice.Add([=](EventParams &e) -> void {
 					switch (e.a) {
 					case 0:  // Move up
 						std::swap(g_Config.vPostShaderNames[i - 1], g_Config.vPostShaderNames[i]);
@@ -416,14 +411,12 @@ void DisplayLayoutScreen::CreateViews() {
 						g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
 						break;
 					default:
-						return UI::EVENT_DONE;
+						return;
 					}
 					FixPostShaderOrder(&g_Config.vPostShaderNames);
 					NotifyPostChanges();
 					RecreateViews();
-					return UI::EVENT_DONE;
 				});
-				return UI::EVENT_DONE;
 			});
 		}
 

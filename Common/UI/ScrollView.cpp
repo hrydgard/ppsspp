@@ -552,14 +552,13 @@ std::string ListView::DescribeText() const {
 	return DescribeListOrdered(u->T("List:"));
 }
 
-EventReturn ListView::OnItemCallback(int num, EventParams &e) {
+void ListView::OnItemCallback(int num, EventParams &e) {
 	EventParams ev{};
 	ev.v = nullptr;
 	ev.a = num;
 	adaptor_->SetSelected(num);
 	OnChoice.Trigger(ev);
 	CreateAllItems();
-	return EVENT_DONE;
 }
 
 View *ChoiceListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
@@ -570,12 +569,10 @@ View *ChoiceListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
 	return choice;
 }
 
-bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) {
+void ChoiceListAdaptor::AddEventCallback(View *view, std::function<void(EventParams &)> callback) {
 	Choice *choice = (Choice *)view;
 	choice->OnClick.Add(callback);
-	return EVENT_DONE;
 }
-
 
 View *StringVectorListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
 	Choice *choice = new Choice(items_[index], "", index == selected_);
@@ -585,10 +582,9 @@ View *StringVectorListAdaptor::CreateItemView(int index, ImageID *optionalImageI
 	return choice;
 }
 
-bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) {
+void StringVectorListAdaptor::AddEventCallback(View *view, std::function<void(EventParams &)> callback) {
 	Choice *choice = (Choice *)view;
 	choice->OnClick.Add(callback);
-	return EVENT_DONE;
 }
 
 }  // namespace

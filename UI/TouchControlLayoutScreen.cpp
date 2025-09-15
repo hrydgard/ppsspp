@@ -581,30 +581,27 @@ void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save("TouchControlLayoutScreen::onFinish");
 }
 
-UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
+void TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 	screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
-	return UI::EVENT_DONE;
 }
 
-UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
+void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	INFO_LOG(Log::G3D, "Resetting touch control layout");
 	g_Config.ResetControlLayout();
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	RecreateViews();
-	return UI::EVENT_DONE;
 };
 
 void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
 
-UI::EventReturn TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
+void TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 	int mode = mode_->GetSelection();
 	if (layoutView_) {
 		layoutView_->mode_ = mode;
 	}
-	return UI::EVENT_DONE;
 }
 
 void TouchControlLayoutScreen::update() {
