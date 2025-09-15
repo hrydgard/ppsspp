@@ -65,14 +65,6 @@ void Image::copyfrom(const Image &img, int ox, int oy, Effect effect) {
 	}
 }
 
-void Image::set(int sx, int sy, int ex, int ey, u32 fil) {
-	for (int y = sy; y < ey; y++) {
-		for (int x = sx; x < ex; x++) {
-			dat[y * w + x] = fil;
-		}
-	}
-}
-
 bool Image::LoadPNG(const char *png_name) {
 	unsigned char *img_data;
 	int w, h;
@@ -89,23 +81,7 @@ bool Image::LoadPNG(const char *png_name) {
 }
 
 void Image::SavePNG(const char *png_name) {
-	// Save PNG
-	FILE *fil = fopen(png_name, "wb");
-	png_structp  png_ptr;
-	png_infop  info_ptr;
-	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	assert(png_ptr);
-	info_ptr = png_create_info_struct(png_ptr);
-	assert(info_ptr);
-	png_init_io(png_ptr, fil);
-	//png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
-	png_set_IHDR(png_ptr, info_ptr, w, h, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-	png_write_info(png_ptr, info_ptr);
-	for (int y = 0; y < height(); y++) {
-		png_write_row(png_ptr, (png_byte*)(dat.data() + y * w));
-	}
-	png_write_end(png_ptr, NULL);
-	png_destroy_write_struct(&png_ptr, &info_ptr);
+	pngSave(Path(png_name), dat.data(), w, h, 4);
 }
 
 void Image::SaveZIM(const char *zim_name, int zim_format) {

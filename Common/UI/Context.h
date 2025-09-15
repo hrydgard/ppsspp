@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <functional>
 
 #include "Common/Math/geom2d.h"
 #include "Common/Math/lin/vec3.h"
@@ -42,6 +43,18 @@ struct UITransform {
 	Lin::Vec3 scale;
 	float alpha;
 };
+
+enum class AtlasChoice : int {
+	General,
+	Font,
+};
+
+struct AtlasData {
+	Atlas *atlas;
+	Draw::Texture *texture;
+};
+
+typedef std::function<AtlasData(Draw::DrawContext *, AtlasChoice)> UIAtlasProviderFunc;
 
 class UIContext {
 public:
@@ -112,6 +125,7 @@ public:
 	Bounds TransformBounds(const Bounds &bounds);
 
 	void SetTheme(const UI::Theme *theme) { this->theme = theme; }
+	void SetAtlasProvider(UIAtlasProviderFunc func) { atlasProvider_ = func; }
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
@@ -136,4 +150,6 @@ private:
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;
+
+	UIAtlasProviderFunc atlasProvider_{};
 };

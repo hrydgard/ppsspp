@@ -30,3 +30,5 @@ void UpdateTheme();
 Atlas *GetFontAtlas();
 Atlas *GetUIAtlas();
 UI::Theme *GetTheme();
+
+AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas);

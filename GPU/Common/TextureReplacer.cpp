@@ -25,6 +25,7 @@
 #include "ext/xxhash.h"
 
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -679,25 +680,6 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	return texture;
 }
 
-static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
-	FILE *fp = File::OpenCFile(filename, "wb");
-	if (!fp) {
-		ERROR_LOG(Log::TexReplacement, "Save texture: Unable to open texture file '%s' for writing.", filename.c_str());
-		return false;
-	}
-
-	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
-		fclose(fp);
-		return true;
-	} else {
-		// This shouldn't really happen.
-		ERROR_LOG(Log::TexReplacement, "Texture PNG encode failed.");
-		fclose(fp);
-		remove(filename.c_str());
-		return false;
-	}
-}
-
 // We save textures on threadpool tasks since it's a fire-and-forget task, and both I/O and png compression
 // can be pretty slow.
 class SaveTextureTask : public Task {
@@ -747,19 +729,11 @@ public:
 		// going to write to to .png.
 		saveFilename = saveFilename.WithReplacedExtension(".png");
 
-		png_image png{};
-		png.version = PNG_IMAGE_VERSION;
-		png.format = PNG_FORMAT_RGBA;
-		png.width = w;
-		png.height = h;
-		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData, w * 4, nullptr);
-		png_image_free(&png);
-		if (png.warning_or_error >= 2) {
+		bool success = pngSave(saveFilename, rgbaData, w, h, 4);
+		if (!success) {
 			ERROR_LOG(Log::TexReplacement, "Saving texture to PNG produced errors.");
-		} else if (success) {
-			NOTICE_LOG(Log::TexReplacement, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
 		} else {
-			ERROR_LOG(Log::TexReplacement, "Failed to write '%s'", saveFilename.c_str());
+			NOTICE_LOG(Log::TexReplacement, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
 		}
 	}
 };

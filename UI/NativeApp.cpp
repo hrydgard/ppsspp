@@ -87,7 +87,6 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
-
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -843,6 +842,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	uiContext = new UIContext();
 	uiContext->SetTheme(GetTheme());
+	uiContext->SetAtlasProvider(&AtlasProvider);
 	UpdateTheme();
 
 	ui_draw2d.Init(g_draw, texColorPipeline);

@@ -26,6 +26,7 @@
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/DirListing.h"
 #include "Common/Log/LogManager.h"
+#include "Common/Render/ManagedTexture.h"
 
 #include "Core/Config.h"
 
@@ -171,15 +172,12 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 	return s;
 }
 
-static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
+static void LoadAtlasMetadata(Atlas &metadata, const char *filename) {
 	size_t atlas_data_size = 0;
 	const uint8_t *atlas_data = g_VFS.ReadFile(filename, &atlas_data_size);
 	bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
 	if (!load_success) {
-		if (required)
-			ERROR_LOG(Log::G3D, "Failed to load %s - graphics will be broken", filename);
-		else
-			WARN_LOG(Log::G3D, "Failed to load %s", filename);
+		ERROR_LOG(Log::G3D, "Failed to load %s - graphics may be broken", filename);
 		// Stumble along with broken visuals instead of dying...
 	}
 	delete[] atlas_data;
@@ -251,14 +249,6 @@ void UpdateTheme() {
 
 	ui_theme.popupSliderColor = themeInfo.uPopupSliderColor;
 	ui_theme.popupSliderFocusedColor = themeInfo.uPopupSliderFocusedColor;
-
-	// Load any missing atlas metadata (the images are loaded from UIContext).
-	LoadAtlasMetadata(ui_atlas, "ui_atlas.meta", true);
-#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
-	LoadAtlasMetadata(font_atlas, "font_atlas.meta", ui_atlas.num_fonts == 0);
-#else
-	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
-#endif
 }
 
 UI::Theme *GetTheme() {
@@ -286,4 +276,41 @@ std::vector<std::string> GetThemeInfoNames() {
 		names.push_back(i.name);
 
 	return names;
+}
+
+AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas) {
+	switch (atlas) {
+	case AtlasChoice::General:
+	{
+		// Load any missing atlas metadata (the images are loaded from UIContext).
+		LoadAtlasMetadata(ui_atlas, "ui_atlas.meta");
+		return {
+			&ui_atlas,
+			CreateTextureFromFile(draw, "ui_atlas.zim", ImageFileType::ZIM, false)
+		};
+	}
+	case AtlasChoice::Font:
+	{
+		Draw::Texture *fontTexture = nullptr;
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+		// Load the smaller ascii font only, like on Android. For debug ui etc.
+		// NOTE: We better be sure here that the correct metadata is loaded..
+		LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta");
+		fontTexture = CreateTextureFromFile(draw, "asciifont_atlas.zim", ImageFileType::ZIM, false);
+		if (!fontTexture) {
+			WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+		}
+#else
+		// Load the full font texture.
+		LoadAtlasMetadata(font_atlas, "font_atlas.meta");
+		fontTexture = CreateTextureFromFile(draw, "font_atlas.zim", ImageFileType::ZIM, false);
+#endif
+		return {
+			&font_atlas,
+			fontTexture,
+		};
+	}
+	default:
+		return {};
+	};
 }

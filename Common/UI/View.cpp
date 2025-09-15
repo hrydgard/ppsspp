@@ -1833,8 +1833,10 @@ void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animat
 		dc.Begin();
 	}
 	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(ImageID("I_DROP_SHADOW"));
-	float scale = bounds.w / img->w;
-	dc.Draw()->DrawImage(ImageID("I_DROP_SHADOW"), bounds.centerX(), bounds.centerY(), scale * 1.7f, colorAlpha(0xFF3EC5FF, 0.75f * shine), ALIGN_CENTER);
+	if (img) {
+		float scale = bounds.w / img->w;
+		dc.Draw()->DrawImage(ImageID("I_DROP_SHADOW"), bounds.centerX(), bounds.centerY(), scale * 1.7f, colorAlpha(0xFF3EC5FF, 0.75f * shine), ALIGN_CENTER);
+	}
 	dc.Flush();
 }
 
