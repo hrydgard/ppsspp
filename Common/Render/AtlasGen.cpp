@@ -20,39 +20,15 @@
 
 typedef unsigned short u16;
 
-void Image::copyfrom(const Image &img, int ox, int oy, Effect effect) {
+void Image::copyfrom(const Image &img, int ox, int oy, bool redToWhiteAlpha) {
 	assert(img.width() + ox <= width());
 	assert(img.height() + oy <= height());
 	for (int y = 0; y < (int)img.height(); y++) {
 		for (int x = 0; x < (int)img.width(); x++) {
-			switch (effect) {
-			case Effect::FX_COPY:
+			if (!redToWhiteAlpha) {
 				set1(x + ox, y + oy, img.get1(x, y));
-				break;
-			case Effect::FX_RED_TO_ALPHA_SOLID_WHITE:
+			} else {
 				set1(x + ox, y + oy, 0x00FFFFFF | (img.get1(x, y) << 24));
-				break;
-			case Effect::FX_RED_TO_INTENSITY_ALPHA_255:
-			{
-				u32 val = img.get1(x, y) & 0xFF;
-				set1(x + ox, y + oy, 0xFF000000 | val | (val << 8) | (val << 16));
-				break;
-			}
-			case Effect::FX_PREMULTIPLY_ALPHA:
-			{
-				unsigned int color = img.get1(x, y);
-				unsigned int a = color >> 24;
-				unsigned int r = (color & 0xFF) * a >> 8, g = (color & 0xFF00) * a >> 8, b = (color & 0xFF0000) * a >> 8;
-				color = (color & 0xFF000000) | (r & 0xFF) | (g & 0xFF00) | (b & 0xFF0000);
-				// Simulate 4444
-				color = color & 0xF0F0F0F0;
-				color |= color >> 4;
-				set1(x + ox, y + oy, color);
-				break;
-			}
-			default:
-				set1(x + ox, y + oy, 0xFFFF00FF);
-				break;
 			}
 		}
 	}
@@ -132,7 +108,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 								}
 							}
 						}
-						dest.copyfrom(items[i].first, tx, ty, (Effect)items[i].second.effect);
+						dest.copyfrom(items[i].first, tx, ty, items[i].second.redToWhiteAlpha);
 						masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
 						items[i].second.sx = tx;
@@ -165,7 +141,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	return dats;
 }
 
-bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket, int &global_id) {
+bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id) {
 	Image img;
 
 	bool success = false;
@@ -188,7 +164,7 @@ bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket, int &global
 	dat.sy = 0;
 	dat.ex = (int)img.width();
 	dat.ey = (int)img.height();
-	dat.effect = (int)effect;
+	dat.redToWhiteAlpha = false;
 	bucket->AddItem(std::move(img), dat);
 	return true;
 }

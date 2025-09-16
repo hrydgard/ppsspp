@@ -384,7 +384,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			name.append(image.fileName);
 		}
 		image.result_index = (int)bucket.items.size();
-		if (!LoadImage(name.c_str(), image.effect, &bucket, global_id)) {
+		if (!LoadImage(name.c_str(), &bucket, global_id)) {
 			ERROR_LOG(Log::G3D, "Failed to load image %s\n", image.fileName.c_str());
 		}
 	}

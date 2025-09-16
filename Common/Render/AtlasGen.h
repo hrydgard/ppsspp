@@ -11,14 +11,6 @@ constexpr int supersample = 16;
 constexpr int distmult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"
 constexpr int maxsearch = (128 * supersample + distmult - 1) / distmult;
 
-enum class Effect {
-	FX_COPY = 0,
-	FX_RED_TO_ALPHA_SOLID_WHITE = 1,   // for alpha fonts
-	FX_RED_TO_INTENSITY_ALPHA_255 = 2,
-	FX_PREMULTIPLY_ALPHA = 3,
-	FX_INVALID = 5,
-};
-
 struct ImageU8 {
 	std::vector<std::vector<u8>> dat;
 	void resize(int x, int y) {
@@ -66,7 +58,7 @@ struct Image {
 		return dat.data();
 	}
 	u32 get1(int x, int y) const { return dat[y * w + x]; }
-	void copyfrom(const Image &img, int ox, int oy, Effect effect);
+	void copyfrom(const Image &img, int ox, int oy, bool redToWhiteAlpha);
 	bool LoadPNG(const char *png_name);
 	void SavePNG(const char *png_name);
 	void SaveZIM(const char *zim_name, int zim_format);
@@ -85,7 +77,7 @@ struct Data {
 	// distance to move the origin forward
 	float wx;
 
-	int effect;
+	bool redToWhiteAlpha;
 	int charNum;
 };
 
@@ -95,7 +87,7 @@ inline bool operator<(const Data &lhs, const Data &rhs) {
 
 struct Bucket {
 	std::vector<std::pair<Image, Data> > items;
-	void AddItem(const Image &&img, const Data &dat) {
+	void AddItem(Image &&img, const Data &dat) {
 		items.emplace_back(std::move(img), dat);
 	}
 	std::vector<Data> Resolve(int image_width, Image &dest);
@@ -108,7 +100,6 @@ inline bool operator<(const Image &lhs, const Image &rhs) {
 struct ImageDesc {
 	std::string name;
 	std::string fileName;
-	Effect effect;
 	int result_index;
 
 	AtlasImage ToAtlasImage(float tw, float th, const std::vector<Data> &results) const;
@@ -116,4 +107,4 @@ struct ImageDesc {
 	void OutputHeader(FILE *fil, int index) const;
 };
 
-bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket, int &global_id);
+bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id);
