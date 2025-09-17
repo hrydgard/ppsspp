@@ -51,9 +51,7 @@ bool Image::LoadPNG(const char *png_name) {
 	}
 	delete[] file_data;
 	resize(w, h);
-	for (int y = 0; y < h; y++) {
-		memcpy(dat.data() + y * w, img_data + 4 * y * w, 4 * w);
-	}
+	memcpy(dat.data(), img_data, 4 * w * h);
 	free(img_data);
 	return true;
 }
@@ -144,21 +142,18 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id) {
 	Image img;
 
-	bool success = false;
+	bool success = true;
 	if (!strcmp(imagefile, "white.png")) {
 		img.resize(16, 16);
 		img.fill(0xFFFFFFFF);
-		success = true;
 	} else {
-		success = img.LoadPNG(imagefile);
-		// printf("loaded image: %ix%i\n", (int)img.dat[0].size(), (int)img.dat.size());
-	}
-	if (!success) {
-		return false;
+		bool success = img.LoadPNG(imagefile);
+		if (!success) {
+			return false;
+		}
 	}
 
-	Data dat;
-	memset(&dat, 0, sizeof(dat));
+	Data dat{};
 	dat.id = global_id++;
 	dat.sx = 0;
 	dat.sy = 0;
