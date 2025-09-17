@@ -1432,7 +1432,6 @@
     <Text Include="..\libretro\README_WINDOWS.txt" />
     <Text Include="..\ppge_atlasscript.txt" />
     <Text Include="..\SDL\README.TXT" />
-    <Text Include="..\ui_atlasscript.txt" />
     <Text Include="debugger.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

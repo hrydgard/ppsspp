@@ -1007,7 +1007,7 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
 	});
 	internals->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
-		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
+		g_OSD.ShowLeaderboardTracker(1, "", false);
 	});
 
 	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };

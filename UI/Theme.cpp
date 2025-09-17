@@ -274,9 +274,9 @@ void ReloadAllThemeInfo() {
 
 std::vector<std::string> GetThemeInfoNames() {
 	std::vector<std::string> names;
-	for (auto& i : themeInfos)
-		names.push_back(i.name);
-
+	for (const auto &info : themeInfos) {
+		names.push_back(info.name);
+	}
 	return names;
 }
 
@@ -437,14 +437,6 @@ AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas) {
 		// Generate the atlas from scratch.
 		Draw::Texture *tex = GenerateUIAtlas(draw, &ui_atlas);
 		return { &ui_atlas, tex };
-
-		// Load any missing atlas metadata (the images are loaded from UIContext).
-		/*
-		LoadAtlasMetadata(ui_atlas, "ui_atlas.meta");
-		return {
-			&ui_atlas,
-			CreateTextureFromFile(draw, "ui_atlas.zim", ImageFileType::ZIM, false)
-		};*/
 	}
 	case AtlasChoice::Font:
 	{
