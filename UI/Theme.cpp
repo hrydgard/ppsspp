@@ -383,12 +383,12 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 		} else {
 			name.append(image.fileName);
 		}
-		image.result_index = (int)bucket.items.size();
+		image.result_index = (int)bucket.data.size();
 		if (!LoadImage(name.c_str(), &bucket, global_id)) {
 			ERROR_LOG(Log::G3D, "Failed to load image %s\n", image.fileName.c_str());
 		}
 	}
-	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.items.size(), start.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.data.size(), start.ElapsedMs());
 
 	int image_width = 512;
 	Image dest;
@@ -396,9 +396,6 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	Instant now = Instant::Now();
 	std::vector<Data> results = bucket.Resolve(image_width, dest);
 	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms\n", results.size(), now.ElapsedMs());
-
-	// Need to sort the results by ID, after the bucket messed up the order.
-	sort(results.begin(), results.end());
 
 	// Fill out the atlas structure.
 	std::vector<AtlasImage> genAtlasImages;

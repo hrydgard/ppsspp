@@ -69,6 +69,8 @@ private:
 struct Data {
 	// item ID
 	int id;
+	// item width and height
+	int w, h;
 	// dimensions of its spot in the world
 	int sx, sy, ex, ey;
 	// offset from the origin
@@ -81,21 +83,16 @@ struct Data {
 	int charNum;
 };
 
-inline bool operator<(const Data &lhs, const Data &rhs) {
-	return lhs.id < rhs.id; // should be unique
-}
-
 struct Bucket {
-	std::vector<std::pair<Image, Data> > items;
+	std::vector<Image> images;
+	std::vector<Data> data;
 	void AddItem(Image &&img, const Data &dat) {
-		items.emplace_back(std::move(img), dat);
+		images.emplace_back(std::move(img));
+		data.emplace_back(dat);
 	}
+	void AddImage(Image &&img, int id);
 	std::vector<Data> Resolve(int image_width, Image &dest);
 };
-
-inline bool operator<(const Image &lhs, const Image &rhs) {
-	return lhs.width() * lhs.height() > rhs.width() * rhs.height();
-}
 
 struct ImageDesc {
 	std::string name;

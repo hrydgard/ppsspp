@@ -277,6 +277,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			dat.sy = 0;
 			dat.ex = (int)img.width();
 			dat.ey = (int)img.height();
+			dat.w = dat.ex;
+			dat.h = dat.ey;
 			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
 			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
 			dat.voffset = vertOffset;
@@ -661,7 +663,7 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 
 	// Script fully read, now read images and rasterize the fonts.
 	for (auto &image : images) {
-		image.result_index = (int)bucket.items.size();
+		image.result_index = (int)bucket.data.size();
 		if (!LoadImage(image.fileName.c_str(), &bucket, global_id)) {
 			fprintf(stderr, "Failed to load image %s\n", image.fileName.c_str());
 		}
@@ -669,7 +671,7 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 
 	for (auto it = fontRefs.begin(), end = fontRefs.end(); it != end; ++it) {
 		FontDesc fnt;
-		fnt.first_char_id = (int)bucket.items.size();
+		fnt.first_char_id = (int)bucket.data.size();
 
 		vector<CharRange> finalRanges;
 		float metrics_height;
@@ -704,8 +706,6 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 	dest.SavePNG((image_name + ".png").c_str());
 
 	printf("Done. Outputting source and meta files %s_atlas.cpp/h/meta.\n", out_prefix.c_str());
-	// Sort items by ID.
-	sort(results.begin(), results.end());
 
 	// Save all the metadata.
 	{

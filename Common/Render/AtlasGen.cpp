@@ -71,19 +71,41 @@ void Image::SaveZIM(const char *zim_name, int zim_format) {
 	fclose(f);
 }
 
+void Bucket::AddImage(Image &&img, int id) {
+	Data dat{};
+	dat.id = id;
+	dat.sx = 0;
+	dat.sy = 0;
+	dat.ex = (int)img.width();
+	dat.ey = (int)img.height();
+	dat.w = dat.ex;
+	dat.h = dat.ey;
+	dat.redToWhiteAlpha = false;
+	images.emplace_back(img);
+	data.push_back(dat);
+}
+
+inline bool CompareByID(const Data &lhs, const Data &rhs) {
+	return lhs.id < rhs.id; // should be unique
+}
+
+inline bool CompareByArea(const Data& lhs, const Data& rhs) {
+	return lhs.w * lhs.h > rhs.w * rhs.h;
+}
+
 std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	// Place all the little images - whatever they are.
 	// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
 	ImageU8 masq;
 	masq.resize(image_width, 1);
 	dest.resize(image_width, 1);
-	sort(items.begin(), items.end());
-	for (int i = 0; i < (int)items.size(); i++) {
+	std::sort(data.begin(), data.end(), CompareByArea);
+	for (int i = 0; i < (int)data.size(); i++) {
 		if ((i + 1) % 2000 == 0) {
-			printf("Resolving (%i / %i)\n", i, (int)items.size());
+			printf("Resolving (%i / %i)\n", i, (int)data.size());
 		}
-		int idx = (int)items[i].first.width();
-		int idy = (int)items[i].first.height();
+		int idx = (int)data[i].w;
+		int idy = (int)data[i].h;
 		if (idx > 1 && idy > 1) {
 			assert(idx <= image_width);
 			for (int ty = 0; ty < 2047; ty++) {
@@ -93,7 +115,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 					dest.resize(image_width, ty + idy + 16);
 				}
 				// Brute force packing.
-				int sz = (int)items[i].first.width();
+				int sz = (int)data[i].w;
 				auto &masq_ty = masq.dat[ty];
 				auto &masq_idy = masq.dat[ty + idy - 1];
 				for (int tx = 0; tx < image_width - sz; tx++) {
@@ -108,11 +130,11 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 						}
 						masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
-						items[i].second.sx = tx;
-						items[i].second.sy = ty;
+						data[i].sx = tx;
+						data[i].sy = ty;
 
-						items[i].second.ex = tx + idx;
-						items[i].second.ey = ty + idy;
+						data[i].ex = tx + idx;
+						data[i].ey = ty + idy;
 
 						// printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
 						goto found;
@@ -131,16 +153,15 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 		exit(1);
 	}
 
+	// Sort the data back by ID.
+	std::sort(data.begin(), data.end(), CompareByID);
+
 	// Actually copy the image data in place, after doing the layout.
-	for (int i = 0; i < (int)items.size(); i++) {
-		dest.copyfrom(items[i].first, items[i].second.sx, items[i].second.sy, items[i].second.redToWhiteAlpha);
+	for (int i = 0; i < (int)data.size(); i++) {
+		dest.copyfrom(images[i], data[i].sx, data[i].sy, data[i].redToWhiteAlpha);
 	}
 
-	// Output the glyph data.
-	std::vector<Data> dats;
-	for (int i = 0; i < (int)items.size(); i++)
-		dats.push_back(items[i].second);
-	return dats;
+	return data;
 }
 
 bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id) {
@@ -157,14 +178,8 @@ bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id) {
 		}
 	}
 
-	Data dat{};
-	dat.id = global_id++;
-	dat.sx = 0;
-	dat.sy = 0;
-	dat.ex = (int)img.width();
-	dat.ey = (int)img.height();
-	dat.redToWhiteAlpha = false;
-	bucket->AddItem(std::move(img), dat);
+	bucket->AddImage(std::move(img), global_id);
+	global_id++;
 	return true;
 }
 
