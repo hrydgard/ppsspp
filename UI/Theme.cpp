@@ -29,6 +29,7 @@
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Render/AtlasGen.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 
@@ -384,10 +385,24 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			name.append(image.fileName);
 		}
 		image.result_index = (int)bucket.data.size();
-		if (!LoadImage(name.c_str(), &bucket, global_id)) {
-			ERROR_LOG(Log::G3D, "Failed to load image %s\n", image.fileName.c_str());
+
+		Image img;
+
+		bool success = true;
+		if (equals(image.fileName, "white.png")) {
+			img.resize(16, 16);
+			img.fill(0xFFFFFFFF);
+		} else {
+			bool success = img.LoadPNG(name.c_str());
+			if (!success) {
+				ERROR_LOG(Log::G3D, "Failed to load %s\n", name.c_str());
+			}
 		}
+
+		bucket.AddImage(std::move(img), global_id);
+		global_id++;
 	}
+
 	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.data.size(), start.ElapsedMs());
 
 	int image_width = 512;

@@ -664,9 +664,15 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 	// Script fully read, now read images and rasterize the fonts.
 	for (auto &image : images) {
 		image.result_index = (int)bucket.data.size();
-		if (!LoadImage(image.fileName.c_str(), &bucket, global_id)) {
+
+		Image img;
+		bool success = img.LoadPNG(image.fileName.c_str());
+		if (!success) {
 			fprintf(stderr, "Failed to load image %s\n", image.fileName.c_str());
+			continue;
 		}
+		bucket.AddImage(std::move(img), global_id);
+		global_id++;
 	}
 
 	for (auto it = fontRefs.begin(), end = fontRefs.end(); it != end; ++it) {

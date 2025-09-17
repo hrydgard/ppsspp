@@ -164,25 +164,6 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	return data;
 }
 
-bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id) {
-	Image img;
-
-	bool success = true;
-	if (!strcmp(imagefile, "white.png")) {
-		img.resize(16, 16);
-		img.fill(0xFFFFFFFF);
-	} else {
-		bool success = img.LoadPNG(imagefile);
-		if (!success) {
-			return false;
-		}
-	}
-
-	bucket->AddImage(std::move(img), global_id);
-	global_id++;
-	return true;
-}
-
 AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const std::vector<Data> &results) const {
 	AtlasImage img{};
 	int i = result_index;

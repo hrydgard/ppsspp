@@ -103,5 +103,3 @@ struct ImageDesc {
 	void OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const;
 	void OutputHeader(FILE *fil, int index) const;
 };
-
-bool LoadImage(const char *imagefile, Bucket *bucket, int &global_id);
