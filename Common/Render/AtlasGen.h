@@ -31,6 +31,12 @@ struct ImageU8 {
 };
 
 struct Image {
+	Image() = default;
+	Image(const Image &) = delete;
+	Image &operator=(const Image &) = delete;
+	Image(Image &&) = default;
+	Image &operator=(Image &&) = default;
+
 	int w;
 	int h;
 
@@ -99,7 +105,7 @@ struct ImageDesc {
 	std::string fileName;
 	int result_index;
 
-	AtlasImage ToAtlasImage(float tw, float th, const std::vector<Data> &results) const;
+	AtlasImage ToAtlasImage(int id, float tw, float th, const std::vector<Data> &results) const;
 	void OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const;
 	void OutputHeader(FILE *fil, int index) const;
 };

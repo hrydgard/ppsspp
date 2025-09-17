@@ -81,7 +81,7 @@ void Bucket::AddImage(Image &&img, int id) {
 	dat.w = dat.ex;
 	dat.h = dat.ey;
 	dat.redToWhiteAlpha = false;
-	images.emplace_back(img);
+	images.emplace_back(std::move(img));
 	data.push_back(dat);
 }
 
@@ -164,11 +164,11 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	return data;
 }
 
-AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const std::vector<Data> &results) const {
+AtlasImage ImageDesc::ToAtlasImage(int id, float tw, float th, const std::vector<Data> &results) const {
 	AtlasImage img{};
-	int i = result_index;
-	float toffx = 0.5f / tw;
-	float toffy = 0.5f / th;
+	const int i = id == -1 ? result_index : id;
+	const float toffx = 0.5f / tw;
+	const float toffy = 0.5f / th;
 	img.u1 = results[i].sx / tw + toffx;
 	img.v1 = results[i].sy / th + toffy;
 	img.u2 = results[i].ex / tw - toffx;

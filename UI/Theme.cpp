@@ -283,7 +283,7 @@ std::vector<std::string> GetThemeInfoNames() {
 
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	// can't be const, yet...
-	ImageDesc images[] = {
+	ImageDesc imageDescs[] = {
 		{"I_SOLIDWHITE", "white.png"},
 		{"I_CROSS", "cross.png"},
 		{"I_CIRCLE", "circle.png"},
@@ -368,55 +368,54 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 		{"I_WINNER_CUP", "winner_cup.png"},
 		{"I_EMPTY", "empty.png"},
 	};
-	int global_id = 0;
 
-	Instant start = Instant::Now();
 
 	Bucket bucket;
 
 	// Script fully read, now read images and rasterize the fonts.
-	std::vector<int> resultIds;
-	resultIds.reserve(ARRAY_SIZE(images));
-	for (auto &image : images) {
-		std::string name = "ui_images/";
-		if (image.fileName == "white.png") {
-			name = "white.png";
-		} else {
-			name.append(image.fileName);
-		}
-		image.result_index = (int)bucket.data.size();
+	Image images[ARRAY_SIZE(imageDescs)];
 
-		Image img;
+	Instant start = Instant::Now();
+
+	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
+		imageDescs[i].result_index = i;
+
+		Image &img = images[i];
 
 		bool success = true;
-		if (equals(image.fileName, "white.png")) {
+		if (equals(imageDescs[i].fileName, "white.png")) {
 			img.resize(16, 16);
 			img.fill(0xFFFFFFFF);
 		} else {
+			std::string name = "ui_images/";
+			name.append(imageDescs[i].fileName);
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
 				ERROR_LOG(Log::G3D, "Failed to load %s\n", name.c_str());
 			}
 		}
+	}
+	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.data.size(), start.ElapsedMs());
 
-		bucket.AddImage(std::move(img), global_id);
-		global_id++;
+	Instant addStart = Instant::Now();
+	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
+		bucket.AddImage(std::move(images[i]), i);
 	}
 
-	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.data.size(), start.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Added %zu images in %.2f ms\n", bucket.data.size(), addStart.ElapsedMs());
 
 	int image_width = 512;
 	Image dest;
 
-	Instant now = Instant::Now();
+	Instant bucketStart = Instant::Now();
 	std::vector<Data> results = bucket.Resolve(image_width, dest);
-	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms\n", results.size(), now.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms\n", results.size(), bucketStart.ElapsedMs());
 
 	// Fill out the atlas structure.
 	std::vector<AtlasImage> genAtlasImages;
-	genAtlasImages.reserve(ARRAY_SIZE(images));
-	for (int i = 0; i < ARRAY_SIZE(images); i++) {
-		genAtlasImages.push_back(images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results));
+	genAtlasImages.reserve(ARRAY_SIZE(imageDescs));
+	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
+		genAtlasImages.push_back(imageDescs[i].ToAtlasImage(imageDescs[i].result_index, (float)dest.width(), (float)dest.height(), results));
 	}
 
 	atlas->Clear();
