@@ -106,7 +106,6 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 								}
 							}
 						}
-						dest.copyfrom(items[i].first, tx, ty, items[i].second.redToWhiteAlpha);
 						masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
 						items[i].second.sx = tx;
@@ -130,6 +129,11 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	if ((int)dest.width() > image_width * 2) {
 		printf("PACKING FAIL : height=%i", (int)dest.width());
 		exit(1);
+	}
+
+	// Actually copy the image data in place, after doing the layout.
+	for (int i = 0; i < (int)items.size(); i++) {
+		dest.copyfrom(items[i].first, items[i].second.sx, items[i].second.sy, items[i].second.redToWhiteAlpha);
 	}
 
 	// Output the glyph data.

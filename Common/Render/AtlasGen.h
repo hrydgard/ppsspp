@@ -26,7 +26,7 @@ struct ImageU8 {
 	}
 	void set(int sx, int sy, int ex, int ey, unsigned char fil) {
 		for (int y = sy; y < ey; y++)
-			fill(dat[y].begin() + sx, dat[y].begin() + ex, fil);
+			std::fill(dat[y].begin() + sx, dat[y].begin() + ex, fil);
 	}
 };
 
