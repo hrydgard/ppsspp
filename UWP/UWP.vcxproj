@@ -290,6 +290,14 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>
     </Image>
+    <Image Include="..\Assets\ui_images\*.png">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\ui_images\%(Filename)%(Extension)</Link>
+    </Image>
+    <Image Include="..\Assets\ui_images\*.svg">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\ui_images\%(Filename)%(Extension)</Link>
+    </Image>
     <Image Include="..\Assets\debugger\favicon.ico">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\%(Filename)%(Extension)</Link>

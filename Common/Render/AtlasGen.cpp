@@ -15,67 +15,43 @@
 #include "Common/Data/Format/ZIMSave.h"
 
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Render/AtlasGen.h"
-
-using namespace std;
 
 typedef unsigned short u16;
 
-void Image::copyfrom(const Image &img, int ox, int oy, Effect effect) {
+void Image::copyfrom(const Image &img, int ox, int oy, bool redToWhiteAlpha) {
 	assert(img.width() + ox <= width());
 	assert(img.height() + oy <= height());
 	for (int y = 0; y < (int)img.height(); y++) {
 		for (int x = 0; x < (int)img.width(); x++) {
-			switch (effect) {
-			case Effect::FX_COPY:
+			if (!redToWhiteAlpha) {
 				set1(x + ox, y + oy, img.get1(x, y));
-				break;
-			case Effect::FX_RED_TO_ALPHA_SOLID_WHITE:
+			} else {
 				set1(x + ox, y + oy, 0x00FFFFFF | (img.get1(x, y) << 24));
-				break;
-			case Effect::FX_RED_TO_INTENSITY_ALPHA_255:
-			{
-				u32 val = img.get1(x, y) & 0xFF;
-				set1(x + ox, y + oy, 0xFF000000 | val | (val << 8) | (val << 16));
-				break;
-			}
-			case Effect::FX_PREMULTIPLY_ALPHA:
-			{
-				unsigned int color = img.get1(x, y);
-				unsigned int a = color >> 24;
-				unsigned int r = (color & 0xFF) * a >> 8, g = (color & 0xFF00) * a >> 8, b = (color & 0xFF0000) * a >> 8;
-				color = (color & 0xFF000000) | (r & 0xFF) | (g & 0xFF00) | (b & 0xFF0000);
-				// Simulate 4444
-				color = color & 0xF0F0F0F0;
-				color |= color >> 4;
-				set1(x + ox, y + oy, color);
-				break;
-			}
-			case Effect::FX_PINK_TO_ALPHA:
-			{
-				u32 val = img.get1(x, y);
-				set1(x + ox, y + oy, ((val & 0xFFFFFF) == 0xFF00FF) ? 0x00FFFFFF : (val | 0xFF000000));
-				break;
-			}
-			default:
-				set1(x + ox, y + oy, 0xFFFF00FF);
-				break;
 			}
 		}
 	}
 }
 
 bool Image::LoadPNG(const char *png_name) {
+	size_t sz;
+	const uint8_t *file_data = g_VFS.ReadFile(png_name, &sz);
+	if (!file_data) {
+		printf("Failed to load png from VFS");
+		return false;
+	}
+
 	unsigned char *img_data;
 	int w, h;
-	if (1 != pngLoad(png_name, &w, &h, &img_data)) {
+	if (1 != pngLoadPtr(file_data, sz, &w, &h, &img_data)) {
+		delete[] file_data;
 		printf("Failed to load %s\n", png_name);
 		return false;
 	}
+	delete[] file_data;
 	resize(w, h);
-	for (int y = 0; y < h; y++) {
-		memcpy(dat.data() + y * w, img_data + 4 * y * w, 4 * w);
-	}
+	memcpy(dat.data(), img_data, 4 * w * h);
 	free(img_data);
 	return true;
 }
@@ -95,19 +71,41 @@ void Image::SaveZIM(const char *zim_name, int zim_format) {
 	fclose(f);
 }
 
+void Bucket::AddImage(Image &&img, int id) {
+	Data dat{};
+	dat.id = id;
+	dat.sx = 0;
+	dat.sy = 0;
+	dat.ex = (int)img.width();
+	dat.ey = (int)img.height();
+	dat.w = dat.ex;
+	dat.h = dat.ey;
+	dat.redToWhiteAlpha = false;
+	images.emplace_back(std::move(img));
+	data.push_back(dat);
+}
+
+inline bool CompareByID(const Data &lhs, const Data &rhs) {
+	return lhs.id < rhs.id; // should be unique
+}
+
+inline bool CompareByArea(const Data& lhs, const Data& rhs) {
+	return lhs.w * lhs.h > rhs.w * rhs.h;
+}
+
 std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	// Place all the little images - whatever they are.
 	// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
 	ImageU8 masq;
 	masq.resize(image_width, 1);
 	dest.resize(image_width, 1);
-	sort(items.begin(), items.end());
-	for (int i = 0; i < (int)items.size(); i++) {
+	std::sort(data.begin(), data.end(), CompareByArea);
+	for (int i = 0; i < (int)data.size(); i++) {
 		if ((i + 1) % 2000 == 0) {
-			printf("Resolving (%i / %i)\n", i, (int)items.size());
+			printf("Resolving (%i / %i)\n", i, (int)data.size());
 		}
-		int idx = (int)items[i].first.width();
-		int idy = (int)items[i].first.height();
+		int idx = (int)data[i].w;
+		int idy = (int)data[i].h;
 		if (idx > 1 && idy > 1) {
 			assert(idx <= image_width);
 			for (int ty = 0; ty < 2047; ty++) {
@@ -117,7 +115,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 					dest.resize(image_width, ty + idy + 16);
 				}
 				// Brute force packing.
-				int sz = (int)items[i].first.width();
+				int sz = (int)data[i].w;
 				auto &masq_ty = masq.dat[ty];
 				auto &masq_idy = masq.dat[ty + idy - 1];
 				for (int tx = 0; tx < image_width - sz; tx++) {
@@ -130,14 +128,13 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 								}
 							}
 						}
-						dest.copyfrom(items[i].first, tx, ty, (Effect)items[i].second.effect);
 						masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
-						items[i].second.sx = tx;
-						items[i].second.sy = ty;
+						data[i].sx = tx;
+						data[i].sy = ty;
 
-						items[i].second.ex = tx + idx;
-						items[i].second.ey = ty + idy;
+						data[i].ex = tx + idx;
+						data[i].ey = ty + idy;
 
 						// printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
 						goto found;
@@ -156,46 +153,22 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 		exit(1);
 	}
 
-	// Output the glyph data.
-	vector<Data> dats;
-	for (int i = 0; i < (int)items.size(); i++)
-		dats.push_back(items[i].second);
-	return dats;
-}
+	// Sort the data back by ID.
+	std::sort(data.begin(), data.end(), CompareByID);
 
-bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket, int &global_id) {
-	Image img;
-
-	bool success = false;
-	if (!strcmp(imagefile, "white.png")) {
-		img.resize(16, 16);
-		img.fill(0xFFFFFFFF);
-		success = true;
-	} else {
-		success = img.LoadPNG(imagefile);
-		// printf("loaded image: %ix%i\n", (int)img.dat[0].size(), (int)img.dat.size());
-	}
-	if (!success) {
-		return false;
+	// Actually copy the image data in place, after doing the layout.
+	for (int i = 0; i < (int)data.size(); i++) {
+		dest.copyfrom(images[i], data[i].sx, data[i].sy, data[i].redToWhiteAlpha);
 	}
 
-	Data dat;
-	memset(&dat, 0, sizeof(dat));
-	dat.id = global_id++;
-	dat.sx = 0;
-	dat.sy = 0;
-	dat.ex = (int)img.width();
-	dat.ey = (int)img.height();
-	dat.effect = (int)effect;
-	bucket->AddItem(img, dat);
-	return true;
+	return data;
 }
 
-AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const vector<Data> &results) const {
+AtlasImage ImageDesc::ToAtlasImage(int id, float tw, float th, const std::vector<Data> &results) const {
 	AtlasImage img{};
-	int i = result_index;
-	float toffx = 0.5f / tw;
-	float toffy = 0.5f / th;
+	const int i = id == -1 ? result_index : id;
+	const float toffx = 0.5f / tw;
+	const float toffy = 0.5f / th;
 	img.u1 = results[i].sx / tw + toffx;
 	img.v1 = results[i].sy / th + toffy;
 	img.u2 = results[i].ex / tw - toffx;
@@ -206,7 +179,7 @@ AtlasImage ImageDesc::ToAtlasImage(float tw, float th, const vector<Data> &resul
 	return img;
 }
 
-void ImageDesc::OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) const {
+void ImageDesc::OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const {
 	int i = result_index;
 	float toffx = 0.5f / tw;
 	float toffy = 0.5f / th;

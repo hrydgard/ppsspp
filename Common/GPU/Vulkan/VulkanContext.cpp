@@ -915,7 +915,7 @@ bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info) {
 		return false;
 	}
 
-	INFO_LOG(Log::G3D, "Creating Vulkan device (flags: %08x)", info.flags);
+	INFO_LOG(Log::G3D, "Creating Vulkan device (flags: %08x)", (u32)info.flags);
 	if (CreateDevice(physicalDevice) != VK_SUCCESS) {
 		INFO_LOG(Log::G3D, "Failed to create vulkan device: %s", InitError().c_str());
 		DestroyInstance();

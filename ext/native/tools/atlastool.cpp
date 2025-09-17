@@ -33,6 +33,7 @@
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
+#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Data/Format/ZIMSave.h"
 #include "kanjifilter.h"
@@ -49,19 +50,6 @@
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 
 using namespace std;
-
-static const char * const effect_str[5] = {
-	"copy", "r2a", "r2i", "pre", "p2a",
-};
-
-static Effect GetEffect(const char *text) {
-	for (int i = 0; i < 5; i++) {
-		if (!strcmp(text, effect_str[i])) {
-			return (Effect)i;
-		}
-	}
-	return Effect::FX_INVALID;
-}
 
 struct CharRange : public AtlasCharRange {
 	std::set<u16> filter;
@@ -221,8 +209,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				missing_chars++;
 			}
 
-			Image img;
 			if (!foundMatch || filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER | FT_LOAD_MONOCHROME)) {
+				Image img;
 				img.resize(1, 1);
 				Data dat;
 
@@ -237,10 +225,11 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				dat.wx = 0;
 				dat.voffset = 0;
 				dat.charNum = kar;
-				dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
-				bucket->AddItem(img, dat);
+				dat.redToWhiteAlpha = true;
+				bucket->AddItem(std::move(img), dat);
 				continue;
 			}
+			Image img;
 
 			// printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
 			const int bord = (128 + distmult - 1) / distmult + 1;
@@ -288,14 +277,16 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			dat.sy = 0;
 			dat.ex = (int)img.width();
 			dat.ey = (int)img.height();
+			dat.w = dat.ex;
+			dat.h = dat.ey;
 			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
 			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
 			dat.voffset = vertOffset;
 			dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
 			dat.charNum = kar;
 
-			dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
-			bucket->AddItem(img, dat);
+			dat.redToWhiteAlpha = true;
+			bucket->AddItem(std::move(img), dat);
 		}
 	}
 
@@ -612,7 +603,6 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 
 	int global_id = 0;
 
-
 	std::string image_name = string(atlas_name) + "_atlas.zim";
 	std::string meta_name = string(atlas_name) + "_atlas.meta";
 
@@ -657,12 +647,10 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 			char imagefile[256];
 			char effectname[256];
 			sscanf(rest, "%255s %255s %255s", imagename, imagefile, effectname);
-			Effect effect = GetEffect(effectname);
-			printf("Image %s with effect %s (%i)\n", imagefile, effectname, (int)effect);
+			printf("Image %s\n", imagefile);
 			ImageDesc desc;
 			desc.fileName = imagefile;
 			desc.name = imagename;
-			desc.effect = effect;
 			desc.result_index = 0;
 			images.push_back(desc);
 		} else {
@@ -675,15 +663,21 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 
 	// Script fully read, now read images and rasterize the fonts.
 	for (auto &image : images) {
-		image.result_index = (int)bucket.items.size();
-		if (!LoadImage(image.fileName.c_str(), image.effect, &bucket, global_id)) {
+		image.result_index = (int)bucket.data.size();
+
+		Image img;
+		bool success = img.LoadPNG(image.fileName.c_str());
+		if (!success) {
 			fprintf(stderr, "Failed to load image %s\n", image.fileName.c_str());
+			continue;
 		}
+		bucket.AddImage(std::move(img), global_id);
+		global_id++;
 	}
 
 	for (auto it = fontRefs.begin(), end = fontRefs.end(); it != end; ++it) {
 		FontDesc fnt;
-		fnt.first_char_id = (int)bucket.items.size();
+		fnt.first_char_id = (int)bucket.data.size();
 
 		vector<CharRange> finalRanges;
 		float metrics_height;
@@ -718,8 +712,6 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 	dest.SavePNG((image_name + ".png").c_str());
 
 	printf("Done. Outputting source and meta files %s_atlas.cpp/h/meta.\n", out_prefix.c_str());
-	// Sort items by ID.
-	sort(results.begin(), results.end());
 
 	// Save all the metadata.
 	{
@@ -731,11 +723,11 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 		header.numImages = (int)images.size();
 		fwrite(&header, 1, sizeof(header), meta);
 		// For each image
-		AtlasImage *atalas_images = new AtlasImage[images.size()];
+		AtlasImage *atlas_images = new AtlasImage[images.size()];
 		for (int i = 0; i < (int)images.size(); i++) {
-			atalas_images[i] = images[i].ToAtlasImage((float)dest.width(), (float)dest.height(), results);
+			atlas_images[i] = images[i].ToAtlasImage(images[i].result_index, (float)dest.width(), (float)dest.height(), results);
 		}
-		WriteCompressed(atalas_images, sizeof(AtlasImage), images.size(), meta);
+		WriteCompressed(atlas_images, sizeof(AtlasImage), images.size(), meta);
 		// For each font
 		for (int i = 0; i < (int)fonts.size(); i++) {
 			auto &font = fonts[i];

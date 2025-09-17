@@ -2762,8 +2762,6 @@ set(BigFontAssets
 )
 
 set(NativeAssets
-	assets/ui_atlas.zim
-	assets/ui_atlas.meta
 	assets/asciifont_atlas.zim
 	assets/asciifont_atlas.meta
 	assets/debugger
@@ -2791,6 +2789,11 @@ set(NativeAssets
 	assets/sfx_leaderbord_submitted.wav
 	source_assets/image/logo.png
 	source_assets/image/icon_regular_72.png
+)
+
+file(GLOB UIImages CONFIGURE_DEPENDS
+    assets/ui_images/*.png
+    assets/ui_images/*.svg
 )
 
 if(HEADLESS)
@@ -2912,6 +2915,7 @@ if(TargetBin)
 		if(NOT IOS)
 			set_source_files_properties(${BigFontAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
 			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
+			set_source_files_properties(${UIImages} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/ui_images")
 			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/flash0/font")
 			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/lang")
 			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/shaders")
@@ -2922,12 +2926,12 @@ if(TargetBin)
 
 		if(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
 				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 			endif()
 		else()
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
 			if(USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
@@ -2955,6 +2959,7 @@ endif()
 if(NOT ANDROID)
 	file(INSTALL ${BigFontAssets} DESTINATION assets)
 	file(INSTALL ${NativeAssets} DESTINATION assets)
+	file(INSTALL ${UIImages} DESTINATION assets/ui_images)
 	file(INSTALL assets/flash0 DESTINATION assets)
 endif()
 # packaging and code signing

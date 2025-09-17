@@ -13,6 +13,7 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/LogReporting.h"
+#include "Common/Render/AtlasGen.h"
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
@@ -41,15 +42,21 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
-	if (!uitexture_) {
+	if (atlasInvalid_ || !uitexture_) {
+		if (uitexture_) {
+			uitexture_->Release();
+		}
 		AtlasData data = atlasProvider_(draw_, AtlasChoice::General);
 		uitexture_ = data.texture;
+		_dbg_assert_(uitexture_);
 		ui_draw2d.SetAtlas(data.atlas);
+		atlasInvalid_ = false;
 	}
 
 	if (!fontTexture_) {
 		AtlasData data = atlasProvider_(draw_, AtlasChoice::Font);
 		fontTexture_ = data.texture;
+		_dbg_assert_(fontTexture_);
 		ui_draw2d.SetFontAtlas(data.atlas);
 	}
 

@@ -134,8 +134,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	static const char *cpuCores[] = { "Interpreter", "Dynarec/JIT (recommended)", "IR Interpreter", "JIT using IR" };
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, sy->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), I18NCat::SYSTEM, screenManager()));
-	core->OnChoice.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
-	core->OnChoice.Add([](UI::EventParams &) {
+	core->OnChoice.Add([=](UI::EventParams &e) {
+		OnJitAffectingSetting(e);
 		g_Config.NotifyUpdatedCpuCore();
 	});
 	if (!canUseJit) {
@@ -334,6 +334,15 @@ void DeveloperToolsScreen::CreateAudioTab(UI::LinearLayout *list) {
 	list->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
 }
 
+void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	UIContext *uiContext = screenManager()->getUIContext();
+	list->Add(new Choice(dev->T("Reload UI atlas")))->OnClick.Add([uiContext](UI::EventParams &) {
+		uiContext->InvalidateAtlas();
+	});
+}
+
 void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -476,6 +485,9 @@ void DeveloperToolsScreen::CreateTabs() {
 	});
 	AddTab("Tests", dev->T("Tests"), [this](UI::LinearLayout *parent) {
 		CreateTestsTab(parent);
+	});
+	AddTab("UI", dev->T("UI"), [this](UI::LinearLayout *parent) {
+		CreateUITab(parent);
 	});
 	AddTab("DumpFiles", dev->T("Dump files"), [this](UI::LinearLayout *parent) {
 		CreateDumpFileTab(parent);

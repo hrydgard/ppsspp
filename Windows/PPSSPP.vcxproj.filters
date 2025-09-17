@@ -840,9 +840,6 @@
     <Text Include="..\asciifont_atlasscript.txt">
       <Filter>Build</Filter>
     </Text>
-    <Text Include="..\ui_atlasscript.txt">
-      <Filter>Build</Filter>
-    </Text>
     <Text Include="..\SDL\README.TXT">
       <Filter>Other Platforms\SDL</Filter>
     </Text>
