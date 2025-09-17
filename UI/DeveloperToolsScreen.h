@@ -24,6 +24,7 @@ private:
 	void CreateAudioTab(UI::LinearLayout *list);
 	void CreateGraphicsTab(UI::LinearLayout *list);
 	void CreateNetworkTab(UI::LinearLayout *list);
+	void CreateUITab(UI::LinearLayout *list);
 
 	void OnLoggingChanged(UI::EventParams &e);
 	void OnOpenTexturesIniFile(UI::EventParams &e);

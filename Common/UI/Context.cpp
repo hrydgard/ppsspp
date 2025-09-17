@@ -15,10 +15,6 @@
 #include "Common/LogReporting.h"
 #include "Common/Render/AtlasGen.h"
 
-// The generated atlas.. This is temporary.
-std::vector<AtlasImage> genAtlasImages;
-Atlas genAtlas;
-
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
 	bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
@@ -46,15 +42,21 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
-	if (!uitexture_) {
+	if (atlasInvalid_ || !uitexture_) {
+		if (uitexture_) {
+			uitexture_->Release();
+		}
 		AtlasData data = atlasProvider_(draw_, AtlasChoice::General);
 		uitexture_ = data.texture;
+		_dbg_assert_(uitexture_);
 		ui_draw2d.SetAtlas(data.atlas);
+		atlasInvalid_ = false;
 	}
 
 	if (!fontTexture_) {
 		AtlasData data = atlasProvider_(draw_, AtlasChoice::Font);
 		fontTexture_ = data.texture;
+		_dbg_assert_(fontTexture_);
 		ui_draw2d.SetFontAtlas(data.atlas);
 	}
 

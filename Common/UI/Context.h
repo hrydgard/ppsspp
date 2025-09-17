@@ -126,7 +126,9 @@ public:
 
 	void SetTheme(const UI::Theme *theme) { this->theme = theme; }
 	void SetAtlasProvider(UIAtlasProviderFunc func) { atlasProvider_ = func; }
-
+	void InvalidateAtlas() {
+		atlasInvalid_ = true;  // will cause it to be reloaded on the next frame.
+	}
 private:
 	void GenerateUIAtlas();
 
@@ -154,4 +156,5 @@ private:
 	std::vector<UITransform> transformStack_;
 
 	UIAtlasProviderFunc atlasProvider_{};
+	bool atlasInvalid_ = true;
 };
