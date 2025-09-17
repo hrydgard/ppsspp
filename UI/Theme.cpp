@@ -376,6 +376,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 
 	Instant start = Instant::Now();
 
+	// TODO: This can be parallelized if needed.
 	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
 		resultIds[i] = i;
 
@@ -394,7 +395,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			}
 		}
 	}
-	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", bucket.data.size(), start.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", ARRAY_SIZE(images), start.ElapsedMs());
 
 	Instant addStart = Instant::Now();
 	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
