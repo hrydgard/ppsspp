@@ -130,6 +130,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
+#include "UI/UIAtlas.h"
 
 #if defined(USING_QT_UI)
 #include <QFontDatabase>

@@ -50,10 +50,6 @@ fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
 
-# When building with Makefile, we're missing these icon image files (may be need to run generate_icons.py first?). Let's use whatever we have (wrong size tho)
-#cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon60x60@2x.png
-#cp -a assets/icon_regular_72.png Payload/PPSSPP.app/AppIcon76x76@2x~ipad.png
-
 cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
 #ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib

@@ -28,12 +28,12 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	lastUIState(UISTATE_MENU)
 {
 #if defined(ASSETS_DIR)
-	if (QFile::exists(ASSETS_DIR "icon_regular_72.png"))
-		setWindowIcon(QIcon(ASSETS_DIR "icon_regular_72.png"));
+	if (QFile::exists(ASSETS_DIR "ui_images/icon.png"))
+		setWindowIcon(QIcon(ASSETS_DIR "ui_images/icon.png"));
 	else
-		setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+		setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/ui_images/icon.png"));
 #else
-	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/ui_images/icon.png"));
 #endif
 
 	SetGameTitle("");

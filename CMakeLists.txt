@@ -1612,6 +1612,8 @@ list(APPEND NativeAppSource
 	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
+	UI/UIAtlas.h
+	UI/UIAtlas.cpp
 	UI/RetroAchievementScreens.cpp
 	UI/RetroAchievementScreens.h
 )
@@ -2787,8 +2789,6 @@ set(NativeAssets
 	assets/sfx_toggle_on.wav
 	assets/sfx_achievement_unlocked.wav
 	assets/sfx_leaderbord_submitted.wav
-	source_assets/image/logo.png
-	source_assets/image/icon_regular_72.png
 )
 
 file(GLOB UIImages CONFIGURE_DEPENDS

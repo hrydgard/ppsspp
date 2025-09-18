@@ -1257,7 +1257,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICONGOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	} else {
 		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	}
@@ -1307,7 +1307,7 @@ void MainScreen::CreateViews() {
 			gold->OnClick.Add([sm](UI::EventParams &) {
 				LaunchBuyGold(sm);
 			});
-			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
+			gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
 			gold->SetShine(true);
 		}
 	}

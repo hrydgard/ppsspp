@@ -1723,11 +1723,11 @@ int main(int argc, char *argv[]) {
 
 	char iconPath[PATH_MAX];
 #if defined(ASSETS_DIR)
-	snprintf(iconPath, PATH_MAX, "%sicon_regular_72.png", ASSETS_DIR);
+	snprintf(iconPath, PATH_MAX, "%sui_images/icon.png", ASSETS_DIR);
 	if (access(iconPath, F_OK) != 0)
-		snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
+		snprintf(iconPath, PATH_MAX, "%sassets/ui_images/icon.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
 #else
-	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
+	snprintf(iconPath, PATH_MAX, "%sassets/ui_images/icon.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
 #endif
 	int width = 0, height = 0;
 	unsigned char *imageData;

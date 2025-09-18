@@ -72,6 +72,7 @@
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="Theme.cpp" />
+    <ClCompile Include="UIAtlas.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioCommon.h" />
@@ -118,6 +119,7 @@
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="Theme.h" />
+    <ClInclude Include="UIAtlas.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

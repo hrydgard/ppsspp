@@ -129,6 +129,7 @@
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
     <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
     <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h" />
+    <ClInclude Include="..\..\UI\UIAtlas.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -178,6 +179,7 @@
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp" />
+    <ClCompile Include="..\..\UI\UIAtlas.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
