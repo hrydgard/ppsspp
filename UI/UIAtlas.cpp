@@ -151,7 +151,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	// For now we only load one hardcoded SVG.
 	{
 		size_t sz;
-		const uint8_t *file_data = g_VFS.ReadFile("ui_images/buttons.svg", &sz);  //null-terminates
+		const uint8_t *file_data = g_VFS.ReadFile("ui_images/images.svg", &sz);  // ReadFile null-terminates
 		if (file_data) {
 			NSVGimage *image = nsvgParse((char *)file_data, "px", 96.0f);
 			delete[] file_data;
