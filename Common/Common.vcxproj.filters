@@ -692,6 +692,12 @@
     <ClInclude Include="Render\AtlasGen.h">
       <Filter>Render</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\nanosvg\src\nanosvg.h">
+      <Filter>ext\nanosvg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\nanosvg\src\nanosvgrast.h">
+      <Filter>ext\nanosvg</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1423,6 +1429,9 @@
     </Filter>
     <Filter Include="Audio">
       <UniqueIdentifier>{92746a51-33a9-4a00-af10-3538322f04f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\nanosvg">
+      <UniqueIdentifier>{da5bd3c2-d1d9-4e8f-972f-9e53e2a34049}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
