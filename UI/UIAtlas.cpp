@@ -24,7 +24,7 @@ Atlas *GetUIAtlas() {
 }
 
 static const ImageDesc imageDescs[] = {
-	{"I_SOLIDWHITE", "white.png"},
+	{"I_SOLIDWHITE", "solidwhite.png"},
 	{"I_CROSS", "cross.png"},
 	{"I_CIRCLE", "circle.png"},
 	{"I_SQUARE", "square.png"},
@@ -45,17 +45,17 @@ static const ImageDesc imageDescs[] = {
 	{"I_STICK_LINE", "stick_line.png"},
 	{"I_STICK_BG_LINE", "stick_bg_line.png"},
 	{"I_CHECKEDBOX", "checkedbox.png"},
-	{"I_BG", "background2.png"},
-	{"I_L", "L.png"},
-	{"I_R", "R.png"},
-	{"I_DROP_SHADOW", "dropshadow.png"},
+	{"I_BG", "bg.png"},
+	{"I_L", "l.png"},
+	{"I_R", "r.png"},
+	{"I_DROP_SHADOW", "drop_shadow.png"},
 	{"I_LINES", "lines.png"},
 	{"I_GRID", "grid.png"},
 	{"I_LOGO", "logo.png"},
-	{"I_ICON", "icon_regular_72.png"},
-	{"I_ICONGOLD", "icon_gold_72.png"},
-	{"I_FOLDER", "folder_line.png"},
-	{"I_UP_DIRECTORY", "up_line.png"},
+	{"I_ICON", "icon.png"},
+	{"I_ICON_GOLD", "icon_gold.png"},
+	{"I_FOLDER", "folder.png"},
+	{"I_UP_DIRECTORY", "up_directory.png"},
 	{"I_GEAR", "gear.png"},
 	{"I_1", "1.png"},
 	{"I_2", "2.png"},
@@ -82,7 +82,7 @@ static const ImageDesc imageDescs[] = {
 	{"I_F", "f.png"},
 	{"I_SQUARE_SHAPE", "square_shape.png"},
 	{"I_SQUARE_SHAPE_LINE", "square_shape_line.png"},
-	{"I_FOLDER_OPEN", "folder_open_line.png"},
+	{"I_FOLDER_OPEN", "folder_open.png"},
 	{"I_WARNING", "warning.png"},
 	{"I_TRASHCAN", "trashcan.png"},
 	{"I_PLUS", "plus.png"},
@@ -100,7 +100,7 @@ static const ImageDesc imageDescs[] = {
 	{"I_PLAY", "play.png"},
 	{"I_STOP", "stop.png"},
 	{"I_PAUSE", "pause.png"},
-	{"I_FASTFORWARD", "fast_forward.png"},
+	{"I_FAST_FORWARD", "fast_forward.png"},
 	{"I_RECORD", "record.png"},
 	{"I_SPEAKER", "speaker.png"},
 	{"I_SPEAKER_MAX", "speaker_max.png"},
@@ -108,6 +108,16 @@ static const ImageDesc imageDescs[] = {
 	{"I_WINNER_CUP", "winner_cup.png"},
 	{"I_EMPTY", "empty.png"},
 };
+
+static std::string PNGNameFromID(std::string_view id) {
+	std::string output;
+	output.reserve(id.size() + 3);
+	for (int i = 2; i < id.size(); i++) {
+		output.push_back((char)tolower(id[i]));
+	}
+	output.append(".png");
+	return output;
+}
 
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	Bucket bucket;
@@ -125,12 +135,14 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 		Image &img = images[i];
 
 		bool success = true;
-		if (equals(imageDescs[i].fileName, "white.png")) {
+		if (equals(imageDescs[i].fileName, "solidwhite.png")) {
 			img.resize(16, 16);
 			img.fill(0xFFFFFFFF);
 		} else {
 			std::string name = "ui_images/";
 			name.append(imageDescs[i].fileName);
+			std::string pngName = PNGNameFromID(imageDescs[i].name);
+			_dbg_assert_(equals(imageDescs[i].fileName, pngName));
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
 				ERROR_LOG(Log::G3D, "Failed to load %s\n", name.c_str());
