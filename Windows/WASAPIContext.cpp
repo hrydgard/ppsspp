@@ -218,14 +218,14 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 				} else if (result == S_FALSE) {
 					// We got another format. Meh, let's just use what we got.
 					if (closestMatch) {
-						WARN_LOG(Log::Audio, "Didn't get the format we wanted, but got: %d ch=%d", closestMatch->nSamplesPerSec, closestMatch->nChannels);
+						WARN_LOG(Log::Audio, "Didn't get the format we wanted, but got: %lu ch=%d", closestMatch->nSamplesPerSec, closestMatch->nChannels);
 						CoTaskMemFree(closestMatch);
 					} else {
 						WARN_LOG(Log::Audio, "Failed to fall back to two channels. Using workarounds.");
 					}
 					createBuffer = true;
 				} else {
-					WARN_LOG(Log::Audio, "Got other error %08x", result);
+					WARN_LOG(Log::Audio, "Got other error %08lx", result);
 					_dbg_assert_(!closestMatch);
 				}
 			} else {
