@@ -106,6 +106,4 @@ struct ImageDesc {
 	int result_index;
 
 	AtlasImage ToAtlasImage(int id, float tw, float th, const std::vector<Data> &results) const;
-	void OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const;
-	void OutputHeader(FILE *fil, int index) const;
 };

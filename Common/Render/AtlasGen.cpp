@@ -178,21 +178,3 @@ AtlasImage ImageDesc::ToAtlasImage(int id, float tw, float th, const std::vector
 	truncate_cpy(img.name, name);
 	return img;
 }
-
-void ImageDesc::OutputSelf(FILE *fil, float tw, float th, const std::vector<Data> &results) const {
-	int i = result_index;
-	float toffx = 0.5f / tw;
-	float toffy = 0.5f / th;
-	fprintf(fil, "  {%ff, %ff, %ff, %ff, %d, %d, \"%s\"},\n",
-		results[i].sx / tw + toffx,
-		results[i].sy / th + toffy,
-		results[i].ex / tw - toffx,
-		results[i].ey / th - toffy,
-		results[i].ex - results[i].sx,
-		results[i].ey - results[i].sy,
-		name.c_str());
-}
-
-void ImageDesc::OutputHeader(FILE *fil, int index) const {
-	fprintf(fil, "#define %s %i\n", name.c_str(), index);
-}
