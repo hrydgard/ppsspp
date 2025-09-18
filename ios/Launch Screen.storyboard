@@ -34,8 +34,4 @@
             <point key="canvasLocation" x="52.623688155922046" y="373.60000000000002"/>
         </scene>
     </scenes>
-    <resources>
-        <image name="icon_regular_72.png" width="72" height="72"/>
-        <image name="logo.png" width="166" height="58"/>
-    </resources>
 </document>
