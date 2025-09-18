@@ -6,11 +6,17 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 #include "Common/UI/Context.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "Common/Render/AtlasGen.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "UI/UIAtlas.h"
+
+#define NANOSVG_IMPLEMENTATION
+#define NANOSVGRAST_IMPLEMENTATION
+#include "ext/nanosvg/src/nanosvg.h"
+#include "ext/nanosvg/src/nanosvgrast.h"
 
 static Atlas ui_atlas;
 static Atlas font_atlas;
@@ -119,25 +125,121 @@ static std::string PNGNameFromID(std::string_view id) {
 	return output;
 }
 
+static int GetImageIndex(std::string_view id) {
+	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+		if (equals(id, imageIDs[i])) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static bool IsImageID(std::string_view id) {
+	return GetImageIndex(id) != -1;
+}
+
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	Bucket bucket;
 
 	// Script fully read, now read images and rasterize the fonts.
-	Image images[ARRAY_SIZE(imageIDs)];
-	int resultIds[ARRAY_SIZE(images)];
+	std::vector<Image> images(ARRAY_SIZE(imageIDs));
+	int resultIds[ARRAY_SIZE(imageIDs)]{};
 
-	Instant start = Instant::Now();
+	Instant svgStart = Instant::Now();
 
-	// TODO: Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
+	// Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
+	// For now we only load one hardcoded SVG.
+	{
+		size_t sz;
+		const uint8_t *file_data = g_VFS.ReadFile("ui_images/buttons.svg", &sz);  //null-terminates
+		if (file_data) {
+			NSVGimage *image = nsvgParse((char *)file_data, "px", 96.0f);
+			delete[] file_data;
+
+			// There's a couple of approaches here, either we can pick apart the SVG and render each piece separately,
+			// or we just rasterize the whole thing in one go and use the bounding boxes to pick out the sub-images.
+			// We'll start with the latter, although the momentary memory requirements are higher.
+			std::vector<NSVGshape *> usedShapes;
+			if (image) {
+				// Loop through the shapes to list them, and to hide them if irrelevant.
+				NSVGshape *shape = image->shapes;
+				while (shape) {
+					if (!IsImageID(shape->id)) {
+						// Not an image we care about, hide it.
+						INFO_LOG(Log::G3D, "Ignoring shape %s", shape->id);
+						shape->flags &= ~NSVG_FLAGS_VISIBLE;
+					} else {
+						INFO_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
+						usedShapes.push_back(shape);
+					}
+					shape = shape->next;
+				}
+			}
+
+			NSVGrasterizer *rast = NULL;
+			// Rasterize here, and add into image list.
+			rast = nsvgCreateRasterizer();
+
+			INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d", (int)image->width, (int)image->height);
+
+			char *svgImg = new char[(int)image->width * (int)image->height * 4];
+			memset(svgImg, 0, (int)image->width * (int)image->height * 4);
+			nsvgRasterize(rast, image, 0, 0, 1.0f, (unsigned char *)svgImg, (int)image->width, (int)image->height, (int)image->width * 4);
+
+			// Now, loop through the shapes again and copy out the ones we care about.
+			for (auto shape : usedShapes) {
+				int index = GetImageIndex(shape->id);
+				_dbg_assert_(index != -1);
+				if (index == -1) {
+					continue;
+				}
+
+				Image &img = images[index];
+				int minX = std::max(0, (int)floorf(shape->bounds[0]));
+				int minY = std::max(0, (int)floorf(shape->bounds[1]));
+				int maxX = std::min((int)image->width, (int)ceilf(shape->bounds[2]));
+				int maxY = std::min((int)image->height, (int)ceilf(shape->bounds[3]));
+				int w = maxX - minX;
+				int h = maxY - minY;
+				if (w <= 0 || h <= 0) {
+					ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shape->id, w, h);
+					continue;
+				}
+				img.resize(w, h);
+				for (int y = 0; y < h; y++) {
+					for (int x = 0; x < w; x++) {
+						int sx = (int)(shape->bounds[0] + x);
+						int sy = (int)(shape->bounds[1] + y);
+						const u32 *src = (u32 *)svgImg + (sy * (int)image->width + sx);
+						u32 col = *src;
+						img.set1(x, y, col);
+					}
+				}
+
+				// pngSave(Path(std::string("../buttons_") + PNGNameFromID(shape->id)), img.data(), img.width(), img.height(), 4);
+			}
+
+			// pngSave(Path("../buttons_rasterized.png"), svgImg, (int)image->width, (int)image->height, 4);
+			delete[] svgImg;
+
+			nsvgDeleteRasterizer(rast);
+			nsvgDelete(image);
+		}
+	}
+
+	INFO_LOG(Log::G3D, " - Rasterized svg image in %.2f ms\n", images.size(), svgStart.ElapsedMs());
+
+	Instant pngStart = Instant::Now();
 
 	// TODO: This can be parallelized if needed.
-	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+	for (int i = 0; i < (int)images.size(); i++) {
 		resultIds[i] = i;
 
 		Image &img = images[i];
 
 		if (!img.IsEmpty()) {
 			// Was already loaded from SVG.
+			INFO_LOG(Log::G3D, "Skipping image %s, already loaded from SVG", imageIDs[i].c_str());
 			continue;
 		}
 
@@ -155,10 +257,10 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			}
 		}
 	}
-	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", ARRAY_SIZE(images), start.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Loaded %zu png images in %.2f ms\n", images.size(), pngStart.ElapsedMs());
 
 	Instant addStart = Instant::Now();
-	for (int i = 0; i < ARRAY_SIZE(images); i++) {
+	for (int i = 0; i < images.size(); i++) {
 		bucket.AddImage(std::move(images[i]), i);
 	}
 
@@ -171,6 +273,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	std::vector<Data> results = bucket.Resolve(image_width, dest);
 	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms\n", results.size(), bucketStart.ElapsedMs());
 
+	_dbg_assert_(!results.empty());
 	// Fill out the atlas structure.
 	std::vector<AtlasImage> genAtlasImages;
 	genAtlasImages.reserve(ARRAY_SIZE(imageIDs));
@@ -197,7 +300,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	desc.initData.push_back((const u8 *)dest.data());
 	desc.tag = "UIAtlas";
 
-	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images\n", start.ElapsedMs(), desc.width, desc.height, genAtlasImages.size());
+	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images\n", svgStart.ElapsedMs(), desc.width, desc.height, genAtlasImages.size());
 	return draw->CreateTexture(desc);
 }
 
