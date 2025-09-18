@@ -23,90 +23,90 @@ Atlas *GetUIAtlas() {
 	return &ui_atlas;
 }
 
-static const ImageDesc imageDescs[] = {
-	{"I_SOLIDWHITE", "solidwhite.png"},
-	{"I_CROSS", "cross.png"},
-	{"I_CIRCLE", "circle.png"},
-	{"I_SQUARE", "square.png"},
-	{"I_TRIANGLE", "triangle.png"},
-	{"I_SELECT", "select.png"},
-	{"I_START", "start.png"},
-	{"I_ARROW", "arrow.png"},
-	{"I_DIR", "dir.png"},
-	{"I_ROUND", "round.png"},
-	{"I_RECT", "rect.png"},
-	{"I_STICK", "stick.png"},
-	{"I_STICK_BG", "stick_bg.png"},
-	{"I_SHOULDER", "shoulder.png"},
-	{"I_DIR_LINE", "dir_line.png"},
-	{"I_ROUND_LINE", "round_line.png"},
-	{"I_RECT_LINE", "rect_line.png"},
-	{"I_SHOULDER_LINE", "shoulder_line.png"},
-	{"I_STICK_LINE", "stick_line.png"},
-	{"I_STICK_BG_LINE", "stick_bg_line.png"},
-	{"I_CHECKEDBOX", "checkedbox.png"},
-	{"I_BG", "bg.png"},
-	{"I_L", "l.png"},
-	{"I_R", "r.png"},
-	{"I_DROP_SHADOW", "drop_shadow.png"},
-	{"I_LINES", "lines.png"},
-	{"I_GRID", "grid.png"},
-	{"I_LOGO", "logo.png"},
-	{"I_ICON", "icon.png"},
-	{"I_ICON_GOLD", "icon_gold.png"},
-	{"I_FOLDER", "folder.png"},
-	{"I_UP_DIRECTORY", "up_directory.png"},
-	{"I_GEAR", "gear.png"},
-	{"I_1", "1.png"},
-	{"I_2", "2.png"},
-	{"I_3", "3.png"},
-	{"I_4", "4.png"},
-	{"I_5", "5.png"},
-	{"I_6", "6.png"},
-	{"I_PSP_DISPLAY", "psp_display.png"},
-	{"I_FLAG_JP", "flag_jp.png"},
-	{"I_FLAG_US", "flag_us.png"},
-	{"I_FLAG_EU", "flag_eu.png"},
-	{"I_FLAG_HK", "flag_hk.png"},
-	{"I_FLAG_AS", "flag_as.png"},
-	{"I_FLAG_KO", "flag_ko.png"},
-	{"I_FULLSCREEN", "fullscreen.png"},
-	{"I_RESTORE", "restore.png"},
-	{"I_SDCARD", "sdcard.png"},
-	{"I_HOME", "home.png"},
-	{"I_A", "a.png"},
-	{"I_B", "b.png"},
-	{"I_C", "c.png"},
-	{"I_D", "d.png"},
-	{"I_E", "e.png"},
-	{"I_F", "f.png"},
-	{"I_SQUARE_SHAPE", "square_shape.png"},
-	{"I_SQUARE_SHAPE_LINE", "square_shape_line.png"},
-	{"I_FOLDER_OPEN", "folder_open.png"},
-	{"I_WARNING", "warning.png"},
-	{"I_TRASHCAN", "trashcan.png"},
-	{"I_PLUS", "plus.png"},
-	{"I_ROTATE_LEFT", "rotate_left.png"},
-	{"I_ROTATE_RIGHT", "rotate_right.png"},
-	{"I_ARROW_LEFT", "arrow_left.png"},
-	{"I_ARROW_RIGHT", "arrow_right.png"},
-	{"I_ARROW_UP", "arrow_up.png"},
-	{"I_ARROW_DOWN", "arrow_down.png"},
-	{"I_SLIDERS", "sliders.png"},
-	{"I_THREE_DOTS", "three_dots.png"},
-	{"I_INFO", "info.png"},
-	{"I_RETROACHIEVEMENTS_LOGO", "retroachievements_logo.png"},
-	{"I_CHECKMARK", "checkmark.png"},
-	{"I_PLAY", "play.png"},
-	{"I_STOP", "stop.png"},
-	{"I_PAUSE", "pause.png"},
-	{"I_FAST_FORWARD", "fast_forward.png"},
-	{"I_RECORD", "record.png"},
-	{"I_SPEAKER", "speaker.png"},
-	{"I_SPEAKER_MAX", "speaker_max.png"},
-	{"I_SPEAKER_OFF", "speaker_off.png"},
-	{"I_WINNER_CUP", "winner_cup.png"},
-	{"I_EMPTY", "empty.png"},
+static const std::string imageIDs[] = {
+	"I_SOLIDWHITE",
+	"I_CROSS",
+	"I_CIRCLE",
+	"I_SQUARE",
+	"I_TRIANGLE",
+	"I_SELECT",
+	"I_START",
+	"I_ARROW",
+	"I_DIR",
+	"I_ROUND",
+	"I_RECT",
+	"I_STICK",
+	"I_STICK_BG",
+	"I_SHOULDER",
+	"I_DIR_LINE",
+	"I_ROUND_LINE",
+	"I_RECT_LINE",
+	"I_SHOULDER_LINE",
+	"I_STICK_LINE",
+	"I_STICK_BG_LINE",
+	"I_CHECKEDBOX",
+	"I_BG",
+	"I_L",
+	"I_R",
+	"I_DROP_SHADOW",
+	"I_LINES",
+	"I_GRID",
+	"I_LOGO",
+	"I_ICON",
+	"I_ICON_GOLD",
+	"I_FOLDER",
+	"I_UP_DIRECTORY",
+	"I_GEAR",
+	"I_1",
+	"I_2",
+	"I_3",
+	"I_4",
+	"I_5",
+	"I_6",
+	"I_PSP_DISPLAY",
+	"I_FLAG_JP",
+	"I_FLAG_US",
+	"I_FLAG_EU",
+	"I_FLAG_HK",
+	"I_FLAG_AS",
+	"I_FLAG_KO",
+	"I_FULLSCREEN",
+	"I_RESTORE",
+	"I_SDCARD",
+	"I_HOME",
+	"I_A",
+	"I_B",
+	"I_C",
+	"I_D",
+	"I_E",
+	"I_F",
+	"I_SQUARE_SHAPE",
+	"I_SQUARE_SHAPE_LINE",
+	"I_FOLDER_OPEN",
+	"I_WARNING",
+	"I_TRASHCAN",
+	"I_PLUS",
+	"I_ROTATE_LEFT",
+	"I_ROTATE_RIGHT",
+	"I_ARROW_LEFT",
+	"I_ARROW_RIGHT",
+	"I_ARROW_UP",
+	"I_ARROW_DOWN",
+	"I_SLIDERS",
+	"I_THREE_DOTS",
+	"I_INFO",
+	"I_RETROACHIEVEMENTS_LOGO",
+	"I_CHECKMARK",
+	"I_PLAY",
+	"I_STOP",
+	"I_PAUSE",
+	"I_FAST_FORWARD",
+	"I_RECORD",
+	"I_SPEAKER",
+	"I_SPEAKER_MAX",
+	"I_SPEAKER_OFF",
+	"I_WINNER_CUP",
+	"I_EMPTY",
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -123,26 +123,32 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	Bucket bucket;
 
 	// Script fully read, now read images and rasterize the fonts.
-	Image images[ARRAY_SIZE(imageDescs)];
-	int resultIds[ARRAY_SIZE(imageDescs)];
+	Image images[ARRAY_SIZE(imageIDs)];
+	int resultIds[ARRAY_SIZE(images)];
 
 	Instant start = Instant::Now();
 
+	// TODO: Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
+
 	// TODO: This can be parallelized if needed.
-	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
+	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
 		resultIds[i] = i;
 
 		Image &img = images[i];
 
+		if (!img.IsEmpty()) {
+			// Was already loaded from SVG.
+			continue;
+		}
+
 		bool success = true;
-		if (equals(imageDescs[i].fileName, "solidwhite.png")) {
+		if (equals(imageIDs[i], "I_SOLIDWHITE")) {
 			img.resize(16, 16);
 			img.fill(0xFFFFFFFF);
 		} else {
 			std::string name = "ui_images/";
-			name.append(imageDescs[i].fileName);
-			std::string pngName = PNGNameFromID(imageDescs[i].name);
-			_dbg_assert_(equals(imageDescs[i].fileName, pngName));
+			std::string pngName = PNGNameFromID(imageIDs[i]);
+			name.append(pngName);
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
 				ERROR_LOG(Log::G3D, "Failed to load %s\n", name.c_str());
@@ -152,7 +158,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	INFO_LOG(Log::G3D, " - Loaded %zu images in %.2f ms\n", ARRAY_SIZE(images), start.ElapsedMs());
 
 	Instant addStart = Instant::Now();
-	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
+	for (int i = 0; i < ARRAY_SIZE(images); i++) {
 		bucket.AddImage(std::move(images[i]), i);
 	}
 
@@ -167,9 +173,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 
 	// Fill out the atlas structure.
 	std::vector<AtlasImage> genAtlasImages;
-	genAtlasImages.reserve(ARRAY_SIZE(imageDescs));
-	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
-		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageDescs[i].name, (float)dest.width(), (float)dest.height(), results));
+	genAtlasImages.reserve(ARRAY_SIZE(imageIDs));
+	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageIDs[i], (float)dest.width(), (float)dest.height(), results));
 	}
 
 	atlas->Clear();

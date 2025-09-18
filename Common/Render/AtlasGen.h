@@ -7,10 +7,6 @@
 
 #include "Common/Render/TextureAtlas.h"
 
-constexpr int supersample = 16;
-constexpr int distmult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"
-constexpr int maxsearch = (128 * supersample + distmult - 1) / distmult;
-
 struct ImageU8 {
 	std::vector<std::vector<u8>> dat;
 	void resize(int x, int y) {
@@ -37,8 +33,8 @@ struct Image {
 	Image(Image &&) = default;
 	Image &operator=(Image &&) = default;
 
-	int w;
-	int h;
+	int w = 0;
+	int h = 0;
 
 	// WARNING: This only preserves data correctly if w stays the same. Which it does, in our application.
 	void resize(int x, int y) {
@@ -68,6 +64,7 @@ struct Image {
 	bool LoadPNG(const char *png_name);
 	void SavePNG(const char *png_name);
 	void SaveZIM(const char *zim_name, int zim_format);
+	bool IsEmpty() const { return dat.empty(); }
 private:
 	std::vector<u32> dat;
 };
@@ -98,12 +95,6 @@ struct Bucket {
 	}
 	void AddImage(Image &&img, int id);
 	std::vector<Data> Resolve(int image_width, Image &dest);
-};
-
-struct ImageDesc {
-	std::string name;
-	std::string fileName;
-	int result_index;
 };
 
 AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const std::vector<Data> &results);

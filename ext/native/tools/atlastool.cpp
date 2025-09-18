@@ -38,6 +38,11 @@
 #include "Common/Data/Format/ZIMSave.h"
 #include "kanjifilter.h"
 
+
+constexpr int supersample = 16;
+constexpr int distmult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"
+constexpr int maxsearch = (128 * supersample + distmult - 1) / distmult;
+
 // extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)
 //#define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
 // daily-use character only. However, it is too enough this.
@@ -50,6 +55,12 @@
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 
 using namespace std;
+
+struct ImageDesc {
+	std::string name;
+	std::string fileName;
+	int result_index;
+};
 
 struct CharRange : public AtlasCharRange {
 	std::set<u16> filter;
