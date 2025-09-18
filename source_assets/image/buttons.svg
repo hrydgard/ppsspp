@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:xlink="http://www.w3.org/1999/xlink"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    width="744.09448819"
    height="1052.3622047"
    id="svg2"
    version="1.1"
-   inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"
-   sodipodi:docname="buttons.svg">
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   sodipodi:docname="buttons.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
   <defs
      id="defs4">
     <inkscape:path-effect
@@ -32,7 +32,8 @@
        apply_no_radius="true"
        apply_with_radius="true"
        only_selected="true"
-       hide_knots="false" />
+       hide_knots="false"
+       nodesatellites_param="F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1 @ F,0,0,1,0,1,0,1" />
     <inkscape:path-effect
        effect="fillet_chamfer"
        id="path-effect1158"
@@ -49,7 +50,8 @@
        apply_no_radius="true"
        apply_with_radius="true"
        only_selected="true"
-       hide_knots="false" />
+       hide_knots="false"
+       nodesatellites_param="F,0,1,1,0,3,0,1 @ F,0,0,1,0,3,0,1 @ F,0,0,1,0,3,0,1 @ F,0,0,1,0,3,0,1 @ F,0,0,1,0,3,0,1 @ F,0,0,1,0,3,0,1 @ F,0,1,1,0,3,0,1 @ F,0,1,1,0,3,0,1 @ F,0,1,1,0,3,0,1 @ F,0,1,1,0,3,0,1" />
     <linearGradient
        id="linearGradient4650">
       <stop
@@ -340,15 +342,6 @@
     </pattern>
     <linearGradient
        inkscape:collect="always"
-       xlink:href="#linearGradient4650"
-       id="linearGradient4656"
-       x1="54.516643"
-       y1="221.82647"
-       x2="76.911928"
-       y2="221.82647"
-       gradientUnits="userSpaceOnUse" />
-    <linearGradient
-       inkscape:collect="always"
        xlink:href="#linearGradient4650-3"
        id="linearGradient4656-0"
        x1="54.516644"
@@ -371,16 +364,6 @@
          offset="1"
          id="stop4654-3" />
     </linearGradient>
-    <linearGradient
-       gradientTransform="translate(31.071428,-0.53571305)"
-       y2="221.82648"
-       x2="76.911926"
-       y1="221.82648"
-       x1="54.516644"
-       gradientUnits="userSpaceOnUse"
-       id="linearGradient4676"
-       xlink:href="#linearGradient4650-3"
-       inkscape:collect="always" />
     <pattern
        inkscape:stockid="Polka dots, large white"
        id="Polkadots-largewhite-6"
@@ -767,7 +750,7 @@
        style="color-interpolation-filters:sRGB;"
        inkscape:label="Drop Shadow"
        x="-0.02998049"
-       y="-0.081521392"
+       y="-0.0815214"
        width="1.0568565"
        height="1.1630411">
       <feFlood
@@ -805,7 +788,7 @@
        x="-0.508148"
        y="-0.254074"
        width="2.016296"
-       height="1.3785184">
+       height="1.4213911">
       <feFlood
          id="feFlood5122"
          flood-opacity="0.2"
@@ -1162,10 +1145,10 @@
        id="filter5240"
        style="color-interpolation-filters:sRGB;"
        inkscape:label="Drop Shadow"
-       x="-0.05898663"
-       y="-0.058986649"
-       width="1.1179733"
-       height="1.1179733">
+       x="-4.7405555"
+       y="-4.545201"
+       width="10.480841"
+       height="10.090064">
       <feFlood
          id="feFlood5242"
          flood-opacity="0.2"
@@ -1340,10 +1323,10 @@
     <filter
        id="filter4781"
        inkscape:label="Drop shadow"
-       width="1.3394475"
-       height="1.3227315"
-       x="-0.16972376"
-       y="-0.16136573">
+       width="1.3248645"
+       height="1.3248645"
+       x="-0.16243225"
+       y="-0.16243225">
       <feGaussianBlur
          id="feGaussianBlur4783"
          in="SourceAlpha"
@@ -1374,10 +1357,10 @@
        style="color-interpolation-filters:sRGB;"
        inkscape:label="Drop Shadow"
        id="filter4775"
-       x="-0.20105123"
-       y="-0.11971503"
-       width="1.4021025"
-       height="1.2394301">
+       x="-0.22175502"
+       y="-0.12003663"
+       width="1.44351"
+       height="1.2400733">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1472,10 +1455,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter4775-3"
-       x="-0.13065391"
-       y="-0.11971503"
-       width="1.2613078"
-       height="1.2394301">
+       x="-0.13259239"
+       y="-0.12003663"
+       width="1.2651848"
+       height="1.2400733">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1508,10 +1491,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter4775-3-9"
-       x="-0.16877672"
-       y="-0.11971503"
-       width="1.3375534"
-       height="1.2394301">
+       x="-0.1591581"
+       y="-0.12003663"
+       width="1.3183162"
+       height="1.2400733">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1544,10 +1527,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter4775-3-0"
-       x="-0.14845062"
-       y="-0.11538705"
-       width="1.2969012"
-       height="1.2307741">
+       x="-0.14472433"
+       y="-0.11583574"
+       width="1.2894487"
+       height="1.2316715">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1580,10 +1563,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter4775-3-02"
-       x="-0.14241796"
-       y="-0.11971503"
-       width="1.2848359"
-       height="1.2394301">
+       x="-0.14207834"
+       y="-0.12003663"
+       width="1.2841567"
+       height="1.2400733">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1616,10 +1599,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter4775-3-97"
-       x="-0.20831532"
-       y="-0.11971503"
-       width="1.4166306"
-       height="1.2394301">
+       x="-0.18794379"
+       y="-0.12003663"
+       width="1.3758876"
+       height="1.2400733">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1652,10 +1635,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter4775-3-8"
-       x="-0.18579475"
-       y="-0.11971503"
-       width="1.3715895"
-       height="1.2394301">
+       x="-0.18219627"
+       y="-0.12003663"
+       width="1.3643925"
+       height="1.2400733">
       <feFlood
          flood-opacity="0.498039"
          flood-color="rgb(0,0,0)"
@@ -1688,10 +1671,10 @@
        id="filter5096-3"
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       x="-0.17000000000000001"
-       y="-0.13999999999999999"
-       width="1.3600000000000001"
-       height="1.28">
+       x="-0.24820216"
+       y="-0.17617231"
+       width="1.4969665"
+       height="1.3609866">
       <feFlood
          id="feFlood5098-6"
          flood-opacity="0.2"
@@ -1793,10 +1776,10 @@
        id="filter5132-3"
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
-       width="1.7200000000000004"
-       height="1.2"
-       x="-0.23000000000000009"
-       y="-0.10000000000000001">
+       width="3.3160447"
+       height="2.4104021"
+       x="-1.1216338"
+       y="-0.70520079">
       <feFlood
          id="feFlood5134-8"
          flood-opacity="0.20000000000000001"
@@ -2239,22 +2222,29 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="5.6"
-     inkscape:cx="249.73574"
-     inkscape:cy="759.92072"
+     inkscape:zoom="1.979899"
+     inkscape:cx="176.01908"
+     inkscape:cy="216.42518"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
-     inkscape:window-width="2581"
-     inkscape:window-height="1532"
-     inkscape:window-x="804"
-     inkscape:window-y="332"
+     inkscape:window-width="1904"
+     inkscape:window-height="1161"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
      inkscape:window-maximized="0"
      inkscape:document-rotation="0"
-     inkscape:pagecheckerboard="0">
+     inkscape:pagecheckerboard="0"
+     inkscape:showpageshadow="2"
+     inkscape:deskcolor="#d1d1d1">
     <inkscape:grid
        type="xygrid"
-       id="grid4352" />
+       id="grid4352"
+       originx="0"
+       originy="0"
+       spacingy="1"
+       spacingx="1"
+       units="px" />
   </sodipodi:namedview>
   <metadata
      id="metadata7">
@@ -2577,46 +2567,6 @@
        inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\start.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
-    <rect
-       style="fill:#466071;fill-opacity:1;stroke:#ffffff;stroke-width:1.68100000000000000;stroke-linecap:round;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-opacity:0.64893615;stroke-dasharray:none"
-       id="rect4646"
-       width="8.880887"
-       height="31.998003"
-       x="14.999998"
-       y="218.07646"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\button.png"
-       inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135" />
-    <rect
-       style="fill:url(#linearGradient4656);fill-opacity:1;stroke:none"
-       id="rect4648"
-       width="21.428572"
-       height="33.214287"
-       x="55.357143"
-       y="217.71933"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\active_item.png"
-       inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135" />
-    <rect
-       style="fill:url(#linearGradient4676);fill-opacity:1;stroke:none"
-       id="rect4648-7"
-       width="21.42857"
-       height="33.214287"
-       x="86.428574"
-       y="217.18362"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\inactive_item.png"
-       inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135" />
-    <rect
-       style="fill:#809eb0;fill-opacity:1;stroke:#ffffff;stroke-width:1.68099999000000010;stroke-linecap:round;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-opacity:0.64893613000000006;stroke-dasharray:none"
-       id="rect4646-3"
-       width="8.880887"
-       height="31.998003"
-       x="33.416698"
-       y="218.50604"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\button_selected.png"
-       inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135" />
     <path
        style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1.50000000000000000;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;color:#000000;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;filter:url(#filter5132)"
        d="m 148.92858,176.6479 3.57142,0 1.96429,-3.21429 7.85714,0 2.14285,3.21429 15.89287,0 0,25 -31.42857,0 z"
@@ -2626,30 +2576,6 @@
        inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
        inkscape:export-xdpi="135"
        inkscape:export-ydpi="135" />
-    <g
-       id="g4739"
-       inkscape:export-filename="D:\Dev\Emulatorer\potemkin\android\source_assets\image\exe.png"
-       inkscape:export-xdpi="135"
-       inkscape:export-ydpi="135">
-      <rect
-         y="176.29076"
-         x="206.42857"
-         height="25.357143"
-         width="32.857143"
-         id="rect4729"
-         style="fill:#60d068;fill-opacity:1;stroke:#ffffff;stroke-width:1.68099999;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:0.64893613;stroke-dasharray:none" />
-      <text
-         id="text4731"
-         y="193.79076"
-         x="208.57143"
-         style="font-style:normal;font-weight:normal;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none"
-         xml:space="preserve"><tspan
-           style="font-size:14px;line-height:1.25;font-family:sans-serif"
-           id="tspan4735"
-           y="193.79076"
-           x="208.57143"
-           sodipodi:role="line">PSP</tspan></text>
-    </g>
     <path
        style="fill:none;fill-opacity:1;stroke:#ffffff;color:#000000;stroke-width:1.57648360999999990;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;filter:url(#filter5120)"
        d="M 126.375 188.21875 L 111.28125 203.34375 L 121.03125 203.34375 L 121.03125 212.875 L 131.71875 212.875 L 131.71875 203.34375 L 141.46875 203.34375 L 126.375 188.21875 z "
@@ -2919,8 +2845,7 @@
          sodipodi:nodetypes="ccccccccccc"
          inkscape:export-filename="C:\dev\ppsspp\source_assets\image\folder_line.png"
          inkscape:export-xdpi="135"
-         inkscape:export-ydpi="135"
-         inkscape:original-d="m 178.7729,231.08461 13.3644,0.0687 1.07328,1.83091 3.05635,0.0149 0.0353,-1.83439 3.69218,-0.0114 3.72121,3.84564 h 11.85226 v 22.91656 h -36.85814 z" />
+         inkscape:export-ydpi="135" />
       <text
          transform="matrix(0.51483133,0,0,0.48865723,85.611849,129.89633)"
          id="text4356"
@@ -3233,11 +3158,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
        x="253.83929"
        y="343.88004"
-       id="text5023"><tspan
-         sodipodi:role="line"
-         id="tspan5021"
-         x="253.83929"
-         y="380.37326" /></text>
+       id="text5023" />
     <g
        id="g5067"
        inkscape:export-xdpi="135"
@@ -3589,12 +3510,6 @@
          id="rect1486"
          style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)" />
     </g>
-    <path
-       style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)"
-       d="m 314.67858,360.85798 c 0,0 -0.0631,0.56821 0.20401,1.53891 -0.66006,-0.38225 -5.16176,-0.94815 -3.53934,3.53148 0.53673,1.10178 2.73001,3.94317 4.23463,4.47716 0.57515,1.7859 0.91174,2.46317 1.94131,3.389 1.052,0.94601 2.87672,1.36813 2.87672,1.36813 l 0.0826,2.13811 c 0,0 0.0787,3.64621 -1.16765,4.71745 -1.97494,1.69745 -5.5007,1.37694 -5.5007,1.37694 l -0.002,1.65087 8.09766,0.0879 v -24.27594 z m 0.51326,3.70012 0.181,3.48973 c 0,0 -0.76029,-0.021 -1.32931,-0.83693 -0.92283,-1.32334 -1.67375,-2.08596 -1.15866,-3.10839 0.58025,-0.41112 0.8118,-0.54084 1.77032,-0.081 z"
-       id="rect1490"
-       inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccccscccccccccccccc" />
     <path
        style="opacity:1;vector-effect:none;fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;filter:url(#filter5132-3)"
        d="m 327.71373,278.71456 c 0,0 -0.062,0.56836 0.20507,1.53906 -0.66006,-0.38225 -5.16148,-0.94838 -3.53906,3.53125 0.53673,1.10178 2.72976,3.94453 4.23438,4.47852 0.57515,1.7859 0.91183,2.46284 1.9414,3.38867 1.052,0.94601 2.87696,1.36719 2.87696,1.36719 l 0.082,2.13867 c 0,0 0.0784,3.64556 -1.16797,4.7168 -1.97494,1.69745 -5.5,1.37695 -5.5,1.37695 l -0.002,1.65235 8.09765,0.0879 8.09766,-0.0879 -0.002,-1.65235 c 0,0 -3.52702,0.3205 -5.50196,-1.37695 -1.24635,-1.07124 -1.16797,-4.7168 -1.16797,-4.7168 l 0.084,-2.13867 c 0,0 1.82495,-0.42118 2.87695,-1.36719 1.02957,-0.92583 1.36626,-1.60277 1.94141,-3.38867 1.50462,-0.53399 3.69764,-3.37674 4.23437,-4.47852 1.62242,-4.47963 -2.879,-3.9135 -3.53906,-3.53125 0.26711,-0.9707 0.20312,-1.53906 0.20312,-1.53906 h -7.22656 z m -1.05078,2.87891 c 0.25023,-0.0263 0.54808,0.0552 1.02734,0.28515 l 0.53711,0.53711 0.18164,3.48829 c 0,0 -0.76106,-0.02 -1.33008,-0.83594 -0.92283,-1.32334 -1.67329,-2.08695 -1.1582,-3.10938 0.29012,-0.20556 0.49195,-0.33889 0.74219,-0.36523 z m 16.55664,0 c 0.25023,0.0263 0.45206,0.15967 0.74218,0.36523 0.51509,1.02243 -0.23537,1.78604 -1.1582,3.10938 -0.56902,0.81593 -1.32812,0.83594 -1.32812,0.83594 l 0.17968,-3.48829 0.53711,-0.53711 c 0.47926,-0.22992 0.77711,-0.31149 1.02735,-0.28515 z"
