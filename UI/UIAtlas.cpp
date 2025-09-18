@@ -157,7 +157,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 	std::vector<AtlasImage> genAtlasImages;
 	genAtlasImages.reserve(ARRAY_SIZE(imageDescs));
 	for (int i = 0; i < ARRAY_SIZE(imageDescs); i++) {
-		genAtlasImages.push_back(imageDescs[i].ToAtlasImage(resultIds[i], (float)dest.width(), (float)dest.height(), results));
+		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageDescs[i].name, (float)dest.width(), (float)dest.height(), results));
 	}
 
 	atlas->Clear();

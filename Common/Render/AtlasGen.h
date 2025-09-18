@@ -104,6 +104,6 @@ struct ImageDesc {
 	std::string name;
 	std::string fileName;
 	int result_index;
-
-	AtlasImage ToAtlasImage(int id, float tw, float th, const std::vector<Data> &results) const;
 };
+
+AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const std::vector<Data> &results);

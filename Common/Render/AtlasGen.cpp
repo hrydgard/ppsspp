@@ -164,9 +164,9 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 	return data;
 }
 
-AtlasImage ImageDesc::ToAtlasImage(int id, float tw, float th, const std::vector<Data> &results) const {
+AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const std::vector<Data> &results) {
 	AtlasImage img{};
-	const int i = id == -1 ? result_index : id;
+	const int i = id;
 	const float toffx = 0.5f / tw;
 	const float toffy = 0.5f / th;
 	img.u1 = results[i].sx / tw + toffx;

@@ -670,7 +670,7 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 		// For each image
 		AtlasImage *atlas_images = new AtlasImage[images.size()];
 		for (int i = 0; i < (int)images.size(); i++) {
-			atlas_images[i] = images[i].ToAtlasImage(images[i].result_index, (float)dest.width(), (float)dest.height(), results);
+			atlas_images[i] = ToAtlasImage(images[i].result_index, images[i].name, (float)dest.width(), (float)dest.height(), results);
 		}
 		WriteCompressed(atlas_images, sizeof(AtlasImage), images.size(), meta);
 		// For each font
