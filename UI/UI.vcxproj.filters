@@ -122,6 +122,7 @@
     <ClCompile Include="DeveloperToolsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="UIAtlas.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -244,6 +245,7 @@
     <ClInclude Include="DeveloperToolsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="UIAtlas.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

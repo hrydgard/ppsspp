@@ -1612,6 +1612,8 @@ list(APPEND NativeAppSource
 	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
+	UI/UIAtlas.h
+	UI/UIAtlas.cpp
 	UI/RetroAchievementScreens.cpp
 	UI/RetroAchievementScreens.h
 )
