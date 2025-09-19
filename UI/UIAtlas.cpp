@@ -198,7 +198,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			// Rasterize here, and add into image list.
 			rast = nsvgCreateRasterizer();
 
-			float scale = 2.0f;
+			float scale = 1.0f;
 			int svgWidth = image->width * scale;
 			int svgHeight = image->height * scale;
 
