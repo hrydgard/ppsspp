@@ -239,8 +239,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 				}
 
 				img.scale = scale;
+				addDropShadow(img, 4, 0, 0);
 
-				// pngSave(Path(std::string("../buttons_") + PNGNameFromID(shape->id)), img.data(), img.width(), img.height(), 4);
+				// pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
 			}
 
 

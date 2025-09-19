@@ -180,3 +180,131 @@ AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const
 	truncate_cpy(img.name, name);
 	return img;
 }
+
+// The below is ChatGPT-generated drop shadow code. Needs optimization!
+
+static std::vector<float> makeGaussianKernel(int radius) {
+	const float sigma = radius / 2.0f;
+	std::vector<float> kernel(2 * radius + 1);
+	float sum = 0.0f;
+	for (int i = -radius; i <= radius; i++) {
+		float val = std::exp(-(i * i) / (2 * sigma * sigma));
+		kernel[i + radius] = val;
+		sum += val;
+	}
+	for (float &v : kernel) v /= sum;
+	return kernel;
+}
+
+static void blurAlpha(const std::vector<float> &src, std::vector<float> &dst, int w, int h, int radius) {
+	auto kernel = makeGaussianKernel(radius);
+	int ksize = (int)kernel.size();
+	int kr = radius;
+
+	std::vector<float> tmp(w * h, 0.0f);
+
+	// horizontal
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			float sum = 0.0f;
+			for (int k = -kr; k <= kr; k++) {
+				int xx = std::clamp(x + k, 0, w - 1);
+				sum += src[y * w + xx] * kernel[k + kr];
+			}
+			tmp[y * w + x] = sum;
+		}
+	}
+
+	// vertical
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			float sum = 0.0f;
+			for (int k = -kr; k <= kr; k++) {
+				int yy = std::clamp(y + k, 0, h - 1);
+				sum += tmp[yy * w + x] * kernel[k + kr];
+			}
+			dst[y * w + x] = sum;
+		}
+	}
+}
+
+inline u32 blendOver(u32 dst, u32 src) {
+	// Extract channels
+	float sa = ((src >> 24) & 0xFF) / 255.0f;
+	float sr = ((src >> 16) & 0xFF) / 255.0f;
+	float sg = ((src >> 8) & 0xFF) / 255.0f;
+	float sb = ((src >> 0) & 0xFF) / 255.0f;
+
+	float da = ((dst >> 24) & 0xFF) / 255.0f;
+	float dr = ((dst >> 16) & 0xFF) / 255.0f;
+	float dg = ((dst >> 8) & 0xFF) / 255.0f;
+	float db = ((dst >> 0) & 0xFF) / 255.0f;
+
+	// Source over
+	float outA = sa + da * (1.0f - sa);
+	float outR = (sr * sa + dr * da * (1.0f - sa)) / (outA > 0 ? outA : 1);
+	float outG = (sg * sa + dg * da * (1.0f - sa)) / (outA > 0 ? outA : 1);
+	float outB = (sb * sa + db * da * (1.0f - sa)) / (outA > 0 ? outA : 1);
+
+	return ((u32)(outA * 255 + 0.5f) << 24) |
+		((u32)(outR * 255 + 0.5f) << 16) |
+		((u32)(outG * 255 + 0.5f) << 8) |
+		((u32)(outB * 255 + 0.5f) << 0);
+}
+
+void addDropShadow(Image &img, int shadowSize, int offsetX, int offsetY) {
+	int radius = std::max(1, (int)(shadowSize * img.scale));
+
+	// Compute required expansion on each side
+	int left = radius + std::max(0, -offsetX);
+	int right = radius + std::max(0, offsetX);
+	int top = radius + std::max(0, -offsetY);
+	int bottom = radius + std::max(0, offsetY);
+
+	int newW = img.w + left + right;
+	int newH = img.h + top + bottom;
+
+	std::vector<u32> newData(newW * newH, 0);
+
+	// Extract alpha
+	std::vector<float> alpha(img.w * img.h, 0.0f);
+	for (int i = 0; i < img.w * img.h; i++) {
+		u32 c = img.dat[i];
+		alpha[i] = ((c >> 24) & 0xFF) / 255.0f;
+	}
+
+	// Blur
+	std::vector<float> blurred(img.w * img.h, 0.0f);
+	blurAlpha(alpha, blurred, img.w, img.h, radius);
+
+	// Draw shadow (black, blurred alpha)
+	for (int y = 0; y < img.h; y++) {
+		for (int x = 0; x < img.w; x++) {
+			float a = blurred[y * img.w + x];
+			if (a > 0.001f) {
+				int nx = x + left + offsetX;
+				int ny = y + top + offsetY;
+				if (nx >= 0 && ny >= 0 && nx < newW && ny < newH) {
+					u32 shadowColor = ((u32)(a * 180) << 24); // semi-transparent black
+					newData[ny * newW + nx] = shadowColor;
+				}
+			}
+		}
+	}
+
+	// Composite original image on top
+	for (int y = 0; y < img.h; y++) {
+		for (int x = 0; x < img.w; x++) {
+			u32 c = img.dat[y * img.w + x];
+			if ((c >> 24) & 0xFF) {
+				int nx = x + left;
+				int ny = y + top;
+				newData[ny * newW + nx] = blendOver(newData[ny * newW + nx], c);
+			}
+		}
+	}
+
+	img.w = newW;
+	img.h = newH;
+	img.dat = std::move(newData);
+}

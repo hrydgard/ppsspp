@@ -67,9 +67,11 @@ struct Image {
 	void SavePNG(const char *png_name);
 	void SaveZIM(const char *zim_name, int zim_format);
 	bool IsEmpty() const { return dat.empty(); }
-private:
+// private:
 	std::vector<u32> dat;
 };
+
+void addDropShadow(Image &img, int shadowSize, int offsetX, int offsetY);
 
 struct Data {
 	// item ID
