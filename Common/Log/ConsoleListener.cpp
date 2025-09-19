@@ -315,7 +315,7 @@ void ConsoleListener::SendToThread(LogLevel Level, const char *Text) {
 	int ColorLen = 0;
 	if (useColor_) {
 		// Not ANSI, since the console doesn't support it, but ANSI-like.
-		snprintf(ColorAttr, 16, "\033%d", Level);
+		snprintf(ColorAttr, 16, "\033%d", (int)Level);
 		// For now, rather than properly support it.
 		_dbg_assert_msg_(strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
 		ColorLen = (int)strlen(ColorAttr);
