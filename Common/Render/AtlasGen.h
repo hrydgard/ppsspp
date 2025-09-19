@@ -71,7 +71,7 @@ struct Image {
 	std::vector<u32> dat;
 };
 
-void addDropShadow(Image &img, int shadowSize, int offsetX, int offsetY);
+void addDropShadow(Image &img, int shadowSize);
 
 struct Data {
 	// item ID

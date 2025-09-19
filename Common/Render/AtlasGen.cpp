@@ -252,53 +252,47 @@ inline u32 blendOver(u32 dst, u32 src) {
 		((u32)(outB * 255 + 0.5f) << 0);
 }
 
-void addDropShadow(Image &img, int shadowSize, int offsetX, int offsetY) {
+void addDropShadow(Image &img, int shadowSize) {
 	int radius = std::max(1, (int)(shadowSize * img.scale));
 
-	// Compute required expansion on each side
-	int left = radius + std::max(0, -offsetX);
-	int right = radius + std::max(0, offsetX);
-	int top = radius + std::max(0, -offsetY);
-	int bottom = radius + std::max(0, offsetY);
+	// Expand canvas so blur has space on all sides
+	int newW = img.w + radius * 2;
+	int newH = img.h + radius * 2;
 
-	int newW = img.w + left + right;
-	int newH = img.h + top + bottom;
-
-	std::vector<u32> newData(newW * newH, 0);
-
-	// Extract alpha
-	std::vector<float> alpha(img.w * img.h, 0.0f);
-	for (int i = 0; i < img.w * img.h; i++) {
-		u32 c = img.dat[i];
-		alpha[i] = ((c >> 24) & 0xFF) / 255.0f;
-	}
-
-	// Blur
-	std::vector<float> blurred(img.w * img.h, 0.0f);
-	blurAlpha(alpha, blurred, img.w, img.h, radius);
-
-	// Draw shadow (black, blurred alpha)
+	// Expanded alpha buffer
+	std::vector<float> alpha(newW * newH, 0.0f);
 	for (int y = 0; y < img.h; y++) {
 		for (int x = 0; x < img.w; x++) {
-			float a = blurred[y * img.w + x];
+			float a = ((img.dat[y * img.w + x] >> 24) & 0xFF) / 255.0f;
+			alpha[(y + radius) * newW + (x + radius)] = a;
+		}
+	}
+
+	// Blur the expanded alpha
+	std::vector<float> blurred(newW * newH, 0.0f);
+	blurAlpha(alpha, blurred, newW, newH, radius);
+
+	// Target buffer with transparent background
+	std::vector<u32> newData(newW * newH, 0);
+
+	// Draw shadow (black, blurred alpha)
+	for (int y = 0; y < newH; y++) {
+		for (int x = 0; x < newW; x++) {
+			float a = blurred[y * newW + x];
 			if (a > 0.001f) {
-				int nx = x + left + offsetX;
-				int ny = y + top + offsetY;
-				if (nx >= 0 && ny >= 0 && nx < newW && ny < newH) {
-					u32 shadowColor = ((u32)(a * 180) << 24); // semi-transparent black
-					newData[ny * newW + nx] = shadowColor;
-				}
+				u32 shadowColor = ((u32)(a * 180) << 24); // semi-transparent black
+				newData[y * newW + x] = blendOver(newData[y * newW + x], shadowColor);
 			}
 		}
 	}
 
-	// Composite original image on top
+	// Composite original image on top (centered in expanded buffer)
 	for (int y = 0; y < img.h; y++) {
 		for (int x = 0; x < img.w; x++) {
 			u32 c = img.dat[y * img.w + x];
 			if ((c >> 24) & 0xFF) {
-				int nx = x + left;
-				int ny = y + top;
+				int nx = x + radius;
+				int ny = y + radius;
 				newData[ny * newW + nx] = blendOver(newData[ny * newW + nx], c);
 			}
 		}
