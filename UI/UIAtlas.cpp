@@ -159,7 +159,21 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			// There's a couple of approaches here, either we can pick apart the SVG and render each piece separately,
 			// or we just rasterize the whole thing in one go and use the bounding boxes to pick out the sub-images.
 			// We'll start with the latter, although the momentary memory requirements are higher.
-			std::vector<NSVGshape *> usedShapes;
+			struct UsedShape {
+				float minX = 1000000.0f;
+				float maxX = -1000000.0f;
+				float minY = 1000000.0f;
+				float maxY = -1000000.0f;
+
+				void Merge(NSVGshape *shape) {
+					if (shape->bounds[0] < minX) minX = shape->bounds[0];
+					if (shape->bounds[1] < minY) minY = shape->bounds[1];
+					if (shape->bounds[2] > maxX) maxX = shape->bounds[2];
+					if (shape->bounds[3] > maxY) maxY = shape->bounds[3];
+				}
+			};
+
+			std::map<std::string, UsedShape> usedShapes;
 			if (image) {
 				// Loop through the shapes to list them, and to hide them if irrelevant.
 				NSVGshape *shape = image->shapes;
@@ -169,8 +183,12 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 						INFO_LOG(Log::G3D, "Ignoring shape %s", shape->id);
 						shape->flags &= ~NSVG_FLAGS_VISIBLE;
 					} else {
-						INFO_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
-						usedShapes.push_back(shape);
+						if (usedShapes.find(shape->id) != usedShapes.end()) {
+							INFO_LOG(Log::G3D, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
+						} else {
+							INFO_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
+						}
+						usedShapes[shape->id].Merge(shape);
 					}
 					shape = shape->next;
 				}
@@ -180,46 +198,53 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			// Rasterize here, and add into image list.
 			rast = nsvgCreateRasterizer();
 
-			INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d", (int)image->width, (int)image->height);
+			float scale = 2.0f;
+			int svgWidth = image->width * scale;
+			int svgHeight = image->height * scale;
 
-			char *svgImg = new char[(int)image->width * (int)image->height * 4];
-			memset(svgImg, 0, (int)image->width * (int)image->height * 4);
-			nsvgRasterize(rast, image, 0, 0, 1.0f, (unsigned char *)svgImg, (int)image->width, (int)image->height, (int)image->width * 4);
+			INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
+
+			char *svgImg = new char[svgWidth * svgHeight * 4];
+			memset(svgImg, 0, svgWidth * svgHeight * 4);
+			nsvgRasterize(rast, image, 0, 0, scale, (unsigned char *)svgImg, svgWidth, svgHeight, svgWidth * 4);
 
 			// Now, loop through the shapes again and copy out the ones we care about.
-			for (auto shape : usedShapes) {
-				int index = GetImageIndex(shape->id);
+			for (auto &[shapeId, bounds] : usedShapes) {
+				int index = GetImageIndex(shapeId);
 				_dbg_assert_(index != -1);
 				if (index == -1) {
 					continue;
 				}
 
 				Image &img = images[index];
-				int minX = std::max(0, (int)floorf(shape->bounds[0]));
-				int minY = std::max(0, (int)floorf(shape->bounds[1]));
-				int maxX = std::min((int)image->width, (int)ceilf(shape->bounds[2]));
-				int maxY = std::min((int)image->height, (int)ceilf(shape->bounds[3]));
+				int minX = std::max(0, (int)floorf(bounds.minX * scale));
+				int minY = std::max(0, (int)floorf(bounds.minY * scale));
+				int maxX = std::min(svgWidth, (int)ceilf(bounds.maxX * scale));
+				int maxY = std::min(svgHeight, (int)ceilf(bounds.maxY * scale));
 				int w = maxX - minX;
 				int h = maxY - minY;
 				if (w <= 0 || h <= 0) {
-					ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shape->id, w, h);
+					ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
 					continue;
 				}
 				img.resize(w, h);
 				for (int y = 0; y < h; y++) {
 					for (int x = 0; x < w; x++) {
-						int sx = (int)(shape->bounds[0] + x);
-						int sy = (int)(shape->bounds[1] + y);
-						const u32 *src = (u32 *)svgImg + (sy * (int)image->width + sx);
+						int sx = minX + x;
+						int sy = minY + y;
+						const u32 *src = (u32 *)svgImg + (sy * svgWidth + sx);
 						u32 col = *src;
 						img.set1(x, y, col);
 					}
 				}
 
+				img.scale = scale;
+
 				// pngSave(Path(std::string("../buttons_") + PNGNameFromID(shape->id)), img.data(), img.width(), img.height(), 4);
 			}
 
-			// pngSave(Path("../buttons_rasterized.png"), svgImg, (int)image->width, (int)image->height, 4);
+
+			// pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
 			delete[] svgImg;
 
 			nsvgDeleteRasterizer(rast);
@@ -227,7 +252,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 		}
 	}
 
-	INFO_LOG(Log::G3D, " - Rasterized svg image in %.2f ms\n", images.size(), svgStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Rasterized svg image in %0.2f ms\n", svgStart.ElapsedMs());
 
 	Instant pngStart = Instant::Now();
 

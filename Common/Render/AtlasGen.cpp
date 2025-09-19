@@ -80,6 +80,7 @@ void Bucket::AddImage(Image &&img, int id) {
 	dat.ey = (int)img.height();
 	dat.w = dat.ex;
 	dat.h = dat.ey;
+	dat.scale = img.scale;
 	dat.redToWhiteAlpha = false;
 	images.emplace_back(std::move(img));
 	data.push_back(dat);
@@ -173,8 +174,9 @@ AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const
 	img.v1 = results[i].sy / th + toffy;
 	img.u2 = results[i].ex / tw - toffx;
 	img.v2 = results[i].ey / th - toffy;
-	img.w = results[i].ex - results[i].sx;
-	img.h = results[i].ey - results[i].sy;
+	// The w and h here is the UI-pixels width/height. So if we rasterized at another DPI than 1.0f, we need to scale here.
+	img.w = results[i].w / results[i].scale;
+	img.h = results[i].h / results[i].scale;
 	truncate_cpy(img.name, name);
 	return img;
 }

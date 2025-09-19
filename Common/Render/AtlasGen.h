@@ -33,6 +33,8 @@ struct Image {
 	Image(Image &&) = default;
 	Image &operator=(Image &&) = default;
 
+	float scale = 1.0f;
+
 	int w = 0;
 	int h = 0;
 
@@ -81,6 +83,8 @@ struct Data {
 	float voffset;  // to apply at the end
 	// distance to move the origin forward
 	float wx;
+
+	float scale;
 
 	bool redToWhiteAlpha;
 	int charNum;

@@ -64,4 +64,4 @@
 	url = https://github.com/hrydgard/freetype.git 
 [submodule "ext/nanosvg"]
 	path = ext/nanosvg
-	url = git@github.com:memononen/nanosvg.git
+	url = https://github.com/hrydgard/nanosvg.git
