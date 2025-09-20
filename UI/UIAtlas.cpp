@@ -138,7 +138,7 @@ static bool IsImageID(std::string_view id) {
 	return GetImageIndex(id) != -1;
 }
 
-Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
+Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale) {
 	Bucket bucket;
 
 	// Script fully read, now read images and rasterize the fonts.
@@ -198,7 +198,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			// Rasterize here, and add into image list.
 			rast = nsvgCreateRasterizer();
 
-			float scale = 1.0f;
+			const float scale = dpiScale;
 			int svgWidth = image->width * scale;
 			int svgHeight = image->height * scale;
 
@@ -209,7 +209,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas) {
 			nsvgRasterize(rast, image, 0, 0, scale, (unsigned char *)svgImg, svgWidth, svgHeight, svgWidth * 4);
 
 			// Now, loop through the shapes again and copy out the ones we care about.
-			for (auto &[shapeId, bounds] : usedShapes) {
+			for (const auto &[shapeId, bounds] : usedShapes) {
 				int index = GetImageIndex(shapeId);
 				_dbg_assert_(index != -1);
 				if (index == -1) {
@@ -341,12 +341,15 @@ static void LoadAtlasMetadata(Atlas &metadata, const char *filename) {
 	delete[] atlas_data;
 }
 
-AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas) {
+AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas, float dpiScale) {
+	// Clamp the dpiScale to sane values. Might increase the range later.
+	dpiScale = std::clamp(dpiScale, 0.5f, 4.0f);
+
 	switch (atlas) {
 	case AtlasChoice::General:
 	{
 		// Generate the atlas from scratch.
-		Draw::Texture *tex = GenerateUIAtlas(draw, &ui_atlas);
+		Draw::Texture *tex = GenerateUIAtlas(draw, &ui_atlas, dpiScale);
 		return {&ui_atlas, tex};
 	}
 	case AtlasChoice::Font:
