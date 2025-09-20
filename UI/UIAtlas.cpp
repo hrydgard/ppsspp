@@ -273,6 +273,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 		if (equals(imageIDs[i], "I_SOLIDWHITE")) {
 			img.resize(16, 16);
 			img.fill(0xFFFFFFFF);
+		} else if (equals(imageIDs[i], "I_EMPTY")) {
+			img.resize(16, 16);
+			img.fill(0);
 		} else {
 			std::string name = "ui_images/";
 			std::string pngName = PNGNameFromID(imageIDs[i]);
