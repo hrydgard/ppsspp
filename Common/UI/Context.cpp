@@ -46,7 +46,7 @@ void UIContext::BeginFrame() {
 		if (uitexture_) {
 			uitexture_->Release();
 		}
-		AtlasData data = atlasProvider_(draw_, AtlasChoice::General);
+		AtlasData data = atlasProvider_(draw_, AtlasChoice::General, 1.0f / g_display.dpi_scale_x);
 		uitexture_ = data.texture;
 		_dbg_assert_(uitexture_);
 		ui_draw2d.SetAtlas(data.atlas);
@@ -54,7 +54,7 @@ void UIContext::BeginFrame() {
 	}
 
 	if (!fontTexture_) {
-		AtlasData data = atlasProvider_(draw_, AtlasChoice::Font);
+		AtlasData data = atlasProvider_(draw_, AtlasChoice::Font, 1.0f / g_display.dpi_scale_x);
 		fontTexture_ = data.texture;
 		_dbg_assert_(fontTexture_);
 		ui_draw2d.SetFontAtlas(data.atlas);

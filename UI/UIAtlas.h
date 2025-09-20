@@ -5,4 +5,4 @@
 
 const Atlas *GetFontAtlas();
 Atlas *GetUIAtlas();
-AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas);
+AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas, float dpiScale);

@@ -54,7 +54,7 @@ struct AtlasData {
 	Draw::Texture *texture;
 };
 
-typedef std::function<AtlasData(Draw::DrawContext *, AtlasChoice)> UIAtlasProviderFunc;
+typedef std::function<AtlasData(Draw::DrawContext *, AtlasChoice, float dpiScale)> UIAtlasProviderFunc;
 
 class UIContext {
 public:
