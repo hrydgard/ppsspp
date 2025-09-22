@@ -39,17 +39,19 @@ static const std::string imageIDs[] = {
 	"I_START",
 	"I_ARROW",
 	"I_ROUND",
+	"I_ROUND_LINE",
 	"I_RECT",
+	"I_RECT_LINE",
 	"I_STICK",
 	"I_STICK_BG",
-	"I_SHOULDER",
-	"I_DIR",
-	"I_DIR_LINE",
-	"I_ROUND_LINE",
-	"I_RECT_LINE",
-	"I_SHOULDER_LINE",
 	"I_STICK_LINE",
 	"I_STICK_BG_LINE",
+	"I_SHOULDER",
+	"I_SHOULDER_LINE",
+	"I_DIR",
+	"I_DIR_LINE",
+	"I_SQUARE_SHAPE",
+	"I_SQUARE_SHAPE_LINE",
 	"I_CHECKEDBOX",
 	"I_UNCHECKEDBOX",
 	"I_BG",
@@ -87,8 +89,6 @@ static const std::string imageIDs[] = {
 	"I_D",
 	"I_E",
 	"I_F",
-	"I_SQUARE_SHAPE",
-	"I_SQUARE_SHAPE_LINE",
 	"I_FOLDER_OPEN",
 	"I_WARNING",
 	"I_TRASHCAN",
@@ -240,7 +240,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 				}
 
 				img.scale = scale;
-				addDropShadow(img, 4);
+				AddDropShadow(img, 3, 0.66f);
 
 				// pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
 			}
@@ -317,7 +317,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	atlas->num_images = (int)genAtlasImages.size();
 
 	// For debug, write out the atlas.
-	// dest.SavePNG("../gen.png");
+	dest.SavePNG("../ui_atlas_gen.png");
 
 	// Then, create the texture too.
 	Draw::TextureDesc desc{};

@@ -1261,7 +1261,7 @@ void MainScreen::CreateViews() {
 	} else {
 		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
 	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, -5.0f, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, 0.0f, NONE, NONE, false)));
 
 #if !defined(MOBILE_DEVICE)
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);

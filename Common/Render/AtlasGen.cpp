@@ -149,11 +149,6 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 		}
 	}
 
-	if ((int)dest.width() > image_width * 2) {
-		printf("PACKING FAIL : height=%i", (int)dest.width());
-		exit(1);
-	}
-
 	// Sort the data back by ID.
 	std::sort(data.begin(), data.end(), CompareByID);
 
@@ -252,7 +247,7 @@ inline u32 blendOver(u32 dst, u32 src) {
 		((u32)(outB * 255 + 0.5f) << 0);
 }
 
-void addDropShadow(Image &img, int shadowSize) {
+void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	int radius = std::max(1, (int)(shadowSize * img.scale));
 
 	// Expand canvas so blur has space on all sides
@@ -280,7 +275,7 @@ void addDropShadow(Image &img, int shadowSize) {
 		for (int x = 0; x < newW; x++) {
 			float a = blurred[y * newW + x];
 			if (a > 0.001f) {
-				u32 shadowColor = ((u32)(a * 180) << 24); // semi-transparent black
+				u32 shadowColor = ((u32)(a * 255 * intensity) << 24); // semi-transparent black
 				newData[y * newW + x] = blendOver(newData[y * newW + x], shadowColor);
 			}
 		}
