@@ -205,7 +205,7 @@ void UpdateTheme() {
 #endif
 
 	ui_theme.checkOn = ImageID("I_CHECKEDBOX");
-	ui_theme.checkOff = ImageID("I_SQUARE");
+	ui_theme.checkOff = ImageID("I_UNCHECKEDBOX");
 	ui_theme.whiteImage = ImageID("I_SOLIDWHITE");
 	ui_theme.sliderKnob = ImageID("I_CIRCLE");
 	ui_theme.dropShadow4Grid = ImageID("I_DROP_SHADOW");

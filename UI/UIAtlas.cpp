@@ -51,6 +51,7 @@ static const std::string imageIDs[] = {
 	"I_STICK_LINE",
 	"I_STICK_BG_LINE",
 	"I_CHECKEDBOX",
+	"I_UNCHECKEDBOX",
 	"I_BG",
 	"I_L",
 	"I_R",
