@@ -104,6 +104,9 @@ Windows/*.ipch
 Windows/imgui.ini
 imgui.ini
 
+# debug file
+ui_atlas_gen.png
+
 # For vim
 *.swp
 tags

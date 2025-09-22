@@ -62,3 +62,6 @@
 [submodule "ext/freetype"]
 	path = ext/freetype
 	url = https://github.com/hrydgard/freetype.git 
+[submodule "ext/nanosvg"]
+	path = ext/nanosvg
+	url = https://github.com/hrydgard/nanosvg.git
