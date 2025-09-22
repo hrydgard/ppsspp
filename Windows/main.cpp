@@ -538,9 +538,9 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::SUSTAINED_PERF_CHANGE:
 	case SystemNotification::ROTATE_UPDATED:
 	case SystemNotification::TEST_JAVA_EXCEPTION:
-		break;
 	case SystemNotification::AUDIO_MODE_CHANGED:
 	case SystemNotification::APP_SWITCH_MODE_CHANGED:
+	case SystemNotification::UI_STATE_CHANGED:
 		break;
 	}
 }
