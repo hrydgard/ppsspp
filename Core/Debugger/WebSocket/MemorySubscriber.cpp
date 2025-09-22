@@ -61,9 +61,13 @@ struct AutoDisabledReplacements {
 // Important: Only use keepReplacements when reading, not writing.
 static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplacements) {
 	AutoDisabledReplacements result;
+	CoreState state = coreState;
 	if (Core_IsStepping()) {
 		result.wasStepping = true;
 	} else {
+		while (state != CoreState::CORE_RUNNING_CPU) {
+			state = coreState;
+		}
 		Core_Break(BreakReason::MemoryAccess, addr);
 		Core_WaitInactive();
 	}
