@@ -18,6 +18,8 @@
 #include "ext/nanosvg/src/nanosvg.h"
 #include "ext/nanosvg/src/nanosvgrast.h"
 
+constexpr bool SAVE_DEBUG_IMAGES = false;
+
 static Atlas ui_atlas;
 static Atlas font_atlas;
 
@@ -150,6 +152,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 
 	// Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
 	// For now we only load one hardcoded SVG.
+	int shapeCount = 0;
 	{
 		size_t sz;
 		const uint8_t *file_data = g_VFS.ReadFile("ui_images/images.svg", &sz);  // ReadFile null-terminates
@@ -181,13 +184,13 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 				while (shape) {
 					if (!IsImageID(shape->id)) {
 						// Not an image we care about, hide it.
-						INFO_LOG(Log::G3D, "Ignoring shape %s", shape->id);
+						DEBUG_LOG(Log::G3D, "Ignoring shape %s", shape->id);
 						shape->flags &= ~NSVG_FLAGS_VISIBLE;
 					} else {
 						if (usedShapes.find(shape->id) != usedShapes.end()) {
-							INFO_LOG(Log::G3D, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
+							DEBUG_LOG(Log::G3D, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
 						} else {
-							INFO_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
+							DEBUG_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
 						}
 						usedShapes[shape->id].Merge(shape);
 					}
@@ -240,13 +243,17 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 				}
 
 				img.scale = scale;
-				AddDropShadow(img, 3, 0.66f);
 
-				// pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
+				if (SAVE_DEBUG_IMAGES) {
+					pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
+				}
 			}
 
+			shapeCount = (int)usedShapes.size();
 
-			// pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
+			if (SAVE_DEBUG_IMAGES) {
+				pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
+			}
 			delete[] svgImg;
 
 			nsvgDeleteRasterizer(rast);
@@ -254,11 +261,23 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 		}
 	}
 
-	INFO_LOG(Log::G3D, " - Rasterized svg image in %0.2f ms\n", svgStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms\n", shapeCount, svgStart.ElapsedMs());
+
+	Instant shadowStart = Instant::Now();
+
+	for (int i = 0; i < (int)images.size(); i++) {
+		// Here we could exclude some images from the drop shadow, if desired.
+		if (!images[i].IsEmpty()) {
+			AddDropShadow(images[i], 3, 0.66f);
+		}
+	}
+
+	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms\n", shadowStart.ElapsedMs());
 
 	Instant pngStart = Instant::Now();
 
 	// TODO: This can be parallelized if needed.
+	int pngsLoaded = 0;
 	for (int i = 0; i < (int)images.size(); i++) {
 		resultIds[i] = i;
 
@@ -266,7 +285,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 
 		if (!img.IsEmpty()) {
 			// Was already loaded from SVG.
-			INFO_LOG(Log::G3D, "Skipping image %s, already loaded from SVG", imageIDs[i].c_str());
+			DEBUG_LOG(Log::G3D, "Skipping image %s, already loaded from SVG", imageIDs[i].c_str());
 			continue;
 		}
 
@@ -283,25 +302,27 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 			name.append(pngName);
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
-				ERROR_LOG(Log::G3D, "Failed to load %s\n", name.c_str());
+				ERROR_LOG(Log::G3D, "Failed to load %s", name.c_str());
+			} else {
+				pngsLoaded++;
 			}
 		}
 	}
-	INFO_LOG(Log::G3D, " - Loaded %zu png images in %.2f ms\n", images.size(), pngStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Loaded %d png images in %.2f ms", pngsLoaded, pngStart.ElapsedMs());
 
 	Instant addStart = Instant::Now();
 	for (int i = 0; i < images.size(); i++) {
 		bucket.AddImage(std::move(images[i]), i);
 	}
 
-	INFO_LOG(Log::G3D, " - Added %zu images in %.2f ms\n", bucket.data.size(), addStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Added %zu images to bucket in %.2f ms", bucket.data.size(), addStart.ElapsedMs());
 
 	int image_width = 512;
 	Image dest;
 
 	Instant bucketStart = Instant::Now();
 	std::vector<Data> results = bucket.Resolve(image_width, dest);
-	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms\n", results.size(), bucketStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms", results.size(), bucketStart.ElapsedMs());
 
 	_dbg_assert_(!results.empty());
 	// Fill out the atlas structure.
@@ -317,7 +338,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	atlas->num_images = (int)genAtlasImages.size();
 
 	// For debug, write out the atlas.
-	dest.SavePNG("../ui_atlas_gen.png");
+	if (SAVE_DEBUG_IMAGES) {
+		dest.SavePNG("../ui_atlas_gen.png");
+	}
 
 	// Then, create the texture too.
 	Draw::TextureDesc desc{};

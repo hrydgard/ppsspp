@@ -254,7 +254,7 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 		for (int x = 0; x < newW; x++) {
 			float a = blurred[y * newW + x];
 			if (a > 0.001f) {
-				newData[y * newW + x] = ((u32)(a * 255 * intensity) << 24); // semi-transparent black;
+				newData[y * newW + x] = ((u32)(a * 255 * intensity) << 24);
 			}
 		}
 	}
