@@ -56,4 +56,6 @@ private:
 	bool MIPSTracerEnabled_ = false;
 	std::string MIPSTracerPath_ = "";
 	UI::InfoItem* MIPSTracerPath = nullptr;
+
+	int testSliderValue_ = 0;
 };

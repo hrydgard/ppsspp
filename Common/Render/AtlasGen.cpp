@@ -13,6 +13,7 @@
 
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Format/ZIMSave.h"
+#include "Common/Data/Color/RGBAUtil.h"
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
@@ -187,7 +188,9 @@ static std::vector<float> makeGaussianKernel(int radius) {
 		kernel[i + radius] = val;
 		sum += val;
 	}
-	for (float &v : kernel) v /= sum;
+	sum = 1.0f / sum;
+	for (float &v : kernel)
+		v *= sum;
 	return kernel;
 }
 
@@ -223,30 +226,6 @@ static void blurAlpha(const std::vector<float> &src, std::vector<float> &dst, in
 	}
 }
 
-inline u32 blendOver(u32 dst, u32 src) {
-	// Extract channels
-	float sa = ((src >> 24) & 0xFF) / 255.0f;
-	float sr = ((src >> 16) & 0xFF) / 255.0f;
-	float sg = ((src >> 8) & 0xFF) / 255.0f;
-	float sb = ((src >> 0) & 0xFF) / 255.0f;
-
-	float da = ((dst >> 24) & 0xFF) / 255.0f;
-	float dr = ((dst >> 16) & 0xFF) / 255.0f;
-	float dg = ((dst >> 8) & 0xFF) / 255.0f;
-	float db = ((dst >> 0) & 0xFF) / 255.0f;
-
-	// Source over
-	float outA = sa + da * (1.0f - sa);
-	float outR = (sr * sa + dr * da * (1.0f - sa)) / (outA > 0 ? outA : 1);
-	float outG = (sg * sa + dg * da * (1.0f - sa)) / (outA > 0 ? outA : 1);
-	float outB = (sb * sa + db * da * (1.0f - sa)) / (outA > 0 ? outA : 1);
-
-	return ((u32)(outA * 255 + 0.5f) << 24) |
-		((u32)(outR * 255 + 0.5f) << 16) |
-		((u32)(outG * 255 + 0.5f) << 8) |
-		((u32)(outB * 255 + 0.5f) << 0);
-}
-
 void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	int radius = std::max(1, (int)(shadowSize * img.scale));
 
@@ -258,7 +237,7 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	std::vector<float> alpha(newW * newH, 0.0f);
 	for (int y = 0; y < img.h; y++) {
 		for (int x = 0; x < img.w; x++) {
-			float a = ((img.dat[y * img.w + x] >> 24) & 0xFF) / 255.0f;
+			float a = ((img.dat[y * img.w + x] >> 24) & 0xFF) * (1.0f / 255.0f);
 			alpha[(y + radius) * newW + (x + radius)] = a;
 		}
 	}
@@ -270,13 +249,12 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	// Target buffer with transparent background
 	std::vector<u32> newData(newW * newH, 0);
 
-	// Draw shadow (black, blurred alpha)
+	// Draw the computeed shadow first (black, blurred alpha)
 	for (int y = 0; y < newH; y++) {
 		for (int x = 0; x < newW; x++) {
 			float a = blurred[y * newW + x];
 			if (a > 0.001f) {
-				u32 shadowColor = ((u32)(a * 255 * intensity) << 24); // semi-transparent black
-				newData[y * newW + x] = blendOver(newData[y * newW + x], shadowColor);
+				newData[y * newW + x] = ((u32)(a * 255 * intensity) << 24); // semi-transparent black;
 			}
 		}
 	}
@@ -286,9 +264,10 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 		for (int x = 0; x < img.w; x++) {
 			u32 c = img.dat[y * img.w + x];
 			if ((c >> 24) & 0xFF) {
+				float c_alpha = ((c >> 24) & 0xFF) * (1.0f / 255.0f);
 				int nx = x + radius;
 				int ny = y + radius;
-				newData[ny * newW + nx] = blendOver(newData[ny * newW + nx], c);
+				newData[ny * newW + nx] = colorBlend(c, newData[ny * newW + nx], c_alpha);
 			}
 		}
 	}

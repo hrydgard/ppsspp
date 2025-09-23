@@ -51,6 +51,7 @@
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
+#include "UI/SystemInfoScreen.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"

@@ -23,5 +23,9 @@ JNIEnv* getEnv();
 
 #endif
 
+#else
+
+inline std::string Android_GetInputDeviceDebugString() { return ""; }
+
 #endif
 
