@@ -21,7 +21,10 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Common/StringUtils.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
@@ -39,6 +42,7 @@
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/IconCache.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -341,6 +345,100 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	list->Add(new Choice(dev->T("Reload UI atlas")))->OnClick.Add([uiContext](UI::EventParams &) {
 		uiContext->InvalidateAtlas();
 	});
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	// TODO: Move most of these strings out of the SysInfo category.
+
+	list->Add(new ItemHeader(si->T("Icon cache")));
+	IconCacheStats iconStats = g_iconCache.GetStats();
+	list->Add(new InfoItem(si->T("Image data count"), StringFromFormat("%d", iconStats.cachedCount)));
+	list->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", iconStats.textureCount)));
+	list->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(iconStats.dataSize)));
+	list->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
+		g_iconCache.ClearData();
+		RecreateViews();
+	});
+
+	list->Add(new ItemHeader(si->T("Font cache")));
+	const TextDrawer *text = screenManager()->getUIContext()->Text();
+	if (text) {
+		list->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+		list->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+	}
+
+	list->Add(new ItemHeader(si->T("Slider test")));
+	list->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	list->Add(new ItemHeader(si->T("Notification tests")));
+	list->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
+		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
+	});
+	list->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
+	});
+	list->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
+	});
+	// This one is clickable
+	list->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success", 0.0f, "clickable");
+		g_OSD.SetClickCallback("clickable", [](bool clicked, void *) {
+			if (clicked) {
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
+			}
+		}, nullptr);
+	});
+	list->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "RetroAchievements warning", "", "I_RETROACHIEVEMENTS_LOGO");
+	});
+	list->Add(new ItemHeader(si->T("Progress tests")));
+	list->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30, 0.0f);
+	});
+	list->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100, 1.0f);
+	});
+	list->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0, 0.0f);
+	});
+	list->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress", true, 0.5f);
+	});
+	list->Add(new Choice(si->T("Failure")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress", false, 0.5f);
+	});
+	list->Add(new ItemHeader(si->T("Achievement tests")));
+	list->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "My leaderboard tracker", true);
+	});
+	list->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
+	});
+	list->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "", false);
+	});
+
+	static const char *positions[] = {"Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None"};
+
+	list->Add(new ItemHeader(ac->T("Notifications")));
+	list->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+
+#ifdef _DEBUG
+	// Untranslated string because this is debug mode only, only for PPSSPP developers.
+	list->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
+		_dbg_assert_msg_(false, "Test assert message");
+	});
+#endif
+#if PPSSPP_PLATFORM(ANDROID)
+	list->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
+		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
+	});
+#endif
 }
 
 void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {

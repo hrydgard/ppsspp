@@ -27,9 +27,6 @@ private:
 	void CreateBuildConfigTab(UI::LinearLayout *storage);
 	void CreateCPUExtensionsTab(UI::LinearLayout *storage);
 	void CreateDriverBugsTab(UI::LinearLayout *storage);
-	void CreateInternalsTab(UI::ViewGroup *internals);
 	void CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions);
 	void CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions);
-
-	int testSliderValue_ = 0;
 };
