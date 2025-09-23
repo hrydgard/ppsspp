@@ -915,6 +915,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/PauseScreen.cpp \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
+  $(SRC)/UI/SystemInfoScreen.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/JoystickHistoryView.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
