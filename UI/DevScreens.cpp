@@ -73,13 +73,8 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/JitCompareScreen.h"
-
-#ifdef _WIN32
-// Want to avoid including the full header here as it includes d3dx.h
-int GetD3DCompilerVersion();
-#endif
-
 #include "android/jni/app-android.h"
+
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -782,10 +777,7 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 	}
 
 	char extra_debug[2048]{};
-
-#if PPSSPP_PLATFORM(ANDROID)
-	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
-#endif
+	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString());
 
 	snprintf(buffer, sizeof(buffer),
 		"display_res: %dx%d\n"

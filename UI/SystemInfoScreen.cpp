@@ -10,6 +10,7 @@
 #include "Common/System/OSD.h"
 #include "Common/CPUDetect.h"
 #include "Common/MemoryUtil.h"
+#include "Common/File/AndroidStorage.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
@@ -23,6 +24,7 @@
 #include "UI/IconCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/OnScreenDisplay.h"
+#include "android/jni/app-android.h"
 
 void SystemInfoScreen::update() {
 	TabbedUIDialogScreenWithGameBackground::update();
