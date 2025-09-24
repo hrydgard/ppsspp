@@ -2327,10 +2327,10 @@ void __KernelReturnFromModuleFunc() {
 					}
 				}
 				if (plugin_waiting_module->startingPlugins.empty()) {
-					INFO_LOG(Log::sceModule, "Resuming LoadExec thread 0x%x", module->pluginWaitingThread);
+					INFO_LOG(Log::sceModule, "Resuming LoadExec thread %d", module->pluginWaitingThread);
 					__KernelResumeThreadFromWait(module->pluginWaitingThread, 0);
 				} else {
-					INFO_LOG(Log::sceModule, "LoadExec thread 0x%x still waiting for %lld plugin(s)", module->pluginWaitingThread, plugin_waiting_module->startingPlugins.size());
+					INFO_LOG(Log::sceModule, "LoadExec thread %d still waiting for %d plugin(s)", module->pluginWaitingThread, (int)plugin_waiting_module->startingPlugins.size());
 				}
 			}
 		}

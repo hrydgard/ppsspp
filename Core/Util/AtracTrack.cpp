@@ -31,6 +31,8 @@ static u32 Read32(const u8 *buffer, int offset) {
 
 // Old WAVE parser.
 int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *error) {
+	_assert_(buffer != nullptr);
+
 	// 72 is about the size of the minimum required data to even be valid.
 	if (size < 72) {
 		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
@@ -39,7 +41,6 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 	// If the pointer is bad, let's try to survive, although I'm pretty sure that on a real PSP,
 	// we crash here.
 	if (!buffer) {
-		_dbg_assert_(false);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
@@ -351,6 +352,7 @@ static inline int RoundUpToEven(int size) {
 }
 
 int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
+	_assert_(data != nullptr);
 	track->loopStart = 0xFFFFFFFF;
 	track->loopEnd = 0xFFFFFFFF;
 	track->firstSampleOffset = 0;

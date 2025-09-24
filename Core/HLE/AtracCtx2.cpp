@@ -961,15 +961,20 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) {
 	_dbg_assert_(outputChannels == 1 || outputChannels == 2);
 	TrackInfo trackInfo{};
-	if (bufferAddr) {
+	if (Memory::IsValidAddress(bufferAddr)) {
+		// Turns out that games can abuse bufferSize, so we can't verify that it's a valid length with GetPointerRange.
+		const u8 *bufferPtr = Memory::GetPointerUnchecked(bufferAddr);
+		if (!Memory::IsValidRange(bufferAddr, readSize)) {
+			WARN_LOG(Log::Atrac, "Atrac2::SetData: Bad buffer range %08x+%08x - however, proceeeding.", bufferAddr, readSize);
+		}
 		if (!isAA3) {
-			int retval = ParseWaveAT3(Memory::GetPointerRange(bufferAddr, bufferSize), readSize, &trackInfo);
+			int retval = ParseWaveAT3(bufferPtr, readSize, &trackInfo);
 			if (retval < 0) {
 				ERROR_LOG(Log::Atrac, "Atrac2::SetData: ParseWaveAT3 failed with %08x", retval);
 				return retval;
 			}
 		} else {
-			int retval = ParseAA3(Memory::GetPointerRange(bufferAddr, bufferSize), readSize, fileSize, &trackInfo);
+			int retval = ParseAA3(bufferPtr, readSize, fileSize, &trackInfo);
 			if (retval < 0) {
 				ERROR_LOG(Log::Atrac, "Atrac2::SetData: ParseAA3 failed with %08x", retval);
 				return retval;
