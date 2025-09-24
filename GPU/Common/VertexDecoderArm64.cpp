@@ -106,6 +106,8 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
 	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
 
+	{&VertexDecoder::Step_NormalS8ToFloat, &VertexDecoderJitCache::Jit_NormalS8ToFloat},  // only used for the D3D11 backend
+
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
@@ -252,9 +254,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			EndWrite();
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
 			ResetCodePtr(GetOffset(start));
-			char temp[1024] = {0};
+			char temp[1024]{};
 			dec.ToString(temp, true);
-			ERROR_LOG(Log::G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
+			WARN_LOG(Log::G3D, "Could not compile vertex decoder, failed at step %s: %s", GetStepFunctionName(dec.steps_[i]), temp);
 			return nullptr;
 		}
 	}
@@ -722,6 +724,11 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 		LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 8);
 		STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
 	}
+}
+
+void VertexDecoderJitCache::Jit_NormalS8ToFloat() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	fp.STUR(128, srcQ, dstReg, dec_->decFmt.nrmoff);
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {

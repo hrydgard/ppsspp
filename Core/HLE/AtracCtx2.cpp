@@ -312,6 +312,7 @@ Atrac2::Atrac2(u32 contextAddr, int codecType) {
 
 Atrac2::~Atrac2() {
 	DumpBufferToFile();
+	delete[] decodeTemp_;
 	// Nothing else to do here, the context is freed by the HLE.
 }
 

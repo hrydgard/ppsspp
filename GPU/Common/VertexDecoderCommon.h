@@ -513,6 +513,7 @@ private:
 	void CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const;
 };
 
+const char *GetStepFunctionName(StepFunction func);
 
 // A compiled vertex decoder takes the following arguments (C calling convention):
 // u8 *src, u8 *dst, int count

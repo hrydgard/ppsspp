@@ -1606,3 +1606,100 @@ void VertexDecoderJitCache::Clear() {
 		ClearCodeSpace(0);
 	}
 }
+
+struct StepFunctionNameEntry {
+	StepFunction func;
+	const char *name;
+};
+
+static const StepFunctionNameEntry stepFunctionNames[] = {
+	{VertexDecoder::Step_WeightsU8, "WeightsU8"},
+	{VertexDecoder::Step_WeightsU16, "WeightsU16"},
+	{VertexDecoder::Step_WeightsU8ToFloat, "WeightsU8ToFloat"},
+	{VertexDecoder::Step_WeightsU16ToFloat, "WeightsU16ToFloat"},
+	{VertexDecoder::Step_WeightsFloat, "WeightsFloat"},
+
+	{VertexDecoder::Step_WeightsU8Skin, "WeightsU8Skin"},
+	{VertexDecoder::Step_WeightsU16Skin, "WeightsU16Skin"},
+	{VertexDecoder::Step_WeightsFloatSkin, "WeightsFloatSkin"},
+
+	{VertexDecoder::Step_TcU8ToFloat, "TcU8ToFloat"},
+	{VertexDecoder::Step_TcU16ToFloat, "TcU16ToFloat"},
+	{VertexDecoder::Step_TcFloat, "TcFloat"},
+
+	{VertexDecoder::Step_TcU8Prescale, "TcU8Prescale"},
+	{VertexDecoder::Step_TcU16Prescale, "TcU16Prescale"},
+	{VertexDecoder::Step_TcU16DoublePrescale, "TcU16DoublePrescale"},
+	{VertexDecoder::Step_TcFloatPrescale, "TcFloatPrescale"},
+
+	{VertexDecoder::Step_TcU16DoubleToFloat, "TcU16DoubleToFloat"},
+	{VertexDecoder::Step_TcU16ThroughToFloat, "TcU16ThroughToFloat"},
+	{VertexDecoder::Step_TcU16ThroughDoubleToFloat, "TcU16ThroughDoubleToFloat"},
+	{VertexDecoder::Step_TcFloatThrough, "TcFloatThrough"},
+
+	{VertexDecoder::Step_TcU8MorphToFloat, "TcU8MorphToFloat"},
+	{VertexDecoder::Step_TcU16MorphToFloat, "TcU16MorphToFloat"},
+	{VertexDecoder::Step_TcU16DoubleMorphToFloat, "TcU16DoubleMorphToFloat"},
+	{VertexDecoder::Step_TcFloatMorph, "TcFloatMorph"},
+	{VertexDecoder::Step_TcU8PrescaleMorph, "TcU8PrescaleMorph"},
+	{VertexDecoder::Step_TcU16PrescaleMorph, "TcU16PrescaleMorph"},
+	{VertexDecoder::Step_TcU16DoublePrescaleMorph, "TcU16DoublePrescaleMorph"},
+	{VertexDecoder::Step_TcFloatPrescaleMorph, "TcFloatPrescaleMorph"},
+
+	{VertexDecoder::Step_ColorInvalid, "ColorInvalid"},
+	{VertexDecoder::Step_Color4444, "Color4444"},
+	{VertexDecoder::Step_Color565, "Color565"},
+	{VertexDecoder::Step_Color5551, "Color5551"},
+	{VertexDecoder::Step_Color8888, "Color8888"},
+
+	{VertexDecoder::Step_Color4444Morph, "Color4444Morph"},
+	{VertexDecoder::Step_Color565Morph, "Color565Morph"},
+	{VertexDecoder::Step_Color5551Morph, "Color5551Morph"},
+	{VertexDecoder::Step_Color8888Morph, "Color8888Morph"},
+
+	{VertexDecoder::Step_NormalS8, "NormalS8"},
+	{VertexDecoder::Step_NormalS8ToFloat, "NormalS8ToFloat"},
+	{VertexDecoder::Step_NormalS16, "NormalS16"},
+	{VertexDecoder::Step_NormalFloat, "NormalFloat"},
+
+	{VertexDecoder::Step_NormalS8Skin, "NormalS8Skin"},
+	{VertexDecoder::Step_NormalS16Skin, "NormalS16Skin"},
+	{VertexDecoder::Step_NormalFloatSkin, "NormalFloatSkin"},
+
+	{VertexDecoder::Step_NormalS8Morph, "NormalS8Morph"},
+	{VertexDecoder::Step_NormalS16Morph, "NormalS16Morph"},
+	{VertexDecoder::Step_NormalFloatMorph, "NormalFloatMorph"},
+
+	{VertexDecoder::Step_NormalS8MorphSkin, "NormalS8MorphSkin"},
+	{VertexDecoder::Step_NormalS16MorphSkin, "NormalS16MorphSkin"},
+	{VertexDecoder::Step_NormalFloatMorphSkin, "NormalFloatMorphSkin"},
+
+	{VertexDecoder::Step_PosS8, "PosS8"},
+	{VertexDecoder::Step_PosS16, "PosS16"},
+	{VertexDecoder::Step_PosFloat, "PosFloat"},
+
+	{VertexDecoder::Step_PosS8Skin, "PosS8Skin"},
+	{VertexDecoder::Step_PosS16Skin, "PosS16Skin"},
+	{VertexDecoder::Step_PosFloatSkin, "PosFloatSkin"},
+
+	{VertexDecoder::Step_PosS8Morph, "PosS8Morph"},
+	{VertexDecoder::Step_PosS16Morph, "PosS16Morph"},
+	{VertexDecoder::Step_PosFloatMorph, "PosFloatMorph"},
+
+	{VertexDecoder::Step_PosS8MorphSkin, "PosS8MorphSkin"},
+	{VertexDecoder::Step_PosS16MorphSkin, "PosS16MorphSkin"},
+	{VertexDecoder::Step_PosFloatMorphSkin, "PosFloatMorphSkin"},
+
+	{VertexDecoder::Step_PosInvalid, "PosInvalid"},
+	{VertexDecoder::Step_PosS8Through, "PosS8Through"},
+	{VertexDecoder::Step_PosS16Through, "PosS16Through"},
+	{VertexDecoder::Step_PosFloatThrough, "PosFloatThrough"},
+};
+
+const char *GetStepFunctionName(StepFunction func) {
+	for (const StepFunctionNameEntry &entry : stepFunctionNames) {
+		if (entry.func == func)
+			return entry.name;
+	}
+	return "(unknown)";
+}
