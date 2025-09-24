@@ -612,7 +612,7 @@ public:
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
 	void Reload();
-	void RestoreDefaults(RestoreSettingsBits whatToRestore);
+	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
 	//per game config managment, should maybe be in it's own class
 	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");

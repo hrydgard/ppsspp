@@ -448,8 +448,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_ELF:
 	{
-		INFO_LOG(Log::Loader, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
+		INFO_LOG(Log::Loader, "File is an ELF or loose PBP %s", fileLoader->GetPath().c_str());
 		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+			ERROR_LOG(Log::Loader, "Failed to load ELF or loose PBP: %s", errorString->c_str());
 			return false;
 		}
 		break;

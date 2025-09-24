@@ -1565,7 +1565,7 @@ const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists)
 	return filename;
 }
 
-void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
+void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 	if (bGameSpecific) {
 		// TODO: This should be possible to do in a cleaner way.
 		deleteGameConfig(gameId_);
@@ -1573,8 +1573,8 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			IterateSettings([](const ConfigSetting &setting) {
-				setting.RestoreToDefault();
+			IterateSettings([log](const ConfigSetting &setting) {
+				setting.RestoreToDefault(log);
 			});
 		}
 
