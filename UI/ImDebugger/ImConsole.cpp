@@ -13,9 +13,6 @@ ImConsole::ImConsole() {
 	HistoryPos = -1;
 
 	// "CLASSIFY" is here to provide the test case where "C"+[tab] completes to "CL" and display multiple matches.
-	Commands.push_back("HELP");
-	Commands.push_back("HISTORY");
-	Commands.push_back("CLEAR");
 	AutoScroll = true;
 	ScrollToBottom = false;
 }
@@ -114,6 +111,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 			case LogLineType::Error:    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); break;
 			case LogLineType::External: color = ImVec4(0.8f, 0.8f, 1.0f, 1.0f); break;
 			case LogLineType::Integer:  color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
+			case LogLineType::Float:  color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
 			case LogLineType::String:   color = ImVec4(0.8f, 1.0f, 0.8f, 1.0f); break;
 			default:
 				has_color = false;
@@ -173,13 +171,13 @@ void ImConsole::ExecCommand(const char* command_line) {
 	// Insert into history. First find match and delete it so it can be pushed to the back.
 	// This isn't trying to be smart or optimal.
 	HistoryPos = -1;
-	for (int i = History.Size - 1; i >= 0; i--)
-		if (Stricmp(History[i], command_line) == 0)
-		{
+	for (int i = History.Size - 1; i >= 0; i--) {
+		if (Stricmp(History[i], command_line) == 0) {
 			ImGui::MemFree(History[i]);
 			History.erase(History.begin() + i);
 			break;
 		}
+	}
 	History.push_back(Strdup(command_line));
 
 	g_lua.Print(LogLineType::Cmd, std::string(command_line));
@@ -188,9 +186,6 @@ void ImConsole::ExecCommand(const char* command_line) {
 	if (Stricmp(command_line, "clear") == 0) {
 		g_lua.Clear();
 	} else if (Stricmp(command_line, "help") == 0) {
-		g_lua.Print("Available non-Lua commands:");
-		for (int i = 0; i < Commands.Size; i++)
-			g_lua.Print(StringFromFormat("- %s", Commands[i]));
 		g_lua.Print("For Lua help:");
 		g_lua.Print(LogLineType::Url, "https://www.lua.org/manual/5.3/");
 		// TODO: Also print available Lua commands.
@@ -226,11 +221,12 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 
 		// Build a list of candidates
 		ImVector<const char*> candidates;
-		for (int i = 0; i < Commands.Size; i++)
-			if (Strnicmp(Commands[i], word_start, (int)(word_end - word_start)) == 0)
-				candidates.push_back(Commands[i]);
 
 		// TODO: Add lua globals to candidates!
+		std::vector<std::string> luaCandidates = g_lua.AutoComplete(std::string_view(word_start, word_end - word_start));
+		for (const auto &s : luaCandidates) {
+			candidates.push_back(s.c_str());
+		}
 
 		if (candidates.Size == 0) {
 			// No match. TODO: Match against lua globals.
@@ -264,6 +260,9 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 
 			// List matches
 			g_lua.Print("Possible matches:");
+			std::sort(candidates.begin(), candidates.end(), [](const char* a, const char* b) {
+				return Stricmp(a, b) < 0;
+			});
 			for (int i = 0; i < candidates.Size; i++) {
 				g_lua.Print(StringFromFormat("- %s", candidates[i]));
 			}
