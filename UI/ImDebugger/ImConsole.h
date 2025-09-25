@@ -20,7 +20,6 @@ public:
 
 private:
 	char                  InputBuf[256];
-	ImVector<const char*> Commands;
 	ImVector<char*>       History;
 	int                   HistoryPos;    // -1: new line, 0..History.Size-1 browsing history.
 	ImGuiTextFilter       Filter;
