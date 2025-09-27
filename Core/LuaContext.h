@@ -27,7 +27,9 @@ struct LuaLogLine {
 	double fnumber;
 };
 
-class LuaContext {
+void InitializeLuaContextForPPSSPP(sol::state &lua);
+
+class LuaInteractiveContext {
 public:
 	void Init();
 	void Shutdown();
@@ -53,4 +55,4 @@ private:
 	std::vector<LuaLogLine> lines_;
 };
 
-extern LuaContext g_lua;
+extern LuaInteractiveContext g_lua;
