@@ -123,7 +123,7 @@ void CwCheatScreen::CreateViews() {
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
 		rightColumn->Add(new CheckBox(&fileInfo_[i].enabled, fileInfo_[i].name))->OnClick.Add([=](UI::EventParams &) {
-			return OnCheckBox((int)i);
+			OnCheckBox((int)i);
 		});
 	}
 

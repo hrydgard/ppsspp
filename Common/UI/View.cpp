@@ -737,6 +737,7 @@ bool CheckBox::Toggled() const {
 }
 
 void CheckBox::ClickInternal() {
+	Clickable::ClickInternal();
 	Toggle();
 }
 
