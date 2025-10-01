@@ -49,7 +49,7 @@ jobs:
           echo ${GIT_VERSION#v} > build-ios/PPSSPP.app/Version.txt
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
+        uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
         with:
           key: ios
           create-symlink: true
