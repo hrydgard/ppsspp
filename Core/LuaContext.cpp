@@ -45,77 +45,6 @@ static void error(const char *message) {
 	ERROR_LOG(Log::System, "%s", message);
 }
 
-// TODO: We should probably disallow or at least discourage raw read/writes and instead
-// only support read/writes that refer to the name of a memory region.
-static int r32(int address) {
-	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "r32: bad address %08x", address);
-		return 0;
-	}
-
-	return Memory::ReadUnchecked_U32(address);
-}
-
-static void w32(int address, int value) {
-	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "w32: bad address %08x trying to write %08x", address, value);
-	}
-
-	Memory::WriteUnchecked_U32(value, address);  // NOTE: These are backwards for historical reasons.
-}
-
-static int r16(int address) {
-	if (!Memory::IsValid2AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "r16: bad address %08x", address);
-		return 0;
-	}
-
-	return Memory::ReadUnchecked_U16(address);
-}
-
-static int rs16(int address) {
-	if (!Memory::IsValid2AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "rs16: bad address %08x", address);
-		return 0;
-	}
-
-	return (s16)Memory::ReadUnchecked_U16(address);
-}
-
-static void w16(int address, int value) {
-	if (!Memory::IsValid2AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "w16: bad address %08x trying to write %04x", address, value & 0xFFFF);
-	}
-
-	Memory::WriteUnchecked_U16(value, address);  // NOTE: These are backwards for historical reasons.
-}
-
-static int r8(int address) {
-	if (!Memory::IsValidAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "r8: bad address %08x", address);
-		return 0;
-	}
-
-	return Memory::ReadUnchecked_U8(address);
-}
-
-static int rs8(int address) {
-	if (!Memory::IsValidAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "rs8: bad address %08x", address);
-		return 0;
-	}
-
-	return (s16)Memory::ReadUnchecked_U8(address);
-}
-
-static void w8(int address, int value) {
-	if (!Memory::IsValidAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "w8: bad address %08x trying to write %02x", address, value & 0xFF);
-	}
-
-	Memory::WriteUnchecked_U8(value, address);  // NOTE: These are backwards for historical reasons.
-}
-
 static int gpr(int reg) {
 	return currentDebugMIPS ? currentDebugMIPS->GetGPR32Value(reg) : 0;
 }
@@ -138,41 +67,6 @@ static int bitcast_float_to_s32(double value) {
 	return ivalue;
 }
 
-// TODO: We should probably disallow or at least discourage raw read/writes and instead
-// only support read/writes that refer to the name of a memory region.
-static double rf(int address) {
-	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "rf: bad address %08x", address);
-		return 0;
-	}
-
-	return Memory::ReadUnchecked_Float(address);
-}
-
-static void wf(int address, double value) {
-	float fvalue = (float)value;
-	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.PrintF(LogLineType::Error, "wf: bad address %08x trying to write float %f", address, fvalue);
-	}
-
-	Memory::WriteUnchecked_Float((float)value, address);  // NOTE: These are backwards for historical reasons.
-}
-
-static int scan32(int address, int size, int value) {
-	if (Memory::IsValidRange(address, size)) {
-		g_lua.Print(LogLineType::Error, "bad range");
-		return 0;
-	}
-
-	for (int i = 0; i < size; i += 4) {
-		if (Memory::ReadUnchecked_U32(address + i) == value) {
-			return address + i;
-		}
-	}
-
-	return 0;
-}
-
 static void stop() {
 	System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
 }
@@ -188,18 +82,6 @@ sol::table get_strings(sol::this_state ts) {
 	t[2] = "banana";
 	t[3] = "cherry";
 	return t;
-}
-
-void assemble(int destAddress, const char *code) {
-	if (!Memory::IsValid4AlignedAddress(destAddress)) {
-		g_lua.PrintF(LogLineType::Error, "assemble: bad address %08x", destAddress);
-		return;
-	}
-	// TODO: Better error handling.
-	if (!MIPSAsm::MipsAssembleOpcode(code, currentDebugMIPS, (u32)destAddress)) {
-		std::string error = MIPSAsm::GetAssembleError();
-		g_lua.PrintF(LogLineType::Error, "Failed to assemble '%s': %s", code, error.c_str());
-	}
 }
 
 // Not yet working
@@ -218,36 +100,6 @@ void sys_call(sol::variadic_args va) {
 		}
 	}
 	*/
-}
-
-// After modifying code, this needs to be used.
-void invalidate_cache(int start, int size) {
-	if (!Memory::IsValidRange(start, size)) {
-		g_lua.PrintF(LogLineType::Error, "invalidate_cache: bad range %08x + %08x", start, size);
-		return;
-	}
-
-	u32 aligned = start & ~3;
-	int alignedSize = (start + size - aligned + 3) & ~3;
-	if (currentMIPS) {
-		currentMIPS->InvalidateICache(aligned, alignedSize);
-	}
-}
-
-void lua_memcpy(int dest, int src, int size) {
-	if (!Memory::IsValidRange(dest, size) || !Memory::IsValidRange(src, size)) {
-		g_lua.PrintF(LogLineType::Error, "memcpy: bad range dest %08x + %08x or src %08x + %08x", dest, size, src, size);
-		return;
-	}
-	Memory::MemcpyUnchecked(dest, src, size);
-}
-
-void lua_memset(int dest, int byte, int size) {
-	if (!Memory::IsValidRange(dest, size)) {
-		g_lua.PrintF(LogLineType::Error, "memset(%d): bad range dest %08x + %08x", (u8)byte, dest, size);
-		return;
-	}
-	Memory::MemsetUnchecked(dest, byte, size);
 }
 
 void LuaContext::SetupContext(sol::state &lua) {
@@ -287,19 +139,109 @@ void LuaContext::SetupContext(sol::state &lua) {
 	// lua.set("module_list", &module_list);
 
 	// Memory accessors
-	lua.set_function("r8", &r8);
-	lua.set_function("rs8", &rs8);  // read signed 8-bit
-	lua.set_function("w8", &w8);
-	lua.set_function("r16", &r16);
-	lua.set_function("rs16", &r16);  // read signed 16-bit
-	lua.set_function("w16", &w16);
-	lua.set_function("r32", &r32);
-	lua.set_function("w32", &w32);
-	lua.set_function("wf", &wf);
-	lua.set_function("rf", &rf);
+
+	// TODO: We should probably disallow or at least discourage raw read/writes and instead
+	// only support read/writes that refer to the name of a memory region.
+
+	lua.set_function("r32", [this](int address) -> int {
+		if (!Memory::IsValid4AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "r32: bad address %08x", address);
+			return 0;
+		}
+		return Memory::ReadUnchecked_U32(address);
+	});
+
+	lua.set_function("w32", [this](int address, int value) -> void {
+		if (!Memory::IsValid4AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "w32: bad address %08x trying to write %08x", address, value);
+		}
+		Memory::WriteUnchecked_U32(value, address);  // NOTE: These are backwards for historical reasons.
+	});
+
+	lua.set_function("r16", [this](int address) -> int {
+		if (!Memory::IsValid2AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "r16: bad address %08x", address);
+			return 0;
+		}
+		return Memory::ReadUnchecked_U16(address);
+	});
+
+	lua.set_function("rs16", [this](int address) -> int {
+		if (!Memory::IsValid2AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "rs16: bad address %08x", address);
+			return 0;
+		}
+
+		return (s16)Memory::ReadUnchecked_U16(address);
+	});
+
+	lua.set_function("w16", [this](int address, int value) -> void {
+		if (!Memory::IsValid2AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "w16: bad address %08x trying to write %04x", address, value & 0xFFFF);
+		}
+
+		Memory::WriteUnchecked_U16(value, address);  // NOTE: These are backwards for historical reasons.
+	});
+
+	lua.set_function("r8", [this](int address) -> int {
+		if (!Memory::IsValidAddress(address)) {
+			PrintF(LogLineType::Error, "r8: bad address %08x", address);
+			return 0;
+		}
+		return Memory::ReadUnchecked_U8(address);
+	});
+
+	lua.set_function("rs8", [this](int address) -> int {
+		if (!Memory::IsValidAddress(address)) {
+			PrintF(LogLineType::Error, "rs8: bad address %08x", address);
+			return 0;
+		}
+
+		return (s16)Memory::ReadUnchecked_U8(address);
+	});
+
+	lua.set_function("w8", [this](int address, int value) -> void {
+		if (!Memory::IsValidAddress(address)) {
+			PrintF(LogLineType::Error, "w8: bad address %08x trying to write %02x", address, value & 0xFF);
+		}
+
+		Memory::WriteUnchecked_U8(value, address);  // NOTE: These are backwards for historical reasons.
+	});
+
+	// TODO: We should probably disallow or at least discourage raw read/writes and instead
+	// only support read/writes that refer to the name of a memory region.
+	lua.set_function("rf", [this](int address) -> double {
+		if (!Memory::IsValid4AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "rf: bad address %08x", address);
+			return 0;
+		}
+
+		return (double)Memory::ReadUnchecked_Float(address);
+	});
+
+	lua.set_function("wf", [this](int address, double value) -> void {
+		float fvalue = (float)value;
+		if (!Memory::IsValid4AlignedAddress(address)) {
+			PrintF(LogLineType::Error, "wf: bad address %08x trying to write float %f", address, fvalue);
+		}
+
+		Memory::WriteUnchecked_Float((float)value, address);  // NOTE: These are backwards for historical reasons.
+	});
 
 	// Memory scans
-	lua.set_function("scan32", &scan32);
+	lua.set_function("scan32", [this](int address, int size, int value) -> int {
+		if (Memory::IsValidRange(address, size)) {
+			Print(LogLineType::Error, "bad range");
+			return 0;
+		}
+
+		for (int i = 0; i < size; i += 4) {
+			if (Memory::ReadUnchecked_U32(address + i) == value) {
+				return address + i;
+			}
+		}
+		return 0;
+	});
 
 	// Register accessors
 	lua.set_function("gpr", &gpr);
@@ -314,7 +256,17 @@ void LuaContext::SetupContext(sol::state &lua) {
 	lua.set_function("reset", &reset);
 
 	// MIPS instruction utilities
-	lua.set_function("asm", &assemble);
+	lua.set_function("asm", [this](int destAddress, const char *code) -> void {
+		if (!Memory::IsValid4AlignedAddress(destAddress)) {
+			PrintF(LogLineType::Error, "assemble: bad address %08x", destAddress);
+			return;
+		}
+		// TODO: Better error handling.
+		if (!MIPSAsm::MipsAssembleOpcode(code, currentDebugMIPS, (u32)destAddress)) {
+			std::string error = MIPSAsm::GetAssembleError();
+			PrintF(LogLineType::Error, "Failed to assemble '%s': %s", code, error.c_str());
+		}
+	});
 
 	// Test functions
 	lua.set_function("get_strings", &get_strings);
@@ -323,9 +275,36 @@ void LuaContext::SetupContext(sol::state &lua) {
 	lua.set_function("sys_call", &sys_call);
 
 	// Memory tools
-	lua.set_function("invalidate_cache", &invalidate_cache);
-	lua.set_function("memcpy", &lua_memcpy);
-	lua.set_function("memset", &lua_memset);
+
+	// After modifying code, this needs to be used.
+	lua.set_function("invalidate_cache", [this](int start, int size) -> void {
+		if (!Memory::IsValidRange(start, size)) {
+			PrintF(LogLineType::Error, "invalidate_cache: bad range %08x + %08x", start, size);
+			return;
+		}
+
+		u32 aligned = start & ~3;
+		int alignedSize = (start + size - aligned + 3) & ~3;
+		if (currentMIPS) {
+			currentMIPS->InvalidateICache(aligned, alignedSize);
+		}
+	});
+
+	lua.set_function("memcpy", [this](int dest, int src, int size) -> void {
+		if (!Memory::IsValidRange(dest, size) || !Memory::IsValidRange(src, size)) {
+			PrintF(LogLineType::Error, "memcpy: bad range dest %08x + %08x or src %08x + %08x", dest, size, src, size);
+			return;
+		}
+		Memory::MemcpyUnchecked(dest, src, size);
+	});
+
+	lua.set_function("memset", [this](int dest, int byte, int size) -> void {
+		if (!Memory::IsValidRange(dest, size)) {
+			PrintF(LogLineType::Error, "memset(%d): bad range dest %08x + %08x", (u8)byte, dest, size);
+			return;
+		}
+		Memory::MemsetUnchecked(dest, byte, size);
+	});
 
 	// UI interactions
 	lua.set_function("notify_info", [](const char *str, const char *id) {
