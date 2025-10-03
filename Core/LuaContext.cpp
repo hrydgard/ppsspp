@@ -1,4 +1,5 @@
 #include <string>
+#include <cstdarg>
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -27,33 +28,28 @@ static bool IsProbablyExpression(std::string_view input) {
 		input.find("local") != std::string_view::npos);
 }
 
-// Custom print function
-static void print(const std::string& message) {
-	g_lua.Print(message);
-}
-
 // TODO: Should these also echo to the console?
-static void debug(const std::string &message) {
-	DEBUG_LOG(Log::System, "%s", message.c_str());
+static void debug(const char *message) {
+	DEBUG_LOG(Log::System, "%s", message);
 }
 
-static void info(const std::string &message) {
-	INFO_LOG(Log::System, "%s", message.c_str());
+static void info(const char *message) {
+	INFO_LOG(Log::System, "%s", message);
 }
 
-static void warn(const std::string &message) {
-	WARN_LOG(Log::System, "%s", message.c_str());
+static void warn(const char *message) {
+	WARN_LOG(Log::System, "%s", message);
 }
 
-static void error(const std::string &message) {
-	ERROR_LOG(Log::System, "%s", message.c_str());
+static void error(const char *message) {
+	ERROR_LOG(Log::System, "%s", message);
 }
 
 // TODO: We should probably disallow or at least discourage raw read/writes and instead
 // only support read/writes that refer to the name of a memory region.
 static int r32(int address) {
 	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("r32: bad address %08x", address));
+		g_lua.PrintF(LogLineType::Error, "r32: bad address %08x", address);
 		return 0;
 	}
 
@@ -62,7 +58,7 @@ static int r32(int address) {
 
 static void w32(int address, int value) {
 	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("w32: bad address %08x trying to write %08x", address, value));
+		g_lua.PrintF(LogLineType::Error, "w32: bad address %08x trying to write %08x", address, value);
 	}
 
 	Memory::WriteUnchecked_U32(value, address);  // NOTE: These are backwards for historical reasons.
@@ -70,7 +66,7 @@ static void w32(int address, int value) {
 
 static int r16(int address) {
 	if (!Memory::IsValid2AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("r16: bad address %08x", address));
+		g_lua.PrintF(LogLineType::Error, "r16: bad address %08x", address);
 		return 0;
 	}
 
@@ -79,7 +75,7 @@ static int r16(int address) {
 
 static int rs16(int address) {
 	if (!Memory::IsValid2AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("rs16: bad address %08x", address));
+		g_lua.PrintF(LogLineType::Error, "rs16: bad address %08x", address);
 		return 0;
 	}
 
@@ -88,7 +84,7 @@ static int rs16(int address) {
 
 static void w16(int address, int value) {
 	if (!Memory::IsValid2AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("w16: bad address %08x trying to write %04x", address, value & 0xFFFF));
+		g_lua.PrintF(LogLineType::Error, "w16: bad address %08x trying to write %04x", address, value & 0xFFFF);
 	}
 
 	Memory::WriteUnchecked_U16(value, address);  // NOTE: These are backwards for historical reasons.
@@ -96,7 +92,7 @@ static void w16(int address, int value) {
 
 static int r8(int address) {
 	if (!Memory::IsValidAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("r8: bad address %08x", address));
+		g_lua.PrintF(LogLineType::Error, "r8: bad address %08x", address);
 		return 0;
 	}
 
@@ -105,7 +101,7 @@ static int r8(int address) {
 
 static int rs8(int address) {
 	if (!Memory::IsValidAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("rs8: bad address %08x", address));
+		g_lua.PrintF(LogLineType::Error, "rs8: bad address %08x", address);
 		return 0;
 	}
 
@@ -114,7 +110,7 @@ static int rs8(int address) {
 
 static void w8(int address, int value) {
 	if (!Memory::IsValidAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("w8: bad address %08x trying to write %02x", address, value & 0xFF));
+		g_lua.PrintF(LogLineType::Error, "w8: bad address %08x trying to write %02x", address, value & 0xFF);
 	}
 
 	Memory::WriteUnchecked_U8(value, address);  // NOTE: These are backwards for historical reasons.
@@ -146,7 +142,7 @@ static int bitcast_float_to_s32(double value) {
 // only support read/writes that refer to the name of a memory region.
 static double rf(int address) {
 	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("rf: bad address %08x", address));
+		g_lua.PrintF(LogLineType::Error, "rf: bad address %08x", address);
 		return 0;
 	}
 
@@ -156,7 +152,7 @@ static double rf(int address) {
 static void wf(int address, double value) {
 	float fvalue = (float)value;
 	if (!Memory::IsValid4AlignedAddress(address)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("w32: bad address %08x trying to write %08x", address, value));
+		g_lua.PrintF(LogLineType::Error, "wf: bad address %08x trying to write float %f", address, fvalue);
 	}
 
 	Memory::WriteUnchecked_Float((float)value, address);  // NOTE: These are backwards for historical reasons.
@@ -196,13 +192,13 @@ sol::table get_strings(sol::this_state ts) {
 
 void assemble(int destAddress, const char *code) {
 	if (!Memory::IsValid4AlignedAddress(destAddress)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("assemble: bad address %08x", destAddress));
+		g_lua.PrintF(LogLineType::Error, "assemble: bad address %08x", destAddress);
 		return;
 	}
 	// TODO: Better error handling.
 	if (!MIPSAsm::MipsAssembleOpcode(code, currentDebugMIPS, (u32)destAddress)) {
 		std::string error = MIPSAsm::GetAssembleError();
-		g_lua.Print(LogLineType::Error, StringFromFormat("Failed to assemble '%s': %s", code, error.c_str()));
+		g_lua.PrintF(LogLineType::Error, "Failed to assemble '%s': %s", code, error.c_str());
 	}
 }
 
@@ -227,7 +223,7 @@ void sys_call(sol::variadic_args va) {
 // After modifying code, this needs to be used.
 void invalidate_cache(int start, int size) {
 	if (!Memory::IsValidRange(start, size)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("invalidate_cache: bad range %08x + %08x", start, size));
+		g_lua.PrintF(LogLineType::Error, "invalidate_cache: bad range %08x + %08x", start, size);
 		return;
 	}
 
@@ -240,7 +236,7 @@ void invalidate_cache(int start, int size) {
 
 void lua_memcpy(int dest, int src, int size) {
 	if (!Memory::IsValidRange(dest, size) || !Memory::IsValidRange(src, size)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("memcpy: bad range dest %08x + %08x or src %08x + %08x", dest, size, src, size));
+		g_lua.PrintF(LogLineType::Error, "memcpy: bad range dest %08x + %08x or src %08x + %08x", dest, size, src, size);
 		return;
 	}
 	Memory::MemcpyUnchecked(dest, src, size);
@@ -248,7 +244,7 @@ void lua_memcpy(int dest, int src, int size) {
 
 void lua_memset(int dest, int byte, int size) {
 	if (!Memory::IsValidRange(dest, size)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("memset(%d): bad range dest %08x + %08x", (u8)byte, dest, size));
+		g_lua.PrintF(LogLineType::Error, "memset(%d): bad range dest %08x + %08x", (u8)byte, dest, size);
 		return;
 	}
 	Memory::MemsetUnchecked(dest, byte, size);
@@ -280,7 +276,9 @@ void LuaContext::SetupContext(sol::state &lua) {
 	extern const char *PPSSPP_GIT_VERSION;
 	lua.set("ver", PPSSPP_GIT_VERSION);
 
-	lua.set_function("print", &print);
+	lua.set_function("print", [this](const std::string& message) {
+		Print(LogLineType::String, message);
+	});
 	lua.set_function("debug", &debug);
 	lua.set_function("info", &info);
 	lua.set_function("warn", &warn);
@@ -443,6 +441,18 @@ static const char *SolTypeToString(sol::type type) {
 	case sol::type::poly:        return "poly"; // special variant type
 	default:                     return "other";
 	}
+}
+
+void LuaContext::PrintF(LogLineType type, const char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+
+	va_end(args);
+
+	Print(type, std::string_view(buffer));
 }
 
 void LuaContext::Print(LogLineType type, std::string_view text) {
