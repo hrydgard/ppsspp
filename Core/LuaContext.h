@@ -29,10 +29,24 @@ struct LuaLogLine {
 
 void InitializeLuaContextForPPSSPP(sol::state &lua);
 
-class LuaInteractiveContext {
+class LuaContext {
 public:
+	virtual ~LuaContext() = default;
+
 	void Init();
 	void Shutdown();
+
+	virtual void Print(LogLineType type, std::string_view text);
+
+protected:
+	std::unique_ptr<sol::state> lua_;
+};
+
+class LuaInteractiveContext : public LuaContext {
+public:
+	// For the console.
+	void ExecuteConsoleCommand(std::string_view cmd);
+	std::vector<std::string> AutoComplete(std::string_view cmd) const;
 
 	const std::vector<LuaLogLine> GetLines() const {
 		return lines_;
@@ -44,14 +58,8 @@ public:
 		Print(LogLineType::External, text);
 	}
 
-	// For the console.
-	void ExecuteConsoleCommand(std::string_view cmd);
-
-	std::vector<std::string> AutoComplete(std::string_view cmd) const;
-
 private:
 	std::vector<std::string> GetGlobals() const;
-	std::unique_ptr<sol::state> lua_;
 	std::vector<LuaLogLine> lines_;
 };
 
