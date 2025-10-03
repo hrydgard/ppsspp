@@ -10,6 +10,7 @@
 #include "Core/RetroAchievements.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Common/System/OSD.h"
 
 // Sol is expensive to include so we only do it here.
 #include "ext/sol/sol.hpp"
@@ -224,9 +225,9 @@ void sys_call(sol::variadic_args va) {
 }
 
 // After modifying code, this needs to be used.
-void invalidate_icache(int start, int size) {
+void invalidate_cache(int start, int size) {
 	if (!Memory::IsValidRange(start, size)) {
-		g_lua.Print(LogLineType::Error, StringFromFormat("invalidate_icache: bad range %08x + %08x", start, size));
+		g_lua.Print(LogLineType::Error, StringFromFormat("invalidate_cache: bad range %08x + %08x", start, size));
 		return;
 	}
 
@@ -322,9 +323,25 @@ void InitializeLuaContextForPPSSPP(sol::state &lua) {
 
 	// not yet working
 	lua.set_function("sys_call", &sys_call);
-	lua.set_function("invalidate_icache", &invalidate_icache);
+
+	// Memory tools
+	lua.set_function("invalidate_cache", &invalidate_cache);
 	lua.set_function("memcpy", &lua_memcpy);
 	lua.set_function("memset", &lua_memset);
+
+	// UI interactions
+	lua.set_function("notify_info", [](const char *str, const char *id) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, str, 0.0f, strlen(id) == 0 ? nullptr : id);
+	});
+	lua.set_function("notify_warn", [](const char *str, const char *id) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, str, 0.0f, strlen(id) == 0 ? nullptr : id);
+	});
+	lua.set_function("notify_error", [](const char *str, const char *id) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, str, 0.0f, strlen(id) == 0 ? nullptr : id);
+	});
+	lua.set_function("notify_success", [](const char *str, const char *id) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, str, 0.0f, strlen(id) == 0 ? nullptr : id);
+	});
 
 	// Missing functions after studying Thirteen's plugins
 	// sceIoDevctl("kemulator:", EMULATOR_DEVCTL__TOGGLE_FASTFORWARD, (void*)1, 0, NULL, 0);
@@ -367,6 +384,7 @@ void InitializeLuaContextForPPSSPP(sol::state &lua) {
 		"MS", 0x02000000
 	);
 
+	// Load a function to dump values to console in a readable way.
 	lua.script(R"(
 function dump(value, indent, visited)
     indent = indent or ""
@@ -400,14 +418,14 @@ end
 )");
 }
 
-void LuaInteractiveContext::Init() {
+void LuaContext::Init() {
 	_dbg_assert_(lua_ == nullptr);
 	lua_.reset(new sol::state());
 
 	InitializeLuaContextForPPSSPP(*lua_);
 }
 
-void LuaInteractiveContext::Shutdown() {
+void LuaContext::Shutdown() {
 	lua_.reset();
 }
 
@@ -426,6 +444,10 @@ static const char *SolTypeToString(sol::type type) {
 	case sol::type::poly:        return "poly"; // special variant type
 	default:                     return "other";
 	}
+}
+
+void LuaContext::Print(LogLineType type, std::string_view text) {
+	INFO_LOG(Log::System, "%.*s", (int)text.size(), text.data());
 }
 
 void LuaInteractiveContext::Print(LogLineType type, std::string_view text) {

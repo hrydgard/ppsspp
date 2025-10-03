@@ -111,7 +111,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 			case LogLineType::Error:    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); break;
 			case LogLineType::External: color = ImVec4(0.8f, 0.8f, 1.0f, 1.0f); break;
 			case LogLineType::Integer:  color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
-			case LogLineType::Float:  color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
+			case LogLineType::Float:    color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
 			case LogLineType::String:   color = ImVec4(0.8f, 1.0f, 0.8f, 1.0f); break;
 			default:
 				has_color = false;
@@ -146,6 +146,12 @@ void ImConsole::Draw(ImConfig &cfg) {
 	}
 	ImGui::EndChild();
 	ImGui::Separator();
+
+	// Detect first frame when the window becomes active
+	if (ImGui::IsWindowAppearing()) {
+		// Tell ImGui to focus the next input widget
+		ImGui::SetKeyboardFocusHere();
+	}
 
 	// Command-line
 	bool reclaim_focus = false;
