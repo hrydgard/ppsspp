@@ -32,6 +32,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "ext/sol/sol.hpp"
 
 namespace HLEPlugins {
@@ -237,6 +238,16 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 			continue;
 		}
 		luaPlugin.context.reset(new LuaContext());
+		luaPlugin.context->Init();
+		// Load the file and inject into the context.
+		std::vector<u8> luaCodeBytes;
+		if (pspFileSystem.ReadEntireFile(luaPlugin.filename, luaCodeBytes, false) == 0) {
+			// Loaded the code. Let's copy it to a string.
+			std::string s;
+			s.resize(luaCodeBytes.size());
+			memcpy(s.data(), luaCodeBytes.data(), luaCodeBytes.size());
+			luaPlugin.context->RunCode(s);
+		}
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);
@@ -263,6 +274,8 @@ void DoState(PointerWrap &p) {
 
 	// Remember if any were enabled.
 	Do(p, anyEnabled);
+
+	// Lua state needs to be serialized and reloaded. Ugh! Makes it hard to upgrade lua versions.
 }
 
 bool HasEnabled() {
