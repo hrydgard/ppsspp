@@ -254,7 +254,7 @@ void lua_memset(int dest, int byte, int size) {
 	Memory::MemsetUnchecked(dest, byte, size);
 }
 
-void InitializeLuaContextForPPSSPP(sol::state &lua) {
+void LuaContext::SetupContext(sol::state &lua) {
 	// Add stuff we want to add.
 	lua.open_libraries(sol::lib::base);
 	lua.open_libraries(sol::lib::table);
@@ -346,7 +346,6 @@ void InitializeLuaContextForPPSSPP(sol::state &lua) {
 	// Missing functions after studying Thirteen's plugins
 	// sceIoDevctl("kemulator:", EMULATOR_DEVCTL__TOGGLE_FASTFORWARD, (void*)1, 0, NULL, 0);
 	// Easy-to-use scan functions for hex patterns
-	//
 
 	// Functionality required to replace cwcheats
 	// https://datacrystal.tcrf.net/wiki/CwCheat
@@ -422,7 +421,7 @@ void LuaContext::Init() {
 	_dbg_assert_(lua_ == nullptr);
 	lua_.reset(new sol::state());
 
-	InitializeLuaContextForPPSSPP(*lua_);
+	SetupContext(*lua_);
 }
 
 void LuaContext::Shutdown() {
