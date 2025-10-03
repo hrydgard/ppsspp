@@ -46,7 +46,7 @@ static std::vector<PluginInfo> prxPlugins;
 
 struct LuaPlugin {
 	std::string filename;
-	std::unique_ptr<sol::state> context;
+	std::unique_ptr<LuaContext> context;
 };
 static std::vector<LuaPlugin> luaPlugins;
 
@@ -236,8 +236,7 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled Lua plugin %s", luaPlugin.filename.c_str());
 			continue;
 		}
-		luaPlugin.context.reset(new sol::state());
-		InitializeLuaContextForPPSSPP(*luaPlugin.context);
+		luaPlugin.context.reset(new LuaContext());
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);
