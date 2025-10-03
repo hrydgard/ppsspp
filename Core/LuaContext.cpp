@@ -5,9 +5,11 @@
 #include "Common/StringUtils.h"
 #include "Core/LuaContext.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/RetroAchievements.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -335,6 +337,10 @@ void LuaContext::SetupContext(sol::state &lua) {
 	// Icache invalidation will not be automatic, unlike in cwcheats.
 
 	// Initialize useful constants.
+	lua["game"] = lua.create_table_with(
+		"ID", g_paramSFO.GetDiscID()
+	);
+
 	lua["btn"] = lua.create_table_with(
 		"SELECT", 0x00000001,
 		"START", 0x00000008,
@@ -392,6 +398,23 @@ function dump(value, indent, visited)
     end
 end
 )");
+}
+
+void LuaContext::RunCode(const std::string &code) {
+	if (!lua_) {
+		Print(LogLineType::Error, "Lua context not initialized.");
+		return;
+	}
+	try {
+		auto result = lua_->script(code);
+		if (!result.valid()) {
+			sol::error err = result;
+			Print(LogLineType::Error, err.what());
+		}
+	} catch (const sol::error& e) {
+		ERROR_LOG(Log::System, "Lua exception: %s", e.what());
+		Print(LogLineType::Error, e.what());
+	}
 }
 
 void LuaContext::Init() {

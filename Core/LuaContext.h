@@ -33,6 +33,7 @@ public:
 
 	void Init();
 	void Shutdown();
+	void RunCode(const std::string &code);
 
 	virtual void Print(LogLineType type, std::string_view text);
 	void PrintF(LogLineType type, const char *fmt, ...);
