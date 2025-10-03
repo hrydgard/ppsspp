@@ -35,6 +35,7 @@ public:
 	void Shutdown();
 
 	virtual void Print(LogLineType type, std::string_view text);
+	void PrintF(LogLineType type, const char *fmt, ...);
 
 protected:
 	void SetupContext(sol::state &lua);
