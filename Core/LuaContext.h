@@ -27,8 +27,6 @@ struct LuaLogLine {
 	double fnumber;
 };
 
-void InitializeLuaContextForPPSSPP(sol::state &lua);
-
 class LuaContext {
 public:
 	virtual ~LuaContext() = default;
@@ -39,6 +37,7 @@ public:
 	virtual void Print(LogLineType type, std::string_view text);
 
 protected:
+	void SetupContext(sol::state &lua);
 	std::unique_ptr<sol::state> lua_;
 };
 
