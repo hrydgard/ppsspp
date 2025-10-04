@@ -446,8 +446,9 @@ std::vector<SymbolEntry> SymbolMap::GetAllActiveSymbols(SymbolType symmask) {
 
 	std::vector<SymbolEntry> result;
 
+	std::lock_guard<std::recursive_mutex> guard(lock_);
+
 	if (symmask & ST_FUNCTION) {
-		std::lock_guard<std::recursive_mutex> guard(lock_);
 		for (auto it = activeFunctions.begin(); it != activeFunctions.end(); it++) {
 			SymbolEntry entry;
 			entry.address = it->first;
@@ -460,7 +461,6 @@ std::vector<SymbolEntry> SymbolMap::GetAllActiveSymbols(SymbolType symmask) {
 	}
 
 	if (symmask & ST_DATA) {
-		std::lock_guard<std::recursive_mutex> guard(lock_);
 		for (auto it = activeData.begin(); it != activeData.end(); it++) {
 			SymbolEntry entry;
 			entry.address = it->first;
