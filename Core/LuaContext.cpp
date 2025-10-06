@@ -253,10 +253,6 @@ void LuaContext::SetupContext(sol::state &lua) {
 	lua.set_function("bitcast_s32_to_float", &bitcast_s32_to_float);
 	lua.set_function("bitcast_float_to_s32", &bitcast_float_to_s32);
 
-	// System control (TODO: Should this be privileged to certain types of script?)
-	lua.set_function("stop", &stop);
-	lua.set_function("reset", &reset);
-
 	// MIPS instruction utilities
 	lua.set_function("asm", [this](int destAddress, const char *code) -> void {
 		if (!Memory::IsValid4AlignedAddress(destAddress)) {
@@ -277,9 +273,11 @@ void LuaContext::SetupContext(sol::state &lua) {
 	lua.set_function("sys_call", &sys_call);
 
 	// Memory tools
+	sol::table mem = lua.create_table();
+	lua["mem"] = mem;
 
 	// After modifying code, this needs to be used.
-	lua.set_function("invalidate_cache", [this](int start, int size) -> void {
+	mem.set_function("invalidate_cache", [this](int start, int size) -> void {
 		if (!Memory::IsValidRange(start, size)) {
 			PrintF(LogLineType::Error, "invalidate_cache: bad range %08x + %08x", start, size);
 			return;
@@ -292,7 +290,7 @@ void LuaContext::SetupContext(sol::state &lua) {
 		}
 	});
 
-	lua.set_function("memcpy", [this](int dest, int src, int size) -> void {
+	mem.set_function("copy", [this](int dest, int src, int size) -> void {
 		if (!Memory::IsValidRange(dest, size) || !Memory::IsValidRange(src, size)) {
 			PrintF(LogLineType::Error, "memcpy: bad range dest %08x + %08x or src %08x + %08x", dest, size, src, size);
 			return;
@@ -300,26 +298,15 @@ void LuaContext::SetupContext(sol::state &lua) {
 		Memory::MemcpyUnchecked(dest, src, size);
 	});
 
-	lua.set_function("memset", [this](int dest, int byte, int size) -> void {
+	mem.set_function("set", [this](int dest, int byte, int size) -> void {
 		if (!Memory::IsValidRange(dest, size)) {
 			PrintF(LogLineType::Error, "memset(%d): bad range dest %08x + %08x", (u8)byte, dest, size);
 			return;
 		}
 		Memory::MemsetUnchecked(dest, byte, size);
 	});
-
-	// UI interactions
-	lua.set_function("notify_info", [](const char *str, const char *id) {
-		g_OSD.Show(OSDType::MESSAGE_INFO, str, 0.0f, strlen(id) == 0 ? nullptr : id);
-	});
-	lua.set_function("notify_warn", [](const char *str, const char *id) {
-		g_OSD.Show(OSDType::MESSAGE_WARNING, str, 0.0f, strlen(id) == 0 ? nullptr : id);
-	});
-	lua.set_function("notify_error", [](const char *str, const char *id) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, str, 0.0f, strlen(id) == 0 ? nullptr : id);
-	});
-	lua.set_function("notify_success", [](const char *str, const char *id) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, str, 0.0f, strlen(id) == 0 ? nullptr : id);
+	mem.set_function("is_valid", [](int address) -> bool {
+		return Memory::IsValidAddress(address);
 	});
 
 	// Missing functions after studying Thirteen's plugins
@@ -336,10 +323,28 @@ void LuaContext::SetupContext(sol::state &lua) {
 	// We don't properly support the "Pause" code type, I don't think?
 	// Icache invalidation will not be automatic, unlike in cwcheats.
 
-	// Initialize useful constants.
+	// Game information constants.
 	lua["game"] = lua.create_table_with(
-		"ID", g_paramSFO.GetDiscID()
+		"ID", g_paramSFO.GetDiscID(),
+		"TITLE", g_paramSFO.GetValueString("TITLE")
 	);
+
+	// Emulator control
+	//
+	// TODO: Add a numeric version number that's easy to check for.
+	sol::table emu = lua.create_table_with(
+		"VERSION", PPSSPP_GIT_VERSION,
+		"stop", &stop,
+		"reset", &reset
+	);
+	lua["emu"] = emu;
+	// UI interactions
+	emu.set_function("notify", [](const char *str) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, str, 0.0f, nullptr);
+	});
+	emu.set_function("warn", [](const char *str) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, str, 0.0f, nullptr);
+	});
 
 	lua["btn"] = lua.create_table_with(
 		"SELECT", 0x00000001,
