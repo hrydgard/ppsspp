@@ -1398,7 +1398,7 @@
     <ClInclude Include="ELF\ElfReader.h">
       <Filter>ELF</Filter>
     </ClInclude>
-    <ClInclude Include="ELF\ElfTypes.h">
+    <ClInclude Include="ELF\PSPElfTypes.h">
       <Filter>ELF</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSDebugInterface.h">
