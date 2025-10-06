@@ -84,7 +84,7 @@ protected:
 	void FlushCheatInfo();
 	void AddError(const std::string &msg);
 	void ParseLine(const std::string &line);
-	void ParseDataLine(const std::string &line, CheatCodeFormat format);
+	void ParseDataLine(const std::string &line);
 	bool ValidateGameID(const std::string &gameID);
 
 	FILE *fp_ = nullptr;
@@ -96,7 +96,6 @@ protected:
 	std::vector<CheatFileInfo> cheatInfo_;
 	std::vector<CheatCode> cheats_;
 	std::vector<CheatLine> pendingLines_;
-	CheatCodeFormat codeFormat_ = CheatCodeFormat::UNDEFINED;
 	CheatFileInfo lastCheatInfo_;
 	bool gameEnabled_ = true;
 	bool gameRiskyEnabled_ = false;
@@ -104,6 +103,7 @@ protected:
 };
 
 bool CheatFileParser::Parse() {
+	// Ugh, using a member variable as loop counter is bad.
 	for (line_ = 1; fp_ && !feof(fp_); ++line_) {
 		char temp[2048];
 		char *tempLine = fgets(temp, sizeof(temp), fp_);
@@ -136,11 +136,10 @@ bool CheatFileParser::Parse() {
 
 void CheatFileParser::Flush() {
 	if (!pendingLines_.empty()) {
-		cheats_.push_back({ codeFormat_, lastCheatInfo_.name, pendingLines_ });
+		cheats_.push_back(CheatCode{lastCheatInfo_.name, pendingLines_});
 		FlushCheatInfo();
 		pendingLines_.clear();
 	}
-	codeFormat_ = CheatCodeFormat::UNDEFINED;
 }
 
 void CheatFileParser::FlushCheatInfo() {
@@ -208,12 +207,12 @@ void CheatFileParser::ParseLine(const std::string &line) {
 
 	case 'L':
 		// CwCheat data line.
-		ParseDataLine(line.substr(2), CheatCodeFormat::CWCHEAT);
+		ParseDataLine(line.substr(2));
 		return;
 
 	case 'M':
 		// TempAR data line.
-		ParseDataLine(line.substr(2), CheatCodeFormat::TEMPAR);
+		AddError("TempAR codes not supported");
 		return;
 
 	default:
@@ -222,16 +221,7 @@ void CheatFileParser::ParseLine(const std::string &line) {
 	}
 }
 
-void CheatFileParser::ParseDataLine(const std::string &line, CheatCodeFormat format) {
-	if (codeFormat_ == CheatCodeFormat::UNDEFINED) {
-		codeFormat_ = format;
-	} else if (codeFormat_ != format) {
-		AddError("mixed code format (cwcheat/tempar)");
-		lastCheatInfo_ = { 0 };
-		pendingLines_.clear();
-		cheatEnabled_ = false;
-	}
-
+void CheatFileParser::ParseDataLine(const std::string &line) {
 	if (!gameEnabled_) {
 		return;
 	}
@@ -396,10 +386,6 @@ void CWCheatEngine::CreateCheatFile() {
 	}
 }
 
-Path CWCheatEngine::CheatFilename() {
-	return filename_;
-}
-
 void CWCheatEngine::ParseCheats() {
 	CheatFileParser parser(filename_, gameID_);
 
@@ -409,15 +395,8 @@ void CWCheatEngine::ParseCheats() {
 	cheats_ = parser.GetCheats();
 }
 
-u32 CWCheatEngine::GetAddress(u32 value) {
-	// Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
-	u32 address = (value + 0x08800000) & 0x3FFFFFFF;
-	return address;
-}
-
-std::vector<CheatFileInfo> CWCheatEngine::FileInfo() {
+std::vector<CheatFileInfo> CWCheatEngine::FileInfo() const {
 	CheatFileParser parser(filename_, gameID_);
-
 	parser.Parse();
 	return parser.GetFileInfo();
 }
@@ -793,25 +772,6 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		}
 
 	default:
-		return { CheatOp::Invalid };
-	}
-}
-
-CheatOperation CWCheatEngine::InterpretNextTempAR(const CheatCode &cheat, size_t &i) {
-	// TODO
-	return { CheatOp::Invalid };
-}
-
-CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i) {
-	if (cheat.fmt == CheatCodeFormat::CWCHEAT)
-		return InterpretNextCwCheat(cheat, i);
-	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
-		return InterpretNextTempAR(cheat, i);
-	else {
-		// This shouldn't happen, but apparently does: #14082
-		// Either I'm missing a path or we have memory corruption.
-		// Not sure whether to log here though, feels like we could end up with a
-		// ton of logspam...
 		return { CheatOp::Invalid };
 	}
 }
@@ -1224,7 +1184,7 @@ void CWCheatEngine::Run() {
 	for (const CheatCode &cheat : cheats_) {
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
-			CheatOperation op = InterpretNextOp(cheat, i);
+			CheatOperation op = InterpretNextCwCheat(cheat, i);
 			ExecuteOp(op, cheat, i);
 		}
 	}

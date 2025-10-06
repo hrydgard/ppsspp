@@ -24,14 +24,7 @@ struct CheatLine {
 	uint32_t part2;
 };
 
-enum class CheatCodeFormat {
-	UNDEFINED,
-	CWCHEAT,
-	TEMPAR,
-};
-
 struct CheatCode {
-	CheatCodeFormat fmt;
 	std::string name;
 	std::vector<CheatLine> lines;
 };
@@ -47,19 +40,25 @@ struct CheatOperation;
 class CWCheatEngine {
 public:
 	CWCheatEngine(const std::string &gameID);
-	std::vector<CheatFileInfo> FileInfo();
+	std::vector<CheatFileInfo> FileInfo() const;
 	void ParseCheats();
 	void CreateCheatFile();
-	Path CheatFilename();
+	const Path &CheatFilename() const {
+		return filename_;
+	}
 	void Run();
 	bool HasCheats();
+	static u32 GetAddress(u32 value) {
+		// TODO: This comment is weird:
+		// Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
+		u32 address = (value + 0x08800000) & 0x3FFFFFFF;
+		return address;
+	}
+
 private:
 	void InvalidateICache(u32 addr, int size) const;
-	u32 GetAddress(u32 value);
 
-	CheatOperation InterpretNextOp(const CheatCode &cheat, size_t &i);
 	CheatOperation InterpretNextCwCheat(const CheatCode &cheat, size_t &i);
-	CheatOperation InterpretNextTempAR(const CheatCode &cheat, size_t &i);
 
 	void ExecuteOp(const CheatOperation &op, const CheatCode &cheat, size_t &i);
 	inline void ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper)(uint32_t, uint32_t));
