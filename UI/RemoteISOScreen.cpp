@@ -623,4 +623,6 @@ void RemoteISOBrowseScreen::CreateViews() {
 	}
 
 	root_->SetDefaultFocusView(tabHolder_);
+
+	upgradeBar_ = 0;
 }
