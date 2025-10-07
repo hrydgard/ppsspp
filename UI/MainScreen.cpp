@@ -78,7 +78,7 @@ bool MainScreen::showHomebrewTab = false;
 
 static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, const Path &path) {
 	if (path.GetFileExtension() == ".zip") {
-		// If it's a zip file, we have a screen for that.
+		// If is a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
 	} else {
 		if (currentScreen) {
@@ -938,12 +938,13 @@ void GameBrowser::Refresh() {
 
 	// Show a button to toggle pinning at the very end.
 	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
-		std::string caption = IsCurrentPathPinned() ? "-" : "+";
+		std::string caption = ""; // IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
 			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
 		}
-		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-			OnClick.Handle(this, &GameBrowser::PinToggleClick);
+		UI::Button *pinButton = gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+		pinButton->OnClick.Handle(this, &GameBrowser::PinToggleClick);
+		pinButton->SetImageID(ImageID(IsCurrentPathPinned() ? "I_UNPIN" : "I_PIN"));
 	}
 
 	if (path_.GetPath().empty()) {
