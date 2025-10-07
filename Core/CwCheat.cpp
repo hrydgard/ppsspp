@@ -43,75 +43,37 @@ using namespace SceCtrl;
 
 void hleCheat(u64 userdata, int cyclesLate);
 
-static inline std::string TrimString(const std::string &s) {
+static inline std::string TrimString(std::string_view s) {
 	auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c) {
 		// isspace() expects 0 - 255, so convert any sign-extended value.
-	   return std::isspace(c & 0xFF);
+	   return std::isspace((u8)c);
    });
    auto wsback = std::find_if_not(s.rbegin(), s.rend(), [](int c){
-	   return std::isspace(c & 0xFF);
+	   return std::isspace((u8)c);
    }).base();
    return wsback > wsfront ? std::string(wsfront, wsback) : std::string();
 }
 
-class CheatFileParser {
-public:
-	CheatFileParser(const Path &filename, const std::string &gameID = "") {
-		fp_ = File::OpenCFile(filename, "rt");
-		validGameID_ = ReplaceAll(gameID, "-", "");
-	}
-	~CheatFileParser() {
-		if (fp_)
-			fclose(fp_);
-	}
+CheatFileParser::CheatFileParser(const Path &filename, std::string_view gameID) {
+	fp_ = File::OpenCFile(filename, "rt");
+	validGameID_ = ReplaceAll(gameID, "-", "");
+}
 
-	bool Parse();
-
-	std::vector<std::string> GetErrors() const {
-		return errors_;
-	}
-
-	std::vector<CheatCode> GetCheats() const {
-		return cheats_;
-	}
-
-	std::vector<CheatFileInfo> GetFileInfo() const {
-		return cheatInfo_;
-	}
-
-protected:
-	void Flush();
-	void FlushCheatInfo();
-	void AddError(const std::string &msg);
-	void ParseLine(const std::string &line);
-	void ParseDataLine(const std::string &line, CheatCodeFormat format);
-	bool ValidateGameID(const std::string &gameID);
-
-	FILE *fp_ = nullptr;
-	std::string validGameID_;
-
-	int line_ = 0;
-	int games_ = 0;
-	std::vector<std::string> errors_;
-	std::vector<CheatFileInfo> cheatInfo_;
-	std::vector<CheatCode> cheats_;
-	std::vector<CheatLine> pendingLines_;
-	CheatCodeFormat codeFormat_ = CheatCodeFormat::UNDEFINED;
-	CheatFileInfo lastCheatInfo_;
-	bool gameEnabled_ = true;
-	bool gameRiskyEnabled_ = false;
-	bool cheatEnabled_ = false;
-};
+CheatFileParser::~CheatFileParser() {
+	if (fp_)
+		fclose(fp_);
+}
 
 bool CheatFileParser::Parse() {
-	for (line_ = 1; fp_ && !feof(fp_); ++line_) {
+	// Ugh, using a member variable as loop counter is bad.
+	for (int lineNumber = 1; fp_ && !feof(fp_); ++lineNumber) {
 		char temp[2048];
 		char *tempLine = fgets(temp, sizeof(temp), fp_);
 		if (!tempLine)
 			continue;
 
 		// Detect UTF-8 BOM sequence, and ignore it.
-		if (line_ == 1 && memcmp(tempLine, "\xEF\xBB\xBF", 3) == 0)
+		if (lineNumber == 1 && memcmp(tempLine, "\xEF\xBB\xBF", 3) == 0)
 			tempLine += 3;
 		std::string line = TrimString(tempLine);
 
@@ -119,13 +81,13 @@ bool CheatFileParser::Parse() {
 		// and a minimum of 1 displayable character in cheat name string "_C0 1"
 		// which both equal to 5 characters.
 		if (line.length() >= 5 && line[0] == '_') {
-			ParseLine(line);
+			ParseLine(line, lineNumber);
 		} else if (line.length() >= 2 && line[0] == '/' && line[1] == '/') {
 			// Comment, ignore.
 		} else if (line.length() >= 1 && line[0] == '#') {
 			// Comment, ignore.
 		} else if (line.length() > 0) {
-			errors_.push_back(StringFromFormat("Unrecognized content on line %d: expecting _", line_));
+			errors_.push_back(StringFromFormat("Unrecognized content on line %d: expecting _", lineNumber));
 		}
 	}
 
@@ -136,11 +98,10 @@ bool CheatFileParser::Parse() {
 
 void CheatFileParser::Flush() {
 	if (!pendingLines_.empty()) {
-		cheats_.push_back({ codeFormat_, lastCheatInfo_.name, pendingLines_ });
+		cheats_.push_back(CheatCode{lastCheatInfo_.name, pendingLines_});
 		FlushCheatInfo();
 		pendingLines_.clear();
 	}
-	codeFormat_ = CheatCodeFormat::UNDEFINED;
 }
 
 void CheatFileParser::FlushCheatInfo() {
@@ -150,11 +111,11 @@ void CheatFileParser::FlushCheatInfo() {
 	}
 }
 
-void CheatFileParser::AddError(const std::string &err) {
-	errors_.push_back(StringFromFormat("Error on line %d: %s", line_, err.c_str()));
+void CheatFileParser::AddError(const std::string &err, int lineNumber) {
+	errors_.push_back(StringFromFormat("Error on line %d: %s", lineNumber, err.c_str()));
 }
 
-void CheatFileParser::ParseLine(const std::string &line) {
+void CheatFileParser::ParseLine(const std::string &line, int lineNumber) {
 	switch (line[1]) {
 	case 'S':
 		// Disc ID, validate (for multi-disc cheat files)?
@@ -194,13 +155,13 @@ void CheatFileParser::ParseLine(const std::string &line) {
 
 		// Cheat name and activation status.
 		if (line.length() >= 3 && line[2] >= '1' && line[2] <= '9') {
-			lastCheatInfo_ = { line_, line.length() >= 5 ? line.substr(4) : "", true };
+			lastCheatInfo_ = { lineNumber, line.length() >= 5 ? line.substr(4) : "", true };
 			cheatEnabled_ = true;
 		} else if (line.length() >= 3 && line[2] == '0') {
-			lastCheatInfo_ = { line_, line.length() >= 5 ? line.substr(4) : "", false };
+			lastCheatInfo_ = { lineNumber, line.length() >= 5 ? line.substr(4) : "", false };
 			cheatEnabled_ = false;
 		} else {
-			AddError("could not parse cheat name line");
+			AddError("could not parse cheat name line", lineNumber);
 			cheatEnabled_ = false;
 			return;
 		}
@@ -208,33 +169,25 @@ void CheatFileParser::ParseLine(const std::string &line) {
 
 	case 'L':
 		// CwCheat data line.
-		ParseDataLine(line.substr(2), CheatCodeFormat::CWCHEAT);
+		ParseDataLine(line.substr(2), lineNumber);
 		return;
 
 	case 'M':
 		// TempAR data line.
-		ParseDataLine(line.substr(2), CheatCodeFormat::TEMPAR);
+		AddError("TempAR codes not supported", lineNumber);
 		return;
 
 	default:
-		AddError("unknown line type");
+		AddError("unknown line type", lineNumber);
 		return;
 	}
 }
 
-void CheatFileParser::ParseDataLine(const std::string &line, CheatCodeFormat format) {
-	if (codeFormat_ == CheatCodeFormat::UNDEFINED) {
-		codeFormat_ = format;
-	} else if (codeFormat_ != format) {
-		AddError("mixed code format (cwcheat/tempar)");
-		lastCheatInfo_ = { 0 };
-		pendingLines_.clear();
-		cheatEnabled_ = false;
-	}
-
+void CheatFileParser::ParseDataLine(const std::string &line, int lineNumber) {
 	if (!gameEnabled_) {
 		return;
 	}
+
 	if (!cheatEnabled_) {
 		FlushCheatInfo();
 		return;
@@ -244,15 +197,15 @@ void CheatFileParser::ParseDataLine(const std::string &line, CheatCodeFormat for
 	int len = 0;
 	if (sscanf(line.c_str(), "%x %x %n", &cheatLine.part1, &cheatLine.part2, &len) == 2) {
 		if ((size_t)len < line.length()) {
-			AddError("junk after line data");
+			AddError("junk after line data", lineNumber);
 		}
 		pendingLines_.push_back(cheatLine);
 	} else {
-		AddError("expecting two values");
+		AddError("expecting two values", lineNumber);
 	}
 }
 
-bool CheatFileParser::ValidateGameID(const std::string &gameID) {
+bool CheatFileParser::ValidateGameID(std::string_view gameID) {
 	return validGameID_.empty() || ReplaceAll(TrimString(gameID), "-", "") == validGameID_;
 }
 
@@ -369,14 +322,14 @@ void hleCheat(u64 userdata, int cyclesLate) {
 	if (!cheatEngine || !cheatsEnabled)
 		return;
 
-	if (g_Config.bReloadCheats) { //Checks if the "reload cheats" button has been pressed.
+	if (g_Config.bReloadCheats) {  // Checks if the "reload cheats" button has been pressed.
 		cheatEngine->ParseCheats();
 		g_Config.bReloadCheats = false;
 	}
 	cheatEngine->Run();
 }
 
-CWCheatEngine::CWCheatEngine(const std::string &gameID) : gameID_(gameID) {
+CWCheatEngine::CWCheatEngine(std::string_view gameID) : gameID_(gameID) {
 	filename_ = GetSysDirectory(DIRECTORY_CHEATS) / (gameID_ + ".ini");
 }
 
@@ -396,28 +349,20 @@ void CWCheatEngine::CreateCheatFile() {
 	}
 }
 
-Path CWCheatEngine::CheatFilename() {
-	return filename_;
-}
-
 void CWCheatEngine::ParseCheats() {
 	CheatFileParser parser(filename_, gameID_);
 
 	parser.Parse();
-	// TODO: Report errors.
+	// TODO: Report errors in a user-visible way.
+	for (auto &error : parser.GetErrors()) {
+		ERROR_LOG(Log::System, "CwCheat error: %s", error.c_str());
+	}
 
 	cheats_ = parser.GetCheats();
 }
 
-u32 CWCheatEngine::GetAddress(u32 value) {
-	// Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
-	u32 address = (value + 0x08800000) & 0x3FFFFFFF;
-	return address;
-}
-
-std::vector<CheatFileInfo> CWCheatEngine::FileInfo() {
+std::vector<CheatFileInfo> CWCheatEngine::FileInfo() const {
 	CheatFileParser parser(filename_, gameID_);
-
 	parser.Parse();
 	return parser.GetFileInfo();
 }
@@ -793,25 +738,6 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		}
 
 	default:
-		return { CheatOp::Invalid };
-	}
-}
-
-CheatOperation CWCheatEngine::InterpretNextTempAR(const CheatCode &cheat, size_t &i) {
-	// TODO
-	return { CheatOp::Invalid };
-}
-
-CheatOperation CWCheatEngine::InterpretNextOp(const CheatCode &cheat, size_t &i) {
-	if (cheat.fmt == CheatCodeFormat::CWCHEAT)
-		return InterpretNextCwCheat(cheat, i);
-	else if (cheat.fmt == CheatCodeFormat::TEMPAR)
-		return InterpretNextTempAR(cheat, i);
-	else {
-		// This shouldn't happen, but apparently does: #14082
-		// Either I'm missing a path or we have memory corruption.
-		// Not sure whether to log here though, feels like we could end up with a
-		// ton of logspam...
 		return { CheatOp::Invalid };
 	}
 }
@@ -1224,7 +1150,7 @@ void CWCheatEngine::Run() {
 	for (const CheatCode &cheat : cheats_) {
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
-			CheatOperation op = InterpretNextOp(cheat, i);
+			CheatOperation op = InterpretNextCwCheat(cheat, i);
 			ExecuteOp(op, cheat, i);
 		}
 	}
