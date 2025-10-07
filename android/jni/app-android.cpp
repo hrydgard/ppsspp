@@ -187,6 +187,7 @@ static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 
 static bool sustainedPerfSupported = false;
+static std::string g_installerName;
 
 static std::map<SystemPermission, PermissionStatus> permissions;
 
@@ -386,6 +387,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return boardName;
 	case SYSPROP_BUILD_VERSION:
 		return PPSSPP_GIT_VERSION;
+	case SYSPROP_INSTALLER_NAME:
+		return g_installerName;
 	default:
 		return "";
 	}
@@ -726,7 +729,8 @@ static bool bFirstResume = false;
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
+	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir,
+	jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam, jstring jInstallerName,
 	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
@@ -746,6 +750,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
+
+	g_installerName = GetJavaString(env, jInstallerName);
 
 	EARLY_LOG("NativeApp.init(): device name: '%s'", systemName.c_str());
 

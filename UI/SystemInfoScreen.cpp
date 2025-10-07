@@ -390,6 +390,10 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
+
+	// Not really build config, but similar.
+	std::string installerName = System_GetProperty(SYSPROP_INSTALLER_NAME);
+	buildConfig->Add(new InfoItem(si->T("Installer"), installerName));
 }
 
 void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
