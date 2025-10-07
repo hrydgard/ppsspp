@@ -159,8 +159,11 @@ protected:
 	void OnPPSSPPOrg(UI::EventParams &e);
 	void OnForums(UI::EventParams &e);
 	void OnExit(UI::EventParams &e);
+	void OnDownloadUpgrade(UI::EventParams &e);
+	void OnDismissUpgrade(UI::EventParams &e);
 	void OnAllowStorage(UI::EventParams &e);
 
+	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
 	UI::Button *fullscreenButton_ = nullptr;
 

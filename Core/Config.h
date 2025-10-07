@@ -658,7 +658,7 @@ public:
 	std::string sAchievementsUnlockAudioFile;
 	std::string sAchievementsLeaderboardSubmitAudioFile;
 
-	// Achievements login info. Note that password is NOT stored, only a login token.
+	// Achivements login info. Note that password is NOT stored, only a login token.
 	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
 	std::string sAchievementsUserName;
 	std::string sAchievementsToken;  // Not saved, to be used if you want to manually make your RA login persistent. See Native_SaveSecret for the normal case.
@@ -674,6 +674,11 @@ public:
 	Path appCacheDirectory;
 
 	Path mountRoot;  // Actually, mount as host0. keeping consistent with headless args.
+
+	// Data for upgrade prompt
+	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
+	std::string upgradeVersion;
+	std::string dismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
@@ -693,6 +698,9 @@ public:
 	void SetSearchPath(const Path &path);
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
+
+	static void DownloadCompletedCallback(http::Request &download);
+	void DismissUpgrade();
 
 	void GetReportingInfo(UrlEncoder &data) const;
 
