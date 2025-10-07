@@ -32,19 +32,19 @@ static bool IsProbablyExpression(std::string_view input) {
 
 // TODO: Should these also echo to the console?
 static void debug(const char *message) {
-	DEBUG_LOG(Log::System, "%s", message);
+	DEBUG_LOG(Log::Script, "%s", message);
 }
 
 static void info(const char *message) {
-	INFO_LOG(Log::System, "%s", message);
+	INFO_LOG(Log::Script, "%s", message);
 }
 
 static void warn(const char *message) {
-	WARN_LOG(Log::System, "%s", message);
+	WARN_LOG(Log::Script, "%s", message);
 }
 
 static void error(const char *message) {
-	ERROR_LOG(Log::System, "%s", message);
+	ERROR_LOG(Log::Script, "%s", message);
 }
 
 static int gpr(int reg) {
@@ -417,7 +417,7 @@ void LuaContext::RunCode(const std::string &code) {
 			Print(LogLineType::Error, err.what());
 		}
 	} catch (const sol::error& e) {
-		ERROR_LOG(Log::System, "Lua exception: %s", e.what());
+		ERROR_LOG(Log::Script, "Lua exception: %s", e.what());
 		Print(LogLineType::Error, e.what());
 	}
 }
@@ -463,7 +463,7 @@ void LuaContext::PrintF(LogLineType type, const char* fmt, ...) {
 }
 
 void LuaContext::Print(LogLineType type, std::string_view text) {
-	INFO_LOG(Log::System, "%.*s", (int)text.size(), text.data());
+	INFO_LOG(Log::Script, "%.*s", (int)text.size(), text.data());
 }
 
 void LuaInteractiveContext::Print(LogLineType type, std::string_view text) {
@@ -561,7 +561,7 @@ void LuaInteractiveContext::ExecuteConsoleCommand(std::string_view cmd) {
 			lines_.push_back(LuaLogLine{ LogLineType::Error, std::string(err.what()) });
 		}
 	} catch (const sol::error& e) {
-		ERROR_LOG(Log::System, "Lua exception: %s", e.what());
+		ERROR_LOG(Log::Script, "Lua exception: %s", e.what());
 		lines_.push_back(LuaLogLine{ LogLineType::Error, std::string(e.what()) });
 	}
 }

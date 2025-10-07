@@ -74,7 +74,7 @@ public:
 	IFileSystem *GetSystem(std::string_view prefix);
 	IFileSystem *GetSystemFromFilename(std::string_view filename);
 	IFileSystem *GetHandleOwner(u32 handle) const;
-	FileSystemFlags FlagsFromFilename(std::string_view &filename) {
+	FileSystemFlags FlagsFromFilename(std::string_view filename) {
 		const IFileSystem *sys = GetSystemFromFilename(filename);
 		return sys ? sys->Flags() : FileSystemFlags::NONE;
 	}
