@@ -55,6 +55,8 @@ typedef CONTEXT SContext;
 
 #elif PPSSPP_ARCH(ARM64)
 
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_REG(x) X[x]
 #define CTX_SP Sp
 #define CTX_PC Pc
