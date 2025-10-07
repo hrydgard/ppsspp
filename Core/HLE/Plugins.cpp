@@ -224,6 +224,8 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 		INFO_LOG(Log::System, "Loaded plugin: %s", filename.c_str());
 	}
 
+	bool anyLua = false;
+
 	for (LuaPlugin &luaPlugin : luaPlugins) {
 		if (!g_Config.bEnablePlugins) {
 			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled Lua plugin %s", luaPlugin.filename.c_str());
@@ -239,7 +241,13 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 			s.resize(luaCodeBytes.size());
 			memcpy(s.data(), luaCodeBytes.data(), luaCodeBytes.size());
 			luaPlugin.context->RunCode(s);
+
+			anyLua = true;
 		}
+	}
+
+	if (anyLua) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Lua plugins are EXPERIMENTAL and the lua API WILL CHANGE in future versions!", 4.0f);
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);
