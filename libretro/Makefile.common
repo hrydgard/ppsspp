@@ -860,6 +860,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/IR/IRFrontend.cpp \
 	       $(COREDIR)/MIPS/MIPS.cpp \
 	       $(COREDIR)/MIPS/MIPSAnalyst.cpp \
+	       $(COREDIR)/MIPS/MIPSAsm.cpp \
 	       $(COREDIR)/MIPS/MIPSCodeUtils.cpp \
 	       $(COREDIR)/MIPS/MIPSDebugInterface.cpp \
 	       $(COREDIR)/MIPS/MIPSDis.cpp \
