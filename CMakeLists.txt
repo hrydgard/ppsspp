@@ -1539,6 +1539,8 @@ list(APPEND NativeAppSource
 	UI/ImDebugger/ImMemView.h
 	UI/ImDebugger/ImStructViewer.cpp
 	UI/ImDebugger/ImStructViewer.h
+	UI/ImDebugger/ImJitViewer.cpp
+	UI/ImDebugger/ImJitViewer.h
 	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.h

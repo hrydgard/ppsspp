@@ -126,6 +126,9 @@
     <ClCompile Include="SystemInfoScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="ImDebugger\ImJitViewer.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -251,6 +254,9 @@
     <ClInclude Include="UIAtlas.h" />
     <ClInclude Include="SystemInfoScreen.h">
       <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImJitViewer.h">
+      <Filter>ImDebugger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -20,6 +20,7 @@
 #include "UI/ImDebugger/ImDisasmView.h"
 #include "UI/ImDebugger/ImMemView.h"
 #include "UI/ImDebugger/ImStructViewer.h"
+#include "UI/ImDebugger/ImJitViewer.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImConsole.h"
 
@@ -90,6 +91,7 @@ struct ImConfig {
 	bool luaConsoleOpen;
 	bool audioOutOpen;
 	bool paramSFOOpen;
+	bool jitViewerOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -216,6 +218,7 @@ private:
 	ImAtracToolWindow atracToolWindow_;
 	ImConsole luaConsole_;
 	ImLogWindow logWindow_;
+	ImJitViewerWindow jitViewer_;
 
 	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;

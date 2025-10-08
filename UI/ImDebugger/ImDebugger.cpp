@@ -2395,6 +2395,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
 			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
+			ImGui::MenuItem("JIT viewer", nullptr, &cfg_.jitViewerOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Symbols")) {
@@ -2619,6 +2620,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.logOpen) {
 		logWindow_.Draw(cfg_);
+	}
+
+	if (cfg_.jitViewerOpen) {
+		jitViewer_.Draw(cfg_, control);
 	}
 
 	if (cfg_.displayOpen) {
