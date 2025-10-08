@@ -2850,6 +2850,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("watchOpen", &watchOpen, false);
 	sync.Sync("paramSFOOpen", &paramSFOOpen, false);
 	sync.Sync("atracToolOpen", &atracToolOpen, false);
+	sync.Sync("jitViewerOpen", &jitViewerOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);

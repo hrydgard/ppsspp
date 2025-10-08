@@ -3,43 +3,15 @@
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
-    <ClCompile Include="..\..\UI\ControlMappingScreen.cpp" />
-    <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
-    <ClCompile Include="..\..\UI\DevScreens.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
-    <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
-    <ClCompile Include="..\..\UI\EmuScreen.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
-    <ClCompile Include="..\..\UI\GameScreen.cpp" />
-    <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
-    <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
-    <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
-    <ClCompile Include="..\..\UI\MainScreen.cpp" />
-    <ClCompile Include="..\..\UI\MemStickScreen.cpp" />
-    <ClCompile Include="..\..\UI\MiscScreens.cpp" />
-    <ClCompile Include="..\..\UI\IAPScreen.cpp" />
     <ClCompile Include="..\..\UI\NativeApp.cpp" />
     <ClCompile Include="..\..\UI\OnScreenDisplay.cpp" />
-    <ClCompile Include="..\..\UI\PauseScreen.cpp" />
     <ClCompile Include="..\..\UI\ProfilerDraw.cpp" />
-    <ClCompile Include="..\..\UI\RemoteISOScreen.cpp" />
-    <ClCompile Include="..\..\UI\ReportScreen.cpp" />
-    <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
-    <ClCompile Include="..\..\UI\Store.cpp" />
-    <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
-    <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />
-    <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp" />
-    <ClCompile Include="..\..\UI\ChatScreen.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
-    <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\AudioCommon.cpp" />
-    <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
-    <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
-    <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
     <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
-    <ClCompile Include="..\..\UI\DriverManagerScreen.cpp" />
-    <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImDebugger.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
@@ -58,50 +30,113 @@
     <ClCompile Include="..\..\UI\ImDebugger\ImConsole.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp" />
     <ClCompile Include="..\..\UI\UIAtlas.cpp" />
-    <ClCompile Include="..\..\UI\SystemInfoScreen.cpp" />
+    <ClCompile Include="..\..\UI\ImDebugger\ImJitViewer.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ChatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ControlMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CwCheatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\DevScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\DriverManagerScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\EmuScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\GameScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\GameSettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\IAPScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\InstallZipScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\JitCompareScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\JoystickHistoryView.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\MainScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\MemStickScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\MiscScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\PauseScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\RemoteISOScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ReportScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\SavedataScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Store.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\SystemInfoScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
-    <ClInclude Include="..\..\UI\ControlMappingScreen.h" />
-    <ClInclude Include="..\..\UI\CwCheatScreen.h" />
-    <ClInclude Include="..\..\UI\DevScreens.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
-    <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
-    <ClInclude Include="..\..\UI\EmuScreen.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
-    <ClInclude Include="..\..\UI\GameScreen.h" />
-    <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
-    <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
-    <ClInclude Include="..\..\UI\InstallZipScreen.h" />
-    <ClInclude Include="..\..\UI\MainScreen.h" />
-    <ClInclude Include="..\..\UI\MemStickScreen.h" />
-    <ClInclude Include="..\..\UI\MiscScreens.h" />
-    <ClInclude Include="..\..\UI\IAPScreen.h" />
     <ClInclude Include="..\..\UI\OnScreenDisplay.h" />
-    <ClInclude Include="..\..\UI\PauseScreen.h" />
     <ClInclude Include="..\..\UI\ProfilerDraw.h" />
-    <ClInclude Include="..\..\UI\RemoteISOScreen.h" />
-    <ClInclude Include="..\..\UI\ReportScreen.h" />
-    <ClInclude Include="..\..\UI\SavedataScreen.h" />
-    <ClInclude Include="..\..\UI\Store.h" />
-    <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
-    <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
-    <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h" />
-    <ClInclude Include="..\..\UI\ChatScreen.h" />
     <ClInclude Include="..\..\UI\Theme.h" />
-    <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\AudioCommon.h" />
-    <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
-    <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
-    <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
     <ClInclude Include="..\..\UI\DebugOverlay.h" />
-    <ClInclude Include="..\..\UI\DriverManagerScreen.h" />
-    <ClInclude Include="..\..\UI\JitCompareScreen.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImDebugger.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
@@ -120,13 +155,107 @@
     <ClInclude Include="..\..\UI\ImDebugger\ImConsole.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h" />
     <ClInclude Include="..\..\UI\UIAtlas.h" />
-    <ClInclude Include="..\..\UI\SystemInfoScreen.h" />
+    <ClInclude Include="..\..\UI\ImDebugger\ImJitViewer.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ChatScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ControlMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CwCheatScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\DevScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\DisplayLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\DriverManagerScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\EmuScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\GameScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\GameSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\GPUDriverTestScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\IAPScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\InstallZipScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\JitCompareScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\JoystickHistoryView.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\MainScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\MemStickScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\MiscScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\PauseScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\RemoteISOScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ReportScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\RetroAchievementScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\SavedataScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\Store.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\SystemInfoScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\TabbedDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">
       <UniqueIdentifier>{4013cb89-6145-451c-9cb1-d63d01f66bd5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Screens">
+      <UniqueIdentifier>{38b8413d-438d-4197-9db8-7bd123fc7431}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
