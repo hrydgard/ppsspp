@@ -78,7 +78,7 @@ bool MainScreen::showHomebrewTab = false;
 
 static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, const Path &path) {
 	if (path.GetFileExtension() == ".zip") {
-		// If it's a zip file, we have a screen for that.
+		// If is a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
 	} else {
 		if (currentScreen) {
@@ -447,10 +447,15 @@ public:
 		return absolute_;
 	}
 
+	void SetPinned(bool pin) {
+		pinned_ = pin;
+	}
+
 private:
 	Path path_;
 	bool gridStyle_;
 	bool absolute_;
+	bool pinned_ = false;
 };
 
 void DirButton::Draw(UIContext &dc) {
@@ -465,7 +470,7 @@ void DirButton::Draw(UIContext &dc) {
 
 	std::string_view text(GetText());
 
-	ImageID image = ImageID("I_FOLDER");
+	ImageID image = ImageID(pinned_ ? "I_FOLDER_PINNED" : "I_FOLDER");
 	if (text == "..") {
 		image = ImageID("I_UP_DIRECTORY");
 	}
@@ -481,7 +486,7 @@ void DirButton::Draw(UIContext &dc) {
 	if (compact) {
 		// No icon, except "up"
 		dc.PushScissor(bounds_);
-		if (image == ImageID("I_FOLDER")) {
+		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
 			dc.DrawText(text, bounds_.x + 5, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		} else {
 			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), gridStyle_ ? g_Config.fGameGridScale : 1.0, style.fgColor, ALIGN_CENTER);
@@ -912,9 +917,12 @@ void GameBrowser::Refresh() {
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
-			gameList_->Add(new DirButton(*it, GetBaseName((*it).ToString()), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-				OnClick.Handle(this, &GameBrowser::NavigateClick);
+			DirButton *pinnedDir = gameList_->Add(new DirButton(*it, GetBaseName((*it).ToString()), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+			pinnedDir->OnClick.Handle(this, &GameBrowser::NavigateClick);
+			pinnedDir->SetPinned(true);
 		}
+
+		// Add a separator?
 	}
 
 	if (listingPending_) {
@@ -938,12 +946,13 @@ void GameBrowser::Refresh() {
 
 	// Show a button to toggle pinning at the very end.
 	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
-		std::string caption = IsCurrentPathPinned() ? "-" : "+";
+		std::string caption = ""; // IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
 			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
 		}
-		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-			OnClick.Handle(this, &GameBrowser::PinToggleClick);
+		UI::Button *pinButton = gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+		pinButton->OnClick.Handle(this, &GameBrowser::PinToggleClick);
+		pinButton->SetImageID(ImageID(IsCurrentPathPinned() ? "I_UNPIN" : "I_PIN"));
 	}
 
 	if (path_.GetPath().empty()) {

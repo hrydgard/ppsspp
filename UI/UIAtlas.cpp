@@ -116,6 +116,9 @@ static const std::string imageIDs[] = {
 	"I_SPEAKER_OFF",
 	"I_WINNER_CUP",
 	"I_EMPTY",
+	"I_PIN",
+	"I_UNPIN",
+	"I_FOLDER_PINNED",
 };
 
 static std::string PNGNameFromID(std::string_view id) {

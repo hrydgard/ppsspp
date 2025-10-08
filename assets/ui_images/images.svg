@@ -7,7 +7,7 @@
    viewBox="0 0 158.75 158.75"
    version="1.1"
    id="svg1"
-   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
    sodipodi:docname="images.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -3741,17 +3741,6 @@
        d="M -23.732181,30.229779 V 49.775586 H -4.4463411 V 30.229779 Z m 2.49666,2.529991 H -6.9405211 V 47.245604 H -21.235521 Z"
        style="fill:#ffffff;fill-opacity:1;stroke:none"
        transform="matrix(0.38768981,0,0,0.38768981,58.043664,46.774929)" />
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.28888889px;line-height:0%;font-family:Tahoma;-inkscape-font-specification:'Tahoma, Normal';letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.397773;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
-       x="67.799965"
-       y="13.749043"
-       id="text3261"><tspan
-         sodipodi:role="line"
-         id="tspan3263"
-         x="67.799965"
-         y="13.749043"
-         style="font-size:11.28888889px;line-height:1.25;stroke-width:0.397773;-inkscape-font-specification:'Tahoma, Normal';font-family:Tahoma;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"> </tspan></text>
     <path
        style="font-size:11.2889px;line-height:125%;font-family:Tahoma;-inkscape-font-specification:'Tahoma, Normal';letter-spacing:0px;word-spacing:0px;fill:#ffffff;stroke-width:0.397773px"
        d="m 64.549735,11.853782 h -4.001822 v -0.837848 h 1.488281 V 5.514806 H 60.547913 V 4.7651532 q 0.843359,0 1.240234,-0.2370226 0.402387,-0.2425347 0.451996,-0.9095052 h 0.854384 v 7.3973086 h 1.455208 z"
@@ -4627,5 +4616,45 @@
        id="I_LOGO"
        style="font-size:15.328px;font-family:Zrnic;-inkscape-font-specification:'Zrnic, Normal';fill:#ffffff;stroke-width:1.36904"
        aria-label="PPSSPP" />
+    <g
+       style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;stroke:#ffffff;stroke-width:1.02393;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate"
+       id="I_PIN"
+       transform="matrix(0.51679723,0,0,0.51679723,120.60057,-50.151167)">
+      <path
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:0.670213;fill-rule:nonzero;stroke:#ffffff;stroke-width:1.02393;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate"
+         d="m 22.77994,139.40953 -2.559837,-2.55984 h 2.559837 l 5.119674,-5.11967 v -2.55984 l 5.119674,5.11968 h -2.559837 l -5.119674,5.11967 v 2.55984 l -2.559837,-2.55984 -5.119674,5.11968 z"
+         id="path56"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cccccccccccc" />
+    </g>
+    <g
+       style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;stroke:#ffffff;stroke-width:1.02393;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate"
+       id="I_UNPIN"
+       transform="matrix(0.51679723,0,0,0.51679723,132.35601,-50.151167)">
+      <path
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:0.670213;fill-rule:nonzero;stroke:#ffffff;stroke-width:1.02393;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate"
+         d="m 22.77994,139.40953 -2.559837,-2.55984 h 2.559837 l 5.119674,-5.11967 v -2.55977 l 5.119627,5.11961 h -2.55979 l -5.119674,5.11967 v 2.55984 l -2.559837,-2.55984 -5.119721,5.11975 z"
+         id="path57"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cccccccccccc" />
+      <path
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:0.670213;fill-rule:nonzero;stroke:#ffffff;stroke-width:1.02393;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate"
+         d="M 33.019241,144.52928 17.660219,129.17025 Z"
+         id="path58"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="ccc" />
+    </g>
+    <g id="I_FOLDER_PINNED">
+      <path
+         style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#ffffff;marker:none;enable-background:accumulate;stop-color:#000000"
+         d="m 85.961696,41.562602 -1.12305,2.205078 v 8.189453 h 11.54883 v -8.34375 l -0.50391,-0.347656 h -4.51757 l -0.83594,-1.703125 z m 0.35742,0.583984 h 3.84766 l 0.83398,1.705078 h 4.70117 l 0.10157,0.06836 v 7.451172 h -10.37891 v -7.466797 z"
+         id="path59"/>
+      <path
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:none;fill-opacity:0.670213;fill-rule:nonzero;stroke:#ffffff;stroke-width:0.529164;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;enable-background:accumulate"
+         d="m 89.391353,48.970898 -1.32292,-1.322918 h 1.32292 l 2.64583,-2.645832 V 43.67923 l 2.64584,2.645837 h -1.32292 l -2.64583,2.645831 v 1.322918 l -1.32292,-1.322918 -2.64583,2.645836 z"
+         id="path60"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cccccccccccc" />
+    </g>
   </g>
 </svg>
