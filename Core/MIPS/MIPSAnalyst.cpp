@@ -22,8 +22,6 @@
 #include <mutex>
 
 #include "ext/cityhash/city.h"
-#include "ext/xxhash.h"
-
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"

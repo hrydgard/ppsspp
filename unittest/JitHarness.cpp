@@ -166,10 +166,11 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*/
+		std::string error;
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 			p++;
-			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
-				printf("ERROR: %s\n", MIPSAsm::GetAssembleError().c_str());
+			if (!MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, &error)) {
+				printf("ERROR: %s\n", error.c_str());
 				compileSuccess = false;
 			}
 			addr += 4;

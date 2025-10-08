@@ -24,8 +24,7 @@
 #include "Core/Debugger/DebugInterface.h"
 
 
-class MIPSDebugInterface : public DebugInterface
-{
+class MIPSDebugInterface : public DebugInterface {
 	MIPSState *cpu;
 public:
 	MIPSDebugInterface(MIPSState *_cpu) { cpu = _cpu; }

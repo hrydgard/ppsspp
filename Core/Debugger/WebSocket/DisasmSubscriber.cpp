@@ -478,8 +478,10 @@ void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
 	if (!req.ParamString("code", &code))
 		return;
 
-	if (!MIPSAsm::MipsAssembleOpcode(code.c_str(), currentDebugMIPS, address))
-		return req.Fail(StringFromFormat("Could not assemble: %s", MIPSAsm::GetAssembleError().c_str()));
+	std::string error;
+	if (!MipsAssembleOpcode(code, currentDebugMIPS, address, &error)) {
+		return req.Fail(StringFromFormat("Could not assemble: %s", error.c_str()));
+	}
 
 	JsonWriter &json = req.Respond();
 	Reporting::NotifyDebugger();
