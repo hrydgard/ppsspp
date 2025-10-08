@@ -31,9 +31,7 @@
 
 #include <algorithm>
 #include <memory>
-#ifndef NO_ARMIPS
 #include <string_view>
-#endif
 #include <unordered_map>
 
 #include "zlib.h"
@@ -46,20 +44,7 @@
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
-
-#ifndef NO_ARMIPS
 #include "ext/armips/Core/Assembler.h"
-#else
-struct Identifier {
-	explicit Identifier() {}
-	explicit Identifier(const std::string &s) {}
-};
-
-struct LabelDefinition {
-	Identifier name;
-	int64_t value;
-};
-#endif
 
 SymbolMap *g_symbolMap;
 

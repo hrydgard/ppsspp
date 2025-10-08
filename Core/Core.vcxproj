@@ -1096,7 +1096,7 @@
     <ClInclude Include="Dialog\PSPScreenshotDialog.h" />
     <ClInclude Include="Dialog\SavedataParam.h" />
     <ClInclude Include="ELF\ElfReader.h" />
-    <ClInclude Include="ELF\ElfTypes.h" />
+    <ClInclude Include="ELF\PSPElfTypes.h" />
     <ClInclude Include="ELF\ParamSFO.h" />
     <ClInclude Include="ELF\PBPReader.h" />
     <ClInclude Include="ELF\PrxDecrypter.h" />

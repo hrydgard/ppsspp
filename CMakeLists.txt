@@ -193,7 +193,6 @@ option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
 option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
-option(USE_ARMIPS "Build with armips support in API/debuggerdebugger" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
@@ -2147,7 +2146,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/SavedataParam.h
 	Core/ELF/ElfReader.cpp
 	Core/ELF/ElfReader.h
-	Core/ELF/ElfTypes.h
+	Core/ELF/PSPElfTypes.h
 	Core/ELF/PBPReader.cpp
 	Core/ELF/PBPReader.h
 	Core/ELF/PrxDecrypter.cpp
@@ -2475,11 +2474,7 @@ if(ANDROID)
 	endif()
 endif()
 
-if(USE_ARMIPS)
-	set(CoreExtraLibs ${CoreExtraLibs} armips)
-else()
-	add_compile_definitions(NO_ARMIPS=1)
-endif()
+set(CoreExtraLibs ${CoreExtraLibs} armips)
 
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)

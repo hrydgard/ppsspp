@@ -306,6 +306,64 @@ SOURCES_CXX += \
 	${EXTDIR}/at3_standalone/fft.cpp \
 	${EXTDIR}/at3_standalone/mem.cpp
 
+COREFLAGS += -DARMIPS_USE_STD_FILESYSTEM
+SOURCES_CXX += \
+	$(EXTDIR)/armips/Util/ByteArray.cpp \
+	$(EXTDIR)/armips/Util/CRC.cpp \
+	$(EXTDIR)/armips/Util/EncodingTable.cpp \
+	$(EXTDIR)/armips/Util/FileClasses.cpp \
+	$(EXTDIR)/armips/Util/Util.cpp \
+	$(EXTDIR)/armips/Core/ELF/ElfRelocator.cpp \
+	$(EXTDIR)/armips/Core/ELF/ElfFile.cpp \
+	$(EXTDIR)/armips/Core/Assembler.cpp \
+	$(EXTDIR)/armips/Core/Allocations.cpp \
+	$(EXTDIR)/armips/Core/Common.cpp \
+	$(EXTDIR)/armips/Core/Expression.cpp \
+	$(EXTDIR)/armips/Core/ExpressionFunctions.cpp \
+	$(EXTDIR)/armips/Core/ExpressionFunctionHandler.cpp \
+	$(EXTDIR)/armips/Core/FileManager.cpp \
+	$(EXTDIR)/armips/Core/Misc.cpp \
+	$(EXTDIR)/armips/Core/SymbolData.cpp \
+	$(EXTDIR)/armips/Core/SymbolTable.cpp \
+	$(EXTDIR)/armips/Core/Types.cpp \
+	$(EXTDIR)/armips/Commands/CAssemblerCommand.cpp \
+	$(EXTDIR)/armips/Commands/CAssemblerLabel.cpp \
+	$(EXTDIR)/armips/Commands/CDirectiveArea.cpp \
+	$(EXTDIR)/armips/Commands/CDirectiveConditional.cpp \
+	$(EXTDIR)/armips/Commands/CDirectiveData.cpp \
+	$(EXTDIR)/armips/Commands/CDirectiveFile.cpp \
+	$(EXTDIR)/armips/Commands/CDirectiveMessage.cpp \
+	$(EXTDIR)/armips/Commands/CommandSequence.cpp \
+	$(EXTDIR)/armips/Archs/Architecture.cpp \
+	$(EXTDIR)/armips/Archs/ARM/Arm.cpp \
+	$(EXTDIR)/armips/Archs/ARM/ArmOpcodes.cpp \
+	$(EXTDIR)/armips/Archs/ARM/ArmParser.cpp \
+	$(EXTDIR)/armips/Archs/ARM/ArmElfRelocator.cpp \
+	$(EXTDIR)/armips/Archs/ARM/ArmExpressionFunctions.cpp \
+	$(EXTDIR)/armips/Archs/ARM/CArmInstruction.cpp \
+	$(EXTDIR)/armips/Archs/ARM/CThumbInstruction.cpp \
+	$(EXTDIR)/armips/Archs/ARM/Pool.cpp \
+	$(EXTDIR)/armips/Archs/ARM/ThumbOpcodes.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/CMipsInstruction.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/Mips.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/MipsElfFile.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/MipsElfRelocator.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/MipsExpressionFunctions.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/MipsMacros.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/MipsOpcodes.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/MipsParser.cpp \
+	$(EXTDIR)/armips/Archs/MIPS/PsxRelocator.cpp \
+	$(EXTDIR)/armips/Archs/SuperH/CShInstruction.cpp \
+	$(EXTDIR)/armips/Archs/SuperH/ShElfRelocator.cpp \
+	$(EXTDIR)/armips/Archs/SuperH/ShExpressionFunctions.cpp \
+	$(EXTDIR)/armips/Archs/SuperH/ShOpcodes.cpp \
+	$(EXTDIR)/armips/Archs/SuperH/ShParser.cpp \
+	$(EXTDIR)/armips/Archs/SuperH/SuperH.cpp \
+	$(EXTDIR)/armips/Parser/DirectivesParser.cpp \
+	$(EXTDIR)/armips/Parser/ExpressionParser.cpp \
+	$(EXTDIR)/armips/Parser/Parser.cpp \
+	$(EXTDIR)/armips/Parser/Tokenizer.cpp
+
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
 else ifneq ($(PLATFORM_EXT), win32)
@@ -368,9 +426,6 @@ SOURCES_CXX += \
 	$(EXTDIR)/imgui/imgui_impl_platform.cpp \
 	$(EXTDIR)/imgui/imgui_tables.cpp \
 	$(EXTDIR)/imgui/imgui_widgets.cpp
-
-SOURCES_CXX += \
-	$(EXTDIR)/armips/Core/Types.cpp
 
 SOURCES_CXX += \
 	$(COMMONDIR)/Crypto/md5.cpp \

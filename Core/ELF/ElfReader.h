@@ -19,7 +19,7 @@
 
 #include <vector>
 #include "Common/CommonTypes.h"
-#include "Core/ELF/ElfTypes.h"
+#include "Core/ELF/PSPElfTypes.h"
 
 enum {
 	R_MIPS_NONE,
