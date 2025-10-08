@@ -461,6 +461,9 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 	uint32_t start, size;
 	ir.GetRange(&start, &size);
 	debugInfo.originalAddress = start;  // TODO
+	if (!Memory::IsValid4AlignedAddress(start)) {
+		return debugInfo;
+	}
 
 	debugInfo.origDisasm.reserve(((start + size) - start) / 4);
 	for (u32 addr = start; addr < start + size; addr += 4) {

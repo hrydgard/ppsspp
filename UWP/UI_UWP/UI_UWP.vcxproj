@@ -107,6 +107,7 @@
     <ClInclude Include="..\..\UI\ImDebugger\ImDebugger.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImDisasmView.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImGe.h" />
+    <ClInclude Include="..\..\UI\ImDebugger\ImJitViewer.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImMemView.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImStructViewer.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
@@ -157,6 +158,7 @@
     <ClCompile Include="..\..\UI\ImDebugger\ImDebugger.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImDisasmView.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImGe.cpp" />
+    <ClCompile Include="..\..\UI\ImDebugger\ImJitViewer.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImMemView.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImStructViewer.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />

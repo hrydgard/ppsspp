@@ -5,6 +5,8 @@
 
 #include "ext/imgui/imgui.h"
 
+struct ImConfig;
+
 // Adapted from the ImGui demo.
 class ImConsole {
 public:

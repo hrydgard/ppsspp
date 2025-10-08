@@ -895,6 +895,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ImDebugger/ImConsole.cpp \
   $(SRC)/UI/ImDebugger/ImDisasmView.cpp \
   $(SRC)/UI/ImDebugger/ImMemView.cpp \
+  $(SRC)/UI/ImDebugger/ImJitViewer.cpp \
   $(SRC)/UI/ImDebugger/ImStructViewer.cpp \
   $(SRC)/UI/AudioCommon.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \

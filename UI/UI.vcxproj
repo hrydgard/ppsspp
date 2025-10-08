@@ -49,6 +49,7 @@
     <ClCompile Include="ImDebugger\ImDebugger.cpp" />
     <ClCompile Include="ImDebugger\ImDisasmView.cpp" />
     <ClCompile Include="ImDebugger\ImGe.cpp" />
+    <ClCompile Include="ImDebugger\ImJitViewer.cpp" />
     <ClCompile Include="ImDebugger\ImMemView.cpp" />
     <ClCompile Include="ImDebugger\ImStructViewer.cpp" />
     <ClCompile Include="JitCompareScreen.cpp" />
@@ -99,6 +100,7 @@
     <ClInclude Include="ImDebugger\ImDebugger.h" />
     <ClInclude Include="ImDebugger\ImDisasmView.h" />
     <ClInclude Include="ImDebugger\ImGe.h" />
+    <ClInclude Include="ImDebugger\ImJitViewer.h" />
     <ClInclude Include="ImDebugger\ImMemView.h" />
     <ClInclude Include="ImDebugger\ImStructViewer.h" />
     <ClInclude Include="JitCompareScreen.h" />
