@@ -160,7 +160,6 @@ void IRRestoreRounding() {
 #endif
 }
 
-// We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
 u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 	while (true) {
 		switch (inst->op) {
