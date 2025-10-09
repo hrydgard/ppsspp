@@ -149,26 +149,39 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 			ImGui::TableSetupColumn("Addr", 0, 0, 1);
 			ImGui::TableSetupColumn("Size", 0, 0, 2);
 			ImGui::TableHeadersRow();
-
 			sortSpecs_ = ImGui::TableGetSortSpecs();
 
-			for (int i = 0; i < (int)blockList_.size(); i++) {
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				char label[32];
-				snprintf(label, sizeof(label), "%d", blockList_[i].blockNum);
-				if (ImGui::Selectable(label, blockList_[i].blockNum == curBlockNum_, ImGuiSelectableFlags_SpanAllColumns)) {
-					curBlockNum_ = blockList_[i].blockNum;
-					if (curBlockNum_ >= 0 && curBlockNum_ < blockCacheDebug->GetNumBlocks()) {
-						debugInfo_ = blockCacheDebug->GetBlockDebugInfo(curBlockNum_);
+			ImGuiListClipper clipper;
+			clipper.Begin((int)blockList_.size());
+
+			while (clipper.Step()) {
+				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+					const auto &block = blockList_[i];
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+
+					char label[32];
+					snprintf(label, sizeof(label), "%d", block.blockNum);
+
+					if (ImGui::Selectable(label, block.blockNum == curBlockNum_, ImGuiSelectableFlags_SpanAllColumns)) {
+						curBlockNum_ = block.blockNum;
+						if (curBlockNum_ >= 0 && curBlockNum_ < blockCacheDebug->GetNumBlocks()) {
+							debugInfo_ = blockCacheDebug->GetBlockDebugInfo(curBlockNum_);
+						}
 					}
+
+					ImGui::TableNextColumn();
+					ImGui::Text("%08x", block.addr);
+
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", block.sizeInBytes);
 				}
-				ImGui::TableNextColumn();
-				ImGui::Text("%08x", blockList_[i].addr);
-				ImGui::TableNextColumn();
-				ImGui::Text("%d", blockList_[i].sizeInBytes);
 			}
+
+			clipper.End();
 			ImGui::EndTable();
+
 		}
 
 		ImGui::EndChild();
