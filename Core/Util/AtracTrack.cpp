@@ -31,8 +31,6 @@ static u32 Read32(const u8 *buffer, int offset) {
 
 // Old WAVE parser.
 int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *error) {
-	_assert_(buffer != nullptr);
-
 	// 72 is about the size of the minimum required data to even be valid.
 	if (size < 72) {
 		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
