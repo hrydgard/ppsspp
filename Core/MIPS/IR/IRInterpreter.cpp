@@ -2,6 +2,11 @@
 #include <cmath>
 
 #include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM64)
+#include <arm64intr.h>
+#endif
+
 #include "Common/BitSet.h"
 #include "Common/BitScan.h"
 #include "Common/Common.h"
@@ -21,6 +26,32 @@
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSTracer.h"
+
+#if PPSSPP_ARCH(ARM64)
+
+// TODO: This should be put in some common header.
+static inline u64 ARM64ReadFPCR() {
+#if PPSSPP_PLATFORM(WINDOWS)
+	return _ReadStatusReg(ARM64_FPCR);
+#else
+	// TODO: Try __builtin_arm_get_fpcr()
+	u64 fpcr;  // not really 64-bit, just to match the register size.
+	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+	return fpcr;
+#endif
+}
+
+static inline void ARM64WriteFPCR(u64 fpcr) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	_WriteStatusReg(ARM64_FPCR, fpcr);
+#else
+	// TODO: Try __builtin_arm_set_fpcr()
+	// Write back the modified FPCR
+	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+#endif
+}
+
+#endif
 
 #ifdef mips
 // Why do MIPS compilers define something so generic?  Try to keep defined, at least...
@@ -97,25 +128,19 @@ void IRApplyRounding(MIPSState *mips) {
 			csr |= 0x8000;
 		}
 		_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(WINDOWS)
-		// On ARM64 we need to use inline assembly for a portable solution.
-		// Unfortunately we don't have this possibility on Windows with MSVC, so ifdeffed out above.
-		// Note that in the JIT, for fcvts, we use specific conversions. We could use the FCVTS variants
-		// directly through inline assembly.
-		u64 fpcr;  // not really 64-bit, just to match the register size.
-		asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
-
+#elif PPSSPP_ARCH(ARM64)
+		u64 fpcr = ARM64ReadFPCR();
 		// Translate MIPS to ARM rounding mode
 		static const u8 lookup[4] = {0, 3, 1, 2};
 
 		fpcr &= ~(3 << 22);    // Clear bits [23:22]
-		fpcr |= (lookup[rmode] << 22);
+		fpcr |= ((u64)lookup[rmode] << 22);
 
 		if (ftz) {
 			fpcr |= 1 << 24;
 		}
-		// Write back the modified FPCR
-		asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+
+		ARM64WriteFPCR(fpcr);
 #endif
 	}
 }
@@ -127,12 +152,11 @@ void IRRestoreRounding() {
 	u32 csr = _mm_getcsr();
 	csr &= ~(7 << 13);
 	_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(WINDOWS)
-	u64 fpcr;  // not really 64-bit, just to match the regsiter size.
-	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+#elif PPSSPP_ARCH(ARM64)
+	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the regsiter size.
 	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
 	// Write back the modified FPCR
-	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+	ARM64WriteFPCR(fpcr);
 #endif
 }
 
