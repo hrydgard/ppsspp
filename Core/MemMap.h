@@ -291,6 +291,10 @@ inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const 
 	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
+inline void MemsetUnchecked(const u32 to_address, const u8 byte, const u32 len) {
+	memset(GetPointerWriteUnchecked(to_address), byte, len);
+}
+
 inline bool IsValidAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
@@ -314,6 +318,20 @@ inline bool IsValid4AlignedAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return (address & 3) == 0;
+	} else {
+		return false;
+	}
+}
+
+inline bool IsValid2AlignedAddress(const u32 address) {
+	if ((address & 0x3E000001) == 0x08000000) {
+		return true;
+	} else if ((address & 0x3F800001) == 0x04000000) {
+		return address < 0x80000000;  // Let's disallow kernel-flagged VRAM. We don't have it mapped and I am not sure if it's accessible.
+	} else if ((address & 0xBFFFC001) == 0x00010000) {
+		return true;
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return (address & 1) == 0;
 	} else {
 		return false;
 	}

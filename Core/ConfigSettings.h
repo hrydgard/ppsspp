@@ -251,7 +251,7 @@ private:
 	std::string (*translateTo_)(int) = nullptr;
 	int (*translateFrom_)(const std::string &) = nullptr;
 
-	static std::unordered_map<void*, ConfigSetting*>& getPtrLUT();
+	static std::unordered_map<void*, ConfigSetting*> &getPtrLUT();
 };
 
 struct ConfigSectionSettings {
