@@ -6,6 +6,7 @@
 
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/IR/IRJit.h"
 
 struct ImConfig;
 struct ImControl;
@@ -24,6 +25,9 @@ private:
 		u32 addr;
 		int sizeInBytes;
 		int blockNum;
+#ifdef IR_PROFILING
+		JitBlockProfileStats profileStats;
+#endif
 	};
 	std::vector<CachedBlock> blockList_;
 	int curBlockNum_ = -1;

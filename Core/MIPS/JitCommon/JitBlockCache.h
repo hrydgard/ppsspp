@@ -102,15 +102,16 @@ struct JitBlockDebugInfo {
 	std::vector<std::string> targetDisasm;
 };
 
+struct JitBlockProfileStats {
+	int64_t executions;
+	int64_t totalNanos;
+};
+
+// Only used for debugging, so keeping it tight is not that important.
 struct JitBlockMeta {
 	bool valid;
 	uint32_t addr;
 	uint32_t sizeInBytes;
-};
-
-struct JitBlockProfileStats {
-	int64_t executions;
-	int64_t totalNanos;
 };
 
 class JitBlockCacheDebugInterface {

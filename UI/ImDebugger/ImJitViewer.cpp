@@ -7,6 +7,7 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/IR/IRJit.h"
 
 void ImJitViewerWindow::GoToBlockAtAddr(u32 addr) {
 	for (auto &block : blockList_) {
@@ -95,6 +96,10 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 				cb.addr = meta.addr;
 				cb.sizeInBytes = meta.sizeInBytes;
 				cb.blockNum = i;
+#ifdef IR_PROFILING
+				JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(i);
+				cb.profileStats = stats;
+#endif
 				blockList_.push_back(cb);
 			}
 
@@ -104,13 +109,14 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 				}
 				const ImGuiTableColumnSortSpecs *spec = &sortSpecs_->Specs[0];
 				int delta = 0;
-				if (spec->ColumnUserID == 0) {
-					delta = (int)a.blockNum - (int)b.blockNum;
-				} else
-				if (spec->ColumnUserID == 1) {
-					delta = (int)a.addr - (int)b.addr;
-				} else if (spec->ColumnUserID == 2) {
-					delta = a.sizeInBytes - b.sizeInBytes;
+				switch (spec->ColumnUserID) {
+				case 0: delta = (int)a.blockNum - (int)b.blockNum; break;
+				case 1: delta = (int)a.addr - (int)b.addr; break;
+				case 2: delta = a.sizeInBytes - b.sizeInBytes; break;
+#ifdef IR_PROFILING
+				case 3: delta = a.profileStats.executions - b.profileStats.executions; break;
+				case 4: delta = a.profileStats.totalNanos - b.profileStats.totalNanos; break;
+#endif
 				}
 				if (delta == 0) {
 					return a.addr < b.addr;
@@ -143,11 +149,21 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 
 		// For separate scrolling.
 		ImGui::BeginChild("LeftPane", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
-
-		if (ImGui::BeginTable("blocks", 3, ImGuiTableFlags_Sortable | ImGuiTableFlags_Resizable)) {
+#ifdef IR_PROFILING
+		const int numColumns = (core == CPUCore::IR_INTERPRETER) ? 5 : 3;
+#else
+		const int numColumns = 3;
+#endif
+		if (ImGui::BeginTable("blocks", numColumns, ImGuiTableFlags_Sortable | ImGuiTableFlags_Resizable)) {
 			ImGui::TableSetupColumn("Num", 0, 0, 0);
 			ImGui::TableSetupColumn("Addr", 0, 0, 1);
 			ImGui::TableSetupColumn("Size", 0, 0, 2);
+#ifdef IR_PROFILING
+			if (numColumns == 5) {
+				ImGui::TableSetupColumn("Exec", 0, 0, 3);
+				ImGui::TableSetupColumn("Ns", 0, 0, 4);
+			}
+#endif
 			ImGui::TableHeadersRow();
 			sortSpecs_ = ImGui::TableGetSortSpecs();
 
@@ -176,6 +192,16 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 
 					ImGui::TableNextColumn();
 					ImGui::Text("%d", block.sizeInBytes);
+
+#ifdef IR_PROFILING
+					if (numColumns == 5) {
+						ImGui::TableNextColumn();
+						ImGui::Text("%d", block.profileStats.executions);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("%0.3f ms", (double)block.profileStats.totalNanos * 0.000001);
+					}
+#endif
 				}
 			}
 
