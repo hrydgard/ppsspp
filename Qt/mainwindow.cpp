@@ -1,6 +1,5 @@
 // Qt Desktop UI: works on Linux, Windows and Mac OSX
 #include "ppsspp_config.h"
-#include "mainwindow.h"
 
 #include <QApplication>
 #include <QDesktopServices>
@@ -8,6 +7,8 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
+
+#include "mainwindow.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"

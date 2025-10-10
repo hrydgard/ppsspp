@@ -36,10 +36,6 @@ class JitBlockCache;
 class JitBlockCacheDebugInterface;
 class PointerWrap;
 
-#ifdef USING_QT_UI
-#undef emit
-#endif
-
 class MIPSState;
 
 namespace MIPSComp {
