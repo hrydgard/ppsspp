@@ -647,6 +647,7 @@ enum class TextureSwizzle {
 	DEFAULT,
 	R8_AS_ALPHA,
 	R8_AS_GRAYSCALE,
+	R8_AS_PREMUL_ALPHA,
 };
 
 struct TextureDesc {

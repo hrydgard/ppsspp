@@ -220,8 +220,8 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint8_t bAlpha = (uint8_t)((ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff) >> 4);
-				bitmapData16[entry.bmWidth * y + x] = (bAlpha) | 0xfff0;
+				uint8_t bAlpha = (uint8_t)(ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff);
+				bitmapData16[entry.bmWidth * y + x] = AlphaToPremul4444(bAlpha);
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16) {
@@ -229,8 +229,8 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint8_t bAlpha = (uint8_t)((ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff) >> 4);
-				bitmapData16[entry.bmWidth * y + x] = (bAlpha << 12) | 0x0fff;
+				uint8_t bAlpha = (uint8_t)(ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff);
+				bitmapData16[entry.bmWidth * y + x] = AlphaToPremul4444(bAlpha);
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {

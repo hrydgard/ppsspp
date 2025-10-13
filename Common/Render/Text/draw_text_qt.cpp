@@ -96,7 +96,7 @@ bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int x = 0; x < entry.bmWidth; x++) {
 			for (int y = 0; y < entry.bmHeight; y++) {
-				bitmapData16[entry.bmWidth * y + x] = 0xfff0 | (image.pixel(x, y) >> 28);
+				bitmapData16[entry.bmWidth * y + x] = AlphaToPremul4444(image.pixel(x, y) >> 24);
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {

@@ -85,6 +85,14 @@ protected:
 
 	void WrapString(std::string &out, std::string_view str, float maxWidth, int flags);
 
+	// v has the 8-bit alpha.
+	static u16 AlphaToPremul4444(u32 v) {
+		v = (v >> 4) & 0x0F;
+		v |= v << 4;
+		v |= v << 8;
+		return v;
+	}
+
 	struct CacheKey {
 		bool operator < (const CacheKey &other) const {
 			if (fontHash < other.fontHash)

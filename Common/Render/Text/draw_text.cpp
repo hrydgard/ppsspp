@@ -98,7 +98,7 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		desc.depth = 1;
 		desc.mipLevels = 1;
 		desc.tag = "TextDrawer";
-		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_ALPHA : Draw::TextureSwizzle::DEFAULT,
+		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_PREMUL_ALPHA : Draw::TextureSwizzle::DEFAULT,
 		entry->texture = draw_->CreateTexture(desc);
 		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
 	}
