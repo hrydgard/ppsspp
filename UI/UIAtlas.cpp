@@ -11,6 +11,7 @@
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "UI/UIAtlas.h"
 
 #define NANOSVG_IMPLEMENTATION
@@ -235,6 +236,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 					continue;
 				}
 				img.resize(w, h);
+
 				for (int y = 0; y < h; y++) {
 					for (int x = 0; x < w; x++) {
 						int sx = minX + x;
@@ -314,6 +316,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	INFO_LOG(Log::G3D, " - Loaded %d png images in %.2f ms", pngsLoaded, pngStart.ElapsedMs());
 
 	Instant addStart = Instant::Now();
+	for (int i = 0; i < images.size(); i++) {
+		images[i].ConvertToPremultipliedAlpha();
+	}
 	for (int i = 0; i < images.size(); i++) {
 		bucket.AddImage(std::move(images[i]), i);
 	}

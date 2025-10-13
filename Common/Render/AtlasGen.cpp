@@ -14,6 +14,7 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Format/ZIMSave.h"
 #include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Convert/ColorConv.h"
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
@@ -55,6 +56,10 @@ bool Image::LoadPNG(const char *png_name) {
 	memcpy(dat.data(), img_data, 4 * w * h);
 	free(img_data);
 	return true;
+}
+
+void Image::ConvertToPremultipliedAlpha() {
+	ConvertRGBA8888ToPremulAlpha(dat.data(), dat.data(), w * h);
 }
 
 void Image::SavePNG(const char *png_name) {

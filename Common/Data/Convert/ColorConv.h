@@ -166,3 +166,5 @@ void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels);
+
+void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels);

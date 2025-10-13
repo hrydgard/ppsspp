@@ -18,6 +18,7 @@
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Thread/Waitable.h"
+#include "Common/Data/Convert/ColorConv.h"
 
 // TODO: It really feels like we should be able to simplify this.
 class TextureLoadTask : public Task {
@@ -114,6 +115,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 				ERROR_LOG(Log::IO, "pngLoadPtr failed (input size = %d)", (int)size);
 				return false;
 			}
+			ConvertRGBA8888ToPremulAlpha((u32 *)levels[0], (const u32 *)levels[0], width[0] * height[0]);
 		} else {
 			ERROR_LOG(Log::IO, "PNG load failed");
 			_dbg_assert_(!levels[0]);

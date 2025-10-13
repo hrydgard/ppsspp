@@ -67,6 +67,7 @@ struct Image {
 	void SavePNG(const char *png_name);
 	void SaveZIM(const char *zim_name, int zim_format);
 	bool IsEmpty() const { return dat.empty(); }
+	void ConvertToPremultipliedAlpha();
 // private:
 	std::vector<u32> dat;
 };

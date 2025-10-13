@@ -807,7 +807,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 	static const VkComponentMapping r8AsColor[4] = { {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ONE} };
 	static const VkComponentMapping r8AsPremulAlpha[4] = { {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_R} };
 
-	VkComponentMapping *swizzle = nullptr;
+	const VkComponentMapping *swizzle = nullptr;
 	switch (desc.swizzle) {
 	case TextureSwizzle::R8_AS_ALPHA: swizzle = r8AsAlpha; break;
 	case TextureSwizzle::R8_AS_GRAYSCALE: swizzle = r8AsColor; break;

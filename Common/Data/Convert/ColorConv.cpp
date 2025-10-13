@@ -642,3 +642,197 @@ void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
 		dst[i] = (c >> 15) | (c << 1);
 	}
 }
+
+static inline u32 premul_pixel_scalar(u32 px) {
+	u32 r = (px) & 0xFFu;
+	u32 g = (px >> 8) & 0xFFu;
+	u32 b = (px >> 16) & 0xFFu;
+	u32 a = (px >> 24) & 0xFFu;
+
+	if (a == 255) return px; // already fully opaque
+	if (a == 0)  return (a << 24); // transparent (r,g,b = 0)
+
+	// Use (c*a + 128) * 257 >> 16  to approximate (c*a)/255 with good rounding
+	u32 ra = ((r * a + 128) * 257) >> 16;
+	u32 ga = ((g * a + 128) * 257) >> 16;
+	u32 ba = ((b * a + 128) * 257) >> 16;
+
+	return (a << 24) | (ba << 16) | (ga << 8) | ra;
+}
+
+void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels) {
+	if (!dst || !src || numPixels == 0)
+		return;
+
+	u32 i = 0;
+
+#if defined(__SSE2__)
+	// SSE2 path: process 4 pixels at a time (16 bytes)
+	const u32 stride = 4;
+	const u32 vecCount = numPixels / stride;
+
+	// constants
+	const __m128i zero8 = _mm_setzero_si128();
+	const __m128i const128_16 = _mm_set1_epi16((short)128); // for adding 128 (16-bit lanes)
+	const __m128i mul257_32 = _mm_set1_epi32(257); // multiply 32-bit by 257
+	const __m128i alphaMask = _mm_set1_epi32(0xFF000000u);
+
+	for (; i + 3 < numPixels; i += 4)
+	{
+		// load 4 pixels (R G B A per byte)
+		__m128i px = _mm_loadu_si128((const __m128i*)(src + i)); // 16 bytes
+
+		// store to temporary 32-bit array to extract alphas (cheap scalar extraction)
+		u32 tmp[4];
+		_mm_storeu_si128((__m128i*)tmp, px);
+
+		// get alpha bytes separately
+		const int a0 = (tmp[0] >> 24) & 0xFF;
+		const int a1 = (tmp[1] >> 24) & 0xFF;
+		const int a2 = (tmp[2] >> 24) & 0xFF;
+		const int a3 = (tmp[3] >> 24) & 0xFF;
+
+		// Create alpha 16-bit vectors for low (pixels 0,1) and high (pixels 2,3) halves.
+		// Note ordering in _mm_set_epi16 is high->low.
+		// For unpacklo (covers pixel0 and pixel1): 8 16-bit words = R0,G0,B0,A0, R1,G1,B1,A1
+		__m128i alpha_lo16 = _mm_set_epi16((short)a1, (short)a1, (short)a1, (short)a1,
+			(short)a0, (short)a0, (short)a0, (short)a0);
+		// For unpackhi (covers pixel2 and pixel3): R2,G2,B2,A2, R3,G3,B3,A3
+		__m128i alpha_hi16 = _mm_set_epi16((short)a3, (short)a3, (short)a3, (short)a3,
+			(short)a2, (short)a2, (short)a2, (short)a2);
+
+		// expand bytes to 16-bit lanes
+		__m128i lo16 = _mm_unpacklo_epi8(px, zero8); // first 8 bytes -> 8 x 16-bit
+		__m128i hi16 = _mm_unpackhi_epi8(px, zero8); // last 8 bytes -> 8 x 16-bit
+
+		// multiply each 16-bit channel by corresponding alpha (16-bit multiplication)
+		__m128i prod_lo = _mm_mullo_epi16(lo16, alpha_lo16); // 8 x 16-bit results
+		__m128i prod_hi = _mm_mullo_epi16(hi16, alpha_hi16); // 8 x 16-bit results
+
+		// Now we need to compute (prod + 128) * 257 >> 16 per 16-bit lane.
+		// Do this by widening to 32-bit lanes, operate, then pack back.
+
+		// Handle prod_lo (8 x 16 -> two groups of 4 x 32)
+		__m128i prod_lo_0 = _mm_unpacklo_epi16(prod_lo, zero8); // lower 4 -> 4 x 32
+		__m128i prod_lo_1 = _mm_unpackhi_epi16(prod_lo, zero8); // upper 4 -> 4 x 32
+
+		prod_lo_0 = _mm_add_epi32(prod_lo_0, _mm_set1_epi32(128));
+		prod_lo_1 = _mm_add_epi32(prod_lo_1, _mm_set1_epi32(128));
+
+		prod_lo_0 = _mm_mullo_epi32(prod_lo_0, mul257_32); // (prod+128) * 257
+		prod_lo_1 = _mm_mullo_epi32(prod_lo_1, mul257_32);
+
+		prod_lo_0 = _mm_srli_epi32(prod_lo_0, 16); // >> 16
+		prod_lo_1 = _mm_srli_epi32(prod_lo_1, 16);
+
+		// pack back to 16-bit (4 lanes each -> 8 x 16)
+		__m128i res_lo16 = _mm_packs_epi32(prod_lo_0, prod_lo_1); // signed pack is fine (values within 0..255)
+
+		// Handle prod_hi similarly
+		__m128i prod_hi_0 = _mm_unpacklo_epi16(prod_hi, zero8);
+		__m128i prod_hi_1 = _mm_unpackhi_epi16(prod_hi, zero8);
+
+		prod_hi_0 = _mm_add_epi32(prod_hi_0, _mm_set1_epi32(128));
+		prod_hi_1 = _mm_add_epi32(prod_hi_1, _mm_set1_epi32(128));
+
+		prod_hi_0 = _mm_mullo_epi32(prod_hi_0, mul257_32);
+		prod_hi_1 = _mm_mullo_epi32(prod_hi_1, mul257_32);
+
+		prod_hi_0 = _mm_srli_epi32(prod_hi_0, 16);
+		prod_hi_1 = _mm_srli_epi32(prod_hi_1, 16);
+
+		__m128i res_hi16 = _mm_packs_epi32(prod_hi_0, prod_hi_1);
+
+		// pack 16-bit to bytes
+		__m128i outBytes = _mm_packus_epi16(res_lo16, res_hi16);
+
+		// Preserve original alpha bytes (we multiplied alpha too; put original alpha back)
+		__m128i origAlpha = _mm_and_si128(px, alphaMask);
+		__m128i outNoAlpha = _mm_andnot_si128(alphaMask, outBytes);
+		__m128i finalOut = _mm_or_si128(outNoAlpha, origAlpha);
+
+		// store
+		_mm_storeu_si128((__m128i*)(dst + i), finalOut);
+	}
+#endif // __SSE2__
+
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+	// NEON path: process 4 pixels (16 bytes) per iteration
+	for (; i + 3 < numPixels; i += 4)
+	{
+		// load 16 bytes as uint8x16_t
+		uint8x16_t v = vld1q_u8((const uint8_t*)(src + i)); // bytes: R0,G0,B0,A0,R1,G1,B1,A1,...
+
+		// widen to 16-bit lanes (two halves)
+		uint16x8_t lo16 = vmovl_u8(vget_low_u8(v));  // first 8 bytes -> 8 x u16
+		uint16x8_t hi16 = vmovl_u8(vget_high_u8(v)); // last 8 bytes -> 8 x u16
+
+		// Extract alpha bytes (one per pixel) into ints
+		// Using vgetq_lane on shifted/aliased values is simpler here
+		uint32_t tmp[4];
+		vst1q_u32(tmp, vreinterpretq_u32_u8(v)); // store as 4 x u32
+		const uint16_t a0 = (tmp[0] >> 24) & 0xFFu;
+		const uint16_t a1 = (tmp[1] >> 24) & 0xFFu;
+		const uint16_t a2 = (tmp[2] >> 24) & 0xFFu;
+		const uint16_t a3 = (tmp[3] >> 24) & 0xFFu;
+
+		// Build alpha 16-bit vectors that match lo16 and hi16 ordering:
+		// lo16 lanes: R0,G0,B0,A0, R1,G1,B1,A1 -> need [a0,a0,a0,a0,a1,a1,a1,a1]
+		uint16x8_t alpha_lo16 = {a0, a0, a0, a0, a1, a1, a1, a1};
+		// hi16 lanes: R2,G2,B2,A2, R3,G3,B3,A3 -> [a2,a2,a2,a2,a3,a3,a3,a3]
+		uint16x8_t alpha_hi16 = {a2, a2, a2, a2, a3, a3, a3, a3};
+
+		// multiply 16-bit lanes
+		uint16x8_t prod_lo = vmulq_u16(lo16, alpha_lo16);
+		uint16x8_t prod_hi = vmulq_u16(hi16, alpha_hi16);
+
+		// compute (prod + 128) * 257 >> 16 per lane:
+		// widen to 32-bit and do the math
+		uint32x4_t p0 = vmovl_u16(vget_low_u16(prod_lo));  // first 4
+		uint32x4_t p1 = vmovl_u16(vget_high_u16(prod_lo)); // next 4
+		uint32x4_t p2 = vmovl_u16(vget_low_u16(prod_hi));
+		uint32x4_t p3 = vmovl_u16(vget_high_u16(prod_hi));
+
+		const uint32x4_t c128 = vdupq_n_u32(128);
+		const uint32x4_t c257 = vdupq_n_u32(257);
+
+		p0 = vmulq_u32(vaddq_u32(p0, c128), c257);
+		p1 = vmulq_u32(vaddq_u32(p1, c128), c257);
+		p2 = vmulq_u32(vaddq_u32(p2, c128), c257);
+		p3 = vmulq_u32(vaddq_u32(p3, c128), c257);
+
+		p0 = vshrq_n_u32(p0, 16);
+		p1 = vshrq_n_u32(p1, 16);
+		p2 = vshrq_n_u32(p2, 16);
+		p3 = vshrq_n_u32(p3, 16);
+
+		// narrow back to 16-bit
+		uint16x8_t r_lo = vcombine_u16(vqmovn_u32(p0), vqmovn_u32(p1));
+		uint16x8_t r_hi = vcombine_u16(vqmovn_u32(p2), vqmovn_u32(p3));
+
+		// narrow to bytes
+		uint8x16_t out = vcombine_u8(vqmovn_u16(r_lo), vqmovn_u16(r_hi));
+
+		// preserve original alpha bytes: mask and combine
+		uint8x16_t alpha_mask = {0,0,0,0xFF, 0,0,0,0xFF, 0,0,0,0xFF, 0,0,0,0xFF};
+		// above initializer may not be supported by all compilers; use bitwise ops:
+		uint8x16_t orig_alpha = vandq_u8(v, vdupq_n_u8(0xFF)); // not correct; keep simpler:
+		// easier: compute orig alpha bytes by shifting each 32-bit lane >> 24 and replicating into byte positions
+		// Do a simple scalar replacement for alpha bytes (straightforward and cheap)
+		uint8_t out_bytes[16];
+		vst1q_u8(out_bytes, out);
+		uint32_t orig32[4];
+		vst1q_u32(orig32, vreinterpretq_u32_u8(v));
+		for (int p = 0; p < 4; ++p) {
+			uint8_t alpha = (orig32[p] >> 24) & 0xFFu;
+			out_bytes[p * 4 + 3] = alpha;
+		}
+		vst1q_u8((uint8_t*)(dst + i), vld1q_u8(out_bytes));
+	}
+#endif // NEON
+
+	// Scalar fallback for remaining pixels (or if above SIMD not present)
+	for (; i < numPixels; ++i) {
+		dst[i] = premul_pixel_scalar(src[i]);
+	}
+}
