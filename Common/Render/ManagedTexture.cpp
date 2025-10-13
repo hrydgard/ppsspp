@@ -105,6 +105,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 	case ImageFileType::ZIM:
 		numLevels = LoadZIMPtr((const uint8_t *)data, size, width, height, &zimFlags, levels);
 		fmt = ZimToT3DFormat(zimFlags & ZIM_FORMAT_MASK);
+		ConvertRGBA8888ToPremulAlpha((u32 *)levels[0], (const u32 *)levels[0], width[0] * height[0]);
 		break;
 
 	case ImageFileType::PNG:
