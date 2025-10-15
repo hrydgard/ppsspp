@@ -30,7 +30,7 @@ uint32_t colorAlpha(uint32_t rgb, float alpha) {
 }
 
 uint32_t colorBlend(uint32_t rgb1, uint32_t rgb2, float alpha) {
-	float invAlpha = (1.0f - alpha);
+	const float invAlpha = (1.0f - alpha);
 	int r = (int)(((rgb1 >> 0) & 0xFF) * alpha + ((rgb2 >> 0) & 0xFF) * invAlpha);
 	int g = (int)(((rgb1 >> 8) & 0xFF) * alpha + ((rgb2 >> 8) & 0xFF) * invAlpha);
 	int b = (int)(((rgb1 >> 16) & 0xFF) * alpha + ((rgb2 >> 16) & 0xFF) * invAlpha);

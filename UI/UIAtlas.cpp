@@ -32,94 +32,102 @@ Atlas *GetUIAtlas() {
 	return &ui_atlas;
 }
 
-static const std::string imageIDs[] = {
-	"I_SOLIDWHITE",
-	"I_CROSS",
-	"I_CIRCLE",
-	"I_SQUARE",
-	"I_TRIANGLE",
-	"I_SELECT",
-	"I_START",
-	"I_ARROW",
-	"I_ROUND",
-	"I_ROUND_LINE",
-	"I_RECT",
-	"I_RECT_LINE",
-	"I_STICK",
-	"I_STICK_BG",
-	"I_STICK_LINE",
-	"I_STICK_BG_LINE",
-	"I_SHOULDER",
-	"I_SHOULDER_LINE",
-	"I_DIR",
-	"I_DIR_LINE",
-	"I_SQUARE_SHAPE",
-	"I_SQUARE_SHAPE_LINE",
-	"I_CHECKEDBOX",
-	"I_UNCHECKEDBOX",
-	"I_BG",
-	"I_L",
-	"I_R",
-	"I_DROP_SHADOW",
-	"I_LINES",
-	"I_GRID",
-	"I_LOGO",
-	"I_ICON",
-	"I_ICON_GOLD",
-	"I_FOLDER",
-	"I_UP_DIRECTORY",
-	"I_GEAR",
-	"I_1",
-	"I_2",
-	"I_3",
-	"I_4",
-	"I_5",
-	"I_6",
-	"I_PSP_DISPLAY",
-	"I_FLAG_JP",
-	"I_FLAG_US",
-	"I_FLAG_EU",
-	"I_FLAG_HK",
-	"I_FLAG_AS",
-	"I_FLAG_KO",
-	"I_FULLSCREEN",
-	"I_RESTORE",
-	"I_SDCARD",
-	"I_HOME",
-	"I_A",
-	"I_B",
-	"I_C",
-	"I_D",
-	"I_E",
-	"I_F",
-	"I_FOLDER_OPEN",
-	"I_WARNING",
-	"I_TRASHCAN",
-	"I_PLUS",
-	"I_ROTATE_LEFT",
-	"I_ROTATE_RIGHT",
-	"I_ARROW_LEFT",
-	"I_ARROW_RIGHT",
-	"I_ARROW_UP",
-	"I_ARROW_DOWN",
-	"I_SLIDERS",
-	"I_THREE_DOTS",
-	"I_INFO",
-	"I_RETROACHIEVEMENTS_LOGO",
-	"I_CHECKMARK",
-	"I_PLAY",
-	"I_STOP",
-	"I_PAUSE",
-	"I_FAST_FORWARD",
-	"I_RECORD",
-	"I_SPEAKER",
-	"I_SPEAKER_MAX",
-	"I_SPEAKER_OFF",
-	"I_WINNER_CUP",
-	"I_EMPTY",
-	"I_PIN",
-	"I_UNPIN",
-	"I_FOLDER_PINNED",
+struct ImageMeta {
+	std::string_view id;
+	bool addShadow = false;
+};
+
+// We add shadows to all line-art images that are used for buttons, to improve visibility.
+// However, some images are dual-used as general UI elemnts and also as custom button images. This is a problem. (I_ROTATE_LEFT, I_ROTATE_RIGHT, I_THREE_DOTS).
+// I've added shadows to most of those for now. See customKeyImages in GamepadEmu.h.
+static const ImageMeta imageIDs[] = {
+	{"I_SOLIDWHITE", false},
+	{"I_CROSS", true},
+	{"I_CIRCLE", true},
+	{"I_SQUARE", true},
+	{"I_TRIANGLE", true},
+	{"I_SELECT", true},
+	{"I_START", true},
+	{"I_ARROW", false},
+	{"I_ROUND", false},
+	{"I_ROUND_LINE", true},
+	{"I_RECT", false},
+	{"I_RECT_LINE", true},
+	{"I_STICK", false},
+	{"I_STICK_BG", false},
+	{"I_STICK_LINE", true},
+	{"I_STICK_BG_LINE", true},
+	{"I_SHOULDER", false},
+	{"I_SHOULDER_LINE", true},
+	{"I_DIR", false},
+	{"I_DIR_LINE", false},
+	{"I_SQUARE_SHAPE", false},
+	{"I_SQUARE_SHAPE_LINE", true},
+	{"I_CHECKEDBOX", false},
+	{"I_UNCHECKEDBOX", false},
+	{"I_BG", false},
+	{"I_L", true},
+	{"I_R", true},
+	{"I_DROP_SHADOW", false},
+	{"I_LINES", false},
+	{"I_GRID", false},
+	{"I_LOGO", false},
+	{"I_ICON", false},
+	{"I_ICON_GOLD", false},
+	{"I_FOLDER", false},
+	{"I_UP_DIRECTORY", false},
+	{"I_GEAR", false},
+	{"I_1", true},
+	{"I_2", true},
+	{"I_3", true},
+	{"I_4", true},
+	{"I_5", true},
+	{"I_6", true},
+	{"I_PSP_DISPLAY", false},
+	{"I_FLAG_JP", false},
+	{"I_FLAG_US", false},
+	{"I_FLAG_EU", false},
+	{"I_FLAG_HK", false},
+	{"I_FLAG_AS", false},
+	{"I_FLAG_KO", false},
+	{"I_FULLSCREEN", false},
+	{"I_RESTORE", false},
+	{"I_SDCARD", false},
+	{"I_HOME", false},
+	{"I_A", true},
+	{"I_B", true},
+	{"I_C", true},
+	{"I_D", true},
+	{"I_E", true},
+	{"I_F", true},
+	{"I_FOLDER_OPEN", false},
+	{"I_WARNING", false},
+	{"I_TRASHCAN", false},
+	{"I_PLUS", false},
+	{"I_ROTATE_LEFT", true},
+	{"I_ROTATE_RIGHT", true},
+	{"I_ARROW_LEFT", true},
+	{"I_ARROW_RIGHT", true},
+	{"I_ARROW_UP", true},
+	{"I_ARROW_DOWN", true},
+	{"I_SLIDERS", false},
+	{"I_THREE_DOTS", true},
+	{"I_INFO", false},
+	{"I_RETROACHIEVEMENTS_LOGO", false},
+	{"I_CHECKMARK", false},
+	{"I_PLAY", false},
+	{"I_STOP", false},
+	{"I_PAUSE", false},
+	{"I_FAST_FORWARD", false},
+	{"I_RECORD", false},
+	{"I_SPEAKER", false},
+	{"I_SPEAKER_MAX", false},
+	{"I_SPEAKER_OFF", false},
+	{"I_WINNER_CUP", false},
+	{"I_EMPTY", false},
+	{"I_PIN", false},
+	{"I_UNPIN", false},
+	{"I_FOLDER_PINNED", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -134,7 +142,7 @@ static std::string PNGNameFromID(std::string_view id) {
 
 static int GetImageIndex(std::string_view id) {
 	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
-		if (equals(id, imageIDs[i])) {
+		if (equals(id, imageIDs[i].id)) {
 			return i;
 		}
 	}
@@ -273,7 +281,10 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	for (int i = 0; i < (int)images.size(); i++) {
 		// Here we could exclude some images from the drop shadow, if desired.
 		if (!images[i].IsEmpty()) {
-			AddDropShadow(images[i], 3, 0.66f);
+			if (imageIDs[i].addShadow) {
+				DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
+				AddDropShadow(images[i], 3, 0.66f);
+			}
 		}
 	}
 
@@ -290,20 +301,20 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 
 		if (!img.IsEmpty()) {
 			// Was already loaded from SVG.
-			DEBUG_LOG(Log::G3D, "Skipping image %s, already loaded from SVG", imageIDs[i].c_str());
+			DEBUG_LOG(Log::G3D, "Skipping image %.*s, already loaded from SVG", STR_VIEW(imageIDs[i].id));
 			continue;
 		}
 
 		bool success = true;
-		if (equals(imageIDs[i], "I_SOLIDWHITE")) {
+		if (equals(imageIDs[i].id, "I_SOLIDWHITE")) {
 			img.resize(16, 16);
 			img.fill(0xFFFFFFFF);
-		} else if (equals(imageIDs[i], "I_EMPTY")) {
+		} else if (equals(imageIDs[i].id, "I_EMPTY")) {
 			img.resize(16, 16);
 			img.fill(0);
 		} else {
 			std::string name = "ui_images/";
-			std::string pngName = PNGNameFromID(imageIDs[i]);
+			std::string pngName = PNGNameFromID(imageIDs[i].id);
 			name.append(pngName);
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
@@ -337,7 +348,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	std::vector<AtlasImage> genAtlasImages;
 	genAtlasImages.reserve(ARRAY_SIZE(imageIDs));
 	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
-		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageIDs[i], (float)dest.width(), (float)dest.height(), results));
+		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageIDs[i].id, (float)dest.width(), (float)dest.height(), results));
 	}
 
 	atlas->Clear();

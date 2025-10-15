@@ -254,7 +254,7 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	// Target buffer with transparent background
 	std::vector<u32> newData(newW * newH, 0);
 
-	// Draw the computeed shadow first (black, blurred alpha)
+	// Draw the computed shadow first (black, blurred alpha)
 	for (int y = 0; y < newH; y++) {
 		for (int x = 0; x < newW; x++) {
 			float a = blurred[y * newW + x];
