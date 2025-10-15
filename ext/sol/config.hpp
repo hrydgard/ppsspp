@@ -50,4 +50,8 @@ the build system, or the command line options of your compiler.
 
 // end of sol/config.hpp
 
+#if PPSSPP_PLATFORM(IOS)
+#define SOL_NO_THREAD_LOCAL 1
+#endif
+
 #endif // SOL_SINGLE_SOL_CONFIG_HPP
