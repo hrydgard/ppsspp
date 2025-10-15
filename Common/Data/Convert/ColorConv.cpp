@@ -676,82 +676,68 @@ void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels) {
 	const __m128i const128_16 = _mm_set1_epi16((short)128); // for adding 128 (16-bit lanes)
 	const __m128i mul257_32 = _mm_set1_epi32(257); // multiply 32-bit by 257
 	const __m128i alphaMask = _mm_set1_epi32(0xFF000000u);
+	for (; i + 3 < numPixels; i += 4) {
+		__m128i px = _mm_loadu_si128((const __m128i*)(src + i));
 
-	for (; i + 3 < numPixels; i += 4)
-	{
-		// load 4 pixels (R G B A per byte)
-		__m128i px = _mm_loadu_si128((const __m128i*)(src + i)); // 16 bytes
+		u32 tmpu[4];
+		_mm_storeu_si128((__m128i*)tmpu, px);
 
-		// store to temporary 32-bit array to extract alphas (cheap scalar extraction)
-		u32 tmp[4];
-		_mm_storeu_si128((__m128i*)tmp, px);
+		const int a0 = (tmpu[0] >> 24) & 0xFF;
+		const int a1 = (tmpu[1] >> 24) & 0xFF;
+		const int a2 = (tmpu[2] >> 24) & 0xFF;
+		const int a3 = (tmpu[3] >> 24) & 0xFF;
 
-		// get alpha bytes separately
-		const int a0 = (tmp[0] >> 24) & 0xFF;
-		const int a1 = (tmp[1] >> 24) & 0xFF;
-		const int a2 = (tmp[2] >> 24) & 0xFF;
-		const int a3 = (tmp[3] >> 24) & 0xFF;
-
-		// Create alpha 16-bit vectors for low (pixels 0,1) and high (pixels 2,3) halves.
-		// Note ordering in _mm_set_epi16 is high->low.
-		// For unpacklo (covers pixel0 and pixel1): 8 16-bit words = R0,G0,B0,A0, R1,G1,B1,A1
 		__m128i alpha_lo16 = _mm_set_epi16((short)a1, (short)a1, (short)a1, (short)a1,
 			(short)a0, (short)a0, (short)a0, (short)a0);
-		// For unpackhi (covers pixel2 and pixel3): R2,G2,B2,A2, R3,G3,B3,A3
 		__m128i alpha_hi16 = _mm_set_epi16((short)a3, (short)a3, (short)a3, (short)a3,
 			(short)a2, (short)a2, (short)a2, (short)a2);
 
-		// expand bytes to 16-bit lanes
-		__m128i lo16 = _mm_unpacklo_epi8(px, zero8); // first 8 bytes -> 8 x 16-bit
-		__m128i hi16 = _mm_unpackhi_epi8(px, zero8); // last 8 bytes -> 8 x 16-bit
+		__m128i zero8 = _mm_setzero_si128();
 
-		// multiply each 16-bit channel by corresponding alpha (16-bit multiplication)
-		__m128i prod_lo = _mm_mullo_epi16(lo16, alpha_lo16); // 8 x 16-bit results
-		__m128i prod_hi = _mm_mullo_epi16(hi16, alpha_hi16); // 8 x 16-bit results
+		__m128i lo16 = _mm_unpacklo_epi8(px, zero8);
+		__m128i hi16 = _mm_unpackhi_epi8(px, zero8);
 
-		// Now we need to compute (prod + 128) * 257 >> 16 per 16-bit lane.
-		// Do this by widening to 32-bit lanes, operate, then pack back.
+		__m128i prod_lo = _mm_mullo_epi16(lo16, alpha_lo16);
+		__m128i prod_hi = _mm_mullo_epi16(hi16, alpha_hi16);
 
-		// Handle prod_lo (8 x 16 -> two groups of 4 x 32)
-		__m128i prod_lo_0 = _mm_unpacklo_epi16(prod_lo, zero8); // lower 4 -> 4 x 32
-		__m128i prod_lo_1 = _mm_unpackhi_epi16(prod_lo, zero8); // upper 4 -> 4 x 32
-
-		prod_lo_0 = _mm_add_epi32(prod_lo_0, _mm_set1_epi32(128));
-		prod_lo_1 = _mm_add_epi32(prod_lo_1, _mm_set1_epi32(128));
-
-		prod_lo_0 = _mm_mullo_epi32(prod_lo_0, mul257_32); // (prod+128) * 257
-		prod_lo_1 = _mm_mullo_epi32(prod_lo_1, mul257_32);
-
-		prod_lo_0 = _mm_srli_epi32(prod_lo_0, 16); // >> 16
-		prod_lo_1 = _mm_srli_epi32(prod_lo_1, 16);
-
-		// pack back to 16-bit (4 lanes each -> 8 x 16)
-		__m128i res_lo16 = _mm_packs_epi32(prod_lo_0, prod_lo_1); // signed pack is fine (values within 0..255)
-
-		// Handle prod_hi similarly
+		// widen to 32-bit
+		__m128i prod_lo_0 = _mm_unpacklo_epi16(prod_lo, zero8); // 4x32
+		__m128i prod_lo_1 = _mm_unpackhi_epi16(prod_lo, zero8);
 		__m128i prod_hi_0 = _mm_unpacklo_epi16(prod_hi, zero8);
 		__m128i prod_hi_1 = _mm_unpackhi_epi16(prod_hi, zero8);
 
-		prod_hi_0 = _mm_add_epi32(prod_hi_0, _mm_set1_epi32(128));
-		prod_hi_1 = _mm_add_epi32(prod_hi_1, _mm_set1_epi32(128));
+		// tmp = prod + 128
+		__m128i c128_32 = _mm_set1_epi32(128);
+		prod_lo_0 = _mm_add_epi32(prod_lo_0, c128_32);
+		prod_lo_1 = _mm_add_epi32(prod_lo_1, c128_32);
+		prod_hi_0 = _mm_add_epi32(prod_hi_0, c128_32);
+		prod_hi_1 = _mm_add_epi32(prod_hi_1, c128_32);
 
-		prod_hi_0 = _mm_mullo_epi32(prod_hi_0, mul257_32);
-		prod_hi_1 = _mm_mullo_epi32(prod_hi_1, mul257_32);
+		// multiply by 257 using (x + (x << 8))  (SSE2-only)
+		__m128i tmp0 = _mm_add_epi32(prod_lo_0, _mm_slli_epi32(prod_lo_0, 8));
+		__m128i tmp1 = _mm_add_epi32(prod_lo_1, _mm_slli_epi32(prod_lo_1, 8));
+		__m128i tmp2 = _mm_add_epi32(prod_hi_0, _mm_slli_epi32(prod_hi_0, 8));
+		__m128i tmp3 = _mm_add_epi32(prod_hi_1, _mm_slli_epi32(prod_hi_1, 8));
 
-		prod_hi_0 = _mm_srli_epi32(prod_hi_0, 16);
-		prod_hi_1 = _mm_srli_epi32(prod_hi_1, 16);
+		// >> 16
+		tmp0 = _mm_srli_epi32(tmp0, 16);
+		tmp1 = _mm_srli_epi32(tmp1, 16);
+		tmp2 = _mm_srli_epi32(tmp2, 16);
+		tmp3 = _mm_srli_epi32(tmp3, 16);
 
-		__m128i res_hi16 = _mm_packs_epi32(prod_hi_0, prod_hi_1);
+		// pack back to 16-bit
+		__m128i res_lo16 = _mm_packs_epi32(tmp0, tmp1);
+		__m128i res_hi16 = _mm_packs_epi32(tmp2, tmp3);
 
-		// pack 16-bit to bytes
+		// pack to bytes
 		__m128i outBytes = _mm_packus_epi16(res_lo16, res_hi16);
 
-		// Preserve original alpha bytes (we multiplied alpha too; put original alpha back)
+		// keep original alpha
+		const __m128i alphaMask = _mm_set1_epi32(0xFF000000u);
 		__m128i origAlpha = _mm_and_si128(px, alphaMask);
 		__m128i outNoAlpha = _mm_andnot_si128(alphaMask, outBytes);
 		__m128i finalOut = _mm_or_si128(outNoAlpha, origAlpha);
 
-		// store
 		_mm_storeu_si128((__m128i*)(dst + i), finalOut);
 	}
 #endif // __SSE2__
