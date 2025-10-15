@@ -1637,6 +1637,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	default:
 		_dbg_assert_(false);
+		break;
 	}
 
 	VLOG("PULL: Finished running frame %d", task.frame);
@@ -1739,7 +1740,7 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 			break;
 		default:
-			_dbg_assert_(false);
+			UNREACHABLE();
 			break;
 		}
 	}

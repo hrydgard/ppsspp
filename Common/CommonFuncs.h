@@ -75,6 +75,18 @@
 #include <x86intrin.h>
 #endif
 
+#ifdef _DEBUG
+#define UNREACHABLE() Crash()
+#else
+#if defined(_MSC_VER)
+#define UNREACHABLE() __assume(0)
+#elif defined(__GNUC__) || defined(__clang__)
+#define UNREACHABLE() __builtin_unreachable()
+#else
+#define UNREACHABLE() ((void)0)
+#endif
+#endif
+
 inline u32 __rotl(u32 x, int shift) {
 #if defined(_MSC_VER)
 	return _rotl(x, shift);

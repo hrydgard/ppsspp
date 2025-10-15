@@ -366,6 +366,9 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 			break;
 		case VKRStepType::RENDER_SKIP:
 			break;
+		default:
+			UNREACHABLE();
+			break;
 		}
 
 		if (profile && profile->timestampsEnabled && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
@@ -813,6 +816,7 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					break;
 				default:
 					// We added a new step?  Might be unsafe.
+					_dbg_assert_(false);
 					goto done_fb;
 				}
 			}
@@ -1239,7 +1243,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		default:
-			ERROR_LOG(Log::G3D, "Unimpl queue command");
+			UNREACHABLE();
 			break;
 		}
 	}
