@@ -10,6 +10,7 @@
 #include "Common/BitSet.h"
 #include "Common/BitScan.h"
 #include "Common/Common.h"
+#include "Common/CommonFuncs.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/SIMDHeaders.h"
@@ -1257,9 +1258,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...
 		case IROp::Bad:
 		default:
-			Crash();
+			// Unimplemented IR op. Bad. We define it as unreachable so the compiler can optimize better (remove the range check).
+			UNREACHABLE();
 			break;
-			// Unimplemented IR op. Bad.
 		}
 
 #ifdef _DEBUG
