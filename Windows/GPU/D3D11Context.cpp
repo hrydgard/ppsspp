@@ -12,6 +12,7 @@
 #include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/OSVersion.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -187,16 +188,19 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
 #ifndef __LIBRETRO__  // their build server uses an old SDK
-	ComPtr<IDXGIFactory5> dxgiFactory5;
-	hr = dxgiFactory.As(&dxgiFactory5);
-	if (SUCCEEDED(hr)) {
-		swapChainDesc_.BufferCount = 2;
-		swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	// Extra guard against Win7 drivers that pretend to support DXGIFactory5 but don't really.
+	if (IsWin10OrHigher()) {
+		ComPtr<IDXGIFactory5> dxgiFactory5;
+		hr = dxgiFactory.As(&dxgiFactory5);
+		if (SUCCEEDED(hr)) {
+			swapChainDesc_.BufferCount = 2;
+			swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-		BOOL allowTearing = FALSE;
-		hr = dxgiFactory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
-		if (SUCCEEDED(hr) && allowTearing) {
-			swapChainDesc_.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+			BOOL allowTearing = FALSE;
+			hr = dxgiFactory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
+			if (SUCCEEDED(hr) && allowTearing) {
+				swapChainDesc_.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+			}
 		}
 	}
 #endif
