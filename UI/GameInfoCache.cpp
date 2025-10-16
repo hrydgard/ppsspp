@@ -711,7 +711,7 @@ handleELF:
 			if (flags_ & GameInfoFlags::ICON) {
 				Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
 				// Let's use the comparison screenshot as an icon, if it exists.
-				if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				if (screenshotPath.IsLocalType() && ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
 				}
 			}

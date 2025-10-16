@@ -254,6 +254,16 @@ static inline uint32_t Over_ABGR(uint32_t front, uint32_t back) {
 	return (outa << 24) | (outb << 16) | (outg << 8) | outr;
 }
 
+void Add1PxTransparentBorder(Image &img) {
+	std::vector<u32> newData((img.w + 2) * (img.h + 2), 0);
+	for (int y = 0; y < img.h; y++) {
+		for (int x = 0; x < img.w; x++) {
+			u32 c = img.dat[y * img.w + x];
+			newData[(y + 1) * (img.w + 2) + (x + 1)] = c;
+		}
+	}
+}
+
 void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	int radius = std::max(1, (int)(shadowSize * img.scale));
 

@@ -286,6 +286,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 			if (imageIDs[i].addShadow) {
 				DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
 				AddDropShadow(images[i], 3, 0.66f);
+			} else {
+				// Make sure there are transparent pixels to filter from.
+				Add1PxTransparentBorder(images[i]);
 			}
 		}
 	}

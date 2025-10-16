@@ -539,7 +539,7 @@ void GamePauseScreen::CreateViews() {
 		Choice *delGameConfig = rightColumnItems->Add(new Choice(pa->T("Delete Game Config")));
 		delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
 		delGameConfig->SetEnabled(!bootPending_);
-	} else {
+	} else if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config")));
 		createGameConfig->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
@@ -549,7 +549,7 @@ void GamePauseScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> void {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	});
-	if (g_Config.bEnableCheats) {
+	if (g_Config.bEnableCheats && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
