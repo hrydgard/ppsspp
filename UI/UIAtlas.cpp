@@ -60,7 +60,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_SHOULDER", false},
 	{"I_SHOULDER_LINE", true},
 	{"I_DIR", false},
-	{"I_DIR_LINE", false},
+	{"I_DIR_LINE", true},
 	{"I_SQUARE_SHAPE", false},
 	{"I_SQUARE_SHAPE_LINE", true},
 	{"I_CHECKEDBOX", false},
@@ -260,6 +260,8 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 				if (SAVE_DEBUG_IMAGES) {
 					pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
 				}
+
+				img.ConvertToPremultipliedAlpha();
 			}
 
 			shapeCount = (int)usedShapes.size();
@@ -321,15 +323,13 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 				ERROR_LOG(Log::G3D, "Failed to load %s", name.c_str());
 			} else {
 				pngsLoaded++;
+				img.ConvertToPremultipliedAlpha();
 			}
 		}
 	}
 	INFO_LOG(Log::G3D, " - Loaded %d png images in %.2f ms", pngsLoaded, pngStart.ElapsedMs());
 
 	Instant addStart = Instant::Now();
-	for (int i = 0; i < images.size(); i++) {
-		images[i].ConvertToPremultipliedAlpha();
-	}
 	for (int i = 0; i < images.size(); i++) {
 		bucket.AddImage(std::move(images[i]), i);
 	}
