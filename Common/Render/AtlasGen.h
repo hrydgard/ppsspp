@@ -75,6 +75,9 @@ struct Image {
 // Slow.
 void AddDropShadow(Image &img, int shadowSize, float intensity);
 
+// To improve filtering.
+void Add1PxTransparentBorder(Image &img);
+
 struct Data {
 	// item ID
 	int id;
