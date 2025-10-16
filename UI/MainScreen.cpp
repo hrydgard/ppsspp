@@ -1306,7 +1306,7 @@ void MainScreen::CreateViews() {
 		rightColumnChoices->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 	}
 	rightColumnChoices->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnChoices->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnChoices->Add(new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
 
 	if (!vertical) {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
