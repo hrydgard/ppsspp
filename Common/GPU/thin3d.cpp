@@ -181,7 +181,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"varying vec4 oColor0;\n"
 	"varying vec2 oTexCoord0;\n"
 	"uniform sampler2D Sampler0;\n"
-	"void main() { gl_FragColor = texture2D(Sampler0, oTexCoord0) * oColor0; }\n"
+	"void main() { vec4 col = texture2D(Sampler0, oTexCoord0) * oColor0; col.rgb *= oColor0.a; gl_FragColor = col; }\n"
 	},
 	{ShaderLanguage::HLSL_D3D11,
 	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
@@ -189,6 +189,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"Texture2D<float4> tex : register(t0);\n"
 	"float4 main(PS_INPUT input) : SV_Target {\n"
 	"  float4 col = input.color * tex.Sample(samp, input.uv);\n"
+	"  col.rgb *= input.color.a;\n"
 	"  return col;\n"
 	"}\n"
 	},
@@ -200,7 +201,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
 	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
-	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
+	"void main() { vec4 col = texture(Sampler0, oTexCoord0) * oColor0; col.rgb *= oColor0.a; fragColor0 = col; }\n"
 	}
 };
 
@@ -218,7 +219,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"varying vec4 oColor0;\n"
 	"varying vec2 oTexCoord0;\n"
 	"uniform sampler2D Sampler0;\n"
-	"void main() { gl_FragColor = texture2D(Sampler0, oTexCoord0).zyxw * oColor0; }\n"
+	"void main() { vec4 col = texture2D(Sampler0, oTexCoord0).zyxw * oColor0; col.rgb *= oColor0.a; gl_FragColor = col; }\n"
 	},
 	{ShaderLanguage::HLSL_D3D11,
 	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
@@ -226,6 +227,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"Texture2D<float4> tex : register(t0);\n"
 	"float4 main(PS_INPUT input) : SV_Target {\n"
 	"  float4 col = input.color * tex.Sample(samp, input.uv).bgra;\n"
+	"  col.rgb *= input.color.a;\n"
 	"  return col;\n"
 	"}\n"
 	},
@@ -237,7 +239,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
 	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
-	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
+	"void main() { vec4 col = texture(Sampler0, oTexCoord0).bgra * oColor0; col.rgb *= oColor0.a; fragColor0 = col; }\n"
 	}
 };
 
@@ -252,11 +254,13 @@ static const std::vector<ShaderSource> fsCol = {
 	"out vec4 fragColor0;\n"
 	"#endif\n"
 	"varying vec4 oColor0;\n"
-	"void main() { gl_FragColor = oColor0; }\n"
+	"void main() { vec4 col = oColor0; col.rgb *= oColor0.a; gl_FragColor = col; }\n"
 	},
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct PS_INPUT { float4 color : COLOR0; };\n"
 	"float4 main(PS_INPUT input) : SV_Target {\n"
+	"  float4 col = input.color;\n"
+	"  col.rgb *= input.color.a;\n"
 	"  return input.color;\n"
 	"}\n"
 	},
@@ -266,7 +270,7 @@ static const std::vector<ShaderSource> fsCol = {
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"void main() { fragColor0 = oColor0; }\n"
+	"void main() { vec4 col = oColor0; col.rgb *= oColor0.a; fragColor0 = col; }\n"
 	}
 };
 

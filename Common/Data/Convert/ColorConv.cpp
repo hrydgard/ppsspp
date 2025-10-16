@@ -642,3 +642,126 @@ void ConvertBGRA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
 		dst[i] = (c >> 15) | (c << 1);
 	}
 }
+
+static inline u32 premul_pixel_scalar(u32 px) {
+	u32 r = (px) & 0xFFu;
+	u32 g = (px >> 8) & 0xFFu;
+	u32 b = (px >> 16) & 0xFFu;
+	u32 a = (px >> 24) & 0xFFu;
+
+	if (a == 255) return px; // already fully opaque
+	if (a == 0)  return (a << 24); // transparent (r,g,b = 0)
+
+	// Use (c*a + 128) * 257 >> 16  to approximate (c*a)/255 with good rounding
+	u32 ra = ((r * a + 128) * 257) >> 16;
+	u32 ga = ((g * a + 128) * 257) >> 16;
+	u32 ba = ((b * a + 128) * 257) >> 16;
+
+	return (a << 24) | (ba << 16) | (ga << 8) | ra;
+}
+
+// vibe-coded
+void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels) {
+	if (!dst || !src || numPixels == 0)
+		return;
+
+	u32 i = 0;
+
+#if PPSSPP_ARCH(SSE2)
+	// SSE2 path: process 4 pixels at a time (16 bytes)
+	const u32 stride = 4;
+	const u32 vecCount = numPixels / stride;
+
+	// constants
+	const __m128i zero8 = _mm_setzero_si128();
+	const __m128i const128_16 = _mm_set1_epi16((short)128); // for adding 128 (16-bit lanes)
+	const __m128i mul257_32 = _mm_set1_epi32(257); // multiply 32-bit by 257
+	const __m128i alphaMask = _mm_set1_epi32(0xFF000000u);
+	// SSE2 path: 4 pixels per iteration
+	for (; i + 3 < numPixels; i += 4)
+	{
+		// load 4 pixels
+		__m128i px = _mm_loadu_si128((const __m128i*)(src + i)); // 16 bytes
+
+		// read alpha bytes directly (RGBA little-endian)
+		const uint8_t* s = (const uint8_t*)(src + i);
+		const int a0 = s[3];
+		const int a1 = s[7];
+		const int a2 = s[11];
+		const int a3 = s[15];
+
+		// build 16-bit alpha vectors per pixel, A-lane = 256
+		__m128i lo = _mm_setr_epi16(a0, a0, a0, 256, a1, a1, a1, 256);
+		__m128i hi = _mm_setr_epi16(a2, a2, a2, 256, a3, a3, a3, 256);
+
+		// expand bytes -> 16-bit lanes
+		__m128i zero8 = _mm_setzero_si128();
+		__m128i lo16 = _mm_unpacklo_epi8(px, zero8); // R0,G0,B0,A0,R1,G1,B1,A1
+		__m128i hi16 = _mm_unpackhi_epi8(px, zero8); // R2,G2,B2,A2,R3,G3,B3,A3
+
+		// multiply 16-bit lanes by alpha multipliers (truncate)
+		__m128i prod_lo = _mm_mullo_epi16(lo16, lo);
+		__m128i prod_hi = _mm_mullo_epi16(hi16, hi);
+
+		// shift right by 8
+		__m128i res_lo = _mm_srli_epi16(prod_lo, 8);
+		__m128i res_hi = _mm_srli_epi16(prod_hi, 8);
+
+		// pack back to bytes
+		__m128i out = _mm_packus_epi16(res_lo, res_hi);
+
+		// store result
+		_mm_storeu_si128((__m128i*)(dst + i), out);
+	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	// NEON path (4 pixels per iteration)
+	for (; i + 3 < numPixels; i += 4)
+	{
+		// load 4 pixels as bytes
+		uint8x16_t v = vld1q_u8((const uint8_t*)(src + i)); // R0,G0,B0,A0, R1,G1,B1,A1, ...
+
+		// widen to 16-bit lanes
+		uint16x8_t lo16 = vmovl_u8(vget_low_u8(v));   // R0,G0,B0,A0, R1,G1,B1,A1
+		uint16x8_t hi16 = vmovl_u8(vget_high_u8(v));  // R2,G2,B2,A2, R3,G3,B3,A3
+
+		// read alphas directly from src memory
+		const uint8_t* s = (const uint8_t*)src + i * 4;
+		const uint16_t a0 = s[3];
+		const uint16_t a1 = s[7];
+		const uint16_t a2 = s[11];
+		const uint16_t a3 = s[15];
+
+		// build alpha vectors (MSVC-friendly, compact)
+		uint16x4_t lo = vdup_n_u16(a0);          // R0,G0,B0,A0
+		lo = vset_lane_u16(256u, lo, 3);        // A-lane = 256
+		uint16x4_t hi = vdup_n_u16(a1);         // R1,G1,B1,A1
+		hi = vset_lane_u16(256u, hi, 3);        // A-lane = 256
+		uint16x8_t alpha_lo = vcombine_u16(lo, hi);
+
+		lo = vdup_n_u16(a2);                     // R2,G2,B2,A2
+		lo = vset_lane_u16(256u, lo, 3);
+		hi = vdup_n_u16(a3);                     // R3,G3,B3,A3
+		hi = vset_lane_u16(256u, hi, 3);
+		uint16x8_t alpha_hi = vcombine_u16(lo, hi);
+
+		// Multiply 16-bit lanes: result fits in 16-bit (truncate shift)
+		uint16x8_t prod_lo = vmulq_u16(lo16, alpha_lo);
+		uint16x8_t prod_hi = vmulq_u16(hi16, alpha_hi);
+
+		// shift right by 8
+		uint16x8_t res_lo = vshrq_n_u16(prod_lo, 8);
+		uint16x8_t res_hi = vshrq_n_u16(prod_hi, 8);
+
+		// narrow to bytes
+		uint8x16_t out = vcombine_u8(vqmovn_u16(res_lo), vqmovn_u16(res_hi));
+
+		// store 4 pixels
+		vst1q_u8((uint8_t*)(dst + i), out);
+	}
+#endif // NEON
+
+	// Scalar fallback for remaining pixels (or if above SIMD not present)
+	for (; i < numPixels; ++i) {
+		dst[i] = premul_pixel_scalar(src[i]);
+	}
+}

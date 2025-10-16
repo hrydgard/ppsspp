@@ -982,6 +982,26 @@ void CreditsScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 }
 
+void CreditsScreen::touch(const TouchInput &touch) {
+	UIScreen::touch(touch);
+	if (touch.id != 0)
+		return;
+
+	if (touch.flags & TOUCH_DOWN) {
+		dragYStart_ = touch.y;
+		dragYOffsetStart_ = dragOffset_;
+	}
+	if (touch.flags & TOUCH_UP) {
+		dragYStart_ = -1.0f;
+	}
+	if (touch.flags & TOUCH_MOVE) {
+		if (dragYStart_ >= 0.0f) {
+			dragOffset_ = dragYOffsetStart_ + (touch.y - dragYStart_);
+		}
+	}
+}
+
+
 void CreditsScreen::DrawForeground(UIContext &dc) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
@@ -1148,7 +1168,7 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 
 	float t = (float)(time_now_d() - startTime_) * 60.0;
 
-	float y = bounds.y2() - fmodf(t, (float)totalHeight);
+	float y = bounds.y2() - fmodf(t - dragOffset_, (float)totalHeight);
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		uint32_t textColor = colorAlpha(dc.GetTheme().infoStyle.fgColor, alpha);

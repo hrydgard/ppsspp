@@ -919,7 +919,7 @@ bool CreateGlobalPipelines() {
 	}
 
 	InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
-	BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::ONE, BlendFactor::ONE_MINUS_SRC_ALPHA });
 	DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
 	RasterState *rasterNoCull = g_draw->CreateRasterState({});
 

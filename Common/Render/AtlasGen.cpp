@@ -14,6 +14,7 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Format/ZIMSave.h"
 #include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Convert/ColorConv.h"
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
@@ -55,6 +56,10 @@ bool Image::LoadPNG(const char *png_name) {
 	memcpy(dat.data(), img_data, 4 * w * h);
 	free(img_data);
 	return true;
+}
+
+void Image::ConvertToPremultipliedAlpha() {
+	ConvertRGBA8888ToPremulAlpha(dat.data(), dat.data(), w * h);
 }
 
 void Image::SavePNG(const char *png_name) {
@@ -226,6 +231,29 @@ static void blurAlpha(const std::vector<float> &src, std::vector<float> &dst, in
 	}
 }
 
+static inline uint32_t Over_ABGR(uint32_t front, uint32_t back) {
+	const uint32_t fr = front & 0xFFu;
+	const uint32_t fg = (front >> 8) & 0xFFu; // green
+	const uint32_t fb = (front >> 16) & 0xFFu;
+	const uint32_t fa = (front >> 24) & 0xFFu;
+
+	const uint32_t br = back & 0xFFu;
+	const uint32_t bg = (back >> 8) & 0xFFu; // green
+	const uint32_t bb = (back >> 16) & 0xFFu;
+	const uint32_t ba = (back >> 24) & 0xFFu;
+
+	const uint32_t invA = 255u - fa;
+
+	// multiply then divide by 255 with rounding equivalent to (x*invA + 127)/255
+	uint32_t outr = fr + (uint32_t)((br * invA + 127u) / 255u);
+	uint32_t outg = fg + (uint32_t)((bg * invA + 127u) / 255u);
+	uint32_t outb = fb + (uint32_t)((bb * invA + 127u) / 255u);
+	uint32_t outa = fa + (uint32_t)((ba * invA + 127u) / 255u);
+
+	// pack back to ABGR
+	return (outa << 24) | (outb << 16) | (outg << 8) | outr;
+}
+
 void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	int radius = std::max(1, (int)(shadowSize * img.scale));
 
@@ -249,7 +277,7 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 	// Target buffer with transparent background
 	std::vector<u32> newData(newW * newH, 0);
 
-	// Draw the computeed shadow first (black, blurred alpha)
+	// Draw the computed shadow first (black, blurred alpha - automatically premultiplied).
 	for (int y = 0; y < newH; y++) {
 		for (int x = 0; x < newW; x++) {
 			float a = blurred[y * newW + x];
@@ -264,10 +292,9 @@ void AddDropShadow(Image &img, int shadowSize, float intensity) {
 		for (int x = 0; x < img.w; x++) {
 			u32 c = img.dat[y * img.w + x];
 			if ((c >> 24) & 0xFF) {
-				float c_alpha = ((c >> 24) & 0xFF) * (1.0f / 255.0f);
 				int nx = x + radius;
 				int ny = y + radius;
-				newData[ny * newW + nx] = colorBlend(c, newData[ny * newW + nx], c_alpha);
+				newData[ny * newW + nx] = Over_ABGR(c, newData[ny * newW + nx]);
 			}
 		}
 	}

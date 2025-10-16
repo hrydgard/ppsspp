@@ -161,6 +161,7 @@ public:
 	CreditsScreen();
 	void update() override;
 	void DrawForeground(UIContext &ui) override;
+	void touch(const TouchInput &touch) override;
 
 	void CreateViews() override;
 
@@ -175,6 +176,9 @@ private:
 	void OnX(UI::EventParams &e);
 
 	double startTime_ = 0.0;
+	double dragYStart_ = -1.0;
+	double dragOffset_ = 0.0;
+	double dragYOffsetStart_ = 0.0;
 };
 
 class SettingInfoMessage : public UI::LinearLayout {

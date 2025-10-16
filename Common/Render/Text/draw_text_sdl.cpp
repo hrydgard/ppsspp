@@ -371,8 +371,9 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 		for (int x = 0; x < entry.bmWidth; x++) {
 			for (int y = 0; y < entry.bmHeight; y++) {
-				uint64_t index = entry.bmWidth * y + x;
-				bitmapData16[index] = 0xfff0 | (imageData[pitch * y + x] >> 28);
+				const uint64_t index = entry.bmWidth * y + x;
+				const u16 alpha = AlphaToPremul4444(imageData[pitch * y + x]);
+				bitmapData16[index] = alpha;
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {

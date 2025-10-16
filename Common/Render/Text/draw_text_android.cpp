@@ -144,11 +144,12 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t v = jimage[imageWidth * y + x];
-				v = 0xFFF0 | ((v >> 28) & 0xF);  // Grab the upper bits from the alpha channel, and put directly in the 16-bit alpha channel.
-				bitmapData16[entry.bmWidth * y + x] = (uint16_t)v;
+				// Premultiplied alpha: Put alpha in all four channels.
+				bitmapData16[entry.bmWidth * y + x] = AlphaToPremul4444(v >> 24);
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		// We only get here if swizzle is possible, so we can duplicate the value to all four channels.
 		bitmapData.resize(entry.bmWidth * entry.bmHeight);
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {

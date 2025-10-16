@@ -87,3 +87,6 @@
 
 #define __forceinline inline __attribute__((always_inline))
 #endif
+
+// Easy way to printf string_views (note: The formatting specifier is "%.*s", not "%s")
+#define STR_VIEW(sv) (int)(sv).size(), (sv).data()
