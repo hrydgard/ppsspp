@@ -1321,7 +1321,10 @@ void MainScreen::CreateViews() {
 		}
 	}
 
-	rightColumnChoices->Add(new Spacer(25.0));
+	if (!vertical) {
+		rightColumnChoices->Add(new Spacer(25.0));
+	}
+
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
