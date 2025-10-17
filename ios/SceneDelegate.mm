@@ -32,7 +32,12 @@
 		NSLog(@"✅ Window already exists, not creating again!");
 		return;
 	}
+	self.windowScene = windowScene;
+	[self launchPPSSPP];
+}
 
+-(void) launchPPSSPP {
+	INFO_LOG(Log::G3D, "SceneDelegate: Launching PPSSPP");
 	AppDelegate *appDelegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
 	NSDictionary *launchOptions = appDelegate.launchOptions;
 
@@ -50,7 +55,7 @@
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
 
-	self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
+	self.window = [[UIWindow alloc] initWithWindowScene:self.windowScene];
 //	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
 	// Choose viewcontroller depending on backend.
@@ -87,7 +92,7 @@
 	NativeShutdown();
 
 	// Launch a fresh instance
-	[self launchPPSSPP:0 argv:nullptr];
+	[self launchPPSSPP];
 
 	// Notify new view controller
 	[self.viewController didBecomeActive];
