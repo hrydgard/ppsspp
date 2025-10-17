@@ -364,7 +364,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Mov:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(&mips->f[inst->src1]));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vld1q_f32(&mips->f[inst->src1]));
@@ -376,7 +376,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Add:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vaddq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -389,7 +389,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Sub:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vsubq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -402,7 +402,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Mul:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vmulq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -415,7 +415,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Div:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_div_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vdivq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -428,7 +428,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Scale:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vmulq_lane_f32(vld1q_f32(&mips->f[inst->src1]), vdup_n_f32(mips->f[inst->src2]), 0));
@@ -442,7 +442,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Neg:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_xor_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)signBits)));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vnegq_f32(vld1q_f32(&mips->f[inst->src1])));
@@ -455,7 +455,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Abs:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_and_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)noSignMask)));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vabsq_f32(vld1q_f32(&mips->f[inst->src1])));
@@ -490,15 +490,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Unpack8To32:
 		{
-#if defined(_M_SSE)
+			// Used in Gran Turismo
+#if PPSSPP_ARCH(SSE2)
 			__m128i src = _mm_cvtsi32_si128(mips->fi[inst->src1]);
 			src = _mm_unpacklo_epi8(src, _mm_setzero_si128());
 			src = _mm_unpacklo_epi16(src, _mm_setzero_si128());
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], _mm_slli_epi32(src, 24));
-#elif PPSSPP_ARCH(ARM_NEON) && 0 // Untested
+#elif PPSSPP_ARCH(ARM_NEON)
 			const uint8x8_t value = (uint8x8_t)vdup_n_u32(mips->fi[inst->src1]);
 			const uint16x8_t value16 = vmovl_u8(value);
-			const uint32x4_t value32 = vshll_n_u16(vget_low_u16(value16), 24);
+			const uint32x4_t value32 = vshlq_n_u32(vshll_n_u16(vget_low_u16(value16), 8), 16);  // note: vshll has a range limited to 0..16
 			vst1q_u32(&mips->fi[inst->dest], value32);
 #else
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
@@ -540,17 +541,17 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Pack31To8:
 		{
-			// Used in Tekken 6
+			// Used in Tekken 6, Gran Turismo
 
-			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
+			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy
+			// to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
-#if PPSSPP_ARCH(ARM_NEON) && 0
-			// Untested
+#if PPSSPP_ARCH(ARM_NEON)
 			uint32x4_t value = vld1q_u32(&mips->fi[inst->src1]);
 			value = vshlq_n_u32(value, 1);
-			uint32x2_t halved = vshrn_n_u32(value, 8);
-			uint32x2_t halvedAgain = vshrn_n_u32(vcombine_u32(halved, vdup_n_u32(0)), 8);
-			mips->fi[inst->dest] = vget_lane_u32(halvedAgain, 0);
+			uint16x4_t halved = vshrn_n_u32(value, 16);
+			uint8x8_t halvedAgain = vshrn_n_u16(vcombine_u16(halved, vdup_n_u16(0)), 8);
+			mips->fi[inst->dest] = vget_lane_u32(vreinterpret_u32_u8(halvedAgain), 0);
 #else
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
 			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
@@ -572,12 +573,18 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4ClampToZero:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			// Trickery: Expand the sign bit, and use andnot to zero negative values.
 			__m128i val = _mm_load_si128((const __m128i *)&mips->fi[inst->src1]);
 			__m128i mask = _mm_srai_epi32(val, 31);
 			val = _mm_andnot_si128(mask, val);
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
+#elif PPSSPP_ARCH(ARM_NEON)
+			// On ARM we use a compare. On ARM64 we could also do a shift like on x86.
+			int32x4_t val = vld1q_s32((const int32_t *)&mips->fi[inst->src1]);
+			uint32x4_t mask = vcgtq_s32(val, vdupq_n_s32(-1));  // val > -1 → keeps >= 0
+			val = vandq_s32(val, vreinterpretq_s32_u32(mask));  // zero out negative lanes
+			vst1q_s32((int32_t *)&mips->fi[inst->dest], val);
 #else
 			const int src1 = inst->src1;
 			const int dest = inst->dest;
