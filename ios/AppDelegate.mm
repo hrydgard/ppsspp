@@ -1,7 +1,5 @@
 #import "AppDelegate.h"
-#import "ViewControllerCommon.h"
-#import "ViewController.h"
-#import "ViewControllerMetal.h"
+#import "SceneDelegate.h"
 #import "iOSCoreAudio.h"
 #import "Common/System/System.h"
 #import "Common/System/NativeApp.h"
@@ -11,6 +9,12 @@
 #import "IAPManager.h"
 
 #import <AVFoundation/AVFoundation.h>
+#import <objc/runtime.h>
+
+// TODO: Unfortunate hack to force link SceneDelegate class.
+// This is necessary because otherwise classes from static libraries aren't loaded.
+// We should move all the iOS code into the main binary directly to avoid this problem.
+__attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate class];
 
 @implementation AppDelegate
 
@@ -77,49 +81,21 @@
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-	int argc = 1;
-	char *argv[5]{};
-	NSURL *nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
-
-	if (nsUrl != nullptr && nsUrl.isFileURL) {
-		NSString *nsString = nsUrl.path;
-		const char *string = nsString.UTF8String;
-		argv[argc++] = (char*)string;
+	self.launchOptions = launchOptions;
+	// Make sure SceneDelegate class is loaded
+	Class cls = objc_getClass("SceneDelegate");
+	if (!cls) {
+		NSLog(@"⚠️ SceneDelegate not found via objc_getClass");
+	} else {
+		NSLog(@"✅ SceneDelegate loaded via objc_getClass");
 	}
-
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
 
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
 #endif  // IOS_APP_STORE
 
-	return [self launchPPSSPP:argc argv:argv];
-}
-
-- (BOOL)launchPPSSPP:(int)argc argv:(char**)argv;
-{
-	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
-
-	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-
-	// Choose viewcontroller depending on backend.
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		PPSSPPViewControllerMetal *vc = [[PPSSPPViewControllerMetal alloc] init];
-
-		self.viewController = vc;
-		self.window.rootViewController = vc;
-
-	} else {
-		PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
-		// Here we can switch viewcontroller depending on backend.
-		self.viewController = vc;
-		self.window.rootViewController = vc;
-	}
-
-	[self.window makeKeyAndVisible];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
 
 	return YES;
 }
@@ -128,49 +104,7 @@
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)restart:(const char*)restartArgs {
-	INFO_LOG(Log::G3D, "Restart requested: %s", restartArgs);
-	[self.viewController willResignActive];
-	[self.viewController shutdown];
-	self.window.rootViewController = nil;
-	self.viewController = nil;
-
-	// App was requested to restart, probably.
-	INFO_LOG(Log::G3D, "viewController nilled");
-
-	NativeShutdown();
-
-	// TODO: Ignoring the command line for now.
-	// Hoping that overwriting the viewController works as expected...
-	[self launchPPSSPP:0 argv:nullptr];
-	[self.viewController didBecomeActive];
-}
-
-- (void)applicationWillResignActive:(UIApplication *)application {
-	INFO_LOG(Log::G3D, "willResignActive");
-
-	[self.viewController willResignActive];
-
-	if (g_Config.bEnableSound) {
-		iOSCoreAudioShutdown();
-	}
-
-	System_PostUIMessage(UIMessage::LOST_FOCUS);
-}
-
-- (void)applicationDidBecomeActive:(UIApplication *)application {
-	INFO_LOG(Log::G3D, "didBecomeActive");
-	if (g_Config.bEnableSound) {
-		iOSCoreAudioInit();
-	}
-
-	System_PostUIMessage(UIMessage::GOT_FOCUS);
-	[self.viewController didBecomeActive];
-}
-
 - (void)applicationWillTerminate:(UIApplication *)application {
-	// Seems like a bad idea.
-	// exit(0);
 }
 
 @end

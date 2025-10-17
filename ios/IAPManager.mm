@@ -215,4 +215,12 @@ static bool SafeStringEqual(NSString *a, NSString *b) {
 	}
 }
 
+- (void)productsRequest:(nonnull SKProductsRequest *)request didReceiveResponse:(nonnull SKProductsResponse *)response { 
+	NSLog(@"Ignoring [productsRequest]");
+}
+
+- (void)paymentQueue:(nonnull SKPaymentQueue *)queue updatedTransactions:(nonnull NSArray<SKPaymentTransaction *> *)transactions { 
+	NSLog(@"Ignoring [paymentQueue]");
+}
+
 @end
