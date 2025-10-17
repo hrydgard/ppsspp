@@ -354,8 +354,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			const int constant = inst->constant;
 			// 90% of calls to this is inst->constant == 7 or inst->constant == 8. Some are 1 and 4, others very rare.
 			// Could use _mm_blendv_ps (SSE4+BMI), vbslq_f32 (ARM), __riscv_vmerge_vvm (RISC-V)
+			float temp[4];
 			for (int i = 0; i < 4; i++)
-				mips->f[dest + i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
+				temp[i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
+			for (int i = 0; i < 4; i++)
+				mips->f[dest + i] = temp[i];
 			break;
 		}
 
@@ -467,8 +470,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			const int dest = inst->dest;
 			const int src1 = inst->src1;
-			mips->fi[dest] = (mips->fi[src1] << 16) >> 1;
-			mips->fi[dest + 1] = (mips->fi[src1] & 0xFFFF0000) >> 1;
+			const int temp0 = (mips->fi[src1] << 16) >> 1;
+			const int temp1 = (mips->fi[src1] & 0xFFFF0000) >> 1;
+			mips->fi[dest] = temp0;
+			mips->fi[dest + 1] = temp1;
 			break;
 		}
 
@@ -476,8 +481,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			const int dest = inst->dest;
 			const int src1 = inst->src1;
-			mips->fi[dest] = (mips->fi[src1] << 16);
-			mips->fi[dest + 1] = (mips->fi[src1] & 0xFFFF0000);
+			const int temp0 = (mips->fi[src1] << 16);
+			const int temp1 = (mips->fi[src1] & 0xFFFF0000);
+			mips->fi[dest] = temp0;
+			mips->fi[dest + 1] = temp1;
 			break;
 		}
 
@@ -556,10 +563,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2ClampToZero:
 		{
-			for (int i = 0; i < 2; i++) {
-				u32 val = mips->fi[inst->src1 + i];
-				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
-			}
+			const u32 temp0 = mips->fi[inst->src1];
+			const u32 temp1 = mips->fi[inst->src1 + 1];
+			mips->fi[inst->dest] = (int)temp0 >= 0 ? temp0 : 0;
+			mips->fi[inst->dest + 1] = (int)temp1 >= 0 ? temp1 : 0;
 			break;
 		}
 
@@ -586,12 +593,15 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			const int src1 = inst->src1;
 			const int dest = inst->dest;
+			u32 temp[4];
 			for (int i = 0; i < 4; i++) {
 				u32 val = mips->fi[src1 + i];
 				val = val | (val >> 8);
 				val = val | (val >> 16);
-				val >>= 1;
-				mips->fi[dest + i] = val;
+				temp[i] = val >> 1;
+			}
+			for (int i = 0; i < 4; i++) {
+				mips->fi[dest + i] = temp[i];
 			}
 			break;
 		}
