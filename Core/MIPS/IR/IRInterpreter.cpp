@@ -354,8 +354,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			const int constant = inst->constant;
 			// 90% of calls to this is inst->constant == 7 or inst->constant == 8. Some are 1 and 4, others very rare.
 			// Could use _mm_blendv_ps (SSE4+BMI), vbslq_f32 (ARM), __riscv_vmerge_vvm (RISC-V)
+			float temp[4];
 			for (int i = 0; i < 4; i++)
-				mips->f[dest + i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
+				temp[i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
+			for (int i = 0; i < 4; i++)
+				mips->f[dest + i] = temp[i];
 			break;
 		}
 
