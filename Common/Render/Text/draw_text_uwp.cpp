@@ -326,9 +326,9 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 				if (fullColor) {
 					if (swap)
 						v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
-					bitmapData32[entry.bmWidth * y + x] = v;
+					bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(v);
 				} else {
-					bitmapData32[entry.bmWidth * y + x] = (v << 24) | 0xFFFFFF;
+					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(v >> 24);
 				}
 			}
 		}

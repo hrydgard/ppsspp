@@ -212,7 +212,7 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint8_t bAlpha = (uint8_t)(ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff);
-				bitmapData32[entry.bmWidth * y + x] = (bAlpha << 24) | 0x00ffffff;
+				bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(bAlpha);
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {

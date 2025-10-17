@@ -272,10 +272,10 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t color = bitmap[bmWidth * y + x];
 				if (fullColor) {
-					bitmapData32[entry.bmWidth * y + x] = color;
+					bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(color);
 				} else {
 					// Don't know why we'd end up here, but let's support it.
-					bitmapData32[entry.bmWidth * y + x] = (color << 24) | 0xFFFFFF;
+					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(color);
 				}
 			}
 		}
