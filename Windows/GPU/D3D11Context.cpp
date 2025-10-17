@@ -188,7 +188,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
 #ifndef __LIBRETRO__  // their build server uses an old SDK
-	// Extra guard against Win7 drivers that pretend to support DXGIFactory5 but don't really.
+	// This Win10 check should not be needed, see issue #20877. But it can't hurt, plus the user did report that it helped (which makes little sense
+	// unless there's a broken driver).
 	if (IsWin10OrHigher()) {
 		ComPtr<IDXGIFactory5> dxgiFactory5;
 		hr = dxgiFactory.As(&dxgiFactory5);

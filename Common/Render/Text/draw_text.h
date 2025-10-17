@@ -92,6 +92,25 @@ protected:
 		v |= v << 8;
 		return v;
 	}
+	static u32 AlphaToPremul8888(u32 v) {
+		v |= v << 8;
+		v |= v << 16;
+		return v;
+	}
+	static u32 RGBAToPremul8888(u32 v) {
+		u32 a = (v >> 24) & 0xFF;
+		if (a == 0xFF)
+			return v;
+		if (a == 0)
+			return 0;
+		u32 r = (v >> 16) & 0xFF;
+		u32 g = (v >> 8) & 0xFF;
+		u32 b = v & 0xFF;
+		r = (r * a + 127) / 255;
+		g = (g * a + 127) / 255;
+		b = (b * a + 127) / 255;
+		return (a << 24) | (r << 16) | (g << 8) | b;
+	}
 
 	struct CacheKey {
 		bool operator < (const CacheKey &other) const {

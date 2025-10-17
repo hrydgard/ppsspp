@@ -165,7 +165,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 				uint32_t v = jimage[imageWidth * y + x];
 				// Swap R and B, for some reason.
 				v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
-				bitmapData32[entry.bmWidth * y + x] = v;
+				bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(v);
 			}
 		}
 	} else {
