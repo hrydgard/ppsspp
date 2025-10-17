@@ -202,6 +202,15 @@ static bool DefaultVSync() {
 #endif
 }
 
+static int DefaultVulkanPresentMode() {
+#if PPSSPP_PLATFORM(IOS)
+	// iOS only supports FIFO.
+	return (int)PresentMode::Fifo;
+#else
+	return (int)PresentMode::Mailbox;
+#endif
+}
+
 static bool DefaultEnableStateUndo() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	// Off on mobile to save disk space.
@@ -730,7 +739,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VSync", &g_Config.bVSync, &DefaultVSync, CfgFlag::PER_GAME),
-	ConfigSetting("VulkanPresentMode", &g_Config.iVulkanPresentationMode, (int)PresentMode::Mailbox, CfgFlag::PER_GAME),
+	ConfigSetting("VulkanPresentMode", &g_Config.iVulkanPresentationMode, &DefaultVulkanPresentMode, CfgFlag::PER_GAME),
 	ConfigSetting("BloomHack", &g_Config.iBloomHack, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	// Not really a graphics setting...
