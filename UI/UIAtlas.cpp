@@ -90,6 +90,8 @@ static const ImageMeta imageIDs[] = {
 	{"I_FLAG_HK", false},
 	{"I_FLAG_AS", false},
 	{"I_FLAG_KO", false},
+	{"I_FLAG_HB", false},
+	{"I_FLAG_ZZ", false},
 	{"I_FULLSCREEN", false},
 	{"I_RESTORE", false},
 	{"I_SDCARD", false},
