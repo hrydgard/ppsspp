@@ -138,9 +138,8 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	// NOTE: This is not necessarily the same as the actual present mode.
 	snprintf(statBuf, sizeof(statBuf),
-		"Timing mode (interval): %s (%d)",
-		Draw::PresentModeToString(g_frameTiming.presentMode),
-		g_frameTiming.presentInterval);
+		"Timing mode (interval): %s",
+		Draw::PresentModeToString(g_frameTiming.presentMode));
 
 	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 

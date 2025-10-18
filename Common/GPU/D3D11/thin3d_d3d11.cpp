@@ -160,7 +160,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(PresentMode presentMode, int vblanks) override;
+	void Present(PresentMode presentMode) override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -478,12 +478,12 @@ void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D11DrawContext::Present(PresentMode presentMode, int vblanks) {
+void D3D11DrawContext::Present(PresentMode presentMode) {
 	frameTimeHistory_[frameCount_].queuePresent = time_now_d();
 
 	// Safety for libretro
 	if (swapChain_) {
-		uint32_t interval = vblanks;
+		uint32_t interval = 1;
 		uint32_t flags = 0;
 		if (presentMode != PresentMode::FIFO) {
 			interval = 0;

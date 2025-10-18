@@ -3098,6 +3098,7 @@ bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer) {
 	draw->GetFramebufferDimensions(nullptr, &w, &h);
 	Draw::DataFormat fmt = draw->PreferredFramebufferReadbackFormat(nullptr);
 	// Ignore preferred formats other than BGRA.
+	_dbg_assert_(fmt == Draw::DataFormat::B8G8R8A8_UNORM || fmt == Draw::DataFormat::R8G8B8A8_UNORM);
 	if (fmt != Draw::DataFormat::B8G8R8A8_UNORM)
 		fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 

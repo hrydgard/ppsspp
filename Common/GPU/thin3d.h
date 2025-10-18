@@ -587,6 +587,10 @@ enum class PresentMode {
 };
 ENUM_CLASS_BITOPS(PresentMode);
 
+inline bool PresentationModeBlocks(PresentMode mode) {
+	return mode & (PresentMode::FIFO | PresentMode::FIFO_RELAXED | PresentMode::FIFO_LATEST_READY);
+}
+
 struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
@@ -856,9 +860,8 @@ public:
 	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
 
-	// vblanks is only relevant in FIFO present mode.
-	// NOTE: Not all backends support vblanks > 1. Some backends also can't change presentation mode immediately.
-	virtual void Present(PresentMode presentMode, int vblanks) = 0;
+	// Some backends also can't change presentation mode immediately.
+	virtual void Present(PresentMode presentMode) = 0;
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.

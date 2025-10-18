@@ -584,7 +584,7 @@ void __DisplayFlip(int cyclesLate) {
 
 	Draw::DrawContext *draw = gpu->GetDrawContext();
 	if (draw) {
-		g_frameTiming.presentMode = ComputePresentMode(draw, &g_frameTiming.presentInterval);
+		g_frameTiming.presentMode = ComputePresentMode(draw);
 		if (!draw->GetDeviceCaps().presentInstantModeChange && g_frameTiming.presentMode == Draw::PresentMode::FIFO) {
 			// Some backends can't just flip into MAILBOX/IMMEDIATE mode instantly.
 			// Vulkan doesn't support the interval setting, so we force skipping the flip.
@@ -594,7 +594,6 @@ void __DisplayFlip(int cyclesLate) {
 	} else {
 		// Surely can never get here?
 		g_frameTiming.presentMode = Draw::PresentMode::FIFO;
-		g_frameTiming.presentInterval = 1;
 	}
 
 	if (!g_Config.bSkipBufferEffects) {

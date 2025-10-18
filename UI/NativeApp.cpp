@@ -1206,9 +1206,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		ClearFailedGPUBackends();
 	}
 
-	int interval;
-	Draw::PresentMode presentMode = ComputePresentMode(g_draw, &interval);
-	g_draw->Present(presentMode, interval);
+	Draw::PresentMode presentMode = ComputePresentMode(g_draw);
+	g_draw->Present(presentMode);
 
 	if (resized) {
 		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds");
