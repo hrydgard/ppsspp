@@ -498,16 +498,21 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	const int regionIndex = (int)ginfo->region;
-	if (g_Config.bShowRegionOnGameIcon && regionIndex >= 0 && regionIndex < (int)GameRegion::COUNT) {
-		const ImageID regionIcons[(int)GameRegion::COUNT] = {
+	if (g_Config.bShowRegionOnGameIcon) {
+		const ImageID regionIcons[(int)GameRegion::FLAG_COUNT] = {
 			ImageID("I_FLAG_JP"),
 			ImageID("I_FLAG_US"),
 			ImageID("I_FLAG_EU"),
 			ImageID("I_FLAG_HK"),
 			ImageID("I_FLAG_AS"),
 			ImageID("I_FLAG_KO"),
+			ImageID("I_FLAG_HB"),
+			ImageID("I_FLAG_ZZ"),
 		};
+		int regionIndex = (int)ginfo->region;
+		if (regionIndex >= (int)GameRegion::FLAG_COUNT || regionIndex < 0) {
+			regionIndex = (int)GameRegion::FLAG_COUNT - 1;
+		}
 		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
 		if (image) {
 			if (gridStyle_) {
