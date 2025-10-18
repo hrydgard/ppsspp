@@ -237,7 +237,6 @@ void GameButton::Draw(UIContext &dc) {
 		style = dc.GetTheme().itemDownStyle;
 
 	if (!gridStyle_ || !texture) {
-		h = 50;
 		if (HasFocus())
 			style = down_ ? dc.GetTheme().itemDownStyle : dc.GetTheme().itemFocusedStyle;
 
@@ -321,10 +320,10 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	if (gridStyle_ && ginfo->fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
-		// Super simple drawing for ge dumps.
+		// Super simple drawing for GE dumps.
 		dc.PushScissor(bounds_);
 		const std::string currentTitle = ginfo->GetTitle();
-		dc.SetFontScale(0.6f, 0.6f);
+		dc.SetFontScale(0.6f * g_Config.fGameGridScale, 0.6f * g_Config.fGameGridScale);
 		dc.DrawText(title_, bounds_.x + 4.0f, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_LEFT);
 		dc.SetFontScale(1.0f, 1.0f);
 		title_ = currentTitle;
@@ -484,10 +483,15 @@ void DirButton::Draw(UIContext &dc) {
 		dc.SetFontScale(g_Config.fGameGridScale, g_Config.fGameGridScale);
 	}
 	if (compact) {
-		// No icon, except "up"
+		// No folder icon, except "up"
 		dc.PushScissor(bounds_);
 		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
 			dc.DrawText(text, bounds_.x + 5, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			if (pinned_) {
+				ImageID pinID = ImageID("I_PIN");
+				const AtlasImage *pinImg = dc.Draw()->GetAtlas()->getImage(pinID);
+				dc.Draw()->DrawImage(pinID, bounds_.x + bounds_.w - pinImg->w * g_Config.fGameGridScale, bounds_.y, g_Config.fGameGridScale);
+			}
 		} else {
 			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), gridStyle_ ? g_Config.fGameGridScale : 1.0, style.fgColor, ALIGN_CENTER);
 		}
@@ -921,8 +925,6 @@ void GameBrowser::Refresh() {
 			pinnedDir->OnClick.Handle(this, &GameBrowser::NavigateClick);
 			pinnedDir->SetPinned(true);
 		}
-
-		// Add a separator?
 	}
 
 	if (listingPending_) {
