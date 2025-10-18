@@ -8,10 +8,8 @@
 
 @property (strong, nonatomic) UIWindow *window;
 @property (strong, nonatomic) UIScreen *screen;
+@property (nonatomic, strong) NSDictionary *launchOptions;
 
-@property (strong, nonatomic) id<PPSSPPViewController> viewController;
-
-- (void)restart:(const char *)args;
 - (BOOL)launchPPSSPP:(int)argc argv:(char**)argv;
 
 @end

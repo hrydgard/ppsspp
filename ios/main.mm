@@ -26,6 +26,7 @@
 #import "ViewController.h"
 #import "iOSCoreAudio.h"
 #import "IAPManager.h"
+#import "SceneDelegate.h"
 
 #include "Common/MemoryUtil.h"
 #include "Common/Audio/AudioBackend.h"
@@ -439,7 +440,18 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
 		dispatch_async(dispatch_get_main_queue(), ^{
-			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart:param1.c_str()];
+			// Get the connected scenes
+			NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
+
+			// Loop through scenes to find a UIWindowScene that is active
+			for (UIScene *scene in scenes) {
+				if ([scene isKindOfClass:[UIWindowScene class]]) {
+					UIWindowScene *windowScene = (UIWindowScene *)scene;
+					SceneDelegate *sceneDelegate = (SceneDelegate *)windowScene.delegate;
+					[sceneDelegate restart:param1.c_str()];
+					break; // call only on the first active scene
+				}
+			}
 		});
 		return true;
 

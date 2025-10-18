@@ -1531,7 +1531,7 @@ void LaunchBuyGold(ScreenManager *screenManager) {
 		screenManager->push(new IAPScreen());
 	} else {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");
 #elif PPSSPP_PLATFORM(ANDROID)
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else

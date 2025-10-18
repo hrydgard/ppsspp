@@ -31,7 +31,7 @@
 #include "Common/UI/Context.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/VR/PPSSPPVR.h"
-
+#include "Common/BitSet.h"
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
@@ -376,36 +376,40 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			"FIFO: relaxed",
 			"FIFO (higher latency, framerate stability)",
 		};
-		UI::PopupMultiChoice *presentationMode = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iVulkanPresentationMode, gr->T("Frame presentation mode"), presentationModes, 0, ARRAY_SIZE(presentationModes), I18NCat::GRAPHICS, screenManager()));
-		presentationMode->SetChoiceIcon(0, ImageID("I_WARNING"));
-		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE)) {
-			presentationMode->HideChoice(0);
-		}
-		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX)) {
-			presentationMode->HideChoice(1);
-		}
-		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_LATEST_READY)) {
-			presentationMode->HideChoice(2);
-		}
-		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_RELAXED)) {
-			presentationMode->HideChoice(3);
-		}
-		if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO)) {
-			presentationMode->HideChoice(4);
-		}
 
-		// Force the setting to a good supported mode if the current one is not supported, otherwise this will look weird.
-		if (presentationMode->IsChoiceHidden(g_Config.iVulkanPresentationMode)) {
-			if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
-				g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::MAILBOX;
-			} else if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) {
-				g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::FIFO;
+		// If only one mode is supported (like FIFO on iOS), no need to show the option.
+		if (CountSetBits((u32)draw->GetDeviceCaps().presentModesSupported) > 1) {
+			UI::PopupMultiChoice *presentationMode = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iVulkanPresentationMode, gr->T("Frame presentation mode"), presentationModes, 0, ARRAY_SIZE(presentationModes), I18NCat::GRAPHICS, screenManager()));
+			presentationMode->SetChoiceIcon(0, ImageID("I_WARNING"));
+			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE)) {
+				presentationMode->HideChoice(0);
 			}
-		}
+			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX)) {
+				presentationMode->HideChoice(1);
+			}
+			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_LATEST_READY)) {
+				presentationMode->HideChoice(2);
+			}
+			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_RELAXED)) {
+				presentationMode->HideChoice(3);
+			}
+			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO)) {
+				presentationMode->HideChoice(4);
+			}
 
-		presentationMode->OnChoice.Add([=](EventParams &e) {
-			NativeResized();
-		});
+			// Force the setting to a good supported mode if the current one is not supported, otherwise this will look weird.
+			if (presentationMode->IsChoiceHidden(g_Config.iVulkanPresentationMode)) {
+				if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
+					g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::MAILBOX;
+				} else if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) {
+					g_Config.iVulkanPresentationMode = (int)Draw::PresentMode::FIFO;
+				}
+			}
+
+			presentationMode->OnChoice.Add([=](EventParams &e) {
+				NativeResized();
+			});
+		}
 	} else {
 		// All backends support FIFO. Check if any immediate modes are supported, if so we can allow the user to choose.
 		if (draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::IMMEDIATE | Draw::PresentMode::MAILBOX)) {

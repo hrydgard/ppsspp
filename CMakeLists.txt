@@ -1340,6 +1340,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/main.mm
 		ios/AppDelegate.mm
 		ios/AppDelegate.h
+		ios/SceneDelegate.mm
+		ios/SceneDelegate.h
 		ios/DisplayManager.h
 		ios/DisplayManager.mm
 		ios/Controls.h
@@ -2964,7 +2966,7 @@ endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
 	if(IOS_APP_STORE)
-		set(DEPLOYMENT_TARGET 12.0)
+		set(DEPLOYMENT_TARGET 13.0)
 	else()
 		set(DEPLOYMENT_TARGET 11.0)
 	endif()
