@@ -503,7 +503,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(PresentMode presentMode, int vblanks) override;
+	void Present(PresentMode presentMode) override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -1141,10 +1141,7 @@ void VKContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void VKContext::Present(PresentMode presentMode, int vblanks) {
-	if (presentMode == PresentMode::FIFO) {
-		_dbg_assert_(vblanks == 0 || vblanks == 1);
-	}
+void VKContext::Present(PresentMode presentMode) {
 	renderManager_.Present();
 	frameCount_++;
 }

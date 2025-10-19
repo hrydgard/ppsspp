@@ -261,7 +261,7 @@ static const std::vector<ShaderSource> fsCol = {
 	"float4 main(PS_INPUT input) : SV_Target {\n"
 	"  float4 col = input.color;\n"
 	"  col.rgb *= input.color.a;\n"
-	"  return input.color;\n"
+	"  return col;\n"
 	"}\n"
 	},
 	{ ShaderLanguage::GLSL_VULKAN,

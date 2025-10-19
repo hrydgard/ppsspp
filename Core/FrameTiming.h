@@ -16,7 +16,6 @@ public:
 
 	// Some backends won't allow changing this willy nilly.
 	Draw::PresentMode presentMode;
-	int presentInterval;
 
 private:
 	double waitUntil_;
@@ -25,6 +24,6 @@ private:
 
 extern FrameTiming g_frameTiming;
 
-Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval);
+Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw);
 
 void WaitUntil(double now, double timestamp, const char *reason);

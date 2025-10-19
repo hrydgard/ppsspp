@@ -67,10 +67,8 @@ inline Draw::PresentMode GetBestImmediateMode(Draw::PresentMode supportedModes) 
 void FrameTiming::Reset(Draw::DrawContext *draw) {
 	if (g_Config.bVSync || !(draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::MAILBOX | Draw::PresentMode::IMMEDIATE))) {
 		presentMode = Draw::PresentMode::FIFO;
-		presentInterval = 1;
 	} else {
 		presentMode = GetBestImmediateMode(draw->GetDeviceCaps().presentModesSupported);
-		presentInterval = 0;
 	}
 }
 
@@ -91,7 +89,7 @@ void FrameTiming::PostSubmit() {
 	}
 }
 
-Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
+Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw) {
 	_assert_(draw);
 
 	Draw::PresentMode mode = Draw::PresentMode::FIFO;
@@ -140,6 +138,5 @@ Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
 		}
 	}
 
-	*interval = (mode == Draw::PresentMode::FIFO) ? 1 : 0;
 	return mode;
 }
