@@ -106,6 +106,19 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.topology = desc->topology;
+	inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+#if PPSSPP_PLATFORM(MAC)
+	if (vulkan->GetWindowSystem() == WindowSystem::WINDOWSYSTEM_METAL_EXT) {
+		if (desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP ||
+		    desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN ||
+			desc->topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP) {
+			// Metal requires primitive restart to be on to not warn - having it off
+			// simply isn't supported.
+			inputAssembly.primitiveRestartEnable = VK_TRUE;
+		}
+	}
+#endif
 
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;

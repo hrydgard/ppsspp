@@ -170,7 +170,7 @@ void OSXOpenURL(const char *url) {
             {
                 GlobalUIState state = GetUIState();
                 item.enabled = state == UISTATE_INGAME ? YES : NO;
-                printf("Setting enabled state to %d\n", (int)item.enabled);
+                // printf("Setting enabled state to %d\n", (int)item.enabled);
                 break;
             }
             default:
