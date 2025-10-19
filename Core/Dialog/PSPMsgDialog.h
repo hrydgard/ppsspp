@@ -68,7 +68,7 @@ public:
 
 protected:
 	bool UseAutoStatus() override {
-		return false;
+		return true;
 	}
 
 private:
