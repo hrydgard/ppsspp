@@ -141,7 +141,6 @@ private slots:
 		}
 	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
-	void frameSkippingTypeGroup_triggered(QAction *action) { g_Config.iFrameSkipType = action->data().toInt(); }
 	void textureFilteringGroup_triggered(QAction *action) { g_Config.iTexFiltering = action->data().toInt(); }
 	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iDisplayFilter = action->data().toInt(); }
 	void textureScalingLevelGroup_triggered(QAction *action) {
@@ -161,7 +160,6 @@ private slots:
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
-	void frameskipTypeAct() { g_Config.iFrameSkipType = !g_Config.iFrameSkipType; }
 
 	// Sound
 	void audioAct() {
@@ -209,8 +207,7 @@ private:
 	QActionGroup *windowGroup,
 	             *textureScalingLevelGroup, *textureScalingTypeGroup,
 	             *screenScalingFilterGroup, *textureFilteringGroup,
-	             *frameSkippingTypeGroup, *frameSkippingGroup,
-	             *renderingResolutionGroup,
+	             *frameSkippingGroup, *renderingResolutionGroup,
 	             *displayRotationGroup, *saveStateGroup;
 
 	std::queue<MainWindowMsg> msgQueue_;

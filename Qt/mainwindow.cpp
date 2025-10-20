@@ -99,7 +99,6 @@ void MainWindow::updateMenus()
 	updateMenuGroupInt(displayRotationGroup, g_Config.iInternalScreenRotation);
 	updateMenuGroupInt(renderingResolutionGroup, g_Config.iInternalResolution);
 	updateMenuGroupInt(frameSkippingGroup, g_Config.iFrameSkip);
-	updateMenuGroupInt(frameSkippingTypeGroup, g_Config.iFrameSkipType);
 	updateMenuGroupInt(textureFilteringGroup, g_Config.iTexFiltering);
 	updateMenuGroupInt(screenScalingFilterGroup, g_Config.iDisplayFilter);
 	updateMenuGroupInt(textureScalingLevelGroup, g_Config.iTexScalingLevel);
@@ -626,10 +625,6 @@ void MainWindow::createMenus()
 	frameSkippingGroup = new MenuActionGroup(this, frameSkippingMenu, SLOT(frameSkippinGroup_triggered(QAction *)),
 		QStringList() << "&Off" << "&1" << "&2" << "&3" << "&4" << "&5" << "&6" << "&7" << "&8",
 		QList<int>() << 0 << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8);
-	MenuTree* frameSkippingTypeMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Frame skipping type"));
-	frameSkippingTypeGroup = new MenuActionGroup(this, frameSkippingTypeMenu, SLOT(frameSkippingTypeGroup_triggered(QAction *)),
-		QStringList() << "Skip number of frames" << "Skip percent of FPS",
-		QList<int>() << 0 << 1);
 	MenuTree* textureFilteringMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Te&xture filtering"));
 	textureFilteringGroup = new MenuActionGroup(this, textureFilteringMenu, SLOT(textureFilteringGroup_triggered(QAction *)),
 		QStringList() << "&Auto" << "&Nearest" << "&Linear" << "Auto Max &Quality",
