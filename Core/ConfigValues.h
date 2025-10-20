@@ -152,9 +152,7 @@ GPUBackend GPUBackendFromString(std::string_view backend);
 enum class PresentMode {
 	Immediate = 0,  // VK_PRESENT_MODE_IMMEDIATE_KHR
 	Mailbox = 1,    // VK_PRESENT_MODE_MAILBOX_KHR
-	FifoLatestReady = 2, // VK_PRESENT_MODE_FIFO_LATEST_READY_KHR
-	FifoRelaxed = 3, // VK_PRESENT_MODE_FIFO_RELAXED_KHR
-	Fifo = 4,       // VK_PRESENT_MODE_FIFO_KHR
+	Fifo = 2,       // VK_PRESENT_MODE_FIFO_KHR
 };
 
 // For iIOTimingMethod.

@@ -372,8 +372,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		static const char *presentationModes[] = {
 			"Immediate (lower latency, tearing)",
 			"Mailbox (lower latency, recommended)",
-			"FIFO: latest ready",
-			"FIFO: relaxed",
 			"FIFO (higher latency, framerate stability)",
 		};
 
@@ -387,14 +385,8 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX)) {
 				presentationMode->HideChoice(1);
 			}
-			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_LATEST_READY)) {
-				presentationMode->HideChoice(2);
-			}
-			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO_RELAXED)) {
-				presentationMode->HideChoice(3);
-			}
 			if (!(draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO)) {
-				presentationMode->HideChoice(4);
+				presentationMode->HideChoice(2);
 			}
 
 			// Force the setting to a good supported mode if the current one is not supported, otherwise this will look weird.

@@ -430,10 +430,8 @@ public:
 	PresentMode GetPresentMode() const {
 		switch (vulkan_->GetPresentMode()) {
 		case VK_PRESENT_MODE_FIFO_KHR: return PresentMode::FIFO;
-		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return PresentMode::FIFO_RELAXED;  // We treat is as FIFO for now (and won't ever enable it anyway...)
 		case VK_PRESENT_MODE_IMMEDIATE_KHR: return PresentMode::IMMEDIATE;
 		case VK_PRESENT_MODE_MAILBOX_KHR: return PresentMode::MAILBOX;
-		case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR: return PresentMode::FIFO_LATEST_READY;
 		default: return PresentMode::FIFO;
 		}
 	}
@@ -944,8 +942,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
 		case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
 		case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
-		case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR: caps_.presentModesSupported |= PresentMode::FIFO_LATEST_READY; break;
-		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: caps_.presentModesSupported |= PresentMode::FIFO_RELAXED; break;
 		default: break;  // Ignore any other modes.
 		}
 	}

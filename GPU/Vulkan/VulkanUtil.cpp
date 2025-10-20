@@ -43,10 +43,6 @@ VkPresentModeKHR ConfigPresentModeToVulkan() {
 		return VK_PRESENT_MODE_IMMEDIATE_KHR;
 	case PresentMode::Mailbox:
 		return VK_PRESENT_MODE_MAILBOX_KHR;
-	case PresentMode::FifoLatestReady:
-		return VK_PRESENT_MODE_FIFO_LATEST_READY_KHR;
-	case PresentMode::FifoRelaxed:
-		return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
 	case PresentMode::Fifo:
 	default:
 		return VK_PRESENT_MODE_FIFO_KHR;
