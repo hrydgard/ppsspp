@@ -822,6 +822,16 @@ void OpenGLContext::Present(PresentMode presentMode) {
 		_dbg_assert_(false);
 	}
 
+	// NOTE: SwapInterval has repeat protection, won't call glSwapInterval if the value is the same as current.
+	switch (presentMode) {
+	case PresentMode::FIFO:
+		renderManager_.SwapInterval(1);
+		break;
+	case PresentMode::IMMEDIATE:
+		renderManager_.SwapInterval(0);
+		break;
+	}
+
 	renderManager_.Present();
 	frameCount_++;
 	requestedPresentMode_ = presentMode;
