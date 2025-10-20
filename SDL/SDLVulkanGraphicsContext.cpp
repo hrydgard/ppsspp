@@ -128,18 +128,19 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 		break;
 	}
 
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	bool useMultiThreading = g_Config.bRenderMultiThreading;
+	if (g_Config.iInflightFrames == 1) {
+		useMultiThreading = false;
+	}
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
+
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 	if (!vulkan_->InitSwapchain(presentMode)) {
 		*error_message = vulkan_->InitError();
 		Shutdown();
 		return false;
 	}
 
-	bool useMultiThreading = g_Config.bRenderMultiThreading;
-	if (g_Config.iInflightFrames == 1) {
-		useMultiThreading = false;
-	}
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	_assert_(success);
@@ -170,7 +171,7 @@ void SDLVulkanGraphicsContext::Resize() {
 	// NOTE: Removing DestroySwapchain here causes a double re-create on MacOS with MoltenVK, for some reason.
 	// It's like passing on oldSwapchain doesn't really work as expected.
 	vulkan_->DestroySwapchain();
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 	vulkan_->InitSwapchain(presentMode);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }

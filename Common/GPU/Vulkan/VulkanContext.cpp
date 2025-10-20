@@ -946,10 +946,10 @@ void VulkanContext::SetDebugNameImpl(uint64_t handle, VkObjectType type, const c
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
-	if (winsysData1_ != data1) {
+	if (winsysData1_ != data1 && winsysData1_ != 0) {
 		WARN_LOG(Log::G3D, "winsysData1 changed from %p to %p", winsysData1_, data1);
 	}
-	if (winsysData2_ != data2) {
+	if (winsysData2_ != data2 && winsysData2_ != 0) {
 		WARN_LOG(Log::G3D, "winsysData2 changed from %p to %p", winsysData2_, data2);
 	}
 	winsysData1_ = data1;

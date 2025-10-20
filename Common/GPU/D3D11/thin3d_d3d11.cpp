@@ -161,6 +161,13 @@ public:
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
 	void Present(PresentMode presentMode) override;
+	PresentMode GetCurrentPresentMode() const override {
+		if (currentInterval_ == 1) {
+			return PresentMode::FIFO;
+		} else {
+			return PresentMode::IMMEDIATE;
+		}
+	}
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -272,6 +279,8 @@ private:
 	D3D_FEATURE_LEVEL featureLevel_;
 	std::string adapterDesc_;
 	std::vector<std::string> deviceList_;
+
+	int currentInterval_ = -1;
 };
 
 D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
@@ -492,6 +501,7 @@ void D3D11DrawContext::Present(PresentMode presentMode) {
 #endif
 		}
 		swapChain_->Present(interval, flags);
+		currentInterval_ = interval;
 	}
 
 	curRenderTargetView_.Reset();

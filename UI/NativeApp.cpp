@@ -1179,7 +1179,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 
-	g_frameTiming.Reset(g_draw);
+	// Can be overridden by sceDisplay which may pass true for the second argument.
+	g_frameTiming.ComputePresentMode(g_draw, false);
 
 	g_draw->BeginFrame(debugFlags);
 
@@ -1206,8 +1207,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		ClearFailedGPUBackends();
 	}
 
-	Draw::PresentMode presentMode = ComputePresentMode(g_draw);
-	g_draw->Present(presentMode);
+	g_draw->Present(g_frameTiming.PresentMode());
 
 	if (resized) {
 		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds");

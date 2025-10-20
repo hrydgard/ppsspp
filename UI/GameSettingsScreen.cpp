@@ -355,6 +355,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	}
 #endif
 
+	graphicsSettings->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+
+	graphicsSettings->Add(new ItemHeader(gr->T("Display")));
+
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)
 		graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -366,28 +370,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
 		}
 #endif
-
-	// If only one mode is supported (like FIFO on iOS), no need to show the options.
-	if (CountSetBits((u32)draw->GetDeviceCaps().presentModesSupported) > 1) {
-		// Immediate means non-synchronized, tearing.
-		if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) {
-			CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
-			vSync->OnClick.Add([=](EventParams &e) {
-				NativeResized();  // TODO: Remove
-			});
-		}
-		if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
-			CheckBox *lowLatency = graphicsSettings->Add(new CheckBox(&g_Config.bLowLatencyPresent, gr->T("Low latency presentation")));
-			lowLatency->OnClick.Add([=](EventParams &e) {
-				NativeResized();  // TODO: Remove
-			});
-
-			// If the immediate mode is supported, we can tie low latency present to VSync.
-			if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) {
-				lowLatency->SetEnabledPtr(&g_Config.bVSync);
-			}
-		}
-	}
 
 #if PPSSPP_PLATFORM(ANDROID)
 		// Hide Immersive Mode on pre-kitkat Android
@@ -403,7 +385,27 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		});
 	}
 
-	graphicsSettings->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+	// If only one mode is supported (like FIFO on iOS), no need to show the options.
+	if (CountSetBits((u32)draw->GetDeviceCaps().presentModesSupported) > 1) {
+		// Immediate means non-synchronized, tearing.
+		if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) {
+			CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+			vSync->OnClick.Add([=](EventParams &e) {
+				NativeResized();  // TODO: Remove
+			});
+		}
+		if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
+			CheckBox *lowLatency = graphicsSettings->Add(new CheckBox(&g_Config.bLowLatencyPresent, gr->T("Low latency display")));
+			lowLatency->OnClick.Add([=](EventParams &e) {
+				NativeResized();  // TODO: Remove
+			});
+
+			// If the immediate mode is supported, we can tie low latency present to VSync.
+			if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) {
+				lowLatency->SetEnabledPtr(&g_Config.bVSync);
+			}
+		}
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};

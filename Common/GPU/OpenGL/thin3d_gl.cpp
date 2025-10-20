@@ -368,6 +368,9 @@ public:
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
 	void Present(PresentMode mode) override;
+	PresentMode GetCurrentPresentMode() const override {
+		return requestedPresentMode_;
+	}
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -527,6 +530,8 @@ private:
 		GLPushBuffer *push;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
+
+	PresentMode requestedPresentMode_{};
 };
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -812,8 +817,14 @@ void OpenGLContext::EndFrame() {
 }
 
 void OpenGLContext::Present(PresentMode presentMode) {
+	if ((caps_.presentModesSupported & presentMode) == 0) {
+		ERROR_LOG(Log::G3D, "Present mode %d not supported", (int)presentMode);
+		_dbg_assert_(false);
+	}
+
 	renderManager_.Present();
 	frameCount_++;
+	requestedPresentMode_ = presentMode;
 }
 
 void OpenGLContext::Invalidate(InvalidationFlags flags) {

@@ -605,24 +605,6 @@ struct ConfigTranslator {
 
 typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
 
-static int FastForwardModeFromString(const std::string &s) {
-	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
-		return (int)FastForwardMode::CONTINUOUS;
-	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
-		return (int)FastForwardMode::SKIP_FLIP;
-	return DefaultFastForwardMode();
-}
-
-static std::string FastForwardModeToString(int v) {
-	switch (FastForwardMode(v)) {
-	case FastForwardMode::CONTINUOUS:
-		return "CONTINUOUS";
-	case FastForwardMode::SKIP_FLIP:
-		return "SKIP_FLIP";
-	}
-	return "CONTINUOUS";
-}
-
 static std::string DefaultInfrastructureUsername() {
 	// If the user has already picked a Nickname that satisfies the rules and is not "PPSSPP",
 	// let's use that.
@@ -718,7 +700,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("VSync", &g_Config.bVSync, true, CfgFlag::PER_GAME),
+	ConfigSetting("VerticalSync", &g_Config.bVSync, true, CfgFlag::PER_GAME),
 	ConfigSetting("LowLatencyPresent", &g_Config.bLowLatencyPresent, true, CfgFlag::PER_GAME),
 	ConfigSetting("BloomHack", &g_Config.iBloomHack, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 

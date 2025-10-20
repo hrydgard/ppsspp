@@ -501,7 +501,21 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
+
 	void Present(PresentMode presentMode) override;
+	PresentMode GetCurrentPresentMode() const override {
+		switch (vulkan_->GetPresentMode()) {
+		case VK_PRESENT_MODE_IMMEDIATE_KHR:
+			return PresentMode::IMMEDIATE;
+		case VK_PRESENT_MODE_MAILBOX_KHR:
+			return PresentMode::MAILBOX;
+		case VK_PRESENT_MODE_FIFO_KHR:
+		case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+		case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR:
+		default:
+			return PresentMode::FIFO;
+		}
+	}
 
 	int GetFrameCount() override {
 		return frameCount_;

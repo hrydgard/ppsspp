@@ -132,14 +132,19 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	char statBuf[1024]{};
 
+	Draw::DrawContext *draw = ctx->GetDrawContext();
+
 	ctx->Flush();
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 
 	// NOTE: This is not necessarily the same as the actual present mode.
 	snprintf(statBuf, sizeof(statBuf),
-		"Timing mode (interval): %s",
-		Draw::PresentModeToString(g_frameTiming.presentMode));
+		"Presentation mode: %s Needs skip: %s\n"
+		"Actual presentation mode: %s",
+		Draw::PresentModeToString(g_frameTiming.PresentMode()),
+		g_frameTiming.FastForwardNeedsSkipFlip() ? "true" : "false"),
+		Draw::PresentModeToString(draw->GetCurrentPresentMode());
 
 	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 

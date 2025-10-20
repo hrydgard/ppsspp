@@ -860,6 +860,7 @@ public:
 
 	// Some backends also can't change presentation mode immediately.
 	virtual void Present(PresentMode presentMode) = 0;
+	virtual PresentMode GetCurrentPresentMode() const = 0;
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.
