@@ -203,7 +203,6 @@ public:
 	bool bShowImDebugger;
 
 	int iFrameSkip;
-	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
 	bool bAutoFrameSkip;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
