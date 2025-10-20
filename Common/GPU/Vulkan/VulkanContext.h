@@ -182,7 +182,6 @@ public:
 		int app_ver;
 		VulkanInitFlags flags;
 		std::string customDriver;
-		VkPresentModeKHR presentMode;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
@@ -218,7 +217,8 @@ public:
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
 	VkResult ReinitSurface();
 
-	bool InitSwapchain();
+	// If the present mode is not available, will fall back to the first available (which is almost always FIFO).
+	bool InitSwapchain(VkPresentModeKHR desiredPresentMode);
 	void SetCbGetDrawSize(std::function<VkExtent2D()>);
 
 	void DestroySwapchain();

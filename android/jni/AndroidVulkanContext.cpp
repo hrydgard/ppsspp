@@ -70,8 +70,9 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		return false;
 	}
 
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
 	bool success = false;
-	if (g_Vulkan->InitSwapchain()) {
+	if (g_Vulkan->InitSwapchain(presentMode)) {
 		bool useMultiThreading = g_Config.bRenderMultiThreading;
 		if (g_Config.iInflightFrames == 1) {
 			useMultiThreading = false;
@@ -120,20 +121,15 @@ void AndroidVulkanContext::Shutdown() {
 
 void AndroidVulkanContext::Resize() {
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	VulkanContext::CreateInfo info{};
-	InitVulkanCreateInfoFromConfig(&info);
-
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroySwapchain();
 
 	// TODO: We should only destroy the surface here if the window changed. We can track this inside g_Vulkan.
-
 	g_Vulkan->DestroySurface();
-
-	g_Vulkan->UpdateCreateInfo(info);
-
 	g_Vulkan->ReinitSurface();
-	g_Vulkan->InitSwapchain();
+
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	g_Vulkan->InitSwapchain(presentMode);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }

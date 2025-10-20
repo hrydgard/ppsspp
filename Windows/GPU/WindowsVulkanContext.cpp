@@ -116,7 +116,9 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 
 	vulkan_->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
-	if (!vulkan_->InitSwapchain()) {
+
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	if (!vulkan_->InitSwapchain(presentMode)) {
 		*error_message = vulkan_->InitError();
 		Shutdown();
 		return false;
@@ -164,9 +166,8 @@ void WindowsVulkanContext::Shutdown() {
 
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	VulkanContext::CreateInfo info{};
-	InitVulkanCreateInfoFromConfig(&info);
-	vulkan_->InitSwapchain();
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	vulkan_->InitSwapchain(presentMode);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 

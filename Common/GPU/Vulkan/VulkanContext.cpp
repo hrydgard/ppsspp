@@ -197,11 +197,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, 0)) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
 	}
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-	if (EnableInstanceExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, 0)) {
-
-	}
-#endif
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
@@ -1345,7 +1340,7 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 	return str;
 }
 
-bool VulkanContext::InitSwapchain() {
+bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 	_assert_(physical_device_ >= 0 && physical_device_ < (int)physical_devices_.size());
 	if (!surface_) {
 		ERROR_LOG(Log::G3D, "VK: No surface, can't create swapchain");
@@ -1418,7 +1413,7 @@ bool VulkanContext::InitSwapchain() {
 
 	// Kind of silly logic now, but at least it performs a final sanity check of the chosen value.
 	for (size_t i = 0; i < presentModeCount; i++) {
-		bool match = presentModes[i] == createInfo_.presentMode;
+		bool match = presentModes[i] == desiredPresentMode;
 		// Default to the first present mode from the list.
 		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
 			swapchainPresentMode = presentModes[i];

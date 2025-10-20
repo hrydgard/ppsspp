@@ -89,5 +89,5 @@ private:
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error);
 
-VkPresentModeKHR ConfigPresentModeToVulkan(PresentMode presentMode);
+VkPresentModeKHR ConfigPresentModeToVulkan();
 void InitVulkanCreateInfoFromConfig(VulkanContext::CreateInfo *info);
