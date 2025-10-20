@@ -197,11 +197,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, 0)) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
 	}
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-	if (EnableInstanceExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, 0)) {
-
-	}
-#endif
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
@@ -397,6 +392,8 @@ void VulkanContext::DestroySurface() {
 	if (surface_ != VK_NULL_HANDLE) {
 		vkDestroySurfaceKHR(instance_, surface_, nullptr);
 		surface_ = VK_NULL_HANDLE;
+
+		// NOTE: We do not reset winSysData1 and 2, it's useful for debugging to compare them.
 	}
 }
 
@@ -935,6 +932,12 @@ void VulkanContext::SetDebugNameImpl(uint64_t handle, VkObjectType type, const c
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
+	if (winsysData1_ != data1) {
+		WARN_LOG(Log::G3D, "winsysData1 changed from %p to %p", winsysData1_, data1);
+	}
+	if (winsysData2_ != data2) {
+		WARN_LOG(Log::G3D, "winsysData2 changed from %p to %p", winsysData2_, data2);
+	}
 	winsysData1_ = data1;
 	winsysData2_ = data2;
 	return ReinitSurface();
@@ -1337,11 +1340,15 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 	return str;
 }
 
-bool VulkanContext::InitSwapchain() {
+bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 	_assert_(physical_device_ >= 0 && physical_device_ < (int)physical_devices_.size());
 	if (!surface_) {
 		ERROR_LOG(Log::G3D, "VK: No surface, can't create swapchain");
 		return false;
+	}
+
+	if (swapchain_) {
+		INFO_LOG(Log::G3D, "Swapchain already exists, recreating...");
 	}
 
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
@@ -1406,7 +1413,7 @@ bool VulkanContext::InitSwapchain() {
 
 	// Kind of silly logic now, but at least it performs a final sanity check of the chosen value.
 	for (size_t i = 0; i < presentModeCount; i++) {
-		bool match = presentModes[i] == createInfo_.presentMode;
+		bool match = presentModes[i] == desiredPresentMode;
 		// Default to the first present mode from the list.
 		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
 			swapchainPresentMode = presentModes[i];
@@ -1496,6 +1503,8 @@ bool VulkanContext::InitSwapchain() {
 		}
 	}
 
+	VkSwapchainKHR oldSwapchain = swapchain_;
+
 	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
@@ -1506,7 +1515,7 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.preTransform = preTransform;
 	swap_chain_info.imageArrayLayers = 1;
 	swap_chain_info.presentMode = swapchainPresentMode;
-	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
+	swap_chain_info.oldSwapchain = swapchain_;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -1535,6 +1544,11 @@ bool VulkanContext::InitSwapchain() {
 	}
 	INFO_LOG(Log::G3D, "Created swapchain: %dx%d %s", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height, (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ? "(TRANSFER_SRC_BIT supported)" : "");
 	swapchainInited_ = true;
+
+	if (oldSwapchain != VK_NULL_HANDLE) {
+		vkDestroySwapchainKHR(device_, oldSwapchain, nullptr);
+		INFO_LOG(Log::G3D, "Destroyed old swapchain.");
+	}
 	return true;
 }
 

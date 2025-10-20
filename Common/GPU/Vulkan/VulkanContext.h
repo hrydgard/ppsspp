@@ -52,6 +52,7 @@ template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
 
 // Not all will be usable on all platforms, of course...
 enum WindowSystem {
+	WINDOWSYSTEM_UNINITIALIZED,
 #ifdef _WIN32
 	WINDOWSYSTEM_WIN32,
 #endif
@@ -181,7 +182,6 @@ public:
 		int app_ver;
 		VulkanInitFlags flags;
 		std::string customDriver;
-		VkPresentModeKHR presentMode;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
@@ -217,7 +217,8 @@ public:
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
 	VkResult ReinitSurface();
 
-	bool InitSwapchain();
+	// If the present mode is not available, will fall back to the first available (which is almost always FIFO).
+	bool InitSwapchain(VkPresentModeKHR desiredPresentMode);
 	void SetCbGetDrawSize(std::function<VkExtent2D()>);
 
 	void DestroySwapchain();
@@ -450,7 +451,7 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-	WindowSystem winsys_{};
+	WindowSystem winsys_ = WINDOWSYSTEM_UNINITIALIZED;
 
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.

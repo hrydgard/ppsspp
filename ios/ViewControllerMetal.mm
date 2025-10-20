@@ -41,7 +41,7 @@ enum class GraphicsContextState {
 
 class IOSVulkanContext : public GraphicsContext {
 public:
-	IOSVulkanContext();
+	IOSVulkanContext() {}
 	~IOSVulkanContext() {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
@@ -64,8 +64,6 @@ private:
 	GraphicsContextState state_ = GraphicsContextState::PENDING;
 };
 
-IOSVulkanContext::IOSVulkanContext() {}
-
 bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBackbufferSizeX, int desiredBackbufferSizeY) {
 	INFO_LOG(Log::G3D, "IOSVulkanContext::InitFromRenderThread: desiredwidth=%d desiredheight=%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
 	if (!g_Vulkan) {
@@ -79,33 +77,30 @@ bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBack
 		return false;
 	}
 
-	bool success = true;
-	if (g_Vulkan->InitSwapchain()) {
-		bool useMultiThreading = g_Config.bRenderMultiThreading;
-		if (g_Config.iInflightFrames == 1) {
-			useMultiThreading = false;
-		}
-		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, useMultiThreading);
-		SetGPUBackend(GPUBackend::VULKAN);
-		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-		_assert_msg_(success, "Failed to compile preset shaders");
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-
-		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->SetInflightFrames(g_Config.iInflightFrames);
-		success = renderManager->HasBackbuffers();
-	} else {
-		success = false;
-	}
-
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
-	if (!success) {
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	if (!g_Vulkan->InitSwapchain(presentMode)) {
+		ERROR_LOG(Log::G3D, "InitSwapchain failed");
 		g_Vulkan->DestroySwapchain();
 		g_Vulkan->DestroySurface();
 		g_Vulkan->DestroyDevice();
 		g_Vulkan->DestroyInstance();
+		return false;
 	}
-	return success;
+
+	bool useMultiThreading = g_Config.bRenderMultiThreading;
+	if (g_Config.iInflightFrames == 1) {
+		useMultiThreading = false;
+	}
+
+	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, useMultiThreading);
+	SetGPUBackend(GPUBackend::VULKAN);
+	bool shaderSuccess = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
+	_assert_msg_(shaderSuccess, "Failed to compile preset shaders");
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager->SetInflightFrames(g_Config.iInflightFrames);
+	return true;
 }
 
 void IOSVulkanContext::ShutdownFromRenderThread() {
@@ -135,13 +130,9 @@ void IOSVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->DestroySurface();
-
-	VulkanContext::CreateInfo info{};
-	InitVulkanCreateInfoFromConfig(&info);
-	g_Vulkan->UpdateCreateInfo(info);
-
 	g_Vulkan->ReinitSurface();
-	g_Vulkan->InitSwapchain();
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	g_Vulkan->InitSwapchain(presentMode);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	INFO_LOG(Log::G3D, "IOSVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }

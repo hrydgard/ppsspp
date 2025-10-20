@@ -174,7 +174,6 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrie
 	return true;
 }
 
-
 void VulkanQueueRunner::DestroyBackBuffers() {
 	if (depth_.view) {
 		vulkan_->Delete().QueueDeleteImageView(depth_.view);
@@ -551,10 +550,10 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					if (rc.offset.y < minScissorY) {
 						minScissorY = rc.offset.y;
 					}
-					if (rc.offset.x + rc.extent.width > maxScissorX) {
+					if (rc.offset.x + (int)rc.extent.width > maxScissorX) {
 						maxScissorX = rc.offset.x + rc.extent.width;
 					}
-					if (rc.offset.y + rc.extent.height > maxScissorY) {
+					if (rc.offset.y + (int)rc.extent.height > maxScissorY) {
 						maxScissorY = rc.offset.y + rc.extent.height;
 					}
 					break;
