@@ -896,6 +896,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread, frameTimeHistory_) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
+	// Make sure that the surface has been initialized.
+	_dbg_assert_(vulkan->GetAvailablePresentModes().size() > 0);
+
 	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
@@ -935,6 +938,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.presentMaxInterval = 1;
 	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
 	caps_.presentModesSupported = (PresentMode)0;
+
 	for (auto mode : vulkan->GetAvailablePresentModes()) {
 		switch (mode) {
 		case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;

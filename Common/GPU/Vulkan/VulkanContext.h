@@ -288,6 +288,7 @@ public:
 		VkPhysicalDevicePresentWaitFeaturesKHR presentWait;
 		VkPhysicalDevicePresentIdFeaturesKHR presentId;
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
+		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
