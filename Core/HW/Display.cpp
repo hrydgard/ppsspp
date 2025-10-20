@@ -296,18 +296,6 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 	}), flipListeners.end());
 }
 
-int DisplayCalculateFrameSkip() {
-	int frameSkipNum;
-	if (g_Config.iFrameSkipType == 1) {
-		// Calculate the frames to skip dynamically using the set percentage of the current fps
-		frameSkipNum = (int)ceil(flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00));
-	} else {
-		// Use the set number of frames to skip
-		frameSkipNum = g_Config.iFrameSkip;
-	}
-	return frameSkipNum;
-}
-
 void DisplayHWReset() {
 	frameStartTicks = 0;
 	numVBlanks = 0;

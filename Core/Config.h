@@ -203,7 +203,6 @@ public:
 	bool bShowImDebugger;
 
 	int iFrameSkip;
-	int iFrameSkipType;
 	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
 	bool bAutoFrameSkip;
 

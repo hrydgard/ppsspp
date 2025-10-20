@@ -424,7 +424,7 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	int frameSkipNum = DisplayCalculateFrameSkip();
+	int frameSkipNum = g_Config.iFrameSkip;
 	if (g_Config.bAutoFrameSkip && !g_Config.bSkipBufferEffects) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
@@ -673,7 +673,7 @@ void __DisplayFlip(int cyclesLate) {
 	DoFrameTiming(throttle, &skipFrame, scaledTimestep, nextFrame);
 
 	int maxFrameskip = 8;
-	int frameSkipNum = DisplayCalculateFrameSkip();
+	const int frameSkipNum = g_Config.iFrameSkip;
 	if (throttle) {
 		// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
 		maxFrameskip = frameSkipNum;

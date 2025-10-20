@@ -733,15 +733,6 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.iFrameSkip = atoi(var.value);
 
-   var.key = "ppsspp_frameskiptype";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "Number of frames"))
-         g_Config.iFrameSkipType = 0;
-      else if (!strcmp(var.value, "Percent of FPS"))
-         g_Config.iFrameSkipType = 1;
-   }
-
    var.key = "ppsspp_auto_frameskip";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
