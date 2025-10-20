@@ -174,7 +174,6 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrie
 	return true;
 }
 
-
 void VulkanQueueRunner::DestroyBackBuffers() {
 	if (depth_.view) {
 		vulkan_->Delete().QueueDeleteImageView(depth_.view);

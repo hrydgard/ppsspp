@@ -164,7 +164,6 @@ void WindowsVulkanContext::Shutdown() {
 
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	vulkan_->DestroySwapchain();
 	VulkanContext::CreateInfo info{};
 	InitVulkanCreateInfoFromConfig(&info);
 	vulkan_->InitSwapchain();

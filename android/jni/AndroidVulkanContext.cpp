@@ -120,13 +120,16 @@ void AndroidVulkanContext::Shutdown() {
 
 void AndroidVulkanContext::Resize() {
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	VulkanContext::CreateInfo info{};
+	InitVulkanCreateInfoFromConfig(&info);
 
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroySwapchain();
+
+	// TODO: We should only destroy the surface here if the window changed. We can track this inside g_Vulkan.
+
 	g_Vulkan->DestroySurface();
 
-	VulkanContext::CreateInfo info{};
-	InitVulkanCreateInfoFromConfig(&info);
 	g_Vulkan->UpdateCreateInfo(info);
 
 	g_Vulkan->ReinitSurface();

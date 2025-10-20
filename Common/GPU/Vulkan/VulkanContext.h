@@ -52,6 +52,7 @@ template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
 
 // Not all will be usable on all platforms, of course...
 enum WindowSystem {
+	WINDOWSYSTEM_UNINITIALIZED,
 #ifdef _WIN32
 	WINDOWSYSTEM_WIN32,
 #endif
@@ -450,7 +451,7 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-	WindowSystem winsys_{};
+	WindowSystem winsys_ = WINDOWSYSTEM_UNINITIALIZED;
 
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.
