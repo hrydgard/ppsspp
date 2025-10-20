@@ -169,8 +169,13 @@ public:
 	bool bCameraMirrorHorizontal;
 	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
 	int iDisplayRefreshRate = 60;
-	int iVulkanPresentationMode;
+
+	// These two combined choose the presentation mode.
+	// vsync = false: Immediate
+	// vsync = true, low latency present = true: Mailbox
+	// vsync = true, low latency present = false: FIFO
 	bool bVSync;
+	bool bLowLatencyPresent;
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
