@@ -253,8 +253,15 @@ double Instant::ElapsedSeconds() const {
 
 #endif
 
+#define SLEEP_LOG_ENABLED 0
+
 void sleep_ms(int ms, const char *reason) {
-	// INFO_LOG(Log::System, "Sleep %d ms: %s", ms, reason);
+	if (ms <= 0) {
+		return;
+	}
+#if SLEEP_LOG_ENABLED
+	INFO_LOG(Log::System, "Sleep %d ms: %s", ms, reason);
+#endif
 #ifdef _WIN32
 	Sleep(ms);
 #elif defined(HAVE_LIBNX)
@@ -266,10 +273,32 @@ void sleep_ms(int ms, const char *reason) {
 #endif
 }
 
-void sleep_precise(double seconds) {
+void sleep_us(int us, const char *reason) {
+	if (us <= 0) {
+		return;
+	}
+#if SLEEP_LOG_ENABLED
+	INFO_LOG(Log::System, "Sleep %d us: %s", us, reason);
+#endif
+#ifdef _WIN32
+	Sleep(us / 1000);
+#elif defined(HAVE_LIBNX)
+	svcSleepThread(us * 1000);
+#elif defined(__EMSCRIPTEN__)
+	emscripten_sleep(us / 1000);
+#else
+	usleep(us);
+#endif
+}
+
+// This can be a little more expensive in some circumstances, so only use when necessary.
+void sleep_precise(double seconds, const char *reason) {
 	if (seconds <= 0.0) {
 		return;
 	}
+#if SLEEP_LOG_ENABLED
+	INFO_LOG(Log::System, "Sleep precise %f s: %s", seconds, reason);
+#endif
 #ifdef _WIN32
 	// Precise Windows sleep function from: https://github.com/blat-blatnik/Snippets/blob/main/precise_sleep.c
 	// Described in: https://blog.bearcats.nl/perfect-sleep-function/
@@ -347,7 +376,7 @@ void GetCurrentTimeFormatted(char formattedTime[13]) {
 // We don't even bother synchronizing this, it's fine if threads stomp a bit.
 static GMRng g_sleepRandom;
 
-void sleep_random(double minSeconds, double maxSeconds) {
+void sleep_random(double minSeconds, double maxSeconds, const char *reason) {
 	const double waitSeconds = minSeconds + (maxSeconds - minSeconds) * g_sleepRandom.F();
-	sleep_precise(waitSeconds);
+	sleep_precise(waitSeconds, reason);
 }
