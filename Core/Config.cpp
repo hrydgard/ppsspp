@@ -193,24 +193,6 @@ static bool DefaultCodeGen() {
 #endif
 }
 
-static bool DefaultVSync() {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
-	// Previously we didn't allow turning off vsync/FIFO on Android. Let's set the default accordingly.
-	return true;
-#else
-	return false;
-#endif
-}
-
-static int DefaultVulkanPresentMode() {
-#if PPSSPP_PLATFORM(IOS)
-	// iOS only supports FIFO.
-	return (int)PresentMode::Fifo;
-#else
-	return (int)PresentMode::Mailbox;
-#endif
-}
-
 static bool DefaultEnableStateUndo() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	// Off on mobile to save disk space.
@@ -623,24 +605,6 @@ struct ConfigTranslator {
 
 typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
 
-static int FastForwardModeFromString(const std::string &s) {
-	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
-		return (int)FastForwardMode::CONTINUOUS;
-	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
-		return (int)FastForwardMode::SKIP_FLIP;
-	return DefaultFastForwardMode();
-}
-
-static std::string FastForwardModeToString(int v) {
-	switch (FastForwardMode(v)) {
-	case FastForwardMode::CONTINUOUS:
-		return "CONTINUOUS";
-	case FastForwardMode::SKIP_FLIP:
-		return "SKIP_FLIP";
-	}
-	return "CONTINUOUS";
-}
-
 static std::string DefaultInfrastructureUsername() {
 	// If the user has already picked a Nickname that satisfies the rules and is not "PPSSPP",
 	// let's use that.
@@ -694,7 +658,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, CfgFlag::PER_GAME),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogFrameRate", &g_Config.iAnalogFpsLimit, 240, CfgFlag::PER_GAME),
-	ConfigSetting("UnthrottlingMode", &g_Config.iFastForwardMode, &DefaultFastForwardMode, &FastForwardModeToString, &FastForwardModeFromString, CfgFlag::PER_GAME),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, CfgFlag::DONT_SAVE),
 #endif
@@ -737,8 +700,8 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("VSync", &g_Config.bVSync, &DefaultVSync, CfgFlag::PER_GAME),
-	ConfigSetting("VulkanPresentMode", &g_Config.iVulkanPresentationMode, &DefaultVulkanPresentMode, CfgFlag::PER_GAME),
+	ConfigSetting("VerticalSync", &g_Config.bVSync, true, CfgFlag::PER_GAME),
+	ConfigSetting("LowLatencyPresent", &g_Config.bLowLatencyPresent, true, CfgFlag::PER_GAME),
 	ConfigSetting("BloomHack", &g_Config.iBloomHack, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	// Not really a graphics setting...

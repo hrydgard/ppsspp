@@ -21,6 +21,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Core/Config.h"
+#include "Core/FrameTiming.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 #ifdef _DEBUG
@@ -36,18 +37,15 @@ const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMP
 const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY };
 const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 
-VkPresentModeKHR ConfigPresentModeToVulkan() {
-	PresentMode presentMode = (PresentMode)g_Config.iVulkanPresentationMode;
+VkPresentModeKHR ConfigPresentModeToVulkan(Draw::DrawContext *draw) {
+	g_frameTiming.ComputePresentMode(draw, false);
+	Draw::PresentMode presentMode = g_frameTiming.PresentMode();
 	switch (presentMode) {
-	case PresentMode::Immediate:
+	case Draw::PresentMode::IMMEDIATE:
 		return VK_PRESENT_MODE_IMMEDIATE_KHR;
-	case PresentMode::Mailbox:
+	case Draw::PresentMode::MAILBOX:
 		return VK_PRESENT_MODE_MAILBOX_KHR;
-	case PresentMode::FifoLatestReady:
-		return VK_PRESENT_MODE_FIFO_LATEST_READY_KHR;
-	case PresentMode::FifoRelaxed:
-		return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-	case PresentMode::Fifo:
+	case Draw::PresentMode::FIFO:
 	default:
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}

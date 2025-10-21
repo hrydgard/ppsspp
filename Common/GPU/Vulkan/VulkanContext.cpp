@@ -722,6 +722,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
 		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
+		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
 
 		ChainStruct(features2, &multiViewFeatures);
 		if (extensionsLookup_.KHR_present_wait) {
@@ -732,6 +733,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &provokingVertexFeatures);
+		}
+		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
+			ChainStruct(features2, &presentModeFifoProps);
 		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
@@ -744,6 +748,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
+		}
+		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
+			deviceFeatures_.available.presentModeFifoProps = presentModeFifoProps;
 		}
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
@@ -784,6 +791,10 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (extensionsLookup_.EXT_provoking_vertex) {
 		deviceFeatures_.enabled.provokingVertex.provokingVertexLast = true;
 	}
+	deviceFeatures_.enabled.presentModeFifoProps = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
+	if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
+		deviceFeatures_.enabled.presentModeFifoProps.presentModeFifoLatestReady = deviceFeatures_.available.presentModeFifoProps.presentModeFifoLatestReady;
+	}
 
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
@@ -809,6 +820,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &deviceFeatures_.enabled.provokingVertex);
+		}
+		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
+			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);
 		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
@@ -932,10 +946,10 @@ void VulkanContext::SetDebugNameImpl(uint64_t handle, VkObjectType type, const c
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
-	if (winsysData1_ != data1) {
+	if (winsysData1_ != data1 && winsysData1_ != 0) {
 		WARN_LOG(Log::G3D, "winsysData1 changed from %p to %p", winsysData1_, data1);
 	}
-	if (winsysData2_ != data2) {
+	if (winsysData2_ != data2 && winsysData2_ != 0) {
 		WARN_LOG(Log::G3D, "winsysData2 changed from %p to %p", winsysData2_, data2);
 	}
 	winsysData1_ = data1;
@@ -1229,6 +1243,15 @@ VkResult VulkanContext::ReinitSurface() {
 		frame_[i].profiler.Init(this);
 	}
 
+	// Query presentation modes. We need to know which ones are available for InitSwapchain().
+	availablePresentModes_.clear();
+	uint32_t presentModeCount;
+	VkResult res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
+	availablePresentModes_.resize(presentModeCount);
+	_dbg_assert_(res == VK_SUCCESS);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
+	_dbg_assert_(res == VK_SUCCESS);
+
 	return VK_SUCCESS;
 }
 
@@ -1366,15 +1389,6 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		return true;
 	}
 
-	_dbg_assert_(res == VK_SUCCESS);
-	uint32_t presentModeCount;
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
-	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
-	_dbg_assert_(presentModes);
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
-	_dbg_assert_(res == VK_SUCCESS);
-
 	VkExtent2D currentExtent{ surfCapabilities_.currentExtent };
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceCapabilitiesKHR.html
 	// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
@@ -1398,31 +1412,20 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,
 		swapChainExtent_.width, swapChainExtent_.height);
 
-	availablePresentModes_.clear();
 	// TODO: Find a better way to specify the prioritized present mode while being able
 	// to fall back in a sensible way.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
-	std::string modes = "";
-	for (size_t i = 0; i < presentModeCount; i++) {
-		modes += VulkanPresentModeToString(presentModes[i]);
-		if (i != presentModeCount - 1) {
-			modes += ", ";
-		}
-		availablePresentModes_.push_back(presentModes[i]);
-	}
-
 	// Kind of silly logic now, but at least it performs a final sanity check of the chosen value.
-	for (size_t i = 0; i < presentModeCount; i++) {
-		bool match = presentModes[i] == desiredPresentMode;
+	for (size_t i = 0; i < availablePresentModes_.size(); i++) {
+		bool match = availablePresentModes_[i] == desiredPresentMode;
 		// Default to the first present mode from the list.
 		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
-			swapchainPresentMode = presentModes[i];
+			swapchainPresentMode = availablePresentModes_[i];
 		}
 		if (match) {
 			break;
 		}
 	}
-	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
 	// queued for display):
@@ -1431,6 +1434,14 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		(desiredNumberOfSwapChainImages > surfCapabilities_.maxImageCount)) {
 		// Application must settle for fewer images than desired:
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
+	}
+
+	std::string modes = "";
+	for (size_t i = 0; i < availablePresentModes_.size(); i++) {
+		modes += VulkanPresentModeToString(availablePresentModes_[i]);
+		if (i != availablePresentModes_.size() - 1) {
+			modes += ", ";
+		}
 	}
 
 	INFO_LOG(Log::G3D, "Supported present modes: %s. Chosen present mode: %d (%s). numSwapChainImages: %d (max: %d)",

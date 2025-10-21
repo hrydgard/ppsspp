@@ -580,22 +580,6 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
 
-	bool fastForwardSkipFlip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
-
-	Draw::DrawContext *draw = gpu->GetDrawContext();
-	if (draw) {
-		g_frameTiming.presentMode = ComputePresentMode(draw);
-		if (!draw->GetDeviceCaps().presentInstantModeChange && g_frameTiming.presentMode == Draw::PresentMode::FIFO) {
-			// Some backends can't just flip into MAILBOX/IMMEDIATE mode instantly.
-			// Vulkan doesn't support the interval setting, so we force skipping the flip.
-			// TODO: We'll clean this up in a more backend-independent way later.
-			fastForwardSkipFlip = true;
-		}
-	} else {
-		// Surely can never get here?
-		g_frameTiming.presentMode = Draw::PresentMode::FIFO;
-	}
-
 	if (!g_Config.bSkipBufferEffects) {
 		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
 	}
@@ -606,11 +590,14 @@ void __DisplayFlip(int cyclesLate) {
 
 	const bool fbDirty = gpu->FramebufferDirty();
 
+	Draw::DrawContext *draw = gpu->GetDrawContext();
+
 	bool needFlip = fbDirty || noRecentFlip || postEffectRequiresFlip;
 	if (!needFlip) {
 		// Okay, there's no new frame to draw, game might be sitting in a static loading screen
 		// or similar, and not long enough to trigger noRecentFlip. But audio may be playing, so we need to time still.
 		DoFrameIdleTiming();
+		g_frameTiming.ComputePresentMode(draw, false);
 		return;
 	}
 
@@ -624,10 +611,16 @@ void __DisplayFlip(int cyclesLate) {
 	bool forceNoFlip = false;
 	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 	// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
-	bool refreshRateNeedsSkip = FrameTimingLimit() != framerate && FrameTimingLimit() > refreshRate;
+	const double fpsLimit = FrameTimingLimit();
+	bool throttle = fpsLimit != 0.0;
+
+	bool refreshRateNeedsSkip = fpsLimit != framerate && fpsLimit > refreshRate || !throttle;
+
+	g_frameTiming.ComputePresentMode(draw, refreshRateNeedsSkip);
+
 	// Alternative to frameskip fast-forward, where we draw everything.
 	// Useful if skipping a frame breaks graphics or for checking drawing speed.
-	if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
+	if (g_frameTiming.FastForwardNeedsSkipFlip() && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
 		static double lastFlip = 0;
 		double now = time_now_d();
 		if ((now - lastFlip) < 1.0f / refreshRate) {
@@ -662,9 +655,6 @@ void __DisplayFlip(int cyclesLate) {
 		gpuStats.numFlips++;
 	}
 
-	bool throttle = FrameTimingThrottled();
-
-	int fpsLimit = FrameTimingLimit();
 	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;
 	if (fpsLimit > 0 && fpsLimit != framerate) {
 		scaledTimestep *= (float)framerate / fpsLimit;

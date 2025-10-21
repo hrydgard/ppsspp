@@ -368,6 +368,9 @@ public:
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
 	void Present(PresentMode mode) override;
+	PresentMode GetCurrentPresentMode() const override {
+		return requestedPresentMode_;
+	}
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -527,6 +530,8 @@ private:
 		GLPushBuffer *push;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
+
+	PresentMode requestedPresentMode_{};
 };
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -812,8 +817,22 @@ void OpenGLContext::EndFrame() {
 }
 
 void OpenGLContext::Present(PresentMode presentMode) {
+	_dbg_assert_msg_((caps_.presentModesSupported & presentMode) != 0, "Present mode %d not supported", (int)presentMode);
+
+	// NOTE: renderManager_.SwapInterval has repeat protection: won't call glSwapInterval if the value is the same as current.
+	switch (presentMode) {
+	case PresentMode::IMMEDIATE:
+		renderManager_.SwapInterval(0);
+		break;
+	case PresentMode::FIFO:
+	default:
+		renderManager_.SwapInterval(1);
+		break;
+	}
+
 	renderManager_.Present();
 	frameCount_++;
+	requestedPresentMode_ = presentMode;
 }
 
 void OpenGLContext::Invalidate(InvalidationFlags flags) {

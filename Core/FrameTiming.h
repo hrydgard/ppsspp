@@ -12,18 +12,25 @@ class FrameTiming {
 public:
 	void DeferWaitUntil(double until, double *curTimePtr);
 	void PostSubmit();
-	void Reset(Draw::DrawContext *draw);
+	void ComputePresentMode(Draw::DrawContext *draw, bool fastForward);
 
-	// Some backends won't allow changing this willy nilly.
-	Draw::PresentMode presentMode;
+	bool FastForwardNeedsSkipFlip() const {
+		return fastForwardSkipFlip_;
+	}
+	Draw::PresentMode PresentMode() const {
+		return presentMode_;
+	}
 
 private:
+	// For use on the next Present. These two are set by ComputePresentMode.
+	Draw::PresentMode presentMode_;
+	bool fastForwardSkipFlip_;
+
 	double waitUntil_;
 	double *curTimePtr_;
 };
 
 extern FrameTiming g_frameTiming;
 
-Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw);
 
 void WaitUntil(double now, double timestamp, const char *reason);

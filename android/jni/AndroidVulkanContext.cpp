@@ -70,14 +70,15 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		return false;
 	}
 
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	bool useMultiThreading = g_Config.bRenderMultiThreading;
+	if (g_Config.iInflightFrames == 1) {
+		useMultiThreading = false;
+	}
+	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, useMultiThreading);
+
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 	bool success = false;
 	if (g_Vulkan->InitSwapchain(presentMode)) {
-		bool useMultiThreading = g_Config.bRenderMultiThreading;
-		if (g_Config.iInflightFrames == 1) {
-			useMultiThreading = false;
-		}
-		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, useMultiThreading);
 		SetGPUBackend(GPUBackend::VULKAN);
 		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
 		_assert_msg_(success, "Failed to compile preset shaders");
@@ -128,7 +129,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->DestroySurface();
 	g_Vulkan->ReinitSurface();
 
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan();
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 	g_Vulkan->InitSwapchain(presentMode);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());

@@ -582,13 +582,11 @@ enum class PresentMode {
 	FIFO = 1,
 	IMMEDIATE = 2,
 	MAILBOX = 4,
-	FIFO_RELAXED = 8,  // Vulkan only
-	FIFO_LATEST_READY = 16,  // Vulkan only
 };
 ENUM_CLASS_BITOPS(PresentMode);
 
 inline bool PresentationModeBlocks(PresentMode mode) {
-	return mode & (PresentMode::FIFO | PresentMode::FIFO_RELAXED | PresentMode::FIFO_LATEST_READY);
+	return mode & PresentMode::FIFO;
 }
 
 struct DeviceCaps {
@@ -862,6 +860,7 @@ public:
 
 	// Some backends also can't change presentation mode immediately.
 	virtual void Present(PresentMode presentMode) = 0;
+	virtual PresentMode GetCurrentPresentMode() const = 0;
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.

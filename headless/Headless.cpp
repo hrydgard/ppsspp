@@ -536,7 +536,6 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;

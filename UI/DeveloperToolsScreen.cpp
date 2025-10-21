@@ -468,11 +468,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
 	list->Add(new CheckBox(&g_Config.bShaderCache, dev->T("Enable shader cache")));
 
-	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
-	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));
-	ffMode->SetEnabledFunc([]() { return !g_Config.bVSync; });
-	ffMode->HideChoice(1);  // not used
-
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(si->T("%d Hz"));
 
