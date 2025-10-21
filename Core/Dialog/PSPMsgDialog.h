@@ -67,9 +67,7 @@ public:
 	int Abort();
 
 protected:
-	bool UseAutoStatus() override {
-		return false;
-	}
+	bool UseAutoStatus() override;
 
 private:
 	void FormatErrorCode(uint32_t code);
@@ -93,6 +91,5 @@ private:
 	pspMessageDialog messageDialog{};
 	int messageDialogAddr = 0;
 
-	char msgText[512];
+	char msgText[512]{};
 };
-
