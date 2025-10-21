@@ -123,14 +123,14 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 				}
 				// Brute force packing.
 				int sz = (int)data[i].w;
-				auto &masq_ty = masq.dat[ty];
-				auto &masq_idy = masq.dat[ty + idy - 1];
+				const auto *masq_ty = masq.line(ty);
+				const auto *masq_idy = masq.line(ty + idy - 1);
 				for (int tx = 0; tx < image_width - sz; tx++) {
 					bool valid = !(masq_ty[tx] || masq_idy[tx] || masq_ty[tx + idx - 1] || masq_idy[tx + idx - 1]);
 					if (valid) {
 						for (int ity = 0; ity < idy && valid; ity++) {
 							for (int itx = 0; itx < idx && valid; itx++) {
-								if (masq.dat[ty + ity][tx + itx]) {
+								if (masq.get(tx + itx, ty + ity)) {
 									goto skip;
 								}
 							}
@@ -176,8 +176,8 @@ AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const
 	img.u2 = results[i].ex / tw - toffx;
 	img.v2 = results[i].ey / th - toffy;
 	// The w and h here is the UI-pixels width/height. So if we rasterized at another DPI than 1.0f, we need to scale here.
-	img.w = results[i].w / results[i].scale;
-	img.h = results[i].h / results[i].scale;
+	img.w = (int)((float)results[i].w / results[i].scale);
+	img.h = (int)((float)results[i].h / results[i].scale);
 	truncate_cpy(img.name, name);
 	return img;
 }
