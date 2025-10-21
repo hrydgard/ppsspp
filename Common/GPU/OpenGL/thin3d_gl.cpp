@@ -817,18 +817,16 @@ void OpenGLContext::EndFrame() {
 }
 
 void OpenGLContext::Present(PresentMode presentMode) {
-	if ((caps_.presentModesSupported & presentMode) == 0) {
-		ERROR_LOG(Log::G3D, "Present mode %d not supported", (int)presentMode);
-		_dbg_assert_(false);
-	}
+	_dbg_assert_msg_((caps_.presentModesSupported & presentMode) != 0, "Present mode %d not supported", (int)presentMode);
 
-	// NOTE: SwapInterval has repeat protection, won't call glSwapInterval if the value is the same as current.
+	// NOTE: renderManager_.SwapInterval has repeat protection: won't call glSwapInterval if the value is the same as current.
 	switch (presentMode) {
-	case PresentMode::FIFO:
-		renderManager_.SwapInterval(1);
-		break;
 	case PresentMode::IMMEDIATE:
 		renderManager_.SwapInterval(0);
+		break;
+	case PresentMode::FIFO:
+	default:
+		renderManager_.SwapInterval(1);
 		break;
 	}
 
