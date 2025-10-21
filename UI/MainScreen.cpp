@@ -920,8 +920,8 @@ void GameBrowser::Refresh() {
 
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
-		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
-			DirButton *pinnedDir = gameList_->Add(new DirButton(*it, GetBaseName((*it).ToString()), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+		for (const auto &pinnedPath : pinnedPaths) {
+			DirButton *pinnedDir = gameList_->Add(new DirButton(pinnedPath, pinnedPath.GetFilename(), *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			pinnedDir->OnClick.Handle(this, &GameBrowser::NavigateClick);
 			pinnedDir->SetPinned(true);
 		}
@@ -1006,29 +1006,6 @@ std::vector<Path> GameBrowser::GetPinnedPaths() const {
 		results.push_back(Path(paths[i]));
 	}
 	return results;
-}
-
-std::string GameBrowser::GetBaseName(const std::string &path) const {
-#ifndef _WIN32
-	static const std::string sepChars = "/";
-#else
-	static const std::string sepChars = "/\\";
-#endif
-
-	auto trailing = path.find_last_not_of(sepChars);
-	if (trailing != path.npos) {
-		size_t start = path.find_last_of(sepChars, trailing);
-		if (start != path.npos) {
-			return path.substr(start + 1, trailing - start);
-		}
-		return path.substr(0, trailing);
-	}
-
-	size_t start = path.find_last_of(sepChars);
-	if (start != path.npos) {
-		return path.substr(start + 1);
-	}
-	return path;
 }
 
 void GameBrowser::GameButtonClick(UI::EventParams &e) {
