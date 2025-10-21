@@ -669,49 +669,40 @@ void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels) {
 
 #if PPSSPP_ARCH(SSE2)
 	// SSE2 path: process 4 pixels at a time (16 bytes)
-	const u32 stride = 4;
-	const u32 vecCount = numPixels / stride;
-
-	// constants
-	const __m128i zero8 = _mm_setzero_si128();
-	const __m128i const128_16 = _mm_set1_epi16((short)128); // for adding 128 (16-bit lanes)
-	const __m128i mul257_32 = _mm_set1_epi32(257); // multiply 32-bit by 257
-	const __m128i alphaMask = _mm_set1_epi32(0xFF000000u);
-	// SSE2 path: 4 pixels per iteration
 	for (; i + 3 < numPixels; i += 4)
 	{
-		// load 4 pixels
-		__m128i px = _mm_loadu_si128((const __m128i*)(src + i)); // 16 bytes
-
-		// read alpha bytes directly (RGBA little-endian)
-		const uint8_t* s = (const uint8_t*)(src + i);
-		const int a0 = s[3];
-		const int a1 = s[7];
-		const int a2 = s[11];
-		const int a3 = s[15];
-
-		// build 16-bit alpha vectors per pixel, A-lane = 256
-		__m128i lo = _mm_setr_epi16(a0, a0, a0, 256, a1, a1, a1, 256);
-		__m128i hi = _mm_setr_epi16(a2, a2, a2, 256, a3, a3, a3, 256);
-
-		// expand bytes -> 16-bit lanes
-		__m128i zero8 = _mm_setzero_si128();
-		__m128i lo16 = _mm_unpacklo_epi8(px, zero8); // R0,G0,B0,A0,R1,G1,B1,A1
-		__m128i hi16 = _mm_unpackhi_epi8(px, zero8); // R2,G2,B2,A2,R3,G3,B3,A3
-
-		// multiply 16-bit lanes by alpha multipliers (truncate)
-		__m128i prod_lo = _mm_mullo_epi16(lo16, lo);
-		__m128i prod_hi = _mm_mullo_epi16(hi16, hi);
-
-		// shift right by 8
-		__m128i res_lo = _mm_srli_epi16(prod_lo, 8);
-		__m128i res_hi = _mm_srli_epi16(prod_hi, 8);
-
-		// pack back to bytes
-		__m128i out = _mm_packus_epi16(res_lo, res_hi);
-
-		// store result
-		_mm_storeu_si128((__m128i*)(dst + i), out);
+		// Load 4 pixels.
+		__m128i s = _mm_loadu_si128((const __m128i*)(src + i)); // 16 bytes
+		// Expand to 16bit lanes.
+		__m128i l = _mm_unpacklo_epi8(s, _mm_set1_epi16(0));
+		__m128i h = _mm_unpackhi_epi8(s, _mm_set1_epi16(0));
+		// Extract alpha.
+		__m128i a = _mm_srli_epi32(s, 24); // [a0, 0,a1, 0,a2, 0,a3, 0] in 16bit lanes
+		a = _mm_shufflehi_epi16(_mm_shufflelo_epi16(a, 160), 160); // [a0,a0,a1,a1,a2,a2,a3,a3]
+		// NOTE: alternative to the above line: a = _mm_xor_si128(a, _mm_slli_epi32(a, 16));
+		__m128i al = _mm_unpacklo_epi16(a, a); // [a0,a0,a0,a0,a1,a1,a1,a1]
+		__m128i ah = _mm_unpackhi_epi16(a, a); // [a2,a2,a2,a2,a3,a3,a3,a3]
+		// Setup multipliers ([a,a,a,a] -> [a,a,a,255]).
+		al = _mm_or_si128(al, _mm_setr_epi16(0, 0, 0, 255, 0, 0, 0, 255));
+		ah = _mm_or_si128(ah, _mm_setr_epi16(0, 0, 0, 255, 0, 0, 0, 255));
+		// Compute round(c*a/255.0) using Jim Blinn's trick from
+		// "Three Wrongs Make a Right":
+		//     unsigned x = c*a + 128;
+		//     x += x>>8;
+		//     return x>>8; // <-- correctly-rounded result
+		// All computations fit inside 16 bits (for 0 <= c,a <= 255).
+		// NOTE: an alternative for v = v/255 is v = (v*32897>>16)>>7,
+		// which maps nicely to _mm_mulhi_epu16, but maybe not to NEON.
+		// Low part.
+		l = _mm_add_epi16(_mm_mullo_epi16(l, al), _mm_set1_epi16(128));
+		l = _mm_srli_epi16(_mm_add_epi16(l, _mm_srli_epi16(l, 8)), 8);
+		// High part.
+		h = _mm_add_epi16(_mm_mullo_epi16(h, ah), _mm_set1_epi16(128));
+		h = _mm_srli_epi16(_mm_add_epi16(h, _mm_srli_epi16(h, 8)), 8);
+		// Combine parts.
+		__m128i d = _mm_packus_epi16(l, h);
+		// Store result.
+		_mm_storeu_si128((__m128i*)(dst + i), d);
 	}
 #elif PPSSPP_ARCH(ARM_NEON)
 	// NEON path (4 pixels per iteration)
