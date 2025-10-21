@@ -262,6 +262,9 @@ void Add1PxTransparentBorder(Image &img) {
 			newData[(y + 1) * (img.w + 2) + (x + 1)] = c;
 		}
 	}
+	img.dat = std::move(newData);
+	img.w += 2;
+	img.h += 2;
 }
 
 void AddDropShadow(Image &img, int shadowSize, float intensity) {
