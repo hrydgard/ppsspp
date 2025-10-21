@@ -116,6 +116,7 @@ struct CompatFlags {
 	bool ForceHLEPsmf;
 	bool SaveStatesNotRecommended;
 	bool IgnoreEnqueue;
+	bool MsgDialogAutoStatus;
 };
 
 struct VRCompat {

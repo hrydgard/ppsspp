@@ -27,6 +27,8 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
+#include "Core/Compatibility.h"
+#include "Core/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 
@@ -41,6 +43,10 @@ PSPMsgDialog::PSPMsgDialog(UtilityDialogType type) : PSPDialog(type) {
 }
 
 PSPMsgDialog::~PSPMsgDialog() {
+}
+
+bool PSPMsgDialog::UseAutoStatus() {
+	return PSP_CoreParameter().compat.flags().MsgDialogAutoStatus;
 }
 
 int PSPMsgDialog::Init(unsigned int paramAddr) {

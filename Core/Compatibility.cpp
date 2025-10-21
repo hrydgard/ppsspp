@@ -153,6 +153,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceHLEPsmf", &flags_.ForceHLEPsmf);
 	CheckSetting(iniFile, gameID, "SaveStatesNotRecommended", &flags_.SaveStatesNotRecommended);
 	CheckSetting(iniFile, gameID, "IgnoreEnqueue", &flags_.IgnoreEnqueue);
+	CheckSetting(iniFile, gameID, "MsgDialogAutoStatus", &flags_.MsgDialogAutoStatus);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
