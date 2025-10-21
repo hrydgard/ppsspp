@@ -122,7 +122,7 @@ GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID,
 
 // This needs before run CheckGPUFeatures()
 // TODO: Remove this if fix the issue
-bool CheckSupportShaderTessellationGLES() {
+static bool CheckSupportShaderTessellationGLES() {
 #if PPSSPP_PLATFORM(UWP)
 	return true;
 #else
@@ -137,7 +137,7 @@ bool CheckSupportShaderTessellationGLES() {
 #endif
 }
 
-bool DoesBackendSupportHWTess() {
+static bool DoesBackendSupportHWTess() {
 	switch (GetGPUBackend()) {
 	case GPUBackend::OPENGL:
 		return CheckSupportShaderTessellationGLES();
@@ -176,7 +176,7 @@ static std::string *GPUDeviceNameSetting() {
 	return nullptr;
 }
 
-bool PathToVisualUsbPath(Path path, std::string &outPath) {
+static bool PathToVisualUsbPath(Path path, std::string &outPath) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		if (path.StartsWith(g_Config.memStickDirectory)) {
