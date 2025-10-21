@@ -10,6 +10,7 @@
 #include "Common/Render/AtlasGen.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Common.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "UI/UIAtlas.h"
@@ -280,18 +281,21 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 
 	Instant shadowStart = Instant::Now();
 
-	for (int i = 0; i < (int)images.size(); i++) {
-		// Here we could exclude some images from the drop shadow, if desired.
-		if (!images[i].IsEmpty()) {
-			if (imageIDs[i].addShadow) {
-				DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
-				AddDropShadow(images[i], 3, 0.66f);
-			} else {
-				// Make sure there are transparent pixels to filter from.
-				Add1PxTransparentBorder(images[i]);
+	// We can trivially parallelize shadowing/extension of the images.
+	ParallelRangeLoop(&g_threadManager, [&](int start, int end) {
+		for (int i = start; i < end; i++) {
+			// Here we could exclude some images from the drop shadow, if desired.
+			if (!images[i].IsEmpty()) {
+				if (imageIDs[i].addShadow) {
+					// DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
+					AddDropShadow(images[i], 3, 0.66f);
+				} else {
+					// Make sure there are transparent pixels to filter from.
+					Add1PxTransparentBorder(images[i]);
+				}
 			}
 		}
-	}
+	}, 0, (int)images.size(), 2, TaskPriority::HIGH);
 
 	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms\n", shadowStart.ElapsedMs());
 
