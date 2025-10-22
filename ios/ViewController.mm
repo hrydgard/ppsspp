@@ -643,6 +643,23 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[self hideKeyboard];
 }
 
+- (void)viewWillTransitionToSize:(CGSize)size
+		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+
+	[self.view endEditing:YES]; // clears any input focus
+
+	[coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+		NSLog(@"Rotating to size: %@", NSStringFromCGSize(size));
+	} completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+		NSLog(@"Rotation finished");
+		// Reinitialize graphics context to match new size
+		[self requestExitGLRenderLoop];
+		[self runGLRenderLoop];
+		[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+	}];
+}
+
 @end
 
 void bindDefaultFBO()
