@@ -343,6 +343,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
+	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 }
 
 - (void)willResignActive {

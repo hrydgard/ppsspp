@@ -213,6 +213,14 @@ static int DefaultUIScaleFactor() {
 #endif
 }
 
+static int DefaultScreenRotation() {
+#if PPSSPP_PLATFORM(ANDROID)
+	return ROTATION_LOCKED_HORIZONTAL;
+#else
+	return ROTATION_AUTO;
+#endif
+}
+
 static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", &g_Config.bFirstRun, true, CfgFlag::DEFAULT),
 	ConfigSetting("RunCount", &g_Config.iRunCount, 0, CfgFlag::DEFAULT),
@@ -297,9 +305,10 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteISOShareType", &g_Config.iRemoteISOShareType, (int)RemoteISOShareType::RECENT, CfgFlag::DEFAULT),
 	ConfigSetting("AskForExitConfirmationAfterSeconds", &g_Config.iAskForExitConfirmationAfterSeconds, 60, CfgFlag::PER_GAME),
 
-#ifdef __ANDROID__
-	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, ROTATION_AUTO_HORIZONTAL),
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, &DefaultScreenRotation, CfgFlag::DEFAULT),
 #endif
+
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, ROTATION_LOCKED_HORIZONTAL, CfgFlag::PER_GAME),
 
 	ConfigSetting("BackgroundAnimation", &g_Config.iBackgroundAnimation, 1, CfgFlag::DEFAULT),

@@ -431,6 +431,14 @@ void System_Notify(SystemNotification notification) {
 			iOSCoreAudioUpdateSession();
 		});
 		break;
+	case SystemNotification::ROTATE_UPDATED:
+	    dispatch_async(dispatch_get_main_queue(), ^{
+			if (sharedViewController) {
+				// [sharedViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+				INFO_LOG(Log::System, "Requesting device orientation update");
+				[UIViewController attemptRotationToDeviceOrientation];
+			}
+		});
 	default:
 		break;
 	}

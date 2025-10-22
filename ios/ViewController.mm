@@ -269,8 +269,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;  // NOTE: We don't yet take advantage of 120hz screens
 
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
-
 	graphicsContext = new IOSGLESContext();
 
 	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
@@ -336,6 +334,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
 	[self runGLRenderLoop];
+	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+
 	INFO_LOG(Log::System, "didBecomeActive end");
 }
 
