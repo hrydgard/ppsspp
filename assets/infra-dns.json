@@ -145,7 +145,7 @@
 		{
 			"name": "FIFA World Cup Germany 2006",
 			"comment": {
-				"en_US": "Works but requires a patch! Also, there are incompatibilities between platforms"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -188,7 +188,7 @@
 		{
 			"name": "Fight Night Round 3",
 			"comment": {
-				"en_US": "Works but requires a patch! Also, there are incompatibilities between platforms"
+				"en_US": "Works but there are incompatibilities between platforms"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
@@ -342,6 +342,25 @@
 			]
 		},
 		{
+			"name": "NBA Live 06",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "ablondel.ddns.net",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspnba06.ea.com": "ablondel.ddns.net"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULUS10030"
+			]
+		},
+		{
 			"name": "NBA Live 07",
 			"comment": {
 				"en_US": "Works but there are incompatibilities between platforms"
@@ -401,7 +420,7 @@
 		{
 			"name": "Need for Speed: Most Wanted 5-1-0",
 			"comment": {
-				"en_US": "Works but requires a patch!"
+				"en_US": "Works but requires a patch for the EU version!"
 			},
 			"revival_credits": {
 				"group": "EA Nation Hub",
