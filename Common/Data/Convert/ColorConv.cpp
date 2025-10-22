@@ -660,7 +660,6 @@ static inline u32 premul_pixel_scalar(u32 px) {
 	return (a << 24) | (ba << 16) | (ga << 8) | ra;
 }
 
-// vibe-coded
 void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels) {
 	if (!dst || !src || numPixels == 0)
 		return;
@@ -724,22 +723,25 @@ void ConvertRGBA8888ToPremulAlpha(u32 *dst, const u32 *src, u32 numPixels) {
 
 		// build alpha vectors (MSVC-friendly, compact)
 		uint16x4_t lo = vdup_n_u16(a0);          // R0,G0,B0,A0
-		lo = vset_lane_u16(256u, lo, 3);        // A-lane = 256
+		lo = vset_lane_u16(255u, lo, 3);        // A-lane = 256
 		uint16x4_t hi = vdup_n_u16(a1);         // R1,G1,B1,A1
-		hi = vset_lane_u16(256u, hi, 3);        // A-lane = 256
+		hi = vset_lane_u16(255u, hi, 3);        // A-lane = 256
 		uint16x8_t alpha_lo = vcombine_u16(lo, hi);
 
 		lo = vdup_n_u16(a2);                     // R2,G2,B2,A2
-		lo = vset_lane_u16(256u, lo, 3);
+		lo = vset_lane_u16(255u, lo, 3);
 		hi = vdup_n_u16(a3);                     // R3,G3,B3,A3
-		hi = vset_lane_u16(256u, hi, 3);
+		hi = vset_lane_u16(255u, hi, 3);
 		uint16x8_t alpha_hi = vcombine_u16(lo, hi);
 
 		// Multiply 16-bit lanes: result fits in 16-bit (truncate shift)
 		uint16x8_t prod_lo = vmulq_u16(lo16, alpha_lo);
 		uint16x8_t prod_hi = vmulq_u16(hi16, alpha_hi);
-
-		// shift right by 8
+		// Apply Jim Blinn's trick.
+		prod_lo = vaddq_u16(prod_lo , vdupq_n_u16(128));
+		prod_hi = vaddq_u16(prod_hi , vdupq_n_u16(128));
+		prod_lo = vaddq_u16(prod_lo , vshrq_n_u16(prod_lo, 8));
+		prod_hi = vaddq_u16(prod_hi , vshrq_n_u16(prod_hi, 8));
 		uint16x8_t res_lo = vshrq_n_u16(prod_lo, 8);
 		uint16x8_t res_hi = vshrq_n_u16(prod_hi, 8);
 
