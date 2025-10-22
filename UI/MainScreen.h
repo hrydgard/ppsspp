@@ -74,7 +74,6 @@ protected:
 private:
 	bool IsCurrentPathPinned();
 	std::vector<Path> GetPinnedPaths() const;
-	std::string GetBaseName(const std::string &path) const;
 
 	void GameButtonClick(UI::EventParams &e);
 	void GameButtonHoldClick(UI::EventParams &e);

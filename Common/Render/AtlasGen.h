@@ -8,22 +8,35 @@
 #include "Common/Render/TextureAtlas.h"
 
 struct ImageU8 {
-	std::vector<std::vector<u8>> dat;
 	void resize(int x, int y) {
-		dat.resize(y);
-		for (int i = 0; i < y; i++)
-			dat[i].resize(x);
+		data.resize(x * y);
+		w = x;
+		h = y;
 	}
 	int width() const {
-		return (int)dat[0].size();
+		return w;
 	}
 	int height() const {
-		return (int)dat.size();
+		return h;
 	}
-	void set(int sx, int sy, int ex, int ey, unsigned char fil) {
-		for (int y = sy; y < ey; y++)
-			std::fill(dat[y].begin() + sx, dat[y].begin() + ex, fil);
+	u8 get(int x, int y) const {
+		return data[y * w + x];
 	}
+	void set(int sx, int sy, int ex, int ey, unsigned char value) {
+		for (int y = sy; y < ey; y++) {
+			std::fill(data.begin() + (y * w + sx), data.begin() + (y * w + ex), value);
+		}
+	}
+	u8 *line(int y) {
+		return data.data() + y * w;
+	}
+	const u8 *line(int y) const {
+		return data.data() + y * w;
+	}
+private:
+	std::vector<u8> data;
+	int w;
+	int h;
 };
 
 struct Image {

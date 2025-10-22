@@ -143,8 +143,8 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 		"Presentation mode: %s Needs skip: %s\n"
 		"Actual presentation mode: %s",
 		Draw::PresentModeToString(g_frameTiming.PresentMode()),
-		g_frameTiming.FastForwardNeedsSkipFlip() ? "true" : "false"),
-		Draw::PresentModeToString(draw->GetCurrentPresentMode());
+		g_frameTiming.FastForwardNeedsSkipFlip() ? "true" : "false",
+		Draw::PresentModeToString(draw->GetCurrentPresentMode()));
 
 	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 

@@ -12,7 +12,9 @@ androidGitVersion {
 }
 
 dependencies {
-	// 1.2.0 is the newest version we can use that won't complain about minSdk version.
+	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
+	// and also doesn't collide kotlin versions with com.gladed.androidgitversion. Should probably
+	// fork and upgrade that.
 	implementation "androidx.appcompat:appcompat:1.6.1"
 
 	// Convenient wrapper around DocumentContract. Might look into writing our own
@@ -133,7 +135,6 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-						'-DANDROID_PLATFORM=android-21',
 						'-DANDROID_TOOLCHAIN=clang',
 						'-DANDROID_CPP_FEATURES=',
 						'-DANDROID_STL=c++_static'
@@ -150,7 +151,6 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-						'-DANDROID_PLATFORM=android-21',
 						'-DANDROID_TOOLCHAIN=clang',
 						'-DANDROID_CPP_FEATURES=',
 						'-DANDROID_STL=c++_static',
@@ -170,7 +170,6 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-						'-DANDROID_PLATFORM=android-21',
 						'-DANDROID_TOOLCHAIN=clang',
 						'-DANDROID_CPP_FEATURES=',
 						'-DANDROID_STL=c++_static',
@@ -190,7 +189,6 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-						'-DANDROID_PLATFORM=android-21',
 						'-DANDROID_TOOLCHAIN=clang',
 						'-DANDROID_CPP_FEATURES=',
 						'-DANDROID_STL=c++_static',
