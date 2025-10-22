@@ -12,6 +12,7 @@ enum class LogLineType {
 	Cmd,
 	String,
 	Integer,
+	Float,
 	Error,
 	External,
 	Url,
@@ -23,12 +24,30 @@ struct LuaLogLine {
 	LogLineType type;
 	std::string line;
 	int number;
+	double fnumber;
 };
 
 class LuaContext {
 public:
+	virtual ~LuaContext() = default;
+
 	void Init();
 	void Shutdown();
+	void RunCode(const std::string &code);
+
+	virtual void Print(LogLineType type, std::string_view text);
+	void PrintF(LogLineType type, const char *fmt, ...);
+
+protected:
+	void SetupContext(sol::state &lua);
+	std::unique_ptr<sol::state> lua_;
+};
+
+class LuaInteractiveContext : public LuaContext {
+public:
+	// For the console.
+	void ExecuteConsoleCommand(std::string_view cmd);
+	std::vector<std::string> AutoComplete(std::string_view cmd) const;
 
 	const std::vector<LuaLogLine> GetLines() const {
 		return lines_;
@@ -40,12 +59,9 @@ public:
 		Print(LogLineType::External, text);
 	}
 
-	// For the console.
-	void ExecuteConsoleCommand(std::string_view cmd);
-
 private:
-	std::unique_ptr<sol::state> lua_;
+	std::vector<std::string> GetGlobals() const;
 	std::vector<LuaLogLine> lines_;
 };
 
-extern LuaContext g_lua;
+extern LuaInteractiveContext g_lua;
