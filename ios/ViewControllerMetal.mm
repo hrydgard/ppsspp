@@ -53,7 +53,7 @@ public:
 	void ShutdownFromRenderThread() override;  // Inverses InitFromRenderThread.
 
 	void Shutdown() override;
-	void Resize() override;
+	void Resize() override {}
 
 	void *GetAPIContext() override { return g_Vulkan; }
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
@@ -85,7 +85,11 @@ bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBack
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, useMultiThreading);
 
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-	if (!g_Vulkan->InitSwapchain(presentMode)) {
+
+	// This MUST run on the main thread. We're taking our chances with a dispatch_sync here.
+	g_Vulkan->InitSwapchain(presentMode);
+
+	if (false) {
 		delete draw_;
 		ERROR_LOG(Log::G3D, "InitSwapchain failed");
 		g_Vulkan->DestroySwapchain();
@@ -124,19 +128,6 @@ void IOSVulkanContext::Shutdown() {
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
 	finalize_glslang();
 	INFO_LOG(Log::G3D, "IOSVulkanContext::Shutdown completed");
-}
-
-void IOSVulkanContext::Resize() {
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	g_Vulkan->DestroySwapchain();
-	g_Vulkan->DestroySurface();
-	g_Vulkan->ReinitSurface();
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-	g_Vulkan->InitSwapchain(presentMode);
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
 bool IOSVulkanContext::InitAPI() {
@@ -232,6 +223,7 @@ static std::thread g_renderLoopThread;
 }
 
 // Should be very similar to the Android one, probably mergeable.
+// This is the EmuThread for iOS.
 void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLayer) {
 	SetCurrentThreadName("EmuThreadVulkan");
 	INFO_LOG(Log::G3D, "Entering EmuThreadVulkan");
@@ -351,6 +343,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
+	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 }
 
 - (void)willResignActive {
@@ -433,12 +426,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	// Initialize the motion manager for accelerometer control.
 	self.motionManager = [[CMMotionManager alloc] init];
-}
-
-// Allow device rotation to resize the swapchain
--(void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id)coordinator {
-	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-	// TODO: Handle resizing properly.
 }
 
 - (UIView *)getView {
@@ -558,11 +545,6 @@ extern float g_safeInsetBottom;
 - (void)bindDefaultFBO
 {
 	// Do nothing
-}
-
-- (NSUInteger)supportedInterfaceOrientations
-{
-	return UIInterfaceOrientationMaskLandscape;
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
@@ -761,6 +743,23 @@ extern float g_safeInsetBottom;
 	// You can also call your custom callback or use the requestId here
 	g_requestManager.PostSystemFailure(imageRequestId);
 	[self hideKeyboard];
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size
+		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+
+	[self.view endEditing:YES]; // clears any input focus
+
+	[coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+		NSLog(@"Rotating to size: %@", NSStringFromCGSize(size));
+	} completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+		NSLog(@"Rotation finished");
+		// Reinitialize graphics context to match new size
+		[self requestExitVulkanRenderLoop];
+		[self runVulkanRenderLoop];
+		[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+	}];
 }
 
 @end

@@ -61,14 +61,12 @@
 	// Choose viewcontroller depending on backend.
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		PPSSPPViewControllerMetal *vc = [[PPSSPPViewControllerMetal alloc] init];
-
-		self.viewController = vc;
+		// sharedViewController gets initialized in the constructor.
 		self.window.rootViewController = vc;
 
 	} else {
 		PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
 		// Here we can switch viewcontroller depending on backend.
-		self.viewController = vc;
 		self.window.rootViewController = vc;
 	}
 
@@ -79,12 +77,11 @@
 	INFO_LOG(Log::G3D, "SceneDelegate: Restart requested: %s", restartArgs);
 
 	// Notify current view controller
-	[self.viewController willResignActive];
-	[self.viewController shutdown];
+	[sharedViewController willResignActive];
+	[sharedViewController shutdown];
 
 	// Remove the current root view controller
 	self.window.rootViewController = nil;
-	self.viewController = nil;
 
 	INFO_LOG(Log::G3D, "SceneDelegate: viewController nilled");
 
@@ -95,13 +92,13 @@
 	[self launchPPSSPP];
 
 	// Notify new view controller
-	[self.viewController didBecomeActive];
+	[sharedViewController didBecomeActive];
 }
 
 - (void)sceneWillResignActive:(UIScene *)scene {
 	INFO_LOG(Log::G3D, "sceneWillResignActive");
 
-	[self.viewController willResignActive];
+	[sharedViewController willResignActive];
 
 	if (g_Config.bEnableSound) {
 		iOSCoreAudioShutdown();
@@ -119,6 +116,6 @@
 
 	System_PostUIMessage(UIMessage::GOT_FOCUS);
 
-	[self.viewController didBecomeActive];
+	[sharedViewController didBecomeActive];
 }
 @end

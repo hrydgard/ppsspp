@@ -269,8 +269,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;  // NOTE: We don't yet take advantage of 120hz screens
 
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
-
 	graphicsContext = new IOSGLESContext();
 
 	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
@@ -336,6 +334,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
 	[self runGLRenderLoop];
+	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+
 	INFO_LOG(Log::System, "didBecomeActive end");
 }
 
@@ -390,9 +390,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::System, "dealloc GL");
 }
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
-	return UIInterfaceOrientationMaskLandscape;
+	return UIInterfaceOrientationMaskAll;
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
@@ -641,6 +641,23 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	// You can also call your custom callback or use the requestId here
 	g_requestManager.PostSystemFailure(imageRequestId);
 	[self hideKeyboard];
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size
+		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+
+	[self.view endEditing:YES]; // clears any input focus
+
+	[coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+		NSLog(@"Rotating to size: %@", NSStringFromCGSize(size));
+	} completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+		NSLog(@"Rotation finished");
+		// Reinitialize graphics context to match new size
+		[self requestExitGLRenderLoop];
+		[self runGLRenderLoop];
+		[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+	}];
 }
 
 @end

@@ -200,7 +200,9 @@ void SaveFileInfo::DoState(PointerWrap &p)
 				delete texture;
 				texture = new PPGeImage("");
 			}
-			texture->DoState(p);
+			if (texture) {
+				texture->DoState(p);
+			}
 		}
 	}
 }

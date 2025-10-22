@@ -431,6 +431,14 @@ void System_Notify(SystemNotification notification) {
 			iOSCoreAudioUpdateSession();
 		});
 		break;
+	case SystemNotification::ROTATE_UPDATED:
+	    dispatch_async(dispatch_get_main_queue(), ^{
+			if (sharedViewController) {
+				// [sharedViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+				INFO_LOG(Log::System, "Requesting device orientation update");
+				[UIViewController attemptRotationToDeviceOrientation];
+			}
+		});
 	default:
 		break;
 	}
@@ -630,9 +638,7 @@ AudioBackend *System_CreateAudioBackend() {
 	return nullptr;
 }
 
-int main(int argc, char *argv[])
-{
-	// SetCurrentThreadName("MainThread");
+int main(int argc, char *argv[]) {
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (1 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.

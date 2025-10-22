@@ -107,4 +107,24 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 - (void)applicationWillTerminate:(UIApplication *)application {
 }
 
+- (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+    switch (g_Config.iScreenRotation) {
+	case ROTATION_LOCKED_HORIZONTAL: 
+		return UIInterfaceOrientationMaskLandscapeRight;
+	case ROTATION_LOCKED_VERTICAL:
+	case ROTATION_LOCKED_VERTICAL180:
+		// We do not support reverse portrait on iOS.
+		return UIInterfaceOrientationMaskPortrait;
+	case ROTATION_LOCKED_HORIZONTAL180:
+		return UIInterfaceOrientationMaskLandscapeLeft;
+	case ROTATION_AUTO_HORIZONTAL:
+		return UIInterfaceOrientationMaskLandscape;
+	case ROTATION_AUTO:
+	default:
+		return UIInterfaceOrientationMaskAll;
+	}
+
+	return UIInterfaceOrientationMaskAll; // or at least include Portrait
+}
+
 @end
