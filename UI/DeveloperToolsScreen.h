@@ -28,7 +28,6 @@ private:
 
 	void OnLoggingChanged(UI::EventParams &e);
 	void OnOpenTexturesIniFile(UI::EventParams &e);
-	void OnLogConfig(UI::EventParams &e);
 	void OnJitAffectingSetting(UI::EventParams &e);
 	void OnJitDebugTools(UI::EventParams &e);
 	void OnRemoteDebugger(UI::EventParams &e);

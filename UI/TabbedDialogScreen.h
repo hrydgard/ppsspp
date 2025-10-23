@@ -12,11 +12,17 @@ namespace UI {
 class TabHolder;
 }
 
+enum class TabFlags {
+	Default = 0,
+	NonScrollable = 1,
+};
+ENUM_CLASS_BITOPS(TabFlags);
+
 class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBackground {
 public:
 	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
-	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch = false);
+	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
 	void CreateViews() override;
 
 protected:
@@ -26,6 +32,10 @@ protected:
 	virtual void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {}
 	virtual bool ShowSearchControls() const { return true; }
 	virtual void EnsureTabs();
+	virtual bool ForceHorizontalTabs() const { return false; }
+
+	int GetCurrentTab() const;
+	void SetCurrentTab(int tab);
 
 	void RecreateViews() override;
 	void sendMessage(UIMessage message, const char *value) override;

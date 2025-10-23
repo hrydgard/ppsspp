@@ -376,12 +376,12 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	if (ginfo->hasConfig && !ginfo->id.empty()) {
-		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR"));
+		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR_SMALL"));
 		if (gearImage) {
 			if (gridStyle_) {
-				dc.Draw()->DrawImage(ImageID("I_GEAR"), bounds_.x, y + h - gearImage->h*g_Config.fGameGridScale, g_Config.fGameGridScale);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x, y + h - gearImage->h*g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(ImageID("I_GEAR"), bounds_.x - 1, y, 1.0f);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 4, y, 1.0f);
 			}
 		}
 	}
@@ -1121,13 +1121,93 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	return gameBrowser;
 }
 
+UI::ViewGroup *MainScreen::CreateLogoView(UI::LayoutParams *layoutParams) {
+	using namespace UI;
+	AnchorLayout *logos = new AnchorLayout(layoutParams);
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+	} else {
+		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+	}
+	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE, false)));
+
+#if !defined(MOBILE_DEVICE)
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
+	fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+	fullscreenButton_->SetIgnoreText(true);
+	fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
+#endif
+	std::string versionString = PPSSPP_GIT_VERSION;
+	// Strip the 'v' from the displayed version, and shorten the commit hash.
+	if (versionString.size() > 2) {
+		if (versionString[0] == 'v' && isdigit(versionString[1])) {
+			versionString = versionString.substr(1);
+		}
+		if (CountChar(versionString, '-') == 2) {
+			// Shorten the commit hash.
+			size_t cutPos = versionString.find_last_of('-') + 8;
+			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
+		}
+	}
+
+	ClickableTextView *ver = logos->Add(new ClickableTextView(versionString, new AnchorLayoutParams(68, NONE, NONE, 0)));
+	ver->SetSmall(true);
+	ver->SetClip(false);
+
+	// Only allow copying the version if it looks like a git version string. 1.19 for example is not really necessary to be able to copy/paste.
+	if (strchr(PPSSPP_GIT_VERSION, '-')) {
+		ver->OnClick.Add([](UI::EventParams &e) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
+		});
+	}
+
+	return logos;
+}
+
+void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		parent->Add(vertical ? new Choice(ImageID("I_FOLDER_OPEN")) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	}
+	parent->Add(vertical ? new Choice(ImageID("I_GEAR")) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	parent->Add(vertical ? new Choice(ImageID("I_INFO")) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+
+	if (!vertical) {
+		parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+	}
+
+	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
+		Choice *gold = parent->Add(vertical ? new Choice(ImageID("I_ICON_GOLD")) : new Choice(mm->T("Buy PPSSPP Gold")));
+		gold->OnClick.Add([this](UI::EventParams &) {
+			LaunchBuyGold(this->screenManager());
+		});
+		gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
+		gold->SetShine(true);
+	}
+
+	if (!vertical) {
+		parent->Add(new Spacer(25.0));
+	}
+
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
+	parent->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+#endif
+}
+
 void MainScreen::CreateViews() {
 	// Information in the top left.
 	// Back button to the bottom left.
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UseVerticalLayout();
+	const bool vertical = UsePortraitLayout();
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -1213,101 +1293,39 @@ void MainScreen::CreateViews() {
 		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 	}
 
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL);
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	rightColumnItems->SetSpacing(0.0f);
-
-	std::string versionString = PPSSPP_GIT_VERSION;
-	// Strip the 'v' from the displayed version, and shorten the commit hash.
-	if (versionString.size() > 2) {
-		if (versionString[0] == 'v' && isdigit(versionString[1])) {
-			versionString = versionString.substr(1);
-		}
-		if (CountChar(versionString, '-') == 2) {
-			// Shorten the commit hash.
-			size_t cutPos = versionString.find_last_of('-') + 8;
-			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
-		}
-	}
-
-	rightColumnItems->SetSpacing(0.0f);
-	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
-	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
-	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 64, 0.0f, NONE, NONE, false)));
-
-#if !defined(MOBILE_DEVICE)
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
-	fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
-	fullscreenButton_->SetIgnoreText(true);
-	fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
-#endif
-
-	rightColumnItems->Add(logos);
-	ClickableTextView *ver = rightColumnItems->Add(new ClickableTextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
-	ver->SetSmall(true);
-	ver->SetClip(false);
-
-	// Only allow copying the version if it looks like a git version string. 1.19 for example is not really necessary to be able to copy/paste.
-	if (strchr(PPSSPP_GIT_VERSION, '-')) {
-		ver->OnClick.Add([](UI::EventParams &e) {
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
-			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
-		});
-	}
-
-	LinearLayout *rightColumnChoices = rightColumnItems;
 	if (vertical) {
+		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		rightColumnItems->SetSpacing(0.0f);
+		rightColumnItems->Add(CreateLogoView(new LinearLayoutParams(FILL_PARENT, 80.0f, false)));
+
+		LinearLayout *rightColumnChoices = rightColumnItems;
 		ScrollView *rightColumnScroll = new ScrollView(ORIENT_HORIZONTAL);
 		rightColumnChoices = new LinearLayout(ORIENT_HORIZONTAL);
 		rightColumnScroll->Add(rightColumnChoices);
 		rightColumnItems->Add(rightColumnScroll);
-	}
 
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		rightColumnChoices->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
-	}
-	rightColumnChoices->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnChoices->Add(new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+		CreateMainButtons(rightColumnChoices, vertical);
 
-	if (!vertical) {
-		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-			ScreenManager *sm = screenManager();
-			gold->OnClick.Add([sm](UI::EventParams &) {
-				LaunchBuyGold(sm);
-			});
-			gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
-			gold->SetShine(true);
-		}
-	}
+		rightColumn->Add(rightColumnItems);
 
-	if (!vertical) {
-		rightColumnChoices->Add(new Spacer(25.0));
-	}
-
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
-	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
-	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
-#endif
-	rightColumn->Add(rightColumnItems);
-
-	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
-		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
-		Margins actionMenuMargins(0, 10, 10, 0);
+		const Margins actionMenuMargins(0, 10, 10, 0);
+		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		rightColumnItems->SetSpacing(0.0f);
+		rightColumnItems->Add(CreateLogoView(new LinearLayoutParams(FILL_PARENT, 80.0f, false)));
+
+		LinearLayout *rightColumnChoices = rightColumnItems;
+		CreateMainButtons(rightColumnChoices, vertical);
+
+		rightColumn->Add(rightColumnItems);
+
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
-		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
 	}

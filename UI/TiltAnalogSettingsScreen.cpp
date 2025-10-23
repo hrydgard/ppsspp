@@ -37,14 +37,14 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	bool vertical = UseVerticalLayout();
+	bool portrait = UsePortraitLayout();
 
-	root_ = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
+	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
 	root_->SetTag("TiltAnalogSettings");
 
 	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
 
-	if (vertical) {
+	if (portrait) {
 		// Don't need a scrollview, probably..
 		root_->Add(settings);
 	} else {

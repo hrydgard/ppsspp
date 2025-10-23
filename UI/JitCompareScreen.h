@@ -1,16 +1,17 @@
 #pragma once
 #include "Common/UI/UIScreen.h"
 #include "UI/MiscScreens.h"
+#include "UI/TabbedDialogScreen.h"
 
-class JitCompareScreen : public UIDialogScreenWithBackground {
+class JitCompareScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
 	JitCompareScreen();
-	void CreateViews() override;
+	void CreateTabs() override;
 
 	const char *tag() const override { return "JitCompare"; }
 
 private:
-	void Flip();
+	bool ShowSearchControls() const override { return false; }
 	void UpdateDisasm();
 
 	// Uses the current ListType
@@ -23,21 +24,11 @@ private:
 	UI::LinearLayout *blockListView_ = nullptr;
 	UI::LinearLayout *blockListContainer_ = nullptr;
 
-	UI::LinearLayout *statsView_ = nullptr;
-	UI::LinearLayout *statsContainer_ = nullptr;
-
 	void OnSelectBlock(UI::EventParams &e);
 	void OnBlockAddress(UI::EventParams &e);
 	void OnAddressChange(UI::EventParams &e);
-	void OnShowStats(UI::EventParams &e);
 	void OnBlockClick(UI::EventParams &e);
 
-	// To switch, change the below things and call RecreateViews();
-	enum class ViewMode {
-		BLOCK_LIST,
-		DISASM,
-		STATS,
-	};
 	enum class ListType {
 		ALL_BLOCKS,
 		FPU_BLOCKS,
@@ -51,7 +42,6 @@ private:
 		EXECUTIONS,
 		MAX
 	};
-	ViewMode viewMode_ = ViewMode::BLOCK_LIST;
 	ListType listType_ = ListType::ALL_BLOCKS;
 	ListSort listSort_ = ListSort::TIME_SPENT;
 
@@ -63,6 +53,8 @@ private:
 	UI::TextView *blockName_ = nullptr;
 	UI::TextEdit *blockAddr_ = nullptr;
 	UI::TextView *blockStats_ = nullptr;
+
+	UI::TextView *globalStats_ = nullptr;
 };
 
 class AddressPromptScreen : public PopupScreen {

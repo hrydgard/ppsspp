@@ -751,6 +751,9 @@ public:
 	void SetShine(bool shine) {
 		shine_ = true;
 	}
+	void SetImageScale(float scale) {
+		imgScale_ = scale;
+	}
 
 protected:
 	void ClickInternal() override;

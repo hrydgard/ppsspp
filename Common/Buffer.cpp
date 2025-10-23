@@ -121,7 +121,7 @@ bool Buffer::FlushToFile(const Path &filename, bool clear) {
 		return false;
 	if (!data_.empty()) {
 		// Write the buffer to the file.
-		data_.iterate_blocks([=](const char *blockData, size_t blockSize) {
+		data_.iterate_blocks([f](const char *blockData, size_t blockSize) {
 			return fwrite(blockData, 1, blockSize, f) == blockSize;
 		});
 		if (clear) {
@@ -134,7 +134,7 @@ bool Buffer::FlushToFile(const Path &filename, bool clear) {
 
 void Buffer::PeekAll(std::string *dest) {
 	dest->resize(data_.size());
-	data_.iterate_blocks(([=](const char *blockData, size_t blockSize) {
+	data_.iterate_blocks(([dest](const char *blockData, size_t blockSize) {
 		dest->append(blockData, blockSize);
 		return true;
 	}));

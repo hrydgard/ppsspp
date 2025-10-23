@@ -159,7 +159,9 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	list->Add(new ItemHeader(sy->T("General")));
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
-	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
+	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new LogConfigScreen());
+	});
 	list->Add(new CheckBox(&g_Config.bEnableFileLogging, dev->T("Log to file")))->SetEnabledPtr(&g_Config.bEnableLogging);
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -623,10 +625,6 @@ void DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 
 		hasTexturesIni_ = HasIni::YES;
 	}
-}
-
-void DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
-	screenManager()->push(new LogConfigScreen());
 }
 
 void DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
