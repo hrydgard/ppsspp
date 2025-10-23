@@ -626,7 +626,7 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UseVerticalLayout();
+	const bool vertical = UsePortraitLayout();
 
 	root_ = new AnchorLayout();
 	ViewGroup *rightColumnItems;

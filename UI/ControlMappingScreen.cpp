@@ -559,6 +559,8 @@ void AnalogSetupScreen::CreateViews() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+	const bool portrait = UsePortraitLayout();
+
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, FILL_PARENT, Margins(10, 0, 0, 10))));

@@ -1207,7 +1207,7 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UseVerticalLayout();
+	const bool vertical = UsePortraitLayout();
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 

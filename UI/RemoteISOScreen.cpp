@@ -591,7 +591,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	bool vertical = UseVerticalLayout();
+	bool portrait = UsePortraitLayout();
 
 	using namespace UI;
 
@@ -624,7 +624,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	if (vertical) {
+	if (portrait) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));

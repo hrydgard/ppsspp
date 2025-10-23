@@ -31,7 +31,7 @@ void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string
 void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	PreCreateViews();
 
-	bool vertical = UseVerticalLayout() || ForceHorizontalTabs();
+	bool portrait = UsePortraitLayout() || ForceHorizontalTabs();
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -44,7 +44,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	filterNotice_ = new TextView("(filter notice, you shouldn't see this text", new LinearLayoutParams(Margins(20, 5)));
 	filterNotice_->SetVisibility(V_GONE);
 
-	if (vertical) {
+	if (portrait) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, TabHolderFlags::BackButton, filterNotice_, new LinearLayoutParams(1.0f));
@@ -62,7 +62,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	root_->SetDefaultFocusView(tabHolder_);
 
 	float leftSide = 40.0f;
-	if (!vertical) {
+	if (!portrait) {
 		leftSide += 200.0f;
 	}
 	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, g_display.dp_yres - 200.0f, new AnchorLayoutParams(

@@ -200,14 +200,14 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	bool vertical = bounds.h > bounds.w;
+	const bool portrait = UsePortraitLayout();
 
 	// Make it so that a touch can only affect one view. Makes manipulating the background through the buttons
 	// impossible.
 	root_->SetExclusiveTouch(true);
 
 	LinearLayout *leftColumn;
-	if (!vertical) {
+	if (!portrait) {
 		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
 		leftColumn = new LinearLayout(ORIENT_VERTICAL);
 		leftColumn->padding.SetAll(8.0f);
@@ -224,7 +224,7 @@ void DisplayLayoutScreen::CreateViews() {
 	root_->Add(rightScrollView);
 
 	LinearLayout *bottomControls;
-	if (vertical) {
+	if (portrait) {
 		bottomControls = new LinearLayout(ORIENT_HORIZONTAL);
 		rightColumn->Add(bottomControls);
 		leftColumn = rightColumn;
@@ -295,7 +295,7 @@ void DisplayLayoutScreen::CreateViews() {
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
 
-	if (vertical) {
+	if (portrait) {
 		leftColumn->Add(new Spacer(24.0f));
 	}
 

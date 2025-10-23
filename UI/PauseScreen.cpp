@@ -393,7 +393,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 void GamePauseScreen::CreateViews() {
 	using namespace UI;
 
-	bool vertical = UseVerticalLayout();
+	bool portrait = UsePortraitLayout();
 
 	Margins scrollMargins(0, 10, 0, 0);
 	Margins actionMenuMargins(0, 10, 15, 0);
@@ -489,7 +489,7 @@ void GamePauseScreen::CreateViews() {
 			leftColumnItems->Add(new Spacer(30.0f));
 		}
 
-		CreateSavestateControls(leftColumnItems, vertical);
+		CreateSavestateControls(leftColumnItems, portrait);
 	} else {
 		// Let's show the active challenges.
 		std::set<uint32_t> ids = Achievements::GetActiveChallengeIDs();
@@ -512,7 +512,7 @@ void GamePauseScreen::CreateViews() {
 	LinearLayout *middleColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64, FILL_PARENT, Margins(0, 10, 0, 15)));
 	root_->Add(middleColumn);
 	middleColumn->SetSpacing(0.0f);
-	ViewGroup *rightColumnHolder = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
+	ViewGroup *rightColumnHolder = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(portrait ? 200 : 300, FILL_PARENT, actionMenuMargins));
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightColumnHolder->Add(rightColumn);
