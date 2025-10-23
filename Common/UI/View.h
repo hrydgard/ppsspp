@@ -139,6 +139,9 @@ typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
 static constexpr Size WRAP_CONTENT = -1.0f;
 static constexpr Size FILL_PARENT = -2.0f;
 
+// TODO: This needs to move to the theme.
+static constexpr Size ITEM_HEIGHT = 64.f;
+
 // Gravity
 enum Gravity {
 	G_LEFT = 0,

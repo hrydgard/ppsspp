@@ -4,6 +4,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
+#include "Common/UI/TabHolder.h"
 #include "UI/TabbedDialogScreen.h"
 
 void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch) {

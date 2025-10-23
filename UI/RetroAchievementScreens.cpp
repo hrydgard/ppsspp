@@ -2,6 +2,7 @@
 #include "Common/System/Request.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/TabHolder.h"
 #include "Common/UI/Context.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/IconCache.h"
@@ -25,8 +26,6 @@ public:
 
 	UI::UISound sound_;
 };
-
-static constexpr UI::Size ITEM_HEIGHT = 64.f;
 
 AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
 	using namespace UI;

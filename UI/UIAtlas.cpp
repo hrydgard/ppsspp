@@ -129,6 +129,11 @@ static const ImageMeta imageIDs[] = {
 	{"I_PIN", false},
 	{"I_UNPIN", false},
 	{"I_FOLDER_PINNED", false},
+	{"I_FILLED_CIRCLE_1", false},
+	{"I_FILLED_CIRCLE_2", false},
+	{"I_FILLED_CIRCLE_3", false},
+	{"I_FILLED_CIRCLE_4", false},
+	{"I_FILLED_CIRCLE_5", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

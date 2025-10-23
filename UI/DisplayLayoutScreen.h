@@ -25,6 +25,10 @@
 
 #include "MiscScreens.h"
 
+namespace UI {
+class ChoiceStrip;
+}
+
 class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
 public:
 	DisplayLayoutScreen(const Path &filename);
