@@ -12,8 +12,12 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 	: LinearLayout(Opposite(orientation), layoutParams) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
+		// This orientation supports adding a back button.
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
+		if (flags & TabHolderFlags::BackButton) {
+			tabStrip_->AddBackButton();
+		}
 		tabScroll_ = new ScrollView(orientation, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		tabScroll_->Add(tabStrip_);
 		Add(tabScroll_);
@@ -215,7 +219,8 @@ void ChoiceStrip::AddChoice(std::string_view title) {
 		new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
-	if (selected_ == (int)views_.size() - 1)
+	choices_.push_back(c);
+	if (selected_ == (int)choices_.size() - 1)
 		c->Press();
 }
 
@@ -226,22 +231,33 @@ void ChoiceStrip::AddChoice(ImageID buttonImage) {
 		new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
-	if (selected_ == (int)views_.size() - 1)
+	choices_.push_back(c);
+	if (selected_ == (int)choices_.size() - 1)
 		c->Press();
+}
+
+void ChoiceStrip::AddBackButton() {
+	Choice *c = new Choice(ImageID("I_NAVIGATE_BACK"));
+	c->OnClick.Add([](EventParams &e) {
+		e.bubbleResult = DR_BACK;
+	});
+	// c->OnClick.Handle(this, &UIScreen::OnBack);
+	Add(c);
+	Add(new Spacer(5.0f));
 }
 
 void ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
-	for (int i = 0; i < (int)views_.size(); i++) {
-		if (views_[i] != e.v) {
-			Choice(i)->Release();
+	for (int i = 0; i < (int)choices_.size(); i++) {
+		if (choices_[i] != e.v) {
+			choices_[i]->Release();
 		} else {
 			selected_ = i;
 		}
 	}
 
 	EventParams e2{};
-	e2.v = views_[selected_];
+	e2.v = selected_ < choices_.size() ? choices_[selected_] : nullptr;
 	e2.a = selected_;
 	// Set to 1 to indicate an explicit click.
 	e2.b = 1;
@@ -251,17 +267,17 @@ void ChoiceStrip::OnChoiceClick(EventParams &e) {
 
 void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 	int prevSelected = selected_;
-	StickyChoice *prevChoice = Choice(selected_);
-	if (prevChoice)
+	if (selected_ < choices_.size()) {
+		StickyChoice *prevChoice = choices_[selected_];
 		prevChoice->Release();
+	}
 	selected_ = sel;
-	StickyChoice *newChoice = Choice(selected_);
-	if (newChoice) {
+	if (selected_ < choices_.size()) {
+		StickyChoice *newChoice = choices_[selected_];
 		newChoice->Press();
-
 		if (topTabs_ && prevSelected != selected_) {
 			EventParams e{};
-			e.v = views_[selected_];
+			e.v = choices_[selected_];
 			e.a = selected_;
 			// Set to 0 to indicate a selection change (not a click.)
 			e.b = triggerClick ? 1 : 0;
@@ -271,8 +287,8 @@ void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
 }
 
 void ChoiceStrip::EnableChoice(int choice, bool enabled) {
-	if (choice < (int)views_.size()) {
-		Choice(choice)->SetEnabled(enabled);
+	if (choice < (int)choices_.size()) {
+		choices_[choice]->SetEnabled(enabled);
 	}
 }
 
@@ -286,7 +302,7 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 			}
 			ret = true;
 		} else if (IsTabRightKey(input)) {
-			if (selected_ < (int)views_.size() - 1) {
+			if (selected_ < (int)choices_.size() - 1) {
 				SetSelection(selected_ + 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_ON);
 			}
@@ -299,12 +315,6 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 std::string ChoiceStrip::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListUnordered(u->T("Choices:"));
-}
-
-StickyChoice *ChoiceStrip::Choice(int index) {
-	if ((size_t)index < views_.size())
-		return static_cast<StickyChoice *>(views_[index]);
-	return nullptr;
 }
 
 }  // namespace UI

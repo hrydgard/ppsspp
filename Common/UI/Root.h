@@ -4,6 +4,7 @@
 
 #include "Common/UI/Context.h"
 #include "Common/Input/InputState.h"
+#include "Common/UI/Screen.h"
 
 namespace UI {
 
@@ -17,12 +18,12 @@ void RemoveQueuedEventsByEvent(Event *e);
 void RemoveQueuedEventsByView(View * v);
 
 void EventTriggered(Event *e, EventParams params);
-void DispatchEvents();
+DialogResult DispatchEvents();
 
 class ViewGroup;
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets);
-void UpdateViewHierarchy(ViewGroup *root);
+DialogResult UpdateViewHierarchy(ViewGroup *root);
 
 enum class KeyEventResult {
 	IGNORE_KEY,  // Don't let it be processed.

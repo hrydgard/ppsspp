@@ -70,6 +70,7 @@ public:
 
 	void AddChoice(std::string_view title);
 	void AddChoice(ImageID buttonImage);
+	void AddBackButton();
 
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel, bool triggerClick);
@@ -86,9 +87,9 @@ public:
 	Event OnChoice;
 
 private:
-	StickyChoice *Choice(int index);
 	void OnChoiceClick(EventParams &e);
 
+	std::vector<UI::StickyChoice *> choices_;
 	int selected_ = 0;   // Can be controlled with L/R.
 	bool topTabs_ = false;
 };

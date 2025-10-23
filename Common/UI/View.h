@@ -22,6 +22,7 @@
 #include "Common/Input/KeyCodes.h"
 
 #include "Common/Common.h"
+#include "Common/UI/Screen.h"  // for DialogResult
 
 #undef small
 
@@ -243,10 +244,11 @@ struct MeasureSpec {
 
 // Should cover all bases.
 struct EventParams {
-	View *v;
-	uint32_t a, b, x, y;
-	float f;
+	View *v = nullptr;
+	uint32_t a = 0, b = 0, x = 0, y = 0;
+	float f = 0.0f;
 	std::string s;
+	DialogResult bubbleResult = DialogResult::DR_NONE;
 };
 
 typedef std::function<void(EventParams &)> EventCallback;
