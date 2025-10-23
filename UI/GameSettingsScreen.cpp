@@ -815,7 +815,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			return "";
 		}));
 		customizeTilt->OnClick.Add([this](UI::EventParams &e) {
-			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
+			screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));
 		});
 	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {  // TODO: This seems like a regression
 		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));

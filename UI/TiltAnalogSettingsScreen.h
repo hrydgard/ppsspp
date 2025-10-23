@@ -34,6 +34,7 @@ public:
 
 private:
 	void OnCalibrate(UI::EventParams &e);
+	void CreateCalibrationView(UI::ViewGroup *parent, UI::LayoutParams *layoutParams);
 	
 	Lin::Vec3 down_{};
 	JoystickHistoryView *tilt_ = nullptr;

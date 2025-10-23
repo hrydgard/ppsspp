@@ -31,47 +31,27 @@
 const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 const size_t g_numTiltTypes = ARRAY_SIZE(g_tiltTypes);
 
-void TiltAnalogSettingsScreen::CreateViews() {
+void TiltAnalogSettingsScreen::CreateCalibrationView(UI::ViewGroup *parent, UI::LayoutParams *layoutParams) {
 	using namespace UI;
 
-	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
-	bool portrait = UsePortraitLayout();
-
-	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
-	root_->SetTag("TiltAnalogSettings");
-
-	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
-
-	if (portrait) {
-		// Don't need a scrollview, probably..
-		root_->Add(settings);
-	} else {
-		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
-		root_->Add(menuRoot);
-		menuRoot->Add(settings);
-	}
-
-	GamepadUpdateOpacity(1.0f);
-
 	if (g_Config.iTiltInputType == TILT_ANALOG) {
-		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
-		root_->Add(tilt_);
+		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", layoutParams);
+		parent->Add(tilt_);
 	} else {
 		tilt_ = nullptr;
-		AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
-		root_->Add(rightSide);
 		switch (g_Config.iTiltInputType) {
 		case TILT_DPAD:
 		{
-			rightSide->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
+			parent->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
 			break;
 		}
 		case TILT_ACTION_BUTTON:
 		{
+			AnchorLayout *rightSide = new AnchorLayout(layoutParams);
+			parent->Add(rightSide);
+
 			PSPButton *circle = new PSPButton(CTRL_CIRCLE, "Circle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CIRCLE"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
-			PSPButton *cross= new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, true));
+			PSPButton *cross = new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, true));
 			PSPButton *triangle = new PSPButton(CTRL_TRIANGLE, "Triangle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_TRIANGLE"), 1.5f, new AnchorLayoutParams(NONE, 100.0f, NONE, NONE, true));
 			PSPButton *square = new PSPButton(CTRL_SQUARE, "Square button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_SQUARE"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
 			rightSide->Add(circle);
@@ -82,6 +62,9 @@ void TiltAnalogSettingsScreen::CreateViews() {
 		}
 		case TILT_TRIGGER_BUTTONS:
 		{
+			AnchorLayout *rightSide = new AnchorLayout(layoutParams);
+			parent->Add(rightSide);
+
 			PSPButton *lTrigger = new PSPButton(CTRL_LTRIGGER, "Left shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_L"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
 			PSPButton *rTrigger = new PSPButton(CTRL_RTRIGGER, "Right shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_R"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
 			rTrigger->FlipImageH(true);
@@ -90,6 +73,34 @@ void TiltAnalogSettingsScreen::CreateViews() {
 			break;
 		}
 		}
+	}
+}
+
+void TiltAnalogSettingsScreen::CreateViews() {
+	using namespace UI;
+
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	GamepadUpdateOpacity(1.0f);
+
+	bool portrait = UsePortraitLayout();
+
+	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
+	root_->SetTag("TiltAnalogSettings");
+
+	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
+	if (portrait) {
+		LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		topBar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(64, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		CreateCalibrationView(root_, new LinearLayoutParams(250, 250, 0.0f, UI::G_HCENTER));
+		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+		menuRoot->Add(settings);
+		root_->Add(menuRoot);
+	} else {
+		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
+		root_->Add(menuRoot);
+		menuRoot->Add(settings);
+		CreateCalibrationView(root_, new LinearLayoutParams(1.0));
 	}
 
 	auto enabledFunc = [=]() -> bool {
@@ -129,8 +140,10 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledFunc(enabledFunc);
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledFunc(enabledFunc);
 
-	settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
-	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	if (!portrait) {
+		settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
+		settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	}
 }
 
 void TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
