@@ -237,13 +237,13 @@ void ChoiceStrip::AddChoice(ImageID buttonImage) {
 }
 
 void ChoiceStrip::AddBackButton() {
-	Choice *c = new Choice(ImageID("I_NAVIGATE_BACK"));
+	Choice *c = new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT));
 	c->OnClick.Add([](EventParams &e) {
 		e.bubbleResult = DR_BACK;
 	});
 	// c->OnClick.Handle(this, &UIScreen::OnBack);
 	Add(c);
-	Add(new Spacer(5.0f));
+	Add(new Spacer(8.0f));
 }
 
 void ChoiceStrip::OnChoiceClick(EventParams &e) {

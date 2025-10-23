@@ -49,9 +49,14 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 			value->clear();
 		}
 	});
-	Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+	Choice *trash = new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT));
+	trash->OnClick.Add([=](UI::EventParams &) {
 		g_BackgroundAudio.SFX().UpdateSample(sound, nullptr);
 		value->clear();
+	});
+	Add(trash);
+	trash->SetEnabledFunc([=]() {
+		return !value->empty();
 	});
 }
 
