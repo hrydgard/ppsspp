@@ -8,7 +8,7 @@
 
 namespace UI {
 
-TabHolder::TabHolder(Orientation orientation, float stripSize, View *bannerView, LayoutParams *layoutParams)
+TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {

@@ -134,6 +134,9 @@ static const ImageMeta imageIDs[] = {
 	{"I_FILLED_CIRCLE_3", false},
 	{"I_FILLED_CIRCLE_4", false},
 	{"I_FILLED_CIRCLE_5", false},
+	{"I_SETTINGS_DISPLAY", false},
+	{"I_NAVIGATE_BACK", false},
+	{"I_NAVIGATE_FORWARD", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

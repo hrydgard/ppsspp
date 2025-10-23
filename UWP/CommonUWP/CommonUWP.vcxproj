@@ -221,6 +221,7 @@
     <ClInclude Include="..\..\Common\UI\Root.h" />
     <ClInclude Include="..\..\Common\UI\Screen.h" />
     <ClInclude Include="..\..\Common\UI\ScrollView.h" />
+    <ClInclude Include="..\..\Common\UI\TabHolder.h" />
     <ClInclude Include="..\..\Common\UI\Tween.h" />
     <ClInclude Include="..\..\Common\UI\UI.h" />
     <ClInclude Include="..\..\Common\UI\UIScreen.h" />
@@ -384,6 +385,7 @@
     <ClCompile Include="..\..\Common\UI\Root.cpp" />
     <ClCompile Include="..\..\Common\UI\Screen.cpp" />
     <ClCompile Include="..\..\Common\UI\ScrollView.cpp" />
+    <ClCompile Include="..\..\Common\UI\TabHolder.cpp" />
     <ClCompile Include="..\..\Common\UI\Tween.cpp" />
     <ClCompile Include="..\..\Common\UI\UI.cpp" />
     <ClCompile Include="..\..\Common\UI\UIScreen.cpp" />

@@ -523,6 +523,9 @@
     <ClCompile Include="..\..\Common\Render\AtlasGen.cpp">
       <Filter>Render</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\UI\TabHolder.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -1004,6 +1007,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Render\AtlasGen.h">
       <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\TabHolder.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

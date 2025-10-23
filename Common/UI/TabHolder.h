@@ -11,9 +11,15 @@ namespace UI {
 class ChoiceStrip;
 class ScrollView;
 
+enum class TabHolderFlags {
+	Default = 0,
+	BackButton = 1,
+};
+ENUM_CLASS_BITOPS(TabHolderFlags);
+
 class TabHolder : public LinearLayout {
 public:
-	TabHolder(Orientation orientation, float stripSize, View *bannerView, LayoutParams *layoutParams = 0);
+	TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams);
 
 	template <class T>
 	T *AddTab(std::string_view title, T *tabContents) {
