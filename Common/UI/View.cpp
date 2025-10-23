@@ -490,7 +490,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		totalW += textW;
 	}
 
-	w = totalW + 24;
+	w = totalW + (text_.empty() ? 16 : 24);
 	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
 }
