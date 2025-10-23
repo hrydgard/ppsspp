@@ -1068,6 +1068,59 @@ MainScreen::~MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
 }
 
+#if PPSSPP_PLATFORM(IOS)
+constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
+constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
+#else
+constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames";
+constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew";
+#endif
+constexpr std::string_view remoteGamesUri = "https://www.ppsspp.org/docs/reference/disc-streaming";
+
+void MainScreen::CreateRecentTab() {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
+	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scrollRecentGames->SetTag("MainScreenRecentGames");
+	GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
+		Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	scrollRecentGames->Add(tabRecentGames);
+	gameBrowsers_.push_back(tabRecentGames);
+
+	tabHolder_->AddTab(mm->T("Recent"), scrollRecentGames);
+	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+}
+
+GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos) {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
+	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
+
+	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, bGridView, screenManager(),
+		mm->T(howToTitle), howToUri,
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
+	scrollView->Add(gameBrowser);
+	gameBrowsers_.push_back(gameBrowser);
+
+	tabHolder_->AddTab(mm->T(title), scrollView);
+	if (scrollPos) {
+		scrollView->RememberPosition(scrollPos);
+	}
+
+	gameBrowser->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	gameBrowser->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	gameBrowser->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+
+	return gameBrowser;
+}
+
 void MainScreen::CreateViews() {
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -1094,81 +1147,18 @@ void MainScreen::CreateViews() {
 	}
 
 	if (showRecent) {
-		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		scrollRecentGames->SetTag("MainScreenRecentGames");
-		GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
-			Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
-			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		scrollRecentGames->Add(tabRecentGames);
-		gameBrowsers_.push_back(tabRecentGames);
-
-		tabHolder_->AddTab(mm->T("Recent"), scrollRecentGames);
-		tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		CreateRecentTab();
 	}
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		scrollAllGames_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		scrollAllGames_->SetTag("MainScreenAllGames");
-		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		scrollHomebrew->SetTag("MainScreenHomebrew");
-
-#if PPSSPP_PLATFORM(IOS)
-		std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
-		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
-#else
-		std::string_view getGamesUri = "https://www.ppsspp.org/getgames";
-		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew";
-#endif
-
-		GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
-			mm->T("How to get games"), getGamesUri,
-			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		GameBrowser *tabHomebrew = new GameBrowser(GetRequesterToken(), GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
-			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), getHomebrewUri,
-			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-
-		scrollAllGames_->Add(tabAllGames);
-		gameBrowsers_.push_back(tabAllGames);
-		scrollHomebrew->Add(tabHomebrew);
-		gameBrowsers_.push_back(tabHomebrew);
-
-		tabHolder_->AddTab(mm->T("Games"), scrollAllGames_);
-		tabHolder_->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
-		scrollAllGames_->RememberPosition(&g_Config.fGameListScrollPosition);
-
-		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-
-		tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-		tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-
-		tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
-		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		CreateBrowserTab(Path(g_Config.currentDirectory), "Games", "How to get games", getGamesUri, BrowseFlags::STANDARD, &g_Config.bGridView2, &g_Config.fGameListScrollPosition);
+		CreateBrowserTab(GetSysDirectory(DIRECTORY_GAME), "Homebrew & Demos", "How to get homebrew & demos", getHomebrewUri, BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, &g_Config.fHomebrewScrollPosition);
 
 		if (g_Config.bRemoteTab && !g_Config.sLastRemoteISOServer.empty()) {
-			auto ri = GetI18NCategory(I18NCat::REMOTEISO);
-
-			ScrollView *scrollRemote = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-			scrollRemote->SetTag("MainScreenRemote");
-
 			Path remotePath(FormatRemoteISOUrl(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort, RemoteSubdir().c_str()));
-
-			GameBrowser *tabRemote = new GameBrowser(GetRequesterToken(), remotePath, BrowseFlags::NAVIGATE, &g_Config.bGridView3, screenManager(),
-				ri->T("Remote disc streaming"), "https://www.ppsspp.org/docs/reference/disc-streaming",
-				new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-			tabRemote->SetHomePath(remotePath);
-
-			scrollRemote->Add(tabRemote);
-			gameBrowsers_.push_back(tabRemote);
-
-			tabHolder_->AddTab(ri->T("Remote disc streaming"), scrollRemote);
-
-			tabRemote->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-			tabRemote->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-			tabRemote->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+			GameBrowser *remoteBrowser = CreateBrowserTab(remotePath, "Remote disc streaming", "Remote disc streaming", remoteGamesUri, BrowseFlags::NAVIGATE, &g_Config.bGridView4, &g_Config.fRemoteScrollPosition);
+			remoteBrowser->SetHomePath(remotePath);
 		}
 
 		if (g_recentFiles.HasAny()) {
@@ -1202,7 +1192,6 @@ void MainScreen::CreateViews() {
 			leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 		}
 	} else {
-		scrollAllGames_ = nullptr;
 		if (!showRecent) {
 			leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 			// Just so it's destroyed on recreate.
@@ -1227,7 +1216,6 @@ void MainScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL);
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	rightColumnItems->SetSpacing(0.0f);
-	rightColumn->Add(rightColumnItems);
 
 	std::string versionString = PPSSPP_GIT_VERSION;
 	// Strip the 'v' from the displayed version, and shorten the commit hash.
@@ -1308,6 +1296,7 @@ void MainScreen::CreateViews() {
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 #endif
+	rightColumn->Add(rightColumnItems);
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);

@@ -260,6 +260,8 @@ public:
 	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
+	float fHomebrewScrollPosition;
+	float fRemoteScrollPosition;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	int iSkipGPUReadbackMode;  // 0 = off, 1 = skip, 2 = to texture
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
@@ -350,10 +352,11 @@ public:
 	// 0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
 
-	// The three tabs.
+	// The four tabs (including Remote last)
 	bool bGridView1;
 	bool bGridView2;
 	bool bGridView3;
+	bool bGridView4;
 
 	// Right analog binding
 	int iRightAnalogUp;

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <functional>
+#include <string_view>
 
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
@@ -131,6 +132,9 @@ public:
 
 protected:
 	void CreateViews() override;
+	void CreateRecentTab();
+	GameBrowser *CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos);
+
 	void DrawBackground(UIContext &dc) override;
 	void update() override;
 	void sendMessage(UIMessage message, const char *value) override;
@@ -165,7 +169,6 @@ protected:
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
-	UI::ScrollView *scrollAllGames_ = nullptr;
 	bool searchKeyModifier_ = false;
 	bool searchChanged_ = false;
 	std::string searchFilter_;
