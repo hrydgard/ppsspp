@@ -70,7 +70,6 @@ public:
 
 	void AddChoice(std::string_view title);
 	void AddChoice(ImageID buttonImage);
-	void AddBackButton();
 
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel, bool triggerClick);
