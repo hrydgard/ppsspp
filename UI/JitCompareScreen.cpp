@@ -8,7 +8,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 
-JitCompareScreen::JitCompareScreen() : UIDialogScreenWithBackground() {
+JitCompareScreen::JitCompareScreen() : TabbedUIDialogScreenWithGameBackground(Path()) {
 	if (!MIPSComp::jit) {
 		return;
 	}
@@ -22,145 +22,109 @@ JitCompareScreen::JitCompareScreen() : UIDialogScreenWithBackground() {
 	FillBlockList();
 }
 
-void JitCompareScreen::Flip() {
-	using namespace UI;
-	// If we add more, let's convert to a for loop.
-	switch (viewMode_) {
-	case ViewMode::DISASM:
-		comparisonView_->SetVisibility(V_VISIBLE);
-		blockListView_->SetVisibility(V_GONE);
-		statsView_->SetVisibility(V_GONE);
-		break;
-	case ViewMode::BLOCK_LIST:
-		comparisonView_->SetVisibility(V_GONE);
-		blockListView_->SetVisibility(V_VISIBLE);
-		statsView_->SetVisibility(V_GONE);
-		break;
-	case ViewMode::STATS:
-		comparisonView_->SetVisibility(V_GONE);
-		blockListView_->SetVisibility(V_GONE);
-		statsView_->SetVisibility(V_VISIBLE);
-		break;
-	}
-}
-
 // Three panes: Block chooser, MIPS view, ARM/x86 view
-void JitCompareScreen::CreateViews() {
+void JitCompareScreen::CreateTabs() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	using namespace UI;
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT)));
-	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-
-	comparisonView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	comparisonView_->SetVisibility(V_VISIBLE);
-	LinearLayout *blockTopBar = comparisonView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	blockTopBar->Add(new Button("", ImageID("I_ARROW_UP")))->OnClick.Add([this](UI::EventParams &e) {
-		viewMode_ = ViewMode::BLOCK_LIST;
-		Flip();
-	});
-	blockTopBar->Add(new Button("", ImageID("I_ARROW_LEFT")))->OnClick.Add([=](UI::EventParams &e) {
-		if (currentBlock_ >= 1)
-			currentBlock_--;
-		UpdateDisasm();
-	});
-	blockTopBar->Add(new Button("", ImageID("I_ARROW_RIGHT")))->OnClick.Add([=](UI::EventParams &e) {
-		if (currentBlock_ < blockList_.size() - 1)
-			currentBlock_++;
-		UpdateDisasm();
-	});
-	blockTopBar->Add(new Button(dev->T("Random")))->OnClick.Add([=](UI::EventParams &e) {
-		if (blockList_.empty()) {
-			return;
-		}
-		currentBlock_ = rand() % blockList_.size();
-		UpdateDisasm();
-	});
-
-	blockAddr_ = blockTopBar->Add(new TextEdit("", dev->T("Block address"), ""));
-	blockAddr_->OnEnter.Handle(this, &JitCompareScreen::OnAddressChange);
-	blockName_ = blockTopBar->Add(new TextView(dev->T("No block")));
-	blockStats_ = blockTopBar->Add(new TextView(""));
-
-	LinearLayout *columns = comparisonView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f)));
-
-	ScrollView *midColumnScroll = columns->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-	midColumn->SetTag("JitCompareLeftDisasm");
-	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
-	leftDisasm_->SetSpacing(0.0f);
-
-	ScrollView *rightColumnScroll = columns->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	rightColumnScroll->SetTag("JitCompareRightDisasm");
-	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
-	rightDisasm_->SetSpacing(0.0f);
-
-	blockListView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	blockListView_->SetVisibility(V_GONE);
-
-	// Should match the ListSort enum
-	static ContextMenuItem sortMenu[] = {
-		{ "Block number", "I_ARROW_UP" },
-		{ "Block length", "I_ARROW_DOWN" },
-		{ "Block length", "I_ARROW_UP" },
-		{ "Time spent", "I_ARROW_DOWN" },
-		{ "Executions", "I_ARROW_DOWN" },
-	};
-	int sortCount = ARRAY_SIZE(sortMenu);
-	if (MIPSComp::jit) {
-		JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
-		if (!blockCacheDebug->SupportsProfiling()) {
-			sortCount -= 2;
-		}
-	}
-
-	LinearLayout *listTopBar = blockListView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	Button *sortButton = new Button(dev->T("Sort..."));
-	listTopBar->Add(sortButton)->OnClick.Add([this, sortButton, sortCount](UI::EventParams &e) {
-		PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(sortMenu, sortCount, I18NCat::DEVELOPER, sortButton);
-		screenManager()->push(contextMenu);
-		contextMenu->OnChoice.Add([=](EventParams &e) -> void {
-			if (e.a < (int)ListSort::MAX) {
-				listSort_ = (ListSort)e.a;
-				UpdateDisasm();
+	AddTab("Block List", dev->T("Block List"), [=](LinearLayout *tabContent) {
+		// Should match the ListSort enum
+		static ContextMenuItem sortMenu[] = {
+			{ "Block number", "I_ARROW_UP" },
+			{ "Block length", "I_ARROW_DOWN" },
+			{ "Block length", "I_ARROW_UP" },
+			{ "Time spent", "I_ARROW_DOWN" },
+			{ "Executions", "I_ARROW_DOWN" },
+		};
+		int sortCount = ARRAY_SIZE(sortMenu);
+		if (MIPSComp::jit) {
+			JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+			if (!blockCacheDebug->SupportsProfiling()) {
+				sortCount -= 2;
 			}
+		}
+
+		LinearLayout *listTopBar = tabContent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		Choice *sortButton = new Choice(dev->T("Sort..."), new LinearLayoutParams());
+		listTopBar->Add(sortButton)->OnClick.Add([this, sortButton, sortCount](UI::EventParams &e) {
+			PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(sortMenu, sortCount, I18NCat::DEVELOPER, sortButton);
+			screenManager()->push(contextMenu);
+			contextMenu->OnChoice.Add([=](EventParams &e) -> void {
+				if (e.a < (int)ListSort::MAX) {
+					listSort_ = (ListSort)e.a;
+					UpdateDisasm();
+				}
+			});
 		});
+		// leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
+		listTopBar->Add(new Choice(dev->T("All"), new LinearLayoutParams()))->OnClick.Add([=](UI::EventParams &e) {
+			listType_ = ListType::ALL_BLOCKS;
+			UpdateDisasm();
+		});
+		listTopBar->Add(new Choice(dev->T("FPU"), new LinearLayoutParams()))->OnClick.Add([=](UI::EventParams &e) {
+			listType_ = ListType::FPU_BLOCKS;
+			UpdateDisasm();
+		});
+		listTopBar->Add(new Choice(dev->T("VFPU"), new LinearLayoutParams()))->OnClick.Add([=](UI::EventParams &e) {
+			listType_ = ListType::VFPU_BLOCKS;
+			UpdateDisasm();
+		});
+
+		blockListContainer_ = tabContent->Add(new LinearLayout(ORIENT_VERTICAL));
 	});
 
-	ScrollView *blockScroll = blockListView_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	blockListContainer_ = blockScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	AddTab("Comparison", dev->T("Jit Compare"), [=](LinearLayout *tabContent) {
+		LinearLayout *blockTopBar = tabContent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		blockTopBar->Add(new Button("", ImageID("I_ARROW_LEFT")))->OnClick.Add([=](UI::EventParams &e) {
+			if (currentBlock_ >= 1)
+				currentBlock_--;
+			UpdateDisasm();
+		});
+		blockTopBar->Add(new Button("", ImageID("I_ARROW_RIGHT")))->OnClick.Add([=](UI::EventParams &e) {
+			if (currentBlock_ < (int)blockList_.size() - 1)
+				currentBlock_++;
+			if (currentBlock_ == -1 && !blockList_.empty()) {
+				currentBlock_ = 0;
+			}
+			UpdateDisasm();
+		});
+		blockTopBar->Add(new Button(dev->T("Random")))->OnClick.Add([=](UI::EventParams &e) {
+			if (blockList_.empty()) {
+				return;
+			}
+			currentBlock_ = rand() % blockList_.size();
+			UpdateDisasm();
+		});
 
-	statsView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	statsView_->SetVisibility(V_GONE);
+		blockAddr_ = blockTopBar->Add(new TextEdit("", dev->T("Block address"), ""));
+		blockAddr_->OnEnter.Handle(this, &JitCompareScreen::OnAddressChange);
+		blockName_ = blockTopBar->Add(new TextView(dev->T("No block")));
+		blockStats_ = blockTopBar->Add(new TextView(""));
 
-	LinearLayout *statsTopBar = statsView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	ScrollView *statsScroll = statsView_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	statsContainer_ = statsScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tabContent->Add(new Button("test"));
 
-	// leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
-	leftColumn->Add(new Choice(dev->T("All")))->OnClick.Add([=](UI::EventParams &e) {
-		listType_ = ListType::ALL_BLOCKS;
-		viewMode_ = ViewMode::BLOCK_LIST;
-		UpdateDisasm();
+		LinearLayout *columns = tabContent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f)));
+
+		ScrollView *midColumnScroll = columns->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+		LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+		midColumn->SetTag("JitCompareLeftDisasm");
+		leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
+		leftDisasm_->SetSpacing(0.0f);
+
+		ScrollView *rightColumnScroll = columns->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+		rightColumnScroll->SetTag("JitCompareRightDisasm");
+		LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+		rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
+		rightDisasm_->SetSpacing(0.0f);
+	}, TabFlags::NonScrollable);
+
+	AddTab("Stats", dev->T("Stats"), [=](LinearLayout *tabContent) {
+		globalStats_ = tabContent->Add(new TextView("N/A"));
 	});
-	leftColumn->Add(new Choice(dev->T("FPU")))->OnClick.Add([=](UI::EventParams &e) {
-		listType_ = ListType::FPU_BLOCKS;
-		viewMode_ = ViewMode::BLOCK_LIST;
-		UpdateDisasm();
-	});
-	leftColumn->Add(new Choice(dev->T("VFPU")))->OnClick.Add([=](UI::EventParams &e) {
-		listType_ = ListType::VFPU_BLOCKS;
-		viewMode_ = ViewMode::BLOCK_LIST;
-		UpdateDisasm();
-	});
 
-	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	EnsureTabs();  // don't create them lazily, due to the interdependences
 	UpdateDisasm();
 }
 
@@ -196,6 +160,7 @@ void JitCompareScreen::FillBlockList() {
 					}
 				}
 			}
+			break;
 		}
 		default:
 			break;
@@ -245,6 +210,10 @@ void JitCompareScreen::FillBlockList() {
 			return false;
 		}
 	});
+
+	if (currentBlock_ < 0 && !blockList_.empty()) {
+		currentBlock_ = 0;
+	}
 }
 
 void JitCompareScreen::UpdateDisasm() {
@@ -258,14 +227,10 @@ void JitCompareScreen::UpdateDisasm() {
 	}
 
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (viewMode_ == ViewMode::DISASM && (currentBlock_ < 0 || currentBlock_ >= (int)blockList_.size())) {
-		viewMode_ = ViewMode::BLOCK_LIST;
-	}
 
 	FillBlockList();
-	Flip();
 
-	if (viewMode_ == ViewMode::DISASM) {
+	if (currentBlock_ >= 0 && currentBlock_ < blockList_.size()) {  // Update disassembly
 		char temp[256];
 		snprintf(temp, sizeof(temp), "%d/%d", currentBlock_, (int)blockList_.size());
 		blockName_->SetText(temp);
@@ -276,7 +241,7 @@ void JitCompareScreen::UpdateDisasm() {
 			auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 			leftDisasm_->Add(new TextView(dev->T("No block")));
 			rightDisasm_->Add(new TextView(dev->T("No block")));
-			blockStats_->SetText("");
+			blockStats_->SetText("(no stats)");
 			return;
 		}
 
@@ -315,10 +280,11 @@ void JitCompareScreen::UpdateDisasm() {
 			snprintf(temp, sizeof(temp), "bloat: %0.1f%%", bloat);
 		}
 		blockStats_->SetText(temp);
-	} else if (viewMode_ == ViewMode::BLOCK_LIST) {
+	}
+	{   // Update block list
 		blockListContainer_->Clear();
 		bool profiling = blockCacheDebug->SupportsProfiling();
-		for (int i = 0; i < std::min(100, (int)blockList_.size()); i++) {
+		for (int i = 0; i < std::min(200, (int)blockList_.size()); i++) {
 			int blockNum = blockList_[i];
 			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(blockNum);
 			char temp[512], small[512];
@@ -335,9 +301,10 @@ void JitCompareScreen::UpdateDisasm() {
 			Choice *blockChoice = blockListContainer_->Add(new Choice(temp, small));
 			blockChoice->OnClick.Handle(this, &JitCompareScreen::OnBlockClick);
 		}
-	} else {  // viewMode_ == ViewMode::STATS
-		statsContainer_->Clear();
+	}
 
+	// Update stats
+	{
 		BlockCacheStats bcStats{};
 		blockCacheDebug->ComputeStats(bcStats);
 
@@ -352,15 +319,15 @@ void JitCompareScreen::UpdateDisasm() {
 			100.0 * bcStats.minBloat, bcStats.minBloatBlock,
 			100.0 * bcStats.maxBloat, bcStats.maxBloatBlock);
 
-		statsContainer_->Add(new TextView(stats));
+		globalStats_->SetText(stats);
 	}
 }
 
 void JitCompareScreen::OnBlockClick(UI::EventParams &e) {
 	int blockIndex = blockListContainer_->IndexOfSubview(e.v);
 	if (blockIndex >= 0) {
-		viewMode_ = ViewMode::DISASM;
 		currentBlock_ = blockIndex;
+		SetCurrentTab(1);
 		UpdateDisasm();
 	}
 }
@@ -383,17 +350,6 @@ void JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 		}
 	}
 }
-
-void JitCompareScreen::OnShowStats(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
-		return;
-	}
-
-	viewMode_ = ViewMode::STATS;
-	UpdateDisasm();
-}
-
 
 void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);

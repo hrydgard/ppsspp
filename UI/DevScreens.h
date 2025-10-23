@@ -108,18 +108,18 @@ protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 };
 
-class ShaderListScreen : public UIDialogScreenWithBackground {
+class ShaderListScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
-	void CreateViews() override;
+	ShaderListScreen() : TabbedUIDialogScreenWithGameBackground(Path()) {}
+	void CreateTabs() override;
 
 	const char *tag() const override { return "ShaderList"; }
 
 private:
+	bool ForceHorizontalTabs() const override {return true; }
 	int ListShaders(DebugShaderType shaderType, UI::LinearLayout *view);
 
 	void OnShaderClick(UI::EventParams &e);
-
-	UI::TabHolder *tabs_;
 };
 
 class ShaderViewScreen : public UIDialogScreenWithBackground {

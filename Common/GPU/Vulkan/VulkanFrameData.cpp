@@ -67,7 +67,7 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 	vkDestroyQueryPool(device, profile.queryPool, nullptr);
 	vkDestroySemaphore(device, acquireSemaphore, nullptr);
 
-	readbacks_.IterateMut([=](const ReadbackKey &key, CachedReadback *value) {
+	readbacks_.IterateMut([vulkan](const ReadbackKey &key, CachedReadback *value) {
 		value->Destroy(vulkan);
 		delete value;
 	});

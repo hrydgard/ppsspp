@@ -289,7 +289,7 @@ void LogConfigScreen::CreateViews() {
 	vert->SetSpacing(0);
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
 	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
 	topbar->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
@@ -421,7 +421,7 @@ void JitDebugScreen::CreateViews() {
 	vert->SetSpacing(0);
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &JitDebugScreen::OnDisableAll);
 	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &JitDebugScreen::OnEnableAll);
 
@@ -466,31 +466,23 @@ struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_SAMPLER, "Sampler" },
 };
 
-void ShaderListScreen::CreateViews() {
+void ShaderListScreen::CreateTabs() {
 	using namespace UI;
 
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
-	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
-	root_ = layout;
-
-	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, TabHolderFlags::Default, nullptr, new LinearLayoutParams(1.0));
-	tabs_->SetTag("DevShaderList");
-	layout->Add(tabs_);
-	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
-		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-		LinearLayout *shaderList = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		int count = ListShaders(shaderTypes[i].type, shaderList);
-		scroll->Add(shaderList);
-		tabs_->AddTab(StringFromFormat("%s (%d)", shaderTypes[i].name, count), scroll);
+		int count = (int)gpu->DebugGetShaderIDs(shaderTypes[i].type).size();
+		AddTab(shaderTypes[i].name, StringFromFormat("%s (%d)", shaderTypes[i].name, count), [this, i](UI::LinearLayout *tabContent) {
+			LinearLayout *shaderList = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+			int count = ListShaders(shaderTypes[i].type, shaderList);
+			tabContent->Add(shaderList);
+		});
 	}
 }
 
 void ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 	using namespace UI;
 	std::string id = e.v->Tag();
-	DebugShaderType type = shaderTypes[tabs_->GetCurrentTab()].type;
+	DebugShaderType type = shaderTypes[GetCurrentTab()].type;
 	screenManager()->push(new ShaderViewScreen(id, type));
 }
 
@@ -502,7 +494,10 @@ void ShaderViewScreen::CreateViews() {
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
-	layout->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
+	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
+	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
+	layout->Add(topbar);
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	scroll->SetTag("DevShaderView");
@@ -518,8 +513,6 @@ void ShaderViewScreen::CreateViews() {
 	for (const auto &line : lines) {
 		lineLayout->Add(new TextView(line, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
 	}
-
-	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 bool ShaderViewScreen::key(const KeyInput &ki) {
