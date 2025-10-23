@@ -7,7 +7,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 
-#include "UI/View.h"
+#include "Common/UI/View.h"
 #include "UI/DriverManagerScreen.h"
 #include "UI/GameSettingsScreen.h"  // for triggerrestart
 #include "UI/OnScreenDisplay.h"
@@ -78,8 +78,6 @@ public:
 	UI::Event OnDelete;
 	std::string name_;
 };
-
-static constexpr UI::Size ITEM_HEIGHT = 64.f;
 
 DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), name_(driverName) {
 	using namespace UI;

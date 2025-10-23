@@ -31,7 +31,8 @@ void EventTriggered(Event *e, EventParams params) {
 	g_dispatchQueue.push_front(item);
 }
 
-void DispatchEvents() {
+DialogResult DispatchEvents() {
+	DialogResult result = DR_NONE;
 	while (!g_dispatchQueue.empty()) {
 		DispatchQueueItem item;
 		if (g_dispatchQueue.empty())
@@ -40,8 +41,12 @@ void DispatchEvents() {
 		g_dispatchQueue.pop_back();
 		if (item.e) {
 			item.e->Dispatch(item.params);
+			if (item.params.bubbleResult != DR_NONE) {
+				result = item.params.bubbleResult;
+			}
 		}
 	}
+	return result;
 }
 
 void RemoveQueuedEventsByView(View *view) {
@@ -363,13 +368,13 @@ restart:
 	}
 }
 
-void UpdateViewHierarchy(ViewGroup *root) {
+DialogResult UpdateViewHierarchy(ViewGroup *root) {
 	ProcessHeldKeys(root);
 	frameCount++;
 
 	if (!root) {
 		ERROR_LOG(Log::UI, "Tried to update a view hierarchy from a zero pointer root");
-		return;
+		return DR_NONE;
 	}
 
 	if (focusMoves.size()) {
@@ -402,7 +407,7 @@ void UpdateViewHierarchy(ViewGroup *root) {
 	}
 
 	root->Update();
-	DispatchEvents();
+	return DispatchEvents();
 }
 
 }  // namespace UI

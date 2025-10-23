@@ -74,12 +74,6 @@ private:
 
 	std::string memstickDisplay_;
 
-	// Event handlers
-	void OnControlMapping(UI::EventParams &e);
-	void OnCalibrateAnalogs(UI::EventParams &e);
-	void OnTouchControlLayout(UI::EventParams &e);
-	void OnTiltCustomize(UI::EventParams &e);
-
 	// Global settings handlers
 	void OnAutoFrameskip(UI::EventParams &e);
 	void OnTextureShader(UI::EventParams &e);
@@ -92,7 +86,6 @@ private:
 	void OnChangeBackground(UI::EventParams &e);
 	void OnFullscreenChange(UI::EventParams &e);
 	void OnFullscreenMultiChange(UI::EventParams &e);
-	void OnResolutionChange(UI::EventParams &e);
 	void OnRestoreDefaultSettings(UI::EventParams &e);
 	void OnRenderingBackend(UI::EventParams &e);
 	void OnRenderingDevice(UI::EventParams &e);

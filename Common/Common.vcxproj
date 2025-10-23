@@ -538,6 +538,7 @@
     <ClInclude Include="UI\Root.h" />
     <ClInclude Include="UI\Screen.h" />
     <ClInclude Include="UI\ScrollView.h" />
+    <ClInclude Include="UI\TabHolder.h" />
     <ClInclude Include="UI\Tween.h" />
     <ClInclude Include="UI\UI.h" />
     <ClInclude Include="UI\UIScreen.h" />
@@ -983,6 +984,7 @@
     <ClCompile Include="UI\Root.cpp" />
     <ClCompile Include="UI\Screen.cpp" />
     <ClCompile Include="UI\ScrollView.cpp" />
+    <ClCompile Include="UI\TabHolder.cpp" />
     <ClCompile Include="UI\Tween.cpp" />
     <ClCompile Include="UI\UI.cpp" />
     <ClCompile Include="UI\UIScreen.cpp" />

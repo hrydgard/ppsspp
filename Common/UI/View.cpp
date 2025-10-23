@@ -21,7 +21,6 @@
 
 namespace UI {
 
-static constexpr Size ITEM_HEIGHT = 64.f;
 static constexpr float MIN_TEXT_SCALE = 0.8f;
 static constexpr float MAX_ITEM_SIZE = 65535.0f;
 

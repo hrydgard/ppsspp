@@ -698,6 +698,9 @@
     <ClInclude Include="..\ext\nanosvg\src\nanosvgrast.h">
       <Filter>ext\nanosvg</Filter>
     </ClInclude>
+    <ClInclude Include="UI\TabHolder.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1301,6 +1304,9 @@
     <ClCompile Include="LoongArch64Emitter.cpp" />
     <ClCompile Include="Render\AtlasGen.cpp">
       <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TabHolder.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

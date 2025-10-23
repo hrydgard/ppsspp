@@ -8,6 +8,10 @@
 #include "Core/ConfigValues.h"
 #include "UI/MiscScreens.h"
 
+namespace UI {
+class TabHolder;
+}
+
 class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBackground {
 public:
 	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}

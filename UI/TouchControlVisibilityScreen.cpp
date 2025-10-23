@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/UI/TabHolder.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
@@ -57,7 +58,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	Choice *toggleAll = new Choice(di->T("Toggle All"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 84));
 	root_->Add(toggleAll)->OnClick.Handle(this, &TouchControlVisibilityScreen::OnToggleAll);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	tabHolder->SetTag("TouchControlVisibility");
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
@@ -142,7 +143,7 @@ void RightAnalogMappingScreen::CreateViews() {
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
 	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
 	tabHolder->AddTab(co->T("Binds"), rightPanel);

@@ -149,7 +149,10 @@ void UIScreen::update() {
 	DoRecreateViews();
 
 	if (root_) {
-		UpdateViewHierarchy(root_);
+		DialogResult result = UpdateViewHierarchy(root_);
+		if (result != DR_NONE) {
+			TriggerFinish(result);
+		}
 	}
 
 	while (true) {

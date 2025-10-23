@@ -28,6 +28,7 @@ namespace UI {
 }
 
 enum DialogResult {
+	DR_NONE,
 	DR_OK,
 	DR_CANCEL,
 	DR_YES,

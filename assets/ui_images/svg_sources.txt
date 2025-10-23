@@ -1,0 +1,5 @@
+Most of the vectors in images.svg are custom drawn by hrydgard and NABN00B.
+
+Some are derived from public domain SVGs from the following sites:
+
+www.svgrepo.com

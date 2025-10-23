@@ -365,6 +365,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/View.cpp \
   $(SRC)/Common/UI/ViewGroup.cpp \
   $(SRC)/Common/UI/ScrollView.cpp \
+  $(SRC)/Common/UI/TabHolder.cpp \
   $(SRC)/Common/UI/PopupScreens.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \

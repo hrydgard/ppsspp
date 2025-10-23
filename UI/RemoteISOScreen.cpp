@@ -595,7 +595,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 
 	using namespace UI;
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
 	tabHolder_->SetTag("RemoteGames");
 	gameBrowsers_.clear();
