@@ -1273,22 +1273,23 @@ void MainScreen::CreateViews() {
 	}
 
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		rightColumnChoices->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+		rightColumnChoices->Add(vertical ? new Choice(ImageID("I_FOLDER_OPEN")) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 	}
-	rightColumnChoices->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnChoices->Add(new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnChoices->Add(vertical ? new Choice(ImageID("I_GEAR")) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	rightColumnChoices->Add(vertical ? new Choice(ImageID("I_INFO")) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
 
 	if (!vertical) {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-			ScreenManager *sm = screenManager();
-			gold->OnClick.Add([sm](UI::EventParams &) {
-				LaunchBuyGold(sm);
-			});
-			gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
-			gold->SetShine(true);
-		}
+	}
+
+	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
+		Choice *gold = rightColumnChoices->Add(vertical ? new Choice(ImageID("I_ICON_GOLD")) : new Choice(mm->T("Buy PPSSPP Gold")));
+		gold->OnClick.Add([this](UI::EventParams &) {
+			LaunchBuyGold(this->screenManager());
+		});
+		gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		gold->SetImageScale(0.5f);  // for the left-icon in case of vertical.
+		gold->SetShine(true);
 	}
 
 	if (!vertical) {

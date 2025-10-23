@@ -470,8 +470,8 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 	float totalH = 0.0f;
 	if (image_.isValid()) {
 		dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
-		totalW = w + 6;
-		totalH = h;
+		totalW = w * imgScale_ + 6;
+		totalH = h * imgScale_;
 	}
 	if (!text_.empty()) {
 		const int paddingX = 12;
