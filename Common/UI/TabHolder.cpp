@@ -15,12 +15,23 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 		// This orientation supports adding a back button.
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
+
 		if (flags & TabHolderFlags::BackButton) {
-			tabStrip_->AddBackButton();
+			ViewGroup *container = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			Choice *c = new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT));
+			c->OnClick.Add([](EventParams &e) {
+				e.bubbleResult = DR_BACK;
+			});
+			container->Add(c);
+			tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
+			tabScroll_->Add(tabStrip_);
+			container->Add(tabScroll_);
+			Add(container);
+		} else {
+			tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			tabScroll_->Add(tabStrip_);
+			Add(tabScroll_);
 		}
-		tabScroll_ = new ScrollView(orientation, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		tabScroll_->Add(tabStrip_);
-		Add(tabScroll_);
 	} else {
 		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -234,16 +245,6 @@ void ChoiceStrip::AddChoice(ImageID buttonImage) {
 	choices_.push_back(c);
 	if (selected_ == (int)choices_.size() - 1)
 		c->Press();
-}
-
-void ChoiceStrip::AddBackButton() {
-	Choice *c = new Choice(ImageID("I_NAVIGATE_BACK"));
-	c->OnClick.Add([](EventParams &e) {
-		e.bubbleResult = DR_BACK;
-	});
-	// c->OnClick.Handle(this, &UIScreen::OnBack);
-	Add(c);
-	Add(new Spacer(5.0f));
 }
 
 void ChoiceStrip::OnChoiceClick(EventParams &e) {

@@ -1131,13 +1131,6 @@ UI::ViewGroup *MainScreen::CreateLogoView(UI::LayoutParams *layoutParams) {
 	}
 	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE, false)));
 
-#if !defined(MOBILE_DEVICE)
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
-	fullscreenButton_ = logos->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
-	fullscreenButton_->SetIgnoreText(true);
-	fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
-#endif
 	std::string versionString = PPSSPP_GIT_VERSION;
 	// Strip the 'v' from the displayed version, and shorten the commit hash.
 	if (versionString.size() > 2) {
@@ -1170,19 +1163,21 @@ UI::ViewGroup *MainScreen::CreateLogoView(UI::LayoutParams *layoutParams) {
 void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		parent->Add(vertical ? new Choice(ImageID("I_FOLDER_OPEN")) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	if (vertical) {
+		parent->Add(new Spacer(1.0f, new LinearLayoutParams(1.0f)));
 	}
-	parent->Add(vertical ? new Choice(ImageID("I_GEAR")) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	parent->Add(vertical ? new Choice(ImageID("I_INFO")) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		parent->Add(vertical ? new Choice(ImageID("I_FOLDER_OPEN"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	}
+	parent->Add(vertical ? new Choice(ImageID("I_GEAR"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	parent->Add(vertical ? new Choice(ImageID("I_INFO"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
 
 	if (!vertical) {
 		parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	}
 
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = parent->Add(vertical ? new Choice(ImageID("I_ICON_GOLD")) : new Choice(mm->T("Buy PPSSPP Gold")));
+		Choice *gold = parent->Add(vertical ? new Choice(ImageID("I_ICON_GOLD"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Add([this](UI::EventParams &) {
 			LaunchBuyGold(this->screenManager());
 		});
@@ -1197,7 +1192,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
-	parent->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+	parent->Add(new Choice(mm->T("Exit"), vertical ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
 #endif
 }
 
@@ -1294,31 +1289,36 @@ void MainScreen::CreateViews() {
 	}
 
 	if (vertical) {
-		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		rightColumnItems->SetSpacing(0.0f);
-		rightColumnItems->Add(CreateLogoView(new LinearLayoutParams(FILL_PARENT, 80.0f, false)));
+		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		header->SetSpacing(5.0f);
+		header->Add(CreateLogoView(new LinearLayoutParams(WRAP_CONTENT, 80.0f, false)));
 
-		LinearLayout *rightColumnChoices = rightColumnItems;
-		ScrollView *rightColumnScroll = new ScrollView(ORIENT_HORIZONTAL);
-		rightColumnChoices = new LinearLayout(ORIENT_HORIZONTAL);
-		rightColumnScroll->Add(rightColumnChoices);
-		rightColumnItems->Add(rightColumnScroll);
+		LinearLayout *buttonGroup = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, UI::Gravity::G_VCENTER, UI::Margins(0,0,8,0)));
 
-		CreateMainButtons(rightColumnChoices, vertical);
+		CreateMainButtons(buttonGroup, vertical);
+		header->Add(buttonGroup);
 
-		rightColumn->Add(rightColumnItems);
+		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL);
+		rootLayout->SetSpacing(0.0f);
 
-		root_ = new LinearLayout(ORIENT_VERTICAL);
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
-		root_->Add(rightColumn);
-		root_->Add(leftColumn);
+		rootLayout->Add(header);
+		rootLayout->Add(leftColumn);
+		root_ = rootLayout;
 	} else {
 		const Margins actionMenuMargins(0, 10, 10, 0);
 		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		rightColumnItems->SetSpacing(0.0f);
-		rightColumnItems->Add(CreateLogoView(new LinearLayoutParams(FILL_PARENT, 80.0f, false)));
+		ViewGroup *logo = CreateLogoView(new LinearLayoutParams(FILL_PARENT, 80.0f, false));
+#if !defined(MOBILE_DEVICE)
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
+		fullscreenButton_ = logo->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_->SetIgnoreText(true);
+		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
+#endif
+		rightColumnItems->Add(logo);
 
 		LinearLayout *rightColumnChoices = rightColumnItems;
 		CreateMainButtons(rightColumnChoices, vertical);
