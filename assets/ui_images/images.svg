@@ -3941,14 +3941,14 @@
    id="I_FLAG_US"
    transform="matrix(8.4810893e-4,0,0,0.00107427,3.571875,87.312501)"><path
      d="M 0,0 H 7410 V 3900 H 0"
-     fill="#bf0a30"
+     fill="#b31942"
      id="path43" /><path
      d="m 0,450 h 7410 m 0,600 H 0 m 0,600 h 7410 m 0,600 H 0 m 0,600 h 7410 m 0,600 H 0"
      stroke="#ffffff"
      stroke-width="300"
      id="path44" /><path
      d="M 0,0 H 2964 V 2100 H 0"
-     fill="#002868"
+     fill="#0a3161"
      id="path45" /><g
      fill="#ffffff"
      id="g95"><path
