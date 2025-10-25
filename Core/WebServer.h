@@ -19,6 +19,8 @@
 
 #include "Common/Common.h"
 
+class Path;
+
 enum class WebServerFlags {
 	NONE = 0,
 	DISCS = 1,
@@ -37,4 +39,5 @@ bool WebServerRunning(WebServerFlags flags);
 void ShutdownWebServer();
 
 bool RemoteISOFileSupported(const std::string &filename);
+void WebServerSetUploadPath(const Path &path);
 int WebServerPort();

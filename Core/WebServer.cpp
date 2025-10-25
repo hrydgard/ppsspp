@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <mutex>
 #include <thread>
+#include <string_view>
 
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/HTTPServer.h"
@@ -50,7 +51,10 @@ static const int REPORT_PORT = 80;
 static std::thread serverThread;
 static ServerStatus serverStatus;
 static std::mutex serverStatusLock;
-static int serverFlags;
+static WebServerFlags serverFlags;
+
+std::mutex g_webServerLock;
+static Path g_uploadPath;  // TODO: Supply this through registration instead.
 
 // NOTE: These *only* encode spaces, which is almost enough.
 
@@ -266,7 +270,7 @@ static void HandleListing(const http::ServerRequest &request) {
 
 	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
 	request.Out()->Printf("/\n");
-	if (serverFlags & (int)WebServerFlags::DISCS) {
+	if (serverFlags & WebServerFlags::DISCS) {
 		switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 		case RemoteISOShareType::RECENT:
 			// List the current discs in their recent order.
@@ -301,22 +305,30 @@ static void HandleListing(const http::ServerRequest &request) {
 		}
 		}
 	}
-	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+	if (serverFlags & WebServerFlags::DEBUGGER) {
 		request.Out()->Printf("/debugger\n");
 	}
 }
 
-static bool ServeDebuggerFile(const http::ServerRequest &request) {
+static bool ServeAssetFile(const http::ServerRequest &request) {
 	// Skip the slash at the start of the resource path.
 	std::string_view filename = request.resource().substr(1);
-	if (filename.find("..") != std::string_view::npos)
+	if (filename.find("..") != std::string_view::npos) {
+		// Don't allow directory traversal.
 		return false;
+	}
 
 	size_t size;
 	// TODO: ReadFile should take a string_view.
 	uint8_t *data = g_VFS.ReadFile(std::string(filename).c_str(), &size);
-	if (!data)
-		return false;
+	if (!data) {
+		// Try appending index.html
+		data = g_VFS.ReadFile((std::string(filename) + "/index.html").c_str(), &size);
+		if (!data) {
+			return false;
+		}
+		INFO_LOG(Log::HTTP, "Redirected to /index.html");
+	}
 
 	std::string ext = Path(filename).GetFileExtension();
 	const char *mimeType = "text/plain";
@@ -347,12 +359,13 @@ static void RedirectToDebugger(const http::ServerRequest &request) {
 	request.Out()->Push(payload);
 }
 
+// TODO: Allow registering ServeAssetFile roots as well.
 static void HandleFallback(const http::ServerRequest &request) {
 	SetCurrentThreadName("HandleFallback");
 
 	AndroidJNIThreadContext jniContext;
 
-	if ((serverFlags & (int)WebServerFlags::DEBUGGER) != 0) {
+	if ((serverFlags & WebServerFlags::DEBUGGER) != 0) {
 		if (request.resource() == "/debugger/") {
 			RedirectToDebugger(request);
 			return;
@@ -360,13 +373,21 @@ static void HandleFallback(const http::ServerRequest &request) {
 
 		// Actually serve debugger files.
 		if (startsWith(request.resource(), "/debugger/")) {
-			if (ServeDebuggerFile(request)) {
+			if (ServeAssetFile(request)) {
 				return;
 			}
 		}
 	}
 
-	if (serverFlags & (int)WebServerFlags::DISCS) {
+	if (serverFlags & WebServerFlags::FILE_UPLOAD) {
+		if (startsWith(request.resource(), "/upload/")) {
+			if (ServeAssetFile(request)) {
+				return;
+			}
+		}
+	}
+
+	if (serverFlags & WebServerFlags::DISCS) {
 		std::string_view resource = request.resource();
 		Path localPath = LocalFromRemotePath(resource);
 		INFO_LOG(Log::Loader, "Serving %.*s from %s", (int)resource.size(), resource.data(), localPath.c_str());
@@ -391,7 +412,7 @@ static void ForwardDebuggerRequest(const http::ServerRequest &request) {
 	// Hm, is this needed?
 	AndroidJNIThreadContext jniContext;
 
-	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+	if (serverFlags & WebServerFlags::DEBUGGER) {
 		// Check if this is a websocket request...
 		std::string upgrade;
 		if (!request.GetHeader("upgrade", &upgrade)) {
@@ -426,6 +447,140 @@ static void HandleUploadUI(const http::ServerRequest &request) {
 static void HandleUploadPost(const http::ServerRequest &request) {
 	AndroidJNIThreadContext jniContext;
 
+	// Do some sanity checks.
+	if (request.Method() != http::RequestHeader::POST) {
+		ERROR_LOG(Log::HTTP, "Wrong method");
+		return;
+	}
+
+	Path uploadPath;
+	{
+		std::lock_guard<std::mutex> guard(g_webServerLock);
+		uploadPath = g_uploadPath;
+	}
+
+	// Now start handling things.
+	std::string contentType;
+	if (!request.GetHeader("content-type", &contentType)) {
+		return;
+	}
+	size_t bpos = contentType.find("boundary=");
+	if (bpos == std::string::npos) {
+		return;
+	}
+	const std::string boundary = contentType.substr(bpos + strlen("boundary="));
+
+	// The total length of the entire multipart thing.
+	u64 contentLength = request.Header().content_length;
+	if (contentLength == 0) {
+		WARN_LOG(Log::HTTP, "Bad content length");
+		return;
+	}
+
+	std::string firstBoundary = request.In()->ReadLine();
+	if (firstBoundary != "--" + boundary) {
+		WARN_LOG(Log::HTTP, "Bad boundary: Expected --%s but got %s", boundary);
+		return;
+	}
+
+	std::string disposition = request.In()->ReadLine();
+	std::vector<std::string_view> parts;
+	SplitString(disposition, ';', parts);
+	if (parts.size() < 2 || !startsWith(parts[0], "Content-Disposition: form-data")) {
+		WARN_LOG(Log::HTTP, "Bad content disposition: %s", disposition);
+		return;
+	}
+
+	std::string filename;
+
+	for (const auto &part : parts) {
+		std::string_view key;
+		std::string_view value;
+		if (SplitStringOnce(part, &key, &value, '=')) {
+			key = StripSpaces(key);
+			value = StripQuotes(StripSpaces(value));
+			if (key == "name") {
+				INFO_LOG(Log::HTTP, "Upload field name: %.*s", STR_VIEW(value));
+			} else if (key == "filename") {
+				INFO_LOG(Log::HTTP, "Upload filename: %.*s", STR_VIEW(value));
+				filename = value;
+			}
+		} else if (equalsNoCase(StripSpaces(part), "Content-Disposition: form-data")) {
+			// this is the first part, ok, ignore.
+		} else {
+			WARN_LOG(Log::HTTP, "Bad content disposition part: %.*s", STR_VIEW(part));
+		}
+	}
+
+	if (filename.empty()) {
+		ERROR_LOG(Log::HTTP, "Didn't receive a filename");
+		return;
+	}
+
+	std::string fileContentType = request.In()->ReadLine();
+	std::string secondBoundary = request.In()->ReadLine();
+
+	Path destPath = uploadPath / filename;
+
+	if (File::Exists(destPath)) {
+		INFO_LOG(Log::HTTP, "File already exists: %s", destPath.ToVisualString().c_str());
+		return;
+	}
+
+	// Make sure the destination exists.
+	File::CreateFullPath(destPath.NavigateUp());
+
+	INFO_LOG(Log::HTTP, "Receiving '%s', writing to '%s' (%d bytes)...", filename.c_str(), destPath.ToVisualString().c_str());
+
+	// OK, enter a loop where we read some data until we hit the boundary again.
+	// The boundary is chosen to be "unique" and unlikely to appear in the file. We trust that.
+	Buffer buffer;
+	FILE *fp = File::OpenCFile(destPath, "wb");
+	if (!fp) {
+		ERROR_LOG(Log::HTTP, "Failed to open destination file '%s' for writing", destPath.ToVisualString().c_str());
+		return;
+	}
+	u64 bytesWritten = 0;
+	while (true) {
+		// NOTE: Lines here can be extremely long, especially in compressed data. So we should split ReadLine up if needed.
+		std::string line = request.In()->ReadLine();
+		if (line == "--" + boundary || line == "--" + boundary + "--") {
+			INFO_LOG(Log::HTTP, "Line matches boundary, breaking.");
+			// Done.
+			break;
+		}
+		// Write the line and a newline (since we ate it). TODO: This could be avoided.
+		size_t len = line.size();
+		if (fwrite(line.data(), 1, len, fp) != len || fwrite("\r\n", 1, 2, fp) != 2) {
+			ERROR_LOG(Log::HTTP, "Failed to write %d bytes to destination file '%s' - bailing", (int)len, destPath.ToVisualString().c_str());
+			fclose(fp);
+			return;
+		}
+		bytesWritten += line.size();
+	}
+
+	INFO_LOG(Log::HTTP, "Total bytes written: %d", (int)bytesWritten);
+	fclose(fp);
+
+	// NOTE: We already read the boundary above.
+
+	// Now the buffer should be empty.
+	if (!request.In()->Empty()) {
+		WARN_LOG(Log::HTTP, "We didn't drain the request.");
+		std::string extraLine = request.In()->ReadLine();
+		INFO_LOG(Log::HTTP, "Extra line: %s", extraLine.c_str());
+	}
+
+	INFO_LOG(Log::HTTP, "Upload of '%s' complete.", filename.c_str());
+	// request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
+
+	const size_t blockSize = 16 * 1024;
+
+}
+
+void WebServerSetUploadPath(const Path &path) {
+	std::lock_guard<std::mutex> guard(g_webServerLock);
+	g_uploadPath = path;
 }
 
 static void WebServerThread() {
@@ -438,8 +593,7 @@ static void WebServerThread() {
 	// This lists all the (current) recent ISOs. It also handles the debugger, which is very ugly.
 	http->SetFallbackHandler(&HandleFallback);
 	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
-	http->RegisterHandler("/upload", &HandleUploadUI);
-	http->RegisterHandler("/upload_post", &HandleUploadPost);
+	http->RegisterHandler("/upload_file", &HandleUploadPost);
 
 	if (!http->Listen(g_Config.iRemoteISOPort, "debugger-webserver")) {
 		if (!http->Listen(0, "debugger-webserver")) {
@@ -479,11 +633,11 @@ bool StartWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	switch (serverStatus) {
 	case ServerStatus::RUNNING:
-		if ((serverFlags & (int)flags) == (int)flags) {
+		if (((int)serverFlags & (int)flags) == (int)flags) {
 			// Already running with these flags.
 			return false;
 		}
-		serverFlags |= (int)flags;
+		serverFlags |= flags;
 		return true;
 
 	case ServerStatus::FINISHED:
@@ -492,7 +646,7 @@ bool StartWebServer(WebServerFlags flags) {
 
 	case ServerStatus::STOPPED:
 		serverStatus = ServerStatus::STARTING;
-		serverFlags = (int)flags;
+		serverFlags = flags;
 		serverThread = std::thread(&WebServerThread);
 		return true;
 
@@ -508,8 +662,8 @@ bool StopWebServer(WebServerFlags flags) {
 		return false;
 	}
 
-	serverFlags &= ~(int)flags;
-	if (serverFlags == 0) {
+	serverFlags &= ~flags;
+	if (serverFlags == WebServerFlags::NONE) {
 		serverStatus = ServerStatus::STOPPING;
 	}
 	return true;
@@ -523,7 +677,7 @@ bool WebServerStopping(WebServerFlags flags) {
 bool WebServerStopped(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	if (serverStatus == ServerStatus::RUNNING) {
-		return (serverFlags & (int)flags) == 0;
+		return !(serverFlags & flags);
 	}
 	return serverStatus == ServerStatus::STOPPED || serverStatus == ServerStatus::FINISHED;
 }
@@ -537,7 +691,7 @@ void ShutdownWebServer() {
 }
 
 bool WebServerRunning(WebServerFlags flags) {
-	return RetrieveStatus() == ServerStatus::RUNNING && (serverFlags & (int)flags) != 0;
+	return RetrieveStatus() == ServerStatus::RUNNING && (serverFlags & flags) != 0;
 }
 
 int WebServerPort() {

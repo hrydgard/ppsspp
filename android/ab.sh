@@ -4,6 +4,7 @@ cp -r ../assets/lang assets/
 cp -r ../assets/shaders assets/
 cp -r ../assets/themes assets/
 cp -r ../assets/debugger assets/
+cp -r ../assets/upload assets/
 cp -r ../assets/ui_images assets/
 cp ../assets/*.ini assets/
 cp ../assets/Roboto-Condensed.ttf assets/Roboto-Condensed.ttf

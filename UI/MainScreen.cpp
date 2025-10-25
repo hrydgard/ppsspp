@@ -818,7 +818,7 @@ void GameBrowser::Refresh() {
 
 		if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
 			topBar->Add(new Choice(ImageID("I_FOLDER_UPLOAD"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([this](UI::EventParams &e) {
-				screenManager_->push(new UploadScreen());
+				screenManager_->push(new UploadScreen(path_.GetPath()));
 			});
 		}
 

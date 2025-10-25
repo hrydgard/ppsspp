@@ -4,9 +4,9 @@
 #include "Common/StringUtils.h"
 #include "Core/WebServer.h"
 
-UploadScreen::UploadScreen() {
+UploadScreen::UploadScreen(const Path &targetFolder) : targetFolder_(targetFolder) {
 	net::GetLocalIP4List(localIPs_);
-
+	WebServerSetUploadPath(targetFolder);
 	StartWebServer(WebServerFlags::FILE_UPLOAD);
 }
 
@@ -35,6 +35,8 @@ void UploadScreen::CreateViews() {
 	} else {
 		root_->Add(new TextView(co->T("Connecting...")));
 	}
+
+	root_->Add(new TextView(std::string(co->T("Uploading to: ")) + targetFolder_.ToVisualString()));
 
 	//infoText->SetTextAlignment(TEXT_ALIGN_CENTER);
 	//verticalLayout->AddView(infoText);

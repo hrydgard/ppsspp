@@ -32,7 +32,7 @@
 
 class UploadScreen : public UIDialogScreenWithBackground {
 public:
-	UploadScreen();
+	UploadScreen(const Path &targetFolder);
 	~UploadScreen();
 	void CreateViews() override;
 
@@ -44,4 +44,5 @@ protected:
 private:
 	bool prevRunning_ = false;
 	std::vector<std::string> localIPs_;
+	Path targetFolder_;
 };

@@ -38,6 +38,10 @@ public:
 		return header_.method;
 	}
 
+	const RequestHeader &Header() const {
+		return header_;
+	}
+
 	bool GetParamValue(const char *param_name, std::string *value) const {
 		return header_.GetParamValue(param_name, value);
 	}

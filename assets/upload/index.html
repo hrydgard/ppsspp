@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>File/Folder Uploader</title>
+	<style>
+		body {
+			font-family: system-ui, sans-serif;
+			background: #f5f7fa;
+			color: #333;
+			padding: 2em;
+			line-height: 1.5;
+		}
+
+		h1 {
+			font-size: 1.4em;
+			margin-bottom: 1em;
+		}
+
+		input[type="file"] {
+			margin-bottom: 1em;
+			cursor: pointer;
+		}
+
+		button {
+			background: #0078d4;
+			color: white;
+			border: none;
+			padding: 0.6em 1.4em;
+			border-radius: 6px;
+			cursor: pointer;
+			font-size: 1em;
+			font-weight: 500;
+			transition: background 0.2s;
+		}
+
+		button:hover:enabled {
+			background: #005fa3;
+		}
+
+		button:disabled {
+			background: #a0a0a0;
+			cursor: not-allowed;
+		}
+
+		#status {
+			margin-top: 1em;
+			font-size: 0.95em;
+		}
+
+		progress {
+			width: 100%;
+			height: 16px;
+			appearance: none;
+			-webkit-appearance: none;
+			margin-top: 0.5em;
+			border-radius: 4px;
+			overflow: hidden;
+			display: none;
+		}
+
+		progress::-webkit-progress-bar {
+			background-color: #e3e3e3;
+		}
+
+		progress::-webkit-progress-value {
+			background-color: #0078d4;
+		}
+
+		progress::-moz-progress-bar {
+			background-color: #0078d4;
+		}
+
+		#totalContainer {
+			margin-top: 1em;
+		}
+
+		#summary {
+			margin-top: 1em;
+			font-size: 0.95em;
+			color: #0078d4;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Upload Files or Folders</h1>
+
+	<label>Choose files:</label>
+	<input type="file" id="fileInput" multiple>
+	<br>
+	<label>Or choose a folder:</label>
+	<input type="file" id="folderInput" webkitdirectory multiple>
+	<br>
+	<button id="uploadBtn" disabled>Upload</button>
+
+	<div id="status"></div>
+
+	<progress id="fileProgress" value="0" max="100"></progress>
+	<div id="totalContainer">
+		<progress id="totalProgress" value="0" max="100"></progress>
+	</div>
+
+	<div id="summary"></div>
+
+	<script>
+		const fileInput = document.getElementById("fileInput");
+		const folderInput = document.getElementById("folderInput");
+		const uploadBtn = document.getElementById("uploadBtn");
+		const fileProgress = document.getElementById("fileProgress");
+		const totalProgress = document.getElementById("totalProgress");
+		const status = document.getElementById("status");
+		const summary = document.getElementById("summary");
+
+		function getAllFiles() {
+			return [
+			...fileInput.files,
+			...folderInput.files
+			];
+		}
+
+		// Enable Upload button if either input has files
+		function updateUploadButton() {
+			uploadBtn.disabled = getAllFiles().length === 0;
+		}
+
+		fileInput.addEventListener("change", updateUploadButton);
+		folderInput.addEventListener("change", updateUploadButton);
+
+		uploadBtn.onclick = async () => {
+			const files = getAllFiles();
+			if (!files.length) return;
+
+			uploadBtn.disabled = true; // prevent double-clicks
+			fileProgress.style.display = "block";
+			totalProgress.style.display = "block";
+			summary.textContent = "";
+
+			const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+			let uploadedBytes = 0;
+			const startTime = performance.now();
+
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const relPath = file.webkitRelativePath || file.name;
+				status.textContent = `Uploading ${relPath} (${i + 1}/${files.length}) — ${file.size} bytes`;
+				fileProgress.value = 0;
+
+				try {
+					await uploadSingleFile(file, relPath, (loaded) => {
+						fileProgress.value = (loaded / file.size) * 100;
+						totalProgress.value = ((uploadedBytes + loaded) / totalBytes) * 100;
+					});
+					uploadedBytes += file.size;
+				} catch (err) {
+					status.textContent = `Error uploading ${relPath}: ${err.message}`;
+					break;
+				}
+			}
+
+			const elapsed = (performance.now() - startTime) / 1000;
+			const totalSizeStr = formatBytes(totalBytes);
+			const fileCount = files.length;
+
+			totalProgress.value = 100;
+			status.textContent = "All files uploaded successfully!";
+			summary.textContent = `Uploaded ${fileCount} file${fileCount > 1 ? "s" : ""} (${totalSizeStr}) in ${elapsed.toFixed(1)} s`;
+
+			setTimeout(() => {
+				fileProgress.style.display = "none";
+				totalProgress.style.display = "none";
+				updateUploadButton(); // enable upload if files still selected
+			}, 2000);
+		};
+
+		function uploadSingleFile(file, relPath, onProgress) {
+			return new Promise((resolve, reject) => {
+				const xhr = new XMLHttpRequest();
+				xhr.open("POST", "/upload_file", true);
+
+				xhr.upload.onprogress = (event) => {
+					if (event.lengthComputable) onProgress(event.loaded);
+				};
+
+				xhr.onload = () => {
+					xhr.status === 200 ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
+				};
+
+				xhr.onerror = () => reject(new Error("Network error"));
+
+				const formData = new FormData();
+				formData.append("file", file, relPath);
+				xhr.send(formData);
+			});
+		}
+
+		function formatBytes(bytes) {
+			const units = ["B", "KB", "MB", "GB", "TB"];
+			let i = 0;
+			while (bytes >= 1024 && i < units.length - 1) {
+				bytes /= 1024;
+				i++;
+			}
+			return `${bytes.toFixed(2)} ${units[i]}`;
+		}
+	</script>
+</body>
+</html>

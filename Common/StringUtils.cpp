@@ -361,6 +361,16 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 	}
 }
 
+bool SplitStringOnce(std::string_view str, std::string_view *firstPart, std::string_view *secondPart, char delim) {
+	size_t pos = str.find(delim);
+	if (pos == std::string_view::npos) {
+		return false;
+	}
+	*firstPart = str.substr(0, pos);
+	*secondPart = str.substr(pos + 1);
+	return true;
+}
+
 void SplitString(std::string_view str, const char delim, std::vector<std::string> &output, bool trimOutput) {
 	size_t next = 0;
 	size_t pos = 0;
