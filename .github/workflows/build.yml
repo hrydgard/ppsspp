@@ -26,7 +26,53 @@ env:
   BUILD_CONFIGURATION: Release
 
 jobs:
+  # New: Check for invisible Unicode characters
+  check-invisible-unicode:
+    name: Check for invisible Unicode characters
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: false
+
+    - name: Check for invisible Unicode characters
+      run: |
+        echo "Checking for invisible Unicode characters in code..."
+        # Check for common invisible Unicode characters
+        PATTERNS=(
+          "\u200B" # Zero-width space
+          "\u200C" # Zero-width non-joiner
+          "\u200D" # Zero-width joiner
+          "\uFEFF" # Zero-width no-break space (BOM)
+          "\u00A0" # Non-breaking space
+          "\u202A" # Left-to-right embedding
+          "\u202B" # Right-to-left embedding
+          "\u202C" # Pop directional formatting
+          "\u202D" # Left-to-right override
+          "\u202E" # Right-to-left override
+        )
+        
+        FOUND_ISSUES=0
+        for pattern in "${PATTERNS[@]}"; do
+          echo "Checking pattern: $pattern"
+          # Use grep to find files containing these characters
+          if find . -name "*.cpp" -o -name "*.h" -o -name "*.c" -o -name "*.mm" -o -name "*.m" -o -name "*.py" -o -name "*.sh" -o -name "*.yml" -o -name "*.yaml" | xargs grep -l -P "$pattern" > /dev/null 2>&1; then
+            echo "❌ Found files containing invisible character $pattern:"
+            find . -name "*.cpp" -o -name "*.h" -o -name "*.c" -o -name "*.mm" -o -name "*.m" -o -name "*.py" -o -name "*.sh" -o -name "*.yml" -o -name "*.yaml" | xargs grep -n -P "$pattern" | head -10
+            FOUND_ISSUES=1
+          fi
+        done
+        
+        if [ $FOUND_ISSUES -eq 1 ]; then
+          echo "::error::Found invisible Unicode characters in code, please clean them before committing"
+          exit 1
+        else
+          echo "✅ No invisible Unicode characters found"
+        fi
+
   build-windows:
+    # Add dependency to ensure Unicode check runs first
+    needs: check-invisible-unicode
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +121,17 @@ jobs:
           echo "#define PPSSPP_WIN_VERSION_NO_UPDATE 1" >> Windows/win-version.h
         }
         
+    # Add quick Unicode check for generated files in Windows build
+    - name: Quick Unicode check for generated files
+      shell: bash
+      run: |
+        echo "Quick check for Unicode characters in generated files..."
+        # Check generated files for zero-width spaces and similar characters
+        if grep -n -P "[\u200B-\u200D\uFEFF]" git-version.cpp Windows/win-version.h 2>/dev/null; then
+          echo "::error::Generated files contain invisible Unicode characters"
+          exit 1
+        fi
+        
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ matrix.platform }} Windows/PPSSPP.sln
@@ -119,6 +176,8 @@ jobs:
         files: releases/*.zip
 
   build-uwp:
+    # Add dependency
+    needs: check-invisible-unicode
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v5
@@ -161,6 +220,8 @@ jobs:
       run: python test.py -g --graphics=software
 
   build:
+    # Add dependency
+    needs: check-invisible-unicode
     name: build (${{ matrix.id }})
     strategy:
       fail-fast: false
