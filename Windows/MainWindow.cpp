@@ -669,9 +669,9 @@ namespace MainWindow
 
 		case WM_USER_GET_CURRENT_GAMEID:
 		{
-			// Return game ID packed as u64
-			// wParam: 0 = first 8 chars, 1 = next 7 chars
-			// Returns: packed u64 with 8 bytes of game ID
+			// Return game ID as four u32 values
+			// wParam: 0-3 = which u32 to return (chars 0-3, 4-7, 8-11, 12-15)
+			// Returns: packed u32 with 4 bytes of game ID
 			if (!PSP_IsInited())
 			{
 				return 0;
@@ -681,13 +681,15 @@ namespace MainWindow
 			{
 				return 0;
 			}
-			u64 packed = 0;
-			const size_t offset = (wParam == 0) ? 0 : 8;
-			const size_t maxLen = std::min(gameID.length() - offset, size_t(8));
-			for (size_t i = 0; i < maxLen; ++i)
+			const size_t offset = (wParam & 0x3) * 4;  // 0, 4, 8, 12
+			u32 packed = 0;
+			for (size_t i = 0; i < 4; ++i)
 			{
-				const u8 c = static_cast<const u8>(gameID[offset + i]);
-				packed |= ((u64)c << (i * 8));
+				if (offset + i < gameID.length())
+				{
+					const u8 c = static_cast<u8>(gameID[offset + i]);
+					packed |= ((u32)c << (i * 8));
+				}
 			}
 			return packed;
 		}
