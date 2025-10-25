@@ -75,6 +75,7 @@
     <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="Theme.cpp" />
     <ClCompile Include="UIAtlas.cpp" />
+    <ClCompile Include="UploadScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioCommon.h" />
@@ -124,6 +125,7 @@
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="Theme.h" />
     <ClInclude Include="UIAtlas.h" />
+    <ClInclude Include="UploadScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

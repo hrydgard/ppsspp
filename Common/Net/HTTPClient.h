@@ -30,6 +30,8 @@ public:
 	// Only to be used for bring-up and debugging.
 	uintptr_t sock() const { return sock_; }
 
+	std::string GetLocalIpAsString() const;
+
 protected:
 	// Store the remote host here, so we can send it along through HTTP/1.1 requests.
 	// TODO: Move to http::client?

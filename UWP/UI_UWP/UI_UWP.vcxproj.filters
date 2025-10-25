@@ -124,6 +124,9 @@
     <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\UploadScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -247,6 +250,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\UploadScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

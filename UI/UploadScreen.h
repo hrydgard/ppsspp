@@ -1,4 +1,6 @@
-// Copyright (c) 2014- PPSSPP Project.
+#pragma once
+
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,24 +19,29 @@
 
 #pragma once
 
-#include "Common/Common.h"
+#include <functional>
+#include <string>
+#include <vector>
 
-enum class WebServerFlags {
-	NONE = 0,
-	DISCS = 1,
-	DEBUGGER = 2,
-	FILE_UPLOAD = 4,
+#include "Common/UI/UIScreen.h"
+#include "Common/UI/ViewGroup.h"
+#include "UI/MiscScreens.h"
 
-	ALL = 1 | 2 | 4,
+// Upload screen: Shows the user an ip address to go to in a web browser on the same network,
+// in order to upload game files to the current directory.
+
+class UploadScreen : public UIDialogScreenWithBackground {
+public:
+	UploadScreen();
+	~UploadScreen();
+	void CreateViews() override;
+
+protected:
+	void update() override;
+
+	const char *tag() const override { return "Upload"; }
+
+private:
+	bool prevRunning_ = false;
+	std::vector<std::string> localIPs_;
 };
-ENUM_CLASS_BITOPS(WebServerFlags);
-
-bool StartWebServer(WebServerFlags flags);
-bool StopWebServer(WebServerFlags flags);
-bool WebServerStopping(WebServerFlags flags);
-bool WebServerStopped(WebServerFlags flags);
-bool WebServerRunning(WebServerFlags flags);
-void ShutdownWebServer();
-
-bool RemoteISOFileSupported(const std::string &filename);
-int WebServerPort();

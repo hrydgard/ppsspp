@@ -73,7 +73,7 @@ static ServerStatus RetrieveStatus() {
 }
 
 // This reports the local IP address to report.ppsspp.org, which can then
-// relay that address to a mobile device searching for the server.
+// relay that address to a mobile device on the same wifi/LAN searching for the server.
 static bool RegisterServer(int port) {
 	bool success = false;
 	http::Client http(nullptr);
@@ -86,7 +86,7 @@ static bool RegisterServer(int port) {
 	char resource4[1024]{};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
 		if (http.Connect()) {
-			std::string ip = fd_util::GetLocalIP(http.sock());
+			std::string ip = http.GetLocalIpAsString();
 			snprintf(resource4, sizeof(resource4) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
 			if (http.GET(http::RequestParams(resource4), &theVoid, &progress) > 0)
@@ -111,7 +111,7 @@ static bool RegisterServer(int port) {
 		// Currently, we're not using keepalive, so gotta reconnect...
 		if (http.Connect(timeout)) {
 			char resource6[1024] = {};
-			std::string ip = fd_util::GetLocalIP(http.sock());
+			std::string ip = http.GetLocalIpAsString();
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
 			if (http.GET(http::RequestParams(resource6), &theVoid, &progress) > 0)
@@ -388,6 +388,7 @@ static void HandleFallback(const http::ServerRequest &request) {
 static void ForwardDebuggerRequest(const http::ServerRequest &request) {
 	SetCurrentThreadName("ForwardDebuggerRequest");
 
+	// Hm, is this needed?
 	AndroidJNIThreadContext jniContext;
 
 	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
@@ -408,7 +409,26 @@ static void ForwardDebuggerRequest(const http::ServerRequest &request) {
 	}
 }
 
-static void ExecuteWebServer() {
+static void HandleUploadUI(const http::ServerRequest &request) {
+	// Read the file from VFS.
+	AndroidJNIThreadContext jniContext;
+	request.WriteHttpResponseHeader("1.0", 200, -1, "text/html");
+	request.Out()->Push(
+		"<html><head><title>PPSSPP Remote ISO Upload</title></head><body>"
+		"<h1>Upload ISO File</h1>"
+		"<form method=\"POST\" enctype=\"multipart/form-data\">"
+		"<input type=\"file\" name=\"isofile\" accept=\".iso,.cso,.pbp,.chd\" required>"
+		"<input type=\"submit\" value=\"Upload\">"
+		"</form>"
+		"</body></html>");
+}
+
+static void HandleUploadPost(const http::ServerRequest &request) {
+	AndroidJNIThreadContext jniContext;
+
+}
+
+static void WebServerThread() {
 	SetCurrentThreadName("HTTPServer");
 
 	AndroidJNIThreadContext context;  // Destructor detaches.
@@ -418,6 +438,8 @@ static void ExecuteWebServer() {
 	// This lists all the (current) recent ISOs. It also handles the debugger, which is very ugly.
 	http->SetFallbackHandler(&HandleFallback);
 	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
+	http->RegisterHandler("/upload", &HandleUploadUI);
+	http->RegisterHandler("/upload_post", &HandleUploadPost);
 
 	if (!http->Listen(g_Config.iRemoteISOPort, "debugger-webserver")) {
 		if (!http->Listen(0, "debugger-webserver")) {
@@ -426,11 +448,14 @@ static void ExecuteWebServer() {
 			return;
 		}
 	}
+
 	UpdateStatus(ServerStatus::RUNNING);
 
 	g_Config.iRemoteISOPort = http->Port();
 	RegisterServer(http->Port());
 	double lastRegister = time_now_d();
+
+	INFO_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		constexpr double webServerSliceSeconds = 0.2f;
 		http->RunSlice(webServerSliceSeconds);
@@ -440,6 +465,7 @@ static void ExecuteWebServer() {
 			lastRegister = now;
 		}
 	}
+	INFO_LOG(Log::HTTP, "Leaving web server loop.");
 
 	http->Stop();
 	StopAllDebuggers();
@@ -448,11 +474,13 @@ static void ExecuteWebServer() {
 	UpdateStatus(ServerStatus::FINISHED);
 }
 
+// Only adds flags.
 bool StartWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	switch (serverStatus) {
 	case ServerStatus::RUNNING:
 		if ((serverFlags & (int)flags) == (int)flags) {
+			// Already running with these flags.
 			return false;
 		}
 		serverFlags |= (int)flags;
@@ -465,7 +493,7 @@ bool StartWebServer(WebServerFlags flags) {
 	case ServerStatus::STOPPED:
 		serverStatus = ServerStatus::STARTING;
 		serverFlags = (int)flags;
-		serverThread = std::thread(&ExecuteWebServer);
+		serverThread = std::thread(&WebServerThread);
 		return true;
 
 	default:
@@ -473,6 +501,7 @@ bool StartWebServer(WebServerFlags flags) {
 	}
 }
 
+// Only removes flags.
 bool StopWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	if (serverStatus != ServerStatus::RUNNING) {
@@ -509,4 +538,8 @@ void ShutdownWebServer() {
 
 bool WebServerRunning(WebServerFlags flags) {
 	return RetrieveStatus() == ServerStatus::RUNNING && (serverFlags & (int)flags) != 0;
+}
+
+int WebServerPort() {
+	return g_Config.iRemoteISOPort;
 }

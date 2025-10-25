@@ -1605,6 +1605,8 @@ list(APPEND NativeAppSource
 	UI/SystemInfoScreen.cpp
 	UI/Store.h
 	UI/Store.cpp
+	UI/UploadScreen.h
+	UI/UploadScreen.cpp
 	UI/CwCheatScreen.h
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.h

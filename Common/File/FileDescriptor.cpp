@@ -75,7 +75,8 @@ std::string GetLocalIP(int sock) {
 	} server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
 	socklen_t len = sizeof(server_addr);
-	if (getsockname(sock, (struct sockaddr *)&server_addr, &len) == 0) {
+	int retval = getsockname(sock, (struct sockaddr *)&server_addr, &len);
+	if (retval == 0) {
 		char temp[64]{};
 
 		// We clear the port below for WSAAddressToStringA.
@@ -94,17 +95,24 @@ std::string GetLocalIP(int sock) {
 		wchar_t wtemp[sizeof(temp)];
 		DWORD len = (DWORD)sizeof(temp);
 		// Windows XP doesn't support inet_ntop.
-		if (WSAAddressToStringW((struct sockaddr *)&server_addr, sizeof(server_addr), nullptr, wtemp, &len) == 0) {
+		HRESULT result = WSAAddressToStringW((struct sockaddr *)&server_addr, sizeof(server_addr), nullptr, wtemp, &len);
+		if (result == 0) {
 			return ConvertWStringToUTF8(wtemp);
+		} else {
+			return "";
 		}
 #else
 		const char *result = inet_ntop(server_addr.sa.sa_family, addr, temp, sizeof(temp));
 		if (result) {
 			return result;
+		} else {
+			return "";
 		}
 #endif
+	} else {
+		WARN_LOG(Log::IO, "GetLocalIP: getsockname failed with error %d (%s)", retval, strerror(retval));
+		return "";
 	}
-	return "";
 }
 
 }  // fd_util

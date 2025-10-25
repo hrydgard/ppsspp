@@ -38,7 +38,8 @@ enum class BrowseFlags {
 	ARCHIVES = 4,
 	PIN = 8,
 	HOMEBREW_STORE = 16,
-	STANDARD = 1 | 2 | 4 | 8,
+	UPLOAD_BUTTON = 32,
+	STANDARD = 1 | 2 | 4 | 8 | 32,
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 

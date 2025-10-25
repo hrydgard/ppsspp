@@ -66,7 +66,7 @@ ServerRequest::ServerRequest(int fd)
 	header_.ParseHeaders(in_);
 
 	if (header_.ok) {
-		VERBOSE_LOG(Log::IO, "The request carried with it %i bytes", (int)header_.content_length);
+		VERBOSE_LOG(Log::HTTP, "The request carried with it %i bytes", (int)header_.content_length);
 	} else {
 	    Close();
 	}
@@ -76,11 +76,11 @@ ServerRequest::~ServerRequest() {
 	Close();
 
 	if (!in_->Empty()) {
-		ERROR_LOG(Log::IO, "Input not empty - invalid request?");
+		ERROR_LOG(Log::HTTP, "Input not empty - invalid request?");
 	}
 	delete in_;
 	if (!out_->Empty()) {
-		WARN_LOG(Log::IO, "Output not empty - connection abort? (%s) (%d bytes)", this->header_.resource, (int)out_->BytesRemaining());
+		WARN_LOG(Log::HTTP, "Output not empty - connection abort? (%s) (%d bytes)", this->header_.resource, (int)out_->BytesRemaining());
 	}
 	delete out_;
 }
@@ -170,8 +170,8 @@ bool Server::Listen(int port, const char *reason, net::DNSType type) {
 }
 
 bool Server::Listen4(int port, const char *reason) {
-	listener_ = socket(AF_INET, SOCK_STREAM, 0);
-	if (listener_ < 0)
+	listenerSock_ = socket(AF_INET, SOCK_STREAM, 0);
+	if (listenerSock_ < 0)
 		return false;
 
 	struct sockaddr_in server_addr;
@@ -182,42 +182,43 @@ bool Server::Listen4(int port, const char *reason) {
 
 	int opt = 1;
 	// Enable re-binding to avoid the pain when restarting the server quickly.
-	setsockopt(listener_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+	setsockopt(listenerSock_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 
-	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	if (bind(listenerSock_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 #if PPSSPP_PLATFORM(WINDOWS)
 		int err = WSAGetLastError();
 #else
 		int err = errno;
 #endif
-		ERROR_LOG(Log::IO, "%s: Failed to bind to port %d, error=%d - Bailing (ipv4)", reason, port, err);
-		closesocket(listener_);
+		ERROR_LOG(Log::HTTP, "%s: Failed to bind to port %d, error=%d - Bailing (ipv4)", reason, port, err);
+		closesocket(listenerSock_);
 		return false;
 	}
 
-	fd_util::SetNonBlocking(listener_, true);
+	fd_util::SetNonBlocking(listenerSock_, true);
 
 	// 1024 is the max number of queued requests.
-	if (listen(listener_, 1024) < 0) {
-		closesocket(listener_);
+	if (listen(listenerSock_, 1024) < 0) {
+		closesocket(listenerSock_);
 		return false;
 	}
 
 	socklen_t len = sizeof(server_addr);
-	if (getsockname(listener_, (struct sockaddr *)&server_addr, &len) == 0) {
+	if (getsockname(listenerSock_, (struct sockaddr *)&server_addr, &len) == 0) {
 		port = ntohs(server_addr.sin_port);
 	}
 
-	INFO_LOG(Log::IO, "HTTP server started on port %d: %s", port, reason);
-	port_ = port;
+	localAddress_ = fd_util::GetLocalIP(listenerSock_);
+	INFO_LOG(Log::HTTP, "HTTP IPv4 server started on port %d: %s (ip: %s)", port, reason, localAddress_.c_str());
 
+	port_ = port;
 	return true;
 }
 
 bool Server::Listen6(int port, bool ipv6_only, const char *reason) {
 #if !PPSSPP_PLATFORM(SWITCH)
-	listener_ = socket(AF_INET6, SOCK_STREAM, 0);
-	if (listener_ < 0)
+	listenerSock_ = socket(AF_INET6, SOCK_STREAM, 0);
+	if (listenerSock_ < 0)
 		return false;
 
 	struct sockaddr_in6 server_addr;
@@ -228,54 +229,55 @@ bool Server::Listen6(int port, bool ipv6_only, const char *reason) {
 
 	int opt = 1;
 	// Enable re-binding to avoid the pain when restarting the server quickly.
-	setsockopt(listener_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+	setsockopt(listenerSock_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 
 	// Enable listening on IPv6 and IPv4?
 	opt = ipv6_only ? 1 : 0;
-	setsockopt(listener_, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&opt, sizeof(opt));
+	setsockopt(listenerSock_, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&opt, sizeof(opt));
 
-	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	if (bind(listenerSock_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 #if PPSSPP_PLATFORM(WINDOWS)
 		int err = WSAGetLastError();
 #else
 		int err = errno;
 #endif
-		ERROR_LOG(Log::IO, "%s: Failed to bind to port %d, error=%d - Bailing (ipv6)", reason, port, err);
-		closesocket(listener_);
+		ERROR_LOG(Log::HTTP, "%s: Failed to bind to port %d, error=%d - Bailing (ipv6)", reason, port, err);
+		closesocket(listenerSock_);
 		return false;
 	}
 
-	fd_util::SetNonBlocking(listener_, true);
+	fd_util::SetNonBlocking(listenerSock_, true);
 
 	// 1024 is the max number of queued requests.
-	if (listen(listener_, 1024) < 0) {
-		closesocket(listener_);
+	if (listen(listenerSock_, 1024) < 0) {
+		closesocket(listenerSock_);
 		return false;
 	}
 
 	socklen_t len = sizeof(server_addr);
-	if (getsockname(listener_, (struct sockaddr *)&server_addr, &len) == 0) {
+	if (getsockname(listenerSock_, (struct sockaddr *)&server_addr, &len) == 0) {
 		port = ntohs(server_addr.sin6_port);
 	}
 
-	INFO_LOG(Log::IO, "HTTP server started on port %d: %s", port, reason);
+	localAddress_ = fd_util::GetLocalIP(listenerSock_);
+	INFO_LOG(Log::HTTP, "HTTP IPv6 server started on port %d: %s (ip: %s)", port, reason, localAddress_.c_str());
 	port_ = port;
-
 	return true;
 #else
+	ERROR_LOG(Log::HTTP, "IPv6 not supported on this platform.");
 	return false;
 #endif
 }
 
 bool Server::RunSlice(double timeout) {
-	if (listener_ < 0 || port_ == 0) {
+	if (listenerSock_ < 0 || port_ == 0) {
 		return false;
 	}
 
 	if (timeout <= 0.0) {
 		timeout = 86400.0;
 	}
-	if (!fd_util::WaitUntilReady(listener_, timeout, false)) {
+	if (!fd_util::WaitUntilReady(listenerSock_, timeout, false)) {
 		return false;
 	}
 
@@ -287,13 +289,13 @@ bool Server::RunSlice(double timeout) {
 #endif
 	} client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
-	int conn_fd = accept(listener_, &client_addr.sa, &client_addr_size);
+	int conn_fd = accept(listenerSock_, &client_addr.sa, &client_addr_size);
 	if (conn_fd >= 0) {
 		executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
 		return true;
 	}
 	else {
-		ERROR_LOG(Log::IO, "socket accept failed: %i", conn_fd);
+		ERROR_LOG(Log::HTTP, "socket accept failed: %i", conn_fd);
 		return false;
 	}
 }
@@ -312,13 +314,13 @@ bool Server::Run(int port) {
 }
 
 void Server::Stop() {
-	closesocket(listener_);
+	closesocket(listenerSock_);
 }
 
 void Server::HandleConnection(int conn_fd) {
 	ServerRequest request(conn_fd);
 	if (!request.IsOK()) {
-		WARN_LOG(Log::IO, "Bad request, ignoring.");
+		WARN_LOG(Log::HTTP, "Bad request, ignoring.");
 		return;
 	}
 	HandleRequest(request);
@@ -350,7 +352,7 @@ void Server::HandleRequestDefault(const ServerRequest &request) {
 }
 
 void Server::Handle404(const ServerRequest &request) {
-	INFO_LOG(Log::IO, "No handler for '%.*s', falling back to 404.", (int)request.resource().size(), request.resource().data());
+	INFO_LOG(Log::HTTP, "No handler for '%.*s', falling back to 404.", (int)request.resource().size(), request.resource().data());
 	const char *payload = "<html><body>404 not found</body></html>\r\n";
 	request.WriteHttpResponseHeader("1.0", 404, strlen(payload));
 	request.Out()->Push(payload);

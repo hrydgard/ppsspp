@@ -433,6 +433,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_HAS_ACCELEROMETER:
+		return true;  // for debugging
 	default:
 		return false;
 	}
