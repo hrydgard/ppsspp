@@ -669,9 +669,9 @@ namespace MainWindow
 
 		case WM_USER_GET_CURRENT_GAMEID:
 		{
-			// Return game ID as a string
-			// wParam: pointer to buffer
-			// lParam: size of buffer
+			// Return game ID packed as u64
+			// wParam: 0 = first 8 chars, 1 = next 7 chars
+			// Returns: packed u64 with 8 bytes of game ID
 			if (!PSP_IsInited())
 			{
 				return 0;
@@ -681,18 +681,15 @@ namespace MainWindow
 			{
 				return 0;
 			}
-			char* buffer = reinterpret_cast<char*>(wParam);
-			const size_t bufferSize = static_cast<size_t>(lParam);
-			if (!buffer || bufferSize == 0)
+			u64 packed = 0;
+			const size_t offset = (wParam == 0) ? 0 : 8;
+			const size_t maxLen = std::min(gameID.length() - offset, size_t(8));
+			for (size_t i = 0; i < maxLen; ++i)
 			{
-				// Return required size
-				return gameID.length() + 1;
+				const u8 c = static_cast<const u8>(gameID[offset + i]);
+				packed |= ((u64)c << (i * 8));
 			}
-			// Copy the game ID to the buffer
-			const size_t copySize = std::min(bufferSize - 1, gameID.length());
-			std::copy(gameID.begin(), gameID.begin() + copySize, buffer);
-			buffer[copySize] = '\0';
-			return gameID.length();
+			return packed;
 		}
 		break;
 		case WM_USER_GET_MODULE_INFO:
