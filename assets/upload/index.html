@@ -252,6 +252,7 @@
 					// Try to preserve any directory structure, if supported.
 					const formData = new FormData();
 					formData.append("file", file, file.webkitRelativePath || file.name);
+					formData.append("fileSize", file.size.toString());
 					xhr.send(formData);
 				});
 			}

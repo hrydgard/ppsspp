@@ -33,6 +33,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket.h"
@@ -527,6 +528,18 @@ public:
 		std::lock_guard<std::mutex> guard(g_webServerLock);
 		g_uploadsInProgress.erase(sessionId_);
 	}
+	void SetFile(std::string_view filename, size_t size) {
+		std::lock_guard<std::mutex> guard(g_webServerLock);
+		auto &upload = g_uploadsInProgress[sessionId_];
+		upload.currentFilename = filename;
+		upload.currentFileSize = size;
+		upload.uploadedFiles++;
+		upload.totalBytesBeforeCurrentFile = upload.uploadedBytes;
+	}
+	void AddBytes(size_t bytes) {
+		std::lock_guard<std::mutex> guard(g_webServerLock);
+		g_uploadsInProgress[sessionId_].uploadedBytes += bytes;
+	}
 private:
 	int sessionId_;
 };
@@ -566,6 +579,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 			} else if (key == "filename") {
 				INFO_LOG(Log::HTTP, "Upload filename: %.*s", STR_VIEW(value));
 				filename = value;
+			} else if (key == "fileSize") {
+				INFO_LOG(Log::HTTP, "Upload filesize: %.*s", STR_VIEW(value));
 			}
 		} else if (equalsNoCase(StripSpaces(part), "Content-Disposition: form-data")) {
 			// this is the first part, ok, ignore.
@@ -606,6 +621,7 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		}
 	}
 
+	progress.SetFile(filename);
 	u64 bytesTransferred = 0;
 	char buffer[net::InputSink::BUFFER_SIZE];
 	while (true) {
@@ -618,6 +634,7 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 				return MultiPartResult::RequestError;
 			}
 		}
+		progress.AddBytes(readBytes);
 		bytesTransferred += readBytes;
 		if (terminatorFound) {
 			INFO_LOG(Log::HTTP, "Found terminator, skipping and proceeding.");
@@ -629,6 +646,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 	if (fp) {
 		fclose(fp);
 	}
+
+	g_OSD.Show(OSDType::, StringFromFormat("Uploaded '%s' (%d bytes)", filename.c_str(), (int)bytesTransferred), 5.0f);
 
 	// NOTE: We already read the boundary above.
 	// However if this is the last part, the boundary will have "--\r\n" after it, otherwise there will be a line break.

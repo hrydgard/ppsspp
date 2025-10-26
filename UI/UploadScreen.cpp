@@ -43,16 +43,11 @@ void UploadScreen::CreateViews() {
 	// where files are uploaded sequentially).
 	std::vector<UploadProgress> uploads = GetUploadsInProgress();
 	for (const auto &upload : uploads) {
-		std::string uploadText = StringFromFormat("%zu / %zu bytes uploaded (%zu files). Current file: %s",
+		std::string uploadText = StringFromFormat("%zu / %zu total bytes (%zu files). Current: %s",
 			upload.uploadedBytes, upload.totalBytes, upload.uploadedFiles,
 			upload.currentFilename.c_str());
 		root_->Add(new TextView(uploadText));
 	}
-
-	//infoText->SetTextAlignment(TEXT_ALIGN_CENTER);
-	//verticalLayout->AddView(infoText);
-	//AddStandardBack(verticalLayout);
-	//root_->AddView(verticalLayout);
 }
 
 void UploadScreen::update() {

@@ -44,9 +44,11 @@ void WebServerSetUploadPath(const Path &path);
 int WebServerPort();
 
 struct UploadProgress {
-	size_t uploadedBytes = 0;
-	size_t totalBytes = 0;
-	size_t uploadedFiles = 0;  // we don't know the count ahead of time
+	s64 uploadedBytes = 0;
+	s64 totalBytes = 0;
+	s64 uploadedFiles = 0;  // we don't know the count ahead of time
+	s64 currentFileSize = 0;
+	s64 totalBytesBeforeCurrentFile = 0;
 	std::string currentFilename;
 };
 
