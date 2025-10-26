@@ -1,208 +1,261 @@
 <!DOCTYPE html>
+<!--upload-->
+<!--TODO: Make localizable somehow.-->
 <html lang="en">
 <head>
-	<meta charset="utf-8">
-	<title>File/Folder Uploader</title>
+	<meta charset="UTF-8">
+	<title>File Uploader</title>
 	<style>
 		body {
 			font-family: system-ui, sans-serif;
 			background: #f5f7fa;
 			color: #333;
 			padding: 2em;
-			line-height: 1.5;
+			max-width: 600px;
+			margin: auto;
 		}
 
 		h1 {
-			font-size: 1.4em;
+			text-align: center;
+			color: #444;
+		}
+
+		.section {
 			margin-bottom: 1em;
 		}
 
 		input[type="file"] {
-			margin-bottom: 1em;
-			cursor: pointer;
+			display: block;
+			margin: 0.5em 0;
 		}
 
 		button {
-			background: #0078d4;
-			color: white;
-			border: none;
-			padding: 0.6em 1.4em;
-			border-radius: 6px;
-			cursor: pointer;
+			display: inline-block;
+			padding: 0.6em 1.2em;
 			font-size: 1em;
-			font-weight: 500;
+			border: none;
+			border-radius: 6px;
+			background-color: #4a90e2;
+			color: white;
+			cursor: pointer;
 			transition: background 0.2s;
+			margin-right: 0.5em;
 		}
 
-		button:hover:enabled {
-			background: #005fa3;
+		#uploadBtn:enabled {
+			background-color: #3aa270;
 		}
 
 		button:disabled {
-			background: #a0a0a0;
+			background-color: #ccc;
 			cursor: not-allowed;
 		}
 
-		#status {
-			margin-top: 1em;
+		button:hover:not(:disabled) {
+			background-color: #357ab8;
+		}
+
+		.btn {
+			display: inline-block;
+			padding: 0.6em 1.2em;
+			font-size: 1em;
+			border: none;
+			border-radius: 6px;
+			background-color: #4a90e2;
+			color: white;
+			cursor: pointer;
+			transition: background 0.2s;
+			margin-right: 0.5em;
+		}
+
+		.btn:hover {
+			background-color: #357ab8;
+		}
+
+		#fileList {
+			margin-top: 0.5em;
 			font-size: 0.95em;
+			color: #333;
 		}
 
 		progress {
 			width: 100%;
-			height: 16px;
-			appearance: none;
-			-webkit-appearance: none;
+			height: 20px;
 			margin-top: 0.5em;
-			border-radius: 4px;
-			overflow: hidden;
 			display: none;
 		}
 
-		progress::-webkit-progress-bar {
-			background-color: #e3e3e3;
+		#status {
+			margin-top: 0.5em;
+			font-weight: 500;
 		}
 
-		progress::-webkit-progress-value {
-			background-color: #0078d4;
+		#error {
+			color: #d33;
+			margin-top: 0.5em;
 		}
 
-		progress::-moz-progress-bar {
-			background-color: #0078d4;
+		pre.inline {
+			display: inline;
 		}
 
-		#totalContainer {
-			margin-top: 1em;
+		.btn input[type="file"] {
+			display: none; /* hide the native control */
 		}
 
-		#summary {
-			margin-top: 1em;
-			font-size: 0.95em;
-			color: #0078d4;
+		#resetBtn {
+			display: none; /* initially hidden */
 		}
 	</style>
 </head>
-
 <body>
-	<h1>Upload Files or Folders</h1>
+	<h1>Upload files to {{ device_name }}</h1>
 
-	<label>Choose files:</label>
-	<input type="file" id="fileInput" multiple>
-	<br>
-	<label>Or choose a folder:</label>
-	<input type="file" id="folderInput" webkitdirectory multiple>
-	<br>
-	<button id="uploadBtn" disabled>Upload</button>
+	<p>To folder: <pre class="inline">{{ upload_path }}</pre></p>
 
-	<div id="status"></div>
-
-	<progress id="fileProgress" value="0" max="100"></progress>
-	<div id="totalContainer">
-		<progress id="totalProgress" value="0" max="100"></progress>
+	<div class="section">
+		<label class="btn">
+			Choose individual files...
+			<input type="file" id="fileInput" multiple hidden>
+		</label>
+		<label class="btn">
+			Choose folder...
+			<input type="file" id="folderInput" webkitdirectory multiple>
+		</label>
+		<button id="resetBtn">
+			Reset
+		</button>
 	</div>
 
-	<div id="summary"></div>
+	<div id="fileList"></div>
+
+	<div class="section">
+		<button id="uploadBtn" disabled>Start upload!</button>
+	</div>
+
+	<progress id="progressBar" value="0" max="100"></progress>
+	<div id="status"></div>
+	<div id="error"></div>
 
 	<script>
-		const fileInput = document.getElementById("fileInput");
-		const folderInput = document.getElementById("folderInput");
-		const uploadBtn = document.getElementById("uploadBtn");
-		const fileProgress = document.getElementById("fileProgress");
-		const totalProgress = document.getElementById("totalProgress");
-		const status = document.getElementById("status");
-		const summary = document.getElementById("summary");
+		(() => {
+			const fileInput = document.getElementById("fileInput");
+			const folderInput = document.getElementById("folderInput");
+			const uploadBtn = document.getElementById("uploadBtn");
+			const resetBtn = document.getElementById("resetBtn");
+			const fileListDiv = document.getElementById("fileList");
+			const progressBar = document.getElementById("progressBar");
+			const statusDiv = document.getElementById("status");
+			const errorDiv = document.getElementById("error");
 
-		function getAllFiles() {
-			return [
-			...fileInput.files,
-			...folderInput.files
-			];
-		}
-
-		// Enable Upload button if either input has files
-		function updateUploadButton() {
-			uploadBtn.disabled = getAllFiles().length === 0;
-		}
-
-		fileInput.addEventListener("change", updateUploadButton);
-		folderInput.addEventListener("change", updateUploadButton);
-
-		uploadBtn.onclick = async () => {
-			const files = getAllFiles();
-			if (!files.length) return;
-
-			uploadBtn.disabled = true; // prevent double-clicks
-			fileProgress.style.display = "block";
-			totalProgress.style.display = "block";
-			summary.textContent = "";
-
-			const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-			let uploadedBytes = 0;
-			const startTime = performance.now();
-
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const relPath = file.webkitRelativePath || file.name;
-				status.textContent = `Uploading ${relPath} (${i + 1}/${files.length}) — ${file.size} bytes`;
-				fileProgress.value = 0;
-
-				try {
-					await uploadSingleFile(file, relPath, (loaded) => {
-						fileProgress.value = (loaded / file.size) * 100;
-						totalProgress.value = ((uploadedBytes + loaded) / totalBytes) * 100;
+			let files = [];
+			function formatBytes(bytes, decimals = 2) {
+				if (bytes === 0) return '0 B';
+				const k = 1024;
+				const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+				const i = Math.floor(Math.log(bytes) / Math.log(k));
+				const size = parseFloat((bytes / Math.pow(k, i)).toFixed(decimals));
+				return `${size} ${units[i]}`;
+			}
+			function updateFileList() {
+				files = [...fileInput.files, ...folderInput.files];
+				fileListDiv.innerHTML = "";
+				if (files.length > 0) {
+					uploadBtn.disabled = false;
+					resetBtn.style.display = "inline-block";
+					const list = document.createElement("ul");
+					files.forEach(f => {
+						const li = document.createElement("li");
+						const formattedBytes = formatBytes(f.size, 2);
+						const name = f.webkitRelativePath || f.name;
+						li.textContent = `${name} (${formattedBytes} bytes)`;
+						list.appendChild(li);
 					});
-					uploadedBytes += file.size;
-				} catch (err) {
-					status.textContent = `Error uploading ${relPath}: ${err.message}`;
-					break;
+					fileListDiv.appendChild(list);
+				} else {
+					uploadBtn.disabled = true;
+					resetBtn.style.display = "none";
 				}
 			}
 
-			const elapsed = (performance.now() - startTime) / 1000;
-			const totalSizeStr = formatBytes(totalBytes);
-			const fileCount = files.length;
+			fileInput.addEventListener("change", updateFileList);
+			folderInput.addEventListener("change", updateFileList);
 
-			totalProgress.value = 100;
-			status.textContent = "All files uploaded successfully!";
-			summary.textContent = `Uploaded ${fileCount} file${fileCount > 1 ? "s" : ""} (${totalSizeStr}) in ${elapsed.toFixed(1)} s`;
-
-			setTimeout(() => {
-				fileProgress.style.display = "none";
-				totalProgress.style.display = "none";
-				updateUploadButton(); // enable upload if files still selected
-			}, 2000);
-		};
-
-		function uploadSingleFile(file, relPath, onProgress) {
-			return new Promise((resolve, reject) => {
-				const xhr = new XMLHttpRequest();
-				xhr.open("POST", "/upload_file", true);
-
-				xhr.upload.onprogress = (event) => {
-					if (event.lengthComputable) onProgress(event.loaded);
-				};
-
-				xhr.onload = () => {
-					xhr.status === 200 ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
-				};
-
-				xhr.onerror = () => reject(new Error("Network error"));
-
-				const formData = new FormData();
-				formData.append("file", file, relPath);
-				xhr.send(formData);
+			resetBtn.addEventListener("click", () => {
+				// Clear the file inputs
+				fileInput.value = "";
+				folderInput.value = "";
+				// Clear the files array and update the display
+				files = [];
+				updateFileList();
 			});
-		}
 
-		function formatBytes(bytes) {
-			const units = ["B", "KB", "MB", "GB", "TB"];
-			let i = 0;
-			while (bytes >= 1024 && i < units.length - 1) {
-				bytes /= 1024;
-				i++;
+			uploadBtn.addEventListener("click", async () => {
+				if (files.length === 0) return;
+
+				uploadBtn.disabled = true;
+				errorDiv.textContent = "";
+				statusDiv.textContent = "";
+				progressBar.style.display = "block";
+				progressBar.value = 0;
+
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					statusDiv.textContent = `Uploading ${file.webkitRelativePath || file.name} (${i + 1}/${files.length})`;
+
+					try {
+						await uploadFile(file);
+					} catch (err) {
+						errorDiv.textContent = err.message;
+						progressBar.style.display = "none";
+						uploadBtn.disabled = false;
+						return;
+					}
+				}
+
+				statusDiv.textContent = "All files uploaded successfully.";
+				progressBar.style.display = "none";
+				uploadBtn.disabled = false;
+			});
+
+			function uploadFile(file) {
+				return new Promise((resolve, reject) => {
+					const xhr = new XMLHttpRequest();
+					xhr.open("POST", "/upload_file");
+
+					// Add custom metadata headers if needed:
+					xhr.setRequestHeader("X-Client-Version", "1.0");
+					xhr.setRequestHeader("X-Upload-Timestamp", new Date().toISOString());
+
+					xhr.upload.onprogress = e => {
+						if (e.lengthComputable) {
+							progressBar.value = (e.loaded / e.total) * 100;
+						}
+					};
+
+					xhr.onload = () => {
+						if (xhr.status >= 200 && xhr.status < 300) {
+							resolve();
+						} else {
+							let msg;
+							switch (xhr.status) {
+								case 400: msg = "Malformed request (boundary or headers invalid)."; break;
+								case 500: msg = "Target is probably out of disk space."; break;
+								default: msg = `Upload failed with status ${xhr.status}.`; break;
+							}
+							reject(new Error(msg));
+						}
+					};
+
+					xhr.onerror = () => reject(new Error("Connection error during upload."));
+
+					// Try to preserve any directory structure, if supported.
+					const formData = new FormData();
+					formData.append("file", file, file.webkitRelativePath || file.name);
+					xhr.send(formData);
+				});
 			}
-			return `${bytes.toFixed(2)} ${units[i]}`;
-		}
+		})();
 	</script>
 </body>
 </html>

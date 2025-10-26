@@ -59,7 +59,7 @@ std::pair<std::string_view, std::string_view> InputSink::BufferParts() const {
 }
 
 size_t InputSink::ReadBinaryUntilTerminator(char *dest, size_t bufSize, std::string_view terminator, bool *didReadTerminator) {
-	Block();
+	Fill();
 
 	auto [part1, part2] = BufferParts();
 	size_t offset = SplitSearch(terminator, part1, part2);

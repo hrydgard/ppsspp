@@ -32,6 +32,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket.h"
@@ -322,6 +323,45 @@ static void HandleListing(const http::ServerRequest &request) {
 	}
 }
 
+std::string RenderTemplate(std::string_view input, const std::map<std::string, std::string>& values) {
+	std::string output;
+	output.reserve(input.size());
+
+	size_t i = 0;
+	while (i < input.size()) {
+		if (i + 3 < input.size() && input[i] == '{' && input[i + 1] == '{') {
+			size_t end = input.find("}}", i + 2);
+			if (end != std::string_view::npos) {
+				// Trim whitespace around key
+				size_t startKey = i + 2;
+				while (startKey < end && std::isspace(static_cast<unsigned char>(input[startKey])))
+					startKey++;
+				size_t endKey = end;
+				while (endKey > startKey && std::isspace(static_cast<unsigned char>(input[endKey - 1])))
+					endKey--;
+
+				std::string key(input.substr(startKey, endKey - startKey));
+
+				auto it = values.find(key);
+				if (it != values.end()) {
+					output += it->second;
+				} else {
+					// Keep the original placeholder if key not found
+					output.append(input.substr(i, end + 2 - i));
+				}
+
+				i = end + 2;
+				continue;
+			}
+		}
+
+		output.push_back(input[i]);
+		++i;
+	}
+
+	return output;
+}
+
 static bool ServeAssetFile(const http::ServerRequest &request) {
 	// Skip the slash at the start of the resource path.
 	std::string_view filename = request.resource().substr(1);
@@ -330,20 +370,8 @@ static bool ServeAssetFile(const http::ServerRequest &request) {
 		return false;
 	}
 
-	size_t size;
-	// TODO: ReadFile should take a string_view.
-	uint8_t *data = g_VFS.ReadFile(std::string(filename).c_str(), &size);
-	if (!data) {
-		// Try appending index.html
-		data = g_VFS.ReadFile((std::string(filename) + "/index.html").c_str(), &size);
-		if (!data) {
-			return false;
-		}
-		INFO_LOG(Log::HTTP, "Redirected to /index.html");
-	}
-
 	std::string ext = Path(filename).GetFileExtension();
-	const char *mimeType = "text/plain";
+	std::string_view mimeType = "text/plain";
 	if (ext == ".html") {
 		mimeType = "text/html";
 	} else if (ext == ".ico") {
@@ -358,10 +386,43 @@ static bool ServeAssetFile(const http::ServerRequest &request) {
 		mimeType = "text/css";
 	}
 
-	request.WriteHttpResponseHeader("1.0", 200, size, mimeType);
-	request.Out()->Push((char *)data, size);
+	size_t size;
+	// TODO: ReadFile should take a string_view.
+	uint8_t *data = g_VFS.ReadFile(std::string(filename).c_str(), &size);
+	if (!data) {
+		// Try appending index.html
+		data = g_VFS.ReadFile((std::string(filename) + "/index.html").c_str(), &size);
+		mimeType = "text/html";
+		if (!data) {
+			return false;
+		}
+		INFO_LOG(Log::HTTP, "Redirected to /index.html");
+	}
 
+	std::string html = std::string((const char *)data, size);
 	delete[] data;
+
+	// This is a gross, gross hack to have here in ServeAssetFile, but oh well.
+	if (mimeType == "text/html") {
+		if (html.find("<!--upload-->") != std::string::npos) {
+			std::string uploadPath = g_uploadPath.ToVisualString();
+			std::string deviceName = System_GetProperty(SYSPROP_NAME);
+			std::string computerName = System_GetProperty(SYSPROP_COMPUTER_NAME);
+			if (!computerName.empty()) {
+				deviceName = computerName;
+			}
+			std::map<std::string, std::string> values = {
+				{"upload_path", uploadPath},
+				{"device_name", deviceName},
+			};
+			// Use templating to insert some information.
+			html = RenderTemplate(html, values);
+		}
+	}
+
+	request.WriteHttpResponseHeader("1.0", 200, html.size(), std::string(mimeType).c_str());
+	request.Out()->Push(html.data(), html.size());
+
 	return true;
 }
 
@@ -392,7 +453,7 @@ static void HandleFallback(const http::ServerRequest &request) {
 	}
 
 	if (serverFlags & WebServerFlags::FILE_UPLOAD) {
-		if (startsWith(request.resource(), "/upload/")) {
+		if (startsWith(request.resource(), "/upload")) {
 			if (ServeAssetFile(request)) {
 				return;
 			}
