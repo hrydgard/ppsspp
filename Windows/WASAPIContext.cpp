@@ -12,6 +12,7 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "WASAPIContext.h"
 
 using Microsoft::WRL::ComPtr;
@@ -308,6 +309,8 @@ void WASAPIContext::FrameUpdate(bool allowAutoChange) {
 }
 
 void WASAPIContext::AudioLoop() {
+	SetCurrentThreadName("WASAPIAudioLoop");
+
 	DWORD taskID = 0;
 	HANDLE mmcssHandle = nullptr;
 	if (latencyMode_ == LatencyMode::Aggressive) {
@@ -323,7 +326,7 @@ void WASAPIContext::AudioLoop() {
 		audioClient_->GetBufferSize(&available);
 	}
 
-	AudioFormat format = Classify(format_);
+	const AudioFormat format = Classify(format_);
 	const int nChannels = format_->nChannels;
 
 	while (running_) {

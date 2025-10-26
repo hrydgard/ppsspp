@@ -1584,6 +1584,9 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	} else if (tag == "IAP") {
 		// Gold status may have changed.
 		RecreateViews();
+	} else if (tag == "Upload") {
+		// Files may have been uploaded.
+		RecreateViews();
 	}
 }
 

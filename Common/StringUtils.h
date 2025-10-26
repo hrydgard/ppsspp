@@ -154,6 +154,8 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 
 void MakeUnique(std::vector<std::string> &vec);
 
+size_t SplitSearch(std::string_view needle, std::string_view part1, std::string_view part2);
+
 // Replaces %1, %2, %3 in format with arg1, arg2, arg3.
 // Much safer than snprintf and friends.
 // For mixes of strings and ints, manually convert the ints to strings.

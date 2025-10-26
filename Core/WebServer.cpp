@@ -55,8 +55,20 @@ static WebServerFlags serverFlags;
 
 std::mutex g_webServerLock;
 static Path g_uploadPath;  // TODO: Supply this through registration instead.
+static std::atomic<int> g_uploadSessionId(1);
+std::map<int, UploadProgress> g_uploadsInProgress;
 
 // NOTE: These *only* encode spaces, which is almost enough.
+
+std::vector<UploadProgress> GetUploadsInProgress() {
+	std::lock_guard<std::mutex> guard(g_webServerLock);
+	std::vector<UploadProgress> uploads;
+	uploads.reserve(g_uploadsInProgress.size());
+	for (const auto &pair : g_uploadsInProgress) {
+		uploads.push_back(pair.second);
+	}
+	return uploads;
+}
 
 std::string ServerUriEncode(std::string_view plain) {
 	return ReplaceAll(plain, " ", "%20");
@@ -444,51 +456,40 @@ static void HandleUploadUI(const http::ServerRequest &request) {
 		"</body></html>");
 }
 
-static void HandleUploadPost(const http::ServerRequest &request) {
-	AndroidJNIThreadContext jniContext;
-
-	// Do some sanity checks.
-	if (request.Method() != http::RequestHeader::POST) {
-		ERROR_LOG(Log::HTTP, "Wrong method");
-		return;
-	}
-
-	Path uploadPath;
-	{
+class ProgressTracker {
+public:
+	ProgressTracker(int sessionId) : sessionId_(sessionId) {
 		std::lock_guard<std::mutex> guard(g_webServerLock);
-		uploadPath = g_uploadPath;
+		g_uploadsInProgress[sessionId_] = UploadProgress();
 	}
+	~ProgressTracker() {
+		std::lock_guard<std::mutex> guard(g_webServerLock);
+		g_uploadsInProgress.erase(sessionId_);
+	}
+private:
+	int sessionId_;
+};
 
-	// Now start handling things.
-	std::string contentType;
-	if (!request.GetHeader("content-type", &contentType)) {
-		return;
-	}
-	size_t bpos = contentType.find("boundary=");
-	if (bpos == std::string::npos) {
-		return;
-	}
-	const std::string boundary = contentType.substr(bpos + strlen("boundary="));
+enum class MultiPartResult {
+	MoveToNext,
+	RequestError,
+	LocalError,
+	Done,
+};
 
-	// The total length of the entire multipart thing.
-	u64 contentLength = request.Header().content_length;
-	if (contentLength == 0) {
-		WARN_LOG(Log::HTTP, "Bad content length");
-		return;
-	}
-
+static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, std::string boundary, const Path &uploadPath, ProgressTracker &progress) {
 	std::string firstBoundary = request.In()->ReadLine();
 	if (firstBoundary != "--" + boundary) {
-		WARN_LOG(Log::HTTP, "Bad boundary: Expected --%s but got %s", boundary);
-		return;
+		WARN_LOG(Log::HTTP, "Bad boundary: Expected --%s but got %s", boundary.c_str());
+		return MultiPartResult::RequestError;
 	}
 
 	std::string disposition = request.In()->ReadLine();
 	std::vector<std::string_view> parts;
 	SplitString(disposition, ';', parts);
 	if (parts.size() < 2 || !startsWith(parts[0], "Content-Disposition: form-data")) {
-		WARN_LOG(Log::HTTP, "Bad content disposition: %s", disposition);
-		return;
+		WARN_LOG(Log::HTTP, "Bad content disposition: %s", disposition.c_str());
+		return MultiPartResult::RequestError;
 	}
 
 	std::string filename;
@@ -514,7 +515,7 @@ static void HandleUploadPost(const http::ServerRequest &request) {
 
 	if (filename.empty()) {
 		ERROR_LOG(Log::HTTP, "Didn't receive a filename");
-		return;
+		return MultiPartResult::RequestError;
 	}
 
 	std::string fileContentType = request.In()->ReadLine();
@@ -522,60 +523,150 @@ static void HandleUploadPost(const http::ServerRequest &request) {
 
 	Path destPath = uploadPath / filename;
 
+	bool dryRun = false;
 	if (File::Exists(destPath)) {
-		INFO_LOG(Log::HTTP, "File already exists: %s", destPath.ToVisualString().c_str());
-		return;
+		INFO_LOG(Log::HTTP, "File already exists, entering dry run mode: %s", destPath.ToVisualString().c_str());
+		dryRun = true;
 	}
 
 	// Make sure the destination exists.
 	File::CreateFullPath(destPath.NavigateUp());
 
-	INFO_LOG(Log::HTTP, "Receiving '%s', writing to '%s' (%d bytes)...", filename.c_str(), destPath.ToVisualString().c_str());
+	INFO_LOG(Log::HTTP, "Receiving '%s', writing to '%s' (unknown number of bytes)...", filename.c_str(), destPath.ToVisualString().c_str());
 
 	// OK, enter a loop where we read some data until we hit the boundary again.
 	// The boundary is chosen to be "unique" and unlikely to appear in the file. We trust that.
-	Buffer buffer;
-	FILE *fp = File::OpenCFile(destPath, "wb");
-	if (!fp) {
-		ERROR_LOG(Log::HTTP, "Failed to open destination file '%s' for writing", destPath.ToVisualString().c_str());
-		return;
+	FILE *fp = nullptr;
+	if (!dryRun) {
+		fp = File::OpenCFile(destPath, "wb");
+		if (!fp) {
+			ERROR_LOG(Log::HTTP, "Failed to open destination file '%s' for writing, entering dry run mode.", destPath.ToVisualString().c_str());
+			dryRun = true;  // We still want to keep reading the input stream - there might be more files following.
+		}
 	}
-	u64 bytesWritten = 0;
+
+	u64 bytesTransferred = 0;
+	char buffer[net::InputSink::BUFFER_SIZE];
 	while (true) {
-		// NOTE: Lines here can be extremely long, especially in compressed data. So we should split ReadLine up if needed.
-		std::string line = request.In()->ReadLine();
-		if (line == "--" + boundary || line == "--" + boundary + "--") {
-			INFO_LOG(Log::HTTP, "Line matches boundary, breaking.");
-			// Done.
+		bool terminatorFound = false;
+		size_t readBytes = request.In()->ReadBinaryUntilTerminator(buffer, sizeof(buffer), "\r\n--" + boundary, &terminatorFound);
+		if (fp) {
+			if (fwrite(buffer, 1, readBytes, fp) != readBytes) {
+				ERROR_LOG(Log::HTTP, "Failed to write %d bytes to destination file '%s' - disk full?", (int)readBytes, destPath.ToVisualString().c_str());
+				fclose(fp);
+				return MultiPartResult::RequestError;
+			}
+		}
+		bytesTransferred += readBytes;
+		if (terminatorFound) {
+			INFO_LOG(Log::HTTP, "Found terminator, skipping and proceeding.");
 			break;
 		}
-		// Write the line and a newline (since we ate it). TODO: This could be avoided.
-		size_t len = line.size();
-		if (fwrite(line.data(), 1, len, fp) != len || fwrite("\r\n", 1, 2, fp) != 2) {
-			ERROR_LOG(Log::HTTP, "Failed to write %d bytes to destination file '%s' - bailing", (int)len, destPath.ToVisualString().c_str());
-			fclose(fp);
-			return;
-		}
-		bytesWritten += line.size();
 	}
 
-	INFO_LOG(Log::HTTP, "Total bytes written: %d", (int)bytesWritten);
-	fclose(fp);
+	INFO_LOG(Log::HTTP, "Total bytes transferred: %d", (int)bytesTransferred);
+	if (fp) {
+		fclose(fp);
+	}
 
 	// NOTE: We already read the boundary above.
+	// However if this is the last part, the boundary will have "--\r\n" after it, otherwise there will be a line break.
+	// So, let's read two more bytes, to see if it's "--" or "\r\n".
+	std::string ending(2, 'x');
+	request.In()->TakeExact(ending.data(), 2);
+
+	if (ending == "--") {
+		INFO_LOG(Log::HTTP, "Upload of '%s' complete, '--' encountered. %d bytes left in buffer.", filename.c_str(), (int)request.In()->ValidAmount());
+		// Read the final \r\n.
+		std::string finalCRLF;
+		finalCRLF.resize(2);
+		request.In()->TakeExact(finalCRLF.data(), 2);
+		if (finalCRLF != "\r\n") {
+			// Not a big deal, but log it.
+			WARN_LOG(Log::HTTP, "Expected final CRLF after ending '--', got '%02x %02x'", finalCRLF[0], finalCRLF[1]);
+		}
+		return MultiPartResult::Done;
+	} else if (ending == "\r\n") {
+		INFO_LOG(Log::HTTP, "Upload of '%s' complete, continuing to next part.", filename.c_str());
+		return MultiPartResult::MoveToNext;
+	} else {
+		WARN_LOG(Log::HTTP, "Unexpected upload ending: '%s'. Bailing.", ending.c_str());
+		return MultiPartResult::RequestError;
+	}
+}
+
+// Handles a POST to upload a file.
+// This uses the HTTP multipart protocol, which is arcane and complicated, unfortunately.
+static void HandleUploadPost(const http::ServerRequest &request) {
+	AndroidJNIThreadContext jniContext;
+
+	// Do some sanity checks.
+	if (request.Method() != http::RequestHeader::POST) {
+		ERROR_LOG(Log::HTTP, "Wrong method");
+		return;
+	}
+
+	Path uploadPath;
+	{
+		std::lock_guard<std::mutex> guard(g_webServerLock);
+		uploadPath = g_uploadPath;
+	}
+
+	if (uploadPath.empty()) {
+		ERROR_LOG(Log::HTTP, "HandleUploadPost should not happen while uploadPath is empty");
+		return;
+	}
+
+	// Now start handling things.
+	std::string contentType;
+	if (!request.GetHeader("content-type", &contentType)) {
+		return;
+	}
+	size_t bpos = contentType.find("boundary=");
+	if (bpos == std::string::npos) {
+		return;
+	}
+	const std::string boundary = contentType.substr(bpos + strlen("boundary="));
+
+	// The total length of the entire multipart thing.
+	u64 contentLength = request.Header().content_length;
+	if (contentLength == 0) {
+		WARN_LOG(Log::HTTP, "Bad content length");
+		return;
+	}
+
+	const int sessionId = g_uploadSessionId.fetch_add(1);
+
+	ProgressTracker progress(sessionId);
+	while (true) {
+		MultiPartResult result = HandleMultipartPart(request, boundary, uploadPath, progress);
+		switch (result) {
+		case MultiPartResult::Done:
+			goto exitLoop;
+		case MultiPartResult::RequestError:
+			request.WriteHttpResponseHeader("1.0", 400, -1, "text/plain");  // Bad request
+			return;
+		case MultiPartResult::LocalError:
+			request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");  // Server error
+			// Disk full etc.
+			return;
+		case MultiPartResult::MoveToNext:
+			// Else just continue to the next part.
+			break;
+		}
+	}
+exitLoop:
 
 	// Now the buffer should be empty.
 	if (!request.In()->Empty()) {
-		WARN_LOG(Log::HTTP, "We didn't drain the request.");
-		std::string extraLine = request.In()->ReadLine();
-		INFO_LOG(Log::HTTP, "Extra line: %s", extraLine.c_str());
+		size_t remaining = request.In()->ValidAmount();
+		WARN_LOG(Log::HTTP, "We didn't fully drain the request (%d bytes still buffered)", (int)remaining);
+		// std::string extraBytes;
+		// extraBytes.resize(remaining);
+		// request.In()->TakeExact(extraBytes.data(), remaining);
 	}
 
-	INFO_LOG(Log::HTTP, "Upload of '%s' complete.", filename.c_str());
-	// request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
-
-	const size_t blockSize = 16 * 1024;
-
+	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
 }
 
 void WebServerSetUploadPath(const Path &path) {

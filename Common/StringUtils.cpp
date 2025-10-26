@@ -557,3 +557,27 @@ void MakeUnique(std::vector<std::string> &v) {
 	}
 	v.swap(result);
 }
+
+size_t SplitSearch(std::string_view needle, std::string_view part1, std::string_view part2) {
+	if (part1.find(needle) != std::string_view::npos) {
+		// Easy case, found in part1.
+		return part1.find(needle);
+	}
+	size_t part1Size = part1.size();
+	size_t maxOverlap = std::min(needle.size() - 1, part1Size);
+	for (size_t overlap = maxOverlap; overlap > 0; overlap--) {
+		if (part1.substr(part1Size - overlap) == needle.substr(0, overlap)) {
+			// Found an overlap.
+			size_t remaining = needle.size() - overlap;
+			if (part2.substr(0, remaining) == needle.substr(overlap)) {
+				return part1Size - overlap;
+			}
+		}
+	}
+	// Now, check if it's found in part2 instead.
+	size_t posInPart2 = part2.find(needle);
+	if (posInPart2 != std::string_view::npos) {
+		return part1Size + posInPart2;
+	}
+	return std::string_view::npos;
+}

@@ -1,5 +1,6 @@
 #include "Common/Net/Resolve.h"
 #include "Common/System/Request.h"
+#include "Common/File/DiskFree.h"
 #include "UI/UploadScreen.h"
 #include "Common/StringUtils.h"
 #include "Core/WebServer.h"
@@ -38,6 +39,16 @@ void UploadScreen::CreateViews() {
 
 	root_->Add(new TextView(std::string(co->T("Uploading to: ")) + targetFolder_.ToVisualString()));
 
+	// Show information about current upload streams (there can be multiple, but normally it's just one
+	// where files are uploaded sequentially).
+	std::vector<UploadProgress> uploads = GetUploadsInProgress();
+	for (const auto &upload : uploads) {
+		std::string uploadText = StringFromFormat("%zu / %zu bytes uploaded (%zu files). Current file: %s",
+			upload.uploadedBytes, upload.totalBytes, upload.uploadedFiles,
+			upload.currentFilename.c_str());
+		root_->Add(new TextView(uploadText));
+	}
+
 	//infoText->SetTextAlignment(TEXT_ALIGN_CENTER);
 	//verticalLayout->AddView(infoText);
 	//AddStandardBack(verticalLayout);
@@ -50,5 +61,11 @@ void UploadScreen::update() {
 	if (prevRunning_ != running) {
 		prevRunning_ = running;
 		RecreateViews();
+	}
+
+	// Update in-progress uploads approximately every half second.
+	if (lastUpdate_.ElapsedSeconds() > 0.5) {
+		RecreateViews();
+		lastUpdate_ = Instant::Now();
 	}
 }

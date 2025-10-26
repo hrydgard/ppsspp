@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <vector>
 #include "Common/Common.h"
 
 class Path;
@@ -41,3 +42,12 @@ void ShutdownWebServer();
 bool RemoteISOFileSupported(const std::string &filename);
 void WebServerSetUploadPath(const Path &path);
 int WebServerPort();
+
+struct UploadProgress {
+	size_t uploadedBytes = 0;
+	size_t totalBytes = 0;
+	size_t uploadedFiles = 0;  // we don't know the count ahead of time
+	std::string currentFilename;
+};
+
+std::vector<UploadProgress> GetUploadsInProgress();

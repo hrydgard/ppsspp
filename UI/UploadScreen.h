@@ -26,6 +26,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
+#include "Common/TimeUtil.h"
 
 // Upload screen: Shows the user an ip address to go to in a web browser on the same network,
 // in order to upload game files to the current directory.
@@ -45,4 +46,5 @@ private:
 	bool prevRunning_ = false;
 	std::vector<std::string> localIPs_;
 	Path targetFolder_;
+	Instant lastUpdate_;
 };
