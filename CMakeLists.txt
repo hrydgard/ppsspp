@@ -1349,6 +1349,7 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/Controls.h
 		ios/Controls.mm
 		ios/ViewControllerCommon.h
+		ios/ViewControllerCommon.mm
 		ios/ViewController.mm
 		ios/ViewController.h
 		ios/ViewControllerMetal.mm
