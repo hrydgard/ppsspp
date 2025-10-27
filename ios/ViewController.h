@@ -5,13 +5,12 @@
 #import <GameController/GameController.h>
 
 #import "iCade/iCadeReaderView.h"
-#import "CameraHelper.h"
 #import "LocationHelper.h"
 
 #import "ViewControllerCommon.h"
 
 @interface PPSSPPViewControllerGL : PPSSPPBaseViewController<GLKViewDelegate,
-    iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
+    iCadeEventDelegate, LocationHandlerDelegate,
     UIGestureRecognizerDelegate, UIKeyInput>
 
 

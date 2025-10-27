@@ -24,8 +24,6 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "Core/HLE/sceUsbCam.h"
-#include "Core/HLE/sceUsbGps.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -184,7 +182,6 @@ static std::thread g_renderLoopThread;
 	TouchTracker g_touchTracker;
 
 	IOSVulkanContext *graphicsContext;
-	LocationHelper *locationHelper;
 	CameraHelper *cameraHelper;
 }
 
@@ -415,12 +412,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
 
-	cameraHelper = [[CameraHelper alloc] init];
-	[cameraHelper setDelegate:self];
-
-	locationHelper = [[LocationHelper alloc] init];
-	[locationHelper setDelegate:self];
-
 	// Initialize the motion manager for accelerometer control.
 	self.motionManager = [[CMMotionManager alloc] init];
 }
@@ -637,27 +628,6 @@ static float BoostInset(float inset) {
 
 - (void)stopVideo {
 	[cameraHelper stopVideo];
-}
-
-- (void)PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
-	Camera::pushCameraImage(len, data);
-}
-
-- (void)startLocation {
-	[locationHelper startLocationUpdates];
-}
-
-- (void)stopLocation {
-	[locationHelper stopLocationUpdates];
-}
-
-- (void)SetGpsDataIOS:(CLLocation *)newLocation {
-	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
-					newLocation.horizontalAccuracy/5.0,
-					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
-					newLocation.altitude,
-					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
-					0 /* bearing */);
 }
 
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer

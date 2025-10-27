@@ -2,7 +2,12 @@
 
 #import <UIKit/UIKit.h>
 
-@interface PPSSPPBaseViewController : UIViewController<UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+#import "CameraHelper.h"
+#import "LocationHelper.h"
+
+@interface PPSSPPBaseViewController : UIViewController<
+	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
+	CameraFrameDelegate, LocationHandlerDelegate>
 
 - (void)hideKeyboard;
 - (void)showKeyboard;

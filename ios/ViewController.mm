@@ -39,8 +39,6 @@
 #include "Core/ConfigValues.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
-#include "Core/HLE/sceUsbCam.h"
-#include "Core/HLE/sceUsbGps.h"
 
 #if !__has_feature(objc_arc)
 #error Must be built with ARC, please revise the flags for ViewController.mm to include -fobjc-arc.
@@ -103,8 +101,6 @@ PPSSPPBaseViewController *sharedViewController;
 	TouchTracker g_touchTracker;
 
 	IOSGLESContext *graphicsContext;
-	LocationHelper *locationHelper;
-	CameraHelper *cameraHelper;
 
 	int imageRequestId;
 	NSString *imageFilename;
@@ -314,12 +310,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	if ([[GCController controllers] count] > 0) {
 		[self setupController:[[GCController controllers] firstObject]];
 	}
-
-	cameraHelper = [[CameraHelper alloc] init];
-	[cameraHelper setDelegate:self];
-
-	locationHelper = [[LocationHelper alloc] init];
-	[locationHelper setDelegate:self];
 
 	[self hideKeyboard];
 
@@ -599,35 +589,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	if (!InitController(controller)) {
 		self.gameController = nil;
 	}
-}
-
-- (void)startVideo:(int)width height:(int)height {
-	[cameraHelper startVideo:width h:height];
-}
-
-- (void)stopVideo {
-	[cameraHelper stopVideo];
-}
-
-- (void)PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
-	Camera::pushCameraImage(len, data);
-}
-
-- (void)startLocation {
-	[locationHelper startLocationUpdates];
-}
-
-- (void)stopLocation {
-	[locationHelper stopLocationUpdates];
-}
-
-- (void)SetGpsDataIOS:(CLLocation *)newLocation {
-	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
-					newLocation.horizontalAccuracy/5.0,
-					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
-					newLocation.altitude,
-					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
-					0 /* bearing */);
 }
 
 // See PPSSPPUIApplication.mm for the other method

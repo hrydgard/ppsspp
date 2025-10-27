@@ -1,10 +1,14 @@
-#include "Common/System/Request.h"
+#import "ios/CameraHelper.h"
 #import "ios/ViewControllerCommon.h"
-
+#include "Common/System/Request.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 
 @interface PPSSPPBaseViewController () {
 	int imageRequestId;
 	NSString *imageFilename;
+	CameraHelper *cameraHelper;
+	LocationHelper *locationHelper;
 }
 
 @end
@@ -51,6 +55,45 @@
 	// You can also call your custom callback or use the requestId here
 	g_requestManager.PostSystemFailure(imageRequestId);
 	[self hideKeyboard];
+}
+
+- (void)startVideo:(int)width height:(int)height {
+	[cameraHelper startVideo:width h:height];
+}
+
+- (void)stopVideo {
+	[cameraHelper stopVideo];
+}
+
+- (void)PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
+	Camera::pushCameraImage(len, data);
+}
+
+- (void)startLocation {
+	[locationHelper startLocationUpdates];
+}
+
+- (void)stopLocation {
+	[locationHelper stopLocationUpdates];
+}
+
+- (void)SetGpsDataIOS:(CLLocation *)newLocation {
+	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
+					newLocation.horizontalAccuracy/5.0,
+					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+					newLocation.altitude,
+					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
+					0 /* bearing */);
+}
+
+- (void)viewDidLoad {
+	[super viewDidLoad];
+
+	cameraHelper = [[CameraHelper alloc] init];
+	[cameraHelper setDelegate:self];
+
+	locationHelper = [[LocationHelper alloc] init];
+	[locationHelper setDelegate:self];
 }
 
 @end

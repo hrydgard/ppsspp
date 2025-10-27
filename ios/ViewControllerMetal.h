@@ -5,11 +5,9 @@
 
 #import "ViewControllerCommon.h"
 #import "iCade/iCadeReaderView.h"
-#import "CameraHelper.h"
-#import "LocationHelper.h"
 
 @interface PPSSPPViewControllerMetal : PPSSPPBaseViewController<
-    iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
+    iCadeEventDelegate,
     UIGestureRecognizerDelegate, UIKeyInput>
 @end
 
