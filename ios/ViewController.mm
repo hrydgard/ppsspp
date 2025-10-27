@@ -3,18 +3,20 @@
 //
 // Created by rock88
 // Modified by xSacha
-//
+// Reworked by hrydgard
 
 #import "AppDelegate.h"
 #import "ViewController.h"
 #import "DisplayManager.h"
-#include "Controls.h"
 #import "iOSCoreAudio.h"
 #import "IAPManager.h"
 
 #import <GLKit/GLKit.h>
-#include <cassert>
+#import "ViewController.h"
+#import "Controls.h"
+#import <QuartzCore/QuartzCore.h>
 
+#include <cassert>
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Screen.h"
 #include "Common/GPU/thin3d.h"
@@ -109,9 +111,13 @@ id<PPSSPPViewController> sharedViewController;
 	NSString *imageFilename;
 }
 
+@property (nonatomic, strong) EAGLContext *glContext;
+@property (nonatomic, strong) GLKView *glView;
+@property (nonatomic, strong) CADisplayLink *displayLink;
+@property (nonatomic, assign) NSTimeInterval lastTimestamp;
+
 @property (nonatomic, strong) EAGLContext* context;
 
-//@property (nonatomic) iCadeReaderView* iCadeView;
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
 @property (strong, nonatomic) CMMotionManager *motionManager;
 @property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
@@ -122,9 +128,11 @@ id<PPSSPPViewController> sharedViewController;
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
 }
 
+
 -(id) init {
 	self = [super init];
 	if (self) {
+		_preferredFramesPerSecond = 60; // default
 		sharedViewController = self;
 		g_iCadeTracker.InitKeyMap();
 
@@ -251,23 +259,45 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
+
+	// 1) Create GL context
+	self.glContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+	if (!self.glContext) {
+		self.glContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+	}
+	NSAssert(self.glContext != nil, @"Failed to create EAGLContext");
+
+	// 2) Create GLKView
+	self.glView = [[GLKView alloc] initWithFrame:self.view.bounds context:self.glContext];
+	self.glView.delegate = self;
+	self.glView.enableSetNeedsDisplay = NO; // We'll call display manually
+	self.glView.drawableDepthFormat = GLKViewDrawableDepthFormat24;
+	self.glView.drawableStencilFormat = GLKViewDrawableStencilFormat8;
+	self.glView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	[self.view addSubview:self.glView];
+
+	// Put context current for initial GL setup
+	[EAGLContext setCurrentContext:self.glContext];
+
+	// Here we can do one time GL init if we want.
+
+	// 3) Setup display link
+	self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkFired:)];
+	if (@available(iOS 10.0, *)) {
+		self.displayLink.preferredFramesPerSecond = (NSInteger)self.preferredFramesPerSecond;
+	} else {
+		// older iOS: approximate with frameInterval
+		self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / self.preferredFramesPerSecond));
+	}
+	[self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+
+	self.lastTimestamp = 0;
+
 	[[DisplayManager shared] setupDisplayListener];
 
 	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
-	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
-
-	if (!self.context) {
-		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
-	}
-
-	GLKView* view = (GLKView *)self.view;
-	view.context = self.context;
-	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
-	view.drawableStencilFormat = GLKViewDrawableStencilFormat8;
-	[EAGLContext setCurrentContext:self.context];
-	self.preferredFramesPerSecond = 60;  // NOTE: We don't yet take advantage of 120hz screens
 
 	graphicsContext = new IOSGLESContext();
 
@@ -299,8 +329,79 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
-- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
-{
+- (void)viewDidLayoutSubviews {
+	[super viewDidLayoutSubviews];
+	self.glView.frame = self.view.bounds;
+	/*
+	// if you need to update viewport:
+	CGSize s = self.glView.bounds.size;
+	[EAGLContext setCurrentContext:self.glContext];
+	glViewport(0, 0, (GLsizei)round(s.width), (GLsizei)round(s.height));
+	*/
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+	[super viewWillAppear:animated];
+	// Resume display link unless explicitly paused
+	INFO_LOG(Log::G3D, "viewWillAppear - resuming display link");
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+	[super viewWillDisappear:animated];
+	// stop rendering while not visible
+	INFO_LOG(Log::G3D, "viewWillDisappear - pausing display link");
+}
+
+- (void)dealloc {
+	[self.displayLink invalidate];
+	self.displayLink = nil;
+
+	if ([EAGLContext currentContext] == self.glContext) {
+		[EAGLContext setCurrentContext:nil];
+	}
+	self.glContext = nil;
+}
+
+- (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond {
+	_preferredFramesPerSecond = preferredFramesPerSecond;
+	if (self.displayLink) {
+		if (@available(iOS 10.0, *)) {
+			self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
+		} else {
+			self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / preferredFramesPerSecond));
+		}
+	}
+}
+
+- (void)displayLinkFired:(CADisplayLink *)dl {
+	// compute delta time
+	NSTimeInterval timestamp = dl.timestamp;
+	NSTimeInterval delta = 0;
+	if (self.lastTimestamp > 0) {
+		delta = timestamp - self.lastTimestamp;
+	} else {
+		delta = dl.duration; // fallback
+	}
+	self.lastTimestamp = timestamp;
+
+	// Ensure context is current before drawing
+	[EAGLContext setCurrentContext:self.glContext];
+
+	// Trigger GLKView draw
+	[self.glView display];
+}
+
+- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect {
+	if (!renderLoopRunning) {
+		INFO_LOG(Log::G3D, "Ignoring drawInRect");
+		return;
+	}
+	if (sharedViewController) {
+		graphicsContext->ThreadFrame(true);
+	}
+}
+
+- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer {
 	if (recognizer.state == UIGestureRecognizerStateEnded) {
 		KeyInput key;
 		key.flags = KEY_DOWN | KEY_UP;
@@ -337,6 +438,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
 	INFO_LOG(Log::System, "didBecomeActive end");
+
+	self.displayLink.paused = NO;
 }
 
 - (void)willResignActive {
@@ -349,6 +452,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		[self.motionManager stopAccelerometerUpdates];
 	}
 	INFO_LOG(Log::System, "willResignActive end");
+
+	self.displayLink.paused = YES;
 }
 
 - (void)shutdown
@@ -385,25 +490,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::System, "Done shutting down GL");
 }
 
-- (void)dealloc
-{
-	INFO_LOG(Log::System, "dealloc GL");
-}
-
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
 	return UIInterfaceOrientationMaskAll;
-}
-
-- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
-{
-	if (!renderLoopRunning) {
-		INFO_LOG(Log::G3D, "Ignoring drawInRect");
-		return;
-	}
-	if (sharedViewController) {
-		graphicsContext->ThreadFrame(true);
-	}
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
@@ -428,7 +517,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)bindDefaultFBO
 {
-	[(GLKView*)self.view bindDrawable];
+	[(GLKView*)self.glView bindDrawable];
 }
 
 - (void)buttonDown:(iCadeState)button
