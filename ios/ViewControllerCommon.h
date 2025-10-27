@@ -2,8 +2,7 @@
 
 #import <UIKit/UIKit.h>
 
-@protocol PPSSPPViewController<NSObject>
-@optional
+@interface PPSSPPBaseViewController : UIViewController
 
 - (void)hideKeyboard;
 - (void)showKeyboard;
@@ -26,7 +25,7 @@
 
 @end
 
-extern id <PPSSPPViewController> sharedViewController;
+extern PPSSPPBaseViewController *sharedViewController;
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)

@@ -12,7 +12,6 @@
 #import "IAPManager.h"
 
 #import <GLKit/GLKit.h>
-#import "ViewController.h"
 #import "Controls.h"
 #import <QuartzCore/QuartzCore.h>
 
@@ -97,7 +96,7 @@ static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static std::thread g_renderLoopThread;
 
-id<PPSSPPViewController> sharedViewController;
+PPSSPPBaseViewController *sharedViewController;
 
 @interface PPSSPPViewControllerGL () {
 	ICadeTracker g_iCadeTracker;

@@ -8,11 +8,11 @@
 #import "CameraHelper.h"
 #import "LocationHelper.h"
 
-#include "ViewControllerCommon.h"
+#import "ViewControllerCommon.h"
 
-@interface PPSSPPViewControllerGL : UIViewController <GLKViewDelegate,
+@interface PPSSPPViewControllerGL : PPSSPPBaseViewController<GLKViewDelegate,
     iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
-    UIGestureRecognizerDelegate, UIKeyInput, PPSSPPViewController,
+    UIGestureRecognizerDelegate, UIKeyInput,
 	UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 
 
