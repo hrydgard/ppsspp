@@ -1,9 +1,7 @@
 #import "AppDelegate.h"
 #import "ViewControllerMetal.h"
 #import "DisplayManager.h"
-#include "Controls.h"
 #import "iOSCoreAudio.h"
-#import "IAPManager.h"
 
 #include "Common/Log.h"
 
@@ -24,8 +22,6 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "Core/HLE/sceUsbCam.h"
-#include "Core/HLE/sceUsbGps.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -180,46 +176,16 @@ static std::atomic<bool> renderLoopRunning;
 static std::thread g_renderLoopThread;
 
 @interface PPSSPPViewControllerMetal () {
-	ICadeTracker g_iCadeTracker;
-	TouchTracker g_touchTracker;
-
 	IOSVulkanContext *graphicsContext;
-	LocationHelper *locationHelper;
-	CameraHelper *cameraHelper;
-
-	int imageRequestId;
-	NSString *imageFilename;
 }
-
-@property (nonatomic) GCController *gameController __attribute__((weak_import));
-@property (strong, nonatomic) CMMotionManager *motionManager;
-@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 
 @end  // @interface
 
-@implementation PPSSPPViewControllerMetal {
-	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
-}
+@implementation PPSSPPViewControllerMetal {}
 
 - (id)init {
 	self = [super init];
-	if (self) {
-		sharedViewController = self;
-		g_iCadeTracker.InitKeyMap();
-
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
-	}
-	self.accelerometerQueue = [[NSOperationQueue alloc] init];
-	self.accelerometerQueue.name = @"AccelerometerQueue";
-	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 	return self;
-}
-
-- (void)appWillTerminate:(NSNotification *)notification
-{
-	[self shutdown];
 }
 
 // Should be very similar to the Android one, probably mergeable.
@@ -324,22 +290,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 // These two are forwarded from the appDelegate
 - (void)didBecomeActive {
-	INFO_LOG(Log::G3D, "didBecomeActive GL");
-	if (self.motionManager.accelerometerAvailable) {
-		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
-		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
-
-		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
-							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
-			if (error) {
-				NSLog(@"Accelerometer error: %@", error);
-				return;
-			}
-			ProcessAccelerometerData(accelerometerData);
-		}];
-	} else {
-		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
-	}
+	[super didBecomeActive];
+	INFO_LOG(Log::G3D, "didBecomeActive Metal");
+	
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
@@ -347,28 +300,18 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (void)willResignActive {
-	INFO_LOG(Log::G3D, "willResignActive GL");
+	INFO_LOG(Log::G3D, "willResignActive Metal");
 	[self requestExitVulkanRenderLoop];
 
-	// Stop accelerometer updates
-	if (self.motionManager.accelerometerActive) {
-		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
-		[self.motionManager stopAccelerometerUpdates];
-	}
+	[super willResignActive];
 }
 
-- (void)shutdown
-{
-	INFO_LOG(Log::System, "shutdown VK");
+- (void)shutdown {
+	[super shutdown];
+
+	INFO_LOG(Log::System, "shutdown");
 
 	g_Config.Save("shutdown vk");
-
-	_dbg_assert_(sharedViewController != nil);
-	sharedViewController = nil;
-
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
-
-	self.gameController = nil;
 
 	if (graphicsContext) {
 		graphicsContext->Shutdown();
@@ -417,15 +360,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	}
 
 	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
-
-	cameraHelper = [[CameraHelper alloc] init];
-	[cameraHelper setDelegate:self];
-
-	locationHelper = [[LocationHelper alloc] init];
-	[locationHelper setDelegate:self];
-
-	// Initialize the motion manager for accelerometer control.
-	self.motionManager = [[CMMotionManager alloc] init];
 }
 
 - (UIView *)getView {
@@ -448,313 +382,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
-- (void)viewDidAppear:(BOOL)animated {
-	[super viewDidAppear:animated];
-	INFO_LOG(Log::G3D, "viewDidAppear");
-	[self hideKeyboard];
-	[self updateGesture];
-
-	// This needs to be called really late during startup, unfortunately.
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
-	NSLog(@"Metal viewDidAppear. updating icon");
-	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-		[[IAPManager sharedIAPManager] updateIcon:false];
-		[self hideKeyboard];
-	});
-#endif  // IOS_APP_STORE
-}
-
-- (BOOL)prefersHomeIndicatorAutoHidden {
-	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
-		return NO;
-	} else {
-		return YES;
-	}
-}
-
-- (void)appSwitchModeChanged
-{
-	[self setNeedsUpdateOfHomeIndicatorAutoHidden];
-}
-
-- (void)shareText:(NSString *)text {
-	NSArray *items = @[text];
-	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[self presentViewController:viewController animated:YES completion:nil];
-	});
-}
-
-extern float g_safeInsetLeft;
-extern float g_safeInsetRight;
-extern float g_safeInsetTop;
-extern float g_safeInsetBottom;
-
-static float BoostInset(float inset) {
-	if (inset > 0.0f) {
-		// If there's some inset, add a few pixels extra. Really needed on iPhone 12, at least.
-		inset += 4.0f;
-	}
-	return inset;
-}
-
-- (void)viewSafeAreaInsetsDidChange {
-	if (@available(iOS 11.0, *)) {
-		[super viewSafeAreaInsetsDidChange];
-		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
-		g_safeInsetLeft = BoostInset(self.view.safeAreaInsets.left);
-		g_safeInsetRight = BoostInset(self.view.safeAreaInsets.right);
-		g_safeInsetTop = BoostInset(self.view.safeAreaInsets.top);
-
-		// TODO: In portrait mode, should probably use safeAreaInsets.bottom.
-		// However, in landscape mode, it's not really needed.
-		// g_safeInsetBottom = BoostInset(self.view.safeAreaInsets.bottom);
-		g_safeInsetBottom = 0.0f;
-	}
-}
-
-// Enables tapping for edge area.
--(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
-{
-	if (GetUIState() == UISTATE_INGAME) {
-		// In-game, we need all the control we can get. Though, we could possibly
-		// allow the top edge?
-		INFO_LOG(Log::System, "Defer system gestures on all edges");
-		return UIRectEdgeAll;
-	} else {
-		INFO_LOG(Log::System, "Allow system gestures on the bottom");
-		// Allow task switching gestures to take precedence, without causing
-		// scroll events in the UI.
-		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
-	}
-}
-
-- (void)uiStateChanged
-{
-	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
-	[self hideKeyboard];
-	[self updateGesture];
-}
-
-- (void)updateGesture {
-	INFO_LOG(Log::System, "Updating swipe gesture.");
-
-	if (mBackGestureRecognizer) {
-		INFO_LOG(Log::System, "Removing swipe gesture.");
-		[[self view] removeGestureRecognizer:mBackGestureRecognizer];
-		mBackGestureRecognizer = nil;
-	}
-
-	if (GetUIState() != UISTATE_INGAME) {
-		INFO_LOG(Log::System, "Adding swipe gesture.");
-		mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
-		[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
-		[[self view] addGestureRecognizer:mBackGestureRecognizer];
-	}
-}
-
 - (void)bindDefaultFBO
 {
 	// Do nothing
-}
-
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Began(touches, self.view);
-}
-
-- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Moved(touches, self.view);
-}
-
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Ended(touches, self.view);
-}
-
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Cancelled(touches, self.view);
-}
-
-- (void)buttonDown:(iCadeState)button
-{
-	g_iCadeTracker.ButtonDown(button);
-}
-
-- (void)buttonUp:(iCadeState)button
-{
-	g_iCadeTracker.ButtonUp(button);
-}
-
-// See PPSSPPUIApplication.mm for the other method
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-
-- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesBegan(presses, event);
-}
-
-- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesEnded(presses, event);
-}
-
-- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesEnded(presses, event);
-}
-
-#endif
-
-- (void)controllerDidConnect:(NSNotification *)note
-{
-	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
-
-	if (self.gameController != nil) return; // already have a connected controller
-
-	[self setupController:(GCController *)note.object];
-}
-
-- (void)controllerDidDisconnect:(NSNotification *)note
-{
-	if (self.gameController == note.object) {
-		self.gameController = nil;
-
-		if ([[GCController controllers] count] > 0) {
-			[self setupController:[[GCController controllers] firstObject]];
-		}
-	}
-}
-
-- (void)setupController:(GCController *)controller
-{
-	self.gameController = controller;
-	if (!InitController(controller)) {
-		self.gameController = nil;
-	}
-}
-
-- (void)startVideo:(int)width height:(int)height {
-	[cameraHelper startVideo:width h:height];
-}
-
-- (void)stopVideo {
-	[cameraHelper stopVideo];
-}
-
-- (void)PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
-	Camera::pushCameraImage(len, data);
-}
-
-- (void)startLocation {
-	[locationHelper startLocationUpdates];
-}
-
-- (void)stopLocation {
-	[locationHelper stopLocationUpdates];
-}
-
-- (void)SetGpsDataIOS:(CLLocation *)newLocation {
-	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
-					newLocation.horizontalAccuracy/5.0,
-					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
-					newLocation.altitude,
-					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
-					0 /* bearing */);
-}
-
-- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
-{
-	if (recognizer.state == UIGestureRecognizerStateEnded) {
-		KeyInput key;
-		key.flags = KEY_DOWN | KEY_UP;
-		key.keyCode = NKCODE_BACK;
-		key.deviceId = DEVICE_ID_TOUCH;
-		NativeKey(key);
-		INFO_LOG(Log::System, "Detected back swipe");
-	}
-}
-// The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
-// It's a bit limited but good enough.
-
--(void) deleteBackward {
-	KeyInput input{};
-	input.deviceId = DEVICE_ID_KEYBOARD;
-	input.flags = KEY_DOWN | KEY_UP;
-	input.keyCode = NKCODE_DEL;
-	NativeKey(input);
-	INFO_LOG(Log::System, "Backspace");
-}
-
--(BOOL) hasText
-{
-	return YES;
-}
-
--(void) insertText:(NSString *)text
-{
-	std::string str([text UTF8String]);
-	INFO_LOG(Log::System, "Chars: %s", str.c_str());
-	SendKeyboardChars(str);
-}
-
--(BOOL) canBecomeFirstResponder
-{
-	return YES;
-}
-
--(void) showKeyboard {
-	dispatch_async(dispatch_get_main_queue(), ^{
-		NSLog(@"becomeFirstResponder");
-		[self becomeFirstResponder];
-	});
-}
-
--(void) hideKeyboard {
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[self resignFirstResponder];
-	});
-}
-
-- (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId {
-	imageRequestId = requestId;
-	imageFilename = saveFilename;
-	NSLog(@"Picking photo to save to %@ (id: %d)", saveFilename, requestId);
-
-	UIImagePickerController *picker = [[UIImagePickerController alloc] init];
-	picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-	picker.delegate = self;
-	[self presentViewController:picker animated:YES completion:nil];
-}
-
-- (void)imagePickerController:(UIImagePickerController *)picker
-		didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info {
-
-	UIImage *image = info[UIImagePickerControllerOriginalImage];
-
-	// Convert to JPEG with 90% quality
-	NSData *jpegData = UIImageJPEGRepresentation(image, 0.9);
-	if (jpegData) {
-		// Do something with the JPEG data (e.g., save to file)
-		[jpegData writeToFile:imageFilename atomically:YES];
-		NSLog(@"Saved JPEG image to %@", imageFilename);
-		g_requestManager.PostSystemSuccess(imageRequestId, "", 1);
-	} else {
-		g_requestManager.PostSystemFailure(imageRequestId);
-	}
-
-	[picker dismissViewControllerAnimated:YES completion:nil];
-	[self hideKeyboard];
-}
-
-- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
-	NSLog(@"User cancelled image picker");
-
-	[picker dismissViewControllerAnimated:YES completion:nil];
-
-	// You can also call your custom callback or use the requestId here
-	g_requestManager.PostSystemFailure(imageRequestId);
-	[self hideKeyboard];
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size

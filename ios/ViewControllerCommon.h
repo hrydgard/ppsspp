@@ -2,8 +2,16 @@
 
 #import <UIKit/UIKit.h>
 
-@protocol PPSSPPViewController<NSObject>
-@optional
+#import <GameController/GameController.h>
+
+#import "CameraHelper.h"
+#import "LocationHelper.h"
+#import "iCade/iCadeReaderView.h"
+
+@interface PPSSPPBaseViewController : UIViewController<
+	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
+	CameraFrameDelegate, LocationHandlerDelegate, UIKeyInput,
+	UIGestureRecognizerDelegate, iCadeEventDelegate>
 
 - (void)hideKeyboard;
 - (void)showKeyboard;
@@ -16,6 +24,7 @@
 - (void)startVideo:(int)width height:(int)height;
 - (void)stopVideo;
 - (void)appSwitchModeChanged;
+- (void)setupController:(GCController *)controller;
 
 // Forwarded from the AppDelegate
 - (void)didBecomeActive;
@@ -26,7 +35,7 @@
 
 @end
 
-extern id <PPSSPPViewController> sharedViewController;
+extern PPSSPPBaseViewController *sharedViewController;
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
