@@ -9,6 +9,7 @@
 #include "Common/Net/Sinks.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/File/FileDescriptor.h"
 
 #ifndef MSG_NOSIGNAL
@@ -44,8 +45,39 @@ bool InputSink::ReadLineWithEnding(std::string &s) {
 		memcpy(&s[0], buf_ + read_, newline + 1);
 	}
 	AccountDrain(newline + 1);
-
 	return true;
+}
+
+std::pair<std::string_view, std::string_view> InputSink::BufferParts() const {
+	if (read_ + valid_ <= BUFFER_SIZE) {
+		return {std::string_view(buf_ + read_, valid_), std::string_view()};
+	} else {
+		size_t firstPartSize = BUFFER_SIZE - read_;
+		size_t secondPartSize = valid_ - firstPartSize;
+		return {std::string_view(buf_ + read_, firstPartSize), std::string_view(buf_, secondPartSize)};
+	}
+}
+
+size_t InputSink::ReadBinaryUntilTerminator(char *dest, size_t bufSize, std::string_view terminator, bool *didReadTerminator) {
+	Fill();
+
+	auto [part1, part2] = BufferParts();
+	size_t offset = SplitSearch(terminator, part1, part2);
+	if (offset == std::string_view::npos) {
+		*didReadTerminator = false;
+		// Not found, read as much as we can - but leave space for the terminator
+		const s64 toRead = std::min((s64)valid_, (s64)bufSize - (s64)terminator.length());
+		TakeExact(dest, toRead);
+		return toRead;
+	} else {
+		// Terminator found! Read right up to it, and then skip it.
+		*didReadTerminator = true;
+		_dbg_assert_(offset < valid_);
+		TakeExact(dest, offset);
+		Skip(terminator.size());
+		_dbg_assert_(valid_ >= 0);
+		return offset;
+	}
 }
 
 std::string InputSink::ReadLineWithEnding() {

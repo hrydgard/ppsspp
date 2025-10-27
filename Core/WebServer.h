@@ -17,14 +17,18 @@
 
 #pragma once
 
+#include <vector>
 #include "Common/Common.h"
+
+class Path;
 
 enum class WebServerFlags {
 	NONE = 0,
 	DISCS = 1,
 	DEBUGGER = 2,
+	FILE_UPLOAD = 4,
 
-	ALL =  1 | 2,
+	ALL = 1 | 2 | 4,
 };
 ENUM_CLASS_BITOPS(WebServerFlags);
 
@@ -36,3 +40,14 @@ bool WebServerRunning(WebServerFlags flags);
 void ShutdownWebServer();
 
 bool RemoteISOFileSupported(const std::string &filename);
+void WebServerSetUploadPath(const Path &path);
+int WebServerPort();
+
+struct UploadProgress {
+	s64 totalBytes = 0;
+	s64 uploadedBytes = 0;
+	s64 currentFileSize = 0;
+	std::string filename;
+};
+
+std::vector<UploadProgress> GetUploadsInProgress();

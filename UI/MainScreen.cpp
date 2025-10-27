@@ -62,6 +62,7 @@
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/Store.h"
+#include "UI/UploadScreen.h"
 #include "UI/InstallZipScreen.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
@@ -813,6 +814,12 @@ void GameBrowser::Refresh() {
 
 		if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
 			topBar->Add(new Choice(mm->T("PPSSPP Homebrew Store"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
+		}
+
+		if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
+			topBar->Add(new Choice(ImageID("I_FOLDER_UPLOAD"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([this](UI::EventParams &e) {
+				screenManager_->push(new UploadScreen(path_.GetPath()));
+			});
 		}
 
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
@@ -1576,6 +1583,9 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		}
 	} else if (tag == "IAP") {
 		// Gold status may have changed.
+		RecreateViews();
+	} else if (tag == "Upload") {
+		// Files may have been uploaded.
 		RecreateViews();
 	}
 }

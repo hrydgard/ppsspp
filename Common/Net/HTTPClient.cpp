@@ -47,6 +47,10 @@ const char *DNSTypeAsString(DNSType type) {
 	}
 }
 
+std::string Connection::GetLocalIpAsString() const {
+	return fd_util::GetLocalIP(this->sock());
+}
+
 bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
 		ERROR_LOG(Log::IO, "Resolve: Already have a socket");

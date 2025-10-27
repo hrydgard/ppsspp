@@ -99,6 +99,7 @@ Source: "assets\*.*"; DestDir: "{app}\assets"
 Source: "assets\shaders\*.*"; DestDir: "{app}\assets\shaders"
 Source: "assets\themes\*.*"; DestDir: "{app}\assets\themes"
 Source: "assets\debugger\*"; DestDir: "{app}\assets\debugger"; Flags: recursesubdirs
+Source: "assets\upload\*"; DestDir: "{app}\assets\upload"; Flags: recursesubdirs
 Source: "assets\lang\*.ini"; DestDir: "{app}\assets\lang"
 Source: "assets\flash0\font\*.*"; DestDir: "{app}\assets\flash0\font"
 Source: "assets\vfpu\*.*"; DestDir: "{app}\assets\vfpu"

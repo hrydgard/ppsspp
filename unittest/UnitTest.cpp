@@ -1232,6 +1232,23 @@ bool TestVolumeFunc() {
 	return true;
 }
 
+bool TestSplitSearch() {
+	std::string part1 = "The quick brown fox jumps";
+	std::string part2 = " over the lazy dog.";
+
+	size_t offset = SplitSearch("jumps over", part1, part2);
+	EXPECT_EQ_INT(offset, 20);
+	offset = SplitSearch("quick", part1, part2);
+	EXPECT_EQ_INT(offset, 4);
+	offset = SplitSearch(" over", part1, part2);
+	EXPECT_EQ_INT(offset, 25);
+	offset = SplitSearch("fox jumps", part1, part2);
+	EXPECT_EQ_INT(offset, 16);
+	offset = SplitSearch("dog.", part1, part2);
+	EXPECT_EQ_INT(offset, 40);
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1301,6 +1318,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SIMD),
 	TEST_ITEM(CrossSIMD),
 	TEST_ITEM(VolumeFunc),
+	TEST_ITEM(SplitSearch),
 };
 
 int main(int argc, const char *argv[]) {

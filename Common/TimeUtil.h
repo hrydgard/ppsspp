@@ -37,6 +37,7 @@ void GetCurrentTimeFormatted(char formattedTime[13]);
 // Most accurate timer possible - no extra double conversions. Only for spans.
 class Instant {
 public:
+	Instant();
 	static Instant Now() {
 		return Instant();
 	}
@@ -44,7 +45,6 @@ public:
 	double ElapsedMs() const { return ElapsedSeconds() * 1000.0; }
 	int64_t ElapsedNanos() const;
 private:
-	Instant();
 	uint64_t nativeStart_;
 #ifndef _WIN32
 	int64_t nsecs_;

@@ -38,6 +38,10 @@ public:
 		return header_.method;
 	}
 
+	const RequestHeader &Header() const {
+		return header_;
+	}
+
 	bool GetParamValue(const char *param_name, std::string *value) const {
 		return header_.GetParamValue(param_name, value);
 	}
@@ -96,8 +100,14 @@ public:
 	// if they don't recognize the url.
 	virtual void HandleRequest(const ServerRequest &request);
 
-	int Port() {
+	int ListenerSocket() const {
+		return listenerSock_;
+	}
+	int Port() const {
 		return port_;
+	}
+	const std::string &LocalAddress() const {
+		return localAddress_;
 	}
 
 private:
@@ -113,8 +123,9 @@ private:
 	void HandleListing(const ServerRequest &request);
 	void Handle404(const ServerRequest &request);
 
-	int listener_;
+	int listenerSock_;
 	int port_ = 0;
+	std::string localAddress_;
 
 	UrlHandlerMap handlers_;
 	UrlHandlerFunc fallback_;

@@ -115,6 +115,7 @@ static std::string langRegion;
 static std::string osName;
 static std::string osVersion;
 static std::string gpuDriverVersion;
+static std::string computerName;
 
 static std::string restartArgs;
 
@@ -253,6 +254,17 @@ std::string System_GetProperty(SystemProperty prop) {
 		return PPSSPP_GIT_VERSION;
 	case SYSPROP_USER_DOCUMENTS_DIR:
 		return Path(W32Util::UserDocumentsPath()).ToString();  // this'll reverse the slashes.
+	case SYSPROP_COMPUTER_NAME:
+		if (computerName.empty()) {
+			wchar_t nameBuf[MAX_COMPUTERNAME_LENGTH + 1];
+			DWORD size = ARRAY_SIZE(nameBuf);
+			if (GetComputerNameW(nameBuf, &size)) {
+				computerName = ConvertWStringToUTF8(std::wstring(nameBuf, size));
+			} else {
+				computerName = "(N/A)";
+			}
+		}
+		return computerName;
 	default:
 		return "";
 	}
@@ -433,6 +445,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_HAS_ACCELEROMETER:
+		return true;  // for debugging
 	default:
 		return false;
 	}

@@ -1874,7 +1874,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 	// Add non-editable items
 	listIP.push_back("localhost");
-	net::GetIPList(listIP);
+	net::GetLocalIP4List(listIP);
 
 	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
