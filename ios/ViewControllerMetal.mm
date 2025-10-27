@@ -179,7 +179,6 @@ static std::thread g_renderLoopThread;
 
 @interface PPSSPPViewControllerMetal () {
 	ICadeTracker g_iCadeTracker;
-	TouchTracker g_touchTracker;
 
 	IOSVulkanContext *graphicsContext;
 	CameraHelper *cameraHelper;
@@ -191,9 +190,7 @@ static std::thread g_renderLoopThread;
 
 @end  // @interface
 
-@implementation PPSSPPViewControllerMetal {
-	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
-}
+@implementation PPSSPPViewControllerMetal {}
 
 - (id)init {
 	self = [super init];
@@ -436,23 +433,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
-- (void)viewDidAppear:(BOOL)animated {
-	[super viewDidAppear:animated];
-	INFO_LOG(Log::G3D, "viewDidAppear");
-	[self hideKeyboard];
-	[self updateGesture];
-
-	// This needs to be called really late during startup, unfortunately.
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
-	NSLog(@"Metal viewDidAppear. updating icon");
-	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-		[[IAPManager sharedIAPManager] updateIcon:false];
-		[self hideKeyboard];
-	});
-#endif  // IOS_APP_STORE
-}
-
 - (BOOL)prefersHomeIndicatorAutoHidden {
 	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
 		return NO;
@@ -461,110 +441,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	}
 }
 
-- (void)appSwitchModeChanged
-{
-	[self setNeedsUpdateOfHomeIndicatorAutoHidden];
-}
-
-- (void)shareText:(NSString *)text {
-	NSArray *items = @[text];
-	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[self presentViewController:viewController animated:YES completion:nil];
-	});
-}
-
-extern float g_safeInsetLeft;
-extern float g_safeInsetRight;
-extern float g_safeInsetTop;
-extern float g_safeInsetBottom;
-
-static float BoostInset(float inset) {
-	if (inset > 0.0f) {
-		// If there's some inset, add a few pixels extra. Really needed on iPhone 12, at least.
-		inset += 4.0f;
-	}
-	return inset;
-}
-
-- (void)viewSafeAreaInsetsDidChange {
-	if (@available(iOS 11.0, *)) {
-		[super viewSafeAreaInsetsDidChange];
-		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
-		g_safeInsetLeft = BoostInset(self.view.safeAreaInsets.left);
-		g_safeInsetRight = BoostInset(self.view.safeAreaInsets.right);
-		g_safeInsetTop = BoostInset(self.view.safeAreaInsets.top);
-
-		// TODO: In portrait mode, should probably use safeAreaInsets.bottom.
-		// However, in landscape mode, it's not really needed.
-		// g_safeInsetBottom = BoostInset(self.view.safeAreaInsets.bottom);
-		g_safeInsetBottom = 0.0f;
-	}
-}
-
-// Enables tapping for edge area.
--(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
-{
-	if (GetUIState() == UISTATE_INGAME) {
-		// In-game, we need all the control we can get. Though, we could possibly
-		// allow the top edge?
-		INFO_LOG(Log::System, "Defer system gestures on all edges");
-		return UIRectEdgeAll;
-	} else {
-		INFO_LOG(Log::System, "Allow system gestures on the bottom");
-		// Allow task switching gestures to take precedence, without causing
-		// scroll events in the UI.
-		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
-	}
-}
-
-- (void)uiStateChanged
-{
-	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
-	[self hideKeyboard];
-	[self updateGesture];
-}
-
-- (void)updateGesture {
-	INFO_LOG(Log::System, "Updating swipe gesture.");
-
-	if (mBackGestureRecognizer) {
-		INFO_LOG(Log::System, "Removing swipe gesture.");
-		[[self view] removeGestureRecognizer:mBackGestureRecognizer];
-		mBackGestureRecognizer = nil;
-	}
-
-	if (GetUIState() != UISTATE_INGAME) {
-		INFO_LOG(Log::System, "Adding swipe gesture.");
-		mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
-		[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
-		[[self view] addGestureRecognizer:mBackGestureRecognizer];
-	}
-}
-
 - (void)bindDefaultFBO
 {
 	// Do nothing
-}
-
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Began(touches, self.view);
-}
-
-- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Moved(touches, self.view);
-}
-
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Ended(touches, self.view);
-}
-
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
-{
-	g_touchTracker.Cancelled(touches, self.view);
 }
 
 - (void)buttonDown:(iCadeState)button
@@ -620,67 +499,6 @@ static float BoostInset(float inset) {
 	if (!InitController(controller)) {
 		self.gameController = nil;
 	}
-}
-
-- (void)startVideo:(int)width height:(int)height {
-	[cameraHelper startVideo:width h:height];
-}
-
-- (void)stopVideo {
-	[cameraHelper stopVideo];
-}
-
-- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
-{
-	if (recognizer.state == UIGestureRecognizerStateEnded) {
-		KeyInput key;
-		key.flags = KEY_DOWN | KEY_UP;
-		key.keyCode = NKCODE_BACK;
-		key.deviceId = DEVICE_ID_TOUCH;
-		NativeKey(key);
-		INFO_LOG(Log::System, "Detected back swipe");
-	}
-}
-// The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
-// It's a bit limited but good enough.
-
--(void) deleteBackward {
-	KeyInput input{};
-	input.deviceId = DEVICE_ID_KEYBOARD;
-	input.flags = KEY_DOWN | KEY_UP;
-	input.keyCode = NKCODE_DEL;
-	NativeKey(input);
-	INFO_LOG(Log::System, "Backspace");
-}
-
--(BOOL) hasText
-{
-	return YES;
-}
-
--(void) insertText:(NSString *)text
-{
-	std::string str([text UTF8String]);
-	INFO_LOG(Log::System, "Chars: %s", str.c_str());
-	SendKeyboardChars(str);
-}
-
--(BOOL) canBecomeFirstResponder
-{
-	return YES;
-}
-
--(void) showKeyboard {
-	dispatch_async(dispatch_get_main_queue(), ^{
-		NSLog(@"becomeFirstResponder");
-		[self becomeFirstResponder];
-	});
-}
-
--(void) hideKeyboard {
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[self resignFirstResponder];
-	});
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size

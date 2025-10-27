@@ -9,10 +9,7 @@
 
 #import "ViewControllerCommon.h"
 
-@interface PPSSPPViewControllerGL : PPSSPPBaseViewController<GLKViewDelegate,
-    iCadeEventDelegate, LocationHandlerDelegate,
-    UIGestureRecognizerDelegate, UIKeyInput>
-
+@interface PPSSPPViewControllerGL : PPSSPPBaseViewController<GLKViewDelegate, iCadeEventDelegate>
 
 // Public-ish control similar to GLKViewController
 @property (nonatomic, assign) NSInteger preferredFramesPerSecond; // default 60
