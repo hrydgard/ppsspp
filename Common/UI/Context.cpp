@@ -145,8 +145,6 @@ Bounds UIContext::GetLayoutBounds() const {
 	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
 
-	// ILOG("Insets: %f %f %f %f", left, right, top, bottom);
-
 	// Adjust left edge to compensate for cutouts (notches) if any.
 	bounds.x += left;
 	bounds.w -= (left + right);

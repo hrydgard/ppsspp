@@ -495,8 +495,8 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.7f, 0.7f);
-	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 8, 20, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 10, 19, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 8, bounds.y + 10, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 10, bounds.y + 8, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();

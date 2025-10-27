@@ -108,13 +108,13 @@ bool InitController(GCController *controller) {
 		};
 	}
 
-#if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
-	if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
-		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_HOME);
-		};
+	if (@available(iOS 14.0, *)) {
+		if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
+			extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+				controllerButtonPressed(pressed, NKCODE_HOME);
+			};
+		}
 	}
-#endif
 
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;

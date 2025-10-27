@@ -1128,7 +1128,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	return gameBrowser;
 }
 
-UI::ViewGroup *MainScreen::CreateLogoView(UI::LayoutParams *layoutParams) {
+UI::ViewGroup *MainScreen::CreateLogoView(bool portrait, UI::LayoutParams *layoutParams) {
 	using namespace UI;
 	AnchorLayout *logos = new AnchorLayout(layoutParams);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
@@ -1156,7 +1156,7 @@ UI::ViewGroup *MainScreen::CreateLogoView(UI::LayoutParams *layoutParams) {
 	ver->SetClip(false);
 
 	// Only allow copying the version if it looks like a git version string. 1.19 for example is not really necessary to be able to copy/paste.
-	if (strchr(PPSSPP_GIT_VERSION, '-')) {
+	if (!portrait && strchr(PPSSPP_GIT_VERSION, '-')) {
 		ver->OnClick.Add([](UI::EventParams &e) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
@@ -1298,7 +1298,7 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		header->SetSpacing(5.0f);
-		header->Add(CreateLogoView(new LinearLayoutParams(WRAP_CONTENT, 80.0f, false)));
+		header->Add(CreateLogoView(true, new LinearLayoutParams(WRAP_CONTENT, 80.0f, false)));
 
 		LinearLayout *buttonGroup = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, UI::Gravity::G_VCENTER, UI::Margins(0,0,8,0)));
 
@@ -1317,7 +1317,7 @@ void MainScreen::CreateViews() {
 		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		rightColumnItems->SetSpacing(0.0f);
-		ViewGroup *logo = CreateLogoView(new LinearLayoutParams(FILL_PARENT, 80.0f, false));
+		ViewGroup *logo = CreateLogoView(false, new LinearLayoutParams(FILL_PARENT, 80.0f));
 #if !defined(MOBILE_DEVICE)
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
