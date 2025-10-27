@@ -10,8 +10,7 @@
 
 @interface PPSSPPViewControllerMetal : PPSSPPBaseViewController<
     iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
-    UIGestureRecognizerDelegate, UIKeyInput,
-	UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+    UIGestureRecognizerDelegate, UIKeyInput>
 @end
 
 /** The Metal-compatibile view. */
