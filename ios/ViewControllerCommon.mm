@@ -16,13 +16,82 @@
 	NSString *imageFilename;
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
+	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
 }
+
+@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
+@property (nonatomic) GCController *gameController __attribute__((weak_import));
+@property (strong, nonatomic) CMMotionManager *motionManager;
 
 @end
 
 @implementation PPSSPPBaseViewController {
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+}
+
+- (id)init {
+	self = [super init];
+	if (self) {
+		sharedViewController = self;
+
+		g_iCadeTracker.InitKeyMap();
+
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
+	}
+	self.accelerometerQueue = [[NSOperationQueue alloc] init];
+	self.accelerometerQueue.name = @"AccelerometerQueue";
+	self.accelerometerQueue.maxConcurrentOperationCount = 1;
+
+	return self;
+}
+
+- (void)shutdown {
+	self.gameController = nil;
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
+
+	_dbg_assert_(sharedViewController != nil);
+	sharedViewController = nil;
+}
+
+- (BOOL)prefersHomeIndicatorAutoHidden {
+	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
+		return NO;
+	} else {
+		return YES;
+	}
+}
+
+- (void)didBecomeActive {
+	if (self.motionManager.accelerometerAvailable) {
+		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
+		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
+
+		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
+							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
+			if (error) {
+				NSLog(@"Accelerometer error: %@", error);
+				return;
+			}
+			ProcessAccelerometerData(accelerometerData);
+		}];
+	} else {
+		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
+	}
+}
+
+- (void)willResignActive {
+	// Stop accelerometer updates
+	if (self.motionManager.accelerometerActive) {
+		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
+		[self.motionManager stopAccelerometerUpdates];
+	}
+}
+
+- (void)appWillTerminate:(NSNotification *)notification {
+	[self shutdown];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -54,6 +123,33 @@
 		// Allow task switching gestures to take precedence, without causing
 		// scroll events in the UI. Otherwise, we get "ghost" scrolls when switching tasks.
 		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
+	}
+}
+
+- (void)controllerDidConnect:(NSNotification *)note
+{
+	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
+
+	if (self.gameController != nil) return; // already have a connected controller
+
+	[self setupController:(GCController *)note.object];
+}
+
+- (void)controllerDidDisconnect:(NSNotification *)note
+{
+	if (self.gameController == note.object) {
+		self.gameController = nil;
+
+		if ([[GCController controllers] count] > 0) {
+			[self setupController:[[GCController controllers] firstObject]];
+		}
+	}
+}
+
+- (void)setupController:(GCController *)controller {
+	self.gameController = controller;
+	if (!InitController(controller)) {
+		self.gameController = nil;
 	}
 }
 
@@ -189,6 +285,8 @@
 
 	locationHelper = [[LocationHelper alloc] init];
 	[locationHelper setDelegate:self];
+
+	self.motionManager = [[CMMotionManager alloc] init];
 }
 
 extern float g_safeInsetLeft;
@@ -270,5 +368,32 @@ static float BoostInset(float inset) {
 - (BOOL)canBecomeFirstResponder {
 	return YES;
 }
+
+- (void)buttonDown:(iCadeState)button
+{
+	g_iCadeTracker.ButtonDown(button);
+}
+
+- (void)buttonUp:(iCadeState)button
+{
+	g_iCadeTracker.ButtonUp(button);
+}
+
+// See PPSSPPUIApplication.mm for the other method
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesBegan(presses, event);
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesEnded(presses, event);
+}
+
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesEnded(presses, event);
+}
+
+#endif
 
 @end

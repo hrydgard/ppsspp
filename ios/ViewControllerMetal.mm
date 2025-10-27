@@ -1,9 +1,7 @@
 #import "AppDelegate.h"
 #import "ViewControllerMetal.h"
 #import "DisplayManager.h"
-#include "Controls.h"
 #import "iOSCoreAudio.h"
-#import "IAPManager.h"
 
 #include "Common/Log.h"
 
@@ -178,15 +176,8 @@ static std::atomic<bool> renderLoopRunning;
 static std::thread g_renderLoopThread;
 
 @interface PPSSPPViewControllerMetal () {
-	ICadeTracker g_iCadeTracker;
-
 	IOSVulkanContext *graphicsContext;
-	CameraHelper *cameraHelper;
 }
-
-@property (nonatomic) GCController *gameController __attribute__((weak_import));
-@property (strong, nonatomic) CMMotionManager *motionManager;
-@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 
 @end  // @interface
 
@@ -194,23 +185,7 @@ static std::thread g_renderLoopThread;
 
 - (id)init {
 	self = [super init];
-	if (self) {
-		sharedViewController = self;
-		g_iCadeTracker.InitKeyMap();
-
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
-	}
-	self.accelerometerQueue = [[NSOperationQueue alloc] init];
-	self.accelerometerQueue.name = @"AccelerometerQueue";
-	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 	return self;
-}
-
-- (void)appWillTerminate:(NSNotification *)notification
-{
-	[self shutdown];
 }
 
 // Should be very similar to the Android one, probably mergeable.
@@ -315,22 +290,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 // These two are forwarded from the appDelegate
 - (void)didBecomeActive {
-	INFO_LOG(Log::G3D, "didBecomeActive GL");
-	if (self.motionManager.accelerometerAvailable) {
-		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
-		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
-
-		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
-							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
-			if (error) {
-				NSLog(@"Accelerometer error: %@", error);
-				return;
-			}
-			ProcessAccelerometerData(accelerometerData);
-		}];
-	} else {
-		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
-	}
+	[super didBecomeActive];
+	INFO_LOG(Log::G3D, "didBecomeActive Metal");
+	
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
@@ -338,28 +300,18 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (void)willResignActive {
-	INFO_LOG(Log::G3D, "willResignActive GL");
+	INFO_LOG(Log::G3D, "willResignActive Metal");
 	[self requestExitVulkanRenderLoop];
 
-	// Stop accelerometer updates
-	if (self.motionManager.accelerometerActive) {
-		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
-		[self.motionManager stopAccelerometerUpdates];
-	}
+	[super willResignActive];
 }
 
-- (void)shutdown
-{
-	INFO_LOG(Log::System, "shutdown VK");
+- (void)shutdown {
+	[super shutdown];
+
+	INFO_LOG(Log::System, "shutdown");
 
 	g_Config.Save("shutdown vk");
-
-	_dbg_assert_(sharedViewController != nil);
-	sharedViewController = nil;
-
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
-
-	self.gameController = nil;
 
 	if (graphicsContext) {
 		graphicsContext->Shutdown();
@@ -408,9 +360,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	}
 
 	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
-
-	// Initialize the motion manager for accelerometer control.
-	self.motionManager = [[CMMotionManager alloc] init];
 }
 
 - (UIView *)getView {
@@ -433,72 +382,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
-- (BOOL)prefersHomeIndicatorAutoHidden {
-	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
-		return NO;
-	} else {
-		return YES;
-	}
-}
-
 - (void)bindDefaultFBO
 {
 	// Do nothing
-}
-
-- (void)buttonDown:(iCadeState)button
-{
-	g_iCadeTracker.ButtonDown(button);
-}
-
-- (void)buttonUp:(iCadeState)button
-{
-	g_iCadeTracker.ButtonUp(button);
-}
-
-// See PPSSPPUIApplication.mm for the other method
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-
-- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesBegan(presses, event);
-}
-
-- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesEnded(presses, event);
-}
-
-- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesEnded(presses, event);
-}
-
-#endif
-
-- (void)controllerDidConnect:(NSNotification *)note
-{
-	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
-
-	if (self.gameController != nil) return; // already have a connected controller
-
-	[self setupController:(GCController *)note.object];
-}
-
-- (void)controllerDidDisconnect:(NSNotification *)note
-{
-	if (self.gameController == note.object) {
-		self.gameController = nil;
-
-		if ([[GCController controllers] count] > 0) {
-			[self setupController:[[GCController controllers] firstObject]];
-		}
-	}
-}
-
-- (void)setupController:(GCController *)controller
-{
-	self.gameController = controller;
-	if (!InitController(controller)) {
-		self.gameController = nil;
-	}
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size

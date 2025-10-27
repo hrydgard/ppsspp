@@ -9,10 +9,8 @@
 #import "ViewController.h"
 #import "DisplayManager.h"
 #import "iOSCoreAudio.h"
-#import "IAPManager.h"
 
 #import <GLKit/GLKit.h>
-#import "Controls.h"
 #import <QuartzCore/QuartzCore.h>
 
 #include <cassert>
@@ -97,8 +95,6 @@ static std::thread g_renderLoopThread;
 PPSSPPBaseViewController *sharedViewController;
 
 @interface PPSSPPViewControllerGL () {
-	ICadeTracker g_iCadeTracker;
-
 	IOSGLESContext *graphicsContext;
 
 	int imageRequestId;
@@ -112,10 +108,6 @@ PPSSPPBaseViewController *sharedViewController;
 
 @property (nonatomic, strong) EAGLContext* context;
 
-@property (nonatomic) GCController *gameController __attribute__((weak_import));
-@property (strong, nonatomic) CMMotionManager *motionManager;
-@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
-
 @end
 
 @implementation PPSSPPViewControllerGL {}
@@ -124,25 +116,8 @@ PPSSPPBaseViewController *sharedViewController;
 	self = [super init];
 	if (self) {
 		_preferredFramesPerSecond = 60; // default
-		sharedViewController = self;
-		g_iCadeTracker.InitKeyMap();
-
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 	}
-	self.accelerometerQueue = [[NSOperationQueue alloc] init];
-	self.accelerometerQueue.name = @"AccelerometerQueue";
-	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 	return self;
-}
-
-- (BOOL)prefersHomeIndicatorAutoHidden {
-	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
-		return NO;
-	} else {
-		return YES;
-	}
 }
 
 // The actual rendering is NOT on this thread, this is the emu thread
@@ -264,19 +239,12 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[self hideKeyboard];
 
 	// Initialize the motion manager for accelerometer control.
-	self.motionManager = [[CMMotionManager alloc] init];
 	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
 - (void)viewDidLayoutSubviews {
 	[super viewDidLayoutSubviews];
 	self.glView.frame = self.view.bounds;
-	/*
-	// if you need to update viewport:
-	CGSize s = self.glView.bounds.size;
-	[EAGLContext setCurrentContext:self.glContext];
-	glViewport(0, 0, (GLsizei)round(s.width), (GLsizei)round(s.height));
-	*/
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -340,39 +308,11 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 }
 
-- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer {
-	if (recognizer.state == UIGestureRecognizerStateEnded) {
-		KeyInput key;
-		key.flags = KEY_DOWN | KEY_UP;
-		key.keyCode = NKCODE_BACK;
-		key.deviceId = DEVICE_ID_TOUCH;
-		NativeKey(key);
-		INFO_LOG(Log::System, "Detected back swipe");
-	}
-}
-
-- (void)appWillTerminate:(NSNotification *)notification
-{
-	[self shutdown];
-}
-
 - (void)didBecomeActive {
-	INFO_LOG(Log::System, "didBecomeActive begin");
-	if (self.motionManager.accelerometerAvailable) {
-		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
-		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
+	[super didBecomeActive];
 
-		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
-							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
-			if (error) {
-				NSLog(@"Accelerometer error: %@", error);
-				return;
-			}
-			ProcessAccelerometerData(accelerometerData);
-		}];
-	} else {
-		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
-	}
+	INFO_LOG(Log::System, "didBecomeActive begin");
+
 	[self runGLRenderLoop];
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
@@ -382,28 +322,25 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 }
 
 - (void)willResignActive {
-	INFO_LOG(Log::System, "willResignActive begin");
+	INFO_LOG(Log::System, "willResignActive GL");
 	[self requestExitGLRenderLoop];
 
-	// Stop accelerometer updates
-	if (self.motionManager.accelerometerActive) {
-		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
-		[self.motionManager stopAccelerometerUpdates];
-	}
-	INFO_LOG(Log::System, "willResignActive end");
-
 	self.displayLink.paused = YES;
+
+	[super willResignActive];
 }
 
-- (void)shutdown
-{
+- (void)shutdown {
+	[super shutdown];
+
 	INFO_LOG(Log::System, "shutdown GL");
 
 	g_Config.Save("shutdown GL");
 
-	_dbg_assert_(graphicsContext);
 	_dbg_assert_(sharedViewController != nil);
 	sharedViewController = nil;
+
+	_dbg_assert_(graphicsContext);
 
 	if (self.context) {
 		if ([EAGLContext currentContext] == self.context) {
@@ -413,8 +350,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
-
-	self.gameController = nil;
 
 	graphicsContext->BeginShutdown();
 	// Skipping GL calls here because the old context is lost.
@@ -429,75 +364,16 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::System, "Done shutting down GL");
 }
 
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations
-{
-	return UIInterfaceOrientationMaskAll;
-}
-
 - (void)bindDefaultFBO
 {
 	[(GLKView*)self.glView bindDrawable];
-}
-
-- (void)buttonDown:(iCadeState)button
-{
-	g_iCadeTracker.ButtonDown(button);
-}
-
-- (void)buttonUp:(iCadeState)button
-{
-	g_iCadeTracker.ButtonUp(button);
-}
-
-- (void)controllerDidConnect:(NSNotification *)note
-{
-	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
-
-	if (self.gameController != nil) return; // already have a connected controller
-
-	[self setupController:(GCController *)note.object];
-}
-
-- (void)controllerDidDisconnect:(NSNotification *)note
-{
-	if (self.gameController == note.object) {
-		self.gameController = nil;
-
-		if ([[GCController controllers] count] > 0) {
-			[self setupController:[[GCController controllers] firstObject]];
-		}
-	}
 }
 
 - (UIView *)getView {
 	return [self view];
 }
 
-- (void)setupController:(GCController *)controller
-{
-	self.gameController = controller;
-	if (!InitController(controller)) {
-		self.gameController = nil;
-	}
-}
-
-// See PPSSPPUIApplication.mm for the other method
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-
-- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesBegan(presses, event);
-}
-
-- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesEnded(presses, event);
-}
-
-- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-	KeyboardPressesEnded(presses, event);
-}
-
-#endif
-
+// Can't consolidate this yet.
 - (void)viewWillTransitionToSize:(CGSize)size
 		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
 	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];

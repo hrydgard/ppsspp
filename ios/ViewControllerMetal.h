@@ -6,7 +6,7 @@
 #import "ViewControllerCommon.h"
 #import "iCade/iCadeReaderView.h"
 
-@interface PPSSPPViewControllerMetal : PPSSPPBaseViewController<iCadeEventDelegate>
+@interface PPSSPPViewControllerMetal : PPSSPPBaseViewController
 @end
 
 /** The Metal-compatibile view. */

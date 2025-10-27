@@ -2,13 +2,16 @@
 
 #import <UIKit/UIKit.h>
 
+#import <GameController/GameController.h>
+
 #import "CameraHelper.h"
 #import "LocationHelper.h"
+#import "iCade/iCadeReaderView.h"
 
 @interface PPSSPPBaseViewController : UIViewController<
 	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate, UIKeyInput,
-	UIGestureRecognizerDelegate>
+	UIGestureRecognizerDelegate, iCadeEventDelegate>
 
 - (void)hideKeyboard;
 - (void)showKeyboard;
@@ -21,6 +24,7 @@
 - (void)startVideo:(int)width height:(int)height;
 - (void)stopVideo;
 - (void)appSwitchModeChanged;
+- (void)setupController:(GCController *)controller;
 
 // Forwarded from the AppDelegate
 - (void)didBecomeActive;
