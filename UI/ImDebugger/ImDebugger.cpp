@@ -2809,7 +2809,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	Syncer sync(save);
 	sync.SetSection(ini->GetOrCreateSection("Windows"));
 	sync.Sync("disasmOpen", &disasmOpen, true);
-	sync.Sync("demoOpen ", &demoOpen, false);
+	sync.Sync("demoOpen", &demoOpen, false);
 	sync.Sync("gprOpen", &gprOpen, false);
 	sync.Sync("fprOpen", &fprOpen, false);
 	sync.Sync("vfpuOpen", &vfpuOpen, false);
