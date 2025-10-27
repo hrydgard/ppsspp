@@ -141,6 +141,8 @@ static const ImageMeta imageIDs[] = {
 	{"I_FOLDER_UPLOAD", false},
 	{"I_FILE", false},
 	{"I_FILE_COPY", false},
+	{"I_WEB_BROWSER", false},
+	{"I_WIFI", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

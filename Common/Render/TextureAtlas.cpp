@@ -106,7 +106,7 @@ const AtlasImage *Atlas::getImage(ImageID name) const {
 		return nullptr;
 
 	for (int i = 0; i < num_images; i++) {
-		if (!strcmp(name.id, images[i].name))
+		if (name.id == images[i].name)
 			return &images[i];
 	}
 	return nullptr;

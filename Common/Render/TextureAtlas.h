@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include <string_view>
+
 #define ATLAS_MAGIC ('A' | ('T' << 8) | ('L' << 16) | ('A' << 24))
 
 // Metadata file structure v0:
@@ -21,34 +23,31 @@ struct Atlas;
 
 struct ImageID {
 public:
-	ImageID() : id(nullptr) {}
-	explicit ImageID(const char *_id) : id(_id) {}
+	ImageID() {}
+	explicit ImageID(std::string_view _id) : id(_id) {}
 
 	static inline ImageID invalid() {
-		return ImageID{ nullptr };
+		return ImageID{""};
 	}
 
 	bool isValid() const {
-		return id != nullptr;
+		return !id.empty();
 	}
 
 	bool isInvalid() const {
-		return id == nullptr;
+		return id.empty();
 	}
 
 	bool operator ==(const ImageID &other) {
-		return (id == other.id) || !strcmp(id, other.id);
+		return id == other.id;
 	}
 
 	bool operator !=(const ImageID &other) {
-		if (id == other.id) {
-			return false;
-		}
-		return strcmp(id, other.id) != 0;
+		return id != other.id;
 	}
 
 private:
-	const char *id;
+	std::string_view id;
 	friend struct Atlas;
 };
 

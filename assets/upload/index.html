@@ -8,7 +8,7 @@
 	<style>
 		body {
 			font-family: system-ui, sans-serif;
-			background: #f5f7fa;
+			background: #e7f1ff;
 			color: #333;
 			padding: 2em;
 			max-width: 600px;
@@ -95,10 +95,6 @@
 			margin-top: 0.5em;
 		}
 
-		pre.inline {
-			display: inline;
-		}
-
 		.btn input[type="file"] {
 			display: none; /* hide the native control */
 		}
@@ -106,12 +102,41 @@
 		#resetBtn {
 			display: none; /* initially hidden */
 		}
+
+		.drag-over {
+			border: 2px dashed #4a90e2;
+			background-color: #f0f8ff;
+		}
+
+		.drop-zone {
+			border: 2px dashed #ccc;
+			border-radius: 10px;
+			padding: 40px 20px;
+			text-align: center;
+			margin: 1em 0;
+			background-color: #fafafa;
+			transition: all 0.3s ease;
+			display: none; /* initially hidden, shown only on supported platforms */
+		}
+
+		.drop-zone-text {
+			color: #666;
+			font-size: 1.1em;
+			margin: 0.5em 0;
+		}
+
+		.fixed-width {
+			font-family: monospace;
+			background: #eee;
+			padding: 2px 4px;
+			border-radius: 4px;
+		}
 	</style>
 </head>
 <body>
 	<h1>Upload files to {{ device_name }}</h1>
 
-	<p>To folder: <pre class="inline">{{ upload_path }}</pre></p>
+	<p>Destination folder: <span class="fixed-width">{{ upload_path }}</span></p>
 
 	<div class="section">
 		<label class="btn">
@@ -127,7 +152,18 @@
 		</button>
 	</div>
 
+	<div id="dropZone" class="drop-zone">
+		<div class="drop-zone-text">
+			📁 Drop files here or use the buttons above
+		</div>
+	</div>
+
 	<div id="fileList"></div>
+
+	<div id="uploadedSection" style="display: none;">
+		<h3>Uploaded Files:</h3>
+		<div id="uploadedList"></div>
+	</div>
 
 	<div class="section">
 		<button id="uploadBtn" disabled>Start upload!</button>
@@ -144,11 +180,37 @@
 			const uploadBtn = document.getElementById("uploadBtn");
 			const resetBtn = document.getElementById("resetBtn");
 			const fileListDiv = document.getElementById("fileList");
+			const uploadedSection = document.getElementById("uploadedSection");
+			const uploadedListDiv = document.getElementById("uploadedList");
+			const dropZone = document.getElementById("dropZone");
 			const progressBar = document.getElementById("progressBar");
 			const statusDiv = document.getElementById("status");
 			const errorDiv = document.getElementById("error");
 
 			let files = [];
+			let uploadedFiles = [];
+			let droppedFiles = [];
+
+			// Feature detection for drag and drop support
+			function isDragDropSupported() {
+				// Check for basic drag and drop API support
+				const div = document.createElement('div');
+				const hasBasicSupport = ('draggable' in div) && ('ondrop' in div);
+
+				// Check if it's a mobile device (where drag/drop from file system is limited)
+				const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+				// Check if it's a touch-only device
+				const isTouchOnly = ('ontouchstart' in window) && !window.matchMedia('(pointer: fine)').matches;
+
+				return hasBasicSupport && !isMobile && !isTouchOnly;
+			}
+
+			// Show drop zone only if drag and drop is supported
+			if (isDragDropSupported()) {
+				dropZone.style.display = 'block';
+			}
+
 			function formatBytes(bytes, decimals = 2) {
 				if (bytes === 0) return '0 B';
 				const k = 1024;
@@ -157,8 +219,28 @@
 				const size = parseFloat((bytes / Math.pow(k, i)).toFixed(decimals));
 				return `${size} ${units[i]}`;
 			}
+
+			function updateUploadedList() {
+				uploadedListDiv.innerHTML = "";
+				if (uploadedFiles.length > 0) {
+					uploadedSection.style.display = "block";
+					const list = document.createElement("ul");
+					uploadedFiles.forEach(f => {
+						const li = document.createElement("li");
+						const formattedBytes = formatBytes(f.size, 2);
+						const name = f.webkitRelativePath || f.name;
+						li.textContent = `${name} (${formattedBytes}) - ✓ Uploaded`;
+						li.style.color = "#2d7a2d";
+						list.appendChild(li);
+					});
+					uploadedListDiv.appendChild(list);
+				} else {
+					uploadedSection.style.display = "none";
+				}
+			}
+
 			function updateFileList() {
-				files = [...fileInput.files, ...folderInput.files];
+				files = [...fileInput.files, ...folderInput.files, ...droppedFiles];
 				fileListDiv.innerHTML = "";
 				if (files.length > 0) {
 					uploadBtn.disabled = false;
@@ -181,13 +263,62 @@
 			fileInput.addEventListener("change", updateFileList);
 			folderInput.addEventListener("change", updateFileList);
 
+			// Drag and drop functionality
+			dropZone.addEventListener("dragover", (e) => {
+				e.preventDefault();
+				dropZone.classList.add("drag-over");
+			});
+
+			dropZone.addEventListener("dragleave", (e) => {
+				e.preventDefault();
+				dropZone.classList.remove("drag-over");
+			});
+
+			dropZone.addEventListener("drop", (e) => {
+				e.preventDefault();
+				dropZone.classList.remove("drag-over");
+
+				const dt = e.dataTransfer;
+				const allFiles = Array.from(dt.files);
+
+				// Filter out zero-byte entries (usually folders or invalid entries)
+				const validFiles = allFiles.filter(file => file.size > 0);
+
+				// Show a message if some files were filtered out
+				if (allFiles.length > validFiles.length) {
+					const filteredCount = allFiles.length - validFiles.length;
+					statusDiv.textContent = `Note: ${filteredCount} folder(s) or empty file(s) were skipped. Only files can be drag/dropped.`;
+					setTimeout(() => {
+						if (statusDiv.textContent.includes("folder(s) or empty file(s) were skipped")) {
+							statusDiv.textContent = "";
+						}
+					}, 8000);
+				}
+
+				// Add valid dropped files to the existing array
+				droppedFiles = [...droppedFiles, ...validFiles];
+				updateFileList();
+			});
+
+			// Also handle drag/drop on the entire document to prevent browser default behavior
+			document.addEventListener("dragover", (e) => {
+				e.preventDefault();
+			});
+
+			document.addEventListener("drop", (e) => {
+				e.preventDefault();
+			});
+
 			resetBtn.addEventListener("click", () => {
 				// Clear the file inputs
 				fileInput.value = "";
 				folderInput.value = "";
-				// Clear the files array and update the display
+				// Clear all arrays and update displays
 				files = [];
+				droppedFiles = [];
+				uploadedFiles = [];
 				updateFileList();
+				updateUploadedList();
 			});
 
 			uploadBtn.addEventListener("click", async () => {
@@ -199,13 +330,27 @@
 				progressBar.style.display = "block";
 				progressBar.value = 0;
 
-				for (let i = 0; i < files.length; i++) {
-					const file = files[i];
-					statusDiv.textContent = `Uploading ${file.webkitRelativePath || file.name} (${i + 1}/${files.length})`;
+				const filesToUpload = [...files]; // Create a copy to iterate over
+
+				// Clear all file sources so files disappear from pending list as they upload
+				fileInput.value = "";
+				folderInput.value = "";
+				droppedFiles = [];
+				files = [];
+
+				for (let i = 0; i < filesToUpload.length; i++) {
+					const file = filesToUpload[i];
+					statusDiv.textContent = `Uploading ${file.webkitRelativePath || file.name} (${i + 1}/${filesToUpload.length})`;
 
 					try {
 						await uploadFile(file);
+						// Move successfully uploaded file to uploaded list
+						uploadedFiles.push(file);
+						updateUploadedList();
 					} catch (err) {
+						// If upload fails, add remaining files back to pending list
+						files = filesToUpload.slice(i);
+						updateFileList();
 						errorDiv.textContent = err.message;
 						progressBar.style.display = "none";
 						uploadBtn.disabled = false;
@@ -213,9 +358,11 @@
 					}
 				}
 
+				// Update the pending files list (should be empty now)
+				updateFileList();
 				statusDiv.textContent = "All files uploaded successfully.";
 				progressBar.style.display = "none";
-				uploadBtn.disabled = false;
+				// Note: uploadBtn state is managed by updateFileList() - disabled when no files
 			});
 
 			function uploadFile(file) {
@@ -226,6 +373,7 @@
 					// Add custom metadata headers if needed:
 					xhr.setRequestHeader("X-Client-Version", "1.0");
 					xhr.setRequestHeader("X-Upload-Timestamp", new Date().toISOString());
+					xhr.setRequestHeader("X-File-Size", file.size.toString());
 
 					xhr.upload.onprogress = e => {
 						if (e.lengthComputable) {
@@ -252,7 +400,6 @@
 					// Try to preserve any directory structure, if supported.
 					const formData = new FormData();
 					formData.append("file", file, file.webkitRelativePath || file.name);
-					formData.append("fileSize", file.size.toString());
 					xhr.send(formData);
 				});
 			}

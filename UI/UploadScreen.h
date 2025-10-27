@@ -43,8 +43,10 @@ protected:
 	const char *tag() const override { return "Upload"; }
 
 private:
+	void RecreateStatus();
 	bool prevRunning_ = false;
 	std::vector<std::string> localIPs_;
 	Path targetFolder_;
 	Instant lastUpdate_;
+	UI::ViewGroup *statusContainer_ = nullptr;
 };

@@ -30,6 +30,7 @@
 #include "Common/File/FileDescriptor.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
@@ -454,7 +455,13 @@ static void HandleFallback(const http::ServerRequest &request) {
 	}
 
 	if (serverFlags & WebServerFlags::FILE_UPLOAD) {
-		if (startsWith(request.resource(), "/upload")) {
+		Path uploadPath;
+		{
+			std::lock_guard<std::mutex> guard(g_webServerLock);
+			uploadPath = g_uploadPath;
+		}
+
+		if (startsWith(request.resource(), "/upload") && !uploadPath.empty()) {
 			if (ServeAssetFile(request)) {
 				return;
 			}
@@ -504,25 +511,11 @@ static void ForwardDebuggerRequest(const http::ServerRequest &request) {
 	}
 }
 
-static void HandleUploadUI(const http::ServerRequest &request) {
-	// Read the file from VFS.
-	AndroidJNIThreadContext jniContext;
-	request.WriteHttpResponseHeader("1.0", 200, -1, "text/html");
-	request.Out()->Push(
-		"<html><head><title>PPSSPP Remote ISO Upload</title></head><body>"
-		"<h1>Upload ISO File</h1>"
-		"<form method=\"POST\" enctype=\"multipart/form-data\">"
-		"<input type=\"file\" name=\"isofile\" accept=\".iso,.cso,.pbp,.chd\" required>"
-		"<input type=\"submit\" value=\"Upload\">"
-		"</form>"
-		"</body></html>");
-}
-
 class ProgressTracker {
 public:
-	ProgressTracker(int sessionId) : sessionId_(sessionId) {
+	ProgressTracker(int sessionId, s64 totalSize) : sessionId_(sessionId) {
 		std::lock_guard<std::mutex> guard(g_webServerLock);
-		g_uploadsInProgress[sessionId_] = UploadProgress();
+		g_uploadsInProgress[sessionId_] = UploadProgress{totalSize};
 	}
 	~ProgressTracker() {
 		std::lock_guard<std::mutex> guard(g_webServerLock);
@@ -531,10 +524,9 @@ public:
 	void SetFile(std::string_view filename, size_t size) {
 		std::lock_guard<std::mutex> guard(g_webServerLock);
 		auto &upload = g_uploadsInProgress[sessionId_];
-		upload.currentFilename = filename;
+		upload.filename = filename;
 		upload.currentFileSize = size;
-		upload.uploadedFiles++;
-		upload.totalBytesBeforeCurrentFile = upload.uploadedBytes;
+		upload.uploadedBytes = 0;
 	}
 	void AddBytes(size_t bytes) {
 		std::lock_guard<std::mutex> guard(g_webServerLock);
@@ -559,6 +551,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 	}
 
 	std::string disposition = request.In()->ReadLine();
+
+	INFO_LOG(Log::HTTP, "Disposition: %s", disposition.c_str());
 	std::vector<std::string_view> parts;
 	SplitString(disposition, ';', parts);
 	if (parts.size() < 2 || !startsWith(parts[0], "Content-Disposition: form-data")) {
@@ -621,7 +615,7 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		}
 	}
 
-	progress.SetFile(filename);
+	progress.SetFile(filename, 0);
 	u64 bytesTransferred = 0;
 	char buffer[net::InputSink::BUFFER_SIZE];
 	while (true) {
@@ -631,6 +625,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 			if (fwrite(buffer, 1, readBytes, fp) != readBytes) {
 				ERROR_LOG(Log::HTTP, "Failed to write %d bytes to destination file '%s' - disk full?", (int)readBytes, destPath.ToVisualString().c_str());
 				fclose(fp);
+				// Delete the partially written file, so the user doesn't try to play it.
+				File::Delete(destPath);
 				return MultiPartResult::RequestError;
 			}
 		}
@@ -647,7 +643,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		fclose(fp);
 	}
 
-	g_OSD.Show(OSDType::, StringFromFormat("Uploaded '%s' (%d bytes)", filename.c_str(), (int)bytesTransferred), 5.0f);
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(n->T("File transfer complete: %1"), filename));
 
 	// NOTE: We already read the boundary above.
 	// However if this is the last part, the boundary will have "--\r\n" after it, otherwise there will be a line break.
@@ -708,7 +705,7 @@ static void HandleUploadPost(const http::ServerRequest &request) {
 	}
 	const std::string boundary = contentType.substr(bpos + strlen("boundary="));
 
-	// The total length of the entire multipart thing.
+	// The total length of the entire multipart thing. This is just above the full size of the upload, so let's use it for progress.
 	u64 contentLength = request.Header().content_length;
 	if (contentLength == 0) {
 		WARN_LOG(Log::HTTP, "Bad content length");
@@ -717,7 +714,7 @@ static void HandleUploadPost(const http::ServerRequest &request) {
 
 	const int sessionId = g_uploadSessionId.fetch_add(1);
 
-	ProgressTracker progress(sessionId);
+	ProgressTracker progress(sessionId, contentLength);
 	while (true) {
 		MultiPartResult result = HandleMultipartPart(request, boundary, uploadPath, progress);
 		switch (result) {
@@ -728,7 +725,6 @@ static void HandleUploadPost(const http::ServerRequest &request) {
 			return;
 		case MultiPartResult::LocalError:
 			request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");  // Server error
-			// Disk full etc.
 			return;
 		case MultiPartResult::MoveToNext:
 			// Else just continue to the next part.
