@@ -221,7 +221,7 @@ private:
 	Path screenshotFilename_;
 };
 
-SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, bool vertical, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
+SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, bool vertical, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
 	using namespace UI;
 
 	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
@@ -475,7 +475,7 @@ void GamePauseScreen::CreateViews() {
 	if (showSavestateControls) {
 		if (PSP_CoreParameter().compat.flags().SaveStatesNotRecommended) {
 			bannerAdded = true;
-			LinearLayout *horiz = new LinearLayout(UI::ORIENT_HORIZONTAL);
+			LinearLayout *horiz = new LinearLayout(ORIENT_HORIZONTAL);
 			leftColumnItems->Add(horiz);
 			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)));
 			horiz->Add(new Button(di->T("More info")))->OnClick.Add([](UI::EventParams &e) {

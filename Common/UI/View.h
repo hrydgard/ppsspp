@@ -184,11 +184,6 @@ enum class BorderStyle {
 	ITEM_DOWN_BG,
 };
 
-enum Orientation {
-	ORIENT_HORIZONTAL,
-	ORIENT_VERTICAL,
-};
-
 inline Orientation Opposite(Orientation o) {
 	if (o == ORIENT_HORIZONTAL) return ORIENT_VERTICAL; else return ORIENT_HORIZONTAL;
 }

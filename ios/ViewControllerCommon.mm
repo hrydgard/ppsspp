@@ -309,18 +309,16 @@ static float BoostInset(float inset) {
 }
 
 - (void)viewSafeAreaInsetsDidChange {
-	if (@available(iOS 11.0, *)) {
-		[super viewSafeAreaInsetsDidChange];
-		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
-		g_safeInsetLeft = BoostInset(self.view.safeAreaInsets.left);
-		g_safeInsetRight = BoostInset(self.view.safeAreaInsets.right);
-		g_safeInsetTop = BoostInset(self.view.safeAreaInsets.top);
+	[super viewSafeAreaInsetsDidChange];
+	// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
+	g_safeInsetLeft = BoostInset(self.view.safeAreaInsets.left);
+	g_safeInsetRight = BoostInset(self.view.safeAreaInsets.right);
+	g_safeInsetTop = BoostInset(self.view.safeAreaInsets.top);
 
-		// TODO: In portrait mode, should probably use safeAreaInsets.bottom.
-		// However, in landscape mode, it's not really needed.
-		// g_safeInsetBottom = BoostInset(self.view.safeAreaInsets.bottom);
-		g_safeInsetBottom = 0.0f;
-	}
+	// TODO: In portrait mode, should probably use safeAreaInsets.bottom.
+	// However, in landscape mode, it's not really needed.
+	// g_safeInsetBottom = BoostInset(self.view.safeAreaInsets.bottom);
+	g_safeInsetBottom = 0.0f;
 }
 
 - (void)shareText:(NSString *)text {

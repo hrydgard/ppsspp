@@ -1193,12 +1193,12 @@ void CreditsScroller::Draw(UIContext &dc) {
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
-	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
+	: UI::LinearLayout(ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
 	using namespace UI;
 	SetSpacing(0.0f);
-	Add(new UI::Spacer(10.0f));
-	text_ = Add(new UI::TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
-	Add(new UI::Spacer(10.0f));
+	Add(new Spacer(10.0f));
+	text_ = Add(new TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
+	Add(new Spacer(10.0f));
 }
 
 void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {

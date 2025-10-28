@@ -196,8 +196,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	self.glView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	[self.view addSubview:self.glView];
 
-	self.view.insetsLayoutMarginsFromSafeArea = NO;
-	self.view.clipsToBounds = YES;
+	// self.view.insetsLayoutMarginsFromSafeArea = NO;
+	// self.view.clipsToBounds = YES;
 
 	// Put context current for initial GL setup
 	[EAGLContext setCurrentContext:self.glContext];

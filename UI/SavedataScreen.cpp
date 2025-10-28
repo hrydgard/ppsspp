@@ -48,7 +48,7 @@
 class SavedataButton;
 
 SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileType type, std::string_view title, std::string_view savedataTitle, std::string_view savedataDetail, std::string_view fileSize, std::string_view mtime, bool showIcon, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams)
+	: LinearLayout(ORIENT_VERTICAL, layoutParams)
 {
 	using namespace UI;
 
@@ -205,7 +205,7 @@ public:
 	typedef std::function<void(View *)> PrepFunc;
 	typedef std::function<bool(const View *, const View *)> CompareFunc;
 
-	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
+	SortedLinearLayout(Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
 		: UI::LinearLayoutList(orientation, layoutParams) {
 	}
 
@@ -418,7 +418,7 @@ std::string SavedataButton::DescribeText() const {
 }
 
 SavedataBrowser::SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path) {
+	: LinearLayout(ORIENT_VERTICAL, layoutParams), path_(path) {
 	Refresh();
 }
 
@@ -578,7 +578,7 @@ void SavedataBrowser::Refresh() {
 		searchingView_ = group->Add(new TextView(sa->T("Showing matches for '%1'")));
 		searchingView_->SetVisibility(UI::V_GONE);
 
-		SortedLinearLayout *gl = new SortedLinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		SortedLinearLayout *gl = new SortedLinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		gl->SetSpacing(4.0f);
 		gameList_ = gl;
 		Add(gameList_);

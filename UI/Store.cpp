@@ -254,7 +254,7 @@ private:
 class ProductView : public UI::LinearLayout {
 public:
 	ProductView(const StoreEntry &entry)
-		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry) {
+		: LinearLayout(ORIENT_VERTICAL), entry_(entry) {
 		CreateViews();
 	}
 
