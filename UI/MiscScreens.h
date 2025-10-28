@@ -158,27 +158,11 @@ private:
 
 class CreditsScreen : public UIDialogScreenWithBackground {
 public:
-	CreditsScreen();
 	void update() override;
-	void DrawForeground(UIContext &ui) override;
-	void touch(const TouchInput &touch) override;
 
+protected:
 	void CreateViews() override;
-
 	const char *tag() const override { return "Credits"; }
-
-private:
-	void OnPPSSPPOrg(UI::EventParams &e);
-	void OnPrivacy(UI::EventParams &e);
-	void OnForums(UI::EventParams &e);
-	void OnDiscord(UI::EventParams &e);
-	void OnShare(UI::EventParams &e);
-	void OnX(UI::EventParams &e);
-
-	double startTime_ = 0.0;
-	double dragYStart_ = -1.0;
-	double dragOffset_ = 0.0;
-	double dragYOffsetStart_ = 0.0;
 };
 
 class SettingInfoMessage : public UI::LinearLayout {

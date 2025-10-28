@@ -794,7 +794,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		screenManager()->push(new ControlMappingScreen(gamePath_));
 	});
 	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Add([this](UI::EventParams &e) {
-		screenManager()->push(new AnalogSetupScreen(gamePath_));
+		screenManager()->push(new AnalogCalibrationScreen(gamePath_));
 	});
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
 

@@ -1296,7 +1296,7 @@ void MainScreen::CreateViews() {
 	}
 
 	if (vertical) {
-		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 16, 0, 8)));
 		header->SetSpacing(5.0f);
 		header->Add(CreateLogoView(true, new LinearLayoutParams(WRAP_CONTENT, 80.0f, false)));
 

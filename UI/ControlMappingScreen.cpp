@@ -504,7 +504,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	}
 }
 
-AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	mapper_.SetCallbacks(
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
@@ -519,7 +519,7 @@ AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithG
 		});
 }
 
-void AnalogSetupScreen::update() {
+void AnalogCalibrationScreen::update() {
 	mapper_.Update(time_now_d());
 	// We ignore the secondary stick for now and just use the two views
 	// for raw and psp input.
@@ -532,7 +532,7 @@ void AnalogSetupScreen::update() {
 	UIScreen::update();
 }
 
-bool AnalogSetupScreen::key(const KeyInput &key) {
+bool AnalogCalibrationScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 
 	// Allow testing auto-rotation. If it collides with UI keys, too bad.
@@ -546,7 +546,7 @@ bool AnalogSetupScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-void AnalogSetupScreen::axis(const AxisInput &axis) {
+void AnalogCalibrationScreen::axis(const AxisInput &axis) {
 	// We DON'T call UIScreen::Axis here! Otherwise it'll try to move the UI focus around.
 	// UIScreen::axis(axis);
 
@@ -554,7 +554,7 @@ void AnalogSetupScreen::axis(const AxisInput &axis) {
 	mapper_.Axis(&axis, 1);
 }
 
-void AnalogSetupScreen::CreateViews() {
+void AnalogCalibrationScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -580,7 +580,7 @@ void AnalogSetupScreen::CreateViews() {
 	// TODO: This should probably be a slider.
 	scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
 	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.1f, 20.0f, 8.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
-	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogSetupScreen::OnResetToDefaults);
+	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
@@ -592,7 +592,7 @@ void AnalogSetupScreen::CreateViews() {
 	AddStandardBack(leftColumn);
 }
 
-void AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
+void AnalogCalibrationScreen::OnResetToDefaults(UI::EventParams &e) {
 	g_Config.fAnalogDeadzone = 0.15f;
 	g_Config.fAnalogInverseDeadzone = 0.0f;
 	g_Config.fAnalogSensitivity = 1.1f;

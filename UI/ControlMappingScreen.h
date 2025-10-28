@@ -120,9 +120,9 @@ private:
 
 class JoystickHistoryView;
 
-class AnalogSetupScreen : public UIDialogScreenWithGameBackground {
+class AnalogCalibrationScreen : public UIDialogScreenWithGameBackground {
 public:
-	AnalogSetupScreen(const Path &gamePath);
+	AnalogCalibrationScreen(const Path &gamePath);
 
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;
