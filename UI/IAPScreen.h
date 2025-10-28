@@ -6,7 +6,7 @@
 
 #include "UI/MiscScreens.h"
 
-class IAPScreen : public UIDialogScreenWithBackground {
+class IAPScreen : public UIBaseDialogScreen {
 public:
 	void CreateViews() override;
 	const char *tag() const override { return "IAP"; }

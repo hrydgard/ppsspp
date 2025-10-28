@@ -47,7 +47,7 @@ private:
 	Path gamePath_;
 };
 
-class JitDebugScreen : public UIDialogScreenWithBackground {
+class JitDebugScreen : public UIBaseDialogScreen {
 public:
 	JitDebugScreen() {}
 	void CreateViews() override;
@@ -59,7 +59,7 @@ private:
 	void OnDisableAll(UI::EventParams &e);
 };
 
-class LogConfigScreen : public UIDialogScreenWithBackground {
+class LogConfigScreen : public UIBaseDialogScreen {
 public:
 	LogConfigScreen() {}
 	void CreateViews() override;
@@ -74,7 +74,7 @@ private:
 	void OnLogLevelChange(UI::EventParams &e);
 };
 
-class LogViewScreen : public UIDialogScreenWithBackground {
+class LogViewScreen : public UIBaseDialogScreen {
 public:
 	void CreateViews() override;
 	void update() override;
@@ -108,9 +108,9 @@ protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 };
 
-class ShaderListScreen : public TabbedUIDialogScreenWithGameBackground {
+class ShaderListScreen : public UITabbedBaseDialogScreen {
 public:
-	ShaderListScreen() : TabbedUIDialogScreenWithGameBackground(Path()) {}
+	ShaderListScreen() : UITabbedBaseDialogScreen(Path()) {}
 	void CreateTabs() override;
 
 	const char *tag() const override { return "ShaderList"; }
@@ -122,7 +122,7 @@ private:
 	void OnShaderClick(UI::EventParams &e);
 };
 
-class ShaderViewScreen : public UIDialogScreenWithBackground {
+class ShaderViewScreen : public UIBaseDialogScreen {
 public:
 	ShaderViewScreen(std::string id, DebugShaderType type)
 		: id_(id), type_(type) {}
@@ -137,7 +137,7 @@ private:
 	DebugShaderType type_;
 };
 
-class FrameDumpTestScreen : public UIDialogScreenWithBackground {
+class FrameDumpTestScreen : public UIBaseDialogScreen {
 public:
 	FrameDumpTestScreen();
 	~FrameDumpTestScreen();
@@ -155,9 +155,9 @@ private:
 	std::shared_ptr<http::Request> dumpDownload_;
 };
 
-class TouchTestScreen : public UIDialogScreenWithGameBackground {
+class TouchTestScreen : public UIBaseDialogScreen {
 public:
-	TouchTestScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+	TouchTestScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			touches_[i].id = -1;
 		}

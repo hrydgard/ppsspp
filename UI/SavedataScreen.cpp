@@ -711,7 +711,7 @@ void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 void SavedataScreen::sendMessage(UIMessage message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	UIBaseDialogScreen::sendMessage(message, value);
 
 	if (message == UIMessage::SAVEDATA_SEARCH) {
 		EnsureTabs();

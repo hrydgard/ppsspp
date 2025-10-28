@@ -3,7 +3,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
-class JitCompareScreen : public TabbedUIDialogScreenWithGameBackground {
+class JitCompareScreen : public UITabbedBaseDialogScreen {
 public:
 	JitCompareScreen();
 	void CreateTabs() override;

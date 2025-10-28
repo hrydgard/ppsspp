@@ -28,7 +28,7 @@
 
 class SavedataView;
 
-class InstallZipScreen : public UIDialogScreenWithBackground {
+class InstallZipScreen : public UIBaseDialogScreen {
 public:
 	InstallZipScreen(const Path &zipPath);
 	void update() override;

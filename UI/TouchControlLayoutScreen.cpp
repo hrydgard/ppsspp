@@ -605,7 +605,7 @@ void TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 }
 
 void TouchControlLayoutScreen::update() {
-	UIDialogScreenWithGameBackground::update();
+	UIBaseDialogScreen::update();
 
 	if (!layoutView_) {
 		return;

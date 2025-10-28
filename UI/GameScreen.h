@@ -33,7 +33,7 @@ class NoticeView;
 // Uses GameInfoCache heavily to implement the functionality.
 // Should possibly merge this with the PauseScreen.
 
-class GameScreen : public UIDialogScreenWithGameBackground {
+class GameScreen : public UIBaseDialogScreen {
 public:
 	GameScreen(const Path &gamePath, bool inGame);
 	~GameScreen();

@@ -8,7 +8,7 @@
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class DriverManagerScreen : public TabbedUIDialogScreenWithGameBackground {
+class DriverManagerScreen : public UITabbedBaseDialogScreen {
 public:
 	DriverManagerScreen(const Path &gamePath);
 

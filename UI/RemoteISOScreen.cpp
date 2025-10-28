@@ -270,7 +270,7 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	return !games.empty();
 }
 
-RemoteISOScreen::RemoteISOScreen(const Path &filename) : TabbedUIDialogScreenWithGameBackground(filename) {}
+RemoteISOScreen::RemoteISOScreen(const Path &filename) : UITabbedBaseDialogScreen(filename) {}
 
 
 void RemoteISOScreen::CreateTabs() {
@@ -287,7 +287,7 @@ void RemoteISOScreen::CreateTabs() {
 }
 
 void RemoteISOScreen::update() {
-	TabbedUIDialogScreenWithGameBackground::update();
+	UITabbedBaseDialogScreen::update();
 
 	frameCount_++;
 
@@ -499,7 +499,7 @@ void RemoteISOConnectScreen::CreateViews() {
 void RemoteISOConnectScreen::update() {
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 
 	ScanStatus s = GetStatus();
 	switch (s) {

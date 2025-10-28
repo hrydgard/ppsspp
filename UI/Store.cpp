@@ -436,7 +436,7 @@ StoreScreen::~StoreScreen() {
 
 // Handle async download tasks
 void StoreScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 
 	g_DownloadManager.Update();
 
@@ -515,7 +515,7 @@ void StoreScreen::CreateViews() {
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, 64.0f)));
-	topBar->Add(new Choice(di->T("Back"), new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topBar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"), ALIGN_VCENTER, false, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT));
 	titleText_->SetTextColor(screenManager()->getUIContext()->GetTheme().itemDownStyle.fgColor);
 	topBar->Add(titleText_);
@@ -528,9 +528,7 @@ void StoreScreen::CreateViews() {
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T_cstr("Connection Error"), resultCode_)));
 		if (!loading_) {
 			content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
-
 		}
-		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 		scrollItemView_ = nullptr;
 		productPanel_ = nullptr;

@@ -585,38 +585,26 @@ void BackgroundScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-void UIScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
+void UIBaseDialogScreen::sendMessage(UIMessage message, const char *value) {
 	if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else {
-		UIScreenWithBackground::sendMessage(message, value);
+		HandleCommonMessages(message, value, screenManager(), this);
 	}
 }
 
-void UIDialogScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
-	if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
-		screenManager()->push(new GameSettingsScreen(gamePath_));
-	} else {
-		UIDialogScreenWithBackground::sendMessage(message, value);
-	}
-}
-
-void UIScreenWithBackground::sendMessage(UIMessage message, const char *value) {
+void UIBaseScreen::sendMessage(UIMessage message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
-void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
+void UIBaseDialogScreen::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-void UIDialogScreenWithBackground::sendMessage(UIMessage message, const char *value) {
-	HandleCommonMessages(message, value, screenManager(), this);
-}
-
 PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)
-	: UIDialogScreenWithGameBackground(gamePath), message_(message), callback_(callback) {
+	: UIBaseDialogScreen(gamePath), message_(message), callback_(callback) {
 	yesButtonText_ = yesButtonText;
 	noButtonText_ = noButtonText;
 }
@@ -670,7 +658,7 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 	if (callback_) {
 		callback_(result == DR_OK || result == DR_YES);
 	}
-	UIDialogScreenWithBackground::TriggerFinish(result);
+	UIBaseDialogScreen::TriggerFinish(result);
 }
 
 TextureShaderScreen::TextureShaderScreen(std::string_view title) : ListPopupScreen(title) {}

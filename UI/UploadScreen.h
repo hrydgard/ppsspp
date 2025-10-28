@@ -31,7 +31,7 @@
 // Upload screen: Shows the user an ip address to go to in a web browser on the same network,
 // in order to upload game files to the current directory.
 
-class UploadScreen : public UIDialogScreenWithBackground {
+class UploadScreen : public UIBaseDialogScreen {
 public:
 	UploadScreen(const Path &targetFolder);
 	~UploadScreen();

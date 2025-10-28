@@ -8,7 +8,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 
-JitCompareScreen::JitCompareScreen() : TabbedUIDialogScreenWithGameBackground(Path()) {
+JitCompareScreen::JitCompareScreen() : UITabbedBaseDialogScreen(Path()) {
 	if (!MIPSComp::jit) {
 		return;
 	}

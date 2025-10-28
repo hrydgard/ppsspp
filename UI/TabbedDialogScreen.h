@@ -18,9 +18,9 @@ enum class TabFlags {
 };
 ENUM_CLASS_BITOPS(TabFlags);
 
-class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBackground {
+class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+	UITabbedBaseDialogScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
 		ignoreBottomInset_ = true;
 	}
 

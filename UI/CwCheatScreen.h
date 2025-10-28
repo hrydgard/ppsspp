@@ -28,7 +28,7 @@
 struct CheatFileInfo;
 class CWCheatEngine;
 
-class CwCheatScreen : public UIDialogScreenWithGameBackground {
+class CwCheatScreen : public UIBaseDialogScreen {
 public:
 	CwCheatScreen(const Path &gamePath);
 	~CwCheatScreen();

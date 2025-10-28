@@ -151,7 +151,7 @@ void TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 }
 
 void TiltAnalogSettingsScreen::update() {
-	UIDialogScreenWithGameBackground::update();
+	UIBaseDialogScreen::update();
 	if (tilt_) {
 		tilt_->SetXY(
 			Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),

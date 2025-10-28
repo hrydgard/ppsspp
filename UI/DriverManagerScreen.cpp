@@ -142,7 +142,7 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 	}
 }
 
-DriverManagerScreen::DriverManagerScreen(const Path & gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
+DriverManagerScreen::DriverManagerScreen(const Path & gamePath) : UITabbedBaseDialogScreen(gamePath) {}
 
 void DriverManagerScreen::CreateTabs() {
 	using namespace UI;

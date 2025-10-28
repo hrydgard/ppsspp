@@ -27,7 +27,7 @@
 #include "android/jni/app-android.h"
 
 void SystemInfoScreen::update() {
-	TabbedUIDialogScreenWithGameBackground::update();
+	UITabbedBaseDialogScreen::update();
 	g_OSD.NudgeSidebar();
 }
 

@@ -60,7 +60,7 @@ struct StoreEntry {
 	u64 size;
 };
 
-class StoreScreen : public UIDialogScreenWithBackground {
+class StoreScreen : public UIBaseDialogScreen {
 public:
 	StoreScreen();
 	~StoreScreen();

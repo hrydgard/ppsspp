@@ -1366,7 +1366,7 @@ bool MainScreen::key(const KeyInput &touch) {
 			searchKeyModifier_ = false;
 	}
 
-	return UIScreenWithBackground::key(touch);
+	return UIBaseScreen::key(touch);
 }
 
 void MainScreen::OnAllowStorage(UI::EventParams &e) {
@@ -1375,7 +1375,7 @@ void MainScreen::OnAllowStorage(UI::EventParams &e) {
 
 void MainScreen::sendMessage(UIMessage message, const char *value) {
 	// Always call the base class method first to handle the most common messages.
-	UIScreenWithBackground::sendMessage(message, value);
+	UIBaseScreen::sendMessage(message, value);
 
 	if (message == UIMessage::REQUEST_GAME_BOOT) {
 		LaunchFile(screenManager(), this, Path(value));

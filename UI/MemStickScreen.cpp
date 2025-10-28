@@ -447,7 +447,7 @@ void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 void MemStickScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 	if (done_) {
 		TriggerFinish(DialogResult::DR_OK);
 		done_ = false;
@@ -567,7 +567,7 @@ void ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &params) {
 }
 
 void ConfirmMemstickMoveScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
 	if (moveDataTask_) {

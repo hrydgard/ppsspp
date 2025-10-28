@@ -10,7 +10,7 @@
 #include "UI/MiscScreens.h"
 #include "Common/GPU/thin3d.h"
 
-class GPUDriverTestScreen : public UIDialogScreenWithBackground {
+class GPUDriverTestScreen : public UIBaseDialogScreen {
 public:
 	GPUDriverTestScreen();
 	~GPUDriverTestScreen();

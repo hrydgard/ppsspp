@@ -318,7 +318,7 @@ void ControlMappingScreen::update() {
 		RecreateViews();
 	}
 
-	UIDialogScreenWithGameBackground::update();
+	UIBaseDialogScreen::update();
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
@@ -504,7 +504,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	}
 }
 
-AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
 	mapper_.SetCallbacks(
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
@@ -953,7 +953,7 @@ bool VisualMappingScreen::key(const KeyInput &key) {
 			}
 		}
 	}
-	return UIDialogScreenWithGameBackground::key(key);
+	return UIBaseDialogScreen::key(key);
 }
 
 void VisualMappingScreen::axis(const AxisInput &axis) {
@@ -976,11 +976,11 @@ void VisualMappingScreen::axis(const AxisInput &axis) {
 			break;
 		}
 	}
-	UIDialogScreenWithGameBackground::axis(axis);
+	UIBaseDialogScreen::axis(axis);
 }
 
 void VisualMappingScreen::resized() {
-	UIDialogScreenWithGameBackground::resized();
+	UIBaseDialogScreen::resized();
 	RecreateViews();
 }
 

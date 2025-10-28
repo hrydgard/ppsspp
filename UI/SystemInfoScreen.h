@@ -7,9 +7,9 @@
 #include "Common/UI/UIScreen.h"
 #include "UI/TabbedDialogScreen.h"
 
-class SystemInfoScreen : public TabbedUIDialogScreenWithGameBackground {
+class SystemInfoScreen : public UITabbedBaseDialogScreen {
 public:
-	SystemInfoScreen(const Path &filename) : TabbedUIDialogScreenWithGameBackground(filename) {}
+	SystemInfoScreen(const Path &filename) : UITabbedBaseDialogScreen(filename) {}
 
 	const char *tag() const override { return "SystemInfo"; }
 

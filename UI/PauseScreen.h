@@ -26,7 +26,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/Screen.h"
 
-class GamePauseScreen : public UIDialogScreenWithGameBackground {
+class GamePauseScreen : public UIBaseDialogScreen {
 public:
 	GamePauseScreen(const Path &filename, bool bootPending);
 	~GamePauseScreen();

@@ -253,7 +253,7 @@ void LogViewScreen::UpdateLog() {
 }
 
 void LogViewScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 	if (toBottom_) {
 		toBottom_ = false;
 		scroll_->ScrollToBottom();
@@ -524,7 +524,7 @@ bool ShaderViewScreen::key(const KeyInput &ki) {
 			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 		}
 	}
-	return UIDialogScreenWithBackground::key(ki);
+	return UIBaseDialogScreen::key(ki);
 }
 
 
@@ -616,7 +616,7 @@ void FrameDumpTestScreen::update() {
 }
 
 void TouchTestScreen::touch(const TouchInput &touch) {
-	UIDialogScreenWithGameBackground::touch(touch);
+	UIBaseDialogScreen::touch(touch);
 	if (touch.flags & TOUCH_DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {

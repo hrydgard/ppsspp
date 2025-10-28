@@ -50,44 +50,26 @@ private:
 
 // This doesn't have anything to do with the background anymore. It's just a PPSSPP UIScreen
 // that knows how handle sendMessage properly. Same for all the below.
-class UIScreenWithBackground : public UIScreen {
+class UIBaseScreen : public UIScreen {
 public:
-	UIScreenWithBackground() : UIScreen() {}
+	UIBaseScreen() : UIScreen() {}
 protected:
 	void sendMessage(UIMessage message, const char *value) override;
 };
 
-class UIScreenWithGameBackground : public UIScreenWithBackground {
+class UIBaseDialogScreen : public UIDialogScreen {
 public:
-	UIScreenWithGameBackground(const Path &gamePath) : UIScreenWithBackground(), gamePath_(gamePath) {}
-	void sendMessage(UIMessage message, const char *value) override;
-protected:
-	Path gamePath_;
-
-	bool forceTransparent_ = false;
-	bool darkenGameBackground_ = true;
-};
-
-class UIDialogScreenWithBackground : public UIDialogScreen {
-public:
-	UIDialogScreenWithBackground() : UIDialogScreen() {}
+	UIBaseDialogScreen() : UIDialogScreen(), gamePath_() {}
+	explicit UIBaseDialogScreen(const Path &gamePath) : UIDialogScreen(), gamePath_(gamePath) {}
 protected:
 	void sendMessage(UIMessage message, const char *value) override;
 	void AddStandardBack(UI::ViewGroup *parent);
-};
-
-class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
-public:
-	UIDialogScreenWithGameBackground(const Path &gamePath)
-		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
-	void sendMessage(UIMessage message, const char *value) override;
-protected:
 	Path gamePath_;
 };
 
-class PromptScreen : public UIDialogScreenWithGameBackground {
+class PromptScreen : public UIBaseDialogScreen {
 public:
-	PromptScreen(const Path& gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
+	PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	void CreateViews() override;
@@ -156,7 +138,7 @@ private:
 	AfterLogoScreen afterLogoScreen_;
 };
 
-class CreditsScreen : public UIDialogScreenWithBackground {
+class CreditsScreen : public UIBaseDialogScreen {
 public:
 	void update() override;
 

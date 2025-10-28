@@ -34,9 +34,9 @@
 
 class SingleControlMapper;
 
-class ControlMappingScreen : public UIDialogScreenWithGameBackground {
+class ControlMappingScreen : public UIBaseDialogScreen {
 public:
-	explicit ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+	explicit ControlMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
 		categoryToggles_[0] = true;
 		categoryToggles_[1] = true;
 		categoryToggles_[2] = true;
@@ -120,7 +120,7 @@ private:
 
 class JoystickHistoryView;
 
-class AnalogCalibrationScreen : public UIDialogScreenWithGameBackground {
+class AnalogCalibrationScreen : public UIBaseDialogScreen {
 public:
 	AnalogCalibrationScreen(const Path &gamePath);
 
@@ -149,9 +149,9 @@ private:
 
 class MockPSP;
 
-class VisualMappingScreen : public UIDialogScreenWithGameBackground {
+class VisualMappingScreen : public UIBaseDialogScreen {
 public:
-	VisualMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	VisualMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 
 	const char *tag() const override { return "VisualMapping"; }
 

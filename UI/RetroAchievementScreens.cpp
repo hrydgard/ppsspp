@@ -177,7 +177,7 @@ RetroAchievementsLeaderboardScreen::~RetroAchievementsLeaderboardScreen() {
 }
 
 RetroAchievementsLeaderboardScreen::RetroAchievementsLeaderboardScreen(const Path &gamePath, int leaderboardID)
-	: TabbedUIDialogScreenWithGameBackground(gamePath), leaderboardID_(leaderboardID) {
+	: UITabbedBaseDialogScreen(gamePath), leaderboardID_(leaderboardID) {
 	FetchEntries();
 }
 
@@ -253,7 +253,7 @@ void RetroAchievementsLeaderboardScreen::Poll() {
 }
 
 void RetroAchievementsLeaderboardScreen::update() {
-	TabbedUIDialogScreenWithGameBackground::update();
+	UITabbedBaseDialogScreen::update();
 	Poll();
 }
 
@@ -279,7 +279,7 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 }
 
 void RetroAchievementsSettingsScreen::sendMessage(UIMessage message, const char *value) {
-	TabbedUIDialogScreenWithGameBackground::sendMessage(message, value);
+	UITabbedBaseDialogScreen::sendMessage(message, value);
 
 	if (message == UIMessage::ACHIEVEMENT_LOGIN_STATE_CHANGE) {
 		RecreateViews();

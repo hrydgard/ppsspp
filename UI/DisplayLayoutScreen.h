@@ -29,7 +29,7 @@ namespace UI {
 class ChoiceStrip;
 }
 
-class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
+class DisplayLayoutScreen : public UIBaseDialogScreen {
 public:
 	DisplayLayoutScreen(const Path &filename);
 	void CreateViews() override;

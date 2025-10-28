@@ -4,9 +4,9 @@
 
 #include "UI/TabbedDialogScreen.h"
 
-class DeveloperToolsScreen : public TabbedUIDialogScreenWithGameBackground {
+class DeveloperToolsScreen : public UITabbedBaseDialogScreen {
 public:
-	DeveloperToolsScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
+	DeveloperToolsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
 
 	void CreateTabs() override;
 	void update() override;

@@ -118,7 +118,7 @@ private:
 
 class RemoteISOBrowseScreen;
 
-class MainScreen : public UIScreenWithBackground {
+class MainScreen : public UIBaseScreen {
 public:
 	MainScreen();
 	~MainScreen();
@@ -180,7 +180,7 @@ protected:
 	friend class RemoteISOBrowseScreen;
 };
 
-class UmdReplaceScreen : public UIDialogScreenWithBackground {
+class UmdReplaceScreen : public UIBaseDialogScreen {
 public:
 	const char *tag() const override { return "UmdReplace"; }
 
