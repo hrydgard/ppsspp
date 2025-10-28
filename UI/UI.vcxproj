@@ -27,7 +27,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Background.cpp" />
     <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="BaseScreens.cpp" />
     <ClCompile Include="ChatScreen.cpp" />
     <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
@@ -80,7 +82,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioCommon.h" />
+    <ClInclude Include="Background.h" />
     <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="BaseScreens.h" />
     <ClInclude Include="ChatScreen.h" />
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="CustomButtonMappingScreen.h" />

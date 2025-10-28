@@ -26,13 +26,10 @@
 #include "Common/UI/PopupScreens.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
+#include "UI/BaseScreens.h"
 
 struct ShaderInfo;
 struct TextureShaderInfo;
-
-extern Path boot_filename;
-void UIBackgroundInit(UIContext &dc);
-void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
@@ -45,25 +42,6 @@ private:
 	void CreateViews() override {}
 	const char *tag() const override { return "bg"; }
 
-	Path gamePath_;
-};
-
-// This doesn't have anything to do with the background anymore. It's just a PPSSPP UIScreen
-// that knows how handle sendMessage properly. Same for all the below.
-class UIBaseScreen : public UIScreen {
-public:
-	UIBaseScreen() : UIScreen() {}
-protected:
-	void sendMessage(UIMessage message, const char *value) override;
-};
-
-class UIBaseDialogScreen : public UIDialogScreen {
-public:
-	UIBaseDialogScreen() : UIDialogScreen(), gamePath_() {}
-	explicit UIBaseDialogScreen(const Path &gamePath) : UIDialogScreen(), gamePath_(gamePath) {}
-protected:
-	void sendMessage(UIMessage message, const char *value) override;
-	void AddStandardBack(UI::ViewGroup *parent);
 	Path gamePath_;
 };
 

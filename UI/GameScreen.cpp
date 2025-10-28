@@ -41,6 +41,7 @@
 #include "Core/HLE/Plugins.h"
 #include "Core/Util/RecentFiles.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/Background.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameScreen.h"

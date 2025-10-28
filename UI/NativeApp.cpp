@@ -116,6 +116,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "UI/AudioCommon.h"
+#include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"

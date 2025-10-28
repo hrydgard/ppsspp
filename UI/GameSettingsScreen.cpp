@@ -60,6 +60,7 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 
 #include "Common/File/FileUtil.h"
