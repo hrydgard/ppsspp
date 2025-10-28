@@ -187,7 +187,6 @@ private:
 class GestureMappingScreen : public UITabbedBaseDialogScreen {
 public:
 	GestureMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
-	void CreateViews() override;
 
 	void CreateTabs() override;
 	const char *tag() const override { return "GestureMapping"; }

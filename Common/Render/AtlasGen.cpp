@@ -40,7 +40,7 @@ bool Image::LoadPNG(const char *png_name) {
 	size_t sz;
 	const uint8_t *file_data = g_VFS.ReadFile(png_name, &sz);
 	if (!file_data) {
-		printf("Failed to load png from VFS");
+		printf("Failed to load png from VFS: %s\n", png_name);
 		return false;
 	}
 
