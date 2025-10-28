@@ -196,6 +196,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	self.glView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	[self.view addSubview:self.glView];
 
+	self.view.insetsLayoutMarginsFromSafeArea = NO;
+	self.view.clipsToBounds = YES;
+
 	// Put context current for initial GL setup
 	[EAGLContext setCurrentContext:self.glContext];
 
@@ -336,9 +339,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(Log::System, "shutdown GL");
 
 	g_Config.Save("shutdown GL");
-
-	_dbg_assert_(sharedViewController != nil);
-	sharedViewController = nil;
 
 	_dbg_assert_(graphicsContext);
 

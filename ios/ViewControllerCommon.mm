@@ -40,6 +40,12 @@
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
+
+		// Observe orientation changes
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												selector:@selector(onOrientationChanged)
+												name:UIDeviceOrientationDidChangeNotification
+												object:nil];
 	}
 	self.accelerometerQueue = [[NSOperationQueue alloc] init];
 	self.accelerometerQueue.name = @"AccelerometerQueue";
@@ -395,5 +401,38 @@ static float BoostInset(float inset) {
 }
 
 #endif
+#pragma mark - Status Bar Control
+
+// iOS calls this to determine whether to hide the status bar
+- (BOOL)prefersStatusBarHidden {
+	UIInterfaceOrientation orientation;
+
+	if (@available(iOS 13.0, *)) {
+		UIWindowScene *scene = self.view.window.windowScene;
+		if (scene != nil) {
+			orientation = scene.interfaceOrientation;
+		} else {
+			orientation = UIApplication.sharedApplication.statusBarOrientation;
+		}
+	} else {
+		orientation = UIApplication.sharedApplication.statusBarOrientation;
+	}
+
+	BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
+
+	bool userWantsStatusBar = true; // g_Config.bShowStatusBar;
+	// return isLandscape || !userWantsStatusBar;
+	return false;
+}
+
+// Optional: choose light/dark text for the status bar
+- (UIStatusBarStyle)preferredStatusBarStyle {
+	return UIStatusBarStyleLightContent;
+}
+
+// This should also be called when the user preference changes.
+- (void)onOrientationChanged {
+	[self setNeedsStatusBarAppearanceUpdate];
+}
 
 @end
