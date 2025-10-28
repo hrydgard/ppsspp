@@ -29,7 +29,8 @@
 
 #include "Core/Util/MemStick.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
+#include "UI/MiscViews.h"
 
 class NoticeView;
 

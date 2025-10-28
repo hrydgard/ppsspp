@@ -33,6 +33,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/Background.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"

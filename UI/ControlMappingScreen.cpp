@@ -44,6 +44,7 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/PopupScreens.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/JoystickHistoryView.h"
 #include "UI/OnScreenDisplay.h"

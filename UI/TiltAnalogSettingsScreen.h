@@ -19,7 +19,7 @@
 
 #include "Common/Math/math_util.h"
 #include "Common/UI/View.h"
-#include "MiscScreens.h"
+#include "BaseScreens.h"
 
 class JoystickHistoryView;
 class GamepadView;

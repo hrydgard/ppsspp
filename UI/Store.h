@@ -23,7 +23,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/Net/HTTPClient.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.

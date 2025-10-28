@@ -1,11 +1,12 @@
+#include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/TabHolder.h"
 #include "Common/UI/Context.h"
-#include "Common/Data/Text/I18n.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"

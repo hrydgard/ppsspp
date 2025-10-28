@@ -30,7 +30,7 @@
 
 #include "Core/ControlMapper.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 
 class SingleControlMapper;
 

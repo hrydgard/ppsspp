@@ -1,12 +1,15 @@
 #include <algorithm>
 
 #include "UI/JitCompareScreen.h"
-
+#include "Common/Data/Text/I18n.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "UI/PopupScreens.h"
 
 JitCompareScreen::JitCompareScreen() : UITabbedBaseDialogScreen(Path()) {
 	if (!MIPSComp::jit) {

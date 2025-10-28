@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/GamepadEmu.h"
 
 namespace UI {

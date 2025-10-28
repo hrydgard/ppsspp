@@ -7,7 +7,7 @@
 #include "Common/UI/TabHolder.h"
 
 #include "Common/Log.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "Common/GPU/thin3d.h"
 
 class GPUDriverTestScreen : public UIBaseDialogScreen {

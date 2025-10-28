@@ -26,7 +26,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/TabbedDialogScreen.h"
 

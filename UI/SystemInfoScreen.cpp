@@ -16,13 +16,14 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/Text/draw_text.h"
+#include "Common/System/Request.h"
 #include "Common/UI/Context.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"  // ugh
 #include "UI/SystemInfoScreen.h"
 #include "UI/IconCache.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/OnScreenDisplay.h"
 #include "android/jni/app-android.h"
 

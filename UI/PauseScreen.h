@@ -23,7 +23,7 @@
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/Screen.h"
 
 class GamePauseScreen : public UIBaseDialogScreen {

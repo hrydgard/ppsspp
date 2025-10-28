@@ -21,6 +21,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/Render/DrawBuffer.h"
 
 #include "Common/Log.h"

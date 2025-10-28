@@ -6,7 +6,9 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/System/System.h"
 #include "Core/ConfigValues.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
+
+class SettingInfoMessage;
 
 namespace UI {
 class TabHolder;

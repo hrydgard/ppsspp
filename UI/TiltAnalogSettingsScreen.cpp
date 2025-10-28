@@ -23,6 +23,8 @@
 #include "Common/Math/math_util.h"
 #include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/UI/ScrollView.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "UI/JoystickHistoryView.h"
 #include "UI/GamepadEmu.h"

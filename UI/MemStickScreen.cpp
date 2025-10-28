@@ -39,6 +39,7 @@
 #include "Common/File/DiskFree.h"
 
 #include "Common/Thread/ThreadManager.h"
+#include "Common/UI/ScrollView.h"
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -48,7 +49,7 @@
 
 #include "UI/MemStickScreen.h"
 #include "UI/MainScreen.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/OnScreenDisplay.h"
 
 static std::string FormatSpaceString(int64_t space) {

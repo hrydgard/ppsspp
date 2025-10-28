@@ -21,7 +21,7 @@
 
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "Common/File/Path.h"
 
 enum class ReportingOverallScore : int {

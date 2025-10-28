@@ -24,7 +24,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 
 class SavedataView;
 

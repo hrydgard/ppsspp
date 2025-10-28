@@ -19,7 +19,7 @@
 
 #include <functional>
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/File/Path.h"
 

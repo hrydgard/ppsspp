@@ -1,16 +1,22 @@
 #include <algorithm>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
 #include "Common/UI/TabHolder.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScrollView.h"
+#include "Common/UI/PopupScreens.h"
+#include "UI/MiscViews.h"
 #include "UI/TabbedDialogScreen.h"
 
 void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
 	using namespace UI;
 
 	tabHolder_->AddTabDeferred(title, [createCallback = std::move(createCallback), tag, flags]() -> UI::ViewGroup * {
+		using namespace UI;
 		ViewGroup *scroll = nullptr;
 		if (!(flags & TabFlags::NonScrollable)) {
 			scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

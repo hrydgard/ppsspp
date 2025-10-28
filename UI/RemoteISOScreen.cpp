@@ -35,6 +35,7 @@
 #include "Common/System/Request.h"
 
 #include "Common/File/PathBrowser.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Common.h"

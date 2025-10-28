@@ -25,7 +25,8 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/UIScreen.h"
 #include "UI/TabbedDialogScreen.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
+#include "UI/PopupScreens.h"
 #include "GPU/Common/ShaderCommon.h"
 
 class DevMenuScreen : public PopupScreen {

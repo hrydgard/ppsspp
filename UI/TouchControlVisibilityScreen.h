@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
 #include "Common/Render/TextureAtlas.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
 namespace UI {
