@@ -1200,8 +1200,9 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 		parent->Add(new Spacer(25.0));
 	}
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+#if !PPSSPP_PLATFORM(IOS_APP_STORE) && !PPSSPP_PLATFORM(ANDROID)
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
+	// Additionally, the Exit button creates problems on Android.
 	parent->Add(new Choice(mm->T("Exit"), vertical ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
 #endif
 }
