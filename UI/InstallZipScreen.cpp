@@ -138,8 +138,8 @@ void InstallZipScreen::CreateViews() {
 
 			int columnWidth = 300;
 
-			LinearLayout *compareColumns = leftColumn->Add(new LinearLayout(UI::ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			LinearLayout *leftCompare = new LinearLayout(UI::ORIENT_VERTICAL);
+			LinearLayout *compareColumns = leftColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			LinearLayout *leftCompare = new LinearLayout(ORIENT_VERTICAL);
 			leftCompare->Add(new TextView(iz->T("Data to import")));
 			compareColumns->Add(leftCompare);
 			leftCompare->Add(new SavedataView(*screenManager()->getUIContext(), Path(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY,
@@ -150,7 +150,7 @@ void InstallZipScreen::CreateViews() {
 				savedataToOverwrite_ = savedataDir / zipFileInfo_.savedataDir;
 				std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savedataToOverwrite_, GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
 
-				LinearLayout *rightCompare = new LinearLayout(UI::ORIENT_VERTICAL);
+				LinearLayout *rightCompare = new LinearLayout(ORIENT_VERTICAL);
 				rightCompare->Add(new TextView(iz->T("Existing data")));
 
 				compareColumns->Add(rightCompare);

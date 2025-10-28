@@ -347,6 +347,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
+	// self.view.insetsLayoutMarginsFromSafeArea = NO;
+	// self.view.clipsToBounds = YES;
+
 	graphicsContext = new IOSVulkanContext();
 
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];

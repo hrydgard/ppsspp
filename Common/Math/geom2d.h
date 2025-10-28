@@ -25,6 +25,18 @@ struct Point2D {
 	}*/
 };
 
+// Moved here from UI, it has general uses too.
+enum Orientation {
+	ORIENT_HORIZONTAL,
+	ORIENT_VERTICAL,
+};
+
+// Workaround for X header, ugh.
+#undef Opposite
+
+inline constexpr Orientation Opposite(Orientation o) {
+	return (o == ORIENT_HORIZONTAL) ? ORIENT_VERTICAL : ORIENT_HORIZONTAL;
+}
 
 // Resolved bounds on screen after layout.
 struct Bounds {
@@ -33,6 +45,10 @@ struct Bounds {
 
 	static Bounds FromCenter(float x_, float y_, float radius) {
 		return Bounds(x_ - radius, y_ - radius, radius * 2.0f, radius * 2.0f);
+	}
+
+	float GetSize(Orientation o) const {
+		return (o == ORIENT_HORIZONTAL) ? w : h;
 	}
 
 	bool Contains(float px, float py) const {

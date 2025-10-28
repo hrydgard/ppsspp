@@ -57,6 +57,7 @@
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MemStickScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
+    <ClCompile Include="MiscViews.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="PauseScreen.cpp" />
@@ -109,6 +110,7 @@
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MemStickScreen.h" />
     <ClInclude Include="MiscScreens.h" />
+    <ClInclude Include="MiscViews.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PauseScreen.h" />
     <ClInclude Include="ProfilerDraw.h" />

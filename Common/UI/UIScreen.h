@@ -68,6 +68,7 @@ protected:
 	Vec3 scale_ = Vec3(1.0f);
 	float alpha_ = 1.0f;
 	bool ignoreInsets_ = false;
+	bool ignoreBottomInset_ = false;
 	bool ignoreInput_ = false;
 
 protected:

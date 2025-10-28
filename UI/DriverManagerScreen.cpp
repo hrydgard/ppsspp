@@ -79,7 +79,7 @@ public:
 	std::string name_;
 };
 
-DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), name_(driverName) {
+DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_VERTICAL, layoutParams), name_(driverName) {
 	using namespace UI;
 	SetSpacing(2.0f);
 	if (!layoutParams) {
@@ -116,7 +116,7 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 		Add(new NoticeView(NoticeLevel::SUCCESS, gr->T("Current GPU driver"), ""));
 	}
 
-	auto horizBar = Add(new UI::LinearLayout(UI::ORIENT_HORIZONTAL));
+	auto horizBar = Add(new UI::LinearLayout(ORIENT_HORIZONTAL));
 	std::string desc = meta.description;
 	if (!desc.empty()) desc += "\n";
 	if (!isDefault)

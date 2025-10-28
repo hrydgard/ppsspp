@@ -22,7 +22,7 @@ DialogResult DispatchEvents();
 
 class ViewGroup;
 
-void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets);
+void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset);
 DialogResult UpdateViewHierarchy(ViewGroup *root);
 
 enum class KeyEventResult {

@@ -113,7 +113,7 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Bounds GetLayoutBounds() const;
+	Bounds GetLayoutBounds(bool ignoreBottomInset = false) const;
 	Draw::DrawContext *GetDrawContext() { return draw_; }
 	const UI::Theme &GetTheme() const {
 		return *theme;
@@ -130,8 +130,6 @@ public:
 		atlasInvalid_ = true;  // will cause it to be reloaded on the next frame.
 	}
 private:
-	void GenerateUIAtlas();
-
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
 

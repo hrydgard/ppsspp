@@ -40,6 +40,12 @@
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
+
+		// Observe orientation changes
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												selector:@selector(onOrientationChanged)
+												name:UIDeviceOrientationDidChangeNotification
+												object:nil];
 	}
 	self.accelerometerQueue = [[NSOperationQueue alloc] init];
 	self.accelerometerQueue.name = @"AccelerometerQueue";
@@ -294,26 +300,31 @@ extern float g_safeInsetRight;
 extern float g_safeInsetTop;
 extern float g_safeInsetBottom;
 
-static float BoostInset(float inset) {
-	if (inset > 0.0f) {
-		// If there's some inset, add a few pixels extra. Really needed on iPhone 12, at least.
-		inset += 4.0f;
-	}
-	return inset;
-}
-
 - (void)viewSafeAreaInsetsDidChange {
-	if (@available(iOS 11.0, *)) {
-		[super viewSafeAreaInsetsDidChange];
-		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
-		g_safeInsetLeft = BoostInset(self.view.safeAreaInsets.left);
-		g_safeInsetRight = BoostInset(self.view.safeAreaInsets.right);
-		g_safeInsetTop = BoostInset(self.view.safeAreaInsets.top);
+	[super viewSafeAreaInsetsDidChange];
 
-		// TODO: In portrait mode, should probably use safeAreaInsets.bottom.
-		// However, in landscape mode, it's not really needed.
-		// g_safeInsetBottom = BoostInset(self.view.safeAreaInsets.bottom);
+	// Converts points to pixels.
+	CGFloat scale = UIScreen.mainScreen.scale;
+
+	float xInsetSum = self.view.safeAreaInsets.left + self.view.safeAreaInsets.right;
+	float yInsetSum = self.view.safeAreaInsets.top + self.view.safeAreaInsets.bottom;
+
+	// Only use the larger set of insets. The other set, we'll handle through layouts.
+	// Also, we'll treat the bottom inset differently: We'll add some space at the end of everything
+	// that scrolls so that when you're not at the bottom, we use the full vertical area,
+	// just looks better.
+	if (xInsetSum > yInsetSum) {
+		// Landscape mode insets are larger, use those.
+		g_safeInsetLeft = self.view.safeAreaInsets.left * scale;
+		g_safeInsetRight = self.view.safeAreaInsets.right * scale;
+		g_safeInsetTop = 0.0f;
 		g_safeInsetBottom = 0.0f;
+	} else {
+		// Portrait mode insets are larger, use those.
+		g_safeInsetLeft = 0.0f;
+		g_safeInsetRight = 0.0f;
+		g_safeInsetTop = self.view.safeAreaInsets.top * scale;
+		g_safeInsetBottom = self.view.safeAreaInsets.bottom * scale;
 	}
 }
 
@@ -395,5 +406,38 @@ static float BoostInset(float inset) {
 }
 
 #endif
+#pragma mark - Status Bar Control
+
+// iOS calls this to determine whether to hide the status bar
+- (BOOL)prefersStatusBarHidden {
+	UIInterfaceOrientation orientation;
+
+	if (@available(iOS 13.0, *)) {
+		UIWindowScene *scene = self.view.window.windowScene;
+		if (scene != nil) {
+			orientation = scene.interfaceOrientation;
+		} else {
+			orientation = UIApplication.sharedApplication.statusBarOrientation;
+		}
+	} else {
+		orientation = UIApplication.sharedApplication.statusBarOrientation;
+	}
+
+	BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
+
+	bool userWantsStatusBar = true; // g_Config.bShowStatusBar;
+	// return isLandscape || !userWantsStatusBar;
+	return false;
+}
+
+// Optional: choose light/dark text for the status bar
+- (UIStatusBarStyle)preferredStatusBarStyle {
+	return UIStatusBarStyleLightContent;
+}
+
+// This should also be called when the user preference changes.
+- (void)onOrientationChanged {
+	[self setNeedsStatusBarAppearanceUpdate];
+}
 
 @end

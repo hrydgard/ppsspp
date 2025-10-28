@@ -59,6 +59,7 @@
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
+#include "UI/MiscViews.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
@@ -927,7 +928,7 @@ public:
 		}
 		return true;
 	}
-	void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 private:
 	Instant startTime_ = Instant::Now();
 	double dragYStart_ = -1.0;
@@ -937,6 +938,9 @@ private:
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
+
+	ignoreBottomInset_ = false;
+
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -945,9 +949,8 @@ void CreditsScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	Button *back = root_->Add(new Button(di->T("Back")));
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
-	root_->SetDefaultFocusView(back);
+	TopBar *topBar = root_->Add(new TopBar(mm->T("About PPSSPP")));
+	root_->SetDefaultFocusView(topBar->GetBackButton());
 
 	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
@@ -962,9 +965,9 @@ void CreditsScreen::CreateViews() {
 
 	LinearLayout *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
-	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT)));
+	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
 	LinearLayout *middle = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	LinearLayout *right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT)));
+	LinearLayout *right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
@@ -974,24 +977,24 @@ void CreditsScreen::CreateViews() {
 		});
 		rightYOffset = 74;
 	}
-	left->Add(new Choice(cr->T("PPSSPP Forums"), ImageID("I_LINK_OUT")))->OnClick.Add([this](UI::EventParams &e) {
+	left->Add(new Choice(cr->T("PPSSPP Forums"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
 	});
-	left->Add(new Choice(cr->T("Discord"), ImageID("I_LOGO_DISCORD")))->OnClick.Add([this](UI::EventParams &e) {
+	left->Add(new Choice(cr->T("Discord"), ImageID("I_LOGO_DISCORD")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 	});
-	left->Add(new Choice("www.ppsspp.org", ImageID("I_LINK_OUT")))->OnClick.Add([this](UI::EventParams &e) {
+	left->Add(new Choice("www.ppsspp.org", ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
 	});
-	right->Add(new Choice(cr->T("Privacy Policy"), ImageID("I_LINK_OUT")))->OnClick.Add([this](UI::EventParams &e) {
+	right->Add(new Choice(cr->T("Privacy Policy"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
 	});
-	right->Add(new Choice(cr->T("@PPSSPP_emu"), ImageID("I_LOGO_X")))->OnClick.Add([this](UI::EventParams &e) {
+	right->Add(new Choice(cr->T("@PPSSPP_emu"), ImageID("I_LOGO_X")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://x.com/PPSSPP_emu");
 	});
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_TEXT)) {
-		right->Add(new Choice(cr->T("Share PPSSPP"), ImageID("I_SHARE")))->OnClick.Add([this](UI::EventParams &e) {
+		right->Add(new Choice(cr->T("Share PPSSPP"), ImageID("I_SHARE")))->OnClick.Add([](UI::EventParams &e) {
 			auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 			System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 		});
@@ -1193,12 +1196,12 @@ void CreditsScroller::Draw(UIContext &dc) {
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
-	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
+	: UI::LinearLayout(ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
 	using namespace UI;
 	SetSpacing(0.0f);
-	Add(new UI::Spacer(10.0f));
-	text_ = Add(new UI::TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
-	Add(new UI::Spacer(10.0f));
+	Add(new Spacer(10.0f));
+	text_ = Add(new TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
+	Add(new Spacer(10.0f));
 }
 
 void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {

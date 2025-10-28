@@ -113,6 +113,7 @@
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JitCompareScreen.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
+    <ClInclude Include="..\..\UI\MiscViews.h" />
     <ClInclude Include="..\..\UI\SystemInfoScreen.h" />
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
     <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
@@ -165,6 +166,7 @@
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
+    <ClCompile Include="..\..\UI\MiscViews.cpp" />
     <ClCompile Include="..\..\UI\SystemInfoScreen.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
     <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
