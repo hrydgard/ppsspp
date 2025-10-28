@@ -132,6 +132,9 @@
     <ClCompile Include="UploadScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="MiscViews.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -263,6 +266,9 @@
     </ClInclude>
     <ClInclude Include="UploadScreen.h">
       <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MiscViews.h">
+      <Filter>Views</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

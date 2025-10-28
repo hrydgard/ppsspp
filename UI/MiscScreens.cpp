@@ -59,6 +59,7 @@
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
+#include "UI/MiscViews.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
@@ -948,9 +949,8 @@ void CreditsScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	Button *back = root_->Add(new Button(di->T("Back")));
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
-	root_->SetDefaultFocusView(back);
+	TopBar *topBar = root_->Add(new TopBar(mm->T("About PPSSPP")));
+	root_->SetDefaultFocusView(topBar->GetBackButton());
 
 	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
@@ -965,9 +965,9 @@ void CreditsScreen::CreateViews() {
 
 	LinearLayout *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
-	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT)));
+	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
 	LinearLayout *middle = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	LinearLayout *right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT)));
+	LinearLayout *right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
