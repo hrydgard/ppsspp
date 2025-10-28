@@ -56,7 +56,7 @@ void UIScreen::DoRecreateViews() {
 
 		// Update layout and refocus so things scroll into view.
 		// This is for resizing down, when focused on something now offscreen.
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_, ignoreInsets_);
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_, ignoreInsets_, ignoreBottomInset_);
 		UI::View *focused = UI::GetFocusedView();
 		if (focused) {
 			root_->SubviewFocused(focused);
@@ -229,7 +229,7 @@ ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 
 	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {
-		UI::LayoutViewHierarchy(uiContext, root_, ignoreInsets_);
+		UI::LayoutViewHierarchy(uiContext, root_, ignoreInsets_, ignoreBottomInset_);
 	}
 
 	uiContext.PushTransform({translation_, scale_, alpha_});

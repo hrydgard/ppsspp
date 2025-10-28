@@ -58,7 +58,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 void TabHolder::AddBack(UIScreen *parent) {
 	if (tabContainer_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		tabContainer_->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
+		tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
 	}
 }
 

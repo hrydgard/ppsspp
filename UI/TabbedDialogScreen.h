@@ -20,7 +20,9 @@ ENUM_CLASS_BITOPS(TabFlags);
 
 class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBackground {
 public:
-	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+		ignoreBottomInset_ = true;
+	}
 
 	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
 	void CreateViews() override;

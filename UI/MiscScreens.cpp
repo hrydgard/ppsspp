@@ -937,6 +937,9 @@ private:
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
+
+	ignoreBottomInset_ = false;
+
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);

@@ -795,7 +795,7 @@ void GameBrowser::Refresh() {
 			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 #else
 			if ((browseFlags_ & BrowseFlags::BROWSE) && System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-				// Collapse the button title on very small screens (Retroid Pocket).
+				// Collapse the button title on very small screens (Retroid Pocket) or portrait mode.
 				std::string_view browseTitle = g_display.pixel_xres <= 640 ? "" : mm->T("Browse");
 				topBar->Add(new Choice(browseTitle, ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 			}
@@ -1069,6 +1069,7 @@ void GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 
 MainScreen::MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
+	ignoreBottomInset_ = true;
 }
 
 MainScreen::~MainScreen() {
@@ -1090,9 +1091,11 @@ void MainScreen::CreateRecentTab() {
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("MainScreenRecentGames");
+
 	GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
 		Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+
 	scrollRecentGames->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
 
@@ -1111,7 +1114,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 
 	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, bGridView, screenManager(),
 		mm->T(howToTitle), howToUri,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	scrollView->Add(gameBrowser);
 	gameBrowsers_.push_back(gameBrowser);
