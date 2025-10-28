@@ -24,6 +24,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
 #include "Common/UI/Context.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
@@ -605,7 +606,7 @@ void TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 }
 
 void TouchControlLayoutScreen::update() {
-	UIDialogScreenWithGameBackground::update();
+	UIBaseDialogScreen::update();
 
 	if (!layoutView_) {
 		return;

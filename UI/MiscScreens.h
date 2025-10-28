@@ -26,13 +26,10 @@
 #include "Common/UI/PopupScreens.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
+#include "UI/BaseScreens.h"
 
 struct ShaderInfo;
 struct TextureShaderInfo;
-
-extern Path boot_filename;
-void UIBackgroundInit(UIContext &dc);
-void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
@@ -48,46 +45,9 @@ private:
 	Path gamePath_;
 };
 
-// This doesn't have anything to do with the background anymore. It's just a PPSSPP UIScreen
-// that knows how handle sendMessage properly. Same for all the below.
-class UIScreenWithBackground : public UIScreen {
+class PromptScreen : public UIBaseDialogScreen {
 public:
-	UIScreenWithBackground() : UIScreen() {}
-protected:
-	void sendMessage(UIMessage message, const char *value) override;
-};
-
-class UIScreenWithGameBackground : public UIScreenWithBackground {
-public:
-	UIScreenWithGameBackground(const Path &gamePath) : UIScreenWithBackground(), gamePath_(gamePath) {}
-	void sendMessage(UIMessage message, const char *value) override;
-protected:
-	Path gamePath_;
-
-	bool forceTransparent_ = false;
-	bool darkenGameBackground_ = true;
-};
-
-class UIDialogScreenWithBackground : public UIDialogScreen {
-public:
-	UIDialogScreenWithBackground() : UIDialogScreen() {}
-protected:
-	void sendMessage(UIMessage message, const char *value) override;
-	void AddStandardBack(UI::ViewGroup *parent);
-};
-
-class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
-public:
-	UIDialogScreenWithGameBackground(const Path &gamePath)
-		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
-	void sendMessage(UIMessage message, const char *value) override;
-protected:
-	Path gamePath_;
-};
-
-class PromptScreen : public UIDialogScreenWithGameBackground {
-public:
-	PromptScreen(const Path& gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
+	PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	void CreateViews() override;
@@ -156,7 +116,7 @@ private:
 	AfterLogoScreen afterLogoScreen_;
 };
 
-class CreditsScreen : public UIDialogScreenWithBackground {
+class CreditsScreen : public UIBaseDialogScreen {
 public:
 	void update() override;
 
@@ -164,30 +124,3 @@ protected:
 	void CreateViews() override;
 	const char *tag() const override { return "Credits"; }
 };
-
-class SettingInfoMessage : public UI::LinearLayout {
-public:
-	SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp);
-
-	void Show(std::string_view text, const UI::View *refView = nullptr);
-
-	void Draw(UIContext &dc) override;
-	std::string GetText() const;
-
-private:
-	UI::TextView *text_ = nullptr;
-	double timeShown_ = 0.0;
-	float cutOffY_;
-	bool showing_ = false;
-};
-
-class ShinyIcon : public UI::ImageView {
-public:
-	ShinyIcon(ImageID atlasImage, UI::LayoutParams *layoutParams = 0) : UI::ImageView(atlasImage, "", UI::IS_DEFAULT, layoutParams) {}
-	void Draw(UIContext &dc) override;
-	void SetAnimated(bool anim) { animated_ = anim; }
-private:
-	bool animated_ = true;
-};
-
-uint32_t GetBackgroundColorWithAlpha(const UIContext &dc);

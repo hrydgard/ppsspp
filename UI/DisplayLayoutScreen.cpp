@@ -33,6 +33,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/Background.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
@@ -117,7 +118,7 @@ private:
 	float startDisplayOffsetY_ = -1.0f;
 };
 
-DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
+DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIBaseDialogScreen(filename) {}
 
 void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 	if (PSP_GetBootState() == BootState::Complete && !g_Config.bSkipBufferEffects) {
@@ -181,7 +182,7 @@ static std::string PostShaderTranslateName(std::string_view value) {
 }
 
 void DisplayLayoutScreen::sendMessage(UIMessage message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	UIBaseDialogScreen::sendMessage(message, value);
 	if (message == UIMessage::POSTSHADER_UPDATED) {
 		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 		RecreateViews();

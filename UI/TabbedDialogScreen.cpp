@@ -1,16 +1,22 @@
 #include <algorithm>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
 #include "Common/UI/TabHolder.h"
+#include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScrollView.h"
+#include "Common/UI/PopupScreens.h"
+#include "UI/MiscViews.h"
 #include "UI/TabbedDialogScreen.h"
 
-void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
+void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
 	using namespace UI;
 
 	tabHolder_->AddTabDeferred(title, [createCallback = std::move(createCallback), tag, flags]() -> UI::ViewGroup * {
+		using namespace UI;
 		ViewGroup *scroll = nullptr;
 		if (!(flags & TabFlags::NonScrollable)) {
 			scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -28,7 +34,7 @@ void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string
 	});
 }
 
-void TabbedUIDialogScreenWithGameBackground::CreateViews() {
+void UITabbedBaseDialogScreen::CreateViews() {
 	PreCreateViews();
 
 	bool portrait = UsePortraitLayout() || ForceHorizontalTabs();
@@ -104,8 +110,8 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	}
 }
 
-void TabbedUIDialogScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
+void UITabbedBaseDialogScreen::sendMessage(UIMessage message, const char *value) {
+	UIBaseDialogScreen::sendMessage(message, value);
 	if (message == UIMessage::GAMESETTINGS_SEARCH) {
 		std::string filter = value ? value : "";
 		searchFilter_.resize(filter.size());
@@ -115,27 +121,27 @@ void TabbedUIDialogScreenWithGameBackground::sendMessage(UIMessage message, cons
 	}
 }
 
-void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
+void UITabbedBaseDialogScreen::RecreateViews() {
 	oldSettingInfo_ = settingInfo_ ? settingInfo_->GetText() : "N/A";
 	UIScreen::RecreateViews();
 }
 
-void TabbedUIDialogScreenWithGameBackground::EnsureTabs() {
+void UITabbedBaseDialogScreen::EnsureTabs() {
 	_dbg_assert_(tabHolder_);
 	if (tabHolder_) {
 		tabHolder_->EnsureAllCreated();
 	}
 }
 
-int TabbedUIDialogScreenWithGameBackground::GetCurrentTab() const {
+int UITabbedBaseDialogScreen::GetCurrentTab() const {
 	return tabHolder_->GetCurrentTab();
 }
 
-void TabbedUIDialogScreenWithGameBackground::SetCurrentTab(int tab) {
+void UITabbedBaseDialogScreen::SetCurrentTab(int tab) {
 	tabHolder_->SetCurrentTab(tab);
 }
 
-void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
+void UITabbedBaseDialogScreen::ApplySearchFilter() {
 	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 

@@ -130,6 +130,8 @@
     <ClCompile Include="..\..\UI\MiscViews.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\Background.cpp" />
+    <ClCompile Include="..\..\UI\BaseScreens.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -261,6 +263,8 @@
     <ClInclude Include="..\..\UI\MiscViews.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\Background.h" />
+    <ClInclude Include="..\..\UI\BaseScreens.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">

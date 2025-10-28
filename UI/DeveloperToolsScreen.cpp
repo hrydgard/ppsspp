@@ -711,7 +711,7 @@ void DeveloperToolsScreen::OnMIPSTracerClearTracer(UI::EventParams &e) {
 }
 
 void DeveloperToolsScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 }

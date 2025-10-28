@@ -4,6 +4,7 @@
 #include "Common/File/DiskFree.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/WebServer.h"
 #include "UI/UploadScreen.h"
 #include "UI/MiscViews.h"

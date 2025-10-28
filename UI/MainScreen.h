@@ -24,7 +24,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/TabHolder.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "Common/File/PathBrowser.h"
 
 enum GameBrowserFlags {
@@ -118,7 +118,7 @@ private:
 
 class RemoteISOBrowseScreen;
 
-class MainScreen : public UIScreenWithBackground {
+class MainScreen : public UIBaseScreen {
 public:
 	MainScreen();
 	~MainScreen();
@@ -180,7 +180,7 @@ protected:
 	friend class RemoteISOBrowseScreen;
 };
 
-class UmdReplaceScreen : public UIDialogScreenWithBackground {
+class UmdReplaceScreen : public UIBaseDialogScreen {
 public:
 	const char *tag() const override { return "UmdReplace"; }
 

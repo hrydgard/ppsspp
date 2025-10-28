@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
 #include "Common/Render/TextureAtlas.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
 namespace UI {
@@ -32,9 +34,9 @@ struct TouchButtonToggle {
 	std::function<void(UI::EventParams&)> handle;
 };
 
-class TouchControlVisibilityScreen : public TabbedUIDialogScreenWithGameBackground {
+class TouchControlVisibilityScreen : public UITabbedBaseDialogScreen {
 public:
-	TouchControlVisibilityScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
+	TouchControlVisibilityScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
 	void CreateTabs() override;
 	void onFinish(DialogResult result) override;
 
@@ -49,9 +51,9 @@ private:
 	bool nextToggleAll_ = true;
 };
 
-class RightAnalogMappingScreen : public UIDialogScreenWithGameBackground {
+class RightAnalogMappingScreen : public UIBaseDialogScreen {
 public:
-	RightAnalogMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	RightAnalogMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 	void CreateViews() override;
 
 	const char *tag() const override { return "RightAnalogMapping"; }

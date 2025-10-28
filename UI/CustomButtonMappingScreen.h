@@ -17,16 +17,16 @@
 
 #pragma once
 
-#include "MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/GamepadEmu.h"
 
 namespace UI {
 	class CheckBox;
 }
 
-class CustomButtonMappingScreen : public UIDialogScreenWithGameBackground {
+class CustomButtonMappingScreen : public UIBaseDialogScreen {
 public:
-	CustomButtonMappingScreen(const Path &gamePath, int id) : UIDialogScreenWithGameBackground(gamePath), id_(id) {}
+	CustomButtonMappingScreen(const Path &gamePath, int id) : UIBaseDialogScreen(gamePath), id_(id) {}
 
 	const char *tag() const override { return "CustomButton"; }
 

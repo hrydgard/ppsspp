@@ -55,7 +55,7 @@
 #include "UI/GameScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/IAPScreen.h"
 #include "UI/RemoteISOScreen.h"
@@ -1200,8 +1200,9 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 		parent->Add(new Spacer(25.0));
 	}
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+#if !PPSSPP_PLATFORM(IOS_APP_STORE) && !PPSSPP_PLATFORM(ANDROID)
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
+	// Additionally, the Exit button creates problems on Android.
 	parent->Add(new Choice(mm->T("Exit"), vertical ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
 #endif
 }
@@ -1365,7 +1366,7 @@ bool MainScreen::key(const KeyInput &touch) {
 			searchKeyModifier_ = false;
 	}
 
-	return UIScreenWithBackground::key(touch);
+	return UIBaseScreen::key(touch);
 }
 
 void MainScreen::OnAllowStorage(UI::EventParams &e) {
@@ -1374,7 +1375,7 @@ void MainScreen::OnAllowStorage(UI::EventParams &e) {
 
 void MainScreen::sendMessage(UIMessage message, const char *value) {
 	// Always call the base class method first to handle the most common messages.
-	UIScreenWithBackground::sendMessage(message, value);
+	UIBaseScreen::sendMessage(message, value);
 
 	if (message == UIMessage::REQUEST_GAME_BOOT) {
 		LaunchFile(screenManager(), this, Path(value));

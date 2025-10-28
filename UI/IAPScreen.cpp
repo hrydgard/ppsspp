@@ -1,11 +1,13 @@
 // NOTE: This currently only used on iOS, to present the availablility of getting PPSSPP Gold through IAP.
 
-#include "UI/IAPScreen.h"
-#include "UI/OnScreenDisplay.h"
-#include "UI/MiscScreens.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
+#include "Common/Render/DrawBuffer.h"
+#include "UI/IAPScreen.h"
+#include "UI/OnScreenDisplay.h"
+#include "UI/MiscViews.h"
 
 void IAPScreen::CreateViews() {
 	using namespace UI;

@@ -38,6 +38,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
@@ -65,7 +66,7 @@
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
@@ -253,7 +254,7 @@ void LogViewScreen::UpdateLog() {
 }
 
 void LogViewScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 	if (toBottom_) {
 		toBottom_ = false;
 		scroll_->ScrollToBottom();
@@ -524,7 +525,7 @@ bool ShaderViewScreen::key(const KeyInput &ki) {
 			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 		}
 	}
-	return UIDialogScreenWithBackground::key(ki);
+	return UIBaseDialogScreen::key(ki);
 }
 
 
@@ -616,7 +617,7 @@ void FrameDumpTestScreen::update() {
 }
 
 void TouchTestScreen::touch(const TouchInput &touch) {
-	UIDialogScreenWithGameBackground::touch(touch);
+	UIBaseDialogScreen::touch(touch);
 	if (touch.flags & TOUCH_DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {

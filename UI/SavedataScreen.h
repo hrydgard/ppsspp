@@ -26,7 +26,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/TabbedDialogScreen.h"
 
@@ -67,10 +67,10 @@ private:
 	bool searchPending_ = false;
 };
 
-class SavedataScreen : public TabbedUIDialogScreenWithGameBackground {
+class SavedataScreen : public UITabbedBaseDialogScreen {
 public:
 	// gamePath can be empty, in that case this screen will show all savedata in the save directory.
-	SavedataScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
+	SavedataScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
 	~SavedataScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

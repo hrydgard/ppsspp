@@ -22,9 +22,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/Context.h"
-#include "UI/PauseScreen.h"
-#include "UI/ReportScreen.h"
-
+#include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
@@ -36,6 +34,8 @@
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
+#include "UI/PauseScreen.h"
+#include "UI/ReportScreen.h"
 
 using namespace UI;
 

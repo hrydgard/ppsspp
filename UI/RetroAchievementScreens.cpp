@@ -1,11 +1,12 @@
+#include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/TabHolder.h"
 #include "Common/UI/Context.h"
-#include "Common/Data/Text/I18n.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
@@ -177,7 +178,7 @@ RetroAchievementsLeaderboardScreen::~RetroAchievementsLeaderboardScreen() {
 }
 
 RetroAchievementsLeaderboardScreen::RetroAchievementsLeaderboardScreen(const Path &gamePath, int leaderboardID)
-	: TabbedUIDialogScreenWithGameBackground(gamePath), leaderboardID_(leaderboardID) {
+	: UITabbedBaseDialogScreen(gamePath), leaderboardID_(leaderboardID) {
 	FetchEntries();
 }
 
@@ -253,7 +254,7 @@ void RetroAchievementsLeaderboardScreen::Poll() {
 }
 
 void RetroAchievementsLeaderboardScreen::update() {
-	TabbedUIDialogScreenWithGameBackground::update();
+	UITabbedBaseDialogScreen::update();
 	Poll();
 }
 
@@ -279,7 +280,7 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 }
 
 void RetroAchievementsSettingsScreen::sendMessage(UIMessage message, const char *value) {
-	TabbedUIDialogScreenWithGameBackground::sendMessage(message, value);
+	UITabbedBaseDialogScreen::sendMessage(message, value);
 
 	if (message == UIMessage::ACHIEVEMENT_LOGIN_STATE_CHANGE) {
 		RecreateViews();

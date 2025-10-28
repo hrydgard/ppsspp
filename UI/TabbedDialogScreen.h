@@ -6,7 +6,9 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/System/System.h"
 #include "Core/ConfigValues.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
+
+class SettingInfoMessage;
 
 namespace UI {
 class TabHolder;
@@ -18,9 +20,9 @@ enum class TabFlags {
 };
 ENUM_CLASS_BITOPS(TabFlags);
 
-class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBackground {
+class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+	UITabbedBaseDialogScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
 		ignoreBottomInset_ = true;
 	}
 

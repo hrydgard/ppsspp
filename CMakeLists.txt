@@ -1550,8 +1550,12 @@ list(APPEND NativeAppSource
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.h
 	UI/BackgroundAudio.cpp
+	UI/Background.h
+	UI/Background.cpp
 	UI/ChatScreen.h
 	UI/ChatScreen.cpp
+	UI/BaseScreens.h
+	UI/BaseScreens.cpp
 	UI/DebugOverlay.cpp
 	UI/DebugOverlay.h
 	UI/DevScreens.cpp

@@ -25,6 +25,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Common/UI/PopupScreens.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -40,7 +41,7 @@ static Path GetGlobalCheatFilePath() {
 }
 
 CwCheatScreen::CwCheatScreen(const Path &gamePath)
-	: UIDialogScreenWithGameBackground(gamePath) {
+	: UIBaseDialogScreen(gamePath) {
 }
 
 CwCheatScreen::~CwCheatScreen() {
@@ -155,7 +156,7 @@ void CwCheatScreen::update() {
 		fileCheckCounter_ = 0;
 	}
 
-	UIDialogScreenWithGameBackground::update();
+	UIBaseDialogScreen::update();
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {

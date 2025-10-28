@@ -19,7 +19,7 @@
 
 #include <functional>
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/File/Path.h"
 
@@ -33,7 +33,7 @@ class NoticeView;
 // Uses GameInfoCache heavily to implement the functionality.
 // Should possibly merge this with the PauseScreen.
 
-class GameScreen : public UIDialogScreenWithGameBackground {
+class GameScreen : public UIBaseDialogScreen {
 public:
 	GameScreen(const Path &gamePath, bool inGame);
 	~GameScreen();

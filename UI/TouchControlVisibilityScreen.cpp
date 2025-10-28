@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/UI/TabHolder.h"
 #include "Common/System/Display.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
+#include "Common/UI/TabHolder.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Core/Config.h"
 

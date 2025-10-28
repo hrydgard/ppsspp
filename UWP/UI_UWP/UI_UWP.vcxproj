@@ -86,7 +86,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\UI\AudioCommon.h" />
+    <ClInclude Include="..\..\UI\Background.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
+    <ClInclude Include="..\..\UI\BaseScreens.h" />
     <ClInclude Include="..\..\UI\ChatScreen.h" />
     <ClInclude Include="..\..\UI\ControlMappingScreen.h" />
     <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
@@ -139,7 +141,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\UI\AudioCommon.cpp" />
+    <ClCompile Include="..\..\UI\Background.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
+    <ClCompile Include="..\..\UI\BaseScreens.cpp" />
     <ClCompile Include="..\..\UI\ChatScreen.cpp" />
     <ClCompile Include="..\..\UI\ControlMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />

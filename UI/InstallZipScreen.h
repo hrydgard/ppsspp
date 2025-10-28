@@ -24,11 +24,11 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 
 class SavedataView;
 
-class InstallZipScreen : public UIDialogScreenWithBackground {
+class InstallZipScreen : public UIBaseDialogScreen {
 public:
 	InstallZipScreen(const Path &zipPath);
 	void update() override;

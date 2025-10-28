@@ -1,9 +1,9 @@
 #pragma once
 #include "Common/UI/UIScreen.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
-class JitCompareScreen : public TabbedUIDialogScreenWithGameBackground {
+class JitCompareScreen : public UITabbedBaseDialogScreen {
 public:
 	JitCompareScreen();
 	void CreateTabs() override;

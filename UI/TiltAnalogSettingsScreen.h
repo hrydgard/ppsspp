@@ -19,14 +19,14 @@
 
 #include "Common/Math/math_util.h"
 #include "Common/UI/View.h"
-#include "MiscScreens.h"
+#include "BaseScreens.h"
 
 class JoystickHistoryView;
 class GamepadView;
 
-class TiltAnalogSettingsScreen : public UIDialogScreenWithGameBackground {
+class TiltAnalogSettingsScreen : public UIBaseDialogScreen {
 public:
-	TiltAnalogSettingsScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	TiltAnalogSettingsScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 
 	void CreateViews() override;
 	void update() override;

@@ -3,12 +3,12 @@
 #include "ppsspp_config.h"
 
 #include "Common/UI/UIScreen.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class DriverManagerScreen : public TabbedUIDialogScreenWithGameBackground {
+class DriverManagerScreen : public UITabbedBaseDialogScreen {
 public:
 	DriverManagerScreen(const Path &gamePath);
 

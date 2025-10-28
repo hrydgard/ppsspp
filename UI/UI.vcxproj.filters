@@ -135,6 +135,12 @@
     <ClCompile Include="MiscViews.cpp">
       <Filter>Views</Filter>
     </ClCompile>
+    <ClCompile Include="BaseScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="Background.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -269,6 +275,12 @@
     </ClInclude>
     <ClInclude Include="MiscViews.h">
       <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="Background.h">
+      <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

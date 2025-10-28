@@ -22,11 +22,11 @@
 
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 #include "UI/MainScreen.h"
 #include "UI/TabbedDialogScreen.h"
 
-class RemoteISOScreen : public TabbedUIDialogScreenWithGameBackground {
+class RemoteISOScreen : public UITabbedBaseDialogScreen {
 public:
 	RemoteISOScreen(const Path &filename);
 
@@ -62,7 +62,7 @@ enum class ScanStatus {
 	LOADED,
 };
 
-class RemoteISOConnectScreen : public UIDialogScreenWithBackground {
+class RemoteISOConnectScreen : public UIBaseDialogScreen {
 public:
 	RemoteISOConnectScreen();
 	~RemoteISOConnectScreen();

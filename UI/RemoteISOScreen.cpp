@@ -35,6 +35,7 @@
 #include "Common/System/Request.h"
 
 #include "Common/File/PathBrowser.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Common.h"
@@ -270,7 +271,7 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	return !games.empty();
 }
 
-RemoteISOScreen::RemoteISOScreen(const Path &filename) : TabbedUIDialogScreenWithGameBackground(filename) {}
+RemoteISOScreen::RemoteISOScreen(const Path &filename) : UITabbedBaseDialogScreen(filename) {}
 
 
 void RemoteISOScreen::CreateTabs() {
@@ -287,7 +288,7 @@ void RemoteISOScreen::CreateTabs() {
 }
 
 void RemoteISOScreen::update() {
-	TabbedUIDialogScreenWithGameBackground::update();
+	UITabbedBaseDialogScreen::update();
 
 	frameCount_++;
 
@@ -499,7 +500,7 @@ void RemoteISOConnectScreen::CreateViews() {
 void RemoteISOConnectScreen::update() {
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	UIDialogScreenWithBackground::update();
+	UIBaseDialogScreen::update();
 
 	ScanStatus s = GetStatus();
 	switch (s) {

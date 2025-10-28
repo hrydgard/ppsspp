@@ -21,15 +21,15 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/PopupScreens.h"
 #include "GPU/Common/PostShader.h"
-
-#include "MiscScreens.h"
+#include "UI/MiscScreens.h"
 
 namespace UI {
 class ChoiceStrip;
 }
 
-class DisplayLayoutScreen : public UIDialogScreenWithGameBackground {
+class DisplayLayoutScreen : public UIBaseDialogScreen {
 public:
 	DisplayLayoutScreen(const Path &filename);
 	void CreateViews() override;

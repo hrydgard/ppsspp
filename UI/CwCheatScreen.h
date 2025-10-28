@@ -23,12 +23,12 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/Context.h"
-#include "UI/MiscScreens.h"
+#include "UI/BaseScreens.h"
 
 struct CheatFileInfo;
 class CWCheatEngine;
 
-class CwCheatScreen : public UIDialogScreenWithGameBackground {
+class CwCheatScreen : public UIBaseDialogScreen {
 public:
 	CwCheatScreen(const Path &gamePath);
 	~CwCheatScreen();

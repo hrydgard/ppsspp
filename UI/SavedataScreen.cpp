@@ -26,7 +26,6 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -35,6 +34,7 @@
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/PauseScreen.h"
+#include "UI/MiscScreens.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
@@ -711,7 +711,7 @@ void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 void SavedataScreen::sendMessage(UIMessage message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
+	UIBaseDialogScreen::sendMessage(message, value);
 
 	if (message == UIMessage::SAVEDATA_SEARCH) {
 		EnsureTabs();
