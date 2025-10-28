@@ -184,12 +184,16 @@ private:
 };
 
 
-class GestureMappingScreen : public UIBaseDialogScreen {
+class GestureMappingScreen : public UITabbedBaseDialogScreen {
 public:
-	GestureMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
+	GestureMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
 	void CreateViews() override;
 
+	void CreateTabs() override;
 	const char *tag() const override { return "GestureMapping"; }
+	bool ShowSearchControls() const override { return false; }
+protected:
+	void CreateGestureTab(UI::LinearLayout *parent);
 };
 
 class RestoreSettingsScreen : public PopupScreen {

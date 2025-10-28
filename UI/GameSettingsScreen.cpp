@@ -2035,21 +2035,17 @@ void HostnameSelectScreen::OnCompleted(DialogResult result) {
 		*value_ = StripSpaces(addrView_->GetText());
 }
 
-void GestureMappingScreen::CreateViews() {
+void GestureMappingScreen::CreateTabs() {
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	AddTab("Gesture", co->T("Gesture"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent); });
+}
+
+void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
-
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	AddStandardBack(root_);
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
-	root_->Add(tabHolder);
-	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
-	tabHolder->AddTab(co->T("Gesture"), rightPanel);
-	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
-	vert->SetSpacing(0);
 
 	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList)+1];
 	gestureButton[0] = "None";
