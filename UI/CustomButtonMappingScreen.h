@@ -41,7 +41,6 @@ private:
 
 	bool array[ARRAY_SIZE(CustomKeyData::g_customKeyList)]{};
 	int id_;
-	UI::ScrollView *rightScroll_ = nullptr;
 
 	class ChoiceEventHandler{
 	public:
