@@ -13,7 +13,7 @@ public:
 	TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams = nullptr);
 };
 
-TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
+TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(8.0f);
 	if (!layoutParams) {
@@ -32,7 +32,7 @@ public:
 	CopyableText(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams = nullptr);
 };
 
-CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
+CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(8.0f);
 	if (!layoutParams) {
@@ -49,7 +49,14 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 }
 
 UploadScreen::UploadScreen(const Path &targetFolder) : targetFolder_(targetFolder) {
-	net::GetLocalIP4List(localIPs_);
+	std::vector<std::string> ips;
+	net::GetLocalIP4List(ips);
+	localIPs_.clear();
+	for (const auto &ip : ips) {
+		if (!ip.empty() && !startsWith(ip, "127.") && !startsWith(ip, "169.254.")) {
+			localIPs_.push_back(ip);
+		}
+	}
 	WebServerSetUploadPath(targetFolder);
 	StartWebServer(WebServerFlags::FILE_UPLOAD);
 }
