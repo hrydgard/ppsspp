@@ -907,74 +907,95 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	dc.Flush();
 }
 
+class CreditsScroller : public UI::View {
+public:
+	CreditsScroller(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {}
+	bool Touch(const TouchInput &touch) override {
+		if (touch.id != 0)
+			return false;
+		if (touch.flags & TOUCH_DOWN) {
+			dragYStart_ = touch.y;
+			dragYOffsetStart_ = dragOffset_;
+		}
+		if (touch.flags & TOUCH_UP) {
+			dragYStart_ = -1.0f;
+		}
+		if (touch.flags & TOUCH_MOVE) {
+			if (dragYStart_ >= 0.0f) {
+				dragOffset_ = dragYOffsetStart_ + (touch.y - dragYStart_);
+			}
+		}
+		return true;
+	}
+	void Draw(UIContext &dc);
+private:
+	Instant startTime_ = Instant::Now();
+	double dragYStart_ = -1.0;
+	double dragOffset_ = 0.0;
+	double dragYOffsetStart_ = 0.0;
+};
+
 void CreditsScreen::CreateViews() {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
+	const bool portrait = UsePortraitLayout();
+
+	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+
+	Button *back = root_->Add(new Button(di->T("Back")));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 	root_->SetDefaultFocusView(back);
 
 	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
-	// Really need to redo this whole layout with some linear layouts...
-
-	int rightYOffset = 0;
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		ScreenManager *sm = screenManager();
-		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Add([sm](UI::EventParams) {
-			LaunchBuyGold(sm);
-		});
-		rightYOffset = 74;
-	}
-	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
-	root_->Add(new Button(cr->T("Discord"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 232, false)))->OnClick.Handle(this, &CreditsScreen::OnDiscord);
-	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
-	root_->Add(new Button(cr->T("Privacy Policy"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnPrivacy);
-	root_->Add(new Button(cr->T("X @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 84, false)))->OnClick.Handle(this, &CreditsScreen::OnX);
-
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
-#endif
-
+	/*
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		root_->Add(new ShinyIcon(ImageID("I_ICON_GOLD"), new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	} else {
 		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
+	}*/
+
+	root_->Add(new CreditsScroller(new LinearLayoutParams(1.0f)));
+
+	LinearLayout *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
+
+	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT)));
+	LinearLayout *middle = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	LinearLayout *right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT)));
+
+	int rightYOffset = 0;
+	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		ScreenManager *sm = screenManager();
+		left->Add(new Choice(mm->T("Buy PPSSPP Gold")))->OnClick.Add([sm](UI::EventParams) {
+			LaunchBuyGold(sm);
+		});
+		rightYOffset = 74;
 	}
-}
+	left->Add(new Choice(cr->T("PPSSPP Forums"), ImageID("I_LINK_OUT")))->OnClick.Add([this](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
+	});
+	left->Add(new Choice(cr->T("Discord"), ImageID("I_LOGO_DISCORD")))->OnClick.Add([this](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
+	});
+	left->Add(new Choice("www.ppsspp.org", ImageID("I_LINK_OUT")))->OnClick.Add([this](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
+	});
+	right->Add(new Choice(cr->T("Privacy Policy"), ImageID("I_LINK_OUT")))->OnClick.Add([this](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
+	});
+	right->Add(new Choice(cr->T("@PPSSPP_emu"), ImageID("I_LOGO_X")))->OnClick.Add([this](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://x.com/PPSSPP_emu");
+	});
 
-void CreditsScreen::OnX(UI::EventParams &e) {
-	// Not sure we should change to x.com here, given various platform URL handlers etc. We can probably change it soon.
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/PPSSPP_emu");
-}
-
-void CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
-}
-
-void CreditsScreen::OnPrivacy(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
-}
-
-void CreditsScreen::OnForums(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
-}
-
-void CreditsScreen::OnDiscord(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
-}
-
-void CreditsScreen::OnShare(UI::EventParams &e) {
-	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
-	System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
-}
-
-CreditsScreen::CreditsScreen() {
-	startTime_ = time_now_d();
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_TEXT)) {
+		right->Add(new Choice(cr->T("Share PPSSPP"), ImageID("I_SHARE")))->OnClick.Add([this](UI::EventParams &e) {
+			auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+			System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
+		});
+	}
 }
 
 void CreditsScreen::update() {
@@ -982,27 +1003,7 @@ void CreditsScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 }
 
-void CreditsScreen::touch(const TouchInput &touch) {
-	UIScreen::touch(touch);
-	if (touch.id != 0)
-		return;
-
-	if (touch.flags & TOUCH_DOWN) {
-		dragYStart_ = touch.y;
-		dragYOffsetStart_ = dragOffset_;
-	}
-	if (touch.flags & TOUCH_UP) {
-		dragYStart_ = -1.0f;
-	}
-	if (touch.flags & TOUCH_MOVE) {
-		if (dragYStart_ >= 0.0f) {
-			dragOffset_ = dragYOffsetStart_ + (touch.y - dragYStart_);
-		}
-	}
-}
-
-
-void CreditsScreen::DrawForeground(UIContext &dc) {
+void CreditsScroller::Draw(UIContext &dc) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	std::string specialthanksMaxim = "Maxim ";
@@ -1160,25 +1161,32 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	credits[0] = (const char *)temp;
 
 	dc.Begin();
-	const Bounds &bounds = dc.GetLayoutBounds();
 
+	const Bounds &bounds = bounds_;
+	bounds.Inset(10.f, 10.f);
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
-	int totalHeight = numItems * itemHeight + bounds.h + 200;
+	int contentsHeight = numItems * itemHeight + bounds.h + 200;
 
-	float t = (float)(time_now_d() - startTime_) * 60.0;
+	const float t = (float)(startTime_.ElapsedSeconds() * 60.0);
 
-	float y = bounds.y2() - fmodf(t - dragOffset_, (float)totalHeight);
-	for (int i = 0; i < numItems; i++) {
-		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
+	const float yOffset = fmodf(t - dragOffset_, (float)contentsHeight);
+
+	float y = bounds.h - yOffset;
+	for (int i = 0; i < numItems; i++, y += itemHeight) {
+		if (y + itemHeight < 0.0f)
+			continue;
+		if (y > bounds.h)
+			continue;
+		float fadeLength = 64.0f;
+		float alpha = linearInOut(y, 64, bounds.h - fadeLength * 2.0f, 64);
 		uint32_t textColor = colorAlpha(dc.GetTheme().infoStyle.fgColor, alpha);
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			dc.DrawText(credits[i], bounds.centerX(), y, textColor, ALIGN_HCENTER);
+			dc.DrawText(credits[i], bounds.centerX(), y + bounds.y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
-		y += itemHeight;
 	}
 
 	dc.Flush();

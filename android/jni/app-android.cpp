@@ -474,6 +474,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return (androidVersion >= 21) && (deviceType != DEVICE_TYPE_VR);  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return false;  // Update if we add support in FileUtil.cpp: OpenFileInEditor
+	case SYSPROP_SUPPORTS_SHARE_TEXT:
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

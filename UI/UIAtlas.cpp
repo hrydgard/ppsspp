@@ -143,6 +143,12 @@ static const ImageMeta imageIDs[] = {
 	{"I_FILE_COPY", false},
 	{"I_WEB_BROWSER", false},
 	{"I_WIFI", false},
+	{"I_LOGO_X", false},
+	{"I_LOGO_DISCORD", false},
+	{"I_LINK_OUT", false},
+	{"I_SHARE", false},
+	{"I_LOGO_PLAY_STORE", false},
+	{"I_LOGO_APP_STORE", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

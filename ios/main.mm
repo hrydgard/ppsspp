@@ -371,6 +371,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return true;
 		case SYSPROP_HAS_KEYBOARD:
 			return true;
+		case SYSPROP_SUPPORTS_SHARE_TEXT:
+			return true;
 		case SYSPROP_KEYBOARD_IS_SOFT:
 			// If a hardware keyboard is connected, and we add support, we could return false here.
 			return true;
