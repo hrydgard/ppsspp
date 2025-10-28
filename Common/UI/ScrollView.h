@@ -47,6 +47,7 @@ public:
 	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) override;
 
 private:
+	float ChildSize() const;  // in the scrolled direction
 	float HardClampedScrollPos(float pos) const;
 
 	// TODO: Don't adjust pull_ within this!

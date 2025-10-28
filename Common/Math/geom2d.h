@@ -31,6 +31,13 @@ enum Orientation {
 	ORIENT_VERTICAL,
 };
 
+// Workaround for X header, ugh.
+#undef Opposite
+
+inline constexpr Orientation Opposite(Orientation o) {
+	return (o == ORIENT_HORIZONTAL) ? ORIENT_VERTICAL : ORIENT_HORIZONTAL;
+}
+
 // Resolved bounds on screen after layout.
 struct Bounds {
 	Bounds() : x(0.0f), y(0.0f), w(0.0f), h(0.0f) {}

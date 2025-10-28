@@ -184,10 +184,6 @@ enum class BorderStyle {
 	ITEM_DOWN_BG,
 };
 
-inline Orientation Opposite(Orientation o) {
-	if (o == ORIENT_HORIZONTAL) return ORIENT_VERTICAL; else return ORIENT_HORIZONTAL;
-}
-
 inline FocusDirection Opposite(FocusDirection d) {
 	switch (d) {
 	case FOCUS_UP: return FOCUS_DOWN;

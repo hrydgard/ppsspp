@@ -143,14 +143,17 @@ Bounds UIContext::GetLayoutBounds() const {
 	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
 	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
-	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+	// float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+
+	// Note that we ignore bottom here, to let lists etc. extend to the bottom of the screen.
+	// However, we will add the same space to the bottom of scrolled lists, so that you don't have to
+	// touch things below the safe inset.
 
 	// Adjust left edge to compensate for cutouts (notches) if any.
 	bounds.x += left;
 	bounds.w -= (left + right);
 	bounds.y += top;
-	bounds.h -= (top + bottom);
-
+	bounds.h -= top;
 	return bounds;
 }
 

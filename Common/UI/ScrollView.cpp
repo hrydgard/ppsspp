@@ -1,4 +1,6 @@
 #include <algorithm>
+#include "Common/System/System.h"
+#include "Common/System/Display.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
@@ -208,12 +210,28 @@ bool ScrollView::Touch(const TouchInput &input) {
 	}
 }
 
+float ScrollView::ChildSize() const {
+	float extraSpace = 0.0f;
+
+	if (orientation_ == ORIENT_VERTICAL) {
+		if (bounds_.y2() >= g_display.dp_yres - 1) {
+			extraSpace = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+		}
+	}
+
+	if (views_.empty()) {
+		// Avoid division by zero. This shouldn't happen, anyway.
+		return 1.0f;
+	}
+	return std::max(0.01f, views_[0]->GetBounds().GetSize(orientation_) + extraSpace);
+}
+
 ScrollView::Bob ScrollView::ComputeBob() const {
 	Bob bob{};
 	if (views_.empty()) {
 		return bob;
 	}
-	float childHeight = std::max(0.01f, views_[0]->GetBounds().h);
+	const float childHeight = ChildSize();
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
 	float ratio = bounds_.h / childHeight;
 
@@ -404,9 +422,9 @@ float ScrollView::HardClampedScrollPos(float pos) const {
 	if (!views_.size() || bounds_.h == 0.0f) {
 		return 0.0f;
 	}
-	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
-	float containerSize = (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w);
-	float scrollMax = std::max(0.0f, childSize - containerSize);
+	const float childSize = ChildSize();
+	const float containerSize = bounds_.GetSize(orientation_);
+	const float scrollMax = std::max(0.0f, childSize - containerSize);
 	return Clamp(pos, 0.0f, scrollMax);
 }
 
@@ -415,8 +433,8 @@ float ScrollView::ClampedScrollPos(float pos) {
 		return 0.0f;
 	}
 
-	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
-	float containerSize = (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w);
+	float childSize = ChildSize();
+	float containerSize = bounds_.GetSize(orientation_);
 	float scrollMax = std::max(0.0f, childSize - containerSize);
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
@@ -448,8 +466,8 @@ float ScrollView::ClampedScrollPos(float pos) {
 }
 
 void ScrollView::ScrollToBottom() {
-	float childHeight = views_[0]->GetBounds().h;
-	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	const float childSize = ChildSize();
+	const float scrollMax = std::max(0.0f, childSize - bounds_.GetSize(orientation_));
 	scrollPos_ = scrollMax;
 	scrollTarget_ = scrollMax;
 }
@@ -457,14 +475,7 @@ void ScrollView::ScrollToBottom() {
 bool ScrollView::CanScroll() const {
 	if (!views_.size())
 		return false;
-	switch (orientation_) {
-	case ORIENT_VERTICAL:
-		return views_[0]->GetBounds().h > bounds_.h;
-	case ORIENT_HORIZONTAL:
-		return views_[0]->GetBounds().w > bounds_.w;
-	default:
-		return false;
-	}
+	return ChildSize() > bounds_.GetSize(orientation_);
 }
 
 void ScrollView::GetLastScrollPosition(float &x, float &y) {
