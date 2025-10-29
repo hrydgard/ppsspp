@@ -269,12 +269,11 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	const float fadeinCoef = 1.0f / OnScreenDisplay::FadeinTime();
 	const float fadeoutCoef = 1.0f / OnScreenDisplay::FadeoutTime();
 
-	float sidebarAlpha = g_OSD.SidebarAlpha();
+	float ingameAlpha = g_OSD.IngameAlpha();
 
 	struct LayoutEdge {
 		float height;
 		float maxWidth;
-		float alpha;
 	};
 
 	struct MeasuredEntry {
@@ -293,17 +292,18 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	std::vector<MeasuredEntry> measuredEntries;
 	measuredEntries.resize(entries.size());
 
-	// Indexed by the enum ScreenEdgePosition.
-	LayoutEdge edges[(size_t)ScreenEdgePosition::VALUE_COUNT]{};
-	for (size_t i = 0; i < (size_t)ScreenEdgePosition::VALUE_COUNT; i++) {
-		edges[i].alpha = sidebarAlpha;
-	}
-	edges[(size_t)ScreenEdgePosition::TOP_CENTER].alpha = 1.0f;
-
+	float typeAlpha[(size_t)OSDType::VALUE_COUNT]{};
 	ScreenEdgePosition typeEdges[(size_t)OSDType::VALUE_COUNT]{};
 	// Default to the configured position.
 	for (int i = 0; i < (size_t)OSDType::VALUE_COUNT; i++) {
+		typeAlpha[i] = ingameAlpha;
 		typeEdges[i] = (ScreenEdgePosition)g_Config.iNotificationPos;
+	}
+
+	// These types can always show, independent of whether we're in the menu or not.
+	static const OSDType fullAlphaTypes[] = {OSDType::MESSAGE_ERROR, OSDType::MESSAGE_INFO, OSDType::MESSAGE_WARNING, OSDType::MESSAGE_SUCCESS, OSDType::MESSAGE_FILE_LINK, OSDType::PROGRESS_BAR, OSDType::MESSAGE_CENTERED_ERROR, OSDType::MESSAGE_CENTERED_WARNING};
+	for (auto type : fullAlphaTypes) {
+		typeAlpha[(int)type] = 1.0f;
 	}
 
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR] = (ScreenEdgePosition)g_Config.iAchievementsChallengePos;
@@ -319,6 +319,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
+
+	// Indexed by the enum ScreenEdgePosition.
+	LayoutEdge edges[(size_t)ScreenEdgePosition::VALUE_COUNT]{};
 
 	// First pass: Measure all the sides.
 	for (size_t i = 0; i < entries.size(); i++) {
@@ -405,7 +408,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		}
 
 		// First, compute the start position.
-		float y = padding;
+		float y = padding + bounds_.y;
 		int horizAdj = 0;
 		int vertAdj = 0;
 		switch ((ScreenEdgePosition)i) {
@@ -423,9 +426,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 		if (vertAdj == 0) {
 			// Center vertically
-			y = (bounds_.h - edges[i].height) * 0.5f;
+			y = bounds_.centerY() - edges[i].height * 0.5f;
 		} else if (vertAdj == 1) {
-			y = (bounds_.h - edges[i].height);
+			y = bounds_.y2() - edges[i].height;
 		}
 
 		// Then, loop through the entries and those belonging here, get rendered here.
@@ -435,16 +438,16 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				continue;
 			}
 			auto &measuredEntry = measuredEntries[j];
-			float alpha = measuredEntry.alpha * edges[i].alpha;
+			float alpha = measuredEntry.alpha * typeAlpha[(size_t)entry.type];
 
-			Bounds b(padding, y, measuredEntry.w, measuredEntry.h);
+			Bounds b(bounds_.x + padding, y, measuredEntry.w, measuredEntry.h);
 
 			if (horizAdj == 0) {
 				// Centered
-				b.x = (bounds_.w - b.w) * 0.5f;
+				b.x = bounds_.centerX() - b.w * 0.5f;
 			} else if (horizAdj == 1) {
 				// Right-aligned
-				b.x = bounds_.w - (b.w + padding);
+				b.x = bounds_.x2() - (measuredEntry.w + padding);
 			}
 
 			switch (entry.type) {
@@ -467,9 +470,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			{
 				// Scale down if height doesn't fit.
 				float scale = 1.0f;
-				if (measuredEntry.h > bounds_.h - y) {
+				if (measuredEntry.h > bounds_.y2() - y) {
 					// Scale down!
-					scale = std::max(0.15f, (bounds_.h - y) / measuredEntry.h);
+					scale = std::max(0.15f, (bounds_.y2() - y) / measuredEntry.h);
 					dc.SetFontScale(scale, scale);
 					b.w *= scale;
 					b.h *= scale;
@@ -497,7 +500,6 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				break;
 			}
 			}
-
 
 			y += (measuredEntry.h + 4.0f) * measuredEntry.alpha;
 		}

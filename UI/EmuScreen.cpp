@@ -1605,7 +1605,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		framebufferBound = true;
 	}
 
-	g_OSD.NudgeSidebar();
+	g_OSD.NudgeIngameNotifications();
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);

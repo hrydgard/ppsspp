@@ -36,6 +36,9 @@ private:
 
 class OSDOverlayScreen : public UIScreen {
 public:
+	OSDOverlayScreen() {
+		ignoreInsets_ = false;
+	}
 	const char *tag() const override { return "OSDOverlayScreen"; }
 
 	bool UnsyncTouch(const TouchInput &touch) override;

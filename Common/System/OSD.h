@@ -82,8 +82,8 @@ public:
 	void RemoveProgressBar(std::string_view id, bool success, float delay_s);
 
 	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.
-	void NudgeSidebar();
-	float SidebarAlpha() const;
+	void NudgeIngameNotifications();
+	float IngameAlpha() const;
 
 	// Fades out everything related to achievements. Should be used on game shutdown.
 	void ClearAchievementStuff();

@@ -29,7 +29,7 @@
 
 void SystemInfoScreen::update() {
 	UITabbedBaseDialogScreen::update();
-	g_OSD.NudgeSidebar();
+	g_OSD.NudgeIngameNotifications();
 }
 
 // TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?
@@ -112,7 +112,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 
 	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
 
-	systemInfo->Add(new Choice(si->T("Copy summary to clipboard")))->OnClick.Handle(this, &SystemInfoScreen::CopySummaryToClipboard);
+	systemInfo->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Handle(this, &SystemInfoScreen::CopySummaryToClipboard);
 	systemInfo->Add(new InfoItem(si->T("System Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
 	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
