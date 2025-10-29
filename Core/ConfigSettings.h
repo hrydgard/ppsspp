@@ -17,7 +17,7 @@ enum class CfgFlag : u8 {
 ENUM_CLASS_BITOPS(CfgFlag);
 
 struct ConfigSetting {
-	enum Type {
+	enum class Type {
 		TYPE_TERMINATOR,
 		TYPE_BOOL,
 		TYPE_INT,
@@ -77,120 +77,120 @@ struct ConfigSetting {
 		CustomButtonDefaultCallback customButton;
 	};
 
-	ConfigSetting(const char *ini, bool *v, bool def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_BOOL), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, bool *v, bool def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_BOOL), flags_(flags) {
 		ptr_.b = v;
 		cb_.b = nullptr;
 		default_.b = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_INT), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, int *v, int def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_INT), flags_(flags) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, int def, std::string (*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
+	constexpr ConfigSetting(std::string_view ini, int *v, int def, std::string (*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
 	}
 
-	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_UINT32), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, uint32_t *v, uint32_t def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_UINT32), flags_(flags) {
 		ptr_.u = v;
 		cb_.u = nullptr;
 		default_.u = def;
 	}
 
-	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_UINT64), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, uint64_t *v, uint64_t def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_UINT64), flags_(flags) {
 		ptr_.lu = v;
 		cb_.lu = nullptr;
 		default_.lu = def;
 	}
 
-	ConfigSetting(const char *ini, float *v, float def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_FLOAT), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, float *v, float def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_FLOAT), flags_(flags) {
 		ptr_.f = v;
 		cb_.f = nullptr;
 		default_.f = def;
 	}
 
-	ConfigSetting(const char *ini, std::string *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_STRING), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, std::string *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_STRING), flags_(flags) {
 		ptr_.s = v;
 		cb_.s = nullptr;
 		default_.s = def;
 	}
 
-	ConfigSetting(const char *ini, std::vector<std::string> *v, const std::vector<std::string> *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_STRING_VECTOR), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, std::vector<std::string> *v, const std::vector<std::string> *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_STRING_VECTOR), flags_(flags) {
 		ptr_.v = v;
 		default_.v = def;
 	}
 
-	ConfigSetting(const char *ini, Path *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_PATH), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, Path *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_PATH), flags_(flags) {
 		ptr_.p = v;
 		cb_.p = nullptr;
 		default_.p = def;
 	}
 
-	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), flags_(flags) {
+	constexpr ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(Type::TYPE_TOUCH_POS), flags_(flags) {
 		ptr_.touchPos = v;
 		cb_.touchPos = nullptr;
 		default_.touchPos = def;
 	}
 
-	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), ini5_(iniRepeat), type_(TYPE_CUSTOM_BUTTON), flags_(flags) {
+	constexpr ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(iniKey), ini2_(iniImage), ini3_(iniShape), ini4_(iniToggle), ini5_(iniRepeat), type_(Type::TYPE_CUSTOM_BUTTON), flags_(flags) {
 		ptr_.customButton = v;
 		cb_.customButton = nullptr;
 		default_.customButton = def;
 	}
 
-	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_BOOL), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, bool *v, BoolDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_BOOL), flags_(flags) {
 		ptr_.b = v;
 		cb_.b = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_INT), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, int *v, IntDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_INT), flags_(flags) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
+	constexpr ConfigSetting(std::string_view ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = def;
 	}
 
-	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_UINT32), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, uint32_t *v, Uint32DefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_UINT32), flags_(flags) {
 		ptr_.u = v;
 		cb_.u = def;
 	}
 
-	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_FLOAT), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, float *v, FloatDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_FLOAT), flags_(flags) {
 		ptr_.f = v;
 		cb_.f = def;
 	}
 
-	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(ini), type_(TYPE_STRING), flags_(flags) {
+	constexpr ConfigSetting(std::string_view ini, std::string *v, StringDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(ini), type_(Type::TYPE_STRING), flags_(flags) {
 		ptr_.s = v;
 		cb_.s = def;
 	}
 
-	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
-		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), flags_(flags) {
+	constexpr ConfigSetting(std::string_view iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT) noexcept
+		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(Type::TYPE_TOUCH_POS), flags_(flags) {
 		ptr_.touchPos = v;
 		cb_.touchPos = def;
 	}
@@ -211,7 +211,7 @@ struct ConfigSetting {
 	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
 	bool Report() const { return flags_ & CfgFlag::REPORT; }
 
-	const char *iniKey_ = nullptr;
+	std::string_view iniKey_ = nullptr;
 	const char *ini2_ = nullptr;
 	const char *ini3_ = nullptr;
 	const char *ini4_ = nullptr;

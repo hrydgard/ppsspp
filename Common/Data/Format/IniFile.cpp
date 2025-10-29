@@ -453,14 +453,14 @@ bool IniFile::DeleteSection(const char* sectionName) {
 	return false;
 }
 
-bool IniFile::Exists(const char* sectionName, const char* key) const {
+bool IniFile::Exists(const char* sectionName, std::string_view key) const {
 	const Section* section = GetSection(sectionName);
 	if (!section)
 		return false;
 	return section->Exists(key);
 }
 
-bool IniFile::DeleteKey(const char* sectionName, const char* key) {
+bool IniFile::DeleteKey(const char* sectionName, std::string_view key) {
 	Section* section = GetSection(sectionName);
 	if (!section)
 		return false;

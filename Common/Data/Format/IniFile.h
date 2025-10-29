@@ -135,7 +135,7 @@ public:
 	bool Save(const Path &path);
 
 	// Returns true if key exists in section
-	bool Exists(const char* sectionName, const char* key) const;
+	bool Exists(const char* sectionName, std::string_view key) const;
 
 	// These will not create the section if it doesn't exist.
 	bool Get(const char* sectionName, const char* key, std::string* value, const char* defaultValue = "");
@@ -147,7 +147,7 @@ public:
 
 	bool GetKeys(const char* sectionName, std::vector<std::string>& keys) const;
 
-	bool DeleteKey(const char* sectionName, const char* key);
+	bool DeleteKey(const char* sectionName, std::string_view key);
 	bool DeleteSection(const char* sectionName);
 
 	void SortSections();

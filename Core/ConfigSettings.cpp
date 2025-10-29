@@ -14,10 +14,10 @@ bool ConfigSetting::perGame(void *ptr) {
 
 bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 	switch (type_) {
-	case TYPE_BOOL:
+	case Type::TYPE_BOOL:
 		return section->Get(iniKey_, ptr_.b, cb_.b ? cb_.b() : default_.b);
 
-	case TYPE_INT:
+	case Type::TYPE_INT:
 		if (translateFrom_) {
 			std::string value;
 			if (section->Get(iniKey_, &value, nullptr)) {
@@ -26,15 +26,15 @@ bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 			}
 		}
 		return section->Get(iniKey_, ptr_.i, cb_.i ? cb_.i() : default_.i);
-	case TYPE_UINT32:
+	case Type::TYPE_UINT32:
 		return section->Get(iniKey_, ptr_.u, cb_.u ? cb_.u() : default_.u);
-	case TYPE_UINT64:
+	case Type::TYPE_UINT64:
 		return section->Get(iniKey_, ptr_.lu, cb_.lu ? cb_.lu() : default_.lu);
-	case TYPE_FLOAT:
+	case Type::TYPE_FLOAT:
 		return section->Get(iniKey_, ptr_.f, cb_.f ? cb_.f() : default_.f);
-	case TYPE_STRING:
+	case Type::TYPE_STRING:
 		return section->Get(iniKey_, ptr_.s, cb_.s ? cb_.s().c_str() : default_.s);
-	case TYPE_STRING_VECTOR:
+	case Type::TYPE_STRING_VECTOR:
 	{
 		// No support for callbacks for these yet. that's not an issue.
 		bool success = section->Get(iniKey_, ptr_.v, default_.v);
@@ -43,7 +43,7 @@ bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 		}
 		return success;
 	}
-	case TYPE_TOUCH_POS:
+	case Type::TYPE_TOUCH_POS:
 	{
 		ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
 		section->Get(iniKey_, &ptr_.touchPos->x, defaultTouchPos.x);
@@ -56,7 +56,7 @@ bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 		}
 		return true;
 	}
-	case TYPE_PATH:
+	case Type::TYPE_PATH:
 	{
 		std::string tmp;
 		bool result = section->Get(iniKey_, &tmp, cb_.p ? cb_.p() : default_.p);
@@ -65,7 +65,7 @@ bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 		}
 		return result;
 	}
-	case TYPE_CUSTOM_BUTTON:
+	case Type::TYPE_CUSTOM_BUTTON:
 	{
 		ConfigCustomButton defaultCustomButton = cb_.customButton ? cb_.customButton() : default_.customButton;
 		section->Get(iniKey_, &ptr_.customButton->key, defaultCustomButton.key);
@@ -76,7 +76,7 @@ bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 		return true;
 	}
 	default:
-		_dbg_assert_msg_(false, "Get(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
+		_dbg_assert_msg_(false, "Get%.*s): Unexpected ini setting type: %d", STR_VIEW(iniKey_), (int)type_);
 		return false;
 	}
 }
@@ -87,27 +87,27 @@ void ConfigSetting::WriteToIniSection(Section *section) const {
 	}
 
 	switch (type_) {
-	case TYPE_BOOL:
+	case Type::TYPE_BOOL:
 		return section->Set(iniKey_, *ptr_.b);
-	case TYPE_INT:
+	case Type::TYPE_INT:
 		if (translateTo_) {
 			std::string value = translateTo_(*ptr_.i);
 			return section->Set(iniKey_, value);
 		}
 		return section->Set(iniKey_, *ptr_.i);
-	case TYPE_UINT32:
+	case Type::TYPE_UINT32:
 		return section->Set(iniKey_, *ptr_.u);
-	case TYPE_UINT64:
+	case Type::TYPE_UINT64:
 		return section->Set(iniKey_, *ptr_.lu);
-	case TYPE_FLOAT:
+	case Type::TYPE_FLOAT:
 		return section->Set(iniKey_, *ptr_.f);
-	case TYPE_STRING:
+	case Type::TYPE_STRING:
 		return section->Set(iniKey_, *ptr_.s);
-	case TYPE_STRING_VECTOR:
+	case Type::TYPE_STRING_VECTOR:
 		return section->Set(iniKey_, *ptr_.v);
-	case TYPE_PATH:
+	case Type::TYPE_PATH:
 		return section->Set(iniKey_, ptr_.p->ToString());
-	case TYPE_TOUCH_POS:
+	case Type::TYPE_TOUCH_POS:
 		section->Set(iniKey_, ptr_.touchPos->x);
 		section->Set(ini2_, ptr_.touchPos->y);
 		section->Set(ini3_, ptr_.touchPos->scale);
@@ -115,7 +115,7 @@ void ConfigSetting::WriteToIniSection(Section *section) const {
 			section->Set(ini4_, ptr_.touchPos->show);
 		}
 		return;
-	case TYPE_CUSTOM_BUTTON:
+	case Type::TYPE_CUSTOM_BUTTON:
 		section->Set(iniKey_, ptr_.customButton->key);
 		section->Set(ini2_, ptr_.customButton->image);
 		section->Set(ini3_, ptr_.customButton->shape);
@@ -123,20 +123,20 @@ void ConfigSetting::WriteToIniSection(Section *section) const {
 		section->Set(ini5_, ptr_.customButton->repeat);
 		return;
 	default:
-		_dbg_assert_msg_(false, "Set(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
+		_dbg_assert_msg_(false, "Set%.*s): Unexpected ini setting type: %d", STR_VIEW(iniKey_), (int)type_);
 		return;
 	}
 }
 
 bool ConfigSetting::RestoreToDefault(bool log) const {
 	switch (type_) {
-	case TYPE_BOOL:
+	case Type::TYPE_BOOL:
 	{
 		const bool origValue = *ptr_.b;
 		*ptr_.b = cb_.b ? cb_.b() : default_.b;
 		if (*ptr_.b != origValue) {
 			if (log) {
-				INFO_LOG(Log::System, "Restored %s from %s to default %s", iniKey_,
+				INFO_LOG(Log::System, "Restored %.*s from %s to default %s", STR_VIEW(iniKey_),
 					origValue ? "true" : "false",
 					*ptr_.b ? "true" : "false");
 			}
@@ -144,93 +144,93 @@ bool ConfigSetting::RestoreToDefault(bool log) const {
 		}
 		break;
 	}
-	case TYPE_INT:
+	case Type::TYPE_INT:
 	{
 		const int origValue = *ptr_.i;
 		*ptr_.i = cb_.i ? cb_.i() : default_.i;
 		if (*ptr_.i != origValue) {
 			if (log) {
-				INFO_LOG(Log::System, "Restored %s from %d to default %d", iniKey_,
+				INFO_LOG(Log::System, "Restored %.*s from %d to default %d", STR_VIEW(iniKey_),
 					origValue, *ptr_.i);
 			}
 			return true;
 		}
 		break;
 	}
-	case TYPE_UINT32:
+	case Type::TYPE_UINT32:
 	{
 		const u32 origValue = *ptr_.u;
 		*ptr_.u = cb_.u ? cb_.u() : default_.u;
 		if (*ptr_.u != origValue) {
 			if (log) {
-				INFO_LOG(Log::System, "Restored %s from %u to default %u", iniKey_,
+				INFO_LOG(Log::System, "Restored %.*s from %u to default %u", STR_VIEW(iniKey_),
 					origValue, *ptr_.u);
 			}
 			return true;
 		}
 		break;
 	}
-	case TYPE_UINT64:
+	case Type::TYPE_UINT64:
 	{
 		const u64 origValue = *ptr_.lu;
 		*ptr_.lu = cb_.lu ? cb_.lu() : default_.lu;
 		if (*ptr_.lu != origValue) {
 			if (log) {
-				INFO_LOG(Log::System, "Restored %s from %llu to default %llu", iniKey_,
+				INFO_LOG(Log::System, "Restored %.*s from %llu to default %llu", STR_VIEW(iniKey_),
 					(unsigned long long)origValue, (unsigned long long)(*ptr_.lu));
 			}
 			return true;
 		}
 		break;
 	}
-	case TYPE_FLOAT:
+	case Type::TYPE_FLOAT:
 	{
 		const float origValue = *ptr_.f;
 		*ptr_.f = cb_.f ? cb_.f() : default_.f;
 		if (*ptr_.f != origValue) {
 			if (log) {
-				INFO_LOG(Log::System, "Restored %s from %f to default %f", iniKey_,
+				INFO_LOG(Log::System, "Restored %.*s from %f to default %f", STR_VIEW(iniKey_),
 					origValue, *ptr_.f);
 			}
 			return true;
 		}
 		break;
 	}
-	case TYPE_STRING:
+	case Type::TYPE_STRING:
 	{
 		const std::string origValue = *ptr_.s;
 		*ptr_.s = cb_.s ? cb_.s() : default_.s;
 		if (*ptr_.s != origValue) {
 			if (log) {
-				INFO_LOG(Log::System, "Restored %s from \"%s\" to default \"%s\"", iniKey_,
+				INFO_LOG(Log::System, "Restored %.*s from \"%s\" to default \"%s\"", STR_VIEW(iniKey_),
 					origValue.c_str(), ptr_.s->c_str());
 			}
 			return true;
 		}
 		break;
 	}
-	case TYPE_STRING_VECTOR:
+	case Type::TYPE_STRING_VECTOR:
 	{
 		*ptr_.v = *default_.v;
 		break;
 	}
-	case TYPE_TOUCH_POS:
+	case Type::TYPE_TOUCH_POS:
 	{
 		*ptr_.touchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
 		break;
 	}
-	case TYPE_PATH:
+	case Type::TYPE_PATH:
 	{
 		*ptr_.p = Path(cb_.p ? cb_.p() : default_.p);
 		break;
 	}
-	case TYPE_CUSTOM_BUTTON:
+	case Type::TYPE_CUSTOM_BUTTON:
 	{
 		*ptr_.customButton = cb_.customButton ? cb_.customButton() : default_.customButton;
 		break;
 	}
 	default:
-		_dbg_assert_msg_(false, "RestoreToDefault(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
+		_dbg_assert_msg_(false, "RestoreToDefault(%.*s): Unexpected ini setting type: %d", STR_VIEW(iniKey_), (int)type_);
 		break;
 	}
 	return false;
@@ -240,19 +240,21 @@ void ConfigSetting::ReportSetting(UrlEncoder &data, const std::string &prefix) c
 	if (!Report())
 		return;
 
+	const std::string key = prefix + std::string(iniKey_);
+
 	switch (type_) {
-	case TYPE_BOOL:   return data.Add(prefix + iniKey_, *ptr_.b);
-	case TYPE_INT:    return data.Add(prefix + iniKey_, *ptr_.i);
-	case TYPE_UINT32: return data.Add(prefix + iniKey_, *ptr_.u);
-	case TYPE_UINT64: return data.Add(prefix + iniKey_, *ptr_.lu);
-	case TYPE_FLOAT:  return data.Add(prefix + iniKey_, *ptr_.f);
-	case TYPE_STRING: return data.Add(prefix + iniKey_, *ptr_.s);
-	case TYPE_STRING_VECTOR: return data.Add(prefix + iniKey_, *ptr_.v);
-	case TYPE_PATH:   return data.Add(prefix + iniKey_, ptr_.p->ToString());
-	case TYPE_TOUCH_POS: return;   // Doesn't report.
-	case TYPE_CUSTOM_BUTTON: return; // Doesn't report.
+	case Type::TYPE_BOOL:   return data.Add(key, *ptr_.b);
+	case Type::TYPE_INT:    return data.Add(key, *ptr_.i);
+	case Type::TYPE_UINT32: return data.Add(key, *ptr_.u);
+	case Type::TYPE_UINT64: return data.Add(key, *ptr_.lu);
+	case Type::TYPE_FLOAT:  return data.Add(key, *ptr_.f);
+	case Type::TYPE_STRING: return data.Add(key, *ptr_.s);
+	case Type::TYPE_STRING_VECTOR: return data.Add(key, *ptr_.v);
+	case Type::TYPE_PATH:   return data.Add(key, ptr_.p->ToString());
+	case Type::TYPE_TOUCH_POS: return;   // Doesn't report.
+	case Type::TYPE_CUSTOM_BUTTON: return; // Doesn't report.
 	default:
-		_dbg_assert_msg_(false, "Report(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
+		_dbg_assert_msg_(false, "Report(%s): Unexpected ini setting type: %d", key.c_str(), (int)type_);
 		return;
 	}
 }
