@@ -135,30 +135,30 @@ public:
 	bool Save(const Path &path);
 
 	// Returns true if key exists in section
-	bool Exists(const char* sectionName, const char* key) const;
+	bool Exists(std::string_view sectionName, std::string_view key) const;
 
 	// These will not create the section if it doesn't exist.
-	bool Get(const char* sectionName, const char* key, std::string* value, const char* defaultValue = "");
-	bool Get(const char* sectionName, const char* key, int* value, int defaultValue = 0);
-	bool Get(const char* sectionName, const char* key, uint32_t* value, uint32_t defaultValue = 0);
-	bool Get(const char* sectionName, const char* key, uint64_t* value, uint64_t defaultValue = 0);
-	bool Get(const char* sectionName, const char* key, bool* value, bool defaultValue = false);
-	bool Get(const char* sectionName, const char* key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues = nullptr);
+	bool Get(std::string_view sectionName, std::string_view key, std::string* value, const char* defaultValue = "");
+	bool Get(std::string_view sectionName, std::string_view key, int* value, int defaultValue = 0);
+	bool Get(std::string_view sectionName, std::string_view key, uint32_t* value, uint32_t defaultValue = 0);
+	bool Get(std::string_view sectionName, std::string_view key, uint64_t* value, uint64_t defaultValue = 0);
+	bool Get(std::string_view sectionName, std::string_view key, bool* value, bool defaultValue = false);
+	bool Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues = nullptr);
 
-	bool GetKeys(const char* sectionName, std::vector<std::string>& keys) const;
+	bool GetKeys(std::string_view sectionName, std::vector<std::string>& keys) const;
 
-	bool DeleteKey(const char* sectionName, const char* key);
-	bool DeleteSection(const char* sectionName);
+	bool DeleteKey(std::string_view sectionName, std::string_view key);
+	bool DeleteSection(std::string_view sectionName);
 
 	void SortSections();
 
 	std::vector<std::unique_ptr<Section>> &Sections() { return sections; }
 
-	bool HasSection(const char *section) { return GetSection(section) != nullptr; }
-	const Section* GetSection(const char* section) const;
-	Section* GetSection(const char* section);
+	bool HasSection(std::string_view section) { return GetSection(section) != nullptr; }
+	const Section* GetSection(std::string_view section) const;
+	Section* GetSection(std::string_view section);
 
-	Section* GetOrCreateSection(const char* section);
+	Section* GetOrCreateSection(std::string_view section);
 
 private:
 	std::vector<std::unique_ptr<Section>> sections;
