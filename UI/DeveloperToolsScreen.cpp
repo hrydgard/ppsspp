@@ -434,6 +434,7 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 
 #ifdef _DEBUG
 	// Untranslated string because this is debug mode only, only for PPSSPP developers.
+	list->Add(new ItemHeader(ac->T("Assert")));
 	list->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
 		_dbg_assert_msg_(false, "Test assert message");
 	});

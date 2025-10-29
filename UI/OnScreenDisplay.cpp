@@ -408,7 +408,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		}
 
 		// First, compute the start position.
-		float y = padding;
+		float y = padding + bounds_.y;
 		int horizAdj = 0;
 		int vertAdj = 0;
 		switch ((ScreenEdgePosition)i) {
@@ -426,9 +426,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 		if (vertAdj == 0) {
 			// Center vertically
-			y = (bounds_.h - edges[i].height) * 0.5f;
+			y = bounds_.centerY() - edges[i].height * 0.5f;
 		} else if (vertAdj == 1) {
-			y = (bounds_.h - edges[i].height);
+			y = bounds_.y2() - edges[i].height;
 		}
 
 		// Then, loop through the entries and those belonging here, get rendered here.
@@ -440,14 +440,14 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			auto &measuredEntry = measuredEntries[j];
 			float alpha = measuredEntry.alpha * typeAlpha[(size_t)entry.type];
 
-			Bounds b(padding, y, measuredEntry.w, measuredEntry.h);
+			Bounds b(bounds_.x + padding, y, measuredEntry.w, measuredEntry.h);
 
 			if (horizAdj == 0) {
 				// Centered
-				b.x = (bounds_.w - b.w) * 0.5f;
+				b.x = bounds_.centerX() - b.w * 0.5f;
 			} else if (horizAdj == 1) {
 				// Right-aligned
-				b.x = bounds_.w - (b.w + padding);
+				b.x = bounds_.x2() - (measuredEntry.w + padding);
 			}
 
 			switch (entry.type) {
@@ -470,9 +470,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			{
 				// Scale down if height doesn't fit.
 				float scale = 1.0f;
-				if (measuredEntry.h > bounds_.h - y) {
+				if (measuredEntry.h > bounds_.y2() - y) {
 					// Scale down!
-					scale = std::max(0.15f, (bounds_.h - y) / measuredEntry.h);
+					scale = std::max(0.15f, (bounds_.y2() - y) / measuredEntry.h);
 					dc.SetFontScale(scale, scale);
 					b.w *= scale;
 					b.h *= scale;
@@ -500,7 +500,6 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				break;
 			}
 			}
-
 
 			y += (measuredEntry.h + 4.0f) * measuredEntry.alpha;
 		}
