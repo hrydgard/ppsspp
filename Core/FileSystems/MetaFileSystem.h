@@ -74,7 +74,7 @@ public:
 	IFileSystem *GetSystemFromFilename(const std::string &filename);
 	IFileSystem *GetHandleOwner(u32 handle) const;
 	FileSystemFlags FlagsFromFilename(const std::string &filename) {
-		IFileSystem *sys = GetSystemFromFilename(filename);
+		const IFileSystem *sys = GetSystemFromFilename(filename);
 		return sys ? sys->Flags() : FileSystemFlags::NONE;
 	}
 
@@ -82,7 +82,7 @@ public:
 	void Shutdown();
 
 	u32 GetNewHandle() override {
-		u32 res = current++;
+		const u32 res = current++;
 		if (current < 0) {
 			// Some code assumes it'll never become 0.
 			current = 1;
@@ -100,9 +100,7 @@ public:
 		int error = MapFilePath(_inpath, outpath, &mountPoint);
 		if (error == 0) {
 			*system = mountPoint->system.get();
-			return error;
 		}
-
 		return error;
 	}
 
