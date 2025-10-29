@@ -255,6 +255,7 @@ private:
 };
 
 struct ConfigSectionSettings {
+	const char *base;
 	const char *section;
 	const ConfigSetting *settings;
 	size_t settingsCount;
