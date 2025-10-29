@@ -35,7 +35,7 @@ public:
 
 protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-
+	std::string_view GetTitle() const;
 private:
 	void saveArray();
 

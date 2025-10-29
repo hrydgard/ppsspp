@@ -51,10 +51,10 @@ TopBar::TopBar(const UIContext &ctx, std::string_view title, UI::LayoutParams *l
 	});
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_CENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
 		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
-		// To balance the centering, add a spacer on the right.
-		Add(new Spacer(50.0f));
+		// If using HCENTER, to balance the centering, add a spacer on the right.
+		// Add(new Spacer(50.0f));
 	}
 	SetBG(ctx.GetTheme().itemDownStyle.background);
 }
