@@ -57,4 +57,5 @@ private:
 	UI::InfoItem* MIPSTracerPath = nullptr;
 
 	int testSliderValue_ = 0;
+	bool pretendIngame_ = false;
 };

@@ -29,7 +29,7 @@
 
 void SystemInfoScreen::update() {
 	UITabbedBaseDialogScreen::update();
-	g_OSD.NudgeSidebar();
+	g_OSD.NudgeIngameNotifications();
 }
 
 // TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?

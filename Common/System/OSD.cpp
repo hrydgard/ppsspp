@@ -47,11 +47,11 @@ std::vector<OnScreenDisplay::Entry> OnScreenDisplay::Entries() {
 	return entries_;  // makes a copy.
 }
 
-void OnScreenDisplay::NudgeSidebar() {
+void OnScreenDisplay::NudgeIngameNotifications() {
 	sideBarShowTime_ = time_now_d();
 }
 
-float OnScreenDisplay::SidebarAlpha() const {
+float OnScreenDisplay::IngameAlpha() const {
 	double timeSinceNudge = time_now_d() - sideBarShowTime_;
 
 	// Fade out in 1/4 second, 0.1s after the last nudge.
