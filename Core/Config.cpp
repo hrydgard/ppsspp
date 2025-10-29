@@ -1055,7 +1055,7 @@ static const ConfigSetting vrSettings[] = {
 };
 
 // The first column says what structure the parameters are relative to.
-static const ConfigSectionSettings sections[] = {
+static const ConfigSectionSettings sectionDescs[] = {
 	{(const char *)&g_Config, "General", generalSettings, ARRAY_SIZE(generalSettings)},
 	{(const char *)&g_Config, "CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
 	{(const char *)&g_Config, "Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
@@ -1070,26 +1070,38 @@ static const ConfigSectionSettings sections[] = {
 	{(const char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
 };
 
-const size_t numSections = ARRAY_SIZE(sections);
+const size_t numSections = ARRAY_SIZE(sectionDescs);
 
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
-		Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (size_t j = 0; j < sections[i].settingsCount; j++) {
-			func(section, sections[i].settings[j]);
+		Section *section = iniFile.GetOrCreateSection(sectionDescs[i].section);
+		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
+			func(section, sectionDescs[i].settings[j]);
 		}
 	}
 }
 
 static void IterateSettings(std::function<void(const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
-		for (size_t j = 0; j < sections[i].settingsCount; j++) {
-			func(sections[i].settings[j]);
+		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
+			func(sectionDescs[i].settings[j]);
 		}
 	}
 }
 
-Config::Config() {}
+std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
+	static std::map<const void *, const ConfigSetting *> lut;
+	return lut;
+}
+
+Config::Config() {
+	// Initialize the pointer->setting lookup map.
+	auto ref = getPtrLUT();
+	IterateSettings([this, &ref](const ConfigSetting &setting) {
+		const void *ptr = setting.GetVoidPtr();
+		ref[ptr] = &setting;
+	});
+}
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
@@ -1165,8 +1177,9 @@ bool Config::LoadAppendedConfig() {
 	}
 
 	IterateSettings(iniFile, [&iniFile](Section *section, const ConfigSetting &setting) {
-		if (iniFile.Exists(section->name().c_str(), setting.iniKey_))
-			setting.Get(section);
+		if (iniFile.Exists(section->name().c_str(), setting.iniKey_)) {
+			setting.ReadFromIniSection(section);
+		}
 	});
 
 	INFO_LOG(Log::Loader, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
@@ -1210,8 +1223,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
-		setting.Get(section);
+	IterateSettings(iniFile, [](const Section *section, const ConfigSetting &setting) {
+		setting.ReadFromIniSection(section);
 	});
 
 	iRunCount++;
@@ -1353,7 +1366,7 @@ bool Config::Save(const char *saveReason) {
 
 		IterateSettings(iniFile, [&](Section *section, const ConfigSetting &setting) {
 			if (!bGameSpecific || !setting.PerGame()) {
-				setting.Set(section);
+				setting.WriteToIniSection(section);
 			}
 		});
 
@@ -1642,7 +1655,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.Set(section);
+			setting.WriteToIniSection(section);
 		}
 	});
 
@@ -1699,9 +1712,9 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 			vPostShaderNames.push_back(v);
 	}
 
-	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+	IterateSettings(iniFile, [](const Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.Get(section);
+			setting.ReadFromIniSection(section);
 		}
 	});
 
@@ -1726,9 +1739,9 @@ void Config::unloadGameConfig() {
 		iniFile.Load(iniFilename_);
 
 		// Reload game specific settings back to standard.
-		IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+		IterateSettings(iniFile, [](const Section *section, const ConfigSetting &setting) {
 			if (setting.PerGame()) {
-				setting.Get(section);
+				setting.ReadFromIniSection(section);
 			}
 		});
 
@@ -1787,9 +1800,9 @@ void Config::ResetControlLayout() {
 
 void Config::GetReportingInfo(UrlEncoder &data) const {
 	for (size_t i = 0; i < numSections; ++i) {
-		const std::string prefix = std::string("config.") + sections[i].section;
-		for (size_t j = 0; j < sections[i].settingsCount; j++) {
-			sections[i].settings[j].ReportSetting(data, prefix);
+		const std::string prefix = std::string("config.") + sectionDescs[i].section;
+		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
+			sectionDescs[i].settings[j].ReportSetting(data, prefix);
 		}
 	}
 }

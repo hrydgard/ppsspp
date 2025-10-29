@@ -8,16 +8,11 @@
 #include "Core/ConfigValues.h"
 #include "Core/Config.h"
 
-std::unordered_map<void*, ConfigSetting*>& ConfigSetting::getPtrLUT() {
-	static std::unordered_map<void*, ConfigSetting*> lut;
-	return lut;
-}
-
 bool ConfigSetting::perGame(void *ptr) {
-	return g_Config.bGameSpecific && getPtrLUT().count(ptr) > 0 && getPtrLUT()[ptr]->PerGame();
+	return g_Config.bGameSpecific && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr]->PerGame();
 }
 
-bool ConfigSetting::Get(const Section *section) const {
+bool ConfigSetting::ReadFromIniSection(const Section *section) const {
 	switch (type_) {
 	case TYPE_BOOL:
 		return section->Get(iniKey_, ptr_.b, cb_.b ? cb_.b() : default_.b);
@@ -86,7 +81,7 @@ bool ConfigSetting::Get(const Section *section) const {
 	}
 }
 
-void ConfigSetting::Set(Section *section) const {
+void ConfigSetting::WriteToIniSection(Section *section) const {
 	if (!SaveSetting()) {
 		return;
 	}

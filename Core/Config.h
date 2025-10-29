@@ -59,6 +59,8 @@ private:
 	std::map<std::string, PlayTime> tracker_;
 };
 
+struct ConfigSetting;
+
 struct Config {
 public:
 	Config();
@@ -668,6 +670,8 @@ protected:
 	void PreSaveCleanup(bool gameSpecific);
 	void PostSaveCleanup(bool gameSpecific);
 
+	static std::map<const void*, const ConfigSetting *> &getPtrLUT();
+
 private:
 	bool reload_ = false;
 	std::string gameId_;
@@ -680,6 +684,9 @@ private:
 	Path appendedConfigFileName_;
 	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here
 	std::vector<std::string> appendedConfigUpdatedGames_;
+
+	// TODO: Remove hack.
+	friend struct ConfigSetting;
 };
 
 std::string CreateRandMAC();
