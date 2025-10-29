@@ -791,10 +791,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
-	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Add([this](UI::EventParams &e) {
+	controlsSettings->Add(new Choice(co->T("Control mapping")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new ControlMappingScreen(gamePath_));
 	});
-	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Add([this](UI::EventParams &e) {
+	controlsSettings->Add(new Choice(co->T("Calibrate analog stick")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new AnalogCalibrationScreen(gamePath_));
 	});
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
@@ -824,9 +824,9 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 
 	// TVs don't have touch control, at least not yet.
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
-		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
-		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("OnScreen", "On-Screen Touch Controls")));
-		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Customize Touch Controls")));
+		controlsSettings->Add(new ItemHeader(co->T("On-screen touch controls")));
+		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("On-screen touch controls")));
+		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Edit touch control layout...")));
 		layoutEditorChoice_->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 		});
