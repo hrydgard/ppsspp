@@ -224,6 +224,7 @@ static int DefaultScreenRotation() {
 #define SETTING(a, x) (const char *)&a, &a.x
 #define SETTING_IDX(a, x, i) (const char *)&a, &a.x[i]
 
+// All relative to g_Config.
 static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", SETTING(g_Config, bFirstRun), true, CfgFlag::DEFAULT),
 	ConfigSetting("RunCount", SETTING(g_Config, iRunCount), 0, CfgFlag::DEFAULT),
@@ -1056,35 +1057,37 @@ static const ConfigSetting vrSettings[] = {
 
 // The first column says what structure the parameters are relative to.
 static const ConfigSectionSettings sectionDescs[] = {
-	{(const char *)&g_Config, "General", generalSettings, ARRAY_SIZE(generalSettings)},
-	{(const char *)&g_Config, "CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
-	{(const char *)&g_Config, "Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
-	{(const char *)&g_Config, "Sound", soundSettings, ARRAY_SIZE(soundSettings)},
-	{(const char *)&g_Config, "Control", controlSettings, ARRAY_SIZE(controlSettings)},
-	{(const char *)&g_Config, "SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
-	{(const char *)&g_Config, "Network", networkSettings, ARRAY_SIZE(networkSettings)},
-	{(const char *)&g_Config, "Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
-	{(const char *)&g_Config, "JIT", jitSettings, ARRAY_SIZE(jitSettings)},
-	{(const char *)&g_Config, "Theme", themeSettings, ARRAY_SIZE(themeSettings)},
-	{(const char *)&g_Config, "VR", vrSettings, ARRAY_SIZE(vrSettings)},
-	{(const char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
+	{(char *)&g_Config, "General", generalSettings, ARRAY_SIZE(generalSettings)},
+	{(char *)&g_Config, "CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
+	{(char *)&g_Config, "Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
+	{(char *)&g_Config, "Sound", soundSettings, ARRAY_SIZE(soundSettings)},
+	{(char *)&g_Config, "Control", controlSettings, ARRAY_SIZE(controlSettings)},
+	{(char *)&g_Config, "SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
+	{(char *)&g_Config, "Network", networkSettings, ARRAY_SIZE(networkSettings)},
+	{(char *)&g_Config, "Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
+	{(char *)&g_Config, "JIT", jitSettings, ARRAY_SIZE(jitSettings)},
+	{(char *)&g_Config, "Theme", themeSettings, ARRAY_SIZE(themeSettings)},
+	{(char *)&g_Config, "VR", vrSettings, ARRAY_SIZE(vrSettings)},
+	{(char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
 };
 
 const size_t numSections = ARRAY_SIZE(sectionDescs);
 
-static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
+static void IterateSettings(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
 		Section *section = iniFile.GetOrCreateSection(sectionDescs[i].section);
+		char *owner = sectionDescs[i].owner;
 		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(section, sectionDescs[i].settings[j]);
+			func(owner, section, sectionDescs[i].settings[j]);
 		}
 	}
 }
 
-static void IterateSettings(std::function<void(const ConfigSetting &setting)> func) {
+static void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
+		char *owner = sectionDescs[i].owner;
 		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(sectionDescs[i].settings[j]);
+			func(owner, sectionDescs[i].settings[j]);
 		}
 	}
 }
@@ -1097,8 +1100,8 @@ std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([this, &ref](const ConfigSetting &setting) {
-		const void *ptr = setting.GetVoidPtr();
+	IterateSettings([this, &ref](const char *owner, const ConfigSetting &setting) {
+		const void *ptr = setting.GetVoidPtr(owner);
 		ref[ptr] = &setting;
 	});
 }
@@ -1176,9 +1179,9 @@ bool Config::LoadAppendedConfig() {
 		return false;
 	}
 
-	IterateSettings(iniFile, [&iniFile](Section *section, const ConfigSetting &setting) {
+	IterateSettings(iniFile, [&iniFile](char *owner, Section *section, const ConfigSetting &setting) {
 		if (iniFile.Exists(section->name().c_str(), setting.iniKey_)) {
-			setting.ReadFromIniSection(section);
+			setting.ReadFromIniSection(owner, section);
 		}
 	});
 
@@ -1223,8 +1226,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettings(iniFile, [](const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(section);
+	IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
+		setting.ReadFromIniSection(owner, section);
 	});
 
 	iRunCount++;
@@ -1364,9 +1367,9 @@ bool Config::Save(const char *saveReason) {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		IterateSettings(iniFile, [&](Section *section, const ConfigSetting &setting) {
+		IterateSettings(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
 			if (!bGameSpecific || !setting.PerGame()) {
-				setting.WriteToIniSection(section);
+				setting.WriteToIniSection(owner, section);
 			}
 		});
 
@@ -1573,8 +1576,8 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			IterateSettings([log](const ConfigSetting &setting) {
-				setting.RestoreToDefault(log);
+			IterateSettings([log](char *owner, const ConfigSetting &setting) {
+				setting.RestoreToDefault(owner, log);
 			});
 		}
 
@@ -1653,9 +1656,9 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	PreSaveCleanup(true);
 
-	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
+	IterateSettings(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.WriteToIniSection(section);
+			setting.WriteToIniSection(owner, section);
 		}
 	});
 
@@ -1712,9 +1715,9 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 			vPostShaderNames.push_back(v);
 	}
 
-	IterateSettings(iniFile, [](const Section *section, const ConfigSetting &setting) {
+	IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.ReadFromIniSection(section);
+			setting.ReadFromIniSection(owner, section);
 		}
 	});
 
@@ -1739,9 +1742,9 @@ void Config::unloadGameConfig() {
 		iniFile.Load(iniFilename_);
 
 		// Reload game specific settings back to standard.
-		IterateSettings(iniFile, [](const Section *section, const ConfigSetting &setting) {
+		IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 			if (setting.PerGame()) {
-				setting.ReadFromIniSection(section);
+				setting.ReadFromIniSection(owner, section);
 			}
 		});
 
@@ -1801,8 +1804,9 @@ void Config::ResetControlLayout() {
 void Config::GetReportingInfo(UrlEncoder &data) const {
 	for (size_t i = 0; i < numSections; ++i) {
 		const std::string prefix = std::string("config.") + sectionDescs[i].section;
+		const char *owner = (const char *)sectionDescs[i].owner;
 		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			sectionDescs[i].settings[j].ReportSetting(data, prefix);
+			sectionDescs[i].settings[j].ReportSetting(owner, data, prefix);
 		}
 	}
 }
