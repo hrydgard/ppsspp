@@ -37,7 +37,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
+TopBar::TopBar(const UIContext &ctx, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
@@ -51,11 +51,14 @@ TopBar::TopBar(std::string_view title, UI::LayoutParams *layoutParams) : UI::Lin
 	});
 
 	if (!title.empty()) {
-		Add(new TextView(title, ALIGN_CENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
+		TextView *titleView = Add(new TextView(title, ALIGN_CENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
+		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
 		// To balance the centering, add a spacer on the right.
 		Add(new Spacer(50.0f));
 	}
+	SetBG(ctx.GetTheme().itemDownStyle.background);
 }
+
 SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
 	: UI::LinearLayout(ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
 	using namespace UI;

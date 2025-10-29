@@ -89,7 +89,7 @@
     <ClCompile Include="TabbedDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-		<ClCompile Include="SimpleDialogScreen.cpp">
+    <ClCompile Include="SimpleDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="RetroAchievementScreens.cpp">

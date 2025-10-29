@@ -26,16 +26,17 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 #include "Common/TimeUtil.h"
 
 // Upload screen: Shows the user an ip address to go to in a web browser on the same network,
 // in order to upload game files to the current directory.
 
-class UploadScreen : public UIBaseDialogScreen {
+class UploadScreen : public UISimpleBaseDialogScreen {
 public:
 	UploadScreen(const Path &targetFolder);
 	~UploadScreen();
-	void CreateViews() override;
+	void CreateDialogViews(UI::ViewGroup *parent) override;
 
 protected:
 	void update() override;

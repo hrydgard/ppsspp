@@ -115,7 +115,7 @@
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-		<ClCompile Include="..\..\UI\SimpleDialogScreen.cpp">
+    <ClCompile Include="..\..\UI\SimpleDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp">
