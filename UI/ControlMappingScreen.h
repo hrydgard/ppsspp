@@ -31,6 +31,7 @@
 #include "Core/ControlMapper.h"
 
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 
 class SingleControlMapper;
 
@@ -120,7 +121,7 @@ private:
 
 class JoystickHistoryView;
 
-class AnalogCalibrationScreen : public UIBaseDialogScreen {
+class AnalogCalibrationScreen : public UITwoPaneBaseDialogScreen {
 public:
 	AnalogCalibrationScreen(const Path &gamePath);
 
@@ -132,8 +133,10 @@ public:
 	const char *tag() const override { return "AnalogSetup"; }
 
 protected:
-	void CreateViews() override;
+	void CreateSettingsViews(UI::LinearLayout *parent) override;
+	void CreateContentViews(UI::LinearLayout *parent) override;
 
+	std::string_view GetTitle() const override;
 private:
 	void OnResetToDefaults(UI::EventParams &e);
 

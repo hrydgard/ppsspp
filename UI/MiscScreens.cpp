@@ -478,7 +478,12 @@ private:
 	double dragYOffsetStart_ = 0.0;
 };
 
-void CreditsScreen::CreateViews() {
+std::string_view CreditsScreen::GetTitle() const {
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	return mm->T("About PPSSPP");
+}
+
+void CreditsScreen::CreateDialogViews(UI::ViewGroup *root) {
 	using namespace UI;
 
 	ignoreBottomInset_ = false;
@@ -489,11 +494,6 @@ void CreditsScreen::CreateViews() {
 
 	const bool portrait = UsePortraitLayout();
 
-	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-
-	TopBar *topBar = root_->Add(new TopBar(mm->T("About PPSSPP")));
-	root_->SetDefaultFocusView(topBar->GetBackButton());
-
 	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
 	/*
@@ -503,9 +503,9 @@ void CreditsScreen::CreateViews() {
 		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	}*/
 
-	root_->Add(new CreditsScroller(new LinearLayoutParams(1.0f)));
+	root->Add(new CreditsScroller(new LinearLayoutParams(1.0f)));
 
-	LinearLayout *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
+	LinearLayout *columns = root->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
 	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
 	LinearLayout *middle = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));

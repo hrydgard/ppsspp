@@ -35,13 +35,12 @@ public:
 
 protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-
+	std::string_view GetTitle() const;
 private:
 	void saveArray();
 
 	bool array[ARRAY_SIZE(CustomKeyData::g_customKeyList)]{};
 	int id_;
-	UI::ScrollView *rightScroll_ = nullptr;
 
 	class ChoiceEventHandler{
 	public:

@@ -505,7 +505,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	}
 }
 
-AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
+AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath) {
 	mapper_.SetCallbacks(
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
@@ -555,24 +555,16 @@ void AnalogCalibrationScreen::axis(const AxisInput &axis) {
 	mapper_.Axis(&axis, 1);
 }
 
-void AnalogCalibrationScreen::CreateViews() {
-	using namespace UI;
-
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
-	const bool portrait = UsePortraitLayout();
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, FILL_PARENT, Margins(10, 0, 0, 10))));
-	LinearLayout *rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-
+std::string_view AnalogCalibrationScreen::GetTitle() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	ScrollView *scroll = leftColumn->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	return co->T("Analog Settings");
+}
 
-	LinearLayout *scrollContents = scroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, WRAP_CONTENT)));
+void AnalogCalibrationScreen::CreateSettingsViews(UI::LinearLayout *scrollContents) {
+	using namespace UI;
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
-	scrollContents->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
+	scrollContents->Add(new ItemHeader(co->T("Analog Settings")));
 
 	// TODO: Would be nicer if these didn't pop up...
 	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, 0.15f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
@@ -582,15 +574,19 @@ void AnalogCalibrationScreen::CreateViews() {
 	scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
 	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.1f, 20.0f, 8.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
 	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
+}
 
+void AnalogCalibrationScreen::CreateContentViews(UI::LinearLayout *parent) {
+	using namespace UI;
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+
+	// Two joystick views, one for calibrated output, one for raw input.
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
 	stickView_[0] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::OUTPUT, co->T("Calibrated"), new LinearLayoutParams(1.0f)));
 	stickView_[1] = theTwo->Add(new JoystickHistoryView(StickHistoryViewType::INPUT, co->T("Raw input"), new LinearLayoutParams(1.0f)));
 
-	rightColumn->Add(theTwo);
-
-	AddStandardBack(leftColumn);
+	parent->Add(theTwo);
 }
 
 void AnalogCalibrationScreen::OnResetToDefaults(UI::EventParams &e) {

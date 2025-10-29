@@ -115,20 +115,25 @@ private:
 	ImageID img_;
 };
 
+std::string_view CustomButtonMappingScreen::GetTitle() const {
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	return co->T("Custom touch button setup");
+}
+
 void CustomButtonMappingScreen::CreateViews() {
 	using namespace UI;
 	using namespace CustomKeyData;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 	root_ = new LinearLayout(ORIENT_VERTICAL);
-	root_->Add(new ItemHeader(co->T("Custom Key Setting")));
+	root_->Add(new ItemHeader(GetTitle()));
 	LinearLayout *root__ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0));
 	root_->Add(root__);
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	ConfigCustomButton* cfg = nullptr;
-	bool* show = nullptr;
+	ConfigCustomButton *cfg = nullptr;
+	bool *show = nullptr;
 	memset(array, 0, sizeof(array));
 	cfg = &g_Config.CustomButton[id_];
 	show = &g_Config.touchCustom[id_].show;
@@ -139,13 +144,13 @@ void CustomButtonMappingScreen::CreateViews() {
 			customKeyImages[cfg->image].i, customKeyImages[cfg->image].r, customKeyShapes[cfg->shape].f, customKeyShapes[cfg->shape].r, 62, 82));
 
 	root__->Add(leftColumn);
-	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
+	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	root__->Add(rightScroll_);
+	root__->Add(rightScroll);
 
 	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);
-	rightScroll_->Add(vertLayout);
+	rightScroll->Add(vertLayout);
 	
 	vertLayout->Add(new ItemHeader(co->T("Button style")));
 	vertLayout->Add(new CheckBox(show, co->T("Visible")));

@@ -173,6 +173,7 @@
     <ClCompile Include="..\..\UI\MiscViews.cpp" />
     <ClCompile Include="..\..\UI\SystemInfoScreen.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
+    <ClCompile Include="..\..\UI\SimpleDialogScreen.cpp" />
     <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
     <ClCompile Include="..\..\UI\MainScreen.cpp" />

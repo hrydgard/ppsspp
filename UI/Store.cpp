@@ -506,21 +506,15 @@ void StoreScreen::ParseListing(const std::string &json) {
 	}
 }
 
-void StoreScreen::CreateViews() {
+std::string_view StoreScreen::GetTitle() const {
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	return mm->T("PPSSPP Homebrew Store");
+}
+
+void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	root_ = new LinearLayout(ORIENT_VERTICAL);
-	
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-
-	// Top bar
-	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, 64.0f)));
-	topBar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"), ALIGN_VCENTER, false, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT));
-	titleText_->SetTextColor(screenManager()->getUIContext()->GetTheme().itemDownStyle.fgColor);
-	topBar->Add(titleText_);
-	topBar->SetBG(screenManager()->getUIContext()->GetTheme().itemDownStyle.background);
 
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
@@ -561,7 +555,7 @@ void StoreScreen::CreateViews() {
 			lastSelectedName_.clear();
 		}
 	}
-	root_->Add(content);
+	parent->Add(content);
 }
 
 ProductItemView *StoreScreen::GetSelectedItem() {

@@ -4,6 +4,7 @@
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Text/I18n.h"
 #include "UI/MiscViews.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
@@ -37,7 +38,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
+TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
@@ -45,17 +46,24 @@ TopBar::TopBar(std::string_view title, UI::LayoutParams *layoutParams) : UI::Lin
 		layoutParams_->height = 64.0f;
 	}
 
+	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 	backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()));
 	backButton_ ->OnClick.Add([](UI::EventParams &e) {
 		e.bubbleResult = DR_BACK;
 	});
+	if (!usePortraitLayout) {
+		backButton_->SetText(dlg->T("Back"));
+	}
 
 	if (!title.empty()) {
-		Add(new TextView(title, ALIGN_CENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
-		// To balance the centering, add a spacer on the right.
-		Add(new Spacer(50.0f));
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
+		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
+		// If using HCENTER, to balance the centering, add a spacer on the right.
+		// Add(new Spacer(50.0f));
 	}
+	SetBG(ctx.GetTheme().itemDownStyle.background);
 }
+
 SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
 	: UI::LinearLayout(ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
 	using namespace UI;

@@ -72,6 +72,7 @@
     <ClCompile Include="AudioCommon.cpp" />
     <ClCompile Include="SystemInfoScreen.cpp" />
     <ClCompile Include="TabbedDialogScreen.cpp" />
+    <ClCompile Include="SimpleDialogScreen.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />

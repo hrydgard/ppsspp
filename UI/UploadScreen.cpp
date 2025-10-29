@@ -26,15 +26,12 @@ UploadScreen::~UploadScreen() {
 	StopWebServer(WebServerFlags::FILE_UPLOAD);
 }
 
-void UploadScreen::CreateViews() {
+void UploadScreen::CreateDialogViews(UI::ViewGroup *root) {
 	using namespace UI;
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	root_ = new LinearLayout(ORIENT_VERTICAL);
-
-	root_->Add(new TopBar(""));
 
 	LinearLayout *container = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(500, FILL_PARENT, 0.0f, UI::Gravity::G_HCENTER, Margins(10)));
-	root_->Add(container);
+	root->Add(container);
 
 	container->Add(new TextWithImage(ImageID("I_FOLDER_UPLOAD"), targetFolder_.ToVisualString()));
 	container->Add(new Spacer(20.0f));

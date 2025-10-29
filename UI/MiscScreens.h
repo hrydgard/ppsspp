@@ -27,6 +27,7 @@
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 
 struct ShaderInfo;
 struct TextureShaderInfo;
@@ -116,11 +117,15 @@ private:
 	AfterLogoScreen afterLogoScreen_;
 };
 
-class CreditsScreen : public UIBaseDialogScreen {
+class CreditsScreen : public UISimpleBaseDialogScreen {
 public:
+	CreditsScreen() : UISimpleBaseDialogScreen() {}
 	void update() override;
 
 protected:
-	void CreateViews() override;
+	std::string_view GetTitle() const override;
+
+	void CreateDialogViews(UI::ViewGroup *parent) override;
+	bool CanScroll() const override { return false; }
 	const char *tag() const override { return "Credits"; }
 };

@@ -78,42 +78,29 @@ void TiltAnalogSettingsScreen::CreateCalibrationView(UI::ViewGroup *parent, UI::
 	}
 }
 
-void TiltAnalogSettingsScreen::CreateViews() {
-	using namespace UI;
-
+std::string_view TiltAnalogSettingsScreen::GetTitle() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
+	return co->T("Tilt control setup");
+}
+
+void TiltAnalogSettingsScreen::CreateContentViews(UI::LinearLayout *parent) {
+	using namespace UI;
+	CreateCalibrationView(parent, new LinearLayoutParams(300.0f, 300.0f, 1.0f, G_CENTER));
+}
+
+void TiltAnalogSettingsScreen::CreateSettingsViews(UI::LinearLayout *settings) {
+	using namespace UI;
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+
 	GamepadUpdateOpacity(1.0f);
-
-	bool portrait = UsePortraitLayout();
-
-	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
-	root_->SetTag("TiltAnalogSettings");
-
-	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
-	if (portrait) {
-		LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		topBar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(64, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		CreateCalibrationView(root_, new LinearLayoutParams(250, 250, 0.0f, UI::G_HCENTER));
-		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-		menuRoot->Add(settings);
-		root_->Add(menuRoot);
-	} else {
-		ViewGroup *menuRoot = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(600, FILL_PARENT));
-		root_->Add(menuRoot);
-		menuRoot->Add(settings);
-		CreateCalibrationView(root_, new LinearLayoutParams(1.0));
-	}
 
 	auto enabledFunc = [=]() -> bool {
 		return g_Config.iTiltInputType != 0;
 	};
 
-	settings->SetSpacing(0);
-
 	settings->Add(new ItemHeader(co->T("Tilt control setup")));
 	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
-		[=](UI::EventParams &p) {
+		[this](UI::EventParams &p) {
 			//when the tilt event type is modified, we need to reset all tilt settings.
 			//refer to the ResetTiltEvents() function for a detailed explanation.
 			TiltEventProcessor::ResetTiltEvents();
@@ -141,11 +128,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new ItemHeader(co->T("Invert Axes")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledFunc(enabledFunc);
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledFunc(enabledFunc);
-
-	if (!portrait) {
-		settings->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
-		settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	}
 }
 
 void TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
@@ -153,7 +135,7 @@ void TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
 }
 
 void TiltAnalogSettingsScreen::update() {
-	UIBaseDialogScreen::update();
+	UITwoPaneBaseDialogScreen::update();
 	if (tilt_) {
 		tilt_->SetXY(
 			Clamp(TiltEventProcessor::rawTiltAnalogX, -1.0f, 1.0f),
