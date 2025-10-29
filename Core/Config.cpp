@@ -221,8 +221,8 @@ static int DefaultScreenRotation() {
 #endif
 }
 
-#define SETTING(a, x) &a.x
-#define SETTING_IDX(a, x, i) &a.x[i]
+#define SETTING(a, x) (const char *)&a, &a.x
+#define SETTING_IDX(a, x, i) (const char *)&a, &a.x[i]
 
 static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", SETTING(g_Config, bFirstRun), true, CfgFlag::DEFAULT),
