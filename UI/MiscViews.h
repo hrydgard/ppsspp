@@ -18,7 +18,7 @@ public:
 class TopBar : public UI::LinearLayout {
 public:
 	// The context is needed to get the theme for the background.
-	TopBar(const UIContext &ctx, std::string_view title, UI::LayoutParams *layoutParams = nullptr);
+	TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view title, UI::LayoutParams *layoutParams = nullptr);
 	UI::View *GetBackButton() const { return backButton_; }
 
 private:

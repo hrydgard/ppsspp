@@ -572,7 +572,7 @@ void AnalogCalibrationScreen::CreateViews() {
 
 	LinearLayout *scrollContents = scroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, WRAP_CONTENT)));
 
-	scrollContents->Add(new ItemHeader(co->T("Analog Settings", "Analog Settings")));
+	scrollContents->Add(new ItemHeader(co->T("Analog Settings")));
 
 	// TODO: Would be nicer if these didn't pop up...
 	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, 0.15f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));

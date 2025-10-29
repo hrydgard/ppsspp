@@ -745,6 +745,9 @@ public:
 	void SetImageScale(float scale) {
 		imgScale_ = scale;
 	}
+	void SetText(std::string_view text) {
+		text_ = text;
+	}
 
 protected:
 	void ClickInternal() override;

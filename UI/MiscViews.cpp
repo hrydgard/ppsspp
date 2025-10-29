@@ -4,6 +4,7 @@
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Text/I18n.h"
 #include "UI/MiscViews.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
@@ -37,7 +38,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(const UIContext &ctx, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
+TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
@@ -45,10 +46,14 @@ TopBar::TopBar(const UIContext &ctx, std::string_view title, UI::LayoutParams *l
 		layoutParams_->height = 64.0f;
 	}
 
+	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 	backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()));
 	backButton_ ->OnClick.Add([](UI::EventParams &e) {
 		e.bubbleResult = DR_BACK;
 	});
+	if (!usePortraitLayout) {
+		backButton_->SetText(dlg->T("Back"));
+	}
 
 	if (!title.empty()) {
 		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));

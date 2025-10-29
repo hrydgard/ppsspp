@@ -11,7 +11,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 	const bool portrait = UsePortraitLayout();
 
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	root_->Add(new TopBar(*screenManager()->getUIContext(), GetTitle()));
+	root_->Add(new TopBar(*screenManager()->getUIContext(), portrait, GetTitle()));
 
 	if (canScroll) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
