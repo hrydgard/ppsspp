@@ -111,14 +111,14 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 		// printf("trying font name %s\n", names[i]);
 		FcPattern *name = FcNameParse((const FcChar8 *)names[i]);
 		FcFontSet *foundFonts = FcFontList(config, name, os);
-		
+
 		for (int j = 0; foundFonts && j < foundFonts->nfont; ++j) {
 			FcPattern* font = foundFonts->fonts[j];
 			FcChar8 *path;
 			int fontIndex;
 
 			if (FcPatternGetInteger(font, FC_INDEX, 0, &fontIndex) != FcResultMatch) {
-				fontIndex = 0; // The 0th face is guaranteed to exist 
+				fontIndex = 0; // The 0th face is guaranteed to exist
 			}
 
 			if (FcPatternGetString(font, FC_FILE, 0, &path) == FcResultMatch) {
@@ -178,7 +178,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 
 				TTF_CloseFont(openedFont);
 			}
-		}	
+		}
 	}
 #else
 	// We don't have a fallback font for this platform.
@@ -287,7 +287,7 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 	int ptSize = TTF_FontHeight(font) / 1.35;
 
 	uint32_t missingGlyph = CheckMissingGlyph(str);
-		
+
 	if (missingGlyph) {
 		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
 		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
@@ -317,7 +317,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	std::string processedStr(str);
 
 	// If a string includes only newlines, SDL2_ttf will refuse to render it
-	// thinking it is empty. Add a space to avoid that. 
+	// thinking it is empty. Add a space to avoid that.
 	bool isAllNewline = processedStr.find_first_not_of('\n') == std::string::npos;
 
 	if (isAllNewline) {
@@ -372,7 +372,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		for (int x = 0; x < entry.bmWidth; x++) {
 			for (int y = 0; y < entry.bmHeight; y++) {
 				const uint64_t index = entry.bmWidth * y + x;
-				const u16 alpha = AlphaToPremul4444(imageData[pitch * y + x]);
+				const u16 alpha = AlphaToPremul4444(imageData[pitch * y + x] >> 24);
 				bitmapData16[index] = alpha;
 			}
 		}
