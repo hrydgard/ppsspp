@@ -70,6 +70,7 @@ using namespace std::placeholders;
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
@@ -124,8 +125,8 @@ static void AssertCancelCallback(const char *message, void *userdata) {
 }
 
 // Handles control rotation due to internal screen rotation.
-static void SetPSPAnalog(int stick, float x, float y) {
-	switch (g_Config.iInternalScreenRotation) {
+static void SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float y) {
+	switch (iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
 		// Standard rotation. No change.
 		break;
@@ -917,17 +918,29 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		break;
 
 	case VIRTKEY_SCREEN_ROTATION_VERTICAL:
-		g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
+	{
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
 		break;
+	}
 	case VIRTKEY_SCREEN_ROTATION_VERTICAL180:
-		g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+	{
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
 		break;
+	}
 	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL:
-		g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+	{
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
 		break;
+	}
 	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL180:
-		g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
+	{
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		break;
+	}
 
 	case VIRTKEY_TOGGLE_WLAN:
 		// Let's not allow the user to toggle wlan while connected, could get confusing.
@@ -1272,8 +1285,10 @@ void EmuScreen::CreateViews() {
 	backButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
-	cardboardDisableButton_->OnClick.Add([](UI::EventParams &) {
-		g_Config.bEnableCardboardVR = false;
+	DeviceOrientation orientation = GetDeviceOrientation();
+	cardboardDisableButton_->OnClick.Add([orientation](UI::EventParams &) {
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(orientation);
+		config.bEnableCardboardVR = false;
 	});
 	cardboardDisableButton_->SetVisibility(V_GONE);
 	cardboardDisableButton_->SetScale(0.65f);  // make it smaller - this button can be in the way otherwise.
@@ -1447,7 +1462,8 @@ void EmuScreen::update() {
 
 	double now = time_now_d();
 
-	controlMapper_.Update(now);
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+	controlMapper_.Update(config, now);
 
 	if (saveStatePreview_ && !bootPending_) {
 		int currentSlot = SaveState::GetCurrentSlot();
@@ -1577,6 +1593,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	bool framebufferBound = false;
 
+	const DeviceOrientation orientation = GetDeviceOrientation();
+
 	if (mode & ScreenRenderMode::FIRST) {
 		// Actually, always gonna be first when it exists (?)
 
@@ -1607,6 +1625,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	g_OSD.NudgeIngameNotifications();
 
+	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+	__DisplaySetDisplayLayoutConfig(displayLayoutConfig);
+
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
 	} else if (!ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
@@ -1614,8 +1635,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// Just to make sure.
 		if (PSP_IsInited() && !skipBufferEffects) {
 			_dbg_assert_(gpu);
-			gpu->BeginHostFrame();
-			gpu->CopyDisplayToOutput(true);
+			gpu->BeginHostFrame(displayLayoutConfig);
+			gpu->CopyDisplayToOutput(displayLayoutConfig, true);
 			gpu->EndHostFrame();
 		}
 		if (gpu && gpu->PresentedThisFrame()) {
@@ -1681,7 +1702,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		if (gpu) {
-			gpu->BeginHostFrame();
+			gpu->BeginHostFrame(displayLayoutConfig);
 		}
 		if (SaveState::Process()) {
 			// We might have lost the framebuffer bind if we had one, due to a readback.
@@ -1716,7 +1737,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				// This won't work in non-buffered, but that's fine.
 				if (!framebufferBound && PSP_IsInited()) {
 					// draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
-					gpu->CopyDisplayToOutput(true);
+					gpu->CopyDisplayToOutput(displayLayoutConfig, true);
 					framebufferBound = true;
 				}
 			}
@@ -1801,7 +1822,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (hasVisibleUI()) {
 		draw->SetViewport(viewport);
-		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
+		cardboardDisableButton_->SetVisibility(displayLayoutConfig.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		renderUI();
 	}
 
@@ -1907,7 +1928,8 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 	if (!g_OSD.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowStatusFlags != 0)
 		return true;
-	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+	if (config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	if (g_Config.bShowGPOLEDs)
 		return true;

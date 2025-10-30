@@ -356,7 +356,9 @@ void DrawEngineGLES::Flush() {
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+			ConvertViewportAndScissor(
+				framebufferManager_->GetDisplayLayoutConfigCopy(),
+				framebufferManager_->UseBufferedRendering(),
 				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 				vpAndScissor_);

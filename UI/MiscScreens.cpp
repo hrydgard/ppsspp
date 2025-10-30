@@ -169,7 +169,7 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UsePortraitLayout();
+	const bool vertical = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	root_ = new AnchorLayout();
 	ViewGroup *rightColumnItems;
@@ -492,7 +492,7 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *root) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	const bool portrait = UsePortraitLayout();
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
 

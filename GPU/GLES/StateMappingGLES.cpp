@@ -274,7 +274,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		ConvertViewportAndScissor(useBufferedRendering,
+		ConvertViewportAndScissor(
+			framebufferManager_->GetDisplayLayoutConfigCopy(),
+			useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor_);

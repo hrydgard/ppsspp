@@ -510,7 +510,7 @@ AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPa
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
 		[&](uint32_t bitsToSet, uint32_t bitsToClear) {},
-		[&](int stick, float x, float y) {
+		[&](int iInternalRotation, int stick, float x, float y) {
 			analogX_[stick] = x;
 			analogY_[stick] = y;
 		},
@@ -521,7 +521,7 @@ AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPa
 }
 
 void AnalogCalibrationScreen::update() {
-	mapper_.Update(time_now_d());
+	mapper_.Update(g_Config.GetDisplayLayoutConfig(GetDeviceOrientation()), time_now_d());
 	// We ignore the secondary stick for now and just use the two views
 	// for raw and psp input.
 	if (stickView_[0]) {

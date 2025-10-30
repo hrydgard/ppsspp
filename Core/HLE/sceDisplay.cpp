@@ -564,6 +564,12 @@ static void NotifyUserIfSlow() {
 	}
 }
 
+static DisplayLayoutConfig g_displayLayoutConfigCached;
+
+void __DisplaySetDisplayLayoutConfig(const DisplayLayoutConfig &config) {
+	g_displayLayoutConfigCached = config;
+}
+
 void __DisplayFlip(int cyclesLate) {
 	_dbg_assert_(gpu);
 
@@ -644,7 +650,7 @@ void __DisplayFlip(int cyclesLate) {
 			}
 		}
 		if (nextFrame) {
-			gpu->CopyDisplayToOutput(fbReallyDirty);
+			gpu->CopyDisplayToOutput(g_displayLayoutConfigCached, fbReallyDirty);
 			if (fbReallyDirty) {
 				DisplayFireActualFlip();
 			}

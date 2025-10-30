@@ -61,7 +61,7 @@ protected:
 	virtual void CreateViews() = 0;
 
 	void RecreateViews() override { recreateViews_ = true; }
-	bool UsePortraitLayout() const;
+	DeviceOrientation GetDeviceOrientation() const;
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);
@@ -79,7 +79,7 @@ protected:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
-	bool lastPortrait_;
+	DeviceOrientation lastOrientation_ = DeviceOrientation::Landscape;
 
 private:
 	std::mutex eventQueueLock_;

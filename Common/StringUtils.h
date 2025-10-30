@@ -70,6 +70,8 @@ inline bool equals(std::string_view str, std::string_view key) {
 inline bool equalsNoCase(std::string_view str, std::string_view key) {
 	if (str.size() != key.size())
 		return false;
+	if (str.empty())
+		return true;
 	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 

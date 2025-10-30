@@ -25,6 +25,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+#include "Common/Math/geom2d.h"
 #include "Core/ConfigValues.h"
 
 extern const char *PPSSPP_GIT_VERSION;
@@ -60,6 +61,25 @@ private:
 };
 
 struct ConfigSetting;
+
+struct DisplayLayoutConfig {
+	int iDisplayFilter;    // 1 = linear, 2 = nearest
+	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
+	float fDisplayOffsetX;
+	float fDisplayOffsetY;
+	float fDisplayScale;   // Relative to the most constraining axis (x or y).
+	bool bDisplayIntegerScale;  // Snaps scaling to integer scale factors in raw pixels.
+	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
+	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
+	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
+
+	bool bEnableCardboardVR; // Cardboard Master Switch
+	int iCardboardScreenSize; // Screen Size (in %)
+	int iCardboardXShift; // X-Shift of Screen (in %)
+	int iCardboardYShift; // Y-Shift of Screen (in %)
+
+	bool InternalRotationIsPortrait() const;
+};
 
 struct Config {
 public:
@@ -146,8 +166,7 @@ public:
 	int iDisableHLE;
 	int iForceEnableHLE;  // This is the opposite of DisableHLE but can force on HLE even when we've made it permanently off. Only used in tests, not hooked up to the ini file yet.
 
-	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
-	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
+	int iScreenRotation;  // Screen rotation lock. Only supported on Android and possibly other mobile platforms.
 
 	std::string sReportHost;
 	std::vector<std::string> vPinnedPaths;
@@ -194,28 +213,19 @@ public:
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	bool bSmart2DTexFiltering;
 
-	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
-	int iDisplayFilter;    // 1 = linear, 2 = nearest
-	float fDisplayOffsetX;
-	float fDisplayOffsetY;
-	float fDisplayScale;   // Relative to the most constraining axis (x or y).
-	bool bDisplayIntegerScale;  // Snaps scaling to integer scale factors in raw pixels.
+	// We'll carry over the old single layout into landscape for now.
+	DisplayLayoutConfig displayLayoutLandscape;
+	DisplayLayoutConfig displayLayoutPortrait;
+
 	bool bDisplayCropTo16x9;  // Crops to 16:9 if the resolution is very close.
-	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
 
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
-	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 
 	bool bShowImDebugger;
 
 	int iFrameSkip;
 	bool bAutoFrameSkip;
-
-	bool bEnableCardboardVR; // Cardboard Master Switch
-	int iCardboardScreenSize; // Screen Size (in %)
-	int iCardboardXShift; // X-Shift of Screen (in %)
-	int iCardboardYShift; // Y-Shift of Screen (in %)
 
 	int iWindowX;
 	int iWindowY;
@@ -641,7 +651,6 @@ public:
 
 	void GetReportingInfo(UrlEncoder &data) const;
 
-	bool IsPortrait() const;
 	int NextValidBackend();
 	bool IsBackendEnabled(GPUBackend backend);
 
@@ -661,6 +670,13 @@ public:
 	int GetPSPLanguage();
 
 	PlayTimeTracker &TimeTracker() { return playTimeTracker_; }
+
+	const DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) const {
+		return orientation == DeviceOrientation::Portrait ? displayLayoutPortrait : displayLayoutLandscape;
+	}
+	DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) {
+		return orientation == DeviceOrientation::Portrait ? displayLayoutPortrait : displayLayoutLandscape;
+	}
 
 protected:
 	void LoadStandardControllerIni();

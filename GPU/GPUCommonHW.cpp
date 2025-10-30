@@ -405,7 +405,7 @@ GPUCommonHW::~GPUCommonHW() {
 
 // Called once per frame. Might also get called during the pause screen
 // if "transparent".
-void GPUCommonHW::CheckConfigChanged() {
+void GPUCommonHW::CheckConfigChanged(const DisplayLayoutConfig &config) {
 	if (configChanged_) {
 		ClearCacheNextFrame();
 		gstate_c.SetUseFlags(CheckGPUFeatures());
@@ -418,7 +418,7 @@ void GPUCommonHW::CheckConfigChanged() {
 
 	// Check needed when running tests.
 	if (framebufferManager_) {
-		framebufferManager_->CheckPostShaders();
+		framebufferManager_->CheckPostShaders(config);
 	}
 }
 
@@ -429,9 +429,9 @@ void GPUCommonHW::CheckDisplayResized() {
 	}
 }
 
-void GPUCommonHW::CheckRenderResized() {
+void GPUCommonHW::CheckRenderResized(const DisplayLayoutConfig &config) {
 	if (renderResized_) {
-		framebufferManager_->NotifyRenderResized(msaaLevel_);
+		framebufferManager_->NotifyRenderResized(config, msaaLevel_);
 		renderResized_ = false;
 	}
 }
@@ -503,8 +503,8 @@ void GPUCommonHW::UpdateCmdInfo() {
 	}
 }
 
-void GPUCommonHW::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
+void GPUCommonHW::BeginHostFrame(const DisplayLayoutConfig &config) {
+	GPUCommon::BeginHostFrame(config);
 	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
 		sawExactEqualDepth_ = true;
 		gstate_c.SetUseFlags(CheckGPUFeatures());
@@ -530,7 +530,7 @@ void GPUCommonHW::PreExecuteOp(u32 op, u32 diff) {
 	CheckFlushOp(op >> 24, diff);
 }
 
-void GPUCommonHW::CopyDisplayToOutput(bool reallyDirty) {
+void GPUCommonHW::CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
 	drawEngineCommon_->FlushQueuedDepth();
 	// Flush anything left over.
 	drawEngineCommon_->Flush();
@@ -538,7 +538,7 @@ void GPUCommonHW::CopyDisplayToOutput(bool reallyDirty) {
 	shaderManager_->DirtyLastShader();
 
 	// after this, render pass is active.
-	framebufferManager_->CopyDisplayToOutput(reallyDirty);
+	framebufferManager_->CopyDisplayToOutput(config, reallyDirty);
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }

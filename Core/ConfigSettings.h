@@ -42,18 +42,6 @@ struct ConfigSetting {
 		ConfigTouchPos touchPos;
 		ConfigCustomButton customButton;
 	};
-	union SettingPtr {
-		bool *b;
-		int *i;
-		uint32_t *u;
-		uint64_t *lu;
-		float *f;
-		std::string *s;
-		std::vector<std::string> *v;
-		Path *p;
-		ConfigTouchPos *touchPos;
-		ConfigCustomButton *customButton;
-	};
 
 	typedef bool (*BoolDefaultCallback)();
 	typedef int (*IntDefaultCallback)();

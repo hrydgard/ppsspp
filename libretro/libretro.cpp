@@ -1139,7 +1139,8 @@ static void check_variables(CoreParameter &coreParam)
    {
       if (gpu)
       {
-         gpu->NotifyRenderResized();
+         const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+         gpu->NotifyRenderResized(config);
       }
    }
 
@@ -1359,8 +1360,10 @@ namespace Libretro
          ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
       }
 
-      if (gpu)
-         gpu->BeginHostFrame();
+      if (gpu) {
+         const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+         gpu->BeginHostFrame(config);
+      }
 
       PSP_RunLoopWhileState();
       switch (coreState) {
@@ -1693,6 +1696,9 @@ void retro_run(void)
          // shouldn't happen.
          _dbg_assert_(false);
          return;
+      case BootState::Complete:
+         // done, continue.
+         break;
       }
 
       // BootState is BootState::Complete.

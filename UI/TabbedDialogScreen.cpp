@@ -37,7 +37,7 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, s
 void UITabbedBaseDialogScreen::CreateViews() {
 	PreCreateViews();
 
-	bool portrait = UsePortraitLayout() || ForceHorizontalTabs();
+	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait || ForceHorizontalTabs();
 
 	// Information in the top left.
 	// Back button to the bottom left.

@@ -12,6 +12,7 @@
 #include "ppsspp_config.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Display.h"
 #if PPSSPP_PLATFORM(WINDOWS)
 #include "Common/Log/ConsoleListener.h"
 #endif
@@ -101,7 +102,10 @@ private slots:
 	void stopAct();
 	void resetAct();
 	void switchUMDAct();
-	void displayRotationGroup_triggered(QAction *action) { g_Config.iInternalScreenRotation = action->data().toInt(); }
+	void displayRotationGroup_triggered(QAction *action) { 
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		config.iInternalScreenRotation = action->data().toInt();
+	}
 
 	// Debug
 	void breakonloadAct();
@@ -142,7 +146,10 @@ private slots:
 	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
 	void textureFilteringGroup_triggered(QAction *action) { g_Config.iTexFiltering = action->data().toInt(); }
-	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iDisplayFilter = action->data().toInt(); }
+	void screenScalingFilterGroup_triggered(QAction *action) {
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		config.iDisplayFilter = action->data().toInt();
+	}
 	void textureScalingLevelGroup_triggered(QAction *action) {
 		g_Config.iTexScalingLevel = action->data().toInt();
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);

@@ -298,8 +298,8 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	return CheckGPUFeaturesLate(features);
 }
 
-void GPU_Vulkan::BeginHostFrame() {
-	GPUCommonHW::BeginHostFrame();
+void GPU_Vulkan::BeginHostFrame(const DisplayLayoutConfig &config) {
+	GPUCommonHW::BeginHostFrame(config);
 
 	drawEngine_.BeginFrame();
 	textureCache_->StartFrame();
@@ -307,7 +307,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	int curFrame = vulkan->GetCurFrame();
 
-	framebufferManager_->BeginFrame();
+	framebufferManager_->BeginFrame(config);
 
 	shaderManagerVulkan_->DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL);
@@ -424,9 +424,9 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 	}
 }
 
-void GPU_Vulkan::CheckRenderResized() {
+void GPU_Vulkan::CheckRenderResized(const DisplayLayoutConfig &config) {
 	if (renderResized_) {
-		GPUCommonHW::CheckRenderResized();
+		GPUCommonHW::CheckRenderResized(config);
 		pipelineManager_->InvalidateMSAAPipelines();
 		framebufferManager_->ReleasePipelines();
 	}

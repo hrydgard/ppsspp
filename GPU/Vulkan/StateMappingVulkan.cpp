@@ -328,7 +328,9 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		ViewportAndScissor vpAndScissor;
-		ConvertViewportAndScissor(useBufferedRendering,
+		ConvertViewportAndScissor(
+			framebufferManager_->GetDisplayLayoutConfigCopy(),
+			useBufferedRendering,
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);

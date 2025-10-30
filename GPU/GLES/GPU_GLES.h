@@ -44,7 +44,7 @@ public:
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void BeginHostFrame() override;
+	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 	void EndHostFrame() override;
 
 protected:
