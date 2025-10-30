@@ -236,8 +236,8 @@ void GPU_GLES::DeviceRestore(Draw::DrawContext *draw) {
 	fragmentTestCache_.DeviceRestore(draw_);
 }
 
-void GPU_GLES::BeginHostFrame() {
-	GPUCommonHW::BeginHostFrame();
+void GPU_GLES::BeginHostFrame(const DisplayLayoutConfig &config) {
+	GPUCommonHW::BeginHostFrame(config);
 	drawEngine_.BeginFrame();
 
 	textureCache_->StartFrame();
@@ -253,7 +253,7 @@ void GPU_GLES::BeginHostFrame() {
 	// Not sure if this is really needed.
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 
-	framebufferManager_->BeginFrame();
+	framebufferManager_->BeginFrame(config);
 
 	fragmentTestCache_.Decimate();
 	if (gstate_c.useFlagsChanged) {

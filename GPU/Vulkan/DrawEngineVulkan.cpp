@@ -427,7 +427,9 @@ void DrawEngineVulkan::Flush() {
 		// TODO: Probably should eventually refactor this and feed the vp size into SoftwareTransform directly (Unknown's idea).
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 			ViewportAndScissor vpAndScissor;
-			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
+			ConvertViewportAndScissor(
+				framebufferManager_->GetDisplayLayoutConfigCopy(),
+				framebufferManager_->UseBufferedRendering(),
 				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 				vpAndScissor);

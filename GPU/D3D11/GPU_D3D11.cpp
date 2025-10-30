@@ -113,15 +113,15 @@ void GPU_D3D11::DeviceRestore(Draw::DrawContext *draw) {
 	GPUCommonHW::DeviceRestore(draw);
 }
 
-void GPU_D3D11::BeginHostFrame() {
-	GPUCommonHW::BeginHostFrame();
+void GPU_D3D11::BeginHostFrame(const DisplayLayoutConfig &config) {
+	GPUCommonHW::BeginHostFrame(config);
 
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
 	shaderManager_->DirtyLastShader();
 
-	framebufferManager_->BeginFrame();
+	framebufferManager_->BeginFrame(config);
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 
 	if (gstate_c.useFlagsChanged) {

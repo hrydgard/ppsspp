@@ -592,7 +592,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	bool portrait = UsePortraitLayout();
+	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	using namespace UI;
 

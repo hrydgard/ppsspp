@@ -580,21 +580,22 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *smartFiltering = graphicsSettings->Add(new CheckBox(&g_Config.bSmart2DTexFiltering, gr->T("Smart 2D texture filtering")));
 	smartFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
 #else
 	// If you enabled it through the ini, you can see this. Useful for testing.
-	bool showCardboardSettings = g_Config.bEnableCardboardVR;
+	bool showCardboardSettings = config.bEnableCardboardVR;
 #endif
 	if (showCardboardSettings) {
 		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-		graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-		cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		graphicsSettings->Add(new CheckBox(&config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetEnabledPtr(&config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetEnabledPtr(&config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
 	}
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();

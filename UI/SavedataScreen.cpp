@@ -674,7 +674,7 @@ void SavedataScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int ma
 	using namespace UI;
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		verticalLayout->Add(new Choice(di->T("Search"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))))
+		verticalLayout->Add(new Choice(di->T("Search"), ImageID("I_SEARCH"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))))
 			->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
 	}
 }

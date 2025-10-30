@@ -211,7 +211,8 @@ namespace MainWindow
 		AssertCurrentThreadName("Main");
 		// Actually, auto mode should be more granular...
 		int width, height;
-		if (g_Config.IsPortrait()) {
+		const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		if (config.InternalRotationIsPortrait()) {
 			GetWindowSizeAtResolution(272 * (int)zoom, 480 * (int)zoom, &width, &height);
 		} else {
 			GetWindowSizeAtResolution(480 * (int)zoom, 272 * (int)zoom, &width, &height);
@@ -416,7 +417,8 @@ namespace MainWindow
 
 		// First, get the w/h right.
 		if (windowWidth <= 0 || windowHeight <= 0) {
-			bool portrait = g_Config.IsPortrait();
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			const bool portrait = config.InternalRotationIsPortrait();
 
 			// We want to adjust for DPI but still get an integer pixel scaling ratio.
 			double dpi_scale = 96.0 / System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
@@ -763,7 +765,8 @@ namespace MainWindow
 			{
 				MINMAXINFO *minmax = reinterpret_cast<MINMAXINFO *>(lParam);
 				RECT rc = { 0 };
-				bool portrait = g_Config.IsPortrait();
+				const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+				bool portrait = config.InternalRotationIsPortrait();
 				rc.right = portrait ? 272 : 480;
 				rc.bottom = portrait ? 480 : 272;
 				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);

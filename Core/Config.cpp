@@ -80,6 +80,10 @@ static const std::vector<std::string_view> defaultProAdhocServerList = {
 	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
 };
 
+bool DisplayLayoutConfig::InternalRotationIsPortrait() const {
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !g_Config.bSkipBufferEffects;
+}
+
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:
@@ -314,8 +318,6 @@ static const ConfigSetting generalSettings[] = {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), &DefaultScreenRotation, CfgFlag::DEFAULT),
 #endif
-
-	ConfigSetting("InternalScreenRotation", SETTING(g_Config, iInternalScreenRotation), ROTATION_LOCKED_HORIZONTAL, CfgFlag::PER_GAME),
 
 	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), 1, CfgFlag::DEFAULT),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT),
@@ -634,11 +636,25 @@ static std::string DefaultInfrastructureUsername() {
 	return std::string();
 }
 
+// These were previously part of Graphics.
+// It's instantiated into g_Config.displayLayoutLandscape and g_Config.displayLayoutPortrait.
+static const ConfigSetting displayLayoutSettings[] = {
+	ConfigSetting("BufferFiltering", SETTING(g_Config.displayLayoutLandscape, iDisplayFilter), SCALE_LINEAR, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayStretch", SETTING(g_Config.displayLayoutLandscape, bDisplayStretch), false, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayOffsetX", SETTING(g_Config.displayLayoutLandscape, fDisplayOffsetX), 0.5f, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayOffsetY", SETTING(g_Config.displayLayoutLandscape, fDisplayOffsetY), 0.5f, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayScale", SETTING(g_Config.displayLayoutLandscape, fDisplayScale), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayIntegerScale", SETTING(g_Config.displayLayoutLandscape, bDisplayIntegerScale), false, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayAspectRatio", SETTING(g_Config.displayLayoutLandscape, fDisplayAspectRatio), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config.displayLayoutLandscape, bIgnoreScreenInsets), true, CfgFlag::PER_GAME),
+	ConfigSetting("InternalScreenRotation", SETTING(g_Config.displayLayoutLandscape, iInternalScreenRotation), ROTATION_LOCKED_HORIZONTAL, CfgFlag::PER_GAME),
+	ConfigSetting("EnableCardboardVR", SETTING(g_Config.displayLayoutLandscape, bEnableCardboardVR), false, CfgFlag::PER_GAME),
+	ConfigSetting("CardboardScreenSize", SETTING(g_Config.displayLayoutLandscape, iCardboardScreenSize), 50, CfgFlag::PER_GAME),
+	ConfigSetting("CardboardXShift", SETTING(g_Config.displayLayoutLandscape, iCardboardXShift), 0, CfgFlag::PER_GAME),
+	ConfigSetting("CardboardYShift", SETTING(g_Config.displayLayoutLandscape, iCardboardYShift), 0, CfgFlag::PER_GAME),
+};
+
 static const ConfigSetting graphicsSettings[] = {
-	ConfigSetting("EnableCardboardVR", SETTING(g_Config, bEnableCardboardVR), false, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardScreenSize", SETTING(g_Config, iCardboardScreenSize), 50, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardXShift", SETTING(g_Config, iCardboardXShift), 0, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardYShift", SETTING(g_Config, iCardboardYShift), 0, CfgFlag::PER_GAME),
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
@@ -693,18 +709,10 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AppSwitchMode", SETTING(g_Config, iAppSwitchMode), (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR, CfgFlag::DEFAULT),
 #endif
 
-	ConfigSetting("BufferFiltering", SETTING(g_Config, iDisplayFilter), SCALE_LINEAR, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayOffsetX", SETTING(g_Config, fDisplayOffsetX), 0.5f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayOffsetY", SETTING(g_Config, fDisplayOffsetY), 0.5f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayScale", SETTING(g_Config, fDisplayScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayIntegerScale", SETTING(g_Config, bDisplayIntegerScale), false, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayAspectRatio", SETTING(g_Config, fDisplayAspectRatio), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayStretch", SETTING(g_Config, bDisplayStretch), false, CfgFlag::PER_GAME),
 	ConfigSetting("DisplayCropTo16x9", SETTING(g_Config, bDisplayCropTo16x9), true, CfgFlag::PER_GAME),
 
 	ConfigSetting("ImmersiveMode", SETTING(g_Config, bImmersiveMode), true, CfgFlag::PER_GAME),
 	ConfigSetting("SustainedPerformanceMode", SETTING(g_Config, bSustainedPerformanceMode), false, CfgFlag::PER_GAME),
-	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config, bIgnoreScreenInsets), true, CfgFlag::DEFAULT),
 
 	ConfigSetting("ReplaceTextures", SETTING(g_Config, bReplaceTextures), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SaveNewTextures", SETTING(g_Config, bSaveNewTextures), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -1068,6 +1076,8 @@ static const ConfigSectionSettings sectionDescs[] = {
 	{(char *)&g_Config, "Theme", themeSettings, ARRAY_SIZE(themeSettings)},
 	{(char *)&g_Config, "VR", vrSettings, ARRAY_SIZE(vrSettings)},
 	{(char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
+	{(char *)&g_Config.displayLayoutLandscape, "Graphics", displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings)},  // We re-use the old settings.
+	{(char *)&g_Config.displayLayoutPortrait, "DisplayLayout.Portrait", displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings)},
 };
 
 const size_t numSections = ARRAY_SIZE(sectionDescs);
@@ -1759,10 +1769,6 @@ void Config::GetReportingInfo(UrlEncoder &data) const {
 			sectionDescs[i].settings[j].ReportSetting(owner, data, prefix);
 		}
 	}
-}
-
-bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
 }
 
 void PlayTimeTracker::Start(const std::string &gameId) {

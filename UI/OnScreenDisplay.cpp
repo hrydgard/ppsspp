@@ -563,10 +563,10 @@ void OSDOverlayScreen::DrawForeground(UIContext &ui) {
 
 void OSDOverlayScreen::update() {
 	// Partial version of UIScreen::update() but doesn't do event processing to avoid duplicate event processing.
-	bool portrait = UsePortraitLayout();
-	if (portrait != lastPortrait_) {
+	DeviceOrientation orientation = GetDeviceOrientation();
+	if (orientation != lastOrientation_) {
 		RecreateViews();
-		lastPortrait_ = portrait;
+		lastOrientation_ = orientation;
 	}
 
 	DoRecreateViews();

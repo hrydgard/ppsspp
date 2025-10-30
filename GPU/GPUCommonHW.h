@@ -10,12 +10,12 @@ public:
 	~GPUCommonHW();
 
 	// This can fail, and if so no render pass is active.
-	void CopyDisplayToOutput(bool reallyDirty) override;
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) override;
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void BeginHostFrame() override;
+	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 
 	u32 CheckGPUFeatures() const override;
 
@@ -97,8 +97,8 @@ protected:
 	void UpdateMSAALevel(Draw::DrawContext *draw) override;
 
 	void CheckDisplayResized() override;
-	void CheckRenderResized() override;
-	void CheckConfigChanged() override;
+	void CheckRenderResized(const DisplayLayoutConfig &config) override;
+	void CheckConfigChanged(const DisplayLayoutConfig &config) override;
 
 	u32 CheckGPUFeaturesLate(u32 features) const;
 

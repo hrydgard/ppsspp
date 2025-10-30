@@ -30,6 +30,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
@@ -284,6 +285,7 @@ class DrawEngineCommon;
 class PresentationCommon;
 class ShaderManagerCommon;
 class TextureCacheCommon;
+struct DisplayLayoutConfig;
 
 class FramebufferManagerCommon {
 public:
@@ -301,7 +303,7 @@ public:
 	}
 
 	void Init(int msaaLevel);
-	virtual void BeginFrame();
+	virtual void BeginFrame(const DisplayLayoutConfig &config);
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	void DestroyFramebuf(VirtualFramebuffer *v);
 
@@ -332,7 +334,7 @@ public:
 	void RebindFramebuffer(const char *tag);
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const;
 
-	void CopyDisplayToOutput(bool reallyDirty);
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty);
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
@@ -358,9 +360,10 @@ public:
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
-	bool DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
+	bool DrawFramebufferToOutput(const DisplayLayoutConfig &config, const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag);
+	// TODO: Should split into one that uses config, and one that doesn't.
+	void DrawPixels(const DisplayLayoutConfig *config, VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -437,11 +440,11 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	void NotifyRenderResized(int msaaLevel);
+	void NotifyRenderResized(const DisplayLayoutConfig &config, int msaaLevel);
 	virtual void NotifyDisplayResized();
 	void NotifyConfigChanged();
 
-	void CheckPostShaders();
+	void CheckPostShaders(const DisplayLayoutConfig &config);
 
 	virtual void DestroyAllFBOs();
 
@@ -496,6 +499,11 @@ public:
 
 	const std::vector<VirtualFramebuffer *> &GetVFBs() const {
 		return vfbs_;
+	}
+
+	// Hack, only needed for non-buffered rendering.
+	const DisplayLayoutConfig &GetDisplayLayoutConfigCopy() const {
+		return displayLayoutConfigCopy_;
 	}
 
 protected:
@@ -659,6 +667,8 @@ protected:
 	// Depth readback helper state
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
+
+	DisplayLayoutConfig displayLayoutConfigCopy_{};
 };
 
 // Should probably live elsewhere.

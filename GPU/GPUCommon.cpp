@@ -61,7 +61,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	ResetMatrices();
 }
 
-void GPUCommon::BeginHostFrame() {
+void GPUCommon::BeginHostFrame(const DisplayLayoutConfig &config) {
 	ReapplyGfxState();
 
 	// TODO: Assume config may have changed - maybe move to resize.
@@ -70,9 +70,9 @@ void GPUCommon::BeginHostFrame() {
 	UpdateCmdInfo();
 
 	UpdateMSAALevel(draw_);
-	CheckConfigChanged();
+	CheckConfigChanged(config);
 	CheckDisplayResized();
-	CheckRenderResized();
+	CheckRenderResized(config);
 }
 
 void GPUCommon::EndHostFrame() {
@@ -159,7 +159,7 @@ void GPUCommon::NotifyConfigChanged() {
 	configChanged_ = true;
 }
 
-void GPUCommon::NotifyRenderResized() {
+void GPUCommon::NotifyRenderResized(const DisplayLayoutConfig &config) {
 	renderResized_ = true;
 }
 

@@ -6,6 +6,10 @@
 
 DisplayProperties g_display;
 
+DeviceOrientation DisplayProperties::GetDeviceOrientation() const {
+	return (dp_yres > dp_xres * 1.1f) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
+}
+
 template<class T>
 void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) {
 	switch (g_display.rotation) {

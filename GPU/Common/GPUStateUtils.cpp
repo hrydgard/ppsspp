@@ -586,7 +586,7 @@ DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 	}
 }
 
-void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
+void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	out.throughMode = gstate.isModeThrough();
 
 	float renderWidthFactor, renderHeightFactor;
@@ -600,9 +600,9 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		FRect frame = GetScreenFrame(pixelW, pixelH);
+		FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, pixelW, pixelH);
 		FRect rc;
-		CalculateDisplayOutputRect(&rc, 480, 272, frame, ROTATION_LOCKED_HORIZONTAL);
+		CalculateDisplayOutputRect(config, &rc, 480, 272, frame, ROTATION_LOCKED_HORIZONTAL);
 		displayOffsetX = rc.x;
 		displayOffsetY = rc.y;
 		renderWidth = rc.w;
