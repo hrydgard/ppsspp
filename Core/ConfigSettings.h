@@ -207,10 +207,3 @@ private:
 	std::string (*translateTo_)(int) = nullptr;
 	int (*translateFrom_)(const std::string &) = nullptr;
 };
-
-struct ConfigSectionSettings {
-	char *owner;
-	const char *section;
-	const ConfigSetting *settings;
-	size_t settingsCount;
-};

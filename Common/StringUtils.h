@@ -136,6 +136,14 @@ inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
 }
 
+inline std::string join(std::string_view a, std::string_view b) {
+	std::string result;
+	result.reserve(a.size() + b.size());
+	result.append(a);
+	result.append(b);
+	return result;
+}
+
 inline const char *safe_string(const char *s) {
 	return s ? s : "(null)";
 }
