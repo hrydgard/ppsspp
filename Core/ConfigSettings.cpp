@@ -70,7 +70,13 @@ bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) cons
 	{
 		std::string *target = (std::string *)(owner + offset_);
 		if (!section->Get(iniKey_, target)) {
-			*target = cb_.s ? cb_.s().c_str() : default_.s;
+			if (cb_.s) {
+				*target = cb_.s();
+			} else if (default_.s) {
+				*target = default_.s;
+			} else {
+				target->clear();
+			}
 			return false;
 		}
 		return true;
@@ -79,11 +85,14 @@ bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) cons
 	{
 		// No support for callbacks for these yet. that's not an issue.
 		std::vector<std::string> *ptr = (std::vector<std::string> *)(owner + offset_);
-		bool success = section->Get(iniKey_, ptr, default_.v);
-		if (success) {
-			MakeUnique(*ptr);
+		if (!section->Get(iniKey_, ptr)) {
+			if (default_.v) {
+				CopyStrings(ptr, *default_.v);
+			}
+			return false;
 		}
-		return success;
+		MakeUnique(*ptr);
+		return true;
 	}
 	case Type::TYPE_TOUCH_POS:
 	{
@@ -341,7 +350,7 @@ void ConfigSetting::ReportSetting(const char *owner, UrlEncoder &data, const std
 	if (!Report())
 		return;
 
-	const std::string key = prefix + std::string(iniKey_);
+	const std::string key = join(prefix, std::string(iniKey_));
 
 	switch (type_) {
 	case Type::TYPE_BOOL:   return data.Add(key, (const bool *)(owner + offset_));

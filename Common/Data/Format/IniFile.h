@@ -93,7 +93,7 @@ public:
 	bool Get(std::string_view key, bool* value) const;
 	bool Get(std::string_view key, float* value) const;
 	bool Get(std::string_view key, double* value) const;
-	bool Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValue = nullptr) const;
+	bool Get(std::string_view key, std::vector<std::string> *values) const;
 
 	// Return a list of all keys in this section
 	bool GetKeys(std::vector<std::string> &keys) const;

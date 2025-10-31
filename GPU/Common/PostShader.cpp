@@ -103,7 +103,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 				section.Get("Type", &shaderType);
 
 				std::vector<std::string> vendorBlacklist;
-				section.Get("VendorBlacklist", &vendorBlacklist, nullptr);
+				section.Get("VendorBlacklist", &vendorBlacklist);
 				bool skipped = false;
 				for (auto &item : vendorBlacklist) {
 					Draw::GPUVendor blacklistedVendor = Draw::GPUVendor::VENDOR_UNKNOWN;

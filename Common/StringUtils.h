@@ -70,6 +70,8 @@ inline bool equals(std::string_view str, std::string_view key) {
 inline bool equalsNoCase(std::string_view str, std::string_view key) {
 	if (str.size() != key.size())
 		return false;
+	if (str.empty())
+		return true;  // due to the check above, the other one is also empty.
 	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 
@@ -132,6 +134,14 @@ size_t truncate_cpy(char *dest, size_t destSize, std::string_view src);
 template<size_t Count>
 inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
+}
+
+inline std::string join(std::string_view a, std::string_view b) {
+	std::string result;
+	result.reserve(a.size() + b.size());
+	result.append(a);
+	result.append(b);
+	return result;
 }
 
 inline const char *safe_string(const char *s) {

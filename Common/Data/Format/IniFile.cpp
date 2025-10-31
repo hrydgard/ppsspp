@@ -308,13 +308,10 @@ void Section::Set(std::string_view key, const std::vector<std::string> &newValue
 	Set(key, temp.c_str());
 }
 
-bool Section::Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValues) const {
+bool Section::Get(std::string_view key, std::vector<std::string> *values) const {
 	std::string temp;
 	bool retval = Get(key, &temp);
 	if (!retval) {
-		if (defaultValues) {
-			CopyStrings(values, *defaultValues);
-		}
 		return false;
 	}
 	SplitString(temp, ',', *values, true);
