@@ -45,7 +45,6 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/OSD.h"
@@ -69,9 +68,9 @@ Config g_Config;
 static bool jitForcedOff;
 
 #ifdef _DEBUG
-static const char * const logSectionName = "LogDebug";
+static const std::string_view logSectionName = "LogDebug";
 #else
-static const char * const logSectionName = "Log";
+static const std::string_view logSectionName = "Log";
 #endif
 
 bool TryUpdateSavedPath(Path *path);
@@ -1063,40 +1062,49 @@ static const ConfigSetting vrSettings[] = {
 };
 
 // The first column says what structure the parameters are relative to.
-static const ConfigSectionSettings sectionDescs[] = {
-	{(char *)&g_Config, "General", generalSettings, ARRAY_SIZE(generalSettings)},
-	{(char *)&g_Config, "CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
-	{(char *)&g_Config, "Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
-	{(char *)&g_Config, "Sound", soundSettings, ARRAY_SIZE(soundSettings)},
-	{(char *)&g_Config, "Control", controlSettings, ARRAY_SIZE(controlSettings)},
-	{(char *)&g_Config, "SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
-	{(char *)&g_Config, "Network", networkSettings, ARRAY_SIZE(networkSettings)},
-	{(char *)&g_Config, "Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
-	{(char *)&g_Config, "JIT", jitSettings, ARRAY_SIZE(jitSettings)},
-	{(char *)&g_Config, "Theme", themeSettings, ARRAY_SIZE(themeSettings)},
-	{(char *)&g_Config, "VR", vrSettings, ARRAY_SIZE(vrSettings)},
-	{(char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
-	{(char *)&g_Config.displayLayoutLandscape, "Graphics", displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings)},  // We re-use the old settings.
-	{(char *)&g_Config.displayLayoutPortrait, "DisplayLayout.Portrait", displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings)},
+static const ConfigSectionMeta sectionMeta[] = {
+	{ (char *)&g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
+	{ (char *)&g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
+	{ (char *)&g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
+	{ (char *)&g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
+	{ (char *)&g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
+	{ (char *)&g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
+	{ (char *)&g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
+	{ (char *)&g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
+	{ (char *)&g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
+	{ (char *)&g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
+	{ (char *)&g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
+	{ (char *)&g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
+	{ (char *)&g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics].
+	{ (char *)&g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},
 };
 
-const size_t numSections = ARRAY_SIZE(sectionDescs);
+const size_t numSections = ARRAY_SIZE(sectionMeta);
 
-static void IterateSettingsIni(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func) {
+static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func, bool tryFallback) {
 	for (size_t i = 0; i < numSections; ++i) {
-		Section *section = iniFile.GetOrCreateSection(sectionDescs[i].section);
-		char *owner = sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(owner, section, sectionDescs[i].settings[j]);
+		Section *section = iniFile.GetSection(sectionMeta[i].section);
+		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
+		if (!section && tryFallback) {
+			section = iniFile.GetSection(sectionMeta[i].fallbackSection);
+		}
+		// Still not found? Create the original section.
+		if (!section) {
+			section = iniFile.GetOrCreateSection(sectionMeta[i].section);
+		}
+		// Now section is guaranteed to be valid.
+		char *owner = sectionMeta[i].owner;
+		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
+			func(owner, section, sectionMeta[i].settings[j]);
 		}
 	}
 }
 
-static void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
+static inline void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
-		char *owner = sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(owner, sectionDescs[i].settings[j]);
+		char *owner = sectionMeta[i].owner;
+		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
+			func(owner, sectionMeta[i].settings[j]);
 		}
 	}
 }
@@ -1150,7 +1158,7 @@ bool Config::LoadAppendedConfig() {
 		if (section->Exists(setting.iniKey_)) {
 			setting.ReadFromIniSection(owner, section);
 		}
-	});
+	}, true);
 
 	INFO_LOG(Log::Loader, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
 
@@ -1191,7 +1199,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 		setting.ReadFromIniSection(owner, section);
-	});
+	}, true);
 
 	iRunCount++;
 
@@ -1319,7 +1327,7 @@ bool Config::Save(const char *saveReason) {
 			if (!gameSpecific_ || !setting.PerGame()) {
 				setting.WriteToIniSection(owner, section);
 			}
-		});
+		}, false);
 
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
@@ -1617,7 +1625,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 		if (setting.PerGame()) {
 			setting.WriteToIniSection(owner, section);
 		}
-	});
+	}, false);
 
 	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 	postShaderSetting->Clear();
@@ -1679,7 +1687,7 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 		if (setting.PerGame()) {
 			setting.ReadFromIniSection(owner, section);
 		}
-	});
+	}, true);
 
 	KeyMap::LoadFromIni(iniFile);
 
@@ -1707,7 +1715,7 @@ void Config::UnloadGameConfig() {
 	iniFile.Load(iniFilename_);
 	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 		setting.ReadFromIniSection(owner, section);
-	});
+	}, true);
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
@@ -1763,10 +1771,10 @@ void Config::ResetControlLayout() {
 
 void Config::GetReportingInfo(UrlEncoder &data) const {
 	for (size_t i = 0; i < numSections; ++i) {
-		const std::string prefix = std::string("config.") + sectionDescs[i].section;
-		const char *owner = (const char *)sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			sectionDescs[i].settings[j].ReportSetting(owner, data, prefix);
+		const std::string prefix = join("config.", sectionMeta[i].section);
+		const char *owner = (const char *)sectionMeta[i].owner;
+		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
+			sectionMeta[i].settings[j].ReportSetting(owner, data, prefix);
 		}
 	}
 }

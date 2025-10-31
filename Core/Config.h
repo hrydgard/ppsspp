@@ -63,6 +63,14 @@ private:
 
 struct ConfigSetting;
 
+struct ConfigSectionMeta {
+	char *owner;
+	const ConfigSetting *settings;
+	size_t settingsCount;
+	std::string_view section;
+	std::string_view fallbackSection;  // used if section is not found (useful when moving settings into a struct from Config).
+};
+
 struct DisplayLayoutConfig {
 	int iDisplayFilter;    // 1 = linear, 2 = nearest
 	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
