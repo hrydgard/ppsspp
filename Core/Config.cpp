@@ -1075,8 +1075,8 @@ static const ConfigSectionMeta sectionMeta[] = {
 	{ (char *)&g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
 	{ (char *)&g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
 	{ (char *)&g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
-	{ (char *)&g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics].
-	{ (char *)&g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},
+	{ (char *)&g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
+	{ (char *)&g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 };
 
 const size_t numSections = ARRAY_SIZE(sectionMeta);
