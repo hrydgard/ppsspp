@@ -155,7 +155,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 
 		// Allow overriding settings per game id.
 		std::string overrideFilename;
-		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename, "")) {
+		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename)) {
 			if (overrideFilename == "true") {
 				// Ignore it
 			} else if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
@@ -287,7 +287,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
-	if (!options->Get("hash", &hash, "")) {
+	if (!options->Get("hash", &hash)) {
 		*error = "textures.ini: Hash type not specified";
 		return false;
 	}
@@ -302,12 +302,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		return false;
 	}
 
-	options->Get("video", &allowVideo_, allowVideo_);
-	options->Get("ignoreAddress", &ignoreAddress_, ignoreAddress_);
+	options->Get("video", &allowVideo_);
+	options->Get("ignoreAddress", &ignoreAddress_);
 	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
-	options->Get("reduceHash", &reduceHash_, reduceHash_);
-	options->Get("ignoreMipmap", &ignoreMipmap_, ignoreMipmap_);
-	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_, skipLastDXT1Blocks128x64_);
+	options->Get("reduceHash", &reduceHash_);
+	options->Get("ignoreMipmap", &ignoreMipmap_);
+	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
 	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -319,7 +319,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 
 	int version = 0;
-	if (options->Get("version", &version, 0) && version > VERSION) {
+	if (options->Get("version", &version) && version > VERSION) {
 		ERROR_LOG(Log::TexReplacement, "Unsupported texture replacement version %d, trying anyway", version);
 	}
 

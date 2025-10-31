@@ -47,25 +47,29 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	auto options = ini.GetOrCreateSection("options");
 	std::string value;
 
-	if (options->Get("type", &value, "")) {
+	if (options->Get("type", &value)) {
 		if (value == "prx") {
 			info.type = PluginType::PRX;
 		}
 	}
 
-	if (options->Get("filename", &value, "")) {
+	value.clear();
+	if (options->Get("filename", &value)) {
 		info.name = value;
 		info.filename = "ms0:/PSP/PLUGINS/" + subdir + "/" + value;
 	} else {
 		info.type = PluginType::INVALID;
 	}
 
-	if (options->Get("name", &value, "")) {
+	value.clear();
+	if (options->Get("name", &value)) {
 		info.name = value;
 	}
 
-	options->Get("version", &info.version, 0);
-	options->Get("memory", &info.memory, 0);
+	info.version = 0;
+	info.memory = 0;
+	options->Get("version", &info.version);
+	options->Get("memory", &info.memory);
 	if (info.memory > 93) {
 		ERROR_LOG(Log::System, "Plugin memory too high, using 93 MB");
 		info.memory = 93;
@@ -105,7 +109,8 @@ std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string
 		// TODO: Should just use getsection and fail the ini if not found, I guess.
 		const Section *games = ini.GetSection("games");
 		if (games) {
-			if (games->Get(gameID.c_str(), &gameIni, "")) {
+			gameIni.clear();
+			if (games->Get(gameID.c_str(), &gameIni)) {
 				if (!strcasecmp(gameIni.c_str(), "true")) {
 					matches.insert("plugin.ini");
 				} else if (!strcasecmp(gameIni.c_str(), "false")) {
@@ -114,8 +119,8 @@ std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string
 					matches.insert(gameIni);
 				}
 			}
-
-			if (games->Get("ALL", &gameIni, "")) {
+			gameIni.clear();
+			if (games->Get("ALL", &gameIni)) {
 				if (!strcasecmp(gameIni.c_str(), "true")) {
 					matches.insert("plugin.ini");
 				} else if (!gameIni.empty()) {
@@ -132,8 +137,8 @@ std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string
 			}
 
 			found.push_back(ReadPluginIni(subdir.name, ini));
-
-			if (ini.GetOrCreateSection("lang")->Get(lang.c_str(), &gameIni, "")) {
+			gameIni.clear();
+			if (ini.GetOrCreateSection("lang")->Get(lang.c_str(), &gameIni)) {
 				if (!gameIni.empty() && matches.find(gameIni) == matches.end()) {
 					langMatches.insert(gameIni);
 				}

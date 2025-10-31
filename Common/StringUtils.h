@@ -70,6 +70,8 @@ inline bool equals(std::string_view str, std::string_view key) {
 inline bool equalsNoCase(std::string_view str, std::string_view key) {
 	if (str.size() != key.size())
 		return false;
+	if (str.empty())
+		return true;  // due to the check above, the other one is also empty.
 	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 
@@ -134,6 +136,14 @@ inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
 }
 
+inline std::string join(std::string_view a, std::string_view b) {
+	std::string result;
+	result.reserve(a.size() + b.size());
+	result.append(a);
+	result.append(b);
+	return result;
+}
+
 inline const char *safe_string(const char *s) {
 	return s ? s : "(null)";
 }
@@ -150,6 +160,14 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 	va_start(args, format);
 	CharArrayFromFormatV(out, Count, format, args);
 	va_end(args);
+}
+
+inline void CopyStrings(std::vector<std::string> *output, const std::vector<std::string_view> &input) {
+	output->clear();
+	output->reserve(input.size());
+	for (auto str : input) {
+		output->emplace_back(str);
+	}
 }
 
 void MakeUnique(std::vector<std::string> &vec);

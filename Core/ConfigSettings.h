@@ -38,7 +38,7 @@ struct ConfigSetting {
 		float f;
 		const char *s;
 		const char *p;  // not sure how much point..
-		const std::vector<std::string> *v;
+		const std::vector<std::string_view> *v;
 		ConfigTouchPos touchPos;
 		ConfigCustomButton customButton;
 	};
@@ -62,7 +62,7 @@ struct ConfigSetting {
 	typedef float (*FloatDefaultCallback)();
 	typedef std::string (*StringDefaultCallback)();
 	typedef ConfigTouchPos (*TouchPosDefaultCallback)();
-	typedef const char *(*PathDefaultCallback)();
+	typedef Path (*PathDefaultCallback)();
 	typedef ConfigCustomButton (*CustomButtonDefaultCallback)();
 
 	union DefaultCallback {
@@ -119,7 +119,7 @@ struct ConfigSetting {
 		default_.s = def;
 	}
 
-	ConfigSetting(std::string_view ini, const char *owner, std::vector<std::string> *v, const std::vector<std::string> *def, CfgFlag flags) noexcept
+	ConfigSetting(std::string_view ini, const char *owner, std::vector<std::string> *v, const std::vector<std::string_view> *def, CfgFlag flags) noexcept
 		: iniKey_(ini), type_(Type::TYPE_STRING_VECTOR), flags_(flags), offset_((const char *)v - owner) {
 		default_.v = def;
 	}

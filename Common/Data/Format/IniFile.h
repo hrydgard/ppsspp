@@ -65,13 +65,8 @@ public:
 	ParsedIniLine *GetLine(std::string_view key);
 	const ParsedIniLine *GetLine(std::string_view key) const;
 
-	void Set(std::string_view key, const char* newValue);
-	void Set(std::string_view key, const std::string& newValue, const std::string& defaultValue);
-
-	void Set(std::string_view key, const std::string &value) {
-		Set(key, value.c_str());
-	}
-	bool Get(std::string_view key, std::string* value, const char* defaultValue) const;
+	void Set(std::string_view key, std::string_view newValue);
+	void Set(std::string_view key, std::string_view newValue, std::string_view defaultValue);
 
 	void Set(std::string_view key, uint32_t newValue);
 	void Set(std::string_view key, uint64_t newValue);
@@ -83,26 +78,22 @@ public:
 	void Set(std::string_view key, int newValue);
 
 	void Set(std::string_view key, bool newValue, bool defaultValue);
+	void Set(std::string_view key, const char *newValue) { Set(key, std::string_view{newValue}); }
 	void Set(std::string_view key, bool newValue) {
-		Set(key, newValue ? "True" : "False");
+		Set(key, std::string_view(newValue ? "True" : "False"));
 	}
 	void Set(std::string_view key, const std::vector<std::string>& newValues);
 
-	// Declare without a body to make it fail to compile. This is to prevent accidentally
-	// setting a pointer as a bool. The failure is in the linker unfortunately, but that's better
-	// than accidentally succeeding in a bad way.
-	template<class T>
-	void Set(std::string_view key, T *ptr);
+	void AddComment(std::string_view comment);
 
-	void AddComment(const std::string &comment);
-
-	bool Get(std::string_view key, int* value, int defaultValue = 0) const;
-	bool Get(std::string_view key, uint32_t* value, uint32_t defaultValue = 0) const;
-	bool Get(std::string_view key, uint64_t* value, uint64_t defaultValue = 0) const;
-	bool Get(std::string_view key, bool* value, bool defaultValue = false) const;
-	bool Get(std::string_view key, float* value, float defaultValue = false) const;
-	bool Get(std::string_view key, double* value, double defaultValue = false) const;
-	bool Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValue = nullptr) const;
+	bool Get(std::string_view key, std::string *value) const;
+	bool Get(std::string_view key, int* value) const;
+	bool Get(std::string_view key, uint32_t* value) const;
+	bool Get(std::string_view key, uint64_t* value) const;
+	bool Get(std::string_view key, bool* value) const;
+	bool Get(std::string_view key, float* value) const;
+	bool Get(std::string_view key, double* value) const;
+	bool Get(std::string_view key, std::vector<std::string> *values) const;
 
 	// Return a list of all keys in this section
 	bool GetKeys(std::vector<std::string> &keys) const;
@@ -138,12 +129,12 @@ public:
 	bool Exists(std::string_view sectionName, std::string_view key) const;
 
 	// These will not create the section if it doesn't exist.
-	bool Get(std::string_view sectionName, std::string_view key, std::string* value, const char* defaultValue = "");
-	bool Get(std::string_view sectionName, std::string_view key, int* value, int defaultValue = 0);
-	bool Get(std::string_view sectionName, std::string_view key, uint32_t* value, uint32_t defaultValue = 0);
-	bool Get(std::string_view sectionName, std::string_view key, uint64_t* value, uint64_t defaultValue = 0);
-	bool Get(std::string_view sectionName, std::string_view key, bool* value, bool defaultValue = false);
-	bool Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues = nullptr);
+	bool Get(std::string_view sectionName, std::string_view key, std::string *value) const;
+	bool Get(std::string_view sectionName, std::string_view key, int* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, uint32_t* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, uint64_t* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, bool* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values) const;
 
 	bool GetKeys(std::string_view sectionName, std::vector<std::string>& keys) const;
 

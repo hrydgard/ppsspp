@@ -15,45 +15,101 @@ bool ConfigSetting::perGame(void *ptr) {
 bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) const {
 	switch (type_) {
 	case Type::TYPE_BOOL:
-		return section->Get(iniKey_, (bool *)(owner + offset_), cb_.b ? cb_.b() : default_.b);
-
+	{
+		bool *target = (bool *)(owner + offset_);
+		if (!section->Get(iniKey_, target)) {
+			*target = cb_.b ? cb_.b() : default_.b;
+			return false;
+		}
+		return true;
+	}
 	case Type::TYPE_INT:
+	{
+		int *target = (int *)(owner + offset_);
 		if (translateFrom_) {
 			std::string value;
-			if (section->Get(iniKey_, &value, nullptr)) {
+			if (section->Get(iniKey_, &value)) {
 				*((int *)(owner + offset_)) = translateFrom_(value);
 				return true;
 			}
 		}
-		return section->Get(iniKey_, (int *)(owner + offset_), cb_.i ? cb_.i() : default_.i);
+		if (!section->Get(iniKey_, target)) {
+			*target = cb_.i ? cb_.i() : default_.i;
+			return false;
+		}
+		return true;
+	}
 	case Type::TYPE_UINT32:
-		return section->Get(iniKey_, (uint32_t *)(owner + offset_), cb_.u ? cb_.u() : default_.u);
+	{
+		uint32_t *target = (uint32_t *)(owner + offset_);
+		if (!section->Get(iniKey_, target)) {
+			*target = cb_.u ? cb_.u() : default_.u;
+			return false;
+		}
+		return true;
+	}
 	case Type::TYPE_UINT64:
-		return section->Get(iniKey_, (uint64_t *)(owner + offset_), cb_.lu ? cb_.lu() : default_.lu);
+	{
+		uint64_t *target = (uint64_t *)(owner + offset_);
+		if (!section->Get(iniKey_, target)) {
+			*target = cb_.lu ? cb_.lu() : default_.lu;
+			return false;
+		}
+		return true;
+	}
 	case Type::TYPE_FLOAT:
-		return section->Get(iniKey_, (float *)(owner + offset_), cb_.f ? cb_.f() : default_.f);
+	{
+		float *target = (float *)(owner + offset_);
+		if (!section->Get(iniKey_, target)) {
+			*target = cb_.f ? cb_.f() : default_.f;
+			return false;
+		}
+		return true;
+	}
 	case Type::TYPE_STRING:
-		return section->Get(iniKey_, (std::string *)(owner + offset_), cb_.s ? cb_.s().c_str() : default_.s);
+	{
+		std::string *target = (std::string *)(owner + offset_);
+		if (!section->Get(iniKey_, target)) {
+			if (cb_.s) {
+				*target = cb_.s();
+			} else if (default_.s) {
+				*target = default_.s;
+			} else {
+				target->clear();
+			}
+			return false;
+		}
+		return true;
+	}
 	case Type::TYPE_STRING_VECTOR:
 	{
 		// No support for callbacks for these yet. that's not an issue.
 		std::vector<std::string> *ptr = (std::vector<std::string> *)(owner + offset_);
-		bool success = section->Get(iniKey_, ptr, default_.v);
-		if (success) {
-			MakeUnique(*ptr);
+		if (!section->Get(iniKey_, ptr)) {
+			if (default_.v) {
+				CopyStrings(ptr, *default_.v);
+			}
+			return false;
 		}
-		return success;
+		MakeUnique(*ptr);
+		return true;
 	}
 	case Type::TYPE_TOUCH_POS:
 	{
 		ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
 
 		ConfigTouchPos *touchPos = ((ConfigTouchPos *)(owner + offset_));
-		section->Get(iniKey_, &touchPos->x, defaultTouchPos.x);
-		section->Get(ini2_, &touchPos->y, defaultTouchPos.y);
-		section->Get(ini3_, &touchPos->scale, defaultTouchPos.scale);
-		if (ini4_) {
-			section->Get(ini4_, &touchPos->show, defaultTouchPos.show);
+		if (!section->Get(iniKey_, &touchPos->x)) {
+			touchPos->x = defaultTouchPos.x;
+		}
+		if (!section->Get(ini2_, &touchPos->y)) {
+			touchPos->y = defaultTouchPos.y;
+		}
+		if (!section->Get(ini3_, &touchPos->scale)) {
+			touchPos->scale = defaultTouchPos.scale;
+		}
+		if (ini4_ && section->Get(ini4_, &touchPos->show)) {
+			// do nothing, succeeded.
 		} else {
 			touchPos->show = defaultTouchPos.show;
 		}
@@ -61,24 +117,39 @@ bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) cons
 	}
 	case Type::TYPE_PATH:
 	{
+		Path *target = (Path *)(owner + offset_);
 		std::string tmp;
-		bool result = section->Get(iniKey_, &tmp, cb_.p ? cb_.p() : default_.p);
-		if (result) {
-			Path *path = (Path *)(owner + offset_);
-			*path = Path(tmp);
+		if (!section->Get(iniKey_, &tmp)) {
+			if (cb_.p) {
+				*target = cb_.p();
+			} else {
+				*target = Path(default_.p);
+			}
+			return false;
 		}
-		return result;
+		*target = Path(tmp);
+		return true;
 	}
 	case Type::TYPE_CUSTOM_BUTTON:
 	{
 		ConfigCustomButton defaultCustomButton = cb_.customButton ? cb_.customButton() : default_.customButton;
 
 		ConfigCustomButton *customButton = ((ConfigCustomButton *)(owner + offset_));
-		section->Get(iniKey_, &customButton->key, defaultCustomButton.key);
-		section->Get(ini2_, &customButton->image, defaultCustomButton.image);
-		section->Get(ini3_, &customButton->shape, defaultCustomButton.shape);
-		section->Get(ini4_, &customButton->toggle, defaultCustomButton.toggle);
-		section->Get(ini5_, &customButton->repeat, defaultCustomButton.repeat);
+		if (!section->Get(iniKey_, &customButton->key)) {
+			customButton->key = defaultCustomButton.key;
+		}
+		if (!section->Get(ini2_, &customButton->image)) {
+			customButton->image = defaultCustomButton.image;
+		}
+		if (!section->Get(ini3_, &customButton->shape)) {
+			customButton->shape = defaultCustomButton.shape;
+		}
+		if (!section->Get(ini4_, &customButton->toggle)) {
+			customButton->toggle = defaultCustomButton.toggle;
+		}
+		if (!section->Get(ini5_, &customButton->repeat)) {
+			customButton->repeat = defaultCustomButton.repeat;
+		}
 		return true;
 	}
 	default:
@@ -221,7 +292,13 @@ bool ConfigSetting::RestoreToDefault(const char *owner, bool log) const {
 	{
 		std::string *ptr_s = (std::string *)(owner + offset_);
 		const std::string origValue = *ptr_s;
-		*ptr_s = cb_.s ? cb_.s() : default_.s;
+		if (cb_.s) {
+			*ptr_s = cb_.s();
+		} else if (default_.s != nullptr) {
+			*ptr_s = default_.s;
+		} else {
+			*ptr_s = "";
+		}
 		if (*ptr_s != origValue) {
 			if (log) {
 				INFO_LOG(Log::System, "Restored %.*s from \"%s\" to default \"%s\"", STR_VIEW(iniKey_),
@@ -234,7 +311,7 @@ bool ConfigSetting::RestoreToDefault(const char *owner, bool log) const {
 	case Type::TYPE_STRING_VECTOR:
 	{
 		std::vector<std::string> *ptr_vec = (std::vector<std::string> *)(owner + offset_);
-		*ptr_vec = *default_.v;
+		CopyStrings(ptr_vec, *default_.v);
 		break;
 	}
 	case Type::TYPE_TOUCH_POS:
@@ -246,7 +323,14 @@ bool ConfigSetting::RestoreToDefault(const char *owner, bool log) const {
 	case Type::TYPE_PATH:
 	{
 		Path *ptr_path = (Path *)(owner + offset_);
-		*ptr_path = Path(cb_.p ? cb_.p() : default_.p);
+		if (cb_.p) {
+			*ptr_path = cb_.p();
+			break;
+		} else if (default_.p) {
+			*ptr_path = Path(default_.p);
+		} else {
+			ptr_path->clear();
+		}
 		break;
 	}
 	case Type::TYPE_CUSTOM_BUTTON:
@@ -266,7 +350,7 @@ void ConfigSetting::ReportSetting(const char *owner, UrlEncoder &data, const std
 	if (!Report())
 		return;
 
-	const std::string key = prefix + std::string(iniKey_);
+	const std::string key = join(prefix, std::string(iniKey_));
 
 	switch (type_) {
 	case Type::TYPE_BOOL:   return data.Add(key, (const bool *)(owner + offset_));
