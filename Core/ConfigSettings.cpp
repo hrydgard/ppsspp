@@ -234,7 +234,7 @@ bool ConfigSetting::RestoreToDefault(const char *owner, bool log) const {
 	case Type::TYPE_STRING_VECTOR:
 	{
 		std::vector<std::string> *ptr_vec = (std::vector<std::string> *)(owner + offset_);
-		*ptr_vec = *default_.v;
+		CopyStrings(ptr_vec, *default_.v);
 		break;
 	}
 	case Type::TYPE_TOUCH_POS:

@@ -217,35 +217,35 @@ const ParsedIniLine *Section::GetLine(std::string_view key) const {
 void Section::Set(std::string_view key, uint32_t newValue) {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "0x%08x", newValue);
-	Set(key, (const char *)temp);
+	Set(key, std::string_view(temp));
 }
 
 void Section::Set(std::string_view key, uint64_t newValue) {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "0x%016" PRIx64, newValue);
-	Set(key, (const char *)temp);
+	Set(key, std::string_view(temp));
 }
 
 void Section::Set(std::string_view key, float newValue) {
 	_dbg_assert_(!my_isnanorinf(newValue));
-	char temp[128];
+	char temp[64];
 	snprintf(temp, sizeof(temp), "%f", newValue);
-	Set(key, (const char *)temp);
+	Set(key, std::string_view(temp));
 }
 
 void Section::Set(std::string_view key, double newValue) {
-	char temp[128];
+	char temp[64];
 	snprintf(temp, sizeof(temp), "%f", newValue);
-	Set(key, (const char *)temp);
+	Set(key, std::string_view(temp));
 }
 
 void Section::Set(std::string_view key, int newValue) {
-	char temp[128];
+	char temp[32];
 	snprintf(temp, sizeof(temp), "%d", newValue);
-	Set(key, (const char *)temp);
+	Set(key, std::string_view(temp));
 }
 
-void Section::Set(std::string_view key, const char* newValue) {
+void Section::Set(std::string_view key, std::string_view newValue) {
 	ParsedIniLine *line = GetLine(key);
 	if (line) {
 		line->SetValue(newValue);
@@ -255,8 +255,7 @@ void Section::Set(std::string_view key, const char* newValue) {
 	}
 }
 
-void Section::Set(std::string_view key, const std::string& newValue, const std::string& defaultValue)
-{
+void Section::Set(std::string_view key, std::string_view  newValue, std::string_view defaultValue) {
 	if (newValue != defaultValue)
 		Set(key, newValue);
 	else
@@ -313,12 +312,12 @@ void Section::Set(std::string_view key, const std::vector<std::string> &newValue
 	Set(key, temp.c_str());
 }
 
-bool Section::Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues) const {
+bool Section::Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValues) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (!retval || temp.empty()) {
 		if (defaultValues) {
-			*values = *defaultValues;
+			CopyStrings(values, *defaultValues);
 		}
 		return false;
 	}
@@ -389,8 +388,8 @@ bool Section::Exists(std::string_view key) const {
 	return false;
 }
 
-void Section::AddComment(const std::string &comment) {
-	lines_.emplace_back(ParsedIniLine::CommentOnly("# " + comment));
+void Section::AddComment(std::string_view comment) {
+	lines_.emplace_back(ParsedIniLine::CommentOnly("# " + std::string(comment)));
 }
 
 std::map<std::string, std::string> Section::ToMap() const {
@@ -593,7 +592,7 @@ bool IniFile::Get(std::string_view sectionName, std::string_view key, std::strin
 	return section->Get(key, value, defaultValue);
 }
 
-bool IniFile::Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values, const std::vector<std::string> *defaultValues) {
+bool IniFile::Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValues) {
 	Section *section = GetSection(sectionName);
 	if (!section)
 		return false;

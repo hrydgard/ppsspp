@@ -76,7 +76,7 @@ static const char * const logSectionName = "Log";
 
 bool TryUpdateSavedPath(Path *path);
 
-static const std::vector<std::string> defaultProAdhocServerList = {
+static const std::vector<std::string_view> defaultProAdhocServerList = {
 	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
 };
 

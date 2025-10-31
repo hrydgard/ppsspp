@@ -152,6 +152,14 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 	va_end(args);
 }
 
+inline void CopyStrings(std::vector<std::string> *output, const std::vector<std::string_view> &input) {
+	output->clear();
+	output->reserve(input.size());
+	for (auto str : input) {
+		output->emplace_back(str);
+	}
+}
+
 void MakeUnique(std::vector<std::string> &vec);
 
 size_t SplitSearch(std::string_view needle, std::string_view part1, std::string_view part2);
