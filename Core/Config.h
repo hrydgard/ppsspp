@@ -64,36 +64,57 @@ private:
 struct ConfigSetting;
 
 struct ConfigSectionMeta {
-	char *owner;
+	Resettable *owner;
 	const ConfigSetting *settings;
 	size_t settingsCount;
 	std::string_view section;
 	std::string_view fallbackSection;  // used if section is not found (useful when moving settings into a struct from Config).
 };
 
-struct DisplayLayoutConfig {
-	int iDisplayFilter;    // 1 = linear, 2 = nearest
-	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
-	float fDisplayOffsetX;
-	float fDisplayOffsetY;
-	float fDisplayScale;   // Relative to the most constraining axis (x or y).
-	bool bDisplayIntegerScale;  // Snaps scaling to integer scale factors in raw pixels.
-	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
-	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
-	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
-
-	bool bEnableCardboardVR; // Cardboard Master Switch
-	int iCardboardScreenSize; // Screen Size (in %)
-	int iCardboardXShift; // X-Shift of Screen (in %)
-	int iCardboardYShift; // Y-Shift of Screen (in %)
-
-	bool InternalRotationIsPortrait() const;
+struct Resettable {
+	virtual ~Resettable() {}
+	// Return false if you didn't reset, this will fall back to the standard defaulting mechanism
+	virtual bool ResetToDefault(const ConfigSectionMeta &meta) = 0;
 };
 
-struct Config {
+struct DisplayLayoutConfig : public Resettable {
+	int iDisplayFilter = 1;    // 1 = linear, 2 = nearest
+	bool bDisplayStretch = false;  // Automatically matches the aspect ratio of the window.
+	float fDisplayOffsetX = 0.5f;
+	float fDisplayOffsetY = 0.5f;
+	float fDisplayScale = 1.0f;   // Relative to the most constraining axis (x or y).
+	bool bDisplayIntegerScale = false;  // Snaps scaling to integer scale factors in raw pixels.
+	float fDisplayAspectRatio = 1.0f;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
+	int iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
+	bool bIgnoreScreenInsets = true;  // Android/iOS: Center screen disregarding insets if this is enabled.
+
+	bool bEnableCardboardVR = false; // Cardboard Master Switch
+	int iCardboardScreenSize = 50; // Screen Size (in %)
+	int iCardboardXShift = 0; // X-Shift of Screen (in %)
+	int iCardboardYShift = 0; // Y-Shift of Screen (in %)
+
+	bool InternalRotationIsPortrait() const;
+
+	bool ResetToDefault(const ConfigSectionMeta &meta) override {
+		// Here we can reset the settings according to meta.
+		static const DisplayLayoutConfig defaults;
+		*this = defaults;
+		if (meta.section == "DisplayLayout.Portrait") {
+			fDisplayOffsetY = 0.2f;
+		}
+		return false;
+	}
+};
+
+struct Config : public Resettable {
 public:
 	Config();
 	~Config();
+
+	bool ResetToDefault(const ConfigSectionMeta &meta) override {
+		// Do nothing: For all settings in the main config struct, we use the defaulting mechanism from ConfigSetting.
+		return false;
+	}
 
 	// Whether to save the config on close.
 	bool bSaveSettings;

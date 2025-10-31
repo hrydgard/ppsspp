@@ -1064,25 +1064,25 @@ static const ConfigSetting vrSettings[] = {
 
 // The first column says what structure the parameters are relative to.
 static const ConfigSectionMeta sectionMeta[] = {
-	{ (char *)&g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
-	{ (char *)&g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
-	{ (char *)&g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
-	{ (char *)&g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
-	{ (char *)&g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
-	{ (char *)&g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
-	{ (char *)&g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
-	{ (char *)&g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
-	{ (char *)&g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
-	{ (char *)&g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
-	{ (char *)&g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
-	{ (char *)&g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
-	{ (char *)&g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
-	{ (char *)&g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
+	{ &g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
+	{ &g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
+	{ &g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
+	{ &g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
+	{ &g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
+	{ &g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
+	{ &g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
+	{ &g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
+	{ &g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
+	{ &g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
+	{ &g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
+	{ &g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
+	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 };
 
 const size_t numSections = ARRAY_SIZE(sectionMeta);
 
-static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func, bool tryFallback) {
+static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(Resettable *owner, Section *section, const ConfigSetting &setting)> func, bool tryFallback) {
 	for (size_t i = 0; i < numSections; ++i) {
 		Section *section = iniFile.GetSection(sectionMeta[i].section);
 		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
@@ -1094,18 +1094,18 @@ static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(char 
 			section = iniFile.GetOrCreateSection(sectionMeta[i].section);
 		}
 		// Now section is guaranteed to be valid.
-		char *owner = sectionMeta[i].owner;
+		Resettable *owner = sectionMeta[i].owner;
 		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
 			func(owner, section, sectionMeta[i].settings[j]);
 		}
 	}
 }
 
-static inline void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
+static inline void IterateSettings(std::function<void(const ConfigSectionMeta &sectionDesc, char *owner, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
-		char *owner = sectionMeta[i].owner;
+		char *owner = (char *)sectionMeta[i].owner;
 		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
-			func(owner, sectionMeta[i].settings[j]);
+			func(sectionMeta[i], owner, sectionMeta[i].settings[j]);
 		}
 	}
 }
@@ -1118,7 +1118,7 @@ std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([this, &ref](const char *owner, const ConfigSetting &setting) {
+	IterateSettings([this, &ref](const ConfigSectionMeta &sectionDesc, const char *owner, const ConfigSetting &setting) {
 		const void *ptr = setting.GetVoidPtr(owner);
 		ref[ptr] = &setting;
 	});
@@ -1594,7 +1594,7 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			IterateSettings([log](char *owner, const ConfigSetting &setting) {
+			IterateSettings([log](const ConfigSectionMeta &sectionDesc, char *owner, const ConfigSetting &setting) {
 				setting.RestoreToDefault(owner, log);
 			});
 		}
