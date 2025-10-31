@@ -99,8 +99,8 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 			// Alright, let's loop through the sections and see if any is a shader.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
 				Section &section = *(ini.Sections()[i].get());
-				std::string shaderType;
-				section.Get("Type", &shaderType, "render");
+				std::string shaderType = "render";
+				section.Get("Type", &shaderType);
 
 				std::vector<std::string> vendorBlacklist;
 				section.Get("VendorBlacklist", &vendorBlacklist, nullptr);
@@ -144,19 +144,22 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					ShaderInfo info{};
 					std::string temp;
 					info.section = section.name();
-
-					section.Get("Name", &info.name, section.name().c_str());
-					section.Get("Parent", &info.parent, "");
-					section.Get("Visible", &info.visible, true);
-					section.Get("Fragment", &temp, "");
+					info.name = section.name();
+					info.visible = true;
+					section.Get("Name", &info.name);
+					section.Get("Parent", &info.parent);
+					section.Get("Visible", &info.visible);
+					temp.clear();
+					section.Get("Fragment", &temp);
 					info.fragmentShaderFile = path / temp;
-					section.Get("Vertex", &temp, "");
+					temp.clear();
+					section.Get("Vertex", &temp);
 					info.vertexShaderFile = path / temp;
-					section.Get("OutputResolution", &info.outputResolution, false);
-					section.Get("Upscaling", &info.isUpscalingFilter, false);
-					section.Get("SSAA", &info.SSAAFilterLevel, 0);
-					section.Get("60fps", &info.requires60fps, false);
-					section.Get("UsePreviousFrame", &info.usePreviousFrame, false);
+					section.Get("OutputResolution", &info.outputResolution);
+					section.Get("Upscaling", &info.isUpscalingFilter);
+					section.Get("SSAA", &info.SSAAFilterLevel);
+					section.Get("60fps", &info.requires60fps);
+					section.Get("UsePreviousFrame", &info.usePreviousFrame);
 
 					if (info.parent == "Off")
 						info.parent.clear();
@@ -169,17 +172,22 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
 						auto &setting = info.settings[i];
-						section.Get(StringFromFormat("SettingName%d", i + 1).c_str(), &setting.name, "");
-						section.Get(StringFromFormat("SettingDefaultValue%d", i + 1).c_str(), &setting.value, 0.0f);
-						section.Get(StringFromFormat("SettingMinValue%d", i + 1).c_str(), &setting.minValue, -1.0f);
-						section.Get(StringFromFormat("SettingMaxValue%d", i + 1).c_str(), &setting.maxValue, 1.0f);
-						section.Get(StringFromFormat("SettingStep%d", i + 1).c_str(), &setting.step, 0.01f);
+						setting.name.clear();
+						setting.value = 0.0;
+						setting.minValue = -1.0f;
+						setting.maxValue = 1.0f;
+						setting.step = 0.01f;
+						section.Get(StringFromFormat("SettingName%d", i + 1).c_str(), &setting.name);
+						section.Get(StringFromFormat("SettingDefaultValue%d", i + 1).c_str(), &setting.value);
+						section.Get(StringFromFormat("SettingMinValue%d", i + 1).c_str(), &setting.minValue);
+						section.Get(StringFromFormat("SettingMaxValue%d", i + 1).c_str(), &setting.maxValue);
+						section.Get(StringFromFormat("SettingStep%d", i + 1).c_str(), &setting.step);
 					}
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
-						bool requiresIntegerSupport;
-						section.Get("RequiresIntSupport", &requiresIntegerSupport, false);
+						bool requiresIntegerSupport = false;
+						section.Get("RequiresIntSupport", &requiresIntegerSupport);
 						if (requiresIntegerSupport)
 							continue;
 					}
@@ -194,12 +202,17 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					TextureShaderInfo info{};
 					std::string temp;
 					info.section = section.name();
-					section.Get("Name", &info.name, section.name().c_str());
-					section.Get("Compute", &temp, "");
-					section.Get("Scale", &info.scaleFactor, 0);
-					info.computeShaderFile = path / temp;
-					if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
-						appendTextureShader(info);
+					info.name = section.name();
+					info.scaleFactor = 0;
+					section.Get("Name", &info.name);
+					section.Get("Scale", &info.scaleFactor);
+					if (section.Get("Compute", &temp)) {
+						info.computeShaderFile = path / temp;
+						if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
+							appendTextureShader(info);
+						}
+					} else {
+						ERROR_LOG(Log::G3D, "Compute field missing for compute shader");
 					}
 				} else if (!section.name().empty()) {
 					WARN_LOG(Log::G3D, "Unrecognized shader type '%s' or invalid shader in section '%s'", shaderType.c_str(), section.name().c_str());

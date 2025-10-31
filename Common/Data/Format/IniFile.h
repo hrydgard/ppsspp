@@ -68,8 +68,6 @@ public:
 	void Set(std::string_view key, std::string_view newValue);
 	void Set(std::string_view key, std::string_view newValue, std::string_view defaultValue);
 
-	bool Get(std::string_view key, std::string *value, const char* defaultValue) const;
-
 	void Set(std::string_view key, uint32_t newValue);
 	void Set(std::string_view key, uint64_t newValue);
 	void Set(std::string_view key, float newValue);
@@ -88,12 +86,13 @@ public:
 
 	void AddComment(std::string_view comment);
 
-	bool Get(std::string_view key, int* value, int defaultValue = 0) const;
-	bool Get(std::string_view key, uint32_t* value, uint32_t defaultValue = 0) const;
-	bool Get(std::string_view key, uint64_t* value, uint64_t defaultValue = 0) const;
-	bool Get(std::string_view key, bool* value, bool defaultValue = false) const;
-	bool Get(std::string_view key, float* value, float defaultValue = false) const;
-	bool Get(std::string_view key, double* value, double defaultValue = false) const;
+	bool Get(std::string_view key, std::string *value) const;
+	bool Get(std::string_view key, int* value) const;
+	bool Get(std::string_view key, uint32_t* value) const;
+	bool Get(std::string_view key, uint64_t* value) const;
+	bool Get(std::string_view key, bool* value) const;
+	bool Get(std::string_view key, float* value) const;
+	bool Get(std::string_view key, double* value) const;
 	bool Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValue = nullptr) const;
 
 	// Return a list of all keys in this section
@@ -130,12 +129,12 @@ public:
 	bool Exists(std::string_view sectionName, std::string_view key) const;
 
 	// These will not create the section if it doesn't exist.
-	bool Get(std::string_view sectionName, std::string_view key, std::string* value, const char* defaultValue = "");
-	bool Get(std::string_view sectionName, std::string_view key, int* value, int defaultValue = 0);
-	bool Get(std::string_view sectionName, std::string_view key, uint32_t* value, uint32_t defaultValue = 0);
-	bool Get(std::string_view sectionName, std::string_view key, uint64_t* value, uint64_t defaultValue = 0);
-	bool Get(std::string_view sectionName, std::string_view key, bool* value, bool defaultValue = false);
-	bool Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValues = nullptr);
+	bool Get(std::string_view sectionName, std::string_view key, std::string *value) const;
+	bool Get(std::string_view sectionName, std::string_view key, int* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, uint32_t* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, uint64_t* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, bool* value) const;
+	bool Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values) const;
 
 	bool GetKeys(std::string_view sectionName, std::vector<std::string>& keys) const;
 

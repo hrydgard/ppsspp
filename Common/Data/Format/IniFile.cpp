@@ -262,16 +262,12 @@ void Section::Set(std::string_view key, std::string_view  newValue, std::string_
 		Delete(key);
 }
 
-bool Section::Get(std::string_view key, std::string* value, const char* defaultValue) const {
+bool Section::Get(std::string_view key, std::string *value) const {
 	const ParsedIniLine *line = GetLine(key);
 	if (!line) {
-		if (defaultValue) {
-			*value = defaultValue;
-		}
 		return false;
-	} else {
-		*value = line->Value();
 	}
+	*value = line->Value();
 	return true;
 }
 
@@ -314,69 +310,62 @@ void Section::Set(std::string_view key, const std::vector<std::string> &newValue
 
 bool Section::Get(std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValues) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
-	if (!retval || temp.empty()) {
+	bool retval = Get(key, &temp);
+	if (!retval) {
 		if (defaultValues) {
 			CopyStrings(values, *defaultValues);
 		}
 		return false;
 	}
-
 	SplitString(temp, ',', *values, true);
 	return true;
 }
 
-bool Section::Get(std::string_view key, int* value, int defaultValue) const {
+bool Section::Get(std::string_view key, int *value) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
+	bool retval = Get(key, &temp);
 	if (retval && TryParse(temp, value))
 		return true;
-	*value = defaultValue;
 	return false;
 }
 
-bool Section::Get(std::string_view key, uint32_t* value, uint32_t defaultValue) const {
+bool Section::Get(std::string_view key, uint32_t *value) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
+	bool retval = Get(key, &temp);
 	if (retval && TryParse(temp, value))
 		return true;
-	*value = defaultValue;
 	return false;
 }
 
-bool Section::Get(std::string_view key, uint64_t* value, uint64_t defaultValue) const {
+bool Section::Get(std::string_view key, uint64_t *value) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
+	bool retval = Get(key, &temp);
 	if (retval && TryParse(temp, value))
 		return true;
-	*value = defaultValue;
 	return false;
 }
 
-bool Section::Get(std::string_view key, bool* value, bool defaultValue) const {
+bool Section::Get(std::string_view key, bool *value) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
+	bool retval = Get(key, &temp);
 	if (retval && TryParse(temp, value))
 		return true;
-	*value = defaultValue;
 	return false;
 }
 
-bool Section::Get(std::string_view key, float* value, float defaultValue) const {
+bool Section::Get(std::string_view key, float *value) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
+	bool retval = Get(key, &temp);
 	if (retval && TryParse(temp, value))
 		return true;
-	*value = defaultValue;
 	return false;
 }
 
-bool Section::Get(std::string_view key, double* value, double defaultValue) const {
+bool Section::Get(std::string_view key, double* value) const {
 	std::string temp;
-	bool retval = Get(key, &temp, 0);
+	bool retval = Get(key, &temp);
 	if (retval && TryParse(temp, value))
 		return true;
-	*value = defaultValue;
 	return false;
 }
 
@@ -415,7 +404,7 @@ bool Section::Delete(std::string_view key) {
 
 // IniFile
 
-const Section* IniFile::GetSection(std::string_view sectionName) const {
+const Section *IniFile::GetSection(std::string_view sectionName) const {
 	for (const auto &iter : sections)
 		if (equalsNoCase(iter->name(), sectionName))
 			return iter.get();
@@ -581,60 +570,54 @@ bool IniFile::Save(const Path &filename)
 	return true;
 }
 
-bool IniFile::Get(std::string_view sectionName, std::string_view key, std::string* value, const char *defaultValue) {
-	Section* section = GetSection(sectionName);
+bool IniFile::Get(std::string_view sectionName, std::string_view key, std::string *value) const {
+	const Section *section = GetSection(sectionName);
 	if (!section) {
-		if (defaultValue) {
-			*value = defaultValue;
-		}
 		return false;
 	}
-	return section->Get(key, value, defaultValue);
+	return section->Get(key, value);
 }
 
-bool IniFile::Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values, const std::vector<std::string_view> *defaultValues) {
-	Section *section = GetSection(sectionName);
-	if (!section)
-		return false;
-	return section->Get(key, values, defaultValues);
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, int *value, int defaultValue) {
-	Section *section = GetSection(sectionName);
+bool IniFile::Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values) const {
+	const Section *section = GetSection(sectionName);
 	if (!section) {
-		*value = defaultValue;
+		return false;
+	}
+	return section->Get(key, values);
+}
+
+bool IniFile::Get(std::string_view sectionName, std::string_view key, int *value) const {
+	const Section *section = GetSection(sectionName);
+	if (!section) {
 		return false;
 	} else {
-		return section->Get(key, value, defaultValue);
+		return section->Get(key, value);
 	}
 }
 
-bool IniFile::Get(std::string_view sectionName, std::string_view key, uint32_t *value, uint32_t defaultValue) {
-	Section *section = GetSection(sectionName);
+bool IniFile::Get(std::string_view sectionName, std::string_view key, uint32_t *value) const {
+	const Section *section = GetSection(sectionName);
 	if (!section) {
-		*value = defaultValue;
 		return false;
 	} else {
-		return section->Get(key, value, defaultValue);
+		return section->Get(key, value);
 	}
 }
 
-bool IniFile::Get(std::string_view sectionName, std::string_view key, uint64_t *value, uint64_t defaultValue) {
-	Section *section = GetSection(sectionName);
+bool IniFile::Get(std::string_view sectionName, std::string_view key, uint64_t *value) const {
+	const Section *section = GetSection(sectionName);
 	if (!section) {
-		*value = defaultValue;
 		return false;
 	} else {
-		return section->Get(key, value, defaultValue);
+		return section->Get(key, value);
 	}
 }
 
-bool IniFile::Get(std::string_view sectionName, std::string_view key, bool *value, bool defaultValue) {
-	Section *section = GetSection(sectionName);
+bool IniFile::Get(std::string_view sectionName, std::string_view key, bool *value) const {
+	const Section *section = GetSection(sectionName);
 	if (!section) {
-		*value = defaultValue;
 		return false;
 	} else {
-		return section->Get(key, value, defaultValue);
+		return section->Get(key, value);
 	}
 }

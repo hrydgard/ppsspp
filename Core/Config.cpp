@@ -1100,7 +1100,7 @@ std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([this, &ref](const char *owner, const ConfigSetting &setting) {
+	IterateSettings([&ref](const char *owner, const ConfigSetting &setting) {
 		const void *ptr = setting.GetVoidPtr(owner);
 		ref[ptr] = &setting;
 	});
@@ -1137,9 +1137,11 @@ void Config::LoadLangValuesMapping() {
 
 	for (size_t i = 0; i < keys.size(); i++) {
 		std::string langName;
-		langRegionNames->Get(keys[i], &langName, "ERROR");
-		std::string langCode;
-		systemLanguage->Get(keys[i], &langCode, "ENGLISH");
+		if (!langRegionNames->Get(keys[i], &langName)) {
+			continue;
+		}
+		std::string langCode = "ENGLISH";;
+		systemLanguage->Get(keys[i], &langCode);
 		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		if (langCodeMapping.find(langCode) != langCodeMapping.end())
 			iLangCode = langCodeMapping[langCode];
@@ -1240,7 +1242,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	g_logManager.LoadConfig(log);
 
 	Section *recent = iniFile.GetOrCreateSection("Recent");
-	recent->Get("MaxRecent", &iMaxRecent, 60);
+	iMaxRecent = 60;
+	recent->Get("MaxRecent", &iMaxRecent);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	// -1 is okay, though. We'll just ignore recent stuff if it is.
@@ -1309,8 +1312,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Check for an old dpad setting (very obsolete)
 	Section *control = iniFile.GetSection("Control");
 	if (control) {
-		float f;
-		control->Get("DPadRadius", &f, 0.0f);
+		float f = 0.0f;
+		control->Get("DPadRadius", &f);
 		if (f > 0.0f) {
 			ResetControlLayout();
 		}

@@ -2797,7 +2797,9 @@ public:
 		if (save_) {
 			section_->Set(key, *value);
 		} else {
-			section_->Get(key, value, defaultValue);
+			if (!section_->Get(key, value)) {
+				*value = defaultValue;
+			}
 		}
 	}
 private:
