@@ -266,7 +266,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: linux-${{ steps.version.outputs.tag }}-${{ matrix.id }} AppImage
           path: artifacts/
