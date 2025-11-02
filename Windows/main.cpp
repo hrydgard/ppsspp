@@ -570,7 +570,7 @@ static std::wstring FinalizeFilter(std::wstring filter) {
 static std::wstring MakeWindowsFilter(BrowseFileType type) {
 	switch (type) {
 	case BrowseFileType::BOOTABLE:
-		return FinalizeFilter(L"All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.chd *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
+		return FinalizeFilter(L"All supported file types (*.iso *.cso *.zso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.zso;*.chd;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.zso *.chd *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.zso;*.chd;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
 	case BrowseFileType::INI:
 		return FinalizeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
 	case BrowseFileType::ZIP:

@@ -34,6 +34,17 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+LZ4_FILES := \
+	$(SRC)/ext/lz4/lz4.c
+
+LOCAL_MODULE := lz4
+LOCAL_SRC_FILES := $(LZ4_FILES)
+LOCAL_CFLAGS += -O2
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+
 LUA_FILES := \
 	$(SRC)/ext/lua/lapi.c \
 	$(SRC)/ext/lua/lauxlib.c \
@@ -397,7 +408,7 @@ include $(BUILD_STATIC_LIBRARY)
 # Next up, Core, GPU, and other core parts shared by headless.
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common libchdr lua
+LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common libchdr lz4 lua
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \

@@ -34,6 +34,7 @@ extern "C"
 #include "zlib.h"
 #include "ext/libkirk/amctrl.h"
 #include "ext/libkirk/kirk_engine.h"
+#include "ext/lz4/lz4.h"
 };
 
 BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString) {
@@ -61,6 +62,8 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 	// Check for CISO
 	if (!memcmp(buffer, "CISO", 4)) {
 		device = new CISOFileBlockDevice(fileLoader);
+	} else if (!memcmp(buffer, "ZISO", 4)) {
+		device = new ZSOFileBlockDevice(fileLoader);
 	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
@@ -397,6 +400,240 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	}
 
 	inflateEnd(&z);
+	return true;
+}
+
+// .ZSO format - Similar to CSO but uses LZ4 compression
+
+// ZSO header format (same structure as CISO)
+typedef struct zso_header
+{
+	unsigned char magic[4];         // +00 : 'Z','I','S','O'
+	u32_le header_size;             // +04 : header size (==0x18)
+	u64_le total_bytes;             // +08 : number of original data size
+	u32_le block_size;              // +10 : number of compressed block size
+	unsigned char ver;              // +14 : version 01
+	unsigned char align;            // +15 : align of index value
+	unsigned char rsv_06[2];        // +16 : reserved
+} ZSO_H;
+
+static const u32 ZSO_READ_BUFFER_SIZE = 256 * 1024;
+
+ZSOFileBlockDevice::ZSOFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader)
+{
+	ZSO_H hdr;
+	size_t readSize = fileLoader->ReadAt(0, sizeof(ZSO_H), 1, &hdr);
+	if (readSize != 1 || memcmp(hdr.magic, "ZISO", 4) != 0) {
+		errorString_ = "Invalid ZSO!";
+		return;
+	}
+	if (hdr.ver > 1) {
+		errorString_ = "ZSO version too high!";
+		return;
+	}
+
+	frameSize = hdr.block_size;
+	if ((frameSize & (frameSize - 1)) != 0) {
+		errorString_ = StringFromFormat("ZSO block size %i unsupported, must be a power of two", frameSize);
+		return;
+	} else if (frameSize < 0x800) {
+		errorString_ = StringFromFormat("ZSO block size %i unsupported, must be at least one sector", frameSize);
+		return;
+	}
+
+	// Determine the translation from block to frame.
+	blockShift = 0;
+	for (u32 i = frameSize; i > 0x800; i >>= 1)
+		++blockShift;
+
+	indexShift = hdr.align;
+	const u64 totalSize = hdr.total_bytes;
+	numFrames = (u32)((totalSize + frameSize - 1) / frameSize);
+	numBlocks = (u32)(totalSize / GetBlockSize());
+	VERBOSE_LOG(Log::Loader, "ZSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
+
+	// We might read a bit of alignment too, so be prepared.
+	if (frameSize + (1 << indexShift) < ZSO_READ_BUFFER_SIZE)
+		readBuffer = new u8[ZSO_READ_BUFFER_SIZE];
+	else
+		readBuffer = new u8[frameSize + (1 << indexShift)];
+	lz4Buffer = new u8[frameSize + (1 << indexShift)];
+	lz4BufferFrame = numFrames;
+
+	const u32 indexSize = numFrames + 1;
+	const size_t headerEnd = hdr.ver > 1 ? (size_t)hdr.header_size : sizeof(hdr);
+
+#if COMMON_LITTLE_ENDIAN
+	index = new u32[indexSize];
+	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, index) != indexSize) {
+		NotifyReadError();
+		memset(index, 0, indexSize * sizeof(u32));
+	}
+#else
+	index = new u32[indexSize];
+	u32_le *indexTemp = new u32_le[indexSize];
+
+	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, indexTemp) != indexSize) {
+		NotifyReadError();
+		memset(indexTemp, 0, indexSize * sizeof(u32_le));
+	}
+
+	for (u32 i = 0; i < indexSize; i++)
+		index[i] = indexTemp[i];
+
+	delete[] indexTemp;
+#endif
+
+	ver_ = hdr.ver;
+
+	// Double check that the ZSO is not truncated.
+	u64 fileSize = fileLoader->FileSize();
+	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
+	u64 expectedFileSize = lastIndexPos << indexShift;
+	if (expectedFileSize > fileSize) {
+		errorString_ = StringFromFormat("Expected ZSO to at least be %lld bytes, but file is %lld bytes", expectedFileSize, fileSize);
+		return;
+	}
+
+	// all ok.
+	_dbg_assert_(errorString_.empty());
+}
+
+ZSOFileBlockDevice::~ZSOFileBlockDevice()
+{
+	delete [] index;
+	delete [] readBuffer;
+	delete [] lz4Buffer;
+}
+
+bool ZSOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
+{
+	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
+	if ((u32)blockNumber >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+
+	const u32 frameNumber = blockNumber >> blockShift;
+	const u32 idx = index[frameNumber];
+	const u32 indexPos = idx & 0x7FFFFFFF;
+	const u32 nextIndexPos = index[frameNumber + 1] & 0x7FFFFFFF;
+
+	const u64 compressedReadPos = (u64)indexPos << indexShift;
+	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
+	const size_t compressedReadSize = (size_t)(compressedReadEnd - compressedReadPos);
+	const u32 compressedOffset = (blockNumber & ((1 << blockShift) - 1)) * GetBlockSize();
+
+	bool plain = (idx & 0x80000000) != 0;
+	if (ver_ >= 2) {
+		// ZSO v2+ requires blocks be uncompressed if large enough to be. High bit means other things.
+		plain = compressedReadSize >= frameSize;
+	}
+	if (plain) {
+		int readSize = (u32)fileLoader_->ReadAt(compressedReadPos + compressedOffset, 1, GetBlockSize(), outPtr, flags);
+		if (readSize < GetBlockSize())
+			memset(outPtr + readSize, 0, GetBlockSize() - readSize);
+	} else if (lz4BufferFrame == frameNumber) {
+		// We already have it.  Just apply the offset and copy.
+		memcpy(outPtr, lz4Buffer + compressedOffset, GetBlockSize());
+	} else {
+		const u32 readSize = (u32)fileLoader_->ReadAt(compressedReadPos, 1, compressedReadSize, readBuffer, flags);
+
+		// Decompress using LZ4
+		int decompressedSize = LZ4_decompress_safe((const char*)readBuffer, (char*)(frameSize == (u32)GetBlockSize() ? outPtr : lz4Buffer), 
+		                                            readSize, frameSize);
+		
+		if (decompressedSize < 0 || (u32)decompressedSize != frameSize) {
+			ERROR_LOG(Log::Loader, "block %d: LZ4 decompress error %d, expected %d bytes\n", blockNumber, decompressedSize, frameSize);
+			NotifyReadError();
+			memset(outPtr, 0, GetBlockSize());
+			return false;
+		}
+
+		if (frameSize != (u32)GetBlockSize()) {
+			lz4BufferFrame = frameNumber;
+			memcpy(outPtr, lz4Buffer + compressedOffset, GetBlockSize());
+		}
+	}
+	return true;
+}
+
+bool ZSOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	if (count == 1) {
+		return ReadBlock(minBlock, outPtr);
+	}
+	if (minBlock >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize() * count);
+		return false;
+	}
+
+	const u32 lastBlock = std::min(minBlock + count, numBlocks) - 1;
+	const u32 missingBlocks = (lastBlock + 1 - minBlock) - count;
+	if (lastBlock < minBlock + count) {
+		memset(outPtr + GetBlockSize() * (count - missingBlocks), 0, GetBlockSize() * missingBlocks);
+	}
+
+	const u32 minFrameNumber = minBlock >> blockShift;
+	const u32 lastFrameNumber = lastBlock >> blockShift;
+
+	u64 readBufferStart = 0;
+	u64 readBufferEnd = 0;
+	u32 block = minBlock;
+	const u32 blocksPerFrame = 1 << blockShift;
+	
+	for (u32 frame = minFrameNumber; frame <= lastFrameNumber; ++frame) {
+		const u32 idx = index[frame];
+		const u32 indexPos = idx & 0x7FFFFFFF;
+		const u32 nextIndexPos = index[frame + 1] & 0x7FFFFFFF;
+
+		const u64 frameReadPos = (u64)indexPos << indexShift;
+		const u64 frameReadEnd = (u64)nextIndexPos << indexShift;
+		const u32 frameReadSize = (u32)(frameReadEnd - frameReadPos);
+		const u32 frameBlockOffset = frame == minFrameNumber ? minBlock - (frame << blockShift) : 0;
+		const u32 frameBlocks = frame == lastFrameNumber ? 1 + lastBlock - block : blocksPerFrame - frameBlockOffset;
+
+		bool plain = (idx & 0x80000000) != 0;
+		if (ver_ >= 2) {
+			plain = frameReadSize >= frameSize;
+		}
+
+		if (plain) {
+			const u64 readPos = frameReadPos + frameBlockOffset * GetBlockSize();
+			size_t readSize = fileLoader_->ReadAt(readPos, GetBlockSize(), frameBlocks, outPtr);
+			if (readSize < (size_t)frameBlocks) {
+				memset(outPtr + readSize * GetBlockSize(), 0, (frameBlocks - readSize) * GetBlockSize());
+			}
+		} else {
+			if (frameReadPos < readBufferStart || frameReadPos + frameReadSize > readBufferEnd) {
+				readBufferStart = frameReadPos;
+				readBufferEnd = frameReadPos + frameReadSize;
+				if (fileLoader_->ReadAt(readBufferStart, 1, (size_t)(readBufferEnd - readBufferStart), readBuffer) != (size_t)(readBufferEnd - readBufferStart)) {
+					memset(outPtr, 0, frameBlocks * GetBlockSize());
+					block += frameBlocks;
+					outPtr += frameBlocks * GetBlockSize();
+					continue;
+				}
+			}
+
+			// Decompress using LZ4
+			int decompressedSize = LZ4_decompress_safe((const char*)readBuffer, (char*)lz4Buffer, frameReadSize, frameSize);
+			
+			if (decompressedSize < 0 || (u32)decompressedSize != frameSize) {
+				ERROR_LOG(Log::Loader, "block %d: LZ4 decompress error %d, expected %d bytes\n", block, decompressedSize, frameSize);
+				NotifyReadError();
+				memset(outPtr, 0, frameBlocks * GetBlockSize());
+			} else {
+				memcpy(outPtr, lz4Buffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
+				// In case we end up reusing it in a single read later.
+				lz4BufferFrame = frame;
+			}
+		}
+
+		block += frameBlocks;
+		outPtr += frameBlocks * GetBlockSize();
+	}
+
 	return true;
 }
 

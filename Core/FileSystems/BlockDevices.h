@@ -87,6 +87,28 @@ private:
 	int ver_ = 0;
 };
 
+class ZSOFileBlockDevice : public BlockDevice {
+public:
+	ZSOFileBlockDevice(FileLoader *fileLoader);
+	~ZSOFileBlockDevice();
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() const override { return numBlocks; }
+	bool IsDisc() const override { return true; }
+
+private:
+	u32 *index = nullptr;
+	u8 *readBuffer = nullptr;
+	u8 *lz4Buffer = nullptr;
+	u32 lz4BufferFrame = 0;
+	u8 indexShift = 0;
+	u8 blockShift = 0;
+	u32 frameSize = 0;
+	u32 numBlocks = 0;
+	u32 numFrames = 0;
+	int ver_ = 0;
+};
+
 
 class FileBlockDevice : public BlockDevice {
 public:

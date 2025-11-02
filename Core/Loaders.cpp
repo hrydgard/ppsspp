@@ -83,7 +83,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 			// maybe it also just happened to have that size, let's assume it's a PSP ISO and error out later if it's not.
 		}
 		return IdentifiedFileType::PSP_ISO;
-	} else if (extension == ".cso" || extension == ".chd") {
+	} else if (extension == ".cso" || extension == ".chd" || extension == ".zso") {
 		return IdentifiedFileType::PSP_ISO;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;

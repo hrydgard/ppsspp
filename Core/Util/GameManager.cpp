@@ -214,7 +214,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	std::string urlExtension = task.url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
 	// TODO: Bad idea due to Android content api where we don't always get the filename.
-	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd") {
+	if (urlExtension == ".zso" || urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd") {
 		// It's a raw ISO or CSO file. We just copy it to the destination, which is the
 		// currently selected directory in the game browser. Note: This might not be a good option!
 		Path destPath = Path(g_Config.currentDirectory) / task.url.GetFilename();

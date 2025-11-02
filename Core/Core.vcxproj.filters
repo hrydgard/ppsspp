@@ -419,6 +419,8 @@
     </ClCompile>
     <ClCompile Include="..\ext\snappy\snappy.cpp">
       <Filter>Ext\Snappy</Filter>
+    <ClCompile Include="..\ext\lz4.cpp">
+      <Filter>Ext\lz4</Filter>      
     </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmAsm.cpp">
       <Filter>MIPS\ARM</Filter>
@@ -1707,6 +1709,9 @@
     <ClInclude Include="..\ext\snappy\snappy.h">
       <Filter>Ext\Snappy</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\lz4\lz4.h">
+      <Filter>Ext\lz4</Filter>
+    </ClInclude>    
     <ClInclude Include="..\ext\snappy\snappy-stubs-public.h">
       <Filter>Ext\Snappy</Filter>
     </ClInclude>

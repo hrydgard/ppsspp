@@ -125,7 +125,7 @@ void MainWindow::bootDone()
 /* SIGNALS */
 void MainWindow::loadAct()
 {
-	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.chd *.prx)");
+	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.zso *.chd *.prx)");
 	if (QFile::exists(filename))
 	{
 		QFileInfo info(filename);

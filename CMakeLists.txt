@@ -1082,10 +1082,17 @@ add_library(cityhash STATIC
 )
 target_include_directories(cityhash PRIVATE ext/cityhash)
 
+add_library(lz4 STATIC
+	ext/lz4/lz4.c
+	ext/lz4/lz4.h
+)
+target_include_directories(lz4 PRIVATE ext/lz4)
+
 if(NOT MSVC)
 	# These can be fast even for debug.
 	target_compile_options(udis86 PRIVATE "-O2")
 	target_compile_options(cityhash PRIVATE "-O2")
+	target_compile_options(lz4 PRIVATE "-O2")
 	if(NOT ZLIB_FOUND)
 		target_compile_options(zlib PRIVATE "-O2")
 	endif()
@@ -2524,7 +2531,7 @@ endif()
 
 include_directories(ext/libchdr/include)
 
-target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua ${GlslangLibs}
+target_link_libraries(${CoreLibName} Common native chdr kirk cityhash lz4 sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 # Winsock

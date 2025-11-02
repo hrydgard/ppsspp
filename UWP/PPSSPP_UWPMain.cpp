@@ -497,7 +497,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::vector<std::string> supportedExtensions = {};
 		switch ((BrowseFileType)param3) {
 		case BrowseFileType::BOOTABLE:
-			supportedExtensions = { ".cso", ".iso", ".chd", ".elf", ".pbp", ".zip", ".prx", ".bin" };  // should .bin even be here?
+			supportedExtensions = { ".zso", ".cso", ".iso", ".chd", ".elf", ".pbp", ".zip", ".prx", ".bin" };  // should .bin even be here?
 			break;
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
