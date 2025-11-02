@@ -196,6 +196,9 @@
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\lz4\lz4.cpp">
+      <Filter>ext\lz4</Filter>
+    </ClCompile>    
     <ClCompile Include="..\..\Common\Input\GestureDetector.cpp">
       <Filter>Input</Filter>
     </ClCompile>
@@ -600,6 +603,10 @@
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h">
       <Filter>ext\libpng17</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\lz4\lz4.h">
+      <Filter>ext\lz4</Filter>
+    </ClInclude>
+
     <ClInclude Include="..\..\Common\Input\GestureDetector.h">
       <Filter>Input</Filter>
     </ClInclude>

@@ -484,6 +484,10 @@ all: $(TARGET)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $(OBJOUT)$@ $<
 
+# Special compilation rule for lz4 with optimization
+$(EXTDIR)/lz4/lz4.o: $(EXTDIR)/lz4/lz4.c
+	$(CC) $(CFLAGS) -O2 -c $(OBJOUT)$@ $<
+
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $(OBJOUT)$@ $<
 

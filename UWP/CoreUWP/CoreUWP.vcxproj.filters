@@ -276,6 +276,7 @@
     <ClCompile Include="..\..\Core\Util\PPGeDraw.cpp" />
     <ClCompile Include="..\..\Core\WaveFile.cpp" />
     <ClCompile Include="..\..\ext\cityhash\city.cpp" />
+    <ClCompile Include="..\..\ext\lz4\lz4.cpp" />
     <ClCompile Include="..\..\ext\disarm.cpp" />
     <ClCompile Include="..\..\ext\riscv-disas.cpp" />
     <ClCompile Include="..\..\ext\loongarch-disasm.cpp" />
@@ -652,6 +653,7 @@
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\ext\cityhash\city.h" />
     <ClInclude Include="..\..\ext\cityhash\citycrc.h" />
+    <ClInclude Include="..\..\ext\lz4\lz4.h" />
     <ClInclude Include="..\..\ext\disarm.h" />
     <ClInclude Include="..\..\ext\riscv-disas.h" />
     <ClInclude Include="..\..\ext\loongarch-disasm.h" />
