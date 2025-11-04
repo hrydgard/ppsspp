@@ -725,15 +725,6 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 		downcount = 0;
 }
 
-int GPUCommon::GetNextListIndex() {
-	auto iter = dlQueue.begin();
-	if (iter != dlQueue.end()) {
-		return *iter;
-	} else {
-		return -1;
-	}
-}
-
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
 	if (!resumingFromDebugBreak_) {
@@ -748,6 +739,12 @@ DLResult GPUCommon::ProcessDLQueue() {
 	}
 
 	TimeCollector collectStat(&gpuStats.msProcessingDisplayLists, coreCollectDebugStats);
+
+	auto GetNextListIndex = [&]() -> int {
+		if (dlQueue.empty())
+			return -1;
+		return dlQueue.front();
+	};
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &list = dls[listIndex];
