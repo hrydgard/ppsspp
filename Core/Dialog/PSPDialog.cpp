@@ -66,7 +66,7 @@ const char *UtilityDialogStatusToString(PSPDialog::DialogStatus status) {
 void PSPDialog::InitCommon() {
 	UpdateCommon();
 
-	if (GetCommonParam() && GetCommonParam()->language != g_Config.GetPSPLanguage()) {
+	if (GetCommonParam() && GetCommonParam()->language != GetPSPLanguage()) {
 		WARN_LOG(Log::sceUtility, "Game requested language %d, ignoring and using user language", GetCommonParam()->language);
 	}
 }

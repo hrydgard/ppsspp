@@ -270,7 +270,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 #ifdef _MSC_VER
 #pragma warning(disable:4566)
 #endif
-	auto &langValuesMapping = g_Config.GetLangValuesMapping();
+	auto &langValuesMapping = GetLangValuesMapping();
 
 	std::vector<File::FileInfo> tempLangs;
 	g_VFS.GetFileListing("lang", &tempLangs, "ini");

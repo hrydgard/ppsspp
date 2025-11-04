@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 class PointerWrap;
 
@@ -142,3 +143,7 @@ const ModuleLoadInfo *__UtilityModuleInfo(int moduleID);
 bool __UtilityModuleGetMemoryRange(int moduleID, u32 *startPtr, u32 *sizePtr);
 
 void Register_sceUtility();
+
+// Return value is one of PSP_SYSTEMPARAM_LANGUAGE_*.
+const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangValuesMapping();
+int GetPSPLanguage();

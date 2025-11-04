@@ -42,8 +42,6 @@
 const static int OSK_INIT_DELAY_US = 300000;
 const static int OSK_SHUTDOWN_DELAY_US = 40000;
 
-static std::map<std::string, std::pair<std::string, int>, std::less<>> languageMapping;
-
 const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
 const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
 
@@ -264,8 +262,6 @@ int PSPOskDialog::Init(u32 oskPtr) {
 		while ((c = *src++) != 0)
 			inputChars += c;
 	}
-
-	languageMapping = g_Config.GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
@@ -938,9 +934,12 @@ int PSPOskDialog::Update(int animSpeed) {
 			return (const char *)nullptr;
 		}
 
-		// Now, let's grab the name.
-		std::string countryCode(OskKeyboardNames[lang]);
-		const char *language = languageMapping[countryCode].first.c_str();
+		// Now, let's grab the friendly name from the langvaluesmapping.
+		const std::string countryCode(OskKeyboardNames[lang]);
+
+		const auto &languageMapping = GetLangValuesMapping();
+		const auto iter = languageMapping.find(countryCode);
+		const char *language = iter == languageMapping.end() ? "" : iter->second.first.c_str();
 
 		// It seems like this is a "fake" country code for extra keyboard purposes.
 		if (countryCode == "English Full-width")

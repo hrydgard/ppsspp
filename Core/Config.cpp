@@ -1112,54 +1112,6 @@ Config::~Config() {
 	}
 }
 
-void Config::LoadLangValuesMapping() {
-	IniFile mapping;
-	mapping.LoadFromVFS(g_VFS, "langregion.ini");
-	std::vector<std::string> keys;
-	mapping.GetKeys("LangRegionNames", keys);
-
-	static const std::map<std::string_view, int> langCodeMapping = {
-		{"JAPANESE", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE},
-		{"ENGLISH", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH},
-		{"FRENCH", PSP_SYSTEMPARAM_LANGUAGE_FRENCH},
-		{"SPANISH", PSP_SYSTEMPARAM_LANGUAGE_SPANISH},
-		{"GERMAN", PSP_SYSTEMPARAM_LANGUAGE_GERMAN},
-		{"ITALIAN", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN},
-		{"DUTCH", PSP_SYSTEMPARAM_LANGUAGE_DUTCH},
-		{"PORTUGUESE", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE},
-		{"RUSSIAN", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN},
-		{"KOREAN", PSP_SYSTEMPARAM_LANGUAGE_KOREAN},
-		{"CHINESE_TRADITIONAL", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL},
-		{"CHINESE_SIMPLIFIED", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED},
-	};
-
-	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
-	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
-
-	for (size_t i = 0; i < keys.size(); i++) {
-		std::string langName;
-		if (!langRegionNames->Get(keys[i], &langName)) {
-			continue;
-		}
-		std::string langCode = "ENGLISH";
-		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		if (systemLanguage->Get(keys[i], &langCode)) {
-			const auto iter = langCodeMapping.find(langCode);
-			if (iter != langCodeMapping.end()) {
-				iLangCode = iter->second;
-			}
-		}
-		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
-	}
-}
-
-const std::map<std::string, std::pair<std::string, int>, std::less<>> &Config::GetLangValuesMapping() {
-	if (langValuesMapping_.empty()) {
-		LoadLangValuesMapping();
-	}
-	return langValuesMapping_;
-}
-
 void Config::Reload() {
 	reload_ = true;
 	Load();
@@ -1820,21 +1772,6 @@ void Config::GetReportingInfo(UrlEncoder &data) const {
 
 bool Config::IsPortrait() const {
 	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
-}
-
-int Config::GetPSPLanguage() {
-	if (g_Config.iLanguage == -1) {
-		const auto &langValuesMapping = GetLangValuesMapping();
-		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
-		if (iter != langValuesMapping.end()) {
-			return iter->second.second;
-		} else {
-			// Fallback to English
-			return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		}
-	} else {
-		return g_Config.iLanguage;
-	}
 }
 
 void PlayTimeTracker::Start(const std::string &gameId) {
