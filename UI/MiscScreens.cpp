@@ -169,12 +169,12 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UsePortraitLayout();
+	const bool portrait = UsePortraitLayout();
 
 	root_ = new AnchorLayout();
 	ViewGroup *rightColumnItems;
 
-	if (!vertical) {
+	if (!portrait) {
 		// Horizontal layout.
 		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
 		rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
@@ -187,25 +187,51 @@ void PromptScreen::CreateViews() {
 		root_->Add(rightColumnItems);
 	}
 
-	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
-	yesButton->SetCentered(vertical);
+	Choice *yesButton = new Choice(yesButtonText_, portrait ? new LinearLayoutParams(1.0f) : nullptr);
+	yesButton->SetCentered(portrait);
 	yesButton->OnClick.Add([this](UI::EventParams &e) {
 		TriggerFinish(DR_OK);
 	});
+	Choice *noButton = nullptr;
 	if (!noButtonText_.empty()) {
-		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
-		noButton->SetCentered(vertical);
+		noButton = new Choice(noButtonText_, portrait ? new LinearLayoutParams(1.0f) : nullptr);
+		noButton->SetCentered(portrait);
 		noButton->OnClick.Add([this](UI::EventParams &e) {
 			TriggerFinish(DR_CANCEL);
 		});
-		root_->SetDefaultFocusView(noButton);
+	}
+
+	// The order of the button depends on the platform, if vertical layout is used.
+	// Following UI standards here.
+	if (portrait) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		// On Windows, we put the yes button on the left.
+		rightColumnItems->Add(yesButton);
+		if (noButton) {
+			rightColumnItems->Add(noButton);
+		}
+#else
+		// On other platforms, we put the yes button on the right.
+		if (noButton) {
+			rightColumnItems->Add(noButton);
+		}
+		rightColumnItems->Add(yesButton);
+#endif
 	} else {
+		// In horizontal layout, the buttons are placed vertically, we always put the yes button on top.
+		rightColumnItems->Add(yesButton);
+		if (noButton) {
+			rightColumnItems->Add(noButton);
+		}
+	}
+
+	if (!noButton) {
 		// This is an information screen, not a question.
 		// Sneak in the version of PPSSPP in the bottom left corner, for debug-reporting user screenshots.
 		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
 		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
-		root_->SetDefaultFocusView(yesButton);
 	}
+	root_->SetDefaultFocusView(noButton ? noButton : yesButton);
 }
 
 void PromptScreen::TriggerFinish(DialogResult result) {
