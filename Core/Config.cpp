@@ -1149,10 +1149,6 @@ bool Config::LoadAppendedConfig() {
 	return true;
 }
 
-void Config::SetAppendedConfigIni(const Path &path) {
-	appendedConfigFileName_ = path;
-}
-
 void Config::UpdateAfterSettingAutoFrameSkip() {
 	if (bAutoFrameSkip && iFrameSkip == 0) {
 		iFrameSkip = 1;
@@ -1848,11 +1844,11 @@ bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string
 	}
 
 	int totalSeconds = iter->second.totalTimePlayed;
-	int seconds = totalSeconds % 60;
+	const int seconds = totalSeconds % 60;
 	totalSeconds /= 60;
-	int minutes = totalSeconds % 60;
+	const int minutes = totalSeconds % 60;
 	totalSeconds /= 60;
-	int hours = totalSeconds;
+	const int hours = totalSeconds;
 
 	*str = ApplySafeSubstitutions(ga->T("Time Played: %1h %2m %3s"), hours, minutes, seconds);
 	return true;
