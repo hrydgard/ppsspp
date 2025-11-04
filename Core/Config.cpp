@@ -1118,19 +1118,20 @@ void Config::LoadLangValuesMapping() {
 	std::vector<std::string> keys;
 	mapping.GetKeys("LangRegionNames", keys);
 
-	std::map<std::string, int> langCodeMapping;
-	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
-	langCodeMapping["ENGLISH"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	langCodeMapping["FRENCH"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
-	langCodeMapping["SPANISH"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-	langCodeMapping["GERMAN"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
-	langCodeMapping["ITALIAN"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
-	langCodeMapping["DUTCH"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
-	langCodeMapping["PORTUGUESE"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
-	langCodeMapping["RUSSIAN"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
-	langCodeMapping["KOREAN"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
-	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
-	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
+	static const std::map<std::string_view, int> langCodeMapping = {
+		{"JAPANESE", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE},
+		{"ENGLISH", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH},
+		{"FRENCH", PSP_SYSTEMPARAM_LANGUAGE_FRENCH},
+		{"SPANISH", PSP_SYSTEMPARAM_LANGUAGE_SPANISH},
+		{"GERMAN", PSP_SYSTEMPARAM_LANGUAGE_GERMAN},
+		{"ITALIAN", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN},
+		{"DUTCH", PSP_SYSTEMPARAM_LANGUAGE_DUTCH},
+		{"PORTUGUESE", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE},
+		{"RUSSIAN", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN},
+		{"KOREAN", PSP_SYSTEMPARAM_LANGUAGE_KOREAN},
+		{"CHINESE_TRADITIONAL", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL},
+		{"CHINESE_SIMPLIFIED", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED},
+	};
 
 	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
 	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
@@ -1140,11 +1141,14 @@ void Config::LoadLangValuesMapping() {
 		if (!langRegionNames->Get(keys[i], &langName)) {
 			continue;
 		}
-		std::string langCode = "ENGLISH";;
-		systemLanguage->Get(keys[i], &langCode);
+		std::string langCode = "ENGLISH";
 		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		if (langCodeMapping.find(langCode) != langCodeMapping.end())
-			iLangCode = langCodeMapping[langCode];
+		if (systemLanguage->Get(keys[i], &langCode)) {
+			const auto iter = langCodeMapping.find(langCode);
+			if (iter != langCodeMapping.end()) {
+				iLangCode = iter->second;
+			}
+		}
 		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
 	}
 }
