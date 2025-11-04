@@ -71,7 +71,6 @@ public:
 	bool bSaveSettings;
 	bool bFirstRun;
 	bool bUpdatedInstanceCounter = false;
-	bool bBrowse;  // show a file browser on startup. TODO: Does anyone use this?
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
