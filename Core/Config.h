@@ -70,7 +70,6 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
-	bool bGameSpecific = false;
 	bool bUpdatedInstanceCounter = false;
 	bool bBrowse;  // show a file browser on startup. TODO: Does anyone use this?
 
@@ -623,7 +622,7 @@ public:
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
-	//per game config managment, should maybe be in it's own class
+	// Per-game config management.
 	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
 	bool createGameConfig(const std::string &game_id);
 	bool deleteGameConfig(const std::string& pGameId);
@@ -632,6 +631,7 @@ public:
 	void unloadGameConfig();
 	Path getGameConfigFile(const std::string &gameId, bool *exists);
 	bool hasGameConfig(const std::string &game_id);
+	bool IsGameSpecific() const { return gameSpecific_; }
 
 	void SetSearchPath(const Path &path);
 	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
@@ -662,16 +662,19 @@ public:
 protected:
 	void LoadStandardControllerIni();
 
-	void PostLoadCleanup(bool gameSpecific);
-	void PreSaveCleanup(bool gameSpecific);
-	void PostSaveCleanup(bool gameSpecific);
+	void PostLoadCleanup();
+	void PreSaveCleanup();
+	void PostSaveCleanup();
 
 	static std::map<const void*, const ConfigSetting *> &getPtrLUT();
 
 private:
 	bool reload_ = false;
+
+	bool gameSpecific_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
+
 	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;
 	Path controllerIniFilename_;

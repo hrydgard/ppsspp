@@ -1821,7 +1821,7 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 
 void GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	if (g_Config.bGameSpecific) {
+	if (g_Config.IsGameSpecific()) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(

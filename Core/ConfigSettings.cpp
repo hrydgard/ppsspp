@@ -9,7 +9,7 @@
 #include "Core/Config.h"
 
 bool ConfigSetting::perGame(void *ptr) {
-	return g_Config.bGameSpecific && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr]->PerGame();
+	return g_Config.gameSpecific_ && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr]->PerGame();
 }
 
 bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) const {
