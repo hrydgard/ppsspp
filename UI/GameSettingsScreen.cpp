@@ -209,7 +209,7 @@ void GameSettingsScreen::PreCreateViews() {
 
 	if (editThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.LoadGameConfig(gameID_, info->GetTitle());
+		g_Config.LoadGameConfig(gameID_);
 	}
 
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;

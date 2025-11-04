@@ -1273,7 +1273,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// sadly it won't benefit from all the "version conversion" going on up-above
 	// but these configs shouldn't contain older versions anyhow
 	if (gameSpecific_) {
-		LoadGameConfig(gameId_, gameIdTitle_);
+		LoadGameConfig(gameId_);
 	}
 
 	PostLoadCleanup();
@@ -1287,13 +1287,12 @@ bool Config::Save(const char *saveReason) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
 		WARN_LOG(Log::Loader, "Not saving config - secondary instances don't.");
-
 		// Don't want to retry or something.
 		return true;
 	}
 
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
-		SaveGameConfig(gameId_, gameIdTitle_);
+		SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
 
 		PreSaveCleanup();
 
@@ -1479,7 +1478,7 @@ void Config::SetSearchPath(const Path &searchPath) {
 	searchPath_ = searchPath;
 }
 
-const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists) {
+Path Config::FindConfigFile(std::string_view baseFilename, bool *exists) const {
 	// Don't search for an absolute path.
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
 		Path path(baseFilename);
@@ -1487,6 +1486,7 @@ const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists)
 		return path;
 	}
 #ifdef _WIN32
+	// Handle paths starting with a drive letter.
 	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
 		Path path(baseFilename);
 		*exists = File::Exists(path);
@@ -1536,7 +1536,7 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 
 bool Config::HasGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = GetGameConfigFile(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 	return exists;
 }
 
@@ -1546,13 +1546,12 @@ void Config::ChangeGameSpecific(const std::string &pGameId, std::string_view tit
 	}
 
 	gameId_ = pGameId;
-	gameIdTitle_ = title;
 	gameSpecific_ = !pGameId.empty();
 }
 
 bool Config::CreateGameConfig(std::string_view gameId) {
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFile(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
 	if (exists) {
 		INFO_LOG(Log::System, "Game config already exists");
@@ -1565,7 +1564,7 @@ bool Config::CreateGameConfig(std::string_view gameId) {
 
 bool Config::DeleteGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = Path(GetGameConfigFile(gameId, &exists));
+	Path fullIniFilePath = Path(GetGameConfigFilePath(gameId, &exists));
 
 	if (exists) {
 		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
@@ -1577,7 +1576,7 @@ bool Config::DeleteGameConfig(std::string_view gameId) {
 	return true;
 }
 
-Path Config::GetGameConfigFile(std::string_view gameId, bool *exists) {
+Path Config::GetGameConfigFilePath(std::string_view gameId, bool *exists) {
 	std::string_view ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
 	std::string iniFileName = join(gameId, ppssppIniFilename);
 	Path iniFileNameFull = FindConfigFile(iniFileName, exists);
@@ -1590,12 +1589,17 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 	}
 
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFile(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
 	IniFile iniFile;
 
+	// Just like regular configs, we should load and save, in order to preserve things like comments.
+	iniFile.Load(fullIniFilePath);
+
 	Section *top = iniFile.GetOrCreateSection("");
-	top->AddComment(StringFromFormat("Game config for %s - %.*s", gameId.c_str(), STR_VIEW(titleForComment)));
+	if (top->Lines().empty() && !titleForComment.empty()) {
+		top->AddComment(StringFromFormat("Game config for %s - %.*s", gameId.c_str(), STR_VIEW(titleForComment)));
+	}
 
 	PreSaveCleanup();
 
@@ -1628,15 +1632,17 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 	return true;
 }
 
-bool Config::LoadGameConfig(const std::string &gameId, std::string_view title) {
+bool Config::LoadGameConfig(const std::string &gameId) {
 	bool exists;
-	Path iniFileNameFull = GetGameConfigFile(gameId, &exists);
+	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
 	if (!exists) {
 		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 
-	ChangeGameSpecific(gameId, title);
+	_dbg_assert_(!gameId.empty());
+
+	ChangeGameSpecific(gameId);
 
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
@@ -1684,7 +1690,6 @@ void Config::UnloadGameConfig() {
 	}
 
 	gameId_.clear();
-	gameIdTitle_.clear();
 	gameSpecific_ = false;
 
 	// Reload all settings from the main ini file.

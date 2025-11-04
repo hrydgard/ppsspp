@@ -627,15 +627,16 @@ public:
 	// Note: This doesn't switch to the config, just creates it.
 	bool CreateGameConfig(std::string_view gameId);
 	bool DeleteGameConfig(std::string_view gameId);
-	bool LoadGameConfig(const std::string &game_id, std::string_view title);
-	bool SaveGameConfig(const std::string &pGameId, std::string_view title);
+	bool LoadGameConfig(const std::string &gameId);
+	bool SaveGameConfig(const std::string &pGameId, std::string_view titleForComment);
 	void UnloadGameConfig();
-	Path GetGameConfigFile(std::string_view gameId, bool *exists);
+
+	Path GetGameConfigFilePath(std::string_view gameId, bool *exists);
 	bool HasGameConfig(std::string_view gameId);
 	bool IsGameSpecific() const { return gameSpecific_; }
 
 	void SetSearchPath(const Path &path);
-	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
+	Path FindConfigFile(std::string_view baseFilename, bool *exists) const;
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
@@ -674,7 +675,6 @@ private:
 
 	bool gameSpecific_ = false;
 	std::string gameId_;
-	std::string gameIdTitle_;
 
 	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;

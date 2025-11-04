@@ -262,7 +262,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	}
 
 	// If there's a game-specific config, load it.
-	g_Config.LoadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
+	g_Config.LoadGameConfig(id);
 
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
 	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
