@@ -75,8 +75,8 @@ void FrameTiming::PostSubmit() {
 }
 
 void FrameTiming::ComputePresentMode(Draw::DrawContext *draw, bool fastForward) {
-	_dbg_assert_(draw);
 	if (!draw) {
+		// This happens in headless mode.
 		fastForwardSkipFlip_ = true;
 		presentMode_ = Draw::PresentMode::FIFO;
 		return;
