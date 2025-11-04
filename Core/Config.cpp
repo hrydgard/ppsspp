@@ -1073,7 +1073,7 @@ static const ConfigSectionSettings sectionDescs[] = {
 
 const size_t numSections = ARRAY_SIZE(sectionDescs);
 
-static void IterateSettings(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func) {
+static void IterateSettingsIni(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
 		Section *section = iniFile.GetOrCreateSection(sectionDescs[i].section);
 		char *owner = sectionDescs[i].owner;
@@ -1185,8 +1185,8 @@ bool Config::LoadAppendedConfig() {
 		return false;
 	}
 
-	IterateSettings(iniFile, [&iniFile](char *owner, Section *section, const ConfigSetting &setting) {
-		if (iniFile.Exists(section->name().c_str(), setting.iniKey_)) {
+	IterateSettingsIni(iniFile, [&iniFile](char *owner, Section *section, const ConfigSetting &setting) {
+		if (section->Exists(setting.iniKey_)) {
 			setting.ReadFromIniSection(owner, section);
 		}
 	});
@@ -1232,7 +1232,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
+	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 		setting.ReadFromIniSection(owner, section);
 	});
 
@@ -1374,7 +1374,7 @@ bool Config::Save(const char *saveReason) {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		IterateSettings(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
+		IterateSettingsIni(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
 			if (!bGameSpecific || !setting.PerGame()) {
 				setting.WriteToIniSection(owner, section);
 			}
@@ -1663,7 +1663,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	PreSaveCleanup(true);
 
-	IterateSettings(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
+	IterateSettingsIni(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
 			setting.WriteToIniSection(owner, section);
 		}
@@ -1722,7 +1722,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 			vPostShaderNames.push_back(v);
 	}
 
-	IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
+	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
 			setting.ReadFromIniSection(owner, section);
 		}
@@ -1749,7 +1749,7 @@ void Config::unloadGameConfig() {
 		iniFile.Load(iniFilename_);
 
 		// Reload game specific settings back to standard.
-		IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
+		IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
 			if (setting.PerGame()) {
 				setting.ReadFromIniSection(owner, section);
 			}
