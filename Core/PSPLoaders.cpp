@@ -261,7 +261,9 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		return false;
 	}
 
-	g_Config.loadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
+	// If there's a game-specific config, load it.
+	g_Config.LoadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
+
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
 	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
 	// TODO: We can't use the initial error_string pointer.

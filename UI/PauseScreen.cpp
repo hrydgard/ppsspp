@@ -531,7 +531,7 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->Add(new Spacer(20.0));
 
-	if (g_paramSFO.IsValid() && g_Config.hasGameConfig(g_paramSFO.GetDiscID())) {
+	if (g_paramSFO.IsValid() && g_Config.HasGameConfig(g_paramSFO.GetDiscID())) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		Choice *delGameConfig = rightColumnItems->Add(new Choice(pa->T("Delete Game Config")));
 		delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
@@ -752,8 +752,8 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes) {
 	if (yes) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-			g_Config.unloadGameConfig();
-			g_Config.deleteGameConfig(info->id);
+			g_Config.UnloadGameConfig();
+			g_Config.DeleteGameConfig(info->id);
 			info->hasConfig = false;
 			screenManager()->RecreateAllViews();
 		}
@@ -764,9 +764,9 @@ void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		std::string gameId = info->id;
-		g_Config.createGameConfig(gameId);
-		g_Config.changeGameSpecific(gameId, info->GetTitle());
-		g_Config.saveGameConfig(gameId, info->GetTitle());
+		g_Config.CreateGameConfig(gameId);
+		g_Config.ChangeGameSpecific(gameId, info->GetTitle());
+		g_Config.SaveGameConfig(gameId, info->GetTitle());
 		if (info) {
 			info->hasConfig = true;
 		}

@@ -622,14 +622,16 @@ public:
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
 	// Per-game config management.
-	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
-	bool createGameConfig(const std::string &game_id);
-	bool deleteGameConfig(const std::string& pGameId);
-	bool loadGameConfig(const std::string &game_id, const std::string &title);
-	bool saveGameConfig(const std::string &pGameId, const std::string &title);
-	void unloadGameConfig();
-	Path getGameConfigFile(const std::string &gameId, bool *exists);
-	bool hasGameConfig(const std::string &game_id);
+	void ChangeGameSpecific(const std::string &gameId = "", std::string_view title = "");
+
+	// Note: This doesn't switch to the config, just creates it.
+	bool CreateGameConfig(std::string_view gameId);
+	bool DeleteGameConfig(std::string_view gameId);
+	bool LoadGameConfig(const std::string &game_id, std::string_view title);
+	bool SaveGameConfig(const std::string &pGameId, std::string_view title);
+	void UnloadGameConfig();
+	Path GetGameConfigFile(std::string_view gameId, bool *exists);
+	bool HasGameConfig(std::string_view gameId);
 	bool IsGameSpecific() const { return gameSpecific_; }
 
 	void SetSearchPath(const Path &path);

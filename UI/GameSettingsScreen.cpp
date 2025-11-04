@@ -209,7 +209,7 @@ void GameSettingsScreen::PreCreateViews() {
 
 	if (editThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.loadGameConfig(gameID_, info->GetTitle());
+		g_Config.LoadGameConfig(gameID_, info->GetTitle());
 	}
 
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
@@ -1625,8 +1625,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	if (editThenRestore_) {
 		// In case we didn't have the title yet before, try again.
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.changeGameSpecific(gameID_, info->GetTitle());
-		g_Config.unloadGameConfig();
+		g_Config.ChangeGameSpecific(gameID_, info->GetTitle());
+		g_Config.UnloadGameConfig();
 	}
 
 	System_Notify(SystemNotification::UI);
