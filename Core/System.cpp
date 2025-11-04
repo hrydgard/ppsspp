@@ -360,11 +360,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
 	ShowCompatWarnings(g_CoreParameter.compat);
 
-	// Compat settings can override the software renderer, take care of that here.
-	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {
-		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
-	}
-
 	// This must be before Memory::Init because plugins can override the memory size.
 	if (type != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		HLEPlugins::Init();
@@ -421,7 +416,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
 
-	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
+	// Game-specific settings are load from for example Load_PSP_ISO (which calls g_Config.loadGameConfig).
+	// We can't do things that depend on these before the below switch. So for example, the adjustment of the GPU core
+	// to software has now been moved below it.
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
@@ -480,6 +477,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	if (g_CoreParameter.updateRecent) {
 		g_recentFiles.Add(g_CoreParameter.fileToStart.ToString());
+	}
+
+	// Update things that depend on game-specific config here.
+
+	// Compat settings can override the software renderer, take care of that here.
+	if (g_Config.bSoftwareRendering || g_CoreParameter.compat.flags().ForceSoftwareRenderer) {
+		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);

@@ -235,15 +235,15 @@ template <bool leave, bool convert_code, typename T>
 [[nodiscard]]
 NO_INLINE
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag) {
+	if (convert_code && (int)res >= 0) {
+		level = LogLevel::LDEBUG;
+	}
+
 	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(t, level)) && !reportTag) {
 		if (leave) {
 			hleLeave();
 		}
 		return res;
-	}
-
-	if (convert_code && (int)res >= 0) {
-		level = LogLevel::LDEBUG;
 	}
 
 	u64 fmtRes = res;

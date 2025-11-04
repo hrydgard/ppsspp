@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <map>
 #include <vector>
 
@@ -652,7 +653,7 @@ public:
 	}
 
 	bool LoadAppendedConfig();
-	void SetAppendedConfigIni(const Path &path);
+	void SetAppendedConfigIni(const Path &path) { appendedConfigFileName_ = path; }
 	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
 
