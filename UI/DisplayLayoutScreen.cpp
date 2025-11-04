@@ -210,6 +210,12 @@ void DisplayLayoutScreen::CreateViews() {
 	// impossible.
 	root_->SetExclusiveTouch(true);
 
+	// Add indicator of the current mode we're editing. Not sure why these strings are in Controls.
+	root_->Add(new TextView(portrait ? co->T("Portrait") : co->T("Landscape"), new AnchorLayoutParams(portrait ? 10.0f : NONE, 10.0f, NONE, NONE)));
+
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+	bool internalPortrait = config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180;
+
 	LinearLayout *leftColumn;
 	if (!portrait) {
 		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
@@ -242,12 +248,14 @@ void DisplayLayoutScreen::CreateViews() {
 	leftColumn->SetBG(backgroundWithAlpha);
 	rightColumn->SetBG(backgroundWithAlpha);
 
-	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
 	if (!IsVREnabled()) {
-
-		auto stretch = new CheckBox(&config.bDisplayStretch, gr->T("Stretch"));
-		stretch->SetDisabledPtr(&config.bDisplayIntegerScale);
-		rightColumn->Add(stretch);
+		if (portrait == internalPortrait) {
+			// Stretch doesn't make sense in portrait mode (looks crazy), so we only show it in landscape mode.
+			// Vice versa if internal is portrait.
+			auto stretch = new CheckBox(&config.bDisplayStretch, gr->T("Stretch"));
+			stretch->SetDisabledPtr(&config.bDisplayIntegerScale);
+			rightColumn->Add(stretch);
+		}
 
 		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&config.fDisplayAspectRatio, 0.1f, 2.0f, 1.0f, gr->T("Aspect Ratio"), screenManager());
 		rightColumn->Add(aspectRatio);
@@ -282,6 +290,10 @@ void DisplayLayoutScreen::CreateViews() {
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 		auto rotation = new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager());
+		rotation->OnChoice.Add([this](UI::EventParams &) {
+			// Affects the presence of the Stretch checkbox.
+			RecreateViews();
+		});
 		rotation->SetEnabledFunc([] {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
@@ -300,7 +312,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rightColumn->Add(new Spacer(12.0f));
 	}
 
-	Choice *back = new Choice(di->T("Back"), "", false);
+	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	rightColumn->Add(back);
 
