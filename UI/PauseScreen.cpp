@@ -390,6 +390,16 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 	}
 }
 
+UI::Margins GamePauseScreen::RootMargins() const {
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		// Add some top margin on mobile so it isn't too close to the status bar, as we place buttons
+		// very close to the top of the screen.
+		return UI::Margins(0, 30, 0, 0);
+	} else {
+		return UI::Margins(0);
+	}
+}
+
 void GamePauseScreen::CreateViews() {
 	using namespace UI;
 
@@ -411,12 +421,8 @@ void GamePauseScreen::CreateViews() {
 	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	leftColumn->Add(leftColumnItems);
 
-	// If no other banner added, we want to add a spacer to move the Save/Load state buttons down a bit.
-	bool bannerAdded = false;
-
 	leftColumnItems->SetSpacing(5.0f);
 	if (Achievements::IsActive()) {
-		bannerAdded = true;
 		leftColumnItems->Add(new GameAchievementSummaryView());
 
 		char buf[512];
@@ -427,7 +433,6 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (IsNetworkConnected()) {
-		bannerAdded = true;
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
 
 		const InfraDNSConfig &dnsConfig = GetInfraDNSConfig();
@@ -474,7 +479,6 @@ void GamePauseScreen::CreateViews() {
 
 	if (showSavestateControls) {
 		if (PSP_CoreParameter().compat.flags().SaveStatesNotRecommended) {
-			bannerAdded = true;
 			LinearLayout *horiz = new LinearLayout(ORIENT_HORIZONTAL);
 			leftColumnItems->Add(horiz);
 			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)));
@@ -482,13 +486,6 @@ void GamePauseScreen::CreateViews() {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps");
 			});
 		}
-
-		if (!bannerAdded && System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
-			// Enough so that it's possible to click the save/load buttons of Save 1 without activating
-			// a pulldown on Android for example.
-			leftColumnItems->Add(new Spacer(30.0f));
-		}
-
 		CreateSavestateControls(leftColumnItems, portrait);
 	} else {
 		// Let's show the active challenges.

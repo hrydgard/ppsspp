@@ -1942,7 +1942,7 @@ void EmuScreen::renderUI() {
 	thin3d->SetViewport(viewport);
 
 	if (root_) {
-		UI::LayoutViewHierarchy(*ctx, root_, false, false);
+		UI::LayoutViewHierarchy(*ctx, RootMargins(), root_, false, false);
 		root_->Draw(*ctx);
 	}
 

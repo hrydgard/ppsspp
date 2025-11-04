@@ -40,6 +40,7 @@ protected:
 	void CreateViews() override;
 	void update() override;
 	void CallbackDeleteConfig(bool yes);
+	UI::Margins RootMargins() const override;
 
 private:
 	void CreateSavestateControls(UI::LinearLayout *viewGroup, bool vertical);

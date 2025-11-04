@@ -57,6 +57,8 @@ public:
 	void OnCancel(UI::EventParams &e);
 	void OnBack(UI::EventParams &e);
 
+	virtual UI::Margins RootMargins() const { return UI::Margins(0); }
+
 protected:
 	virtual void CreateViews() = 0;
 
