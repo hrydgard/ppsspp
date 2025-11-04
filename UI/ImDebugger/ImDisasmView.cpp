@@ -100,7 +100,7 @@ void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(), debugger, address);
+	result = MIPSAsm::MipsAssembleOpcode(op, debugger, address);
 	Reporting::NotifyDebugger();
 	if (result == true)
 	{

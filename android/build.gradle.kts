@@ -132,7 +132,7 @@ android {
 						"-DANDROID_PLATFORM=android-21",
 						"-DANDROID_TOOLCHAIN=clang",
 						"-DANDROID_CPP_FEATURES=",
-						"-DANDROID_STL=c++_static"
+						"-DANDROID_STL=c++_shared"
 					))
 				}
 			}
@@ -150,7 +150,7 @@ android {
 						"-DANDROID_PLATFORM=android-21",
 						"-DANDROID_TOOLCHAIN=clang",
 						"-DANDROID_CPP_FEATURES=",
-						"-DANDROID_STL=c++_static",
+						"-DANDROID_STL=c++_shared",
 						"-DGOLD=TRUE"
 					))
 				}
@@ -170,7 +170,7 @@ android {
 						"-DANDROID_PLATFORM=android-21",
 						"-DANDROID_TOOLCHAIN=clang",
 						"-DANDROID_CPP_FEATURES=",
-						"-DANDROID_STL=c++_static",
+						"-DANDROID_STL=c++_shared",
 						"-DANDROID_LEGACY=TRUE"
 					))
 				}
@@ -190,7 +190,7 @@ android {
 						"-DANDROID_PLATFORM=android-21",
 						"-DANDROID_TOOLCHAIN=clang",
 						"-DANDROID_CPP_FEATURES=",
-						"-DANDROID_STL=c++_static",
+						"-DANDROID_STL=c++_shared",
 						"-DOPENXR=TRUE",
 						"-DANDROID_LEGACY=TRUE"
 					))

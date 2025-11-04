@@ -651,20 +651,15 @@ public:
 		return bFullScreen;
 	}
 
-	const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
 	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
 
-	// Applies the Auto setting if set. Returns an enum value from PSP_SYSTEMPARAM_LANGUAGE_*.
-	int GetPSPLanguage();
-
 	PlayTimeTracker &TimeTracker() { return playTimeTracker_; }
 
 protected:
 	void LoadStandardControllerIni();
-	void LoadLangValuesMapping();
 
 	void PostLoadCleanup(bool gameSpecific);
 	void PreSaveCleanup(bool gameSpecific);
@@ -676,7 +671,6 @@ private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
-	std::map<std::string, std::pair<std::string, int>, std::less<>> langValuesMapping_;
 	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;
 	Path controllerIniFilename_;

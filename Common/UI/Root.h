@@ -8,6 +8,8 @@
 
 namespace UI {
 
+struct Margins;
+
 // The ONLY global is the currently focused item.
 // Can be and often is null.
 void EnableFocusMovement(bool enable);
@@ -22,7 +24,7 @@ DialogResult DispatchEvents();
 
 class ViewGroup;
 
-void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset);
+void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset);
 DialogResult UpdateViewHierarchy(ViewGroup *root);
 
 enum class KeyEventResult {

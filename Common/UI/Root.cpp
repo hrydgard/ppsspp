@@ -100,7 +100,7 @@ bool IsFocusMovementEnabled() {
 	return focusMovementEnabled;
 }
 
-void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset) {
+void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset) {
 	Bounds rootBounds = ignoreInsets ? dc.GetBounds() : dc.GetLayoutBounds(ignoreBottomInset);
 
 	MeasureSpec horiz(EXACTLY, rootBounds.w);
@@ -109,6 +109,10 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets
 	// Two phases - measure contents, layout.
 	root->Measure(dc, horiz, vert);
 	// Root has a specified size. Set it, then let root layout all its children.
+	rootBounds.x += rootMargins.left;
+	rootBounds.y += rootMargins.top;
+	rootBounds.w -= rootMargins.right;
+	rootBounds.h -= rootMargins.bottom;
 	root->SetBounds(rootBounds);
 	root->Layout();
 }

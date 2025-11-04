@@ -77,6 +77,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/HLE/sceUtility.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/GPUCommon.h"
@@ -1132,7 +1133,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
 	auto langCodeToName = [](std::string_view value) -> std::string {
-		auto &mapping = g_Config.GetLangValuesMapping();
+		auto &mapping = GetLangValuesMapping();
 		auto iter = mapping.find(value);
 		if (iter != mapping.end()) {
 			return iter->second.first;

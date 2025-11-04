@@ -277,19 +277,19 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(), debugger, address);
+	std::string error;
+	result = MipsAssembleOpcode(op, debugger, address, &error);
 	Reporting::NotifyDebugger();
-	if (result == true)
-	{
+	if (result) {
 		scanVisibleFunctions();
 
-		if (address == curAddress)
-			gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress,1));
-
+		if (address == curAddress) {
+			gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress, 1));
+		}
 		redraw();
 	} else {
-		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
-		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
+		std::wstring werror = ConvertUTF8ToWString(error.c_str());
+		MessageBox(wnd, werror.c_str(), L"Error", MB_OK);
 	}
 }
 
@@ -299,34 +299,28 @@ void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int> &addressPositions
 	
 	int topY;
 	int bottomY;
-	if (line.first < windowStart)
-	{
+	if (line.first < windowStart) {
 		topY = -1;
-	} else if (line.first >= windowEnd)
-	{
+	} else if (line.first >= windowEnd) {
 		topY = rect.bottom+1;
 	} else {
 		topY = addressPositions[line.first] + rowHeight/2;
 	}
 			
-	if (line.second < windowStart)
-	{
+	if (line.second < windowStart) {
 		bottomY = -1;
-	} else if (line.second >= windowEnd)
-	{
+	} else if (line.second >= windowEnd) {
 		bottomY = rect.bottom+1;
 	} else {
 		bottomY = addressPositions[line.second] + rowHeight/2;
 	}
 
-	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom))
-	{
+	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom)) {
 		return;
 	}
 
 	// highlight line in a different color if it affects the currently selected opcode
-	if (line.first == curAddress || line.second == curAddress)
-	{
+	if (line.first == curAddress || line.second == curAddress) {
 		pen = CreatePen(0,0,0x257AFA);
 	} else {
 		pen = CreatePen(0,0,0xFF3020);
