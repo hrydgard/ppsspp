@@ -106,6 +106,8 @@ public:
 	Config();
 	~Config();
 
+	u32 sentinel = 13371337; // For memory corruption debugging, just set a data breakpoint.
+
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;

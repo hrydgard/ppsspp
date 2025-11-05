@@ -1186,7 +1186,6 @@ void Config::ReadAllSettings(const IniFile &iniFile) {
 		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
 		if (!section && !meta.fallbackSectionName.empty()) {
 			section = iniFile.GetSection(meta.fallbackSectionName);
-			configBlock = GetConfigBlockForSection(meta.fallbackSectionName);
 		}
 		// If section is still null, we'll handle that gracefully by resetting to defaults.
 		_dbg_assert_(configBlock);
@@ -1726,7 +1725,6 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
 		if (!section && !meta.fallbackSectionName.empty()) {
 			section = iniFile.GetSection(meta.fallbackSectionName);
-			configBlock = GetConfigBlockForSection(meta.fallbackSectionName);
 		}
 		for (size_t j = 0; j < meta.settingsCount; j++) {
 			meta.settings[j].ReadFromIniSection(configBlock, section, false);
