@@ -63,15 +63,19 @@ private:
 
 struct ConfigSetting;
 
+struct ConfigBlock {
+	virtual ~ConfigBlock() = default;
+};
+
 struct ConfigSectionMeta {
-	char *owner;
+	ConfigBlock *configBlock;
 	const ConfigSetting *settings;
 	size_t settingsCount;
 	std::string_view section;
 	std::string_view fallbackSection;  // used if section is not found (useful when moving settings into a struct from Config).
 };
 
-struct DisplayLayoutConfig {
+struct DisplayLayoutConfig : public ConfigBlock {
 	int iDisplayFilter;    // 1 = linear, 2 = nearest
 	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
 	float fDisplayOffsetX;
@@ -90,7 +94,7 @@ struct DisplayLayoutConfig {
 	bool InternalRotationIsPortrait() const;
 };
 
-struct Config {
+struct Config : public ConfigBlock {
 public:
 	Config();
 	~Config();

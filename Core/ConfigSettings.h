@@ -16,6 +16,8 @@ enum class CfgFlag : u8 {
 };
 ENUM_CLASS_BITOPS(CfgFlag);
 
+struct ConfigBlock;
+
 struct ConfigSetting {
 	enum class Type {
 		TYPE_TERMINATOR,
@@ -165,16 +167,16 @@ struct ConfigSetting {
 		cb_.touchPos = def;
 	}
 
-	bool ReadFromIniSection(char *owner, const Section *section) const;
+	bool ReadFromIniSection(ConfigBlock *configBlock, const Section *section) const;
 
 	// Yes, this can be const because what's modified is not the ConfigSetting struct, but the value which is stored elsewhere.
 	// Should actually be called WriteToIni or something.
-	void WriteToIniSection(const char *owner, Section *section) const;
+	void WriteToIniSection(const ConfigBlock *configBlock, Section *section) const;
 
 	// If log is true, logs if the setting changed.
-	bool RestoreToDefault(const char *owner, bool log) const;
+	bool RestoreToDefault(ConfigBlock *configBlock, bool log) const;
 
-	void ReportSetting(const char *owner, UrlEncoder &data, const std::string &prefix) const;
+	void ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const;
 
 	// Easy flag accessors.
 	bool PerGame() const { return flags_ & CfgFlag::PER_GAME; }
@@ -192,9 +194,10 @@ struct ConfigSetting {
 	// Returns false if per-game settings are not currently used
 	static bool perGame(void *ptr);
 
-	const void *GetVoidPtr(const char *owner) const {
+	const void *GetVoidPtr(ConfigBlock *configBlock) const {
+		char *configBlockBase = (char *)configBlock;
 		// undefined behavior but in reality will work.
-		return (const void *)(owner + offset_);
+		return (const void *)(configBlockBase + offset_);
 	}
 
 private:

@@ -79,10 +79,6 @@ static const std::vector<std::string_view> defaultProAdhocServerList = {
 	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
 };
 
-bool DisplayLayoutConfig::InternalRotationIsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !g_Config.bSkipBufferEffects;
-}
-
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:
@@ -635,6 +631,10 @@ static std::string DefaultInfrastructureUsername() {
 	return std::string();
 }
 
+bool DisplayLayoutConfig::InternalRotationIsPortrait() const {
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !g_Config.bSkipBufferEffects;
+}
+
 // These were previously part of Graphics.
 // It's instantiated into g_Config.displayLayoutLandscape and g_Config.displayLayoutPortrait.
 static const ConfigSetting displayLayoutSettings[] = {
@@ -1063,25 +1063,25 @@ static const ConfigSetting vrSettings[] = {
 
 // The first column says what structure the parameters are relative to.
 static const ConfigSectionMeta sectionMeta[] = {
-	{ (char *)&g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
-	{ (char *)&g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
-	{ (char *)&g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
-	{ (char *)&g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
-	{ (char *)&g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
-	{ (char *)&g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
-	{ (char *)&g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
-	{ (char *)&g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
-	{ (char *)&g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
-	{ (char *)&g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
-	{ (char *)&g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
-	{ (char *)&g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
-	{ (char *)&g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
-	{ (char *)&g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
+	{ &g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
+	{ &g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
+	{ &g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
+	{ &g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
+	{ &g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
+	{ &g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
+	{ &g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
+	{ &g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
+	{ &g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
+	{ &g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
+	{ &g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
+	{ &g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
+	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 };
 
 const size_t numSections = ARRAY_SIZE(sectionMeta);
 
-static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func, bool tryFallback) {
+static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(ConfigBlock *configBlock, Section *section, const ConfigSetting &setting)> func, bool tryFallback) {
 	for (size_t i = 0; i < numSections; ++i) {
 		Section *section = iniFile.GetSection(sectionMeta[i].section);
 		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
@@ -1093,19 +1093,25 @@ static inline void IterateSettingsIni(IniFile &iniFile, std::function<void(char 
 			section = iniFile.GetOrCreateSection(sectionMeta[i].section);
 		}
 		// Now section is guaranteed to be valid.
-		char *owner = sectionMeta[i].owner;
+		ConfigBlock *configBlock = sectionMeta[i].configBlock;
 		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
-			func(owner, section, sectionMeta[i].settings[j]);
+			func(configBlock, section, sectionMeta[i].settings[j]);
 		}
 	}
 }
 
-static inline void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
+static inline void IterateSettings(std::function<void(ConfigBlock *configBlock, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {
-		char *owner = sectionMeta[i].owner;
+		ConfigBlock *configBlock = sectionMeta[i].configBlock;
 		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
-			func(owner, sectionMeta[i].settings[j]);
+			func(configBlock, sectionMeta[i].settings[j]);
 		}
+	}
+}
+
+static inline void IterateConfigBlock(ConfigSectionMeta *meta, std::function<void(const ConfigSectionMeta &meta, const ConfigSetting &setting)> func) {
+	for (size_t j = 0; j < meta->settingsCount; j++) {
+		func(*meta, meta->settings[j]);
 	}
 }
 
@@ -1117,8 +1123,8 @@ std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([&ref](const char *owner, const ConfigSetting &setting) {
-		const void *ptr = setting.GetVoidPtr(owner);
+	IterateSettings([&ref](ConfigBlock *configBlock, const ConfigSetting &setting) {
+		const void *ptr = setting.GetVoidPtr(configBlock);
 		ref[ptr] = &setting;
 	});
 }
@@ -1154,9 +1160,9 @@ bool Config::LoadAppendedConfig() {
 		return false;
 	}
 
-	IterateSettingsIni(iniFile, [&iniFile](char *owner, Section *section, const ConfigSetting &setting) {
+	IterateSettingsIni(iniFile, [&iniFile](ConfigBlock *configBlock, Section *section, const ConfigSetting &setting) {
 		if (section->Exists(setting.iniKey_)) {
-			setting.ReadFromIniSection(owner, section);
+			setting.ReadFromIniSection(configBlock, section);
 		}
 	}, true);
 
@@ -1197,8 +1203,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(owner, section);
+	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, const Section *section, const ConfigSetting &setting) {
+		setting.ReadFromIniSection(configBlock, section);
 	}, true);
 
 	iRunCount++;
@@ -1323,9 +1329,9 @@ bool Config::Save(const char *saveReason) {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		IterateSettingsIni(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
+		IterateSettingsIni(iniFile, [&](ConfigBlock *configBlock, Section *section, const ConfigSetting &setting) {
 			if (!gameSpecific_ || !setting.PerGame()) {
-				setting.WriteToIniSection(owner, section);
+				setting.WriteToIniSection(configBlock, section);
 			}
 		}, false);
 
@@ -1536,8 +1542,8 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			IterateSettings([log](char *owner, const ConfigSetting &setting) {
-				setting.RestoreToDefault(owner, log);
+			IterateSettings([log](ConfigBlock *configBlock, const ConfigSetting &setting) {
+				setting.RestoreToDefault(configBlock, log);
 			});
 		}
 
@@ -1621,9 +1627,9 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 	PreSaveCleanup();
 
-	IterateSettingsIni(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
+	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.WriteToIniSection(owner, section);
+			setting.WriteToIniSection(configBlock, section);
 		}
 	}, false);
 
@@ -1683,9 +1689,9 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 			vPostShaderNames.push_back(v);
 	}
 
-	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
+	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, const Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.ReadFromIniSection(owner, section);
+			setting.ReadFromIniSection(configBlock, section);
 		}
 	}, true);
 
@@ -1713,8 +1719,8 @@ void Config::UnloadGameConfig() {
 	// Reload all settings from the main ini file.
 	IniFile iniFile;
 	iniFile.Load(iniFilename_);
-	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(owner, section);
+	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, const Section *section, const ConfigSetting &setting) {
+		setting.ReadFromIniSection(configBlock, section);
 	}, true);
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
@@ -1772,9 +1778,9 @@ void Config::ResetControlLayout() {
 void Config::GetReportingInfo(UrlEncoder &data) const {
 	for (size_t i = 0; i < numSections; ++i) {
 		const std::string prefix = join("config.", sectionMeta[i].section);
-		const char *owner = (const char *)sectionMeta[i].owner;
+		ConfigBlock *configBlock = sectionMeta[i].configBlock;
 		for (size_t j = 0; j < sectionMeta[i].settingsCount; j++) {
-			sectionMeta[i].settings[j].ReportSetting(owner, data, prefix);
+			sectionMeta[i].settings[j].ReportSetting(configBlock, data, prefix);
 		}
 	}
 }

@@ -12,7 +12,8 @@ bool ConfigSetting::perGame(void *ptr) {
 	return g_Config.gameSpecific_ && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr]->PerGame();
 }
 
-bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) const {
+bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section) const {
+	char *owner = (char *)configBlock;
 	switch (type_) {
 	case Type::TYPE_BOOL:
 	{
@@ -158,31 +159,32 @@ bool ConfigSetting::ReadFromIniSection(char *owner, const Section *section) cons
 	}
 }
 
-void ConfigSetting::WriteToIniSection(const char *owner, Section *section) const {
+void ConfigSetting::WriteToIniSection(const ConfigBlock *configBlock, Section *section) const {
 	if (!SaveSetting()) {
 		return;
 	}
 
+	const char *owner = (const char *)configBlock;
 	switch (type_) {
 	case Type::TYPE_BOOL:
-		return section->Set(iniKey_, *(bool *)(owner + offset_));
+		return section->Set(iniKey_, *(const bool *)(owner + offset_));
 	case Type::TYPE_INT:
 		if (translateTo_) {
 			int *ptr_i = (int *)(owner + offset_);
 			std::string value = translateTo_(*ptr_i);
 			return section->Set(iniKey_, value);
 		}
-		return section->Set(iniKey_, *(int *)(owner + offset_));
+		return section->Set(iniKey_, *(const int *)(owner + offset_));
 	case Type::TYPE_UINT32:
-		return section->Set(iniKey_, *(uint32_t *)(owner + offset_));
+		return section->Set(iniKey_, *(const uint32_t *)(owner + offset_));
 	case Type::TYPE_UINT64:
-		return section->Set(iniKey_, *(uint64_t *)(owner + offset_));
+		return section->Set(iniKey_, *(const uint64_t *)(owner + offset_));
 	case Type::TYPE_FLOAT:
-		return section->Set(iniKey_, *(float *)(owner + offset_));
+		return section->Set(iniKey_, *(const float *)(owner + offset_));
 	case Type::TYPE_STRING:
-		return section->Set(iniKey_, *(std::string *)(owner + offset_));
+		return section->Set(iniKey_, *(const std::string *)(owner + offset_));
 	case Type::TYPE_STRING_VECTOR:
-		return section->Set(iniKey_, *(std::vector<std::string> *)(owner + offset_));
+		return section->Set(iniKey_, *(const std::vector<std::string> *)(owner + offset_));
 	case Type::TYPE_PATH:
 	{
 		Path *path = (Path *)(owner + offset_);
@@ -215,7 +217,8 @@ void ConfigSetting::WriteToIniSection(const char *owner, Section *section) const
 	}
 }
 
-bool ConfigSetting::RestoreToDefault(const char *owner, bool log) const {
+bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
+	const char *owner = (const char *)configBlock;
 	switch (type_) {
 	case Type::TYPE_BOOL:
 	{
@@ -346,20 +349,21 @@ bool ConfigSetting::RestoreToDefault(const char *owner, bool log) const {
 	return false;
 }
 
-void ConfigSetting::ReportSetting(const char *owner, UrlEncoder &data, const std::string &prefix) const {
+void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const {
 	if (!Report())
 		return;
 
+	const char *owner = (const char *)configBlock;
 	const std::string key = join(prefix, std::string(iniKey_));
 
 	switch (type_) {
-	case Type::TYPE_BOOL:   return data.Add(key, (const bool *)(owner + offset_));
-	case Type::TYPE_INT:    return data.Add(key, (const int *)(owner + offset_));
-	case Type::TYPE_UINT32: return data.Add(key, (const u32 *)(owner + offset_));
-	case Type::TYPE_UINT64: return data.Add(key, (const u64 *)(owner + offset_));
-	case Type::TYPE_FLOAT:  return data.Add(key, (const float *)(owner + offset_));
-	case Type::TYPE_STRING: return data.Add(key, (const std::string *)(owner + offset_));
-	case Type::TYPE_STRING_VECTOR: return data.Add(key, (const std::vector<std::string> *)(owner + offset_));
+	case Type::TYPE_BOOL:   return data.Add(key, *(const bool *)(owner + offset_));
+	case Type::TYPE_INT:    return data.Add(key, *(const int *)(owner + offset_));
+	case Type::TYPE_UINT32: return data.Add(key, *(const u32 *)(owner + offset_));
+	case Type::TYPE_UINT64: return data.Add(key, *(const u64 *)(owner + offset_));
+	case Type::TYPE_FLOAT:  return data.Add(key, *(const float *)(owner + offset_));
+	case Type::TYPE_STRING: return data.Add(key, *(const std::string *)(owner + offset_));
+	case Type::TYPE_STRING_VECTOR: return data.Add(key, *(const std::vector<std::string> *)(owner + offset_));
 	case Type::TYPE_PATH:   return data.Add(key, ((const Path *)(owner + offset_))->ToString());
 	case Type::TYPE_TOUCH_POS: return;   // Doesn't report.
 	case Type::TYPE_CUSTOM_BUTTON: return; // Doesn't report.
