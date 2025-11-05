@@ -349,7 +349,7 @@ class DragDropButton;
 class ControlLayoutView : public UI::AnchorLayout {
 public:
 	ControlLayoutView(DeviceOrientation orientation, UI::LayoutParams *layoutParams)
-		: UI::AnchorLayout(layoutParams), orientation_(orientation) {
+		: UI::AnchorLayout(layoutParams), deviceOrientation_(orientation) {
 		SetClip(true);
 	}
 
@@ -360,11 +360,14 @@ public:
 		return !controls_.empty();
 	}
 
-	DragDropButton *pickedControl_ = nullptr;
-	DragDropButton *getPickedControl(const int x, const int y);
-	std::vector<DragDropButton *> controls_;
+	int mode_ = 0;
 
 private:
+	DragDropButton *getPickedControl(const int x, const int y);
+	DragDropButton *pickedControl_ = nullptr;
+
+	std::vector<DragDropButton *> controls_;
+
 	// Touch down state for dragging
 	float startObjectX_ = -1.0f;
 	float startObjectY_ = -1.0f;
@@ -373,8 +376,7 @@ private:
 	float startScale_ = -1.0f;
 	float startSpacing_ = -1.0f;
 
-	int mode_ = 0;
-	DeviceOrientation orientation_;
+	DeviceOrientation deviceOrientation_;
 };
 
 static Point2D ClampTo(const Point2D &p, const Bounds &b) {
@@ -471,10 +473,8 @@ void ControlLayoutView::CreateViews() {
 		return;
 	}
 
-	// Create all the views.
-
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation_);
-
+	// Create all the subviews.
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation_);
 
 	if (touch.bShowTouchCircle || touch.bShowTouchCross || touch.bShowTouchTriangle || touch.bShowTouchSquare) {
 		PSPActionButtons *actionButtons = new PSPActionButtons(touch.touchActionButtonCenter, "Action buttons", touch.fActionButtonSpacing, bounds);
@@ -536,16 +536,16 @@ void ControlLayoutView::CreateViews() {
 
 	for (int i = 0; i < TouchControlConfig::CUSTOM_BUTTON_COUNT; i++) {
 		// Similar to GamepadEmu, we sanitize the images for valid values.
-		if (touch.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
-			touch.CustomButton[i].shape = 0;
+		if (g_Config.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
+			g_Config.CustomButton[i].shape = 0;
 		}
-		if (touch.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
-			touch.CustomButton[i].image = 0;
+		if (g_Config.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
+			g_Config.CustomButton[i].image = 0;
 		}
 
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Custom %d button", i);
-		addDragCustomKey(touch.touchCustom[i], temp, touch.CustomButton[i]);
+		addDragCustomKey(touch.touchCustom[i], temp, g_Config.CustomButton[i]);
 	}
 
 	for (size_t i = 0; i < controls_.size(); i++) {
@@ -595,7 +595,7 @@ void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	INFO_LOG(Log::G3D, "Resetting touch control layout");
 	g_Config.ResetControlLayout();
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-	InitPadLayout(bounds.w, bounds.h);
+	InitPadLayout(&g_Config.GetTouchControlsConfig(GetDeviceOrientation()), bounds.w, bounds.h);
 	RecreateViews();
 };
 
@@ -637,7 +637,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	// setup g_Config for button layout
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-	InitPadLayout(bounds.w, bounds.h);
+	InitPadLayout(&g_Config.GetTouchControlsConfig(GetDeviceOrientation()), bounds.w, bounds.h);
 
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 

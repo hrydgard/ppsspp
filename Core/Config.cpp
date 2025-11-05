@@ -222,8 +222,8 @@ static int DefaultScreenRotation() {
 #endif
 }
 
-#define SETTING(a, x) (const char *)&a, &a.x
-#define SETTING_IDX(a, x, i) (const char *)&a, &a.x[i]
+#define SETTING(a, x) &a, &a.x
+#define SETTING_IDX(a, x, i) &a, &a.x[i]
 
 // All relative to g_Config.
 static const ConfigSetting generalSettings[] = {
@@ -844,32 +844,16 @@ static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
+bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
+	// We do this traditionally for now.
+	return false;
+}
+
 static const ConfigSetting touchControlSettings[] = {
 	ConfigSetting("ShowTouchCross", SETTING(g_Config.touchControlsLandscape, bShowTouchCross), true, CfgFlag::PER_GAME),
 	ConfigSetting("ShowTouchCircle", SETTING(g_Config.touchControlsLandscape, bShowTouchCircle), true, CfgFlag::PER_GAME),
 	ConfigSetting("ShowTouchSquare", SETTING(g_Config.touchControlsLandscape, bShowTouchSquare), true, CfgFlag::PER_GAME),
 	ConfigSetting("ShowTouchTriangle", SETTING(g_Config.touchControlsLandscape, bShowTouchTriangle), true, CfgFlag::PER_GAME),
-
-	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 0), {0, 0, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 1), {0, 1, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 2), {0, 2, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 3), {0, 3, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 4), {0, 4, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 5), {0, 0, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 6), {0, 1, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 7), {0, 2, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 8), {0, 3, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 9), {0, 4, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom10Mapping", "Custom10Image", "Custom10Shape", "Custom10Toggle", "Custom10Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 10), {0, 0, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom11Mapping", "Custom11Image", "Custom11Shape", "Custom11Toggle", "Custom11Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 11), {0, 1, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom12Mapping", "Custom12Image", "Custom12Shape", "Custom12Toggle", "Custom12Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 12), {0, 2, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom13Mapping", "Custom13Image", "Custom13Shape", "Custom13Toggle", "Custom13Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 13), {0, 3, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom14Mapping", "Custom14Image", "Custom14Shape", "Custom14Toggle", "Custom14Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 14), {0, 4, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom15Mapping", "Custom15Image", "Custom15Shape", "Custom15Toggle", "Custom15Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 15), {0, 0, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom16Mapping", "Custom16Image", "Custom16Shape", "Custom16Toggle", "Custom16Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 16), {0, 1, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom17Mapping", "Custom17Image", "Custom17Shape", "Custom17Toggle", "Custom17Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 17), {0, 2, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom18Mapping", "Custom18Image", "Custom18Shape", "Custom18Toggle", "Custom18Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 18), {0, 3, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom19Mapping", "Custom19Image", "Custom19Shape", "Custom19Toggle", "Custom19Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 19), {0, 4, 9, false, false}, CfgFlag::PER_GAME),
 
 	// Combo keys are something else, but I don't want to break the config backwards compatibility so these will stay wrongly named.
 	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 0), defaultTouchPosHide, CfgFlag::PER_GAME),
@@ -926,6 +910,27 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowTouchControls", SETTING(g_Config, bShowTouchControls), &DefaultShowTouchControls, CfgFlag::PER_GAME),
 
 	// ConfigSetting("KeyMapping", SETTING(g_Config, iMappingMap), 0),
+	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", SETTING_IDX(g_Config, CustomButton, 0), {0, 0, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", SETTING_IDX(g_Config, CustomButton, 1), {0, 1, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", SETTING_IDX(g_Config, CustomButton, 2), {0, 2, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", SETTING_IDX(g_Config, CustomButton, 3), {0, 3, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", SETTING_IDX(g_Config, CustomButton, 4), {0, 4, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", SETTING_IDX(g_Config, CustomButton, 5), {0, 0, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", SETTING_IDX(g_Config, CustomButton, 6), {0, 1, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", SETTING_IDX(g_Config, CustomButton, 7), {0, 2, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", SETTING_IDX(g_Config, CustomButton, 8), {0, 3, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", SETTING_IDX(g_Config, CustomButton, 9), {0, 4, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom10Mapping", "Custom10Image", "Custom10Shape", "Custom10Toggle", "Custom10Repeat", SETTING_IDX(g_Config, CustomButton, 10), {0, 0, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom11Mapping", "Custom11Image", "Custom11Shape", "Custom11Toggle", "Custom11Repeat", SETTING_IDX(g_Config, CustomButton, 11), {0, 1, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom12Mapping", "Custom12Image", "Custom12Shape", "Custom12Toggle", "Custom12Repeat", SETTING_IDX(g_Config, CustomButton, 12), {0, 2, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom13Mapping", "Custom13Image", "Custom13Shape", "Custom13Toggle", "Custom13Repeat", SETTING_IDX(g_Config, CustomButton, 13), {0, 3, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom14Mapping", "Custom14Image", "Custom14Shape", "Custom14Toggle", "Custom14Repeat", SETTING_IDX(g_Config, CustomButton, 14), {0, 4, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom15Mapping", "Custom15Image", "Custom15Shape", "Custom15Toggle", "Custom15Repeat", SETTING_IDX(g_Config, CustomButton, 15), {0, 0, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom16Mapping", "Custom16Image", "Custom16Shape", "Custom16Toggle", "Custom16Repeat", SETTING_IDX(g_Config, CustomButton, 16), {0, 1, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom17Mapping", "Custom17Image", "Custom17Shape", "Custom17Toggle", "Custom17Repeat", SETTING_IDX(g_Config, CustomButton, 17), {0, 2, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom18Mapping", "Custom18Image", "Custom18Shape", "Custom18Toggle", "Custom18Repeat", SETTING_IDX(g_Config, CustomButton, 18), {0, 3, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom19Mapping", "Custom19Image", "Custom19Shape", "Custom19Toggle", "Custom19Repeat", SETTING_IDX(g_Config, CustomButton, 19), {0, 4, 9, false, false}, CfgFlag::PER_GAME),
+
 
 #ifdef MOBILE_DEVICE
 	ConfigSetting("TiltBaseAngleY", SETTING(g_Config, fTiltBaseAngleY), 0.9f, CfgFlag::PER_GAME),
@@ -1192,9 +1197,11 @@ void Config::ReadAllSettings(const IniFile &iniFile) {
 		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
 		if (!section && !meta.fallbackSectionName.empty()) {
 			section = iniFile.GetSection(meta.fallbackSectionName);
+			// NOTE: it's tempting to update the configBlock here, but that's not what we want to do!
+			// We just want to read from a different section in the ini file, we still want to read into
+			// the same configBlock.
 		}
 		// If section is still null, we'll handle that gracefully by resetting to defaults.
-		_dbg_assert_(configBlock);
 		bool applyDefaultPerSetting = true;
 		if (configBlock->ResetToDefault(meta.section)) {
 			applyDefaultPerSetting = false;
@@ -1731,6 +1738,9 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
 		if (!section && !meta.fallbackSectionName.empty()) {
 			section = iniFile.GetSection(meta.fallbackSectionName);
+			// NOTE: it's tempting to update the configBlock here, but that's not what we want to do!
+			// We just want to read from a different section in the ini file, we still want to read into
+			// the same configBlock.
 		}
 		for (size_t j = 0; j < meta.settingsCount; j++) {
 			meta.settings[j].ReadFromIniSection(configBlock, section, false);
@@ -1875,7 +1885,7 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 void PlayTimeTracker::Load(const Section *section) {
 	tracker_.clear();
 
-	auto map = section->ToMap();
+	const auto map = section->ToMap();
 
 	for (const auto &iter : map) {
 		const std::string &value = iter.second;

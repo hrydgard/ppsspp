@@ -64,13 +64,6 @@ private:
 
 struct ConfigSetting;
 
-struct ConfigBlock {
-	virtual ~ConfigBlock() = default;
-	virtual bool CanResetToDefault() const { return false; }
-	// If a block returns false here (like Config itself does), resetting to default will happen by the old per-setting mechanism.
-	virtual bool ResetToDefault(std::string_view blockName) { return false; }
-};
-
 struct ConfigSectionMeta {
 	ConfigBlock *configBlock;
 	const ConfigSetting *settings;
@@ -99,18 +92,19 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	bool InternalRotationIsPortrait() const;
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(DisplayLayoutConfig); }  // For sanity checks
 };
 
 struct TouchControlConfig : public ConfigBlock {
 	//space between PSP buttons
 	//the PSP button's center (triangle, circle, square, cross)
 	ConfigTouchPos touchActionButtonCenter;
-	float fActionButtonSpacing;
+	float fActionButtonSpacing = 0.0f;
 	//radius of the D-pad (PSP cross)
 	// int iDpadRadius;
 	//the D-pad (PSP cross) position
 	ConfigTouchPos touchDpad;
-	float fDpadSpacing;
+	float fDpadSpacing = 0.0f;
 	ConfigTouchPos touchStartKey;
 	ConfigTouchPos touchSelectKey;
 	ConfigTouchPos touchFastForwardKey;
@@ -125,12 +119,17 @@ struct TouchControlConfig : public ConfigBlock {
 
 	float fLeftStickHeadScale = 1.0f;
 	float fRightStickHeadScale = 1.0f;
+
 	bool bHideStickBackground = false;
 
 	bool bShowTouchCircle = true;
 	bool bShowTouchCross = true;
 	bool bShowTouchTriangle = true;
 	bool bShowTouchSquare = true;
+
+	bool CanResetToDefault() const override { return true; }
+	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(TouchControlConfig); }  // For sanity checks
 };
 
 struct Config : public ConfigBlock {
@@ -138,7 +137,7 @@ public:
 	Config();
 	~Config();
 
-	u32 sentinel = 13371337; // For memory corruption debugging, just set a data breakpoint.
+	size_t Size() const override { return sizeof(Config); }
 
 	// Whether to save the config on close.
 	bool bSaveSettings;
@@ -729,6 +728,7 @@ private:
 	std::string gameId_;
 
 	PlayTimeTracker playTimeTracker_;
+
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;

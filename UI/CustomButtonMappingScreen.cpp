@@ -132,11 +132,13 @@ void CustomButtonMappingScreen::CreateViews() {
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation_);
+
 	ConfigCustomButton *cfg = nullptr;
 	bool *show = nullptr;
 	memset(array, 0, sizeof(array));
 	cfg = &g_Config.CustomButton[id_];
-	show = &g_Config.touchCustom[id_].show;
+	show = &touch.touchCustom[id_].show;
 	for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++)
 		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
 
@@ -221,7 +223,7 @@ static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKeyData::g_customKeyL
 }
 
 void CustomButtonMappingScreen::saveArray() {
-	if (id_ >= 0 && id_ < Config::CUSTOM_BUTTON_COUNT) {
+	if (id_ >= 0 && id_ < TouchControlConfig::CUSTOM_BUTTON_COUNT) {
 		g_Config.CustomButton[id_].key = arrayToInt(array);
 	}
 }
