@@ -64,13 +64,6 @@ private:
 
 struct ConfigSetting;
 
-struct ConfigBlock {
-	virtual ~ConfigBlock() = default;
-	virtual bool CanResetToDefault() const { return false; }
-	// If a block returns false here (like Config itself does), resetting to default will happen by the old per-setting mechanism.
-	virtual bool ResetToDefault(std::string_view blockName) { return false; }
-};
-
 struct ConfigSectionMeta {
 	ConfigBlock *configBlock;
 	const ConfigSetting *settings;
@@ -99,6 +92,46 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	bool InternalRotationIsPortrait() const;
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(DisplayLayoutConfig); }  // For sanity checks
+};
+
+struct TouchControlConfig : public ConfigBlock {
+	//space between PSP buttons
+	//the PSP button's center (triangle, circle, square, cross)
+	ConfigTouchPos touchActionButtonCenter;
+	float fActionButtonSpacing = 0.0f;
+	//radius of the D-pad (PSP cross)
+	// int iDpadRadius;
+	//the D-pad (PSP cross) position
+	ConfigTouchPos touchDpad;
+	float fDpadSpacing = 0.0f;
+	ConfigTouchPos touchStartKey;
+	ConfigTouchPos touchSelectKey;
+	ConfigTouchPos touchFastForwardKey;
+	ConfigTouchPos touchLKey;
+	ConfigTouchPos touchRKey;
+	ConfigTouchPos touchAnalogStick;
+	ConfigTouchPos touchRightAnalogStick;
+
+	enum { CUSTOM_BUTTON_COUNT = 20 };
+
+	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
+
+	float fLeftStickHeadScale = 1.0f;
+	float fRightStickHeadScale = 1.0f;
+
+	bool bHideStickBackground = false;
+
+	bool bShowTouchCircle = true;
+	bool bShowTouchCross = true;
+	bool bShowTouchTriangle = true;
+	bool bShowTouchSquare = true;
+
+	void ResetLayout();
+
+	bool CanResetToDefault() const override { return true; }
+	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(TouchControlConfig); }  // For sanity checks
 };
 
 struct Config : public ConfigBlock {
@@ -106,7 +139,7 @@ public:
 	Config();
 	~Config();
 
-	u32 sentinel = 13371337; // For memory corruption debugging, just set a data breakpoint.
+	size_t Size() const override { return sizeof(Config); }
 
 	// Whether to save the config on close.
 	bool bSaveSettings;
@@ -411,9 +444,11 @@ public:
 	bool bAnalogGesture;
 	float fAnalogGestureSensibility;
 
+	// Controls Visibility
+	bool bShowTouchControls = false;
+
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
-
 	bool bGamepadOnlyFocused;
 
 	// Control Style
@@ -434,40 +469,11 @@ public:
 	// Touch gliding (see #14490)
 	bool bTouchGliding;
 
-	//space between PSP buttons
-	//the PSP button's center (triangle, circle, square, cross)
-	ConfigTouchPos touchActionButtonCenter;
-	float fActionButtonSpacing;
-	//radius of the D-pad (PSP cross)
-	// int iDpadRadius;
-	//the D-pad (PSP cross) position
-	ConfigTouchPos touchDpad;
-	float fDpadSpacing;
-	ConfigTouchPos touchStartKey;
-	ConfigTouchPos touchSelectKey;
-	ConfigTouchPos touchFastForwardKey;
-	ConfigTouchPos touchLKey;
-	ConfigTouchPos touchRKey;
-	ConfigTouchPos touchAnalogStick;
-	ConfigTouchPos touchRightAnalogStick;
+	TouchControlConfig touchControlsLandscape;
+	TouchControlConfig touchControlsPortrait;
 
-	enum { CUSTOM_BUTTON_COUNT = 20 };
-
-	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
-
-	float fLeftStickHeadScale;
-	float fRightStickHeadScale;
-	bool bHideStickBackground;
-
-	// Controls Visibility
-	bool bShowTouchControls;
-
-	bool bShowTouchCircle;
-	bool bShowTouchCross;
-	bool bShowTouchTriangle;
-	bool bShowTouchSquare;
-
-	ConfigCustomButton CustomButton[CUSTOM_BUTTON_COUNT];
+	// These are shared between portrait and landscape, just the positions aren't.
+	ConfigCustomButton CustomButton[TouchControlConfig::CUSTOM_BUTTON_COUNT];
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;
@@ -671,8 +677,6 @@ public:
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
-	void ResetControlLayout();
-
 	void GetReportingInfo(UrlEncoder &data) const;
 
 	int NextValidBackend();
@@ -697,6 +701,12 @@ public:
 	DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) {
 		return orientation == DeviceOrientation::Portrait ? displayLayoutPortrait : displayLayoutLandscape;
 	}
+	const TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) const {
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) {
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
 
 private:
 	void LoadStandardControllerIni();
@@ -718,6 +728,7 @@ private:
 	std::string gameId_;
 
 	PlayTimeTracker playTimeTracker_;
+
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;

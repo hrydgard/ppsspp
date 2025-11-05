@@ -14,6 +14,8 @@ bool ConfigSetting::perGame(void *ptr) {
 
 bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {
 	char *owner = (char *)configBlock;
+	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
+
 	switch (type_) {
 	case Type::TYPE_BOOL:
 	{
@@ -178,6 +180,7 @@ void ConfigSetting::WriteToIniSection(const ConfigBlock *configBlock, Section *s
 		return;
 	}
 	_dbg_assert_(section);
+	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
 
 	const char *owner = (const char *)configBlock;
 	switch (type_) {
@@ -235,6 +238,7 @@ void ConfigSetting::WriteToIniSection(const ConfigBlock *configBlock, Section *s
 bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	// If the block supports resetting itself, don't allow per-setting resets. Shake them out with this assert.
 	_dbg_assert_(!configBlock->CanResetToDefault());
+	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
 
 	const char *owner = (const char *)configBlock;
 	switch (type_) {
@@ -369,6 +373,8 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 
 // Might be used to copy individual settings from defaulted blocks. Didn't end up using this for now.
 void ConfigSetting::CopyFromBlock(const ConfigBlock *other) {
+	_dbg_assert_(offset_ >= 0 && offset_ < other->Size());
+
 	const char *otherOwner = (const char *)other;
 	const char *thisOwner = (const char *)this;
 	switch (type_) {
@@ -392,8 +398,9 @@ void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &da
 	if (!Report())
 		return;
 
+	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
 	const char *owner = (const char *)configBlock;
-	const std::string key = join(prefix, std::string(iniKey_));
+	const std::string key = join(prefix, iniKey_);
 
 	switch (type_) {
 	case Type::TYPE_BOOL:   return data.Add(key, *(const bool *)(owner + offset_));

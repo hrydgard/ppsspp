@@ -379,7 +379,6 @@ void MainWindow::SetFullScreen(bool fullscreen) {
 #endif
 
 		showFullScreen();
-		InitPadLayout(g_display.dp_xres, g_display.dp_yres);
 
 		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
@@ -391,7 +390,6 @@ void MainWindow::SetFullScreen(bool fullscreen) {
 
 		showNormal();
 		SetWindowScale(-1);
-		InitPadLayout(g_display.dp_xres, g_display.dp_yres);
 
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();

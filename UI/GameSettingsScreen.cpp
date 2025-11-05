@@ -854,8 +854,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		CheckBox *touchGliding = controlsSettings->Add(new CheckBox(&g_Config.bTouchGliding, co->T("Keep first touched button pressed when dragging")));
 		touchGliding->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+		TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+
 		// Hide stick background, useful when increasing the size
-		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));
+		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&touch.bHideStickBackground, co->T("Hide touch analog stick background circle")));
 		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// Sticky D-pad.

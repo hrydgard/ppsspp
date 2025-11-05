@@ -83,27 +83,29 @@ void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
 	gridsettings.fillCells = true;
 	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+
 	toggles_.clear();
-	toggles_.push_back({ "Circle", &g_Config.bShowTouchCircle, ImageID("I_CIRCLE"), nullptr });
-	toggles_.push_back({ "Cross", &g_Config.bShowTouchCross, ImageID("I_CROSS"), nullptr });
-	toggles_.push_back({ "Square", &g_Config.bShowTouchSquare, ImageID("I_SQUARE"), nullptr });
-	toggles_.push_back({ "Triangle", &g_Config.bShowTouchTriangle, ImageID("I_TRIANGLE"), nullptr });
-	toggles_.push_back({ "L", &g_Config.touchLKey.show, ImageID("I_L"), nullptr });
-	toggles_.push_back({ "R", &g_Config.touchRKey.show, ImageID("I_R"), nullptr });
-	toggles_.push_back({ "Start", &g_Config.touchStartKey.show, ImageID("I_START"), nullptr });
-	toggles_.push_back({ "Select", &g_Config.touchSelectKey.show, ImageID("I_SELECT"), nullptr });
-	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, ImageID::invalid(), nullptr });
-	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, ImageID::invalid(), nullptr });
-	toggles_.push_back({ "Right Analog Stick", &g_Config.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
+	toggles_.push_back({ "Circle", &touch.bShowTouchCircle, ImageID("I_CIRCLE"), nullptr });
+	toggles_.push_back({ "Cross", &touch.bShowTouchCross, ImageID("I_CROSS"), nullptr });
+	toggles_.push_back({ "Square", &touch.bShowTouchSquare, ImageID("I_SQUARE"), nullptr });
+	toggles_.push_back({ "Triangle", &touch.bShowTouchTriangle, ImageID("I_TRIANGLE"), nullptr });
+	toggles_.push_back({ "L", &touch.touchLKey.show, ImageID("I_L"), nullptr });
+	toggles_.push_back({ "R", &touch.touchRKey.show, ImageID("I_R"), nullptr });
+	toggles_.push_back({ "Start", &touch.touchStartKey.show, ImageID("I_START"), nullptr });
+	toggles_.push_back({ "Select", &touch.touchSelectKey.show, ImageID("I_SELECT"), nullptr });
+	toggles_.push_back({ "Dpad", &touch.touchDpad.show, ImageID::invalid(), nullptr });
+	toggles_.push_back({ "Analog Stick", &touch.touchAnalogStick.show, ImageID::invalid(), nullptr });
+	toggles_.push_back({ "Right Analog Stick", &touch.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
 		screenManager()->push(new RightAnalogMappingScreen(gamePath_));
 	}});
-	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
+	toggles_.push_back({ "Fast-forward", &touch.touchFastForwardKey.show, ImageID::invalid(), nullptr });
 
-	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+	for (int i = 0; i < TouchControlConfig::CUSTOM_BUTTON_COUNT; i++) {
 		char temp[256];
 		snprintf(temp, sizeof(temp), "Custom %d", i + 1);
-		toggles_.push_back({ temp, &g_Config.touchCustom[i].show, ImageID::invalid(), [=](EventParams &e) {
-			screenManager()->push(new CustomButtonMappingScreen(gamePath_, i));
+		toggles_.push_back({ temp, &touch.touchCustom[i].show, ImageID::invalid(), [=](EventParams &e) {
+			screenManager()->push(new CustomButtonMappingScreen(GetDeviceOrientation(), gamePath_, i));
 		} });
 	}
 
@@ -148,6 +150,8 @@ void RightAnalogMappingScreen::CreateViews() {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
 	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -161,7 +165,7 @@ void RightAnalogMappingScreen::CreateViews() {
 	static const char *rightAnalogButton[] = {"None", "L", "R", "Square", "Triangle", "Circle", "Cross", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "Start", "Select", "RightAn.Up", "RightAn.Down", "RightAn.Left", "RightAn.Right", "An.Up", "An.Down", "An.Left", "An.Right"};
 
 	vert->Add(new ItemHeader(co->T("Analog Style")));
-	vert->Add(new CheckBox(&g_Config.touchRightAnalogStick.show, co->T("Visible")));
+	vert->Add(new CheckBox(&touch.touchRightAnalogStick.show, co->T("Visible")));
 	vert->Add(new CheckBox(&g_Config.bRightAnalogCustom, co->T("Use custom right analog")));
 	vert->Add(new CheckBox(&g_Config.bRightAnalogDisableDiagonal, co->T("Disable diagonal input")))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
 

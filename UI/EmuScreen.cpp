@@ -1245,13 +1245,17 @@ void EmuScreen::CreateViews() {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
+	const DeviceOrientation deviceOrientation = GetDeviceOrientation();
+
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation);
+
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
-	InitPadLayout(bounds.w, bounds.h);
+	InitPadLayout(&touch, deviceOrientation, bounds.w, bounds.h);
 
 	// Devices without a back button like iOS need an on-screen touch back button.
 	bool showPauseButton = !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause;
 
-	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
+	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -1286,8 +1290,8 @@ void EmuScreen::CreateViews() {
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	DeviceOrientation orientation = GetDeviceOrientation();
-	cardboardDisableButton_->OnClick.Add([orientation](UI::EventParams &) {
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(orientation);
+	cardboardDisableButton_->OnClick.Add([deviceOrientation](UI::EventParams &) {
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(deviceOrientation);
 		config.bEnableCardboardVR = false;
 	});
 	cardboardDisableButton_->SetVisibility(V_GONE);
