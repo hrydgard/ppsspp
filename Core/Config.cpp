@@ -844,55 +844,78 @@ static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
+static const ConfigSetting touchControlSettings[] = {
+	ConfigSetting("ShowTouchCross", SETTING(g_Config.touchControlsLandscape, bShowTouchCross), true, CfgFlag::PER_GAME),
+	ConfigSetting("ShowTouchCircle", SETTING(g_Config.touchControlsLandscape, bShowTouchCircle), true, CfgFlag::PER_GAME),
+	ConfigSetting("ShowTouchSquare", SETTING(g_Config.touchControlsLandscape, bShowTouchSquare), true, CfgFlag::PER_GAME),
+	ConfigSetting("ShowTouchTriangle", SETTING(g_Config.touchControlsLandscape, bShowTouchTriangle), true, CfgFlag::PER_GAME),
+
+	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 0), {0, 0, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 1), {0, 1, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 2), {0, 2, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 3), {0, 3, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 4), {0, 4, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 5), {0, 0, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 6), {0, 1, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 7), {0, 2, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 8), {0, 3, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 9), {0, 4, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom10Mapping", "Custom10Image", "Custom10Shape", "Custom10Toggle", "Custom10Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 10), {0, 0, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom11Mapping", "Custom11Image", "Custom11Shape", "Custom11Toggle", "Custom11Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 11), {0, 1, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom12Mapping", "Custom12Image", "Custom12Shape", "Custom12Toggle", "Custom12Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 12), {0, 2, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom13Mapping", "Custom13Image", "Custom13Shape", "Custom13Toggle", "Custom13Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 13), {0, 3, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom14Mapping", "Custom14Image", "Custom14Shape", "Custom14Toggle", "Custom14Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 14), {0, 4, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom15Mapping", "Custom15Image", "Custom15Shape", "Custom15Toggle", "Custom15Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 15), {0, 0, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom16Mapping", "Custom16Image", "Custom16Shape", "Custom16Toggle", "Custom16Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 16), {0, 1, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom17Mapping", "Custom17Image", "Custom17Shape", "Custom17Toggle", "Custom17Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 17), {0, 2, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom18Mapping", "Custom18Image", "Custom18Shape", "Custom18Toggle", "Custom18Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 18), {0, 3, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom19Mapping", "Custom19Image", "Custom19Shape", "Custom19Toggle", "Custom19Repeat", SETTING_IDX(g_Config.touchControlsLandscape, CustomButton, 19), {0, 4, 9, false, false}, CfgFlag::PER_GAME),
+
+	// Combo keys are something else, but I don't want to break the config backwards compatibility so these will stay wrongly named.
+	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 0), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 1), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 2), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 3), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 4), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 5), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 6), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 7), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 8), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 9), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo10X", "fcombo10Y", "comboKeyScale10", "ShowComboKey10", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 10), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo11X", "fcombo11Y", "comboKeyScale11", "ShowComboKey11", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 11), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo12X", "fcombo12Y", "comboKeyScale12", "ShowComboKey12", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 12), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo13X", "fcombo13Y", "comboKeyScale13", "ShowComboKey13", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 13), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo14X", "fcombo14Y", "comboKeyScale14", "ShowComboKey14", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 14), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo15X", "fcombo15Y", "comboKeyScale15", "ShowComboKey15", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 15), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo16X", "fcombo16Y", "comboKeyScale16", "ShowComboKey16", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 16), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo17X", "fcombo17Y", "comboKeyScale17", "ShowComboKey17", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 17), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo18X", "fcombo18Y", "comboKeyScale18", "ShowComboKey18", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 18), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo19X", "fcombo19Y", "comboKeyScale19", "ShowComboKey19", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 19), defaultTouchPosHide, CfgFlag::PER_GAME),
+
+	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
+	ConfigSetting("ActionButtonSpacing2", SETTING(g_Config.touchControlsLandscape, fActionButtonSpacing), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("ActionButtonCenterX", "ActionButtonCenterY", "ActionButtonScale", nullptr, SETTING(g_Config.touchControlsLandscape, touchActionButtonCenter), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("DPadX", "DPadY", "DPadScale", "ShowTouchDpad", SETTING(g_Config.touchControlsLandscape, touchDpad), defaultTouchPosShow, CfgFlag::PER_GAME),
+
+	// Note: these will be overwritten if DPadRadius is set.
+	ConfigSetting("DPadSpacing", SETTING(g_Config.touchControlsLandscape, fDpadSpacing), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", SETTING(g_Config.touchControlsLandscape, touchStartKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", SETTING(g_Config.touchControlsLandscape, touchSelectKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config.touchControlsLandscape, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config.touchControlsLandscape, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config.touchControlsLandscape, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", SETTING(g_Config.touchControlsLandscape, touchAnalogStick), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", SETTING(g_Config.touchControlsLandscape, touchRightAnalogStick), defaultTouchPosHide, CfgFlag::PER_GAME),
+
+	ConfigSetting("LeftStickHeadScale", SETTING(g_Config.touchControlsLandscape, fLeftStickHeadScale), CfgFlag::PER_GAME),
+	ConfigSetting("RightStickHeadScale", SETTING(g_Config.touchControlsLandscape, fRightStickHeadScale), CfgFlag::PER_GAME),
+	ConfigSetting("HideStickBackground", SETTING(g_Config.touchControlsLandscape, bHideStickBackground), CfgFlag::PER_GAME),
+};
+
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchCross", SETTING(g_Config, bShowTouchCross), true, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchCircle", SETTING(g_Config, bShowTouchCircle), true, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchSquare", SETTING(g_Config, bShowTouchSquare), true, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchTriangle", SETTING(g_Config, bShowTouchTriangle), true, CfgFlag::PER_GAME),
-
-	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", SETTING_IDX(g_Config, CustomButton, 0), {0, 0, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", SETTING_IDX(g_Config, CustomButton, 1), {0, 1, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", SETTING_IDX(g_Config, CustomButton, 2), {0, 2, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", SETTING_IDX(g_Config, CustomButton, 3), {0, 3, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", SETTING_IDX(g_Config, CustomButton, 4), {0, 4, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", SETTING_IDX(g_Config, CustomButton, 5), {0, 0, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", SETTING_IDX(g_Config, CustomButton, 6), {0, 1, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", SETTING_IDX(g_Config, CustomButton, 7), {0, 2, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", SETTING_IDX(g_Config, CustomButton, 8), {0, 3, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", SETTING_IDX(g_Config, CustomButton, 9), {0, 4, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom10Mapping", "Custom10Image", "Custom10Shape", "Custom10Toggle", "Custom10Repeat", SETTING_IDX(g_Config, CustomButton, 10), {0, 0, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom11Mapping", "Custom11Image", "Custom11Shape", "Custom11Toggle", "Custom11Repeat", SETTING_IDX(g_Config, CustomButton, 11), {0, 1, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom12Mapping", "Custom12Image", "Custom12Shape", "Custom12Toggle", "Custom12Repeat", SETTING_IDX(g_Config, CustomButton, 12), {0, 2, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom13Mapping", "Custom13Image", "Custom13Shape", "Custom13Toggle", "Custom13Repeat", SETTING_IDX(g_Config, CustomButton, 13), {0, 3, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom14Mapping", "Custom14Image", "Custom14Shape", "Custom14Toggle", "Custom14Repeat", SETTING_IDX(g_Config, CustomButton, 14), {0, 4, 2, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom15Mapping", "Custom15Image", "Custom15Shape", "Custom15Toggle", "Custom15Repeat", SETTING_IDX(g_Config, CustomButton, 15), {0, 0, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom16Mapping", "Custom16Image", "Custom16Shape", "Custom16Toggle", "Custom16Repeat", SETTING_IDX(g_Config, CustomButton, 16), {0, 1, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom17Mapping", "Custom17Image", "Custom17Shape", "Custom17Toggle", "Custom17Repeat", SETTING_IDX(g_Config, CustomButton, 17), {0, 2, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom18Mapping", "Custom18Image", "Custom18Shape", "Custom18Toggle", "Custom18Repeat", SETTING_IDX(g_Config, CustomButton, 18), {0, 3, 9, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom19Mapping", "Custom19Image", "Custom19Shape", "Custom19Toggle", "Custom19Repeat", SETTING_IDX(g_Config, CustomButton, 19), {0, 4, 9, false, false}, CfgFlag::PER_GAME),
-	// Combo keys are something else, but I don't want to break the config backwards compatibility so these will stay wrongly named.
-	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", SETTING_IDX(g_Config, touchCustom, 0), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", SETTING_IDX(g_Config, touchCustom, 1), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", SETTING_IDX(g_Config, touchCustom, 2), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", SETTING_IDX(g_Config, touchCustom, 3), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", SETTING_IDX(g_Config, touchCustom, 4), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", SETTING_IDX(g_Config, touchCustom, 5), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", SETTING_IDX(g_Config, touchCustom, 6), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", SETTING_IDX(g_Config, touchCustom, 7), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", SETTING_IDX(g_Config, touchCustom, 8), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", SETTING_IDX(g_Config, touchCustom, 9), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo10X", "fcombo10Y", "comboKeyScale10", "ShowComboKey10", SETTING_IDX(g_Config, touchCustom, 10), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo11X", "fcombo11Y", "comboKeyScale11", "ShowComboKey11", SETTING_IDX(g_Config, touchCustom, 11), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo12X", "fcombo12Y", "comboKeyScale12", "ShowComboKey12", SETTING_IDX(g_Config, touchCustom, 12), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo13X", "fcombo13Y", "comboKeyScale13", "ShowComboKey13", SETTING_IDX(g_Config, touchCustom, 13), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo14X", "fcombo14Y", "comboKeyScale14", "ShowComboKey14", SETTING_IDX(g_Config, touchCustom, 14), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo15X", "fcombo15Y", "comboKeyScale15", "ShowComboKey15", SETTING_IDX(g_Config, touchCustom, 15), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo16X", "fcombo16Y", "comboKeyScale16", "ShowComboKey16", SETTING_IDX(g_Config, touchCustom, 16), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo17X", "fcombo17Y", "comboKeyScale17", "ShowComboKey17", SETTING_IDX(g_Config, touchCustom, 17), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo18X", "fcombo18Y", "comboKeyScale18", "ShowComboKey18", SETTING_IDX(g_Config, touchCustom, 18), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo19X", "fcombo19Y", "comboKeyScale19", "ShowComboKey19", SETTING_IDX(g_Config, touchCustom, 19), defaultTouchPosHide, CfgFlag::PER_GAME),
-
+	
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
 	// sense to default this to on.
 	ConfigSetting("ShowTouchPause", SETTING(g_Config, bShowTouchPause), &DefaultShowPauseButton, CfgFlag::DEFAULT),
@@ -928,21 +951,6 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchSnapToGrid", SETTING(g_Config, bTouchSnapToGrid), false, CfgFlag::PER_GAME),
 	ConfigSetting("TouchSnapGridSize", SETTING(g_Config, iTouchSnapGridSize), 64, CfgFlag::PER_GAME),
 
-	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
-	ConfigSetting("ActionButtonSpacing2", SETTING(g_Config, fActionButtonSpacing), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("ActionButtonCenterX", "ActionButtonCenterY", "ActionButtonScale", nullptr, SETTING(g_Config, touchActionButtonCenter), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("DPadX", "DPadY", "DPadScale", "ShowTouchDpad", SETTING(g_Config, touchDpad), defaultTouchPosShow, CfgFlag::PER_GAME),
-
-	// Note: these will be overwritten if DPadRadius is set.
-	ConfigSetting("DPadSpacing", SETTING(g_Config, fDpadSpacing), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", SETTING(g_Config, touchStartKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", SETTING(g_Config, touchSelectKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", SETTING(g_Config, touchAnalogStick), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", SETTING(g_Config, touchRightAnalogStick), defaultTouchPosHide, CfgFlag::PER_GAME),
-
 	ConfigSetting("AnalogDeadzone", SETTING(g_Config, fAnalogDeadzone), 0.15f, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogInverseDeadzone", SETTING(g_Config, fAnalogInverseDeadzone), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogSensitivity", SETTING(g_Config, fAnalogSensitivity), 1.1f, CfgFlag::PER_GAME),
@@ -954,10 +962,6 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("AllowMappingCombos", SETTING(g_Config, bAllowMappingCombos), false, CfgFlag::DEFAULT),
 	ConfigSetting("StrictComboOrder", SETTING(g_Config, bStrictComboOrder), false, CfgFlag::DEFAULT),
-
-	ConfigSetting("LeftStickHeadScale", SETTING(g_Config, fLeftStickHeadScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("RightStickHeadScale", SETTING(g_Config, fRightStickHeadScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("HideStickBackground", SETTING(g_Config, bHideStickBackground), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("UseMouse", SETTING(g_Config, bMouseControl), false, CfgFlag::PER_GAME),
 	ConfigSetting("ConfineMap", SETTING(g_Config, bMouseConfine), false, CfgFlag::PER_GAME),
@@ -1091,6 +1095,8 @@ static const ConfigSectionMeta g_sectionMeta[] = {
 	{ &g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
 	{ &g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
 	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config.touchControlsLandscape, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Landscape", "Control" },  // We read the old settings from [Control], since most people played in landscape before.
+	{ &g_Config.touchControlsPortrait, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 };
 
 ConfigBlock *GetConfigBlockForSection(std::string_view sectionName) {
@@ -1786,7 +1792,9 @@ void Config::LoadStandardControllerIni() {
 	}
 }
 
+// Is this even meaningful to have here?
 void Config::ResetControlLayout() {
+	/*
 	auto reset = [](ConfigTouchPos &pos) {
 		pos.x = defaultTouchPosShow.x;
 		pos.y = defaultTouchPosShow.y;
@@ -1808,6 +1816,7 @@ void Config::ResetControlLayout() {
 	}
 	g_Config.fLeftStickHeadScale = 1.0f;
 	g_Config.fRightStickHeadScale = 1.0f;
+	*/
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) const {

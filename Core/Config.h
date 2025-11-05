@@ -101,6 +101,38 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	bool ResetToDefault(std::string_view blockName) override;
 };
 
+struct TouchControlConfig : public ConfigBlock {
+	//space between PSP buttons
+	//the PSP button's center (triangle, circle, square, cross)
+	ConfigTouchPos touchActionButtonCenter;
+	float fActionButtonSpacing;
+	//radius of the D-pad (PSP cross)
+	// int iDpadRadius;
+	//the D-pad (PSP cross) position
+	ConfigTouchPos touchDpad;
+	float fDpadSpacing;
+	ConfigTouchPos touchStartKey;
+	ConfigTouchPos touchSelectKey;
+	ConfigTouchPos touchFastForwardKey;
+	ConfigTouchPos touchLKey;
+	ConfigTouchPos touchRKey;
+	ConfigTouchPos touchAnalogStick;
+	ConfigTouchPos touchRightAnalogStick;
+
+	enum { CUSTOM_BUTTON_COUNT = 20 };
+
+	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
+
+	float fLeftStickHeadScale = 1.0f;
+	float fRightStickHeadScale = 1.0f;
+	bool bHideStickBackground = false;
+
+	bool bShowTouchCircle = true;
+	bool bShowTouchCross = true;
+	bool bShowTouchTriangle = true;
+	bool bShowTouchSquare = true;
+};
+
 struct Config : public ConfigBlock {
 public:
 	Config();
@@ -411,9 +443,11 @@ public:
 	bool bAnalogGesture;
 	float fAnalogGestureSensibility;
 
+	// Controls Visibility
+	bool bShowTouchControls = false;
+
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
-
 	bool bGamepadOnlyFocused;
 
 	// Control Style
@@ -434,40 +468,11 @@ public:
 	// Touch gliding (see #14490)
 	bool bTouchGliding;
 
-	//space between PSP buttons
-	//the PSP button's center (triangle, circle, square, cross)
-	ConfigTouchPos touchActionButtonCenter;
-	float fActionButtonSpacing;
-	//radius of the D-pad (PSP cross)
-	// int iDpadRadius;
-	//the D-pad (PSP cross) position
-	ConfigTouchPos touchDpad;
-	float fDpadSpacing;
-	ConfigTouchPos touchStartKey;
-	ConfigTouchPos touchSelectKey;
-	ConfigTouchPos touchFastForwardKey;
-	ConfigTouchPos touchLKey;
-	ConfigTouchPos touchRKey;
-	ConfigTouchPos touchAnalogStick;
-	ConfigTouchPos touchRightAnalogStick;
+	TouchControlConfig touchControlsLandscape;
+	TouchControlConfig touchControlsPortrait;
 
-	enum { CUSTOM_BUTTON_COUNT = 20 };
-
-	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
-
-	float fLeftStickHeadScale;
-	float fRightStickHeadScale;
-	bool bHideStickBackground;
-
-	// Controls Visibility
-	bool bShowTouchControls;
-
-	bool bShowTouchCircle;
-	bool bShowTouchCross;
-	bool bShowTouchTriangle;
-	bool bShowTouchSquare;
-
-	ConfigCustomButton CustomButton[CUSTOM_BUTTON_COUNT];
+	// These are shared between portrait and landscape, just the positions aren't.
+	ConfigCustomButton CustomButton[TouchControlConfig::CUSTOM_BUTTON_COUNT];
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;
@@ -696,6 +701,12 @@ public:
 	}
 	DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) {
 		return orientation == DeviceOrientation::Portrait ? displayLayoutPortrait : displayLayoutLandscape;
+	}
+	const TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) const {
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) {
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
 	}
 
 private:

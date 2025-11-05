@@ -146,7 +146,7 @@ void CustomButtonMappingScreen::CreateViews() {
 	root__->Add(leftColumn);
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	root__->Add(rightScroll);
 
 	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);
