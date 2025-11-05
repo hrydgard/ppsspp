@@ -117,7 +117,7 @@ void SetMemStickDirDarwin(int requesterToken) {
 #endif
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
-	: UITabbedBaseDialogScreen(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
+	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
 }
@@ -221,35 +221,34 @@ void GameSettingsScreen::CreateTabs() {
 	using namespace UI;
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	AddTab("GameSettingsGraphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsGraphics", ms->T("Graphics"), ImageID("I_DISPLAY"), [this](UI::LinearLayout *parent) {
 		CreateGraphicsSettings(parent);
 	});
 
-	AddTab("GameSettingsControls", ms->T("Controls"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsControls", ms->T("Controls"), ImageID("I_CONTROLLER"), [this](UI::LinearLayout *parent) {
 		CreateControlsSettings(parent);
 	});
 
-	AddTab("GameSettingsAudio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsAudio", ms->T("Audio"), ImageID("I_SPEAKER_MAX"), [this](UI::LinearLayout *parent) {
 		CreateAudioSettings(parent);
 	});
 
-	AddTab("GameSettingsNetworking", ms->T("Networking"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsNetworking", ms->T("Networking"), ImageID("I_WIFI"), [this](UI::LinearLayout *parent) {
 		CreateNetworkingSettings(parent);
 	});
 
-	AddTab("GameSettingsTools", ms->T("Tools"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_DEVMENU"), [this](UI::LinearLayout *parent) {
 		CreateToolsSettings(parent);
 	});
 
-	AddTab("GameSettingsSystem", ms->T("System"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_GEAR"), [this](UI::LinearLayout *parent) {
 		parent->SetSpacing(0);
 		CreateSystemSettings(parent);
 	});
-	
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType == DEVICE_TYPE_VR) || g_Config.bForceVR) {
-		AddTab("GameSettingsVR", ms->T("VR"), [this](UI::LinearLayout *parent) {
+		AddTab("GameSettingsVR", ms->T("VR"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
 			CreateVRSettings(parent);
 		});
 	}

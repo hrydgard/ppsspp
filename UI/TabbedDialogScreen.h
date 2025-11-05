@@ -15,6 +15,13 @@ namespace UI {
 class TabHolder;
 }
 
+enum class TabDialogFlags {
+	Default = 0,
+	HorizontalOnlyIcons = 1,
+	VerticalShowIcons = 2,
+};
+ENUM_CLASS_BITOPS(TabDialogFlags);
+
 enum class TabFlags {
 	Default = 0,
 	NonScrollable = 1,
@@ -23,7 +30,7 @@ ENUM_CLASS_BITOPS(TabFlags);
 
 class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	UITabbedBaseDialogScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
+	UITabbedBaseDialogScreen(const Path &gamePath, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), flags_(flags) {
 		ignoreBottomInset_ = true;
 	}
 
@@ -61,4 +68,6 @@ private:
 	// If we recreate the views while this is active we show it again
 	std::string oldSettingInfo_;
 	std::string searchFilter_;
+
+	TabDialogFlags flags_ = TabDialogFlags::Default;
 };

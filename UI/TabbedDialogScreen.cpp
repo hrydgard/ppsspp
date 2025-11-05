@@ -53,12 +53,21 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	if (portrait) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, TabHolderFlags::BackButton, filterNotice_, new LinearLayoutParams(1.0f));
+
+		TabHolderFlags tabHolderFlags = TabHolderFlags::BackButton;
+		if (flags_ & TabDialogFlags::HorizontalOnlyIcons) {
+			tabHolderFlags |= TabHolderFlags::HorizontalOnlyIcons;
+		}
+		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, tabHolderFlags, filterNotice_, new LinearLayoutParams(1.0f));
 		verticalLayout->Add(tabHolder_);
 		CreateExtraButtons(verticalLayout, 0);
 		root_->Add(verticalLayout);
 	} else {
-		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, TabHolderFlags::Default, filterNotice_, new AnchorLayoutParams(10, 0, 10, 0, false));
+		TabHolderFlags tabHolderFlags = TabHolderFlags::Default;
+		if (flags_ & TabDialogFlags::VerticalShowIcons) {
+			tabHolderFlags |= TabHolderFlags::VerticalShowIcons;
+		}
+		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, filterNotice_, new AnchorLayoutParams(10, 0, 10, 0, false));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
 		root_->Add(tabHolder_);

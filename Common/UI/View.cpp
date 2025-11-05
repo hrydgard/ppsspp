@@ -468,11 +468,6 @@ void Choice::ClickInternal() {
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	float totalW = 0.0f;
 	float totalH = 0.0f;
-	if (image_.isValid()) {
-		dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
-		totalW = w * imgScale_ + 6;
-		totalH = h * imgScale_;
-	}
 	if (!text_.empty()) {
 		const int paddingX = 12;
 		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz() - totalW;
@@ -488,6 +483,16 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availBounds, &textW, &textH, FLAG_WRAP_TEXT);
 		totalH = std::max(totalH, textH);
 		totalW += textW;
+		if (image_.isValid()) {
+			totalW += 12;
+			totalW += totalH;
+		}
+	} else {
+		if (image_.isValid()) {
+			dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
+			totalW = w * imgScale_ + 6;
+			totalH = h * imgScale_;
+		}
 	}
 
 	w = totalW + (text_.empty() ? 16 : 24);
@@ -508,17 +513,20 @@ void Choice::Draw(UIContext &dc) {
 	} else if (!text_.empty() && !hideTitle_) {
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 
-		int paddingX = 12;
-		float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+		int paddingLeft = 12;
+		int paddingRight = 12;
+		float availWidth = bounds_.w - (paddingLeft + paddingRight + textPadding_.horiz());
 
 		if (image_.isValid()) {
+			paddingLeft = 0;
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
 			if (image) {
 				_dbg_assert_(image);
-				paddingX += image->w + 6;
-				availWidth -= image->w + 6;
 				// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-				dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+				dc.Draw()->DrawImage(image_, bounds_.x + bounds_.h * 0.5f + paddingLeft, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+
+				paddingLeft += bounds_.h;
+				availWidth -= bounds_.h;
 			}
 		}
 
@@ -528,12 +536,12 @@ void Choice::Draw(UIContext &dc) {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
 				if (shine_) {
-					Bounds b = Bounds::FromCenter(bounds_.x2() - 32 - paddingX, bounds_.centerY(), bounds_.h * 0.4f);
+					Bounds b = Bounds::FromCenter(bounds_.x2() - 32 - paddingRight, bounds_.centerY(), bounds_.h * 0.4f);
 					DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 				}
-				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
+				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingRight, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
-			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
+			Bounds textBounds(bounds_.x + paddingLeft + textPadding_.left, bounds_.y, availWidth, bounds_.h);
 			dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
@@ -629,7 +637,7 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 	float xoff = 37.0f;
 
 	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
-	dc.DrawText(text_, bounds_.x + 4 + xoff, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(text_, bounds_.x + 6 + xoff, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), style.fgColor);
 	if (hasSubItems_) {
 		dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x + 20.0f, bounds_.y + 20.0f, 1.0f, *toggle_ ? -M_PI / 2 : M_PI, style.fgColor);

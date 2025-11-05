@@ -14,6 +14,8 @@ class ScrollView;
 enum class TabHolderFlags {
 	Default = 0,
 	BackButton = 1,
+	HorizontalOnlyIcons = 2,
+	VerticalShowIcons = 4,
 };
 ENUM_CLASS_BITOPS(TabHolderFlags);
 
@@ -57,7 +59,9 @@ private:
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
 	ViewGroup *contents_ = nullptr;
+	Orientation orientation_ = ORIENT_HORIZONTAL;
 
+	TabHolderFlags flags_ = TabHolderFlags::Default;
 	int currentTab_ = 0;
 	std::vector<ViewGroup *> tabs_;
 	std::vector<AnchorTranslateTween *> tabTweens_;

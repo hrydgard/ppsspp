@@ -1033,8 +1033,8 @@ public:
 	Event OnClick;
 
 private:
-	bool down_;
-	bool dragging_;
+	bool down_ = false;
+	bool dragging_ = false;
 };
 
 class TextEdit : public View {
