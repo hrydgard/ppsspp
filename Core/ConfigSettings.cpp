@@ -9,7 +9,7 @@
 #include "Core/Config.h"
 
 bool ConfigSetting::perGame(void *ptr) {
-	return g_Config.gameSpecific_ && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr]->PerGame();
+	return g_Config.IsGameSpecific() && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr].second->PerGame();
 }
 
 bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {
@@ -18,7 +18,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	case Type::TYPE_BOOL:
 	{
 		bool *target = (bool *)(owner + offset_);
-		if (!section->Get(iniKey_, target)) {
+		if (!section || !section->Get(iniKey_, target)) {
 			if (applyDefaultIfMissing) {
 				*target = defaultCallback_.b ? defaultCallback_.b() : default_.b;
 			}
@@ -29,14 +29,14 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	case Type::TYPE_INT:
 	{
 		int *target = (int *)(owner + offset_);
-		if (translateFrom_) {
+		if (translateFrom_ && section) {
 			std::string value;
 			if (section->Get(iniKey_, &value)) {
 				*((int *)(owner + offset_)) = translateFrom_(value);
 				return true;
 			}
 		}
-		if (!section->Get(iniKey_, target)) {
+		if (!section || !section->Get(iniKey_, target)) {
 			if (applyDefaultIfMissing) {
 				*target = defaultCallback_.i ? defaultCallback_.i() : default_.i;
 			}
@@ -47,7 +47,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	case Type::TYPE_UINT32:
 	{
 		uint32_t *target = (uint32_t *)(owner + offset_);
-		if (!section->Get(iniKey_, target)) {
+		if (!section || !section->Get(iniKey_, target)) {
 			if (applyDefaultIfMissing) {
 				*target = defaultCallback_.u ? defaultCallback_.u() : default_.u;
 			}
@@ -58,7 +58,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	case Type::TYPE_UINT64:
 	{
 		uint64_t *target = (uint64_t *)(owner + offset_);
-		if (!section->Get(iniKey_, target)) {
+		if (!section || !section->Get(iniKey_, target)) {
 			if (applyDefaultIfMissing) {
 				*target = defaultCallback_.lu ? defaultCallback_.lu() : default_.lu;
 			}
@@ -69,7 +69,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	case Type::TYPE_FLOAT:
 	{
 		float *target = (float *)(owner + offset_);
-		if (!section->Get(iniKey_, target)) {
+		if (!section || !section->Get(iniKey_, target)) {
 			if (applyDefaultIfMissing) {
 				*target = defaultCallback_.f ? defaultCallback_.f() : default_.f;
 			}
@@ -80,7 +80,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	case Type::TYPE_STRING:
 	{
 		std::string *target = (std::string *)(owner + offset_);
-		if (!section->Get(iniKey_, target)) {
+		if (!section || !section->Get(iniKey_, target)) {
 			if (applyDefaultIfMissing) {
 				if (defaultCallback_.s) {
 					*target = defaultCallback_.s();
@@ -98,7 +98,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	{
 		// No support for callbacks for these yet. that's not an issue.
 		std::vector<std::string> *ptr = (std::vector<std::string> *)(owner + offset_);
-		if (!section->Get(iniKey_, ptr)) {
+		if (!section || !section->Get(iniKey_, ptr)) {
 			if (applyDefaultIfMissing && default_.v) {
 				CopyStrings(ptr, *default_.v);
 			}
@@ -112,16 +112,16 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 		ConfigTouchPos defaultTouchPos = defaultCallback_.touchPos ? defaultCallback_.touchPos() : default_.touchPos;
 
 		ConfigTouchPos *touchPos = ((ConfigTouchPos *)(owner + offset_));
-		if (!section->Get(iniKey_, &touchPos->x) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(iniKey_, &touchPos->x) && applyDefaultIfMissing)) {
 			touchPos->x = defaultTouchPos.x;
 		}
-		if (!section->Get(ini2_, &touchPos->y) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(ini2_, &touchPos->y) && applyDefaultIfMissing)) {
 			touchPos->y = defaultTouchPos.y;
 		}
-		if (!section->Get(ini3_, &touchPos->scale) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(ini3_, &touchPos->scale) && applyDefaultIfMissing)) {
 			touchPos->scale = defaultTouchPos.scale;
 		}
-		if (ini4_ && section->Get(ini4_, &touchPos->show)) {
+		if (ini4_ && section && section->Get(ini4_, &touchPos->show)) {
 			// do nothing, succeeded.
 		} else if (applyDefaultIfMissing) {
 			touchPos->show = defaultTouchPos.show;
@@ -132,7 +132,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	{
 		Path *target = (Path *)(owner + offset_);
 		std::string tmp;
-		if (!section->Get(iniKey_, &tmp)) {
+		if (!section || !section->Get(iniKey_, &tmp)) {
 			if (applyDefaultIfMissing) {
 				if (defaultCallback_.p) {
 					*target = defaultCallback_.p();
@@ -150,19 +150,19 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 		ConfigCustomButton defaultCustomButton = defaultCallback_.customButton ? defaultCallback_.customButton() : default_.customButton;
 
 		ConfigCustomButton *customButton = ((ConfigCustomButton *)(owner + offset_));
-		if (!section->Get(iniKey_, &customButton->key) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(iniKey_, &customButton->key) && applyDefaultIfMissing)) {
 			customButton->key = defaultCustomButton.key;
 		}
-		if (!section->Get(ini2_, &customButton->image) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(ini2_, &customButton->image) && applyDefaultIfMissing)) {
 			customButton->image = defaultCustomButton.image;
 		}
-		if (!section->Get(ini3_, &customButton->shape) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(ini3_, &customButton->shape) && applyDefaultIfMissing)) {
 			customButton->shape = defaultCustomButton.shape;
 		}
-		if (!section->Get(ini4_, &customButton->toggle) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(ini4_, &customButton->toggle) && applyDefaultIfMissing)) {
 			customButton->toggle = defaultCustomButton.toggle;
 		}
-		if (!section->Get(ini5_, &customButton->repeat) && applyDefaultIfMissing) {
+		if (!section || (!section->Get(ini5_, &customButton->repeat) && applyDefaultIfMissing)) {
 			customButton->repeat = defaultCustomButton.repeat;
 		}
 		return true;
@@ -177,6 +177,7 @@ void ConfigSetting::WriteToIniSection(const ConfigBlock *configBlock, Section *s
 	if (!SaveSetting()) {
 		return;
 	}
+	_dbg_assert_(section);
 
 	const char *owner = (const char *)configBlock;
 	switch (type_) {
@@ -232,6 +233,9 @@ void ConfigSetting::WriteToIniSection(const ConfigBlock *configBlock, Section *s
 }
 
 bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
+	// If the block supports resetting itself, don't allow per-setting resets. Shake them out with this assert.
+	_dbg_assert_(!configBlock->CanResetToDefault());
+
 	const char *owner = (const char *)configBlock;
 	switch (type_) {
 	case Type::TYPE_BOOL:
@@ -363,6 +367,27 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	return false;
 }
 
+// Might be used to copy individual settings from defaulted blocks. Didn't end up using this for now.
+void ConfigSetting::CopyFromBlock(const ConfigBlock *other) {
+	const char *otherOwner = (const char *)other;
+	const char *thisOwner = (const char *)this;
+	switch (type_) {
+	case Type::TYPE_BOOL:   *(bool *)(thisOwner + offset_) = *(const bool *)(otherOwner + offset_); break;
+	case Type::TYPE_INT:    *(int *)(thisOwner + offset_) = *(const int *)(otherOwner + offset_); break;
+	case Type::TYPE_UINT32: *(uint32_t *)(thisOwner + offset_) = *(const uint32_t *)(otherOwner + offset_); break;
+	case Type::TYPE_UINT64: *(uint64_t *)(thisOwner + offset_) = *(const uint64_t *)(otherOwner + offset_); break;
+	case Type::TYPE_FLOAT: *(float *)(thisOwner + offset_) = *(const float *)(otherOwner + offset_); break;
+	case Type::TYPE_STRING: *(std::string *)(thisOwner + offset_) = *(const std::string *)(otherOwner + offset_); break;
+	case Type::TYPE_STRING_VECTOR: *(std::vector<std::string> *)(thisOwner + offset_) = *(const std::vector<std::string> *)(otherOwner + offset_); break;
+	case Type::TYPE_PATH:   *(Path *)(thisOwner + offset_) = *(const Path *)(otherOwner + offset_); break;
+	case Type::TYPE_TOUCH_POS: *(ConfigTouchPos *)(thisOwner + offset_) = *(const ConfigTouchPos *)(otherOwner + offset_); break;
+	case Type::TYPE_CUSTOM_BUTTON: *(ConfigCustomButton *)(thisOwner + offset_) = *(const ConfigCustomButton *)(otherOwner + offset_); break;
+	default:
+		_dbg_assert_msg_(false, "CopyFromBlock(%.*s): Unexpected setting type: %d", STR_VIEW(iniKey_), (int)type_);
+		return;
+	}
+}
+
 void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const {
 	if (!Report())
 		return;
@@ -373,8 +398,8 @@ void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &da
 	switch (type_) {
 	case Type::TYPE_BOOL:   return data.Add(key, *(const bool *)(owner + offset_));
 	case Type::TYPE_INT:    return data.Add(key, *(const int *)(owner + offset_));
-	case Type::TYPE_UINT32: return data.Add(key, *(const u32 *)(owner + offset_));
-	case Type::TYPE_UINT64: return data.Add(key, *(const u64 *)(owner + offset_));
+	case Type::TYPE_UINT32: return data.Add(key, *(const uint32_t *)(owner + offset_));
+	case Type::TYPE_UINT64: return data.Add(key, *(const uint64_t *)(owner + offset_));
 	case Type::TYPE_FLOAT:  return data.Add(key, *(const float *)(owner + offset_));
 	case Type::TYPE_STRING: return data.Add(key, *(const std::string *)(owner + offset_));
 	case Type::TYPE_STRING_VECTOR: return data.Add(key, *(const std::vector<std::string> *)(owner + offset_));

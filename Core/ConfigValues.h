@@ -122,6 +122,7 @@ enum class AudioSyncMode {
 	CLASSIC_PITCH = 1,
 };
 
+// TODO: We can make this more fine-grained.
 enum class RestoreSettingsBits : int {
 	SETTINGS = 1,
 	CONTROLS = 2,

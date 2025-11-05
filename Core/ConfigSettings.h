@@ -73,10 +73,22 @@ struct ConfigSetting {
 		default_.b = def;
 	}
 
+	ConfigSetting(std::string_view ini, const char *owner, bool *v, CfgFlag flags) noexcept
+		: iniKey_(ini), type_(Type::TYPE_BOOL), flags_(flags), offset_((const char *)v - owner) {
+		defaultCallback_.b = nullptr;
+		default_.b = false;  // unused with this constructor
+	}
+
 	ConfigSetting(std::string_view ini, const char *owner, int *v, int def, CfgFlag flags) noexcept
 		: iniKey_(ini), type_(Type::TYPE_INT), flags_(flags), offset_((const char *)v - owner) {
 		defaultCallback_.i = nullptr;
 		default_.i = def;
+	}
+
+	ConfigSetting(std::string_view ini, const char *owner, int *v, CfgFlag flags) noexcept
+		: iniKey_(ini), type_(Type::TYPE_INT), flags_(flags), offset_((const char *)v - owner) {
+		defaultCallback_.i = nullptr;
+		default_.i = 0;  // unused with this constructor
 	}
 
 	ConfigSetting(std::string_view ini, const char *owner, int *v, int def, std::string (*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags) noexcept
@@ -101,6 +113,12 @@ struct ConfigSetting {
 		: iniKey_(ini), type_(Type::TYPE_FLOAT), flags_(flags), offset_((const char *)v - owner) {
 		defaultCallback_.f = nullptr;
 		default_.f = def;
+	}
+
+	ConfigSetting(std::string_view ini, const char *owner, float *v, CfgFlag flags) noexcept
+		: iniKey_(ini), type_(Type::TYPE_FLOAT), flags_(flags), offset_((const char *)v - owner) {
+		defaultCallback_.f = nullptr;
+		default_.f = 0.0f;
 	}
 
 	ConfigSetting(std::string_view ini, const char *owner, std::string *v, const char *def, CfgFlag flags) noexcept
@@ -168,6 +186,8 @@ struct ConfigSetting {
 	}
 
 	bool ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const;
+
+	void CopyFromBlock(const ConfigBlock *other);
 
 	// Yes, this can be const because what's modified is not the ConfigSetting struct, but the value which is stored elsewhere.
 	// Should actually be called WriteToIni or something.
