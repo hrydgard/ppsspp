@@ -113,8 +113,10 @@ std::string DefaultLangRegion() {
 		IniFile mapping;
 		mapping.LoadFromVFS(g_VFS, "langregion.ini");
 		std::vector<std::string> keys;
-		mapping.GetKeys("LangRegionNames", keys);
-
+		Section *section = mapping.GetSection("LangRegionNames");
+		if (section) {
+			section->GetKeys(&keys);
+		}
 		for (const std::string &key : keys) {
 			if (startsWithNoCase(key, langRegion)) {
 				// Exact submatch, or different case.  Let's use it.
@@ -1161,8 +1163,8 @@ bool Config::LoadAppendedConfig() {
 	}
 
 	IterateSettingsIni(iniFile, [&iniFile](ConfigBlock *configBlock, Section *section, const ConfigSetting &setting) {
-		if (section->Exists(setting.iniKey_)) {
-			setting.ReadFromIniSection(configBlock, section);
+		if (section->HasKey(setting.iniKey_)) {
+			setting.ReadFromIniSection(configBlock, section, true);
 		}
 	}, true);
 
@@ -1204,7 +1206,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(configBlock, section);
+		setting.ReadFromIniSection(configBlock, section, true);
 	}, true);
 
 	iRunCount++;
@@ -1691,7 +1693,7 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 
 	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, const Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
-			setting.ReadFromIniSection(configBlock, section);
+			setting.ReadFromIniSection(configBlock, section, true);
 		}
 	}, true);
 
@@ -1720,7 +1722,7 @@ void Config::UnloadGameConfig() {
 	IniFile iniFile;
 	iniFile.Load(iniFilename_);
 	IterateSettingsIni(iniFile, [](ConfigBlock *configBlock, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(configBlock, section);
+		setting.ReadFromIniSection(configBlock, section, true);
 	}, true);
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();

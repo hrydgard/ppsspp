@@ -12,14 +12,16 @@ bool ConfigSetting::perGame(void *ptr) {
 	return g_Config.gameSpecific_ && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr]->PerGame();
 }
 
-bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section) const {
+bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {
 	char *owner = (char *)configBlock;
 	switch (type_) {
 	case Type::TYPE_BOOL:
 	{
 		bool *target = (bool *)(owner + offset_);
 		if (!section->Get(iniKey_, target)) {
-			*target = cb_.b ? cb_.b() : default_.b;
+			if (applyDefaultIfMissing) {
+				*target = defaultCallback_.b ? defaultCallback_.b() : default_.b;
+			}
 			return false;
 		}
 		return true;
@@ -35,7 +37,9 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 			}
 		}
 		if (!section->Get(iniKey_, target)) {
-			*target = cb_.i ? cb_.i() : default_.i;
+			if (applyDefaultIfMissing) {
+				*target = defaultCallback_.i ? defaultCallback_.i() : default_.i;
+			}
 			return false;
 		}
 		return true;
@@ -44,7 +48,9 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	{
 		uint32_t *target = (uint32_t *)(owner + offset_);
 		if (!section->Get(iniKey_, target)) {
-			*target = cb_.u ? cb_.u() : default_.u;
+			if (applyDefaultIfMissing) {
+				*target = defaultCallback_.u ? defaultCallback_.u() : default_.u;
+			}
 			return false;
 		}
 		return true;
@@ -53,7 +59,9 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	{
 		uint64_t *target = (uint64_t *)(owner + offset_);
 		if (!section->Get(iniKey_, target)) {
-			*target = cb_.lu ? cb_.lu() : default_.lu;
+			if (applyDefaultIfMissing) {
+				*target = defaultCallback_.lu ? defaultCallback_.lu() : default_.lu;
+			}
 			return false;
 		}
 		return true;
@@ -62,7 +70,9 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	{
 		float *target = (float *)(owner + offset_);
 		if (!section->Get(iniKey_, target)) {
-			*target = cb_.f ? cb_.f() : default_.f;
+			if (applyDefaultIfMissing) {
+				*target = defaultCallback_.f ? defaultCallback_.f() : default_.f;
+			}
 			return false;
 		}
 		return true;
@@ -71,12 +81,14 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	{
 		std::string *target = (std::string *)(owner + offset_);
 		if (!section->Get(iniKey_, target)) {
-			if (cb_.s) {
-				*target = cb_.s();
-			} else if (default_.s) {
-				*target = default_.s;
-			} else {
-				target->clear();
+			if (applyDefaultIfMissing) {
+				if (defaultCallback_.s) {
+					*target = defaultCallback_.s();
+				} else if (default_.s) {
+					*target = default_.s;
+				} else {
+					target->clear();
+				}
 			}
 			return false;
 		}
@@ -87,7 +99,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 		// No support for callbacks for these yet. that's not an issue.
 		std::vector<std::string> *ptr = (std::vector<std::string> *)(owner + offset_);
 		if (!section->Get(iniKey_, ptr)) {
-			if (default_.v) {
+			if (applyDefaultIfMissing && default_.v) {
 				CopyStrings(ptr, *default_.v);
 			}
 			return false;
@@ -97,21 +109,21 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	}
 	case Type::TYPE_TOUCH_POS:
 	{
-		ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
+		ConfigTouchPos defaultTouchPos = defaultCallback_.touchPos ? defaultCallback_.touchPos() : default_.touchPos;
 
 		ConfigTouchPos *touchPos = ((ConfigTouchPos *)(owner + offset_));
-		if (!section->Get(iniKey_, &touchPos->x)) {
+		if (!section->Get(iniKey_, &touchPos->x) && applyDefaultIfMissing) {
 			touchPos->x = defaultTouchPos.x;
 		}
-		if (!section->Get(ini2_, &touchPos->y)) {
+		if (!section->Get(ini2_, &touchPos->y) && applyDefaultIfMissing) {
 			touchPos->y = defaultTouchPos.y;
 		}
-		if (!section->Get(ini3_, &touchPos->scale)) {
+		if (!section->Get(ini3_, &touchPos->scale) && applyDefaultIfMissing) {
 			touchPos->scale = defaultTouchPos.scale;
 		}
 		if (ini4_ && section->Get(ini4_, &touchPos->show)) {
 			// do nothing, succeeded.
-		} else {
+		} else if (applyDefaultIfMissing) {
 			touchPos->show = defaultTouchPos.show;
 		}
 		return true;
@@ -121,10 +133,12 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 		Path *target = (Path *)(owner + offset_);
 		std::string tmp;
 		if (!section->Get(iniKey_, &tmp)) {
-			if (cb_.p) {
-				*target = cb_.p();
-			} else {
-				*target = Path(default_.p);
+			if (applyDefaultIfMissing) {
+				if (defaultCallback_.p) {
+					*target = defaultCallback_.p();
+				} else {
+					*target = Path(default_.p);
+				}
 			}
 			return false;
 		}
@@ -133,22 +147,22 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 	}
 	case Type::TYPE_CUSTOM_BUTTON:
 	{
-		ConfigCustomButton defaultCustomButton = cb_.customButton ? cb_.customButton() : default_.customButton;
+		ConfigCustomButton defaultCustomButton = defaultCallback_.customButton ? defaultCallback_.customButton() : default_.customButton;
 
 		ConfigCustomButton *customButton = ((ConfigCustomButton *)(owner + offset_));
-		if (!section->Get(iniKey_, &customButton->key)) {
+		if (!section->Get(iniKey_, &customButton->key) && applyDefaultIfMissing) {
 			customButton->key = defaultCustomButton.key;
 		}
-		if (!section->Get(ini2_, &customButton->image)) {
+		if (!section->Get(ini2_, &customButton->image) && applyDefaultIfMissing) {
 			customButton->image = defaultCustomButton.image;
 		}
-		if (!section->Get(ini3_, &customButton->shape)) {
+		if (!section->Get(ini3_, &customButton->shape) && applyDefaultIfMissing) {
 			customButton->shape = defaultCustomButton.shape;
 		}
-		if (!section->Get(ini4_, &customButton->toggle)) {
+		if (!section->Get(ini4_, &customButton->toggle) && applyDefaultIfMissing) {
 			customButton->toggle = defaultCustomButton.toggle;
 		}
-		if (!section->Get(ini5_, &customButton->repeat)) {
+		if (!section->Get(ini5_, &customButton->repeat) && applyDefaultIfMissing) {
 			customButton->repeat = defaultCustomButton.repeat;
 		}
 		return true;
@@ -224,7 +238,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	{
 		bool *ptr_b = (bool *)(owner + offset_);
 		const bool origValue = *ptr_b;
-		*ptr_b = cb_.b ? cb_.b() : default_.b;
+		*ptr_b = defaultCallback_.b ? defaultCallback_.b() : default_.b;
 		if (*ptr_b != origValue) {
 			if (log) {
 				INFO_LOG(Log::System, "Restored %.*s from %s to default %s", STR_VIEW(iniKey_),
@@ -239,7 +253,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	{
 		int *ptr_i = (int *)(owner + offset_);
 		const int origValue = *ptr_i;
-		*ptr_i = cb_.i ? cb_.i() : default_.i;
+		*ptr_i = defaultCallback_.i ? defaultCallback_.i() : default_.i;
 		if (*ptr_i != origValue) {
 			if (log) {
 				INFO_LOG(Log::System, "Restored %.*s from %d to default %d", STR_VIEW(iniKey_),
@@ -253,7 +267,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	{
 		uint32_t *ptr_u = (uint32_t *)(owner + offset_);
 		const uint32_t origValue = *ptr_u;
-		*ptr_u = cb_.u ? cb_.u() : default_.u;
+		*ptr_u = defaultCallback_.u ? defaultCallback_.u() : default_.u;
 		if (*ptr_u != origValue) {
 			if (log) {
 				INFO_LOG(Log::System, "Restored %.*s from %u to default %u", STR_VIEW(iniKey_),
@@ -267,7 +281,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	{
 		uint64_t *ptr_lu = (uint64_t *)(owner + offset_);
 		const uint64_t origValue = *ptr_lu;
-		*ptr_lu = cb_.lu ? cb_.lu() : default_.lu;
+		*ptr_lu = defaultCallback_.lu ? defaultCallback_.lu() : default_.lu;
 		if (*ptr_lu != origValue) {
 			if (log) {
 				INFO_LOG(Log::System, "Restored %.*s from %llu to default %llu", STR_VIEW(iniKey_),
@@ -281,7 +295,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	{
 		float *ptr_f = (float *)(owner + offset_);
 		const float origValue = *ptr_f;
-		*ptr_f = cb_.f ? cb_.f() : default_.f;
+		*ptr_f = defaultCallback_.f ? defaultCallback_.f() : default_.f;
 		if (*ptr_f != origValue) {
 			if (log) {
 				INFO_LOG(Log::System, "Restored %.*s from %f to default %f", STR_VIEW(iniKey_),
@@ -295,8 +309,8 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	{
 		std::string *ptr_s = (std::string *)(owner + offset_);
 		const std::string origValue = *ptr_s;
-		if (cb_.s) {
-			*ptr_s = cb_.s();
+		if (defaultCallback_.s) {
+			*ptr_s = defaultCallback_.s();
 		} else if (default_.s != nullptr) {
 			*ptr_s = default_.s;
 		} else {
@@ -320,14 +334,14 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	case Type::TYPE_TOUCH_POS:
 	{
 		ConfigTouchPos *ptr_touchPos = (ConfigTouchPos *)(owner + offset_);
-		*ptr_touchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
+		*ptr_touchPos = defaultCallback_.touchPos ? defaultCallback_.touchPos() : default_.touchPos;
 		break;
 	}
 	case Type::TYPE_PATH:
 	{
 		Path *ptr_path = (Path *)(owner + offset_);
-		if (cb_.p) {
-			*ptr_path = cb_.p();
+		if (defaultCallback_.p) {
+			*ptr_path = defaultCallback_.p();
 			break;
 		} else if (default_.p) {
 			*ptr_path = Path(default_.p);
@@ -339,7 +353,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	case Type::TYPE_CUSTOM_BUTTON:
 	{
 		ConfigCustomButton *ptr_customButton = (ConfigCustomButton *)(owner + offset_);
-		*ptr_customButton = cb_.customButton ? cb_.customButton() : default_.customButton;
+		*ptr_customButton = defaultCallback_.customButton ? defaultCallback_.customButton() : default_.customButton;
 		break;
 	}
 	default:
