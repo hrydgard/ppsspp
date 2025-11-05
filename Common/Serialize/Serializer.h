@@ -255,7 +255,6 @@ public:
 		}
 	}
 
-
 	// Load file template
 	template<class T>
 	static Error Load(const Path &filename, std::string *gitVersion, T& _class, std::string *failureReason)
