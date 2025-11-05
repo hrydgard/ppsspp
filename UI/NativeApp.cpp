@@ -1293,7 +1293,8 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 	}
 	else if (message == UIMessage::GPU_RENDER_RESIZED) {
 		if (gpu) {
-			gpu->NotifyRenderResized();
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			gpu->NotifyRenderResized(config);
 		}
 		return true;
 	}
@@ -1647,7 +1648,8 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
 	int w = (int)(pixelWidth * g_display.dpi_scale_real_x);
 	int h = (int)(pixelHeight * g_display.dpi_scale_real_y);
-	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	return config.InternalRotationIsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {

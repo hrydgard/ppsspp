@@ -61,7 +61,7 @@ void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
-	const bool portrait = UsePortraitLayout();
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	Choice *toggleAll = new Choice(di->T("Toggle All"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 84));
 

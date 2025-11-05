@@ -1213,7 +1213,7 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UsePortraitLayout();
+	const bool vertical = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 

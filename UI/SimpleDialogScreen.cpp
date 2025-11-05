@@ -9,7 +9,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 	const bool canScroll = CanScroll();
 	ignoreBottomInset_ = canScroll;
 
-	const bool portrait = UsePortraitLayout();
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	root_->Add(new TopBar(*screenManager()->getUIContext(), portrait, GetTitle()));
@@ -29,7 +29,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 void UITwoPaneBaseDialogScreen::CreateViews() {
 	using namespace UI;
 
-	const bool portrait = UsePortraitLayout();
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 

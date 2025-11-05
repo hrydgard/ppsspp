@@ -264,7 +264,10 @@ const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangVa
 	IniFile mapping;
 	mapping.LoadFromVFS(g_VFS, "langregion.ini");
 	std::vector<std::string> keys;
-	mapping.GetKeys("LangRegionNames", keys);
+	Section *section = mapping.GetSection("LangRegionNames");
+	if (section) {
+		section->GetKeys(&keys);
+	}
 
 	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
 	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");

@@ -54,7 +54,7 @@ void SetOverrideScreenFrame(const Bounds *bounds) {
 	}
 }
 
-FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
+FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
 		0.0f,
 		0.0f,
@@ -62,7 +62,7 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 		pixelHeight,
 	};
 
-	bool applyInset = !g_Config.bIgnoreScreenInsets;
+	const bool applyInset = !ignoreInsets;
 
 	if (applyInset) {
 		// Remove the DPI scale to get back to pixels.
@@ -89,28 +89,27 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	return rc;
 }
 
-void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
+void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
 	float outW;
 	float outH;
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	bool stretch = g_Config.bDisplayStretch && !g_Config.bDisplayIntegerScale;
+	bool stretch = config.bDisplayStretch && !config.bDisplayIntegerScale;
 
-	float offsetX = g_Config.fDisplayOffsetX;
-	float offsetY = g_Config.fDisplayOffsetY;
+	float offsetX = config.fDisplayOffsetX;
+	float offsetY = config.fDisplayOffsetY;
 
-	float scale = g_Config.fDisplayScale;
-	float aspectRatioAdjust = g_Config.fDisplayAspectRatio;
+	float scale = config.fDisplayScale;
+	float aspectRatioAdjust = config.fDisplayAspectRatio;
 
 	float origRatio = !rotated ? origW / origH : origH / origW;
 	float frameRatio = frame.w / frame.h;
 
 	if (stretch) {
 		// Automatically set aspect ratio to match the display, IF the rotation matches the output display ratio! Otherwise, just
-		// sets standard aspect ratio because actually stretching will just look silly.
-		bool globalRotated = g_display.rotation == DisplayRotation::ROTATE_90 || g_display.rotation == DisplayRotation::ROTATE_270;
-		if (rotated == (g_display.dp_yres > g_display.dp_xres)) {
+		// ignore it because actually stretching will just look silly.
+		if (rotated == (g_display.GetDeviceOrientation() == DeviceOrientation::Portrait)) {
 			origRatio = frameRatio;
 		} else {
 			origRatio *= aspectRatioAdjust;
@@ -141,7 +140,7 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 		}
 	}
 
-	if (g_Config.bDisplayIntegerScale) {
+	if (config.bDisplayIntegerScale) {
 		float wDim = 480.0f;
 		if (rotated) {
 			wDim = 272.0f;
@@ -151,7 +150,7 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 		if (zoom == 0) {
 			// Auto (1:1) mode, not super meaningful with integer scaling, but let's do something that makes
 			// some sense. use the longest dimension, just to have something. round down.
-			if (!g_Config.IsPortrait()) {
+			if (!config.InternalRotationIsPortrait()) {
 				zoom = (PSP_CoreParameter().pixelWidth) / 480;
 			} else {
 				zoom = (PSP_CoreParameter().pixelHeight) / 480;
@@ -187,22 +186,22 @@ PresentationCommon::~PresentationCommon() {
 	DestroyDeviceObjects();
 }
 
-void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) const {
-	if (!g_Config.bEnableCardboardVR) {
+void PresentationCommon::GetCardboardSettings(const DisplayLayoutConfig &config, CardboardSettings *cardboardSettings) const {
+	if (!config.bEnableCardboardVR) {
 		cardboardSettings->enabled = false;
 		return;
 	}
 
 	// Calculate Cardboard Settings
-	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
+	float cardboardScreenScale = config.iCardboardScreenSize / 100.0f;
 	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
 	float cardboardScreenHeight = pixelHeight_ * cardboardScreenScale;
 	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
-	float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
+	float cardboardUserXShift = config.iCardboardXShift / 100.0f * cardboardMaxXShift;
 	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
 	float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
 	float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
-	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
+	float cardboardUserYShift = config.iCardboardYShift / 100.0f * cardboardMaxYShift;
 	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
 
 	cardboardSettings->enabled = true;
@@ -266,7 +265,7 @@ static std::string ReadShaderSrc(const Path &filename) {
 
 // Note: called on resize and settings changes.
 // Also takes care of making sure the appropriate stereo shader is compiled.
-bool PresentationCommon::UpdatePostShader() {
+bool PresentationCommon::UpdatePostShader(const DisplayLayoutConfig &config) {
 	DestroyStereoShader();
 
 	if (gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE)) {
@@ -298,7 +297,7 @@ bool PresentationCommon::UpdatePostShader() {
 	for (size_t i = 0; i < shaderInfo.size(); ++i) {
 		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
 		Draw::Pipeline *postPipeline = nullptr;
-		if (!BuildPostShader(shaderInfo[i], next, &postPipeline)) {
+		if (!BuildPostShader(config, shaderInfo[i], next, &postPipeline)) {
 			DestroyPostShader();
 			return false;
 		}
@@ -383,7 +382,7 @@ bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::P
 	return true;
 }
 
-bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const ShaderInfo * next, Draw::Pipeline **outPipeline) {
+bool PresentationCommon::BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo * next, Draw::Pipeline **outPipeline) {
 	if (!CompilePostShader(shaderInfo, outPipeline)) {
 		return false;
 	}
@@ -398,7 +397,7 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const Sh
 
 		if (next && next->isUpscalingFilter) {
 			// Force 1x for this shader, so the next can upscale.
-			const bool isPortrait = g_Config.IsPortrait();
+			const bool isPortrait = config.InternalRotationIsPortrait();
 			nextWidth = isPortrait ? 272 : 480;
 			nextHeight = isPortrait ? 480 : 272;
 		} else if (next && next->SSAAFilterLevel >= 2) {
@@ -408,8 +407,8 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo * shaderInfo, const Sh
 		} else if (shaderInfo->outputResolution) {
 			// If the current shader uses output res (not next), we will use output res for it.
 			FRect rc;
-			FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
-			CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
+			FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth_, (float)pixelHeight_);
+			CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, config.iInternalScreenRotation);
 			nextWidth = (int)rc.w;
 			nextHeight = (int)rc.h;
 		}
@@ -541,8 +540,6 @@ void PresentationCommon::CreateDeviceObjects() {
 	texColor_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc);
 	texColorRBSwizzle_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) }, false, &vsTexColBufDesc);
 
-	if (restorePostShader_)
-		UpdatePostShader();
 	restorePostShader_ = false;
 }
 
@@ -655,7 +652,7 @@ void PresentationCommon::UpdateUniforms(bool hasVideo) {
 	hasVideo_ = hasVideo;
 }
 
-void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
+void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	// TODO: If shader objects have been created by now, we might have received errors.
@@ -675,15 +672,15 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	int pixelHeight = pixelHeight_;
 
 	// These are the output coordinates.
-	FRect frame = GetScreenFrame((float)pixelWidth, (float)pixelHeight);
+	FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth, (float)pixelHeight);
 	// Note: In cardboard mode, we halve the width here to compensate
 	// for splitting the window in half, while still reusing normal centering.
-	if (g_Config.bEnableCardboardVR) {
+	if (config.bEnableCardboardVR) {
 		frame.w /= 2.0;
 		pixelWidth /= 2;
 	}
 	FRect rc;
-	CalculateDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
+	CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, uvRotation);
 
 	// To make buffer updates easier, we use one array of verts.
 	int postVertsOffset = (int)sizeof(Vertex) * 4;
@@ -927,7 +924,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	};
 
 	CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
+	GetCardboardSettings(config, &cardboardSettings);
 	if (cardboardSettings.enabled) {
 		// TODO: This could actually support stereo now, with an appropriate shader.
 
@@ -953,7 +950,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	presentedThisFrame_ = true;
 }
 
-void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const {
+void PresentationCommon::CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const {
 	// Check if postprocessing shader is doing upscaling as it requires native resolution
 	std::vector<const ShaderInfo *> shaderInfo;
 	if (!g_Config.vPostShaderNames.empty()) {
@@ -970,7 +967,7 @@ void PresentationCommon::CalculateRenderResolution(int *width, int *height, int 
 	int zoom = g_Config.iInternalResolution;
 	if (zoom == 0 || firstSSAAFilterLevel >= 2) {
 		// auto mode, use the longest dimension
-		if (!g_Config.IsPortrait()) {
+		if (!config.InternalRotationIsPortrait()) {
 			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 		} else {
 			zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;

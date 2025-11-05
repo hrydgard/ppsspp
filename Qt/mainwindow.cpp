@@ -95,20 +95,23 @@ void MainWindow::updateMenuGroupInt(QActionGroup *group, int value) {
 
 void MainWindow::updateMenus()
 {
+	const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+
 	updateMenuGroupInt(saveStateGroup, g_Config.iCurrentStateSlot);
-	updateMenuGroupInt(displayRotationGroup, g_Config.iInternalScreenRotation);
+	updateMenuGroupInt(displayRotationGroup, config.iInternalScreenRotation);
 	updateMenuGroupInt(renderingResolutionGroup, g_Config.iInternalResolution);
 	updateMenuGroupInt(frameSkippingGroup, g_Config.iFrameSkip);
 	updateMenuGroupInt(textureFilteringGroup, g_Config.iTexFiltering);
-	updateMenuGroupInt(screenScalingFilterGroup, g_Config.iDisplayFilter);
+	updateMenuGroupInt(screenScalingFilterGroup, config.iDisplayFilter);
 	updateMenuGroupInt(textureScalingLevelGroup, g_Config.iTexScalingLevel);
 	updateMenuGroupInt(textureScalingTypeGroup, g_Config.iTexScalingType);
 
+	bool internalPortrait = config.InternalRotationIsPortrait();
 	foreach(QAction * action, windowGroup->actions()) {
-		int width = (g_Config.IsPortrait() ? 272 : 480) * action->data().toInt();
-		int height = (g_Config.IsPortrait() ? 480 : 272) * action->data().toInt();
+		int width = (internalPortrait ? 272 : 480) * action->data().toInt();
+		int height = (internalPortrait ? 480 : 272) * action->data().toInt();
 		if (g_Config.iWindowWidth == width && g_Config.iWindowHeight == height) {
-			action->setChecked(true);
+			action->setChecked(true);	
 			break;
 		}
 	}
@@ -457,6 +460,9 @@ void MainWindow::SetWindowScale(int zoom) {
 	if (isFullScreen())
 		fullscrAct();
 
+	const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	const bool internalPortrait = config.InternalRotationIsPortrait();
+
 	int width, height;
 	if (zoom == -1 && (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0)) {
 		// Default to zoom level 2.
@@ -473,8 +479,8 @@ void MainWindow::SetWindowScale(int zoom) {
 		if (zoom > 10)
 			zoom = 10;
 
-		width = (g_Config.IsPortrait() ? 272 : 480) * zoom;
-		height = (g_Config.IsPortrait() ? 480 : 272) * zoom;
+		width = (internalPortrait ? 272 : 480) * zoom;
+		height = (internalPortrait ? 480 : 272) * zoom;
 	}
 
 	g_Config.iWindowWidth = width;

@@ -403,7 +403,7 @@ UI::Margins GamePauseScreen::RootMargins() const {
 void GamePauseScreen::CreateViews() {
 	using namespace UI;
 
-	bool portrait = UsePortraitLayout();
+	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	Margins scrollMargins(0, 10, 0, 0);
 	Margins actionMenuMargins(0, 10, 15, 0);

@@ -2061,23 +2061,25 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				PSP_CoreParameter().fastForward = false;
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
+			// NOTE: This currently only works correctly in landscape mode!
 			if (Memory::IsValidAddress(outPtr)) {
 				// TODO: Share code with CalculateDisplayOutputRect to take a few more things into account.
 				// I have a planned further refactoring.
 				float ar;
-				if (g_Config.bDisplayStretch) {
+				if (g_Config.displayLayoutLandscape.bDisplayStretch) {
 					ar = (float)g_display.dp_xres / (float)g_display.dp_yres;
 				} else {
-					ar = g_Config.fDisplayAspectRatio * (480.0f / 272.0f);
+					ar = g_Config.displayLayoutLandscape.fDisplayAspectRatio * (480.0f / 272.0f);
 				}
 				Memory::Write_Float(ar, outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_SCALE:
+			// NOTE: This currently only works correctly in landscape mode!
 			if (Memory::IsValidAddress(outPtr)) {
 				// TODO: Maybe do something more sophisticated taking the longest side and screen rotation
 				// into account, etc.
-				float scale = (float)g_display.dp_xres * g_Config.fDisplayScale / 480.0f;
+				float scale = (float)g_display.dp_xres * g_Config.displayLayoutLandscape.fDisplayScale / 480.0f;
 				Memory::Write_Float(scale, outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);

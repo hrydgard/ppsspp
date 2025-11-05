@@ -17,6 +17,7 @@
 #include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
+#include "Common/System/Display.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
@@ -510,10 +511,30 @@ namespace MainWindow {
 			UmdSwitchAction(NON_EPHEMERAL_TOKEN);
 			break;
 
-		case ID_EMULATION_ROTATION_H:   g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL; break;
-		case ID_EMULATION_ROTATION_V:   g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL; break;
-		case ID_EMULATION_ROTATION_H_R: g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180; break;
-		case ID_EMULATION_ROTATION_V_R: g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180; break;
+		case ID_EMULATION_ROTATION_H:
+		{
+			DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			displayLayoutConfig.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+			break;
+		}
+		case ID_EMULATION_ROTATION_V:
+		{
+			DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			displayLayoutConfig.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
+			break;
+		}
+		case ID_EMULATION_ROTATION_H_R:
+		{
+			DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			displayLayoutConfig.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
+			break;
+		}
+		case ID_EMULATION_ROTATION_V_R:
+		{
+			DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			displayLayoutConfig.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+			break;
+		}
 
 		case ID_EMULATION_CHEATS:
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
@@ -872,8 +893,18 @@ namespace MainWindow {
 
 		case ID_OPTIONS_SMART2DTEXTUREFILTERING: g_Config.bSmart2DTexFiltering = !g_Config.bSmart2DTexFiltering; break;
 
-		case ID_OPTIONS_BUFLINEARFILTER:  g_Config.iDisplayFilter = SCALE_LINEAR; break;
-		case ID_OPTIONS_BUFNEARESTFILTER: g_Config.iDisplayFilter = SCALE_NEAREST; break;
+		case ID_OPTIONS_BUFLINEARFILTER:
+		{
+			DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			displayLayoutConfig.iDisplayFilter = SCALE_LINEAR;
+			break;
+		}
+		case ID_OPTIONS_BUFNEARESTFILTER:
+		{
+			DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			displayLayoutConfig.iDisplayFilter = SCALE_NEAREST;
+			break;
+		}
 
 		case ID_OPTIONS_TOPMOST:
 			g_Config.bTopMost = !g_Config.bTopMost;
@@ -1021,14 +1052,17 @@ namespace MainWindow {
 			ID_EMULATION_ROTATION_H_R,
 			ID_EMULATION_ROTATION_V_R
 		};
-		if (g_Config.iInternalScreenRotation < ROTATION_LOCKED_HORIZONTAL)
-			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
 
-		else if (g_Config.iInternalScreenRotation > ROTATION_LOCKED_VERTICAL180)
-			g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+		DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+
+		if (displayLayoutConfig.iInternalScreenRotation < ROTATION_LOCKED_HORIZONTAL)
+			displayLayoutConfig.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+
+		else if (displayLayoutConfig.iInternalScreenRotation > ROTATION_LOCKED_VERTICAL180)
+			displayLayoutConfig.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
 
 		for (int i = 0; i < ARRAY_SIZE(displayrotationitems); i++) {
-			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == displayLayoutConfig.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int zoomitems[11] = {
@@ -1070,8 +1104,8 @@ namespace MainWindow {
 		RECT rc;
 		GetClientRect(GetHWND(), &rc);
 
-		int checkW = g_Config.IsPortrait() ? 272 : 480;
-		int checkH = g_Config.IsPortrait() ? 480 : 272;
+		int checkW = displayLayoutConfig.InternalRotationIsPortrait() ? 272 : 480;
+		int checkH = displayLayoutConfig.InternalRotationIsPortrait() ? 480 : 272;
 
 		for (int i = 0; i < ARRAY_SIZE(windowSizeItems); i++) {
 			bool check = (i + 1) * checkW == rc.right - rc.left || (i + 1) * checkH == rc.bottom - rc.top;
@@ -1140,14 +1174,14 @@ namespace MainWindow {
 			ID_OPTIONS_BUFLINEARFILTER,
 			ID_OPTIONS_BUFNEARESTFILTER,
 		};
-		if (g_Config.iDisplayFilter < SCALE_LINEAR)
-			g_Config.iDisplayFilter = SCALE_LINEAR;
+		if (displayLayoutConfig.iDisplayFilter < SCALE_LINEAR)
+			displayLayoutConfig.iDisplayFilter = SCALE_LINEAR;
 
-		else if (g_Config.iDisplayFilter > SCALE_NEAREST)
-			g_Config.iDisplayFilter = SCALE_NEAREST;
+		else if (displayLayoutConfig.iDisplayFilter > SCALE_NEAREST)
+			displayLayoutConfig.iDisplayFilter = SCALE_NEAREST;
 
 		for (int i = 0; i < ARRAY_SIZE(bufferfilteritems); i++) {
-			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iDisplayFilter ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == displayLayoutConfig.iDisplayFilter ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int frameskipping[] = {

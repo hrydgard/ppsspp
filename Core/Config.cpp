@@ -45,7 +45,6 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/OSD.h"
@@ -69,9 +68,9 @@ Config g_Config;
 static bool jitForcedOff;
 
 #ifdef _DEBUG
-static const char * const logSectionName = "LogDebug";
+static const std::string_view logSectionName = "LogDebug";
 #else
-static const char * const logSectionName = "Log";
+static const std::string_view logSectionName = "Log";
 #endif
 
 bool TryUpdateSavedPath(Path *path);
@@ -114,8 +113,10 @@ std::string DefaultLangRegion() {
 		IniFile mapping;
 		mapping.LoadFromVFS(g_VFS, "langregion.ini");
 		std::vector<std::string> keys;
-		mapping.GetKeys("LangRegionNames", keys);
-
+		Section *section = mapping.GetSection("LangRegionNames");
+		if (section) {
+			section->GetKeys(&keys);
+		}
 		for (const std::string &key : keys) {
 			if (startsWithNoCase(key, langRegion)) {
 				// Exact submatch, or different case.  Let's use it.
@@ -314,8 +315,6 @@ static const ConfigSetting generalSettings[] = {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), &DefaultScreenRotation, CfgFlag::DEFAULT),
 #endif
-
-	ConfigSetting("InternalScreenRotation", SETTING(g_Config, iInternalScreenRotation), ROTATION_LOCKED_HORIZONTAL, CfgFlag::PER_GAME),
 
 	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), 1, CfgFlag::DEFAULT),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT),
@@ -634,11 +633,41 @@ static std::string DefaultInfrastructureUsername() {
 	return std::string();
 }
 
+bool DisplayLayoutConfig::InternalRotationIsPortrait() const {
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !g_Config.bSkipBufferEffects;
+}
+
+bool DisplayLayoutConfig::ResetToDefault(std::string_view blockName) {
+	static const DisplayLayoutConfig defaultLayout = DisplayLayoutConfig();
+	*this = defaultLayout;
+	if (endsWith(blockName, ".Portrait")) {
+		// TODO: On mobile, where the aspect is fixed, we should use the screen size to compute this properly,
+		// so the screen almost touches the top edge.
+		fDisplayOffsetY = 0.25f;
+	}
+	return true;
+}
+
+// These were previously part of Graphics.
+// It's instantiated into g_Config.displayLayoutLandscape and g_Config.displayLayoutPortrait.
+// Defaults are set directly on the struct declaration (and adjusted per instance in ResetToDefault above).
+static const ConfigSetting displayLayoutSettings[] = {
+	ConfigSetting("BufferFiltering", SETTING(g_Config.displayLayoutLandscape, iDisplayFilter), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayStretch", SETTING(g_Config.displayLayoutLandscape, bDisplayStretch), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayOffsetX", SETTING(g_Config.displayLayoutLandscape, fDisplayOffsetX), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayOffsetY", SETTING(g_Config.displayLayoutLandscape, fDisplayOffsetY), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayScale", SETTING(g_Config.displayLayoutLandscape, fDisplayScale), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayIntegerScale", SETTING(g_Config.displayLayoutLandscape, bDisplayIntegerScale), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayAspectRatio", SETTING(g_Config.displayLayoutLandscape, fDisplayAspectRatio), CfgFlag::PER_GAME),
+	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config.displayLayoutLandscape, bIgnoreScreenInsets), CfgFlag::PER_GAME),
+	ConfigSetting("InternalScreenRotation", SETTING(g_Config.displayLayoutLandscape, iInternalScreenRotation), CfgFlag::PER_GAME),
+	ConfigSetting("EnableCardboardVR", SETTING(g_Config.displayLayoutLandscape, bEnableCardboardVR), CfgFlag::PER_GAME),
+	ConfigSetting("CardboardScreenSize", SETTING(g_Config.displayLayoutLandscape, iCardboardScreenSize), CfgFlag::PER_GAME),
+	ConfigSetting("CardboardXShift", SETTING(g_Config.displayLayoutLandscape, iCardboardXShift), CfgFlag::PER_GAME),
+	ConfigSetting("CardboardYShift", SETTING(g_Config.displayLayoutLandscape, iCardboardYShift), CfgFlag::PER_GAME),
+};
+
 static const ConfigSetting graphicsSettings[] = {
-	ConfigSetting("EnableCardboardVR", SETTING(g_Config, bEnableCardboardVR), false, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardScreenSize", SETTING(g_Config, iCardboardScreenSize), 50, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardXShift", SETTING(g_Config, iCardboardXShift), 0, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardYShift", SETTING(g_Config, iCardboardYShift), 0, CfgFlag::PER_GAME),
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
@@ -693,18 +722,10 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AppSwitchMode", SETTING(g_Config, iAppSwitchMode), (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR, CfgFlag::DEFAULT),
 #endif
 
-	ConfigSetting("BufferFiltering", SETTING(g_Config, iDisplayFilter), SCALE_LINEAR, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayOffsetX", SETTING(g_Config, fDisplayOffsetX), 0.5f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayOffsetY", SETTING(g_Config, fDisplayOffsetY), 0.5f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayScale", SETTING(g_Config, fDisplayScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayIntegerScale", SETTING(g_Config, bDisplayIntegerScale), false, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayAspectRatio", SETTING(g_Config, fDisplayAspectRatio), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayStretch", SETTING(g_Config, bDisplayStretch), false, CfgFlag::PER_GAME),
 	ConfigSetting("DisplayCropTo16x9", SETTING(g_Config, bDisplayCropTo16x9), true, CfgFlag::PER_GAME),
 
 	ConfigSetting("ImmersiveMode", SETTING(g_Config, bImmersiveMode), true, CfgFlag::PER_GAME),
 	ConfigSetting("SustainedPerformanceMode", SETTING(g_Config, bSustainedPerformanceMode), false, CfgFlag::PER_GAME),
-	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config, bIgnoreScreenInsets), true, CfgFlag::DEFAULT),
 
 	ConfigSetting("ReplaceTextures", SETTING(g_Config, bReplaceTextures), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SaveNewTextures", SETTING(g_Config, bSaveNewTextures), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -1055,54 +1076,49 @@ static const ConfigSetting vrSettings[] = {
 };
 
 // The first column says what structure the parameters are relative to.
-static const ConfigSectionSettings sectionDescs[] = {
-	{(char *)&g_Config, "General", generalSettings, ARRAY_SIZE(generalSettings)},
-	{(char *)&g_Config, "CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
-	{(char *)&g_Config, "Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
-	{(char *)&g_Config, "Sound", soundSettings, ARRAY_SIZE(soundSettings)},
-	{(char *)&g_Config, "Control", controlSettings, ARRAY_SIZE(controlSettings)},
-	{(char *)&g_Config, "SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
-	{(char *)&g_Config, "Network", networkSettings, ARRAY_SIZE(networkSettings)},
-	{(char *)&g_Config, "Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
-	{(char *)&g_Config, "JIT", jitSettings, ARRAY_SIZE(jitSettings)},
-	{(char *)&g_Config, "Theme", themeSettings, ARRAY_SIZE(themeSettings)},
-	{(char *)&g_Config, "VR", vrSettings, ARRAY_SIZE(vrSettings)},
-	{(char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
+static const ConfigSectionMeta g_sectionMeta[] = {
+	{ &g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
+	{ &g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
+	{ &g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
+	{ &g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
+	{ &g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
+	{ &g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
+	{ &g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
+	{ &g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
+	{ &g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
+	{ &g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
+	{ &g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
+	{ &g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
+	{ &g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
+	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 };
 
-const size_t numSections = ARRAY_SIZE(sectionDescs);
-
-static void IterateSettingsIni(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func) {
-	for (size_t i = 0; i < numSections; ++i) {
-		Section *section = iniFile.GetOrCreateSection(sectionDescs[i].section);
-		char *owner = sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(owner, section, sectionDescs[i].settings[j]);
+ConfigBlock *GetConfigBlockForSection(std::string_view sectionName) {
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		if (equals(meta.section, sectionName)) {
+			return meta.configBlock;
 		}
 	}
+	return nullptr;
 }
 
-static void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
-	for (size_t i = 0; i < numSections; ++i) {
-		char *owner = sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(owner, sectionDescs[i].settings[j]);
-		}
-	}
-}
+const size_t numSections = ARRAY_SIZE(g_sectionMeta);
 
-std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
-	static std::map<const void *, const ConfigSetting *> lut;
+std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> &Config::getPtrLUT() {
+	static std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> lut;
 	return lut;
 }
 
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([&ref](const char *owner, const ConfigSetting &setting) {
-		const void *ptr = setting.GetVoidPtr(owner);
-		ref[ptr] = &setting;
-	});
+	for (size_t i = 0; i < numSections; ++i) {
+		ConfigBlock *configBlock = g_sectionMeta[i].configBlock;
+		for (size_t j = 0; j < g_sectionMeta[i].settingsCount; j++) {
+			const void *ptr = g_sectionMeta[i].settings[j].GetVoidPtr(configBlock);
+			ref[ptr] = std::make_pair(configBlock, &g_sectionMeta[i].settings[j]);
+		}
+	}
 }
 
 Config::~Config() {
@@ -1136,11 +1152,15 @@ bool Config::LoadAppendedConfig() {
 		return false;
 	}
 
-	IterateSettingsIni(iniFile, [&iniFile](char *owner, Section *section, const ConfigSetting &setting) {
-		if (section->Exists(setting.iniKey_)) {
-			setting.ReadFromIniSection(owner, section);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		Section *section = iniFile.GetSection(meta.section);
+		if (!section) {
+			continue;
 		}
-	});
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReadFromIniSection(meta.configBlock, section, false);
+		}
+	}
 
 	INFO_LOG(Log::Loader, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
 
@@ -1155,6 +1175,28 @@ void Config::UpdateAfterSettingAutoFrameSkip() {
 	
 	if (bAutoFrameSkip && bSkipBufferEffects) {
 		bSkipBufferEffects = false;
+	}
+}
+
+void Config::ReadAllSettings(const IniFile &iniFile) {
+	// Read settings. Note, configblocks can now support their own defaulting mechanism.
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		const Section *section = iniFile.GetSection(meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
+		if (!section && !meta.fallbackSectionName.empty()) {
+			section = iniFile.GetSection(meta.fallbackSectionName);
+			configBlock = GetConfigBlockForSection(meta.fallbackSectionName);
+		}
+		// If section is still null, we'll handle that gracefully by resetting to defaults.
+		_dbg_assert_(configBlock);
+		bool applyDefaultPerSetting = true;
+		if (configBlock->ResetToDefault(meta.section)) {
+			applyDefaultPerSetting = false;
+		}
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReadFromIniSection(configBlock, section, applyDefaultPerSetting);
+		}
 	}
 }
 
@@ -1179,9 +1221,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(owner, section);
-	});
+	ReadAllSettings(iniFile);
 
 	iRunCount++;
 
@@ -1305,11 +1345,14 @@ bool Config::Save(const char *saveReason) {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		IterateSettingsIni(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
-			if (!gameSpecific_ || !setting.PerGame()) {
-				setting.WriteToIniSection(owner, section);
+		// Do the writing.
+		for (const ConfigSectionMeta &meta : g_sectionMeta) {
+			Section *section = iniFile.GetOrCreateSection(meta.section);
+			ConfigBlock *configBlock = meta.configBlock;
+			for (size_t j = 0; j < meta.settingsCount; j++) {
+				meta.settings[j].WriteToIniSection(configBlock, section);
 			}
-		});
+		}
 
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
@@ -1518,9 +1561,17 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			IterateSettings([log](char *owner, const ConfigSetting &setting) {
-				setting.RestoreToDefault(owner, log);
-			});
+			// Read settings. Note, ConfigBlocks can now support their own defaulting mechanism.
+			for (const auto &meta : g_sectionMeta) {
+				ConfigBlock *configBlock = meta.configBlock;
+				bool applyDefaultPerSetting = true;
+				if (!configBlock->ResetToDefault(meta.section)) {
+					// Reset the settings one by one.
+					for (size_t j = 0; j < meta.settingsCount; j++) {
+						meta.settings[j].RestoreToDefault(configBlock, log);
+					}
+				}
+			}
 		}
 
 		if (whatToRestore & RestoreSettingsBits::CONTROLS) {
@@ -1603,11 +1654,15 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 	PreSaveCleanup();
 
-	IterateSettingsIni(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
-		if (setting.PerGame()) {
-			setting.WriteToIniSection(owner, section);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		Section *section = iniFile.GetOrCreateSection(meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			if (meta.settings[j].PerGame()) {
+				meta.settings[j].WriteToIniSection(configBlock, section);
+			}
 		}
-	});
+	}
 
 	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 	postShaderSetting->Clear();
@@ -1665,11 +1720,18 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 			vPostShaderNames.push_back(v);
 	}
 
-	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		if (setting.PerGame()) {
-			setting.ReadFromIniSection(owner, section);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		Section *section = iniFile.GetSection(meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
+		if (!section && !meta.fallbackSectionName.empty()) {
+			section = iniFile.GetSection(meta.fallbackSectionName);
+			configBlock = GetConfigBlockForSection(meta.fallbackSectionName);
 		}
-	});
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReadFromIniSection(configBlock, section, false);
+		}
+	}
 
 	KeyMap::LoadFromIni(iniFile);
 
@@ -1695,9 +1757,8 @@ void Config::UnloadGameConfig() {
 	// Reload all settings from the main ini file.
 	IniFile iniFile;
 	iniFile.Load(iniFilename_);
-	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(owner, section);
-	});
+
+	ReadAllSettings(iniFile);
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
@@ -1752,17 +1813,13 @@ void Config::ResetControlLayout() {
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) const {
-	for (size_t i = 0; i < numSections; ++i) {
-		const std::string prefix = std::string("config.") + sectionDescs[i].section;
-		const char *owner = (const char *)sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			sectionDescs[i].settings[j].ReportSetting(owner, data, prefix);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		const std::string prefix = join("config.", meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReportSetting(configBlock, data, prefix);
 		}
 	}
-}
-
-bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
 }
 
 void PlayTimeTracker::Start(const std::string &gameId) {
