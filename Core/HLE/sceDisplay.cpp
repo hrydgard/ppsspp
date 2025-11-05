@@ -752,6 +752,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	double now = before;
 	while (now < goal && goal < now + 0.01) {
 		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
+		// TODO: Use the precise waits if available
 #ifndef _WIN32
 		const double left = goal - now;
 		if (left > 0.0f && left < 1.0f) {  // Sanity check

@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "Common/UI/UIScreen.h"
+#include "Common/Render/TextureAtlas.h"
 #include "Common/System/System.h"
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
@@ -26,7 +27,10 @@ public:
 		ignoreBottomInset_ = true;
 	}
 
-	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
+	void AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
+	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default) {
+		AddTab(tag, title, ImageID::invalid(), createCallback, flags);
+	}
 	void CreateViews() override;
 
 protected:

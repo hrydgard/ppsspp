@@ -1099,7 +1099,7 @@ void MainScreen::CreateRecentTab() {
 	scrollRecentGames->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
 
-	tabHolder_->AddTab(mm->T("Recent"), scrollRecentGames);
+	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
@@ -1119,7 +1119,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	scrollView->Add(gameBrowser);
 	gameBrowsers_.push_back(gameBrowser);
 
-	tabHolder_->AddTab(mm->T(title), scrollView);
+	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), scrollView);
 	if (scrollPos) {
 		scrollView->RememberPosition(scrollPos);
 	}
@@ -1617,7 +1617,7 @@ void UmdReplaceScreen::CreateViews() {
 			Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
-		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
+		leftColumn->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
@@ -1630,7 +1630,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
+	leftColumn->AddTab(mm->T("Games"), ImageID::invalid(), scrollAllGames);
 
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 

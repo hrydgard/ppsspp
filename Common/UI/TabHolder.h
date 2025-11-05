@@ -22,11 +22,11 @@ public:
 	TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams);
 
 	template <class T>
-	T *AddTab(std::string_view title, T *tabContents) {
-		AddTabContents(title, tabContents);
+	T *AddTab(std::string_view title, ImageID imageId, T *tabContents) {
+		AddTabContents(title, imageId, tabContents);
 		return tabContents;
 	}
-	void AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb);
+	void AddTabDeferred(std::string_view title, ImageID imageId, std::function<ViewGroup *()> createCb);
 	void EnableTab(int tab, bool enabled);
 
 	void AddBack(UIScreen *parent);
@@ -48,7 +48,7 @@ public:
 	}
 
 private:
-	void AddTabContents(std::string_view title, ViewGroup *tabContents);
+	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
 	void OnTabClick(EventParams &e);
 	bool EnsureTab(int index);  // return true if it actually created a tab.
 
@@ -68,7 +68,7 @@ class ChoiceStrip : public LinearLayout {
 public:
 	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0);
 
-	void AddChoice(std::string_view title);
+	void AddChoice(std::string_view title, ImageID imageId = ImageID::invalid());
 	void AddChoice(ImageID buttonImage);
 
 	int GetSelection() const { return selected_; }

@@ -557,7 +557,7 @@ void FrameDumpTestScreen::CreateViews() {
 	LinearLayout *dumps = new LinearLayoutList(ORIENT_VERTICAL);
 	dumps->SetSpacing(0);
 	dumpsScroll->Add(dumps);
-	tabHolder->AddTab("Dumps", dumpsScroll);
+	tabHolder->AddTab("Dumps", ImageID::invalid(), dumpsScroll);
 
 	dumps->Add(new ItemHeader("GE Frame Dumps"));
 

@@ -62,9 +62,9 @@ void TabHolder::AddBack(UIScreen *parent) {
 	}
 }
 
-void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
+void TabHolder::AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents) {
 	tabs_.push_back(tabContents);
-	tabStrip_->AddChoice(title);
+	tabStrip_->AddChoice(title, imageId);
 	contents_->Add(tabContents);
 	if (tabs_.size() > 1)
 		tabContents->SetVisibility(V_GONE);
@@ -76,9 +76,9 @@ void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
 	createFuncs_.push_back(nullptr);
 }
 
-void TabHolder::AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb) {
+void TabHolder::AddTabDeferred(std::string_view title, ImageID imageId, std::function<ViewGroup *()> createCb) {
 	tabs_.push_back(nullptr);  // marker
-	tabStrip_->AddChoice(title);
+	tabStrip_->AddChoice(title, imageId);
 	tabTweens_.push_back(nullptr);
 	createFuncs_.push_back(createCb);
 
@@ -223,8 +223,8 @@ ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 	SetSpacing(0.0f);
 }
 
-void ChoiceStrip::AddChoice(std::string_view title) {
-	StickyChoice *c = new StickyChoice(title, "",
+void ChoiceStrip::AddChoice(std::string_view title, ImageID imageId) {
+	StickyChoice *c = new StickyChoice(title, imageId,
 		orientation_ == ORIENT_HORIZONTAL ?
 		nullptr :
 		new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));

@@ -64,18 +64,18 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 void RetroAchievementsListScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	AddTab("Achievements", ac->T("Achievements"), [this](UI::LinearLayout *parent) {
+	AddTab("Achievements", ac->T("Achievements"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
 		parent->SetSpacing(5.0f);
 		CreateAchievementsTab(parent);
 	});
 
-	AddTab("Leaderboards", ac->T("Leaderboards"), [this](UI::LinearLayout *parent) {
+	AddTab("Leaderboards", ac->T("Leaderboards"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
 		parent->SetSpacing(5.0f);
 		CreateLeaderboardsTab(parent);
 	});
 
 #ifdef _DEBUG
-	AddTab("AchievementsStatistics", ac->T("Statistics"), [this](UI::LinearLayout *parent) {
+	AddTab("AchievementsStatistics", ac->T("Statistics"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
 		parent->SetSpacing(5.0f);
 		CreateStatisticsTab(parent);
 	});
