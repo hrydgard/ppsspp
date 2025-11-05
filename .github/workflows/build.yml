@@ -97,7 +97,7 @@ jobs:
       run: cp Windows/Release/*.exe ppsspp/
 
     - name: Upload build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
@@ -362,14 +362,14 @@ jobs:
         fi
 
     - name: Upload build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: matrix.extra == 'test'
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
     - name: Upload iOS build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: matrix.id == 'ios'
       with:
         name: ${{ matrix.id }} build
