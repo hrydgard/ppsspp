@@ -22,7 +22,6 @@
 #   avdevice
 #   avfilter
 #   avformat
-#   postproc
 #   swresample
 #   swscale
 #
@@ -33,7 +32,6 @@ set(_FFmpeg_ALL_COMPONENTS
   avfilter
   avformat
   avutil
-  postproc
   swresample
   swscale
 )
@@ -42,7 +40,6 @@ set(_FFmpeg_DEPS_avcodec avutil)
 set(_FFmpeg_DEPS_avdevice avcodec avformat avutil)
 set(_FFmpeg_DEPS_avfilter avutil)
 set(_FFmpeg_DEPS_avformat avcodec avutil)
-set(_FFmpeg_DEPS_postproc avutil)
 set(_FFmpeg_DEPS_swresample avutil)
 set(_FFmpeg_DEPS_swscale avutil)
 
@@ -51,7 +48,6 @@ set(_FFmpeg_HEADER_avdevice avdevice)
 set(_FFmpeg_HEADER_avfilter avfilter)
 set(_FFmpeg_HEADER_avformat avformat)
 set(_FFmpeg_HEADER_avutil avutil)
-set(_FFmpeg_HEADER_postproc postprocess)
 set(_FFmpeg_HEADER_swresample swresample)
 set(_FFmpeg_HEADER_swscale swscale)
 
