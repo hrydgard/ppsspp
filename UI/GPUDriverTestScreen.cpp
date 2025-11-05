@@ -303,10 +303,10 @@ void GPUDriverTestScreen::CreateViews() {
 
 	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 30.0f, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, false));
 	anchor->Add(tabHolder_);
-	tabHolder_->AddTab("Discard", new LinearLayout(ORIENT_VERTICAL));
-	tabHolder_->AddTab("Shader", new LinearLayout(ORIENT_VERTICAL));
+	tabHolder_->AddTab("Discard", ImageID::invalid(), new LinearLayout(ORIENT_VERTICAL));
+	tabHolder_->AddTab("Shader", ImageID::invalid(), new LinearLayout(ORIENT_VERTICAL));
 
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	anchor->Add(back);
 }

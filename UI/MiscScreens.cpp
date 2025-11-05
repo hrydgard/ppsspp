@@ -154,7 +154,7 @@ void UIBaseScreen::sendMessage(UIMessage message, const char *value) {
 void UIBaseDialogScreen::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	parent->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)

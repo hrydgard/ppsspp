@@ -12,10 +12,10 @@
 #include "UI/MiscViews.h"
 #include "UI/TabbedDialogScreen.h"
 
-void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
+void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
 	using namespace UI;
 
-	tabHolder_->AddTabDeferred(title, [createCallback = std::move(createCallback), tag, flags]() -> UI::ViewGroup * {
+	tabHolder_->AddTabDeferred(title, imageId, [createCallback = std::move(createCallback), tag, flags]() -> UI::ViewGroup * {
 		using namespace UI;
 		ViewGroup *scroll = nullptr;
 		if (!(flags & TabFlags::NonScrollable)) {
@@ -53,12 +53,21 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	if (portrait) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, TabHolderFlags::BackButton, filterNotice_, new LinearLayoutParams(1.0f));
+
+		TabHolderFlags tabHolderFlags = TabHolderFlags::BackButton;
+		if (flags_ & TabDialogFlags::HorizontalOnlyIcons) {
+			tabHolderFlags |= TabHolderFlags::HorizontalOnlyIcons;
+		}
+		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, tabHolderFlags, filterNotice_, new LinearLayoutParams(1.0f));
 		verticalLayout->Add(tabHolder_);
 		CreateExtraButtons(verticalLayout, 0);
 		root_->Add(verticalLayout);
 	} else {
-		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, TabHolderFlags::Default, filterNotice_, new AnchorLayoutParams(10, 0, 10, 0, false));
+		TabHolderFlags tabHolderFlags = TabHolderFlags::Default;
+		if (flags_ & TabDialogFlags::VerticalShowIcons) {
+			tabHolderFlags |= TabHolderFlags::VerticalShowIcons;
+		}
+		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, filterNotice_, new AnchorLayoutParams(10, 0, 10, 0, false));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
 		root_->Add(tabHolder_);
@@ -90,7 +99,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
 			// Search
 			auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
-			AddTab("GameSettingsSearch", ms->T("Search"), [this](UI::LinearLayout *searchSettings) {
+			AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *searchSettings) {
 				auto se = GetI18NCategory(I18NCat::SEARCH);
 
 				searchSettings->Add(new ItemHeader(se->T("Find settings")));

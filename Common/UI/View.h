@@ -30,8 +30,6 @@ struct KeyInput;
 struct TouchInput;
 struct AxisInput;
 
-struct ImageID;
-
 class DrawBuffer;
 class Texture;
 class UIContext;
@@ -778,10 +776,12 @@ private:
 // Different key handling.
 class StickyChoice : public Choice {
 public:
-	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = 0)
+	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
 		: Choice(text, smallText, false, layoutParams) {}
-	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = 0)
+	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = nullptr)
 		: Choice(buttonImage, layoutParams) {}
+	StickyChoice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: Choice(text, image, layoutParams) {}
 
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &touch) override;
@@ -1033,8 +1033,8 @@ public:
 	Event OnClick;
 
 private:
-	bool down_;
-	bool dragging_;
+	bool down_ = false;
+	bool dragging_ = false;
 };
 
 class TextEdit : public View {

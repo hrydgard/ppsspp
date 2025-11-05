@@ -149,12 +149,12 @@ void RightAnalogMappingScreen::CreateViews() {
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
 	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
-	tabHolder->AddTab(co->T("Binds"), rightPanel);
+	tabHolder->AddTab(co->T("Binds"), ImageID::invalid(), rightPanel);
 	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	vert->SetSpacing(0);
 

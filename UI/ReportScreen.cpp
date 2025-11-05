@@ -325,7 +325,7 @@ void ReportScreen::CreateViews() {
 	UpdateOverallDescription();
 
 	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumnItems->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	root_->Add(leftColumn);
@@ -432,7 +432,7 @@ void ReportFinishScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(rp->T("View Feedback")))->OnClick.Handle(this, &ReportFinishScreen::HandleViewFeedback);
 
 	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumnItems->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	root_->Add(leftColumn);

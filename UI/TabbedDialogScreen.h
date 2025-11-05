@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "Common/UI/UIScreen.h"
+#include "Common/Render/TextureAtlas.h"
 #include "Common/System/System.h"
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
@@ -14,6 +15,13 @@ namespace UI {
 class TabHolder;
 }
 
+enum class TabDialogFlags {
+	Default = 0,
+	HorizontalOnlyIcons = 1,
+	VerticalShowIcons = 2,
+};
+ENUM_CLASS_BITOPS(TabDialogFlags);
+
 enum class TabFlags {
 	Default = 0,
 	NonScrollable = 1,
@@ -22,11 +30,14 @@ ENUM_CLASS_BITOPS(TabFlags);
 
 class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	UITabbedBaseDialogScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
+	UITabbedBaseDialogScreen(const Path &gamePath, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), flags_(flags) {
 		ignoreBottomInset_ = true;
 	}
 
-	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
+	void AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
+	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default) {
+		AddTab(tag, title, ImageID::invalid(), createCallback, flags);
+	}
 	void CreateViews() override;
 
 protected:
@@ -57,4 +68,6 @@ private:
 	// If we recreate the views while this is active we show it again
 	std::string oldSettingInfo_;
 	std::string searchFilter_;
+
+	TabDialogFlags flags_ = TabDialogFlags::Default;
 };
