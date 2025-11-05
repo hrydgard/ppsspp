@@ -70,9 +70,7 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
-	bool bGameSpecific = false;
 	bool bUpdatedInstanceCounter = false;
-	bool bBrowse;  // show a file browser on startup. TODO: Does anyone use this?
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
@@ -623,18 +621,22 @@ public:
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
-	//per game config managment, should maybe be in it's own class
-	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
-	bool createGameConfig(const std::string &game_id);
-	bool deleteGameConfig(const std::string& pGameId);
-	bool loadGameConfig(const std::string &game_id, const std::string &title);
-	bool saveGameConfig(const std::string &pGameId, const std::string &title);
-	void unloadGameConfig();
-	Path getGameConfigFile(const std::string &gameId, bool *exists);
-	bool hasGameConfig(const std::string &game_id);
+	// Per-game config management.
+	void ChangeGameSpecific(const std::string &gameId = "", std::string_view title = "");
+
+	// Note: This doesn't switch to the config, just creates it.
+	bool CreateGameConfig(std::string_view gameId);
+	bool DeleteGameConfig(std::string_view gameId);
+	bool LoadGameConfig(const std::string &gameId);
+	bool SaveGameConfig(const std::string &pGameId, std::string_view titleForComment);
+	void UnloadGameConfig();
+
+	Path GetGameConfigFilePath(std::string_view gameId, bool *exists);
+	bool HasGameConfig(std::string_view gameId);
+	bool IsGameSpecific() const { return gameSpecific_; }
 
 	void SetSearchPath(const Path &path);
-	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
+	Path FindConfigFile(std::string_view baseFilename, bool *exists) const;
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
@@ -662,16 +664,18 @@ public:
 protected:
 	void LoadStandardControllerIni();
 
-	void PostLoadCleanup(bool gameSpecific);
-	void PreSaveCleanup(bool gameSpecific);
-	void PostSaveCleanup(bool gameSpecific);
+	void PostLoadCleanup();
+	void PreSaveCleanup();
+	void PostSaveCleanup();
 
 	static std::map<const void*, const ConfigSetting *> &getPtrLUT();
 
 private:
 	bool reload_ = false;
+
+	bool gameSpecific_ = false;
 	std::string gameId_;
-	std::string gameIdTitle_;
+
 	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;
 	Path controllerIniFilename_;

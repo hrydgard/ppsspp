@@ -416,7 +416,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
 
-	// Game-specific settings are load from for example Load_PSP_ISO (which calls g_Config.loadGameConfig).
+	// Game-specific settings are load from for example Load_PSP_ISO (which calls g_Config.LoadGameConfig).
 	// We can't do things that depend on these before the below switch. So for example, the adjustment of the GPU core
 	// to software has now been moved below it.
 
@@ -735,7 +735,7 @@ void PSP_Shutdown(bool success) {
 
 	currentMIPS = nullptr;
 
-	g_Config.unloadGameConfig();
+	g_Config.UnloadGameConfig();
 
 	Core_NotifyLifecycle(CoreLifecycle::STOPPED);
 

@@ -231,7 +231,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("Enable Logging", SETTING(g_Config, bEnableLogging), true, CfgFlag::PER_GAME),
 	ConfigSetting("FileLogging", SETTING(g_Config, bEnableFileLogging), false, CfgFlag::PER_GAME),
 	ConfigSetting("AutoRun", SETTING(g_Config, bAutoRun), true, CfgFlag::DEFAULT),
-	ConfigSetting("Browse", SETTING(g_Config, bBrowse), false, CfgFlag::DEFAULT),
 	ConfigSetting("IgnoreBadMemAccess", SETTING(g_Config, bIgnoreBadMemAccess), true, CfgFlag::DEFAULT),
 	ConfigSetting("CurrentDirectory", SETTING(g_Config, currentDirectory), "", CfgFlag::DEFAULT),
 	ConfigSetting("ShowDebuggerOnLoad", SETTING(g_Config, bShowDebuggerOnLoad), false, CfgFlag::DEFAULT),
@@ -1210,12 +1209,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	if (iGPUBackend == 1) {  // d3d9, no longer supported
-		iGPUBackend = 2;  // d3d11
-	}
-
 	if (iMaxRecent > 0) {
 		g_recentFiles.Load(recent, iMaxRecent);
+		g_recentFiles.Clean();
 	}
 
 	// Time tracking
@@ -1261,16 +1257,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			vPostShaderNames.push_back(it.second);
 	}
 
-	// Check for an old dpad setting (very obsolete)
-	Section *control = iniFile.GetSection("Control");
-	if (control) {
-		float f = 0.0f;
-		control->Get("DPadRadius", &f);
-		if (f > 0.0f) {
-			ResetControlLayout();
-		}
-	}
-
 	// Force JIT setting to a valid value for the current system configuration.
 	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
 		if (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) {
@@ -1283,16 +1269,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	LoadStandardControllerIni();
 
-	//so this is all the way down here to overwrite the controller settings
-	//sadly it won't benefit from all the "version conversion" going on up-above
-	//but these configs shouldn't contain older versions anyhow
-	if (bGameSpecific) {
-		loadGameConfig(gameId_, gameIdTitle_);
+	// So this is all the way down here to overwrite the controller settings
+	// sadly it won't benefit from all the "version conversion" going on up-above
+	// but these configs shouldn't contain older versions anyhow
+	if (gameSpecific_) {
+		LoadGameConfig(gameId_);
 	}
 
-	g_recentFiles.Clean();
-
-	PostLoadCleanup(false);
+	PostLoadCleanup();
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
@@ -1303,15 +1287,14 @@ bool Config::Save(const char *saveReason) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
 		WARN_LOG(Log::Loader, "Not saving config - secondary instances don't.");
-
 		// Don't want to retry or something.
 		return true;
 	}
 
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
-		saveGameConfig(gameId_, gameIdTitle_);
+		SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
 
-		PreSaveCleanup(false);
+		PreSaveCleanup();
 
 		g_recentFiles.Clean();
 		IniFile iniFile;
@@ -1323,7 +1306,7 @@ bool Config::Save(const char *saveReason) {
 		bFirstRun = false;
 
 		IterateSettingsIni(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
-			if (!bGameSpecific || !setting.PerGame()) {
+			if (!gameSpecific_ || !setting.PerGame()) {
 				setting.WriteToIniSection(owner, section);
 			}
 		});
@@ -1340,7 +1323,7 @@ bool Config::Save(const char *saveReason) {
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 
-		if (!bGameSpecific) {
+		if (!gameSpecific_) {
 			Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
@@ -1378,7 +1361,7 @@ bool Config::Save(const char *saveReason) {
 		}
 		INFO_LOG(Log::Loader, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 
-		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
+		if (!gameSpecific_) //otherwise we already did this in SaveGameConfig()
 		{
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_)) {
@@ -1392,7 +1375,7 @@ bool Config::Save(const char *saveReason) {
 			INFO_LOG(Log::Loader, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
 
-		PostSaveCleanup(false);
+		PostSaveCleanup();
 	} else {
 		INFO_LOG(Log::Loader, "Not saving config");
 	}
@@ -1401,16 +1384,18 @@ bool Config::Save(const char *saveReason) {
 }
 
 // A lot more cleanup tasks should be moved into here, and some of these are severely outdated.
-void Config::PostLoadCleanup(bool gameSpecific) {
+void Config::PostLoadCleanup() {
 	// Override ppsspp.ini JIT value to prevent crashing
 	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR);
 	if (jitForcedOff) {
 		g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 
-	// This caps the exponent 4 (so 16x.)
-	if (iAnisotropyLevel > 4) {
-		iAnisotropyLevel = 4;
+	// This caps the exponent 4 (so 16x.). No hardware supports more anyway.
+	iAnisotropyLevel = std::clamp(iAnisotropyLevel, 0, 4);
+
+	if (iGPUBackend == 1) {  // d3d9, no longer supported
+		iGPUBackend = 2;  // d3d11
 	}
 
 	// Set a default MAC, and correct if it's an old format.
@@ -1423,6 +1408,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
 	if (PPSSPP_ID > 1) {
+		NOTICE_LOG(Log::Audio, "Secondary instance %d - silencing audio", (int)PPSSPP_ID);
 		g_Config.iGameVolume = 0;
 	}
 
@@ -1437,7 +1423,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 	}
 }
 
-void Config::PreSaveCleanup(bool gameSpecific) {
+void Config::PreSaveCleanup() {
 	if (jitForcedOff) {
 		// If we forced jit off and it's still set to IR, change it back to jit.
 		if (g_Config.iCpuCore == (int)CPUCore::IR_INTERPRETER)
@@ -1445,7 +1431,7 @@ void Config::PreSaveCleanup(bool gameSpecific) {
 	}
 }
 
-void Config::PostSaveCleanup(bool gameSpecific) {
+void Config::PostSaveCleanup() {
 	if (jitForcedOff) {
 		// Force JIT off again just in case Config::Save() is called without exiting PPSSPP.
 		if (g_Config.iCpuCore == (int)CPUCore::JIT)
@@ -1492,7 +1478,7 @@ void Config::SetSearchPath(const Path &searchPath) {
 	searchPath_ = searchPath;
 }
 
-const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists) {
+Path Config::FindConfigFile(std::string_view baseFilename, bool *exists) const {
 	// Don't search for an absolute path.
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
 		Path path(baseFilename);
@@ -1500,6 +1486,7 @@ const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists)
 		return path;
 	}
 #ifdef _WIN32
+	// Handle paths starting with a drive letter.
 	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
 		Path path(baseFilename);
 		*exists = File::Exists(path);
@@ -1524,10 +1511,10 @@ const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists)
 }
 
 void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
-	if (bGameSpecific) {
+	if (gameSpecific_) {
 		// TODO: This should be possible to do in a cleaner way.
-		deleteGameConfig(gameId_);
-		createGameConfig(gameId_);
+		DeleteGameConfig(gameId_);
+		CreateGameConfig(gameId_);
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
@@ -1547,23 +1534,24 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 	}
 }
 
-bool Config::hasGameConfig(const std::string &pGameId) {
+bool Config::HasGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = getGameConfigFile(pGameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 	return exists;
 }
 
-void Config::changeGameSpecific(const std::string &pGameId, const std::string &title) {
-	if (!reload_)
+void Config::ChangeGameSpecific(const std::string &pGameId, std::string_view title) {
+	if (!reload_) {
 		Save("changeGameSpecific");
+	}
+
 	gameId_ = pGameId;
-	gameIdTitle_ = title;
-	bGameSpecific = !pGameId.empty();
+	gameSpecific_ = !pGameId.empty();
 }
 
-bool Config::createGameConfig(const std::string &pGameId) {
+bool Config::CreateGameConfig(std::string_view gameId) {
 	bool exists;
-	Path fullIniFilePath = getGameConfigFile(pGameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
 	if (exists) {
 		INFO_LOG(Log::System, "Game config already exists");
@@ -1574,9 +1562,9 @@ bool Config::createGameConfig(const std::string &pGameId) {
 	return true;
 }
 
-bool Config::deleteGameConfig(const std::string& pGameId) {
-	bool exists;
-	Path fullIniFilePath = Path(getGameConfigFile(pGameId, &exists));
+bool Config::DeleteGameConfig(std::string_view gameId) {
+	bool exists = false;
+	Path fullIniFilePath = Path(GetGameConfigFilePath(gameId, &exists));
 
 	if (exists) {
 		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
@@ -1588,28 +1576,32 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 	return true;
 }
 
-Path Config::getGameConfigFile(const std::string &pGameId, bool *exists) {
-	const char *ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
-	std::string iniFileName = pGameId + ppssppIniFilename;
+Path Config::GetGameConfigFilePath(std::string_view gameId, bool *exists) {
+	std::string_view ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
+	std::string iniFileName = join(gameId, ppssppIniFilename);
 	Path iniFileNameFull = FindConfigFile(iniFileName, exists);
-
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId, const std::string &titleForComment) {
-	if (pGameId.empty()) {
+bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleForComment) {
+	if (gameId.empty()) {
 		return false;
 	}
 
 	bool exists;
-	Path fullIniFilePath = getGameConfigFile(pGameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
 	IniFile iniFile;
 
-	Section *top = iniFile.GetOrCreateSection("");
-	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), titleForComment.c_str()));
+	// Just like regular configs, we should load and save, in order to preserve things like comments.
+	iniFile.Load(fullIniFilePath);
 
-	PreSaveCleanup(true);
+	Section *top = iniFile.GetOrCreateSection("");
+	if (top->Lines().empty() && !titleForComment.empty()) {
+		top->AddComment(StringFromFormat("Game config for %s - %.*s", gameId.c_str(), STR_VIEW(titleForComment)));
+	}
+
+	PreSaveCleanup();
 
 	IterateSettingsIni(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
 		if (setting.PerGame()) {
@@ -1636,19 +1628,22 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	INFO_LOG(Log::Loader, "Game-specific config saved: '%s'", fullIniFilePath.c_str());
 
-	PostSaveCleanup(true);
+	PostSaveCleanup();
 	return true;
 }
 
-bool Config::loadGameConfig(const std::string &pGameId, const std::string &title) {
+bool Config::LoadGameConfig(const std::string &gameId) {
 	bool exists;
-	Path iniFileNameFull = getGameConfigFile(pGameId, &exists);
+	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
 	if (!exists) {
 		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 
-	changeGameSpecific(pGameId, title);
+	_dbg_assert_(!gameId.empty());
+
+	ChangeGameSpecific(gameId);
+
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
 
@@ -1679,46 +1674,46 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	KeyMap::LoadFromIni(iniFile);
 
 	if (!appendedConfigFileName_.ToString().empty() &&
-		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
+		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), gameId) == appendedConfigUpdatedGames_.end()) {
 
 		LoadAppendedConfig();
-		appendedConfigUpdatedGames_.push_back(pGameId);
+		appendedConfigUpdatedGames_.push_back(gameId);
 	}
 
-	PostLoadCleanup(true);
+	PostLoadCleanup();
 	return true;
 }
 
-void Config::unloadGameConfig() {
-	if (bGameSpecific) {
-		changeGameSpecific();
-
-		IniFile iniFile;
-		iniFile.Load(iniFilename_);
-
-		// Reload game specific settings back to standard.
-		IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-			if (setting.PerGame()) {
-				setting.ReadFromIniSection(owner, section);
-			}
-		});
-
-		auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
-		mPostShaderSetting.clear();
-		for (const auto &[k, v] : postShaderSetting) {
-			mPostShaderSetting[k] = std::stof(v);
-		}
-
-		auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
-		vPostShaderNames.clear();
-		for (const auto &[k, v] : postShaderChain) {
-			if (v != "Off")
-				vPostShaderNames.push_back(v);
-		}
-
-		LoadStandardControllerIni();
-		PostLoadCleanup(true);
+void Config::UnloadGameConfig() {
+	if (!gameSpecific_) {
+		return;
 	}
+
+	gameId_.clear();
+	gameSpecific_ = false;
+
+	// Reload all settings from the main ini file.
+	IniFile iniFile;
+	iniFile.Load(iniFilename_);
+	IterateSettingsIni(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
+		setting.ReadFromIniSection(owner, section);
+	});
+
+	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	mPostShaderSetting.clear();
+	for (const auto &[k, v] : postShaderSetting) {
+		mPostShaderSetting[k] = std::stof(v);
+	}
+
+	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
+	vPostShaderNames.clear();
+	for (const auto &[k, v] : postShaderChain) {
+		if (v != "Off")
+			vPostShaderNames.push_back(v);
+	}
+
+	LoadStandardControllerIni();
+	PostLoadCleanup();
 }
 
 void Config::LoadStandardControllerIni() {

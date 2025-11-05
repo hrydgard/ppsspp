@@ -269,10 +269,6 @@ void MainThreadFunc() {
 	}
 	graphicsContext->ThreadStart();
 
-	if (g_Config.bBrowse) {
-		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
-	}
-
 	if (useEmuThread) {
 		while (true) {
 			if (equals_any(g_emuThreadState, EmuThreadState::QUIT_REQUESTED, EmuThreadState::STOPPED)) {

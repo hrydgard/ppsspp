@@ -26,7 +26,6 @@
 #define LOONGARCH_DISASSEMBLER_H
 
 #include <cstdint>
-#include <cstdbool>
 #include <cassert>
 
 /* IR2_OPCODE; */

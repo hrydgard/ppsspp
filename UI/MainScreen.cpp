@@ -1516,7 +1516,8 @@ void MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 }
 
 void MainScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(Path(), ""));
+	// Not passing a game ID, changing the global settings.
+	screenManager()->push(new GameSettingsScreen(Path()));
 }
 
 void MainScreen::OnCredits(UI::EventParams &e) {

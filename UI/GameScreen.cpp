@@ -382,8 +382,8 @@ void GameScreen::OnCreateConfig(UI::EventParams &e) {
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
 	}
-	g_Config.createGameConfig(info->id);
-	g_Config.saveGameConfig(info->id, info->GetTitle());
+	g_Config.CreateGameConfig(info->id);
+	g_Config.SaveGameConfig(info->id, info->GetTitle());
 	info->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
@@ -400,7 +400,7 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 			if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 				return;
 			}
-			g_Config.deleteGameConfig(info->id);
+			g_Config.DeleteGameConfig(info->id);
 			info->hasConfig = false;
 			RecreateViews();
 		}
