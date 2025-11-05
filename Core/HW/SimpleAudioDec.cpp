@@ -327,7 +327,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	int err = avcodec_receive_frame(codecCtx_, frame_);
 	int len = 0;
 	if (err >= 0) {
-		len = frame_->pkt_size;
+		len = packet.size;
 		got_frame = 1;
 	} else if (err != AVERROR(EAGAIN)) {
 		len = err;
@@ -392,7 +392,11 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 
 			if (!swrCtx_ || swr_init(swrCtx_) < 0) {
 				ERROR_LOG(Log::ME, "swr_init: Failed to initialize the resampling context");
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+				avcodec_free_context(&codecCtx_);
+#else
 				avcodec_close(codecCtx_);
+#endif
 				codec_ = 0;
 				return false;
 			}

@@ -929,16 +929,14 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			avcodec_send_packet(pCodecCtx, &packet);
 		int len = avcodec_receive_frame(pCodecCtx, pFrame);
 		if (len == 0) {
-			len = pFrame->pkt_size;
 			got_picture = 1;
 		} else if (len == AVERROR(EAGAIN)) {
-			len = 0;
 			got_picture = 0;
 		} else {
 			got_picture = 0;
 		}
 #else
-		int len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
+		avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
 #endif
 		DEBUG_LOG(Log::Mpeg, "got_picture %d", got_picture);
 		if (got_picture){
