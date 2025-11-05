@@ -750,7 +750,7 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
-void InitPadLayout(TouchControlConfig *config, float xres, float yres, float globalScale) {
+void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale) {
 	const float scale = globalScale;
 	const int halfW = xres / 2;
 
@@ -814,17 +814,31 @@ void InitPadLayout(TouchControlConfig *config, float xres, float yres, float glo
 	const float bottom_button_Y = 60.0f;
 #endif
 
-	int start_key_X = halfW + bottom_key_spacing * scale;
-	int start_key_Y = yres - bottom_button_Y * scale;
-	initTouchPos(&config->touchStartKey, start_key_X, start_key_Y);
+	if (orientation == DeviceOrientation::Portrait) {
+		int start_key_X = halfW;
+		int start_key_Y = yres - bottom_button_Y * scale;
+		initTouchPos(&config->touchStartKey, start_key_X, start_key_Y);
 
-	int select_key_X = halfW;
-	int select_key_Y = yres - bottom_button_Y * scale;
-	initTouchPos(&config->touchSelectKey, select_key_X, select_key_Y);
+		int select_key_X = halfW;
+		int select_key_Y = yres - bottom_button_Y * scale - 50;
+		initTouchPos(&config->touchSelectKey, select_key_X, select_key_Y);
 
-	int fast_forward_key_X = halfW - bottom_key_spacing * scale;
-	int fast_forward_key_Y = yres - bottom_button_Y * scale;
-	initTouchPos(&config->touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
+		int fast_forward_key_X = halfW;
+		int fast_forward_key_Y = yres - bottom_button_Y * scale - 100;
+		initTouchPos(&config->touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
+	} else {
+		int start_key_X = halfW + bottom_key_spacing * scale;
+		int start_key_Y = yres - bottom_button_Y * scale;
+		initTouchPos(&config->touchStartKey, start_key_X, start_key_Y);
+
+		int select_key_X = halfW;
+		int select_key_Y = yres - bottom_button_Y * scale;
+		initTouchPos(&config->touchSelectKey, select_key_X, select_key_Y);
+
+		int fast_forward_key_X = halfW - bottom_key_spacing * scale;
+		int fast_forward_key_Y = yres - bottom_button_Y * scale;
+		initTouchPos(&config->touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
+	}
 
 	// L and R------------------------------------------------------------
 	// Put them above the analog stick / above the buttons to the right.

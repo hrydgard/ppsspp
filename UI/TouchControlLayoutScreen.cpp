@@ -592,10 +592,13 @@ void TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 }
 
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	INFO_LOG(Log::G3D, "Resetting touch control layout");
-	g_Config.ResetControlLayout();
+	INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
+
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-	InitPadLayout(&g_Config.GetTouchControlsConfig(GetDeviceOrientation()), bounds.w, bounds.h);
+	const DeviceOrientation orientation = GetDeviceOrientation();
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
+	touch.ResetLayout();
+	InitPadLayout(&touch, orientation, bounds.w, bounds.h);
 	RecreateViews();
 };
 
@@ -637,9 +640,10 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	// setup g_Config for button layout
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-	InitPadLayout(&g_Config.GetTouchControlsConfig(GetDeviceOrientation()), bounds.w, bounds.h);
+	const DeviceOrientation orientation = GetDeviceOrientation();
+	InitPadLayout(&g_Config.GetTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
 
-	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	// const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	const float leftColumnWidth = 200.0f;
 	layoutAreaScale = 1.0f - (leftColumnWidth + 10.0f) / std::max(bounds.w, 1.0f);
@@ -675,6 +679,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Spacer(0.0f));
 
 	LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
+	rightColumn->Add(new TextView(co->T(DeviceOrientationToString(orientation))));
 	rightColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	float previewHeight = bounds.h * layoutAreaScale;
 	layoutView_ = rightColumn->Add(new ControlLayoutView(GetDeviceOrientation(), new LinearLayoutParams(FILL_PARENT, previewHeight)));

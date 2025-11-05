@@ -158,7 +158,7 @@ private:
 struct TouchControlConfig;
 
 // Initializes the layout from Config. if a default layout does not exist, it sets up default values
-void InitPadLayout(TouchControlConfig *config, float xres, float yres, float globalScale = 1.15f);
+void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale = 1.15f);
 UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, bool showPauseButton, ControlMapper *controlMapper);
 
 const int D_pad_Radius = 50;

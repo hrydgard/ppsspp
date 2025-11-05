@@ -844,6 +844,31 @@ static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
+void TouchControlConfig::ResetLayout() {
+	// reset puts the settings in a state so they'll then get properly reinitialized in InitPadLayout.
+	auto reset = [](ConfigTouchPos &pos) {
+		pos.x = defaultTouchPosShow.x;
+		pos.y = defaultTouchPosShow.y;
+		pos.scale = defaultTouchPosShow.scale;
+	};
+	reset(touchActionButtonCenter);
+	fActionButtonSpacing = 1.0f;
+	reset(touchDpad);
+	fDpadSpacing = 1.0f;
+	reset(touchStartKey);
+	reset(touchSelectKey);
+	reset(touchFastForwardKey);
+	reset(touchLKey);
+	reset(touchRKey);
+	reset(touchAnalogStick);
+	reset(touchRightAnalogStick);
+	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
+		reset(touchCustom[i]);
+	}
+	fLeftStickHeadScale = 1.0f;
+	fRightStickHeadScale = 1.0f;
+}
+
 bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
 	// We do this traditionally for now.
 	return false;
@@ -1800,33 +1825,6 @@ void Config::LoadStandardControllerIni() {
 		// Continue anyway to initialize the config. It will just restore the defaults.
 		KeyMap::LoadFromIni(controllerIniFile);
 	}
-}
-
-// Is this even meaningful to have here?
-void Config::ResetControlLayout() {
-	/*
-	auto reset = [](ConfigTouchPos &pos) {
-		pos.x = defaultTouchPosShow.x;
-		pos.y = defaultTouchPosShow.y;
-		pos.scale = defaultTouchPosShow.scale;
-	};
-	reset(g_Config.touchActionButtonCenter);
-	g_Config.fActionButtonSpacing = 1.0f;
-	reset(g_Config.touchDpad);
-	g_Config.fDpadSpacing = 1.0f;
-	reset(g_Config.touchStartKey);
-	reset(g_Config.touchSelectKey);
-	reset(g_Config.touchFastForwardKey);
-	reset(g_Config.touchLKey);
-	reset(g_Config.touchRKey);
-	reset(g_Config.touchAnalogStick);
-	reset(g_Config.touchRightAnalogStick);
-	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
-		reset(g_Config.touchCustom[i]);
-	}
-	g_Config.fLeftStickHeadScale = 1.0f;
-	g_Config.fRightStickHeadScale = 1.0f;
-	*/
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) const {

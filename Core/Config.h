@@ -127,6 +127,8 @@ struct TouchControlConfig : public ConfigBlock {
 	bool bShowTouchTriangle = true;
 	bool bShowTouchSquare = true;
 
+	void ResetLayout();
+
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;
 	size_t Size() const override { return sizeof(TouchControlConfig); }  // For sanity checks
@@ -674,8 +676,6 @@ public:
 	Path FindConfigFile(std::string_view baseFilename, bool *exists) const;
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
-
-	void ResetControlLayout();
 
 	void GetReportingInfo(UrlEncoder &data) const;
 
