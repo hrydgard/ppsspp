@@ -59,7 +59,7 @@ private:
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
 	ViewGroup *contents_ = nullptr;
-	Orientation orientation_ = ORIENT_HORIZONTAL;
+	Orientation tabOrientation_ = ORIENT_HORIZONTAL;
 
 	TabHolderFlags flags_ = TabHolderFlags::Default;
 	int currentTab_ = 0;

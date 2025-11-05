@@ -9,7 +9,7 @@
 namespace UI {
 
 TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams)
-	: LinearLayout(Opposite(orientation), layoutParams), orientation_(orientation), flags_(flags) {
+	: LinearLayout(Opposite(orientation), layoutParams), tabOrientation_(orientation), flags_(flags) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
 		// This orientation supports adding a back button.
@@ -66,9 +66,9 @@ void TabHolder::AddBack(UIScreen *parent) {
 
 void TabHolder::AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents) {
 	tabs_.push_back(tabContents);
-	if (orientation_ == ORIENT_HORIZONTAL && (flags_ & TabHolderFlags::HorizontalOnlyIcons) && imageId.isValid()) {
+	if (tabOrientation_ == ORIENT_HORIZONTAL && (flags_ & TabHolderFlags::HorizontalOnlyIcons) && imageId.isValid()) {
 		tabStrip_->AddChoice(imageId);
-	} else if (orientation_ == ORIENT_VERTICAL && (flags_ & TabHolderFlags::VerticalShowIcons) && imageId.isValid()) {
+	} else if (tabOrientation_ == ORIENT_VERTICAL && (flags_ & TabHolderFlags::VerticalShowIcons) && imageId.isValid()) {
 		tabStrip_->AddChoice(title, imageId);
 	} else {
 		tabStrip_->AddChoice(title);
@@ -86,9 +86,9 @@ void TabHolder::AddTabContents(std::string_view title, ImageID imageId, ViewGrou
 
 void TabHolder::AddTabDeferred(std::string_view title, ImageID imageId, std::function<ViewGroup *()> createCb) {
 	tabs_.push_back(nullptr);  // marker
-	if (orientation_ == ORIENT_HORIZONTAL && (flags_ & TabHolderFlags::HorizontalOnlyIcons) && imageId.isValid()) {
+	if (tabOrientation_ == ORIENT_HORIZONTAL && (flags_ & TabHolderFlags::HorizontalOnlyIcons) && imageId.isValid()) {
 		tabStrip_->AddChoice(imageId);
-	} else if (orientation_ == ORIENT_VERTICAL && (flags_ & TabHolderFlags::VerticalShowIcons) && imageId.isValid()) {
+	} else if (tabOrientation_ == ORIENT_VERTICAL && (flags_ & TabHolderFlags::VerticalShowIcons) && imageId.isValid()) {
 		tabStrip_->AddChoice(title, imageId);
 	} else {
 		tabStrip_->AddChoice(title);
