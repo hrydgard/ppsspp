@@ -194,6 +194,7 @@ public:
 
 	bool bDisableHTTPS;
 
+	bool bShrinkIfWindowSmall;
 	bool bSeparateSASThread;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
