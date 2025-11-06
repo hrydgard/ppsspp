@@ -46,6 +46,12 @@ struct Image {
 	Image(Image &&) = default;
 	Image &operator=(Image &&) = default;
 
+	void clear() {
+		dat.clear();
+		w = 0;
+		h = 0;
+	}
+
 	float scale = 1.0f;
 
 	int w = 0;
@@ -118,7 +124,7 @@ struct Bucket {
 		data.emplace_back(dat);
 	}
 	void AddImage(Image &&img, int id);
-	std::vector<Data> Resolve(int image_width, Image &dest);
+	std::vector<Data> Resolve(int image_width, Image *dest);
 };
 
 AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const std::vector<Data> &results);
