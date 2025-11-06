@@ -604,7 +604,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
 	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});

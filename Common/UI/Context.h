@@ -25,12 +25,12 @@ namespace Draw {
 
 class DrawBuffer;
 class TextDrawer;
+struct FontStyle;
 
 namespace UI {
 	struct Drawable;
 	struct EventParams;
 	struct Theme;
-	struct FontStyle;
 	class Event;
 	class View;
 }
@@ -91,11 +91,11 @@ public:
 
 	// High level drawing functions. They generally assume the default texture to be bounds.
 
-	void SetFontStyle(const UI::FontStyle &style);
-	const UI::FontStyle &GetFontStyle() { return *fontStyle_; }
+	void SetFontStyle(const FontStyle &style);
+	const FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
-	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
-	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align = 0) const;
+	void MeasureText(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
+	void MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align = 0) const;
 	void DrawText(std::string_view str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
@@ -139,7 +139,7 @@ private:
 
 	float fontScaleX_ = 1.0f;
 	float fontScaleY_ = 1.0f;
-	UI::FontStyle *fontStyle_ = nullptr;
+	FontStyle *fontStyle_ = nullptr;
 	TextDrawer *textDrawer_ = nullptr;
 
 	Draw::SamplerState *sampler_ = nullptr;

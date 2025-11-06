@@ -16,6 +16,7 @@
 
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Render/Text/Font.h"
 
 namespace Draw {
 	class DrawContext;
@@ -45,8 +46,9 @@ public:
 	virtual ~TextDrawer() = default;
 
 	virtual bool IsReady() const { return true; }
-	virtual uint32_t SetFont(const char *fontName, int size, int flags) = 0;
+	virtual uint32_t SetOrCreateFont(const FontStyle &style) = 0;
 	virtual void SetFont(uint32_t fontHandle) = 0;  // Shortcut once you've set the font once.
+
 	void SetFontScale(float xscale, float yscale);
 	void MeasureString(std::string_view str, float *w, float *h);
 	void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT);

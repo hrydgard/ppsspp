@@ -16,7 +16,7 @@
 #include "Common/Render/AtlasGen.h"
 
 UIContext::UIContext() {
-	fontStyle_ = new UI::FontStyle();
+	fontStyle_ = new FontStyle();
 	bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
 }
 
@@ -198,39 +198,39 @@ void UIContext::SetFontScale(float scaleX, float scaleY) {
 	fontScaleY_ = scaleY;
 }
 
-void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
+void UIContext::SetFontStyle(const FontStyle &fontStyle) {
 	*fontStyle_ = fontStyle;
 	if (textDrawer_) {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
-		textDrawer_->SetFont(fontStyle.fontName.c_str(), fontStyle.sizePts, fontStyle.flags);
+		textDrawer_->SetOrCreateFont(fontStyle);
 	}
 }
 
-void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align) const {
+void UIContext::MeasureText(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align) const {
 	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
 		Draw()->MeasureText(style.atlasFont, str, x, y);
 	} else {
-		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
+		textDrawer_->SetOrCreateFont(style);
 		textDrawer_->SetFontScale(scaleX, scaleY);
 		textDrawer_->MeasureString(str, x, y);
-		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
+		textDrawer_->SetOrCreateFont(*fontStyle_);
 	}
 }
 
-void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align) const {
+void UIContext::MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align) const {
 	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
 		Draw()->MeasureTextRect(style.atlasFont, str, bounds, x, y, align);
 	} else {
-		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
+		textDrawer_->SetOrCreateFont(style);
 		textDrawer_->SetFontScale(scaleX, scaleY);
 		textDrawer_->MeasureStringRect(str, bounds, x, y, align);
-		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
+		textDrawer_->SetOrCreateFont(*fontStyle_);
 	}
 }
 

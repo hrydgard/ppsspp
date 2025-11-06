@@ -1054,11 +1054,19 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	} else if (big_) {
 		style = &dc.GetTheme().uiFontBig;
 	}
-	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, bounds, &w, &h, textAlign_);
-	w += pad_ * 2.0f;
-	h += pad_ * 2.0f;
+	float measuredW;
+	float measuredH;
+	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, bounds, &measuredW, &measuredH, textAlign_);
+	w = measuredW + pad_ * 2.0f;
+	h = measuredH + pad_ * 2.0f;
 	if (bullet_) {
 		w += bulletOffset;
+	}
+	if (horiz.type == AT_MOST && bounds.w > measuredW) {
+		w = bounds.w;
+	}
+	if (vert.type == AT_MOST && bounds.h > measuredH) {
+		h = bounds.h;
 	}
 }
 

@@ -359,7 +359,7 @@ void System_Vibrate(int length_ms) {
 	PushCommand("vibrate", temp);
 }
 
-void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
 	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;

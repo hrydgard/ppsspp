@@ -852,7 +852,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d);
 	if (uiContext->Text()) {
-		uiContext->Text()->SetFont("Tahoma", 20, 0);
+		uiContext->Text()->SetOrCreateFont(FontStyle(FontID::invalid(), "Tahoma", 20, FontStyleFlags::Default));
 	}
 
 	g_screenManager->setUIContext(uiContext);

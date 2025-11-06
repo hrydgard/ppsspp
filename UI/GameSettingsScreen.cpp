@@ -62,6 +62,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/MiscViews.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -222,27 +223,38 @@ void GameSettingsScreen::CreateTabs() {
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	AddTab("GameSettingsGraphics", ms->T("Graphics"), ImageID("I_DISPLAY"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Graphics"), "graphics", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		CreateGraphicsSettings(parent);
 	});
 
 	AddTab("GameSettingsControls", ms->T("Controls"), ImageID("I_CONTROLLER"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Controls"), "controls"));
 		CreateControlsSettings(parent);
 	});
 
 	AddTab("GameSettingsAudio", ms->T("Audio"), ImageID("I_SPEAKER_MAX"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Audio"), "audio"));
 		CreateAudioSettings(parent);
 	});
 
 	AddTab("GameSettingsNetworking", ms->T("Networking"), ImageID("I_WIFI"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Networking"), "network"));
 		CreateNetworkingSettings(parent);
 	});
 
 	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_TOOLS"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Tools"), "tools"));
 		CreateToolsSettings(parent);
 	});
 
 	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_PSP"), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(0);
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("System"), "system"));
 		CreateSystemSettings(parent);
 	});
 

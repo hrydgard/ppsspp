@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Common/Render/TextureAtlas.h"
+#include "Common/Render/Text/Font.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/geom2d.h"
@@ -74,17 +75,6 @@ struct Style {
 	uint32_t fgColor;
 	Drawable background;
 	ImageID image;  // where applicable.
-};
-
-struct FontStyle {
-	FontStyle() {}
-	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size) {}
-
-	FontID atlasFont{ nullptr };
-	// For native fonts:
-	std::string fontName;
-	int sizePts = 0;
-	int flags = 0;
 };
 
 // To use with an UI atlas.

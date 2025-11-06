@@ -83,12 +83,26 @@ public:
 		// Create an attributed string with string and font information
 		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
 		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
-		CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
+
+		CTFontSymbolicTraits traits = 0;
+		if (bold)   traits |= kCTFontTraitBold;
+		if (italic) traits |= kCTFontTraitItalic;
+
+		CTFontRef base = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
+		CTFontRef font = CTFontCreateCopyWithSymbolicTraits(base, fontSize, NULL, traits, traits); // desired & mask
+		if (!font) {
+			// Skip the traits.
+			font = base;
+		} else {
+			CFRelease(base);
+		}
+
+		_dbg_assert_(font != nil);
 		// CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
-		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
-			(__bridge id)font, kCTFontAttributeName,
-			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
-			nil];
+		attributes = @{
+			(__bridge id)kCTFontAttributeName: (__bridge id)font,
+			(__bridge id)kCTForegroundColorFromContextAttributeName: (__bridge id)kCFBooleanTrue,
+		};
 		CFRelease(font);
 	}
 	void Destroy() {
@@ -97,7 +111,8 @@ public:
 	NSDictionary* attributes = nil;
 	std::string fname;
 	int height;
-	int bold;
+	bool bold;
+	bool italic;
 	float dpiScale;
 };
 
@@ -110,10 +125,8 @@ TextDrawerCocoa::~TextDrawerCocoa() {
 }
 
 // TODO: Share with other backends.
-uint32_t TextDrawerCocoa::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
+uint32_t TextDrawerCocoa::SetOrCreateFont(const FontStyle &style) {
+	const uint32_t fontHash = style.Hash();
 
 	auto iter = fontMap_.find(fontHash);
 	if (iter != fontMap_.end()) {
@@ -122,14 +135,15 @@ uint32_t TextDrawerCocoa::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	std::string fname;
-	if (fontName)
-		fname = fontName;
+	if (!style.fontName.empty())
+		fname = std::string(style.fontName);
 	else
 		fname = APPLE_FONT;
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
-	font->bold = false;
-	font->height = size;
+	font->bold = style.flags & FontStyleFlags::Bold;
+	font->italic = style.flags & FontStyleFlags::Italic;
+	font->height = style.sizePts;
 	font->fname = fname;
 	font->dpiScale = dpiScale_;
 	font->Create();

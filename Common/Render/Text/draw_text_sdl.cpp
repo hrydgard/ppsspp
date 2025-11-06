@@ -245,10 +245,8 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	return -1;
 }
 
-uint32_t TextDrawerSDL::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName && strlen(fontName) ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
+uint32_t TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
+	const uint32_t fontHash = style.Hash();
 
 	auto iter = fontMap_.find(fontHash);
 	if (iter != fontMap_.end()) {
@@ -256,10 +254,10 @@ uint32_t TextDrawerSDL::SetFont(const char *fontName, int size, int flags) {
 		return fontHash;
 	}
 
-	const char *useFont = fontName ? fontName : "Roboto-Condensed.ttf";
-	const int ptSize = (int)((size + 6) / dpiScale_);
+	std::string useFont = !style.fontName.empty() ? style.fontName : std::string("Roboto-Condensed.ttf");
+	const int ptSize = (int)((style.sizePts + 6) / dpiScale_);
 
-	TTF_Font *font = TTF_OpenFont(useFont, ptSize);
+	TTF_Font *font = TTF_OpenFont(useFont.c_str(), ptSize);
 
 	if (!font) {
 		File::FileInfo fileInfo;

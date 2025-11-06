@@ -131,7 +131,7 @@ static double g_lastKeepAwake = 0.0;
 // Should this be configurable?  2 hours currently.
 static constexpr double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
-void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	std::string u(url);
 	std::thread t = std::thread([u]() {
 		ShellExecute(NULL, L"open", ConvertUTF8ToWString(u).c_str(), NULL, NULL, SW_SHOWNORMAL);

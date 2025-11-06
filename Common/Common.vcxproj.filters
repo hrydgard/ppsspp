@@ -701,6 +701,9 @@
     <ClInclude Include="UI\TabHolder.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="Render\Text\Font.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

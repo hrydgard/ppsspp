@@ -11,6 +11,8 @@
 
 struct AndroidFontEntry {
 	float size;
+	bool bold;
+	bool italic;
 };
 
 class TextDrawerAndroid : public TextDrawer {
@@ -19,7 +21,7 @@ public:
 	~TextDrawerAndroid();
 
 	bool IsReady() const override;
-	uint32_t SetFont(const char *fontName, int size, int flags) override;
+	uint32_t SetOrCreateFont(const FontStyle &style) override;
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 

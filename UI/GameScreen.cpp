@@ -52,6 +52,7 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/SavedataScreen.h"
+#include "UI/MiscViews.h"
 
 constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE;
 

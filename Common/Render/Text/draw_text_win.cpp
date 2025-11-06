@@ -32,7 +32,7 @@ public:
 		}
 		// We apparently specify all font sizes in pts (1pt = 1.33px), so divide by only 72 for pixels.
 		int nHeight = -MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72);
-		hFont = CreateFont(nHeight, 0, 0, 0, bold, 0,
+		hFont = CreateFont(nHeight, 0, 0, 0, weight, italic,
 			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
 			CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
 			VARIABLE_PITCH, fname.c_str());
@@ -45,7 +45,8 @@ public:
 	HFONT hFont;
 	std::wstring fname;
 	int height;
-	int bold;
+	int weight;
+	bool italic = false;
 	float dpiScale;
 };
 
@@ -84,10 +85,8 @@ TextDrawerWin32::~TextDrawerWin32() {
 	delete ctx_;
 }
 
-uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
+uint32_t TextDrawerWin32::SetOrCreateFont(const FontStyle &style) {
+	const uint32_t fontHash = style.Hash();
 
 	auto iter = fontMap_.find(fontHash);
 	if (iter != fontMap_.end()) {
@@ -96,14 +95,18 @@ uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	std::wstring fname;
-	if (fontName)
-		fname = ConvertUTF8ToWString(fontName);
+	if (!style.fontName.empty())
+		fname = ConvertUTF8ToWString(style.fontName);
 	else
 		fname = L"Tahoma";
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
-	font->bold = FW_LIGHT;
-	font->height = size;
+	font->weight = FW_LIGHT;
+	if (style.flags & FontStyleFlags::Bold) {
+		font->weight = FW_BOLD;
+	}
+	font->italic = (style.flags & FontStyleFlags::Italic);
+	font->height = style.sizePts;
 	font->fname = fname;
 	font->dpiScale = dpiScale_;
 	font->Create();

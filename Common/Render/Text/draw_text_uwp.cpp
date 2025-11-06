@@ -41,7 +41,7 @@ public:
 			fname.c_str(),
 			fontCollection,
 			weight,
-			DWRITE_FONT_STYLE_NORMAL,
+			italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
 			DWRITE_FONT_STRETCH_NORMAL,
 			(float)MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72),
 			L"",
@@ -64,6 +64,7 @@ public:
 	std::wstring fname;
 	int height;
 	DWRITE_FONT_WEIGHT weight;
+	bool italic = false;
 	float dpiScale;
 };
 
@@ -166,10 +167,8 @@ TextDrawerUWP::~TextDrawerUWP() {
 	delete ctx_;
 }
 
-uint32_t TextDrawerUWP::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
+uint32_t TextDrawerUWP::SetOrCreateFont(const FontStyle &style) {
+	const uint32_t fontHash = style.Hash();
 
 	auto iter = fontMap_.find(fontHash);
 	if (iter != fontMap_.end()) {
@@ -178,14 +177,20 @@ uint32_t TextDrawerUWP::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	std::wstring fname;
-	if (fontName)
-		fname = ConvertUTF8ToWString(fontName);
+	if (!style.fontName.empty())
+		fname = ConvertUTF8ToWString(style.fontName);
 	else
 		fname = L"Tahoma";
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
 	font->weight = DWRITE_FONT_WEIGHT_NORMAL;
-	font->height = size;
+	if (style.flags & FontStyleFlags::Bold) {
+		font->weight = DWRITE_FONT_WEIGHT_BOLD;
+	}
+	if (style.flags & FontStyleFlags::Italic) {
+		font->italic = true;
+	}
+	font->height = style.sizePts;
 	font->fname = fname;
 	font->dpiScale = dpiScale_;
 	font->factory = m_dwriteFactory;

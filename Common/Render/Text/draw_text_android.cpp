@@ -44,12 +44,10 @@ bool TextDrawerAndroid::IsReady() const {
 	return cls_textRenderer != nullptr && method_measureText != nullptr && method_renderText != nullptr;
 }
 
-uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
+uint32_t TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 	// We will only use the default font but just for consistency let's still involve
 	// the font name.
-	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 1337;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
+	const uint32_t fontHash = style.Hash();
 
 	auto iter = fontMap_.find(fontHash);
 	if (iter != fontMap_.end()) {
@@ -59,7 +57,11 @@ uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
 	AndroidFontEntry entry{};
-	entry.size = ((float)size * 1.4f) / dpiScale_;
+	entry.size = ((float)style.sizePts * 1.4f) / dpiScale_;
+	if (style.flags & FontStyleFlags::Bold)
+		entry.bold = true;
+	if (style.flags & FontStyleFlags::Italic)
+		entry.italic = true;
 	fontMap_[fontHash] = entry;
 	fontHash_ = fontHash;
 	return fontHash;
@@ -126,6 +128,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		imageHeight = 1;
 	// WARN_LOG(Log::G3D, "Text: '%.*s' (%02x)", (int)str.length(), str.data(), str[0]);
 
+	// TODO: Handle bold/italic
 	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
 	env->DeleteLocalRef(jstr);
 
