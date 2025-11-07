@@ -29,7 +29,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
-import android.os.Vibrator;
 import android.provider.MediaStore;
 
 import androidx.activity.OnBackPressedCallback;
@@ -103,8 +102,6 @@ public abstract class NativeActivity extends AppCompatActivity implements Sensor
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
-
-	private Vibrator vibrator;
 
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
@@ -482,11 +479,6 @@ public abstract class NativeActivity extends AppCompatActivity implements Sensor
 			} else {
 				Log.i(TAG, "OpenGL ES 2.0 detected.");
 			}
-		}
-
-		vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-		if (vibrator != null && !vibrator.hasVibrator()) {
-			vibrator = null;
 		}
 
 		mLocationHelper = new LocationHelper(this);
@@ -1549,7 +1541,6 @@ public abstract class NativeActivity extends AppCompatActivity implements Sensor
 					break;
 				default:
 					// Requires the vibrate permission, which we don't have, so disabled.
-					// vibrator.vibrate(milliseconds);
 					break;
 				}
 			} else {

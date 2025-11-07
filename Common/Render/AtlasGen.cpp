@@ -100,12 +100,12 @@ inline bool CompareByArea(const Data& lhs, const Data& rhs) {
 	return lhs.w * lhs.h > rhs.w * rhs.h;
 }
 
-std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
+std::vector<Data> Bucket::Resolve(int image_width, Image *dest) {
 	// Place all the little images - whatever they are.
 	// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
 	ImageU8 masq;
 	masq.resize(image_width, 1);
-	dest.resize(image_width, 1);
+	dest->resize(image_width, 1);
 	std::sort(data.begin(), data.end(), CompareByArea);
 	for (int i = 0; i < (int)data.size(); i++) {
 		if ((i + 1) % 2000 == 0) {
@@ -116,10 +116,10 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 		if (idx > 1 && idy > 1) {
 			assert(idx <= image_width);
 			for (int ty = 0; ty < 2047; ty++) {
-				if (ty + idy + 1 > (int)dest.height()) {
+				if (ty + idy + 1 > (int)dest->height()) {
 					// Every 16 lines of new space needed, grow the image.
 					masq.resize(image_width, ty + idy + 16);
-					dest.resize(image_width, ty + idy + 16);
+					dest->resize(image_width, ty + idy + 16);
 				}
 				// Brute force packing.
 				int sz = (int)data[i].w;
@@ -160,7 +160,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image &dest) {
 
 	// Actually copy the image data in place, after doing the layout.
 	for (int i = 0; i < (int)data.size(); i++) {
-		dest.copyfrom(images[i], data[i].sx, data[i].sy, data[i].redToWhiteAlpha);
+		dest->copyfrom(images[i], data[i].sx, data[i].sy, data[i].redToWhiteAlpha);
 	}
 
 	return data;

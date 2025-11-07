@@ -237,11 +237,11 @@ void GameSettingsScreen::CreateTabs() {
 		CreateNetworkingSettings(parent);
 	});
 
-	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_DEVMENU"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_TOOLS"), [this](UI::LinearLayout *parent) {
 		CreateToolsSettings(parent);
 	});
 
-	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_GEAR"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_PSP"), [this](UI::LinearLayout *parent) {
 		parent->SetSpacing(0);
 		CreateSystemSettings(parent);
 	});

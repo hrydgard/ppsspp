@@ -1645,6 +1645,10 @@ bool Native_IsWindowHidden() {
 }
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
+	if (!g_Config.bShrinkIfWindowSmall) {
+		return false;
+	}
+
 	// Can't take this from config as it will not be set if windows is maximized.
 	int w = (int)(pixelWidth * g_display.dpi_scale_real_x);
 	int h = (int)(pixelHeight * g_display.dpi_scale_real_y);
