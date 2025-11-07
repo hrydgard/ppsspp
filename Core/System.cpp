@@ -935,7 +935,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 				}
 			}, path);
 		} else {
-			free(path);
+			delete[] path;
 		}
 		return;
 	}
