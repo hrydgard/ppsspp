@@ -14,6 +14,8 @@ enum class FontStyleFlags : u8 {
 	Bold = 1,
 	Light = 2,
 	Italic = 16,
+	Underline = 32,  // Future use.
+	Strikethrough = 64,  // Future use.
 };
 ENUM_CLASS_BITOPS(FontStyleFlags);
 

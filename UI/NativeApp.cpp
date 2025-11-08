@@ -134,9 +134,6 @@
 #include "UI/Theme.h"
 #include "UI/UIAtlas.h"
 
-#if defined(USING_QT_UI)
-#include <QFontDatabase>
-#endif
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
 #include "UWP/UWPHelpers/InputHelpers.h"
@@ -695,26 +692,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
 		}
 	}
-
-	auto des = GetI18NCategory(I18NCat::DESKTOPUI);
-
-#if defined(USING_QT_UI)
-	size_t fontSize = 0;
-	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
-	if (fontData) {
-		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
-		delete [] fontData;
-
-		QStringList fontsFound = QFontDatabase::applicationFontFamilies(fontID);
-		if (fontsFound.size() >= 1) {
-			// Might be "Roboto" or "Roboto Condensed".
-			g_Config.sFont = des->T("Font", fontsFound.at(0).toUtf8().constData());
-		}
-	} else {
-		// Let's try for it being a system font.
-		g_Config.sFont = des->T("Font", "Roboto Condensed");
-	}
-#endif
 
 	g_BackgroundAudio.SFX().Init();
 
@@ -1386,7 +1363,7 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 #if PPSSPP_PLATFORM(UWP)
-	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active 
+	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
 	if (IgnoreInput(key.keyCode) && !(key.flags & KEY_CHAR)) {
 		return false;

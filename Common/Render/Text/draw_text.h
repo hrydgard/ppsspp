@@ -1,6 +1,6 @@
 // draw_text
 
-// Uses system fonts to draw text. 
+// Uses system fonts to draw text.
 // Platform support will be added over time, initially just Win32.
 
 // Caches strings in individual textures. Might later combine them into a big one
