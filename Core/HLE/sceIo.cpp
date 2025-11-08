@@ -999,6 +999,10 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 
 static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	PGD_DESC *pgd = f->pgdInfo;
+	if (!pgd) {
+		ERROR_LOG(Log::IO, "npdrmRead: pgdInfo is null for file %s", f->fullpath.c_str());
+		return 0;
+	}
 	u32 block, offset, blockPos;
 	u32 remain_size, copy_size;
 
