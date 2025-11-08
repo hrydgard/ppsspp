@@ -79,9 +79,11 @@ struct Style {
 
 // To use with an UI atlas.
 struct Theme {
-	FontStyle uiFont;
+	FontStyle uiFontTiny;
 	FontStyle uiFontSmall;
+	FontStyle uiFont;
 	FontStyle uiFontBig;
+	FontStyle uiFontCode;
 
 	ImageID checkOn;
 	ImageID checkOff;

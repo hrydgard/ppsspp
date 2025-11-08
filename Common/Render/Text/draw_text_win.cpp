@@ -22,11 +22,25 @@ enum {
 
 class TextDrawerFontContext {
 public:
-	~TextDrawerFontContext() {
-		Destroy();
-	}
+	explicit TextDrawerFontContext(const FontStyle &_style, float _dpiScale) : hFont(0), style(_style), dpiScale(_dpiScale) {
+		FontStyleFlags styleFlags{};
+		std::string fontName = GetFontNameForFontStyle(style, &styleFlags);
+		if (fontName.empty()) {
+			// Shouldn't happen.
+			fontName = "Tahoma";
+		}
 
-	void Create() {
+		int weight = FW_NORMAL;
+		if (styleFlags & FontStyleFlags::Bold) {
+			weight = FW_BOLD;
+		}
+		if (styleFlags & FontStyleFlags::Light) {
+			weight = FW_LIGHT;
+		}
+
+		bool italic = (styleFlags & FontStyleFlags::Italic);
+		int height = style.sizePts;
+
 		if (hFont) {
 			Destroy();
 		}
@@ -35,18 +49,20 @@ public:
 		hFont = CreateFont(nHeight, 0, 0, 0, weight, italic,
 			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
 			CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
-			VARIABLE_PITCH, fname.c_str());
+			VARIABLE_PITCH, ConvertUTF8ToWString(fontName).c_str());
 	}
+
+	~TextDrawerFontContext() {
+		Destroy();
+	}
+
 	void Destroy() {
 		DeleteObject(hFont);
 		hFont = 0;
 	}
 
-	HFONT hFont;
-	std::wstring fname;
-	int height;
-	int weight;
-	bool italic = false;
+	HFONT hFont = 0;
+	FontStyle style;
 	float dpiScale;
 };
 
@@ -60,8 +76,18 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 	ctx_ = new TextDrawerContext();
 	ctx_->hDC = CreateCompatibleDC(NULL);
 
-	BITMAPINFO bmi;
-	ZeroMemory(&bmi.bmiHeader, sizeof(BITMAPINFOHEADER));
+	// Load the font files (pass the all flags so we get all filenames);
+	std::vector<std::string> fonts;
+	GetFilenamesForFontStyle(FontStyle(FontFamily::SansSerif, 16, FontStyleFlags::Default), &fonts, true);
+	for (const auto &iter : fonts) {
+		std::string fn = "assets/" + iter;
+		int numFontsAdded = AddFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
+		if (numFontsAdded == 0) {
+			ERROR_LOG(Log::G3D, "Failed to add font resource from %s", fn.c_str());
+		}
+	}
+
+	BITMAPINFO bmi{};
 	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	bmi.bmiHeader.biWidth = MAX_TEXT_WIDTH;
 	bmi.bmiHeader.biHeight = -MAX_TEXT_HEIGHT;
@@ -80,53 +106,37 @@ TextDrawerWin32::~TextDrawerWin32() {
 	ClearCache();
 	ClearFonts();
 
+	// Unload the fonts.
+	std::vector<std::string> fonts;
+	GetFilenamesForFontStyle(FontStyle(FontFamily::SansSerif, 16, FontStyleFlags::Default), &fonts, true);
+	for (const auto &iter : fonts) {
+		std::string fn = "assets/" + iter + ".ttf";
+		RemoveFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
+	}
+
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
 	delete ctx_;
 }
 
-uint32_t TextDrawerWin32::SetOrCreateFont(const FontStyle &style) {
-	const uint32_t fontHash = style.Hash();
-
-	auto iter = fontMap_.find(fontHash);
+void TextDrawerWin32::SetOrCreateFont(const FontStyle &style) {
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
-		fontHash_ = fontHash;
-		return fontHash;
+		fontStyle_ = style;
+		return;
 	}
 
-	std::wstring fname;
-	if (!style.fontName.empty())
-		fname = ConvertUTF8ToWString(style.fontName);
-	else
-		fname = L"Tahoma";
-
-	TextDrawerFontContext *font = new TextDrawerFontContext();
-	font->weight = FW_LIGHT;
-	if (style.flags & FontStyleFlags::Bold) {
-		font->weight = FW_BOLD;
-	}
-	font->italic = (style.flags & FontStyleFlags::Italic);
-	font->height = style.sizePts;
-	font->fname = fname;
-	font->dpiScale = dpiScale_;
-	font->Create();
-
-	fontMap_[fontHash] = std::unique_ptr<TextDrawerFontContext>(font);
-	fontHash_ = fontHash;
-	return fontHash;
-}
-
-void TextDrawerWin32::SetFont(uint32_t fontHandle) {
-	auto iter = fontMap_.find(fontHandle);
-	if (iter != fontMap_.end()) {
-		fontHash_ = fontHandle;
-	}
+	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_);
+	fontStyle_ = style;
 }
 
 void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	auto iter = fontMap_.find(fontHash_);
+	auto iter = fontMap_.find(fontStyle_);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
+	} else {
+		ERROR_LOG(Log::G3D, "Failed to measure string");
+		return;
 	}
 
 #if 0 && defined(_DEBUG)
@@ -165,10 +175,11 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	}
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
-	auto iter = fontMap_.find(fontHash_);
+	auto iter = fontMap_.find(fontStyle_);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	}
+
 	// Set text properties
 	SetTextColor(ctx_->hDC, 0xFFFFFF);
 	SetBkColor(ctx_->hDC, 0);

@@ -4,31 +4,36 @@
 #include <string_view>
 
 #include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Hash/Hash.h"
 
-enum class FontStyleFlags {
+enum class FontStyleFlags : u8 {
 	Default = 0,
 	Bold = 1,
+	Light = 2,
 	Italic = 16,
 };
 ENUM_CLASS_BITOPS(FontStyleFlags);
 
+enum class FontFamily : u8 {
+	SansSerif = 1,
+	Fixed = 2,
+};
+
 struct FontStyle {
 	FontStyle() {}
-	FontStyle(FontID atlasFnt, std::string_view name, int size, FontStyleFlags _flags = FontStyleFlags::Default) : atlasFont(atlasFnt), fontName(name), sizePts(size), flags(_flags) {}
+	constexpr FontStyle(FontFamily _family, int size, FontStyleFlags _flags) : family(_family), sizePts(size), flags(_flags) {}
 
-	u32 Hash() const {
-		u32 hash = fontName.empty() ? 0 : hash::Adler32(fontName);
-		hash ^= sizePts;
-		hash ^= (int)flags << 10;
-		return hash;
-	}
-
-	FontID atlasFont{nullptr};
-
-	// For native fonts:
-	std::string fontName;
-	int sizePts = 0;
+	u16 sizePts = 0;
+	FontFamily family = FontFamily::SansSerif;
 	FontStyleFlags flags = FontStyleFlags::Default;
 };
+
+inline constexpr bool operator<(const FontStyle &a, const FontStyle &b) {
+	if (a.family != b.family)
+		return a.family < b.family;
+	if (a.sizePts != b.sizePts)
+		return a.sizePts < b.sizePts;
+	return a.flags < b.flags;
+}

@@ -1,5 +1,6 @@
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
@@ -13,6 +14,7 @@
 #include "Common/Render/Text/draw_text_qt.h"
 #include "Common/Render/Text/draw_text_android.h"
 #include "Common/Render/Text/draw_text_sdl.h"
+#include "Common/StringUtils.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -47,7 +49,7 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		return;
 	}
 
-	CacheKey key{ std::string(str), fontHash_ };
+	const CacheKeyType key{ std::string(str), fontStyle_ };
 	target.Flush(true);
 
 	TextStringEntry *entry;
@@ -124,7 +126,7 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 		return;
 	}
 
-	CacheKey key{ std::string(str), fontHash_ };
+	const CacheKeyType key{std::string(str), fontStyle_};
 
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -204,7 +206,7 @@ void TextDrawer::ClearCache() {
 	}
 	cache_.clear();
 	sizeCache_.clear();
-	fontHash_ = 0;
+	fontStyle_ = {};
 }
 
 void TextDrawer::OncePerFrame() {
@@ -270,4 +272,82 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 		drawer = nullptr;
 	}
 	return drawer;
+}
+
+struct FontDesc {
+	FontFamily family;
+	FontStyleFlags flags;
+	std::string_view fontName;
+	std::string_view filename;
+};
+
+// Append ".ttf" to get the actual filenames.
+static const FontDesc g_fontDescs[] = {
+	{FontFamily::SansSerif, FontStyleFlags::Default, "Roboto Condensed", "Roboto_Condensed-Regular"},
+	{FontFamily::SansSerif, FontStyleFlags::Bold, "Roboto Condensed", "Roboto_Condensed-Bold"},
+	{FontFamily::SansSerif, FontStyleFlags::Italic, "Roboto Condensed", "Roboto_Condensed-Italic"},
+	{FontFamily::SansSerif, FontStyleFlags::Light, "Roboto Condensed", "Roboto_Condensed-Light"},
+	{FontFamily::Fixed, FontStyleFlags::Default, "Inconsolata", "Inconsolata-Regular"},
+};
+
+std::map<FontFamily, std::string> g_fontOverrides;
+
+void SetFontNameOverride(FontFamily family, std::string_view overrideFont) {
+	g_fontOverrides[family] = std::string(overrideFont);
+}
+
+void GetFilenamesForFontStyle(const FontStyle &font, std::vector<std::string> *out, bool all) {
+	for (const auto &desc : g_fontDescs) {
+		bool match = all;
+		if (desc.flags == font.flags && desc.family == font.family) {
+			match = true;
+		}
+		if (match) {
+			out->push_back(join(desc.filename, ".ttf"));
+		}
+	}
+
+	if (all) {
+		// uniquify idiom
+		std::sort(out->begin(), out->end());
+		out->erase(std::unique(out->begin(), out->end()), out->end());
+		return;
+	}
+
+	if (!out->empty()) {
+		return;
+	}
+
+	// If nothing matched, just return the first font of the requested family.
+	for (const auto &desc : g_fontDescs) {
+		if (desc.family == font.family) {
+			out->push_back(join(desc.filename, ".ttf"));
+		}
+	}
+}
+
+std::string GetFontNameForFontStyle(const FontStyle &font, FontStyleFlags *outFlags) {
+	auto override = g_fontOverrides.find(font.family);
+	if (override != g_fontOverrides.end()) {
+		*outFlags = font.flags;
+		return override->second;
+	}
+
+	for (const auto &desc : g_fontDescs) {
+		if (desc.flags == font.flags && desc.family == font.family) {
+			*outFlags = font.flags;
+			return std::string(desc.fontName);
+		}
+	}
+	// If nothing matched, just return the first font of the requested family.
+	for (const auto &desc : g_fontDescs) {
+		if (desc.family == font.family) {
+			// Return the flags of the font we found.
+			// TODO: Some platforms can actually synthesize traits (bold, italic) if missing.
+			*outFlags = desc.flags;
+			return std::string(desc.fontName);
+		}
+	}
+
+	return "";
 }

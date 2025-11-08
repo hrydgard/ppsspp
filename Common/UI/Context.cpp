@@ -206,12 +206,17 @@ void UIContext::SetFontStyle(const FontStyle &fontStyle) {
 	}
 }
 
+static FontID AtlasFontFromStyle(const FontStyle &style) {
+	// For now, we only have one font in the atlas.
+	return FontID("UBUNTU24");
+}
+
 void UIContext::MeasureText(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align) const {
 	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureText(style.atlasFont, str, x, y);
+		Draw()->MeasureText(AtlasFontFromStyle(style), str, x, y);
 	} else {
 		textDrawer_->SetOrCreateFont(style);
 		textDrawer_->SetFontScale(scaleX, scaleY);
@@ -225,7 +230,7 @@ void UIContext::MeasureTextRect(const FontStyle &style, float scaleX, float scal
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureTextRect(style.atlasFont, str, bounds, x, y, align);
+		Draw()->MeasureTextRect(AtlasFontFromStyle(style), str, bounds, x, y, align);
 	} else {
 		textDrawer_->SetOrCreateFont(style);
 		textDrawer_->SetFontScale(scaleX, scaleY);
@@ -238,14 +243,14 @@ void UIContext::DrawText(std::string_view str, float x, float y, uint32_t color,
 	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
-		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(AtlasFontFromStyle(*fontStyle_)) != nullptr;
 		if (useFontTexture) {
 			Flush();
 			BindFontTexture();
 		}
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
-		Draw()->DrawText(fontStyle_->atlasFont, str, x, y, color, align);
+		Draw()->DrawText(AtlasFontFromStyle(*fontStyle_), str, x, y, color, align);
 		if (useFontTexture)
 			Flush();
 	} else {
@@ -264,14 +269,14 @@ void UIContext::DrawTextShadow(std::string_view str, float x, float y, uint32_t 
 void UIContext::DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
-		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(AtlasFontFromStyle(*fontStyle_)) != nullptr;
 		if (useFontTexture) {
 			Flush();
 			BindFontTexture();
 		}
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
-		Draw()->DrawTextRect(fontStyle_->atlasFont, str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
+		Draw()->DrawTextRect(AtlasFontFromStyle(*fontStyle_), str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
 		if (useFontTexture)
 			Flush();
 	} else {

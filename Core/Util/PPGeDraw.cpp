@@ -769,7 +769,7 @@ static bool HasTextDrawer() {
 	if (textDrawer) {
 		textDrawer->SetFontScale(1.0f, 1.0f);
 		textDrawer->SetForcedDPIScale(1.0f);
-		textDrawer->SetOrCreateFont(FontStyle(FontID::invalid(), g_Config.sFont, 18, FontStyleFlags::Default));
+		textDrawer->SetOrCreateFont(FontStyle(FontFamily::SansSerif, 18, FontStyleFlags::Default));
 	}
 	textDrawerInited = true;
 	return textDrawer != nullptr;

@@ -697,22 +697,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	auto des = GetI18NCategory(I18NCat::DESKTOPUI);
-	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
-	// It's intended to be custom for every user.
-	// Only add it to your own personal copies of PPSSPP.
+
 #if PPSSPP_PLATFORM(UWP)
 	// Roboto font is loaded in TextDrawerUWP.
 	g_Config.sFont = des->T("Font", "Roboto");
-#elif defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
-	// TODO: Could allow a setting to specify a font file to load?
-	// TODO: Make this a constant if we can sanely load the font on other systems?
-	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
-	// The font goes by two names, let's allow either one.
-	if (CheckFontIsUsable(L"Roboto Condensed")) {
-		g_Config.sFont = des->T("Font", "Roboto Condensed");
-	} else {
-		g_Config.sFont = des->T("Font", "Roboto");
-	}
 #elif defined(USING_QT_UI)
 	size_t fontSize = 0;
 	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
@@ -852,7 +840,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d);
 	if (uiContext->Text()) {
-		uiContext->Text()->SetOrCreateFont(FontStyle(FontID::invalid(), "Tahoma", 20, FontStyleFlags::Default));
+		// This seems unnecessary.
+		// uiContext->Text()->SetOrCreateFont(FontStyle(FontID::invalid(), FontFamily::SansSerif, 20, FontStyleFlags::Default));
 	}
 
 	g_screenManager->setUIContext(uiContext);
