@@ -1155,7 +1155,7 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return hleLogDebug(Log::sceIo, 0, "deferring result");
 	} else if (result >= 0) {
-		return hleDelayResult(hleLogDebug(Log::ME, result), "io read", us);
+		return hleDelayResult(hleLogDebug(Log::sceIo, result), "io read", us);
 	} else {
 		return hleLogWarning(Log::ME, result, "error %08x", result);
 	}
