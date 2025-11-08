@@ -121,7 +121,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	const std::vector<std::string> fontFilenames = GetAllFontFilenames();
 	for (const auto &fname : fontFilenames) {
 		size_t size;
-		uint8_t *data = g_VFS.ReadFile(fname.c_str(), &size);
+		uint8_t *data = g_VFS.ReadFile((fname + ".ttf").c_str(), &size);
 
 		ComPtr<IDWriteFontFile> fontFile;
 		hr = m_inMemoryLoader->CreateInMemoryFontFileReference(

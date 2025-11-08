@@ -55,7 +55,7 @@ void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 		return;
 	}
 
-	std::string filename = GetFilenameForFontStyle(style);
+	std::string filename = GetFilenameForFontStyle(style) + ".ttf";
 	auto fontIter = allocatedFonts_.find(filename);
 	if (fontIter == allocatedFonts_.end()) {
 		auto env = getEnv();

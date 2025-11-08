@@ -79,7 +79,7 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 	// Load the font files (pass the all flags so we get all filenames);
 	std::vector<std::string> fonts = GetAllFontFilenames();
 	for (const auto &iter : fonts) {
-		std::string fn = "assets/" + iter;
+		std::string fn = "assets/" + iter + ".ttf";
 		int numFontsAdded = AddFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
 		if (numFontsAdded == 0) {
 			ERROR_LOG(Log::G3D, "Failed to add font resource from %s", fn.c_str());
@@ -108,7 +108,7 @@ TextDrawerWin32::~TextDrawerWin32() {
 	// Unload the fonts.
 	std::vector<std::string> fonts = GetAllFontFilenames();
 	for (const auto &iter : fonts) {
-		std::string fn = "assets/" + iter;
+		std::string fn = "assets/" + iter + ".ttf";
 		RemoveFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
 	}
 

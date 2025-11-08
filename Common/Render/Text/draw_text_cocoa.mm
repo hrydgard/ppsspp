@@ -41,54 +41,19 @@ enum {
 
 class TextDrawerFontContext {
 public:
-	~TextDrawerFontContext() {
-		Destroy();
-	}
-
-	void Create() {
-		// Register font with CoreText
-		// We only need to do this once.
-		static dispatch_once_t onceToken;
-		dispatch_once(&onceToken, ^{
-			NSURL *fontURL = [PPSSPP_FONT_BUNDLE URLForResource:@"Roboto-Condensed" withExtension:@"ttf" subdirectory:@"assets"];
-			if (!fontURL) {
-				NSLog(@"Font URL not found!");
-				return;
-			}
-			CFArrayRef descs = CTFontManagerCreateFontDescriptorsFromURL((__bridge CFURLRef)fontURL);
-			if (descs) {
-				CFIndex count = CFArrayGetCount(descs);
-				NSLog(@"Found %ld font descriptor(s)", count);
-
-				for (CFIndex i = 0; i < count; ++i) {
-					CTFontDescriptorRef desc = (CTFontDescriptorRef)CFArrayGetValueAtIndex(descs, i);
-					CFTypeRef attr = CTFontDescriptorCopyAttribute(desc, kCTFontNameAttribute);
-					if (attr && CFGetTypeID(attr) == CFStringGetTypeID()) {
-						CFStringRef name = (CFStringRef)attr;
-						NSLog(@"Descriptor #%ld: %@", i, name);
-						CFRelease(name);
-					} else {
-						NSLog(@"Descriptor #%ld: Unknown or non-string attribute", i);
-						if (attr) CFRelease(attr);
-					}
-				}
-
-				CFRelease(descs);
-			} else {
-				NSLog(@"Failed to retrieve font descriptors");
-			}
-			CTFontManagerRegisterFontsForURL((CFURLRef)fontURL, kCTFontManagerScopeProcess, NULL);
-		});
+	TextDrawerFontContext(const FontStyle &_style, float _dpiScale) : style(_style), dpiScale(_dpiScale) {
+		FontStyleFlags styleFlags = style.flags;
+		std::string fontName = GetFontNameForFontStyle(style, &styleFlags);
 
 		// Create an attributed string with string and font information
-		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
-		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
+		CGFloat fontSize = ceilf((style.sizePts / dpiScale) * 1.25f);
+		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", fontName.c_str(), style.sizePts, fontSize);
 
 		CTFontSymbolicTraits traits = 0;
-		if (bold)   traits |= kCTFontTraitBold;
-		if (italic) traits |= kCTFontTraitItalic;
+		if (styleFlags & FontStyleFlags::Bold)   traits |= kCTFontTraitBold;
+		if (styleFlags & FontStyleFlags::Italic) traits |= kCTFontTraitItalic;
 
-		CTFontRef base = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
+		CTFontRef base = CTFontCreateWithName(CFStringCreateWithCString(kCFAllocatorDefault, fontName.c_str(), kCFStringEncodingUTF8), fontSize, nil);
 		CTFontRef font = CTFontCreateCopyWithSymbolicTraits(base, fontSize, NULL, traits, traits); // desired & mask
 		if (!font) {
 			// Skip the traits.
@@ -105,18 +70,67 @@ public:
 		};
 		CFRelease(font);
 	}
+	~TextDrawerFontContext() {
+		Destroy();
+	}
 	void Destroy() {
 	}
 
 	NSDictionary* attributes = nil;
 	std::string fname;
-	int height;
-	bool bold;
-	bool italic;
+
+	FontStyle style;
 	float dpiScale;
 };
 
 TextDrawerCocoa::TextDrawerCocoa(Draw::DrawContext *draw) : TextDrawer(draw) {
+	// Register fonts with CoreText
+	// We only need to do this once.
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		std::vector<std::string> allFonts = GetAllFontFilenames();
+
+		for (const auto &fontName : allFonts) {
+			// Convert C++ string to NSString
+			NSString *fontFileName = [NSString stringWithUTF8String:fontName.c_str()];
+
+			// Get the font URL from the bundle
+			NSURL *fontURL = [PPSSPP_FONT_BUNDLE URLForResource:fontFileName
+													withExtension:@"ttf"
+													subdirectory:@"assets"];
+			if (!fontURL) {
+				NSLog(@"Font URL not found for %@", fontFileName);
+				continue;
+			}
+
+			// Optional: Print font descriptors for debugging
+			CFArrayRef descs = CTFontManagerCreateFontDescriptorsFromURL((__bridge CFURLRef)fontURL);
+			if (descs) {
+				CFIndex count = CFArrayGetCount(descs);
+				NSLog(@"Found %ld font descriptor(s) for %@", count, fontFileName);
+
+				for (CFIndex i = 0; i < count; ++i) {
+					CTFontDescriptorRef desc = (CTFontDescriptorRef)CFArrayGetValueAtIndex(descs, i);
+					CFTypeRef attr = CTFontDescriptorCopyAttribute(desc, kCTFontNameAttribute);
+					if (attr && CFGetTypeID(attr) == CFStringGetTypeID()) {
+						CFStringRef name = (CFStringRef)attr;
+						NSLog(@"Descriptor #%ld: %@", i, name);
+						CFRelease(name);
+					} else {
+						NSLog(@"Descriptor #%ld: Unknown or non-string attribute", i);
+						if (attr) CFRelease(attr);
+					}
+				}
+
+				CFRelease(descs);
+			} else {
+				NSLog(@"Failed to retrieve font descriptors for %@", fontFileName);
+			}
+
+			// Register the font
+			CTFontManagerRegisterFontsForURL((__bridge CFURLRef)fontURL, kCTFontManagerScopeProcess, NULL);
+		}
+	});
 }
 
 TextDrawerCocoa::~TextDrawerCocoa() {
@@ -125,39 +139,17 @@ TextDrawerCocoa::~TextDrawerCocoa() {
 }
 
 // TODO: Share with other backends.
-uint32_t TextDrawerCocoa::SetOrCreateFont(const FontStyle &style) {
-	const uint32_t fontHash = style.Hash();
-
-	auto iter = fontMap_.find(fontHash);
+void TextDrawerCocoa::SetOrCreateFont(const FontStyle &style) {
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
-		fontHash_ = fontHash;
-		return fontHash;
+		fontStyle_ = style;
+		return;
 	}
 
-	std::string fname;
-	if (!style.fontName.empty())
-		fname = std::string(style.fontName);
-	else
-		fname = APPLE_FONT;
+	TextDrawerFontContext *font = new TextDrawerFontContext(style, dpiScale_);
 
-	TextDrawerFontContext *font = new TextDrawerFontContext();
-	font->bold = style.flags & FontStyleFlags::Bold;
-	font->italic = style.flags & FontStyleFlags::Italic;
-	font->height = style.sizePts;
-	font->fname = fname;
-	font->dpiScale = dpiScale_;
-	font->Create();
-
-	fontMap_[fontHash] = std::unique_ptr<TextDrawerFontContext>(font);
-	fontHash_ = fontHash;
-	return fontHash;
-}
-
-void TextDrawerCocoa::SetFont(uint32_t fontHandle) {
-	auto iter = fontMap_.find(fontHandle);
-	if (iter != fontMap_.end()) {
-		fontHash_ = fontHandle;
-	}
+	fontMap_[style] = std::unique_ptr<TextDrawerFontContext>(font);
+	fontStyle_ = style;
 }
 
 void TextDrawerCocoa::ClearFonts() {
@@ -170,7 +162,7 @@ void TextDrawerCocoa::ClearFonts() {
 
 void TextDrawerCocoa::MeasureStringInternal(std::string_view str, float *w, float *h) {
 	// INFO_LOG(Log::System, "Measuring %.*s", (int)str.length(), str.data());
-	auto iter = fontMap_.find(fontHash_);
+	auto iter = fontMap_.find(fontStyle_);
 	NSDictionary *attributes = nil;
 	if (iter != fontMap_.end()) {
 		attributes = iter->second->attributes;
@@ -205,7 +197,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		return false;
 	}
 
-	auto iter = fontMap_.find(fontHash_);
+	auto iter = fontMap_.find(fontStyle_);
 	if (iter == fontMap_.end()) {
 		return false;
 	}
