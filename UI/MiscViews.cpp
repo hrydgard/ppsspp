@@ -60,7 +60,7 @@ TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view ti
 	}
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
@@ -182,7 +182,7 @@ private:
 
 PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
 	using namespace UI;
-	Add(new Spacer(10.0f, new LinearLayoutParams()));
+	SetSpacing(10.0f);
 	if (!layoutParams) {
 		layoutParams_->width = UI::FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
@@ -191,11 +191,12 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER, Margins(10, 0, 0, 0))));
+		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(10, 0, 20, 0))));
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
-		// Add(new Spacer(50.0f));
 	}
+
+	Add(new Spacer(10.0f, new LinearLayoutParams(1.0f)));
 
 	// Now add the game icon.
 	if (!gamePath.empty() && g_Config.IsGameSpecific()) {

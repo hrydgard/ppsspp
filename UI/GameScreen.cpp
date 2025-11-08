@@ -218,11 +218,11 @@ void GameScreen::CreateViews() {
 			std::string crc = StringFromFormat("%08X", crcVal);
 
 			// CRC button makes sense.
-			TextView *tvCRC = crcHoriz->Add(new TextView(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc), ALIGN_LEFT, true, new LinearLayoutParams(0.0, G_VCENTER)));
+			TextView *tvCRC = crcHoriz->Add(new TextView(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc), ALIGN_LEFT, true, new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 			tvCRC->SetShadow(true);
 
 			if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
-				Button *tvCRCCopy = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, G_VCENTER)));
+				Button *tvCRCCopy = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 				tvCRCCopy->OnClick.Add([this](UI::EventParams &) {
 					u32 crc = Reporting::RetrieveCRC(gamePath_);
 					char buffer[16];

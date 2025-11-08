@@ -30,7 +30,7 @@ void IAPScreen::CreateViews() {
 
 	ViewGroup *appTitle = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	appTitle->Add(new ShinyIcon(ImageID("I_ICON_GOLD"), new LinearLayoutParams(64, 64)));
-	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, G_VCENTER)));
+	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 
 	leftColumnItems->Add(appTitle);
 	if (!bought) {

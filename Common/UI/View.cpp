@@ -1036,6 +1036,26 @@ void ImageView::Draw(UIContext &dc) {
 
 const float bulletOffset = 25;
 
+void SimpleTextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.MeasureText(ComputeStyle(dc), 1.0f, 1.0f, text_, &w, &h, 0);
+}
+
+void SimpleTextView::Draw(UIContext &dc) {
+	uint32_t textColor = dc.GetTheme().itemStyle.fgColor;
+	dc.SetFontStyle(ComputeStyle(dc));
+	dc.DrawText(text_, bounds_.x, bounds_.y, textColor, 0);
+}
+
+FontStyle SimpleTextView::ComputeStyle(const UIContext &dc) const {
+	if (small_) {
+		return dc.GetTheme().uiFontSmall;
+	} else if (big_) {
+		return dc.GetTheme().uiFontBig;
+	} else {
+		return dc.GetTheme().uiFont;
+	}
+}
+
 void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
 	if (bounds.w < 0) {
@@ -1062,12 +1082,6 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	h = measuredH + pad_ * 2.0f;
 	if (bullet_) {
 		w += bulletOffset;
-	}
-	if (horiz.type == AT_MOST && bounds.w > measuredW) {
-		w = bounds.w;
-	}
-	if (vert.type == AT_MOST && bounds.h > measuredH) {
-		h = bounds.h;
 	}
 }
 
