@@ -1000,8 +1000,9 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	PGD_DESC *pgd = f->pgdInfo;
 	if (!pgd) {
-		ERROR_LOG(Log::IO, "npdrmRead: pgdInfo is null for file %s", f->fullpath.c_str());
-		return 0;
+		// When pgdInfo is null, fall back to reading the file in non-encrypted mode
+		WARN_LOG(Log::IO, "npdrmRead: pgdInfo is null for file %s, reading as non-encrypted", f->fullpath.c_str());
+		return (u32)pspFileSystem.ReadFile(f->handle, data, size);
 	}
 	u32 block, offset, blockPos;
 	u32 remain_size, copy_size;
@@ -1154,7 +1155,7 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return hleLogDebug(Log::sceIo, 0, "deferring result");
 	} else if (result >= 0) {
-		return hleDelayResult(hleLogDebug(Log::ME, result), "io read", us);
+		return hleDelayResult(hleLogDebug(Log::sceIo, result), "io read", us);
 	} else {
 		return hleLogWarning(Log::ME, result, "error %08x", result);
 	}
@@ -1364,6 +1365,10 @@ static u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 {
 	u32 newPos, blockPos;
 
+	if (!f->pgdInfo) {
+		//WARN_LOG(Log::IO, "npdrmLseek: pgdInfo is null for file %s, seeking as non-encrypted", f->fullpath.c_str());
+		return (u32)pspFileSystem.SeekFile(f->handle, where, whence);
+	}
 	if(whence==FILEMOVE_BEGIN){
 		newPos = where;
 	}else if(whence==FILEMOVE_CURRENT){
