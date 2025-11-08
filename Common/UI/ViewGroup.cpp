@@ -32,12 +32,14 @@ void ApplyGravity(const Bounds &outer, const Margins &margins, float w, float h,
 	case Gravity::G_LEFT: inner.x = outer.x + margins.left; break;
 	case Gravity::G_RIGHT: inner.x = outer.x + outer.w - w - margins.right; break;
 	case Gravity::G_HCENTER: inner.x = outer.x + (outer.w - w) * 0.5f; break;
+	default: break;
 	}
 
 	switch ((Gravity)((int)gravity & (int)Gravity::G_VERTMASK)) {
 	case Gravity::G_TOP: inner.y = outer.y + margins.top; break;
 	case Gravity::G_BOTTOM: inner.y = outer.y + outer.h - h - margins.bottom; break;
 	case Gravity::G_VCENTER: inner.y = outer.y + (outer.h - h) * 0.5f; break;
+	default: break;
 	}
 }
 
