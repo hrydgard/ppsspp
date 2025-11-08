@@ -698,10 +698,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	auto des = GetI18NCategory(I18NCat::DESKTOPUI);
 
-#if PPSSPP_PLATFORM(UWP)
-	// Roboto font is loaded in TextDrawerUWP.
-	g_Config.sFont = des->T("Font", "Roboto");
-#elif defined(USING_QT_UI)
+#if defined(USING_QT_UI)
 	size_t fontSize = 0;
 	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
 	if (fontData) {
