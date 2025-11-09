@@ -21,6 +21,9 @@ struct HIDControllerState {
 	// Buttons. Here the mapping is specific to the controller type and resolved
 	// later.
 	u32 buttons;  // Bitmask, PSButton enum
+
+	bool accValid = false;
+	float accelerometer[3];  // X, Y, Z
 };
 
 struct ButtonInputMapping;
@@ -34,6 +37,9 @@ public:
 	void Shutdown() override;
 
 	static void AddSupportedDevices(std::set<u32> *deviceVIDPIDs);
+	bool HasAccelerometer() const override {
+		return subType_ == HIDControllerType::DS5;
+	}
 private:
 	void ReleaseAllKeys(const ButtonInputMapping *buttonMappings, int count);
 	InputDeviceID DeviceID(int pad);

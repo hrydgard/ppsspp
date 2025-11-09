@@ -86,3 +86,12 @@ void InputManager::StopPolling() {
 	runThread_.store(false, std::memory_order_relaxed);
 	inputThread_.join();
 }
+
+bool InputManager::AnyAccelerometer() const {
+	for (const auto &device : devices_) {
+		if (device->HasAccelerometer()) {
+			return true;
+		}
+	}
+	return false;
+}
