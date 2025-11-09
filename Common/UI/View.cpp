@@ -469,8 +469,12 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 	float totalW = 0.0f;
 	float totalH = 0.0f;
 	if (!text_.empty() && !hideTitle_) {
-		const int paddingLeft = 12;
-		const int paddingRight = 12;
+		int paddingLeft = 12;
+		int paddingRight = 12;
+		if (rightIconImage_.isValid()) {
+			paddingRight = ITEM_HEIGHT;
+		}
+
 		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz() - totalW;
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
@@ -529,6 +533,10 @@ void Choice::Draw(UIContext &dc) {
 			}
 		}
 
+		if (rightIconImage_.isValid()) {
+			paddingRight = bounds_.h;
+		}
+
 		float availWidth = bounds_.w - (paddingLeft + paddingRight + textPadding_.horiz());
 
 		if (centered_) {
@@ -536,11 +544,14 @@ void Choice::Draw(UIContext &dc) {
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
+
+				float iconX = bounds_.x2() - paddingRight + ITEM_HEIGHT * 0.5f;
+
 				if (shine_) {
-					Bounds b = Bounds::FromCenter(bounds_.x2() - 32 - paddingRight, bounds_.centerY(), bounds_.h * 0.4f);
+					Bounds b = Bounds::FromCenter(iconX, bounds_.centerY(), bounds_.h * 0.4f);
 					DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 				}
-				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingRight, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
+				dc.Draw()->DrawImageRotated(rightIconImage_, iconX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingLeft + textPadding_.left, bounds_.y, availWidth, bounds_.h);
 			dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
