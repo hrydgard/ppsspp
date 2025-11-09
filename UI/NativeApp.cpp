@@ -1384,6 +1384,24 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
+#ifdef _DEBUG
+	// Debug hack: Randomize the language with F9!
+	if (false && (key.keyCode == NKCODE_F9 && (key.flags & KEY_DOWN))) {
+		std::vector<File::FileInfo> tempLangs;
+		g_VFS.GetFileListing("lang", &tempLangs, "ini");
+		int x = rand() % tempLangs.size();
+		std::string_view code, part2;
+		if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
+			g_Config.sLanguageIni = code;
+			INFO_LOG(Log::System, "Switching to random language: %s", g_Config.sLanguageIni.c_str());
+			if (g_i18nrepo.LoadIni(g_Config.sLanguageIni)) {
+				g_screenManager->RecreateAllViews();
+				System_Notify(SystemNotification::UI);
+			}
+		}
+	}
+#endif
+
 	if (!g_screenManager) {
 		return false;
 	}

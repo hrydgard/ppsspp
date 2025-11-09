@@ -1158,10 +1158,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, sy->T("Language"), langCodeToName))->OnClick.Add([&](UI::EventParams &e) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
-		langScreen->OnChoice.Add([&](UI::EventParams &e) {
-			screenManager()->RecreateAllViews();
-			System_Notify(SystemNotification::UI);
-		});
+		// The actual switching is handled in OnCompleted in NewLanguageScreen.
 		if (e.v)
 			langScreen->SetPopupOrigin(e.v);
 		screenManager()->push(langScreen);

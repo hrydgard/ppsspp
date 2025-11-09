@@ -66,7 +66,6 @@ TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view ti
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
 	}
-	SetBG(ctx.GetTheme().itemDownStyle.background);
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
