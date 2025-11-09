@@ -43,6 +43,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/IconCache.h"
+#include "UI/MiscViews.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 

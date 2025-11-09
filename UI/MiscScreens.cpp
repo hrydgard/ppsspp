@@ -40,6 +40,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Render/ManagedTexture.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -329,13 +330,10 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	std::string oldLang = g_Config.sLanguageIni;
 	std::string iniFile = langs_[listView_->GetSelected()].name;
 
-	size_t dot = iniFile.find('.');
-	std::string code;
-	if (dot != std::string::npos)
-		code = iniFile.substr(0, dot);
-
-	if (code.empty())
+	std::string_view code, part2;
+	if (!SplitStringOnce(iniFile, &code, &part2, '.')) {
 		return;
+	}
 
 	g_Config.sLanguageIni = code;
 
@@ -352,6 +350,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	if (iniLoadedSuccessfully) {
 		RecreateViews();
+		System_Notify(SystemNotification::UI);
 	} else {
 		// Failed to load the language ini. Shouldn't really happen, but let's just switch back to the old language.
 		g_Config.sLanguageIni = oldLang;

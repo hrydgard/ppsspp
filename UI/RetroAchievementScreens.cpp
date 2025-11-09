@@ -15,6 +15,7 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/MiscViews.h"
 
 static inline std::string_view DeNull(const char *ptr) {
 	return std::string_view(ptr ? ptr : "");
@@ -290,8 +291,11 @@ void RetroAchievementsSettingsScreen::sendMessage(UIMessage message, const char 
 void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	using namespace UI;
+
+	viewGroup->Add(new PaneTitleBar(Path(), sy->T("RetroAchievements"), "/docs/reference/retro-achievements/"));
 
 	if (!g_Config.bAchievementsEnable) {
 		viewGroup->Add(new NoticeView(NoticeLevel::INFO, ac->T("Achievements are disabled"), "", new LinearLayoutParams(Margins(5))));
@@ -356,10 +360,10 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
 	viewGroup->Add(new ItemHeader(di->T("Links")));
-	viewGroup->Add(new Choice(ac->T("RetroAchievements website")))->OnClick.Add([&](UI::EventParams &) -> void {
+	viewGroup->Add(new Choice(ac->T("RetroAchievements website"), ImageID("I_LINK_OUT")))->OnClick.Add([&](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
 	});
-	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> void {
+	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements"), ImageID("I_LINK_OUT")))->OnClick.Add([&](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
 	});
 }
@@ -367,6 +371,8 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGroup) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto a = GetI18NCategory(I18NCat::AUDIO);
+
+	viewGroup->Add(new PaneTitleBar(Path(), ac->T("Customize"), "/docs/reference/retro-achievements/"));
 
 	using namespace UI;
 	viewGroup->Add(new ItemHeader(ac->T("Sound Effects")));
@@ -393,9 +399,10 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *viewGroup) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	using namespace UI;
-	viewGroup->Add(new ItemHeader(di->T("Settings")));
+	viewGroup->Add(new PaneTitleBar(Path(), sy->T("Developer Tools"), "/docs/reference/retro-achievements/"));
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnableRAIntegration, ac->T("Enable RAIntegration (for achievement development)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 #endif

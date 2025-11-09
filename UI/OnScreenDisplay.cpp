@@ -121,6 +121,8 @@ static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &e
 static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
+	dc.SetFontStyle(dc.GetTheme().uiFont);
+
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	if (!(flags & OSDMessageFlags::Transparent)) {
