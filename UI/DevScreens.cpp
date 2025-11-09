@@ -531,42 +531,28 @@ bool ShaderViewScreen::key(const KeyInput &ki) {
 
 const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
 
-FrameDumpTestScreen::FrameDumpTestScreen() {
-
-}
-
 FrameDumpTestScreen::~FrameDumpTestScreen() {
 	g_DownloadManager.CancelAll();
 }
 
-void FrameDumpTestScreen::CreateViews() {
+void FrameDumpTestScreen::CreateTabs() {
 	using namespace UI;
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	TabHolder *tabHolder;
-	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
-	root_->Add(tabHolder);
-	tabHolder->AddBack(this);
-	tabHolder->SetTag("DumpTypes");
-	root_->SetDefaultFocusView(tabHolder);
+	AddTab("General", dev->T("Dumps"), [this](UI::LinearLayout *parent) {
+		parent->Add(new ItemHeader("GE Frame Dumps"));
 
-	ViewGroup *dumpsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	dumpsScroll->SetTag("GameSettingsGraphics");
-	LinearLayout *dumps = new LinearLayoutList(ORIENT_VERTICAL);
-	dumps->SetSpacing(0);
-	dumpsScroll->Add(dumps);
-	tabHolder->AddTab("Dumps", ImageID::invalid(), dumpsScroll);
+		for (auto &file : files_) {
+			std::string url = framedumpsBaseUrl + file;
+			Choice *c = parent->Add(new Choice(file));
+			c->SetTag(url);
+			c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
+		}
+	});
 
-	dumps->Add(new ItemHeader("GE Frame Dumps"));
-
-	for (auto &file : files_) {
-		std::string url = framedumpsBaseUrl + file;
-		Choice *c = dumps->Add(new Choice(file));
-		c->SetTag(url);
-		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
-	}
+	EnsureTabs();
 }
 
 void FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
