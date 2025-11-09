@@ -248,68 +248,59 @@ static const BindingCategory cats[] = {
 	{},  // sentinel
 };
 
-void ControlMappingScreen::CreateViews() {
+void ControlMappingScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {
 	using namespace UI;
-	mappers_.clear();
-
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, Margins(10, 0, 0, 10)));
-	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
+	verticalLayout->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
 		KeyMap::ClearAllMappings();
 	});
-	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
+	verticalLayout->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
 		KeyMap::RestoreDefault();
 	});
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	// If there's a builtin controller, restore to default should suffice. No need to conf the controller on top.
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
-		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
+		verticalLayout->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
+	verticalLayout->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
+	verticalLayout->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
+	verticalLayout->Add(new Spacer(12.0f));
+}
 
-	leftColumn->Add(new Choice(km->T("Show PSP")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new VisualMappingScreen(gamePath_));
-	});
-	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
-	leftColumn->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
+void ControlMappingScreen::CreateTabs() {
+	using namespace UI;
+	mappers_.clear();
 
-	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	AddStandardBack(leftColumn);
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-	rightScroll_->SetTag("ControlMapping");
-	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL);
-	rightScroll_->Add(rightColumn);
+	AddTab("keymap", "Control mapping", [this](UI::LinearLayout *parent) {
+		size_t numMappableKeys = 0;
+		const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
 
-	root_->Add(leftColumn);
-	root_->Add(rightScroll_);
+		auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	size_t numMappableKeys = 0;
-	const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
-
-	int curCat = -1;
-	CollapsibleSection *curSection = nullptr;
-	for (size_t i = 0; i < numMappableKeys; i++) {
-		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
-			if (curCat >= 0) {
-				curSection->SetOpenPtr(&categoryToggles_[curCat]);
+		int curCat = -1;
+		CollapsibleSection *curSection = nullptr;
+		for (size_t i = 0; i < numMappableKeys; i++) {
+			if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
+				if (curCat >= 0) {
+					curSection->SetOpenPtr(&categoryToggles_[curCat]);
+				}
+				curCat++;
+				curSection = parent->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
+				curSection->SetSpacing(6.0f);
 			}
-			curCat++;
-			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
-			curSection->SetSpacing(6.0f);
+			SingleControlMapper *mapper = curSection->Add(
+				new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
+					new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
+			mappers_.push_back(mapper);
 		}
-		SingleControlMapper *mapper = curSection->Add(
-			new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
-				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
-		mappers_.push_back(mapper);
-	}
-	if (curCat >= 0 && curSection) {
-		curSection->SetOpenPtr(&categoryToggles_[curCat]);
-	}
-	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
+		if (curCat >= 0 && curSection) {
+			curSection->SetOpenPtr(&categoryToggles_[curCat]);
+		}
+		_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
+	}, TabFlags::Default);
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
 }
