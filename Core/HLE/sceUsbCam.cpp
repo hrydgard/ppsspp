@@ -46,6 +46,10 @@ unsigned int nextVideoFrame = 0;
 uint8_t *videoBuffer;
 std::mutex videoBufferMutex;
 
+// Still image capture state
+static bool stillImageCapturePending = false;
+static int stillImageDataLength = 0;
+
 enum {
 	VIDEO_BUFFER_SIZE = 40 * 1000,
 };
@@ -58,12 +62,16 @@ void __UsbCamInit() {
 }
 
 void __UsbCamDoState(PointerWrap &p) {
-	auto s = p.Section("sceUsbCam", 0, 1);
+	auto s = p.Section("sceUsbCam", 0, 2);
 	if (!s) {
 		return;
 	}
 
 	Do(p, *config);
+	if (s >= 2) {
+		Do(p, stillImageCapturePending);
+		Do(p, stillImageDataLength);
+	}
 	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
 		Camera::stopCapture();
 		Camera::startCapture();
@@ -263,6 +271,94 @@ static int sceUsbCamSetReverseMode(int reverseflags) {
 	return 0;
 }
 
+static int sceUsbCamStillInputBlocking(u32 bufAddr, u32 size) {
+	INFO_LOG(Log::HLE, "sceUsbCamStillInputBlocking(%08x, %d)", bufAddr, size);
+	
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(Log::HLE, "sceUsbCamStillInputBlocking: invalid buffer address %08x", bufAddr);
+		return -1;
+	}
+
+	std::lock_guard<std::mutex> lock(videoBufferMutex);
+
+	// Get resolution for still image
+	int width, height;
+	getCameraResolution(config->type, &width, &height);
+
+	// Generate still image (similar to video start, but single frame)
+	unsigned char* jpegData = nullptr;
+	int jpegLen = 0;
+	__cameraDummyImage(width, height, &jpegData, &jpegLen);
+	
+	// Store the image data
+	stillImageDataLength = std::min(jpegLen, (int)size);
+	if (Memory::IsValidRange(bufAddr, size)) {
+		if (jpegData && stillImageDataLength > 0) {
+			Memory::Memcpy(bufAddr, jpegData, stillImageDataLength);
+		}
+	}
+	
+	if (jpegData) {
+		free(jpegData);
+	}
+
+	stillImageCapturePending = false;
+	return stillImageDataLength;
+}
+
+static int sceUsbCamStillInput(u32 bufAddr, u32 size) {
+	INFO_LOG(Log::HLE, "sceUsbCamStillInput(%08x, %d)", bufAddr, size);
+	
+	if (!Memory::IsValidAddress(bufAddr)) {
+		ERROR_LOG(Log::HLE, "sceUsbCamStillInput: invalid buffer address %08x", bufAddr);
+		return -1;
+	}
+
+	// Non-blocking version - start the capture process
+	stillImageCapturePending = true;
+	stillImageDataLength = 0;
+
+	// In a real implementation, this would trigger async capture
+	// For now, we simulate instant capture like the blocking version
+	return sceUsbCamStillInputBlocking(bufAddr, size);
+}
+
+static int sceUsbCamStillWaitInputEnd() {
+	INFO_LOG(Log::HLE, "sceUsbCamStillWaitInputEnd()");
+	
+	// Wait until capture is complete
+	// In our simple implementation, capture is instant, so just return the length
+	return stillImageDataLength;
+}
+
+static int sceUsbCamStillPollInputEnd() {
+	VERBOSE_LOG(Log::HLE, "sceUsbCamStillPollInputEnd()");
+	
+	// Poll to check if capture is complete
+	// Return 0 if still capturing, otherwise return the data length
+	if (stillImageCapturePending) {
+		return 0; // Still capturing
+	}
+	return stillImageDataLength;
+}
+
+static int sceUsbCamStillCancelInput() {
+	INFO_LOG(Log::HLE, "sceUsbCamStillCancelInput()");
+	
+	// Cancel any pending still image capture
+	stillImageCapturePending = false;
+	stillImageDataLength = 0;
+	
+	return 0;
+}
+
+static int sceUsbCamStillGetInputLength() {
+	VERBOSE_LOG(Log::HLE, "sceUsbCamStillGetInputLength()");
+	
+	// Return the length of captured still image data
+	return stillImageDataLength;
+}
+
 const HLEFunction sceUsbCam[] =
 {
 	{ 0X03ED7A82, &WrapI_UUI<sceUsbCamSetupMic>,              "sceUsbCamSetupMic",                       'i', "xxi" },
@@ -288,12 +384,12 @@ const HLEFunction sceUsbCam[] =
 
 	{ 0X3F0CF289, &WrapI_U<sceUsbCamSetupStill>,              "sceUsbCamSetupStill",                     'i', "x" },
 	{ 0X0A41A298, &WrapI_U<sceUsbCamSetupStillEx>,            "sceUsbCamSetupStillEx",                   'i', "x" },
-	{ 0X61BE5CAC, nullptr,                                    "sceUsbCamStillInputBlocking",             '?', "" },
-	{ 0XFB0A6C5D, nullptr,                                    "sceUsbCamStillInput",                     '?', "" },
-	{ 0X7563AFA1, nullptr,                                    "sceUsbCamStillWaitInputEnd",              '?', "" },
-	{ 0X1A46CFE7, nullptr,                                    "sceUsbCamStillPollInputEnd",              '?', "" },
-	{ 0XA720937C, nullptr,                                    "sceUsbCamStillCancelInput",               '?', "" },
-	{ 0XE5959C36, nullptr,                                    "sceUsbCamStillGetInputLength",            '?', "" },
+	{ 0X61BE5CAC, &WrapI_UU<sceUsbCamStillInputBlocking>,     "sceUsbCamStillInputBlocking",             'i', "xx" },
+	{ 0XFB0A6C5D, &WrapI_UU<sceUsbCamStillInput>,             "sceUsbCamStillInput",                     'i', "xx" },
+	{ 0X7563AFA1, &WrapI_V<sceUsbCamStillWaitInputEnd>,       "sceUsbCamStillWaitInputEnd",              'i', "" },
+	{ 0X1A46CFE7, &WrapI_V<sceUsbCamStillPollInputEnd>,       "sceUsbCamStillPollInputEnd",              'i', "" },
+	{ 0XA720937C, &WrapI_V<sceUsbCamStillCancelInput>,        "sceUsbCamStillCancelInput",               'i', "" },
+	{ 0XE5959C36, &WrapI_V<sceUsbCamStillGetInputLength>,     "sceUsbCamStillGetInputLength",            'i', "" },
 
 	{ 0XF93C4669, &WrapI_I<sceUsbCamAutoImageReverseSW>,      "sceUsbCamAutoImageReverseSW",             'i', "i" },
 	{ 0X11A1F128, nullptr,                                    "sceUsbCamGetAutoImageReverseState",       '?', "" },
@@ -332,8 +428,10 @@ std::vector<std::string> Camera::getDeviceList() {
 		if (winCamera) {
 			return winCamera->getDeviceList();
 		}
-	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 		return System_GetCameraDeviceList();
+#elif PPSSPP_PLATFORM(MAC)
+	return __mac_getDeviceList();
 	#elif defined(USING_QT_UI) // Qt:macOS / Qt:Linux
 		return __qt_getDeviceList();
 	#elif PPSSPP_PLATFORM(LINUX) // SDL:Linux
@@ -362,6 +460,8 @@ int Camera::startCapture() {
 		char command[40] = {0};
 		snprintf(command, sizeof(command), "startVideo_%dx%d", width, height);
 		System_CameraCommand(command);
+#elif PPSSPP_PLATFORM(MAC)
+	__mac_startCapture(width, height);
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_startCapture(width, height);
 	#else
@@ -376,8 +476,10 @@ int Camera::stopCapture() {
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 		}
-	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
 		System_CameraCommand("stopVideo");
+#elif PPSSPP_PLATFORM(MAC)
+		__mac_stopCapture();
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_stopCapture();
 	#else
