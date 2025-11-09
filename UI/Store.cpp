@@ -508,7 +508,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 
 std::string_view StoreScreen::GetTitle() const {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	return mm->T("PPSSPP Homebrew Store");
+	return mm->T("Homebrew store");
 }
 
 void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
