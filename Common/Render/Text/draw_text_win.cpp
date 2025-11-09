@@ -77,8 +77,7 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 	ctx_->hDC = CreateCompatibleDC(NULL);
 
 	// Load the font files (pass the all flags so we get all filenames);
-	std::vector<std::string> fonts;
-	GetFilenamesForFontStyle(FontStyle(FontFamily::SansSerif, 16, FontStyleFlags::Default), &fonts, true);
+	std::vector<std::string> fonts = GetAllFontFilenames();
 	for (const auto &iter : fonts) {
 		std::string fn = "assets/" + iter;
 		int numFontsAdded = AddFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
@@ -107,10 +106,9 @@ TextDrawerWin32::~TextDrawerWin32() {
 	ClearFonts();
 
 	// Unload the fonts.
-	std::vector<std::string> fonts;
-	GetFilenamesForFontStyle(FontStyle(FontFamily::SansSerif, 16, FontStyleFlags::Default), &fonts, true);
+	std::vector<std::string> fonts = GetAllFontFilenames();
 	for (const auto &iter : fonts) {
-		std::string fn = "assets/" + iter + ".ttf";
+		std::string fn = "assets/" + iter;
 		RemoveFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
 	}
 

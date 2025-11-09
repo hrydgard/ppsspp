@@ -283,11 +283,11 @@ struct FontDesc {
 
 // Append ".ttf" to get the actual filenames.
 static const FontDesc g_fontDescs[] = {
-	{FontFamily::SansSerif, FontStyleFlags::Default, "Roboto Condensed", "Roboto_Condensed-Regular"},
-	{FontFamily::SansSerif, FontStyleFlags::Bold, "Roboto Condensed", "Roboto_Condensed-Bold"},
-	{FontFamily::SansSerif, FontStyleFlags::Italic, "Roboto Condensed", "Roboto_Condensed-Italic"},
-	{FontFamily::SansSerif, FontStyleFlags::Light, "Roboto Condensed", "Roboto_Condensed-Light"},
-	{FontFamily::Fixed, FontStyleFlags::Default, "Inconsolata", "Inconsolata-Regular"},
+	{FontFamily::SansSerif, FontStyleFlags::Default, "Roboto Condensed", "Roboto_Condensed-Regular.ttf"},
+	{FontFamily::SansSerif, FontStyleFlags::Bold, "Roboto Condensed", "Roboto_Condensed-Bold.ttf"},
+	{FontFamily::SansSerif, FontStyleFlags::Italic, "Roboto Condensed", "Roboto_Condensed-Italic.ttf"},
+	{FontFamily::SansSerif, FontStyleFlags::Light, "Roboto Condensed", "Roboto_Condensed-Light.ttf"},
+	{FontFamily::Fixed, FontStyleFlags::Default, "Inconsolata", "Inconsolata-Regular.ttf"},
 };
 
 std::map<FontFamily, std::string> g_fontOverrides;
@@ -296,34 +296,33 @@ void SetFontNameOverride(FontFamily family, std::string_view overrideFont) {
 	g_fontOverrides[family] = std::string(overrideFont);
 }
 
-void GetFilenamesForFontStyle(const FontStyle &font, std::vector<std::string> *out, bool all) {
+std::vector<std::string> GetAllFontFilenames() {
+	std::vector<std::string> vec;
 	for (const auto &desc : g_fontDescs) {
-		bool match = all;
+		vec.emplace_back(desc.filename);
+	}
+	// uniquify idiom
+	std::sort(vec.begin(), vec.end());
+	vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+	return vec;
+}
+
+std::string GetFilenameForFontStyle(const FontStyle &font) {
+	for (const auto &desc : g_fontDescs) {
 		if (desc.flags == font.flags && desc.family == font.family) {
-			match = true;
+			return std::string(desc.filename);
 		}
-		if (match) {
-			out->push_back(join(desc.filename, ".ttf"));
-		}
-	}
-
-	if (all) {
-		// uniquify idiom
-		std::sort(out->begin(), out->end());
-		out->erase(std::unique(out->begin(), out->end()), out->end());
-		return;
-	}
-
-	if (!out->empty()) {
-		return;
 	}
 
 	// If nothing matched, just return the first font of the requested family.
 	for (const auto &desc : g_fontDescs) {
 		if (desc.family == font.family) {
-			out->push_back(join(desc.filename, ".ttf"));
+			return std::string(desc.filename);
 		}
 	}
+
+	_dbg_assert_(false);
+	return "";
 }
 
 std::string GetFontNameForFontStyle(const FontStyle &font, FontStyleFlags *outFlags) {

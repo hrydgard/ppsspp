@@ -22,8 +22,10 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 	jclass localClass = findClass(textRendererClassName);
 	cls_textRenderer = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
 	if (cls_textRenderer) {
-		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
-		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
+		method_allocFont = env->GetStaticMethodID(cls_textRenderer, "allocFont", "(Ljava/lang/String;)I");
+		method_freeAllFonts = env->GetStaticMethodID(cls_textRenderer, "freeAllFonts", "()V");
+		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;ID)I");
+		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;ID)[I");
 	} else {
 		ERROR_LOG(Log::G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
@@ -44,59 +46,56 @@ bool TextDrawerAndroid::IsReady() const {
 	return cls_textRenderer != nullptr && method_measureText != nullptr && method_renderText != nullptr;
 }
 
-uint32_t TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
+void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 	// We will only use the default font but just for consistency let's still involve
 	// the font name.
-	const uint32_t fontHash = style.Hash();
-
-	auto iter = fontMap_.find(fontHash);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
-		fontHash_ = fontHash;
-		return fontHash;
+		fontStyle_ = style;
+		return;
 	}
+
+	std::string filename = GetFilenameForFontStyle(style);
+	auto fontIter = allocatedFonts_.find(filename);
+	if (fontIter == allocatedFonts_.end()) {
+		auto env = getEnv();
+		jstring jstr = env->NewStringUTF(filename.c_str());
+		int fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, jstr);
+		env->DeleteLocalRef(jstr);
+
+		if (fontId >= 0) {
+			allocatedFonts_[filename] = fontId;
+		}
+	}
+
+	AndroidFontEntry entry{};
+	entry.font = allocatedFonts_[filename];
+	entry.size = 1.4f * style.sizePts / dpiScale_;   // Not sure why this formula works.
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
-	AndroidFontEntry entry{};
-	entry.size = ((float)style.sizePts * 1.4f) / dpiScale_;
-	if (style.flags & FontStyleFlags::Bold)
-		entry.bold = true;
-	if (style.flags & FontStyleFlags::Italic)
-		entry.italic = true;
-	fontMap_[fontHash] = entry;
-	fontHash_ = fontHash;
-	return fontHash;
-}
-
-void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
-	uint32_t fontHash = fontHandle;
-	auto iter = fontMap_.find(fontHash);
-	if (iter != fontMap_.end()) {
-		fontHash_ = fontHandle;
-	} else {
-		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
-	}
+	fontMap_[style] = entry;
+	fontStyle_ = style;
 }
 
 void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	float scaledSize = 14;
-	auto iter = fontMap_.find(fontHash_);
-	if (iter != fontMap_.end()) {
-		scaledSize = iter->second.size;
-	} else {
+	auto iter = fontMap_.find(fontStyle_);
+	if (iter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Missing font");
+		*w = 1.0f;
+		*h = 1.0f;
+		return;
 	}
+
 	std::string text;
 	ConvertUTF8ToJavaModifiedUTF8(&text, str);
 
 	auto env = getEnv();
 	jstring jstr = env->NewStringUTF(text.c_str());
-	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
+	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, iter->second.font, iter->second.size);
 	env->DeleteLocalRef(jstr);
 
 	*w = (float)(size >> 16);
 	*h = (float)(size & 0xFFFF);
-
-	// WARN_LOG(Log::G3D, "Measure Modified: '%.*s' size: %fx%f", (int)text.length(), text.data(), *w, *h);
 }
 
 bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
@@ -105,12 +104,10 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		return false;
 	}
 
-	float size = 0.0f;
-	auto iter = fontMap_.find(fontHash_);
-	if (iter != fontMap_.end()) {
-		size = iter->second.size;
-	} else {
+	auto iter = fontMap_.find(fontStyle_);
+	if (iter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Missing font");
+		return false;
 	}
 
 	auto env = getEnv();
@@ -119,7 +116,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	ConvertUTF8ToJavaModifiedUTF8(&text, str);
 	jstring jstr = env->NewStringUTF(text.c_str());
 
-	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
+	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, iter->second.font, iter->second.size);
 	int imageWidth = (short)(textSize >> 16);
 	int imageHeight = (short)(textSize & 0xFFFF);
 	if (imageWidth <= 0)
@@ -129,7 +126,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	// WARN_LOG(Log::G3D, "Text: '%.*s' (%02x)", (int)str.length(), str.data(), str[0]);
 
 	// TODO: Handle bold/italic
-	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
+	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size);
 	env->DeleteLocalRef(jstr);
 
 	entry.texture = nullptr;

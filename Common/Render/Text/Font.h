@@ -8,6 +8,7 @@
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Hash/Hash.h"
 
+// NOTE: Make sure the java flags match.
 enum class FontStyleFlags : u8 {
 	Default = 0,
 	Bold = 1,

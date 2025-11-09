@@ -303,7 +303,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 		}
 	}
 
-	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms\n", shapeCount, svgStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
 
 	Instant shadowStart = Instant::Now();
 
@@ -323,7 +323,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 		}
 	}, 0, (int)images.size(), 2, TaskPriority::HIGH);
 
-	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms\n", shadowStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms", shadowStart.ElapsedMs());
 
 	Instant pngStart = Instant::Now();
 
@@ -392,7 +392,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 	if (SAVE_DEBUG_IMAGES) {
 		dest->SavePNG("../ui_atlas_gen.png");
 	}
-	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images\n", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());
+	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());
 	return true;
 }
 

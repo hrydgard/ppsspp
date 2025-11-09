@@ -142,7 +142,8 @@ protected:
 // The backends can use this to query the filenames of the fonts.
 // Some backends want to just load all the fonts, just pass all.
 // Note that the ttf file extension is included in the output.
-void GetFilenamesForFontStyle(const FontStyle &font, std::vector<std::string> *out, bool all);
+std::vector<std::string> GetAllFontFilenames();
+std::string GetFilenameForFontStyle(const FontStyle &font);
 std::string GetFontNameForFontStyle(const FontStyle &font, FontStyleFlags *outFlags);
 
 // Some languages use an override font, set via ini file.

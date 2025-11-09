@@ -111,13 +111,14 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 	hr = m_dwriteFactory->CreateInMemoryFontFileLoader(&m_inMemoryLoader);
 	if (FAILED(hr)) {
-		// handle error
+		_assert_msg_(false, "D2D CreateInMemoryFontFileLoader failed");
 	}
-	m_dwriteFactory->RegisterFontFileLoader(m_inMemoryLoader);
-
+	hr = m_dwriteFactory->RegisterFontFileLoader(m_inMemoryLoader);
+	if (FAILED(hr)) {
+		_assert_msg_(false, "D2D RegisterFontFileLoader failed");
+	}
 	// Load our fonts.
-	std::vector<std::string> fontFilenames;
-	GetFilenamesForFontStyle(FontStyle{}, &fontFilenames, true);
+	const std::vector<std::string> fontFilenames = GetAllFontFilenames();
 	for (const auto &fname : fontFilenames) {
 		size_t size;
 		uint8_t *data = g_VFS.ReadFile(fname.c_str(), &size);
