@@ -26,10 +26,11 @@
 
 class InputDevice {
 public:
-	virtual ~InputDevice() {}
+	virtual ~InputDevice() = default;
 
 	virtual void Init() {}
 	virtual void Shutdown() {}
+	virtual bool HasAccelerometer() const { return false; }
 
 	enum { UPDATESTATE_SKIP_PAD = 0x1234, UPDATESTATE_NO_SLEEP = 0x2345};
 	virtual int UpdateState() = 0;
@@ -54,6 +55,8 @@ public:
 	void AddDevice(InputDevice *device) {
 		devices_.emplace_back(std::unique_ptr<InputDevice>(device));
 	}
+
+	bool AnyAccelerometer() const;
 
 private:
 	void InputThread();

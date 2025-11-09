@@ -1477,6 +1477,7 @@ void NativeMouseDelta(float dx, float dy) {
 	SendMouseDeltaAxis();
 }
 
+// TODO: Should include a device ID here, since accelerometers can be on pads for example (DualSense).
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, don't do anything special.
