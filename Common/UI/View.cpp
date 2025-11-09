@@ -468,9 +468,10 @@ void Choice::ClickInternal() {
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	float totalW = 0.0f;
 	float totalH = 0.0f;
-	if (!text_.empty()) {
-		const int paddingX = 12;
-		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz() - totalW;
+	if (!text_.empty() && !hideTitle_) {
+		const int paddingLeft = 12;
+		const int paddingRight = 12;
+		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz() - totalW;
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
@@ -515,7 +516,6 @@ void Choice::Draw(UIContext &dc) {
 
 		int paddingLeft = 12;
 		int paddingRight = 12;
-		float availWidth = bounds_.w - (paddingLeft + paddingRight + textPadding_.horiz());
 
 		if (image_.isValid()) {
 			paddingLeft = 0;
@@ -526,9 +526,10 @@ void Choice::Draw(UIContext &dc) {
 				dc.Draw()->DrawImage(image_, bounds_.x + bounds_.h * 0.5f + paddingLeft, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 
 				paddingLeft += bounds_.h;
-				availWidth -= bounds_.h;
 			}
 		}
+
+		float availWidth = bounds_.w - (paddingLeft + paddingRight + textPadding_.horiz());
 
 		if (centered_) {
 			dc.DrawTextRectSqueeze(text_, bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
