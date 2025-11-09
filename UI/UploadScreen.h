@@ -40,6 +40,7 @@ public:
 
 protected:
 	void update() override;
+	std::string_view GetTitle() const override;
 
 	const char *tag() const override { return "Upload"; }
 

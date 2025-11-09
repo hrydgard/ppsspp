@@ -66,6 +66,11 @@ void UploadScreen::RecreateStatus() {
 	}
 }
 
+std::string_view UploadScreen::GetTitle() const {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	return n->T("Upload files");
+}
+
 void UploadScreen::update() {
 	UIScreen::update();
 	bool running = WebServerRunning(WebServerFlags::FILE_UPLOAD);
