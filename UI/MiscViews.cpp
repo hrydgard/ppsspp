@@ -203,7 +203,12 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 	}
 
 	if (!settingsCategory.empty()) {
-		std::string settingsUrl = join("https://www.ppsspp.org/docs/settings/", settingsCategory);
+		std::string settingsUrl;
+		if (settingsCategory[0] == '/') {
+			settingsUrl = join("https://www.ppsspp.org", settingsCategory);
+		} else {
+			settingsUrl = join("https://www.ppsspp.org/docs/settings/", settingsCategory);
+		}
 		Choice *helpButton = Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams()));
 		helpButton->OnClick.Add([settingsUrl](UI::EventParams &) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, settingsUrl);
