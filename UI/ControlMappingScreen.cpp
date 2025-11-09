@@ -72,21 +72,11 @@ private:
 	void OnReplace(UI::EventParams &params);
 	void OnReplaceAll(UI::EventParams &params);
 
-	void MappedCallback(const MultiInputMapping &kdf);
-
-	enum Action {
-		NONE,
-		REPLACEONE,
-		REPLACEALL,
-		ADD,
-	};
+	int pspKey_;
 
 	UI::Choice *addButton_ = nullptr;
 	UI::Choice *replaceAllButton_ = nullptr;
 	std::vector<UI::View *> rows_;
-	Action action_ = NONE;
-	int actionIndex_ = 0;
-	int pspKey_;
 	std::string keyName_;
 	ScreenManager *scrm_;
 };
@@ -167,72 +157,66 @@ void SingleControlMapper::Refresh() {
 	}
 }
 
-void SingleControlMapper::MappedCallback(const MultiInputMapping &kdf) {
-	if (kdf.empty()) {
-		// Don't want to try to add this.
-		return;
-	}
-
-	switch (action_) {
-	case ADD:
-		KeyMap::SetInputMapping(pspKey_, kdf, false);
-		addButton_->SetFocus();
-		break;
-	case REPLACEALL:
-		KeyMap::SetInputMapping(pspKey_, kdf, true);
-		replaceAllButton_->SetFocus();
-		break;
-	case REPLACEONE:
-	{
-		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, actionIndex_, kdf);
+void SingleControlMapper::OnReplace(UI::EventParams &params) {
+	const int index = atoi(params.v->Tag().c_str());
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this, index](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, index, mapping);
 		if (!success) {
 			replaceAllButton_->SetFocus(); // Last got removed as a duplicate
-		} else if (actionIndex_ < (int)rows_.size()) {
-			rows_[actionIndex_]->SetFocus();
+		} else if (index < (int)rows_.size()) {
+			rows_[index]->SetFocus();
 		} else {
 			SetFocus();
 		}
-		break;
-	}
-	default:
-		SetFocus();
-		break;
-	}
-	KeyMap::UpdateNativeMenuKeys();
-	g_IsMappingMouseInput = false;
-}
-
-void SingleControlMapper::OnReplace(UI::EventParams &params) {
-	actionIndex_ = atoi(params.v->Tag().c_str());
-	action_ = REPLACEONE;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
 
 void SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
-	action_ = REPLACEALL;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		KeyMap::SetInputMapping(pspKey_, mapping, true);
+		replaceAllButton_->SetFocus();
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
 
 void SingleControlMapper::OnAdd(UI::EventParams &params) {
-	action_ = ADD;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		KeyMap::SetInputMapping(pspKey_, mapping, false);
+		addButton_->SetFocus();
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
+
 void SingleControlMapper::OnAddMouse(UI::EventParams &params) {
-	action_ = ADD;
 	g_IsMappingMouseInput = true;
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		KeyMap::SetInputMapping(pspKey_, mapping, false);
+		addButton_->SetFocus();
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
 
 void SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::DeleteNthMapping(pspKey_, index);
-
 	if (index + 1 < (int)rows_.size())
 		rows_[index]->SetFocus();
 	else
 		SetFocus();
 }
-
 
 struct BindingCategory {
 	const char *catName;
@@ -1030,7 +1014,10 @@ void VisualMappingScreen::MapNext(bool successive) {
 	} else {
 		psp_->SelectButton(nextKey_);
 	}
-	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), I18NCat::KEYMAPPING);
+
+	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		HandleKeyMapping(mapping);
+	}, I18NCat::KEYMAPPING);
 
 	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
