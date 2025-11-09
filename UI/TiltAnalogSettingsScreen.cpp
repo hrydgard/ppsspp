@@ -85,7 +85,7 @@ std::string_view TiltAnalogSettingsScreen::GetTitle() const {
 
 void TiltAnalogSettingsScreen::CreateContentViews(UI::LinearLayout *parent) {
 	using namespace UI;
-	CreateCalibrationView(parent, new LinearLayoutParams(300.0f, 300.0f, 1.0f, G_CENTER));
+	CreateCalibrationView(parent, new LinearLayoutParams(300.0f, 300.0f, 1.0f, Gravity::G_CENTER));
 }
 
 void TiltAnalogSettingsScreen::CreateSettingsViews(UI::LinearLayout *settings) {

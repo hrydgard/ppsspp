@@ -109,13 +109,13 @@ std::vector<Data> Bucket::Resolve(int image_width, Image *dest) {
 	std::sort(data.begin(), data.end(), CompareByArea);
 	for (int i = 0; i < (int)data.size(); i++) {
 		if ((i + 1) % 2000 == 0) {
-			printf("Resolving (%i / %i)\n", i, (int)data.size());
+			// printf("Resolving (%i / %i)\n", i, (int)data.size());
 		}
 		int idx = (int)data[i].w;
 		int idy = (int)data[i].h;
 		if (idx > 1 && idy > 1) {
 			assert(idx <= image_width);
-			for (int ty = 0; ty < 2047; ty++) {
+			for (int ty = 0; ty < 2047; ty++) {  // TODO: Maybe remove this limit?
 				if (ty + idy + 1 > (int)dest->height()) {
 					// Every 16 lines of new space needed, grow the image.
 					masq.resize(image_width, ty + idy + 16);

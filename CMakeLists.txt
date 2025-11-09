@@ -2786,7 +2786,11 @@ set(NativeAssets
 	assets/shaders
 	assets/themes
 	assets/vfpu
-	assets/Roboto-Condensed.ttf
+	assets/Roboto_Condensed-Regular.ttf
+	assets/Roboto_Condensed-Light.ttf
+	assets/Roboto_Condensed-Bold.ttf
+	assets/Roboto_Condensed-Italic.ttf
+	assets/Inconsolata-Regular.ttf
 	assets/7z.png
 	assets/compat.ini
 	assets/infra-dns.json

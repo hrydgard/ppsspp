@@ -19,6 +19,7 @@ enum class TabDialogFlags {
 	Default = 0,
 	HorizontalOnlyIcons = 1,
 	VerticalShowIcons = 2,
+	AddTitles = 4,
 };
 ENUM_CLASS_BITOPS(TabDialogFlags);
 

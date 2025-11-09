@@ -171,8 +171,6 @@ public:
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
 
-	std::string sFont;
-
 	bool bPauseWhenMinimized;
 
 	bool bPauseExitsEmulator;

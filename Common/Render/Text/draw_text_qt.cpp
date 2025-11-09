@@ -3,6 +3,7 @@
 #include "Common/Data/Hash/Hash.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_qt.h"
 
@@ -14,45 +15,66 @@
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QFontMetrics>
+#include <QFontDatabase>
 #include <QtOpenGL/QGLWidget>
 
-TextDrawerQt::TextDrawerQt(Draw::DrawContext *draw) : TextDrawer(draw) {}
+TextDrawerQt::TextDrawerQt(Draw::DrawContext *draw) : TextDrawer(draw) {
+	// Add all fonts we ship with.
+
+	std::vector<std::string> filenames = GetAllFontFilenames();
+
+	for (const auto &iter : filenames) {
+		std::string fn = "assets/" + iter + ".ttf";
+		size_t fontSize = 0;
+		uint8_t *fontData = g_VFS.ReadFile(fn.c_str(), &fontSize);
+		if (fontData) {
+			int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
+			delete[] fontData;
+			QStringList fontsFound = QFontDatabase::applicationFontFamilies(fontID);
+			if (fontsFound.size() == 0) {
+				WARN_LOG(Log::G3D, "Failed to load font from %s", fn.c_str());
+			} else {
+				for (const auto &f : fontsFound) {
+					WARN_LOG(Log::G3D, "Loaded font %s from %s", f.toUtf8().constData(), fn.c_str());
+				}
+			}
+		} else {
+			ERROR_LOG(Log::G3D, "Failed to load font file %s", fn.c_str());
+		}
+	}
+}
 
 TextDrawerQt::~TextDrawerQt() {
 	ClearCache();
 	ClearFonts();
 }
 
-uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName && strlen(fontName) ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
-
-	auto iter = fontMap_.find(fontHash);
+void TextDrawerQt::SetOrCreateFont(const FontStyle &style) {
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
-		fontHash_ = fontHash;
-		return fontHash;
+		fontStyle_ = style;
+		return;
 	}
 
-	QFont *font = fontName ? new QFont(fontName) : new QFont();
-	font->setPixelSize((int)((size + 6) / dpiScale_));
-	fontMap_[fontHash] = font;
-	fontHash_ = fontHash;
-	return fontHash;
-}
+	FontStyleFlags styleFlags;
+	std::string fontName = GetFontNameForFontStyle(style, &styleFlags);
 
-void TextDrawerQt::SetFont(uint32_t fontHandle) {
-	uint32_t fontHash = fontHandle;
-	auto iter = fontMap_.find(fontHash);
-	if (iter != fontMap_.end()) {
-		fontHash_ = fontHandle;
-	} else {
-		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
+	QFont *font = new QFont(fontName.c_str());
+	font->setPixelSize((int)((style.sizePts + 6) / dpiScale_));
+	font->setBold(styleFlags & FontStyleFlags::Bold);
+	if (styleFlags & FontStyleFlags::Light) {
+		font->setWeight(QFont::Light);
 	}
+	font->setItalic(styleFlags & FontStyleFlags::Italic);
+	font->setUnderline(styleFlags & FontStyleFlags::Underline);
+	font->setStrikeOut(styleFlags & FontStyleFlags::Strikethrough);
+
+	fontMap_[style] = font;
+	fontStyle_ = style;
 }
 
 void TextDrawerQt::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	QFont* font = fontMap_.find(fontHash_)->second;
+	QFont* font = fontMap_.find(fontStyle_)->second;
 	QFontMetrics fm(*font);
 	QSize size = fm.size(0, QString::fromUtf8(str.data(), str.length()));
 
@@ -68,7 +90,7 @@ bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 		return false;
 	}
 
-	QFont *font = fontMap_.find(fontHash_)->second;
+	QFont *font = fontMap_.find(fontStyle_)->second;
 	QFontMetrics fm(*font);
 	QSize size = fm.size(0, QString::fromUtf8(str.data(), str.length()));
 	QImage image((size.width() + 3) & ~3, (size.height() + 3) & ~3, QImage::Format_ARGB32_Premultiplied);
@@ -118,7 +140,7 @@ void TextDrawerQt::ClearFonts() {
 		delete iter.second;
 	}
 	fontMap_.clear();
-	fontHash_ = 0;
+	fontStyle_ = {};
 }
 
 #endif

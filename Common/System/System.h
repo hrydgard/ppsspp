@@ -50,7 +50,7 @@ enum class LaunchUrlType {
 };
 
 void System_Vibrate(int length_ms);
-void System_LaunchUrl(LaunchUrlType urlType, const char *url);
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url);
 
 // It's sometimes a little unclear what should be a request, and what should be a separate function.
 // Going forward, "optional" things (PPSSPP will still function alright without it) will be requests,

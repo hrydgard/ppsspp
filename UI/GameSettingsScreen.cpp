@@ -62,6 +62,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/MiscViews.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -222,27 +223,38 @@ void GameSettingsScreen::CreateTabs() {
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	AddTab("GameSettingsGraphics", ms->T("Graphics"), ImageID("I_DISPLAY"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Graphics"), "graphics", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		CreateGraphicsSettings(parent);
 	});
 
 	AddTab("GameSettingsControls", ms->T("Controls"), ImageID("I_CONTROLLER"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Controls"), "controls"));
 		CreateControlsSettings(parent);
 	});
 
 	AddTab("GameSettingsAudio", ms->T("Audio"), ImageID("I_SPEAKER_MAX"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Audio"), "audio"));
 		CreateAudioSettings(parent);
 	});
 
 	AddTab("GameSettingsNetworking", ms->T("Networking"), ImageID("I_WIFI"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Networking"), "network"));
 		CreateNetworkingSettings(parent);
 	});
 
 	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_TOOLS"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Tools"), "tools"));
 		CreateToolsSettings(parent);
 	});
 
 	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_PSP"), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(0);
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("System"), "system"));
 		CreateSystemSettings(parent);
 	});
 
@@ -1853,7 +1865,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(buttonsRow1);
 	parent->Add(buttonsRow2);
 
-	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_LEFT)));
 	for (char c = '0'; c <= '9'; ++c) {
 		char label[] = { c, '\0' };
 		auto button = buttonsRow1->Add(new Button(label));
@@ -1861,16 +1873,16 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		button->SetTag(label);
 	}
 	buttonsRow1->Add(new Button("."))->OnClick.Handle(this, &HostnameSelectScreen::OnPointClick);
-	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
 
-	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_LEFT)));
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		buttonsRow2->Add(new Button(di->T("Edit")))->OnClick.Handle(this, &HostnameSelectScreen::OnEditClick);
 	}
 	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
 	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
 	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
-	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
 
 	std::vector<std::string> listIP;
 	if (listItems_) {

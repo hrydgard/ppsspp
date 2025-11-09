@@ -187,12 +187,15 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 }
 
 uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
-	auto iter = fontMap_.find(fontHash_);
+	auto iter = fontMap_.find(fontStyle_);
 	if (iter == fontMap_.end()) {
 		return 0;
 	}
 
 	TTF_Font *font = iter->second;
+	if (!font) {
+		return 0;
+	}
 	UTF8 utf8Decoded(text);
 
 	uint32_t missingGlyph = 0;
@@ -245,50 +248,42 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	return -1;
 }
 
-uint32_t TextDrawerSDL::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName && strlen(fontName) ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
-	fontHash ^= size;
-	fontHash ^= flags << 10;
-
-	auto iter = fontMap_.find(fontHash);
+void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
-		fontHash_ = fontHash;
-		return fontHash;
+		fontStyle_ = style;
+		return;
 	}
 
-	const char *useFont = fontName ? fontName : "Roboto-Condensed.ttf";
-	const int ptSize = (int)((size + 6) / dpiScale_);
+	std::string useFont = "assets/" + GetFilenameForFontStyle(style) + ".ttf";
 
-	TTF_Font *font = TTF_OpenFont(useFont, ptSize);
-
-	if (!font) {
-		File::FileInfo fileInfo;
-   		g_VFS.GetFileInfo("Roboto-Condensed.ttf", &fileInfo);
-		font = TTF_OpenFont(fileInfo.fullName.c_str(), ptSize);
+	if (loadedFonts_.find(useFont) == loadedFonts_.end()) {
+		int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
+		TTF_Font *font = TTF_OpenFont(useFont.c_str(), ptSize);
+		if (!font) {
+			ERROR_LOG(Log::G3D, "Failed to load font file %s", useFont.c_str());
+		}
+		// Still, mark it with a nullptr to avoid retrying.
+		loadedFonts_[useFont] = font;
 	}
 
-	fontMap_[fontHash] = font;
-	fontHash_ = fontHash;
-	return fontHash;
-}
-
-void TextDrawerSDL::SetFont(uint32_t fontHandle) {
-	uint32_t fontHash = fontHandle;
-	auto iter = fontMap_.find(fontHash);
-	if (iter != fontMap_.end()) {
-		fontHash_ = fontHandle;
-	} else {
-		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
-	}
+	fontMap_[style] = loadedFonts_[useFont];
+	fontStyle_ = style;
 }
 
 void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	TTF_Font *font = fontMap_.find(fontHash_)->second;
-	int ptSize = TTF_FontHeight(font) / 1.35;
+	TTF_Font *font = fontMap_.find(fontStyle_)->second;
+
+	if (!font) {
+		*w = 1.0f;
+		*h = 1.0f;
+		return;
+	}
 
 	uint32_t missingGlyph = CheckMissingGlyph(str);
 
 	if (missingGlyph) {
+		int ptSize = static_cast<int>(fontStyle_.sizePts / dpiScale_ * 1.25f);
 		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
 		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
@@ -302,8 +297,8 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 	std::string text(str);
 	TTF_SizeUTF8(font, text.c_str(), &width, &height);
 
-	*w = width;
-	*h = height;
+	*w = (float)width;
+	*h = (float)height;
 }
 
 bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
@@ -324,14 +319,17 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		processedStr.push_back(' ');
 	}
 
-	auto fontIter = fontMap_.find(fontHash_);
+	auto fontIter = fontMap_.find(fontStyle_);
 	if (fontIter == fontMap_.end()) {
-		ERROR_LOG(Log::G3D, "Font hash not in map: %08x", fontHash_);
+		ERROR_LOG(Log::G3D, "Font style not in map");
 		return false;
 	}
 
 	TTF_Font *font = fontIter->second;
-	int ptSize = TTF_FontHeight(font) / 1.35;
+	if (!font) {
+		return false;
+	}
+	int ptSize = TTF_FontHeight(font) / 1.25;
 
 	uint32_t missingGlyph = CheckMissingGlyph(processedStr);
 
@@ -394,12 +392,19 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 }
 
 void TextDrawerSDL::ClearFonts() {
-	for (auto iter : fontMap_) {
-		TTF_CloseFont(iter.second);
+	for (auto iter : loadedFonts_) {
+		if (iter.second) {
+			TTF_CloseFont(iter.second);
+		}
 	}
 	for (auto iter : fallbackFonts_) {
-		TTF_CloseFont(iter);
+		if (iter) {
+			TTF_CloseFont(iter);
+		}
 	}
+
+	// We wipe all the maps, including fontMap_. Everything it contains is also in loadedFonts_ which is cleared above.
+	loadedFonts_.clear();
 	fontMap_.clear();
 	fallbackFonts_.clear();
 }

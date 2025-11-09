@@ -149,21 +149,23 @@ private:
 class LinearLayoutParams : public LayoutParams {
 public:
 	LinearLayoutParams()
-		: LayoutParams(LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
-	explicit LinearLayoutParams(float wgt, Gravity grav = G_TOPLEFT)
+		: LayoutParams(LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), hasMargins_(false) {}
+	explicit LinearLayoutParams(float wgt, Gravity grav = Gravity::G_TOPLEFT)
 		: LayoutParams(LP_LINEAR), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(float wgt, const Margins &mgn)
-		: LayoutParams(LP_LINEAR), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
-	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
+		: LayoutParams(LP_LINEAR), weight(wgt), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(float wgt, Gravity grav, const Margins &mgn)
+		: LayoutParams(LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = Gravity::G_TOPLEFT)
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(0), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, const Margins &mgn)
-		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, float wgt, const Margins &mgn)
-		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(const Margins &mgn)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 
 	float weight;
 	Gravity gravity;
@@ -226,7 +228,7 @@ struct GridLayoutSettings {
 class GridLayoutParams : public LayoutParams {
 public:
 	GridLayoutParams()
-		: LayoutParams(LP_GRID), gravity(G_CENTER) {}
+		: LayoutParams(LP_GRID), gravity(Gravity::G_CENTER) {}
 	explicit GridLayoutParams(Gravity grav)
 		: LayoutParams(LP_GRID), gravity(grav) {
 	}
