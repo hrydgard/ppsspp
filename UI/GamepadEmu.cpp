@@ -888,7 +888,7 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 		float y;
 	};
 	auto buttonLayoutParams = [=](const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) {
-		return new AnchorLayoutParams(touch.x * xres + off.x, touch.y * yres + off.y, NONE, NONE, true);
+		return new AnchorLayoutParams(touch.x * xres + off.x, touch.y * yres + off.y, NONE, NONE, Centering::Both);
 	};
 
 	// Space between the PSP buttons (traingle, circle, square and cross)
@@ -937,7 +937,7 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 	};
 
 	if (showPauseButton) {
-		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_ARROW"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_ARROW"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, Centering::Both)))->SetAngle(90);
 	}
 
 	// touchActionButtonCenter.show will always be true, since that's the default.

@@ -23,6 +23,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -32,6 +33,7 @@
 #include "Common/System/Request.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Core/KeyMap.h"
 #include "Core/Reporting.h"
@@ -72,7 +74,7 @@ static void AfterSaveStateAction(SaveState::Status status, std::string_view mess
 	}
 }
 
-class ScreenshotViewScreen : public PopupScreen {
+class ScreenshotViewScreen : public UI::PopupScreen {
 public:
 	ScreenshotViewScreen(const Path &filename, std::string title, int slot, Path gamePath)
 		: PopupScreen(title), filename_(filename), slot_(slot), gamePath_(gamePath), title_(title) {}   // PopupScreen will translate Back on its own
@@ -168,13 +170,13 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 
-	std::string message(di->T("DeleteConfirmSaveState"));
-	message += "\n\n" + info->GetTitle() + " (" + info->id + ")";
+	std::string_view title = di->T("Delete");
+	std::string message = std::string(di->T("DeleteConfirmSaveState")) + "\n\n" + info->GetTitle() + " (" + info->id + ")";
 	message += "\n\n" + title_;
 
 	// TODO: Also show the screenshot on the confirmation screen?
 
-	screenManager()->push(new PromptScreen(gamePath_, message, di->T("Delete"), di->T("Cancel"), [=](bool result) {
+	screenManager()->push(new UI::MessagePopupScreen(title, message, di->T("Delete"), di->T("Cancel"), [=](bool result) {
 		if (result) {
 			SaveState::DeleteSlot(gamePath_, slot_);
 			TriggerFinish(DR_CANCEL);
@@ -604,7 +606,7 @@ void GamePauseScreen::CreateViews() {
 				std::string confirmMessage = GetConfirmExitMessage();
 				if (!confirmMessage.empty()) {
 					auto di = GetI18NCategory(I18NCat::DIALOG);
-					screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Reset"), di->T("Cancel"), [=](bool result) {
+					screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [=](bool result) {
 						if (result) {
 							System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 						}
@@ -705,9 +707,8 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 
 	if (!confirmExitMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		confirmExitMessage += '\n';
-		confirmExitMessage += di->T("Are you sure you want to exit?");
-		screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+		std::string_view title = di->T("Are you sure you want to exit?");
+		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, di->T("Exit"), di->T("Cancel"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
@@ -748,18 +749,6 @@ void GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	RecreateViews();
 }
 
-void GamePauseScreen::CallbackDeleteConfig(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-			g_Config.UnloadGameConfig();
-			g_Config.DeleteGameConfig(info->id);
-			info->hasConfig = false;
-			screenManager()->RecreateAllViews();
-		}
-	}
-}
-
 void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
@@ -776,7 +765,19 @@ void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 
 void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), di->T("Delete"), di->T("Cancel"),
-		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
+		new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"),
+			trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [this](bool yes) {
+		if (!yes) {
+			return;
+		}
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+			g_Config.UnloadGameConfig();
+			g_Config.DeleteGameConfig(info->id);
+			info->hasConfig = false;
+			screenManager()->RecreateAllViews();
+		}
+	}));
 }

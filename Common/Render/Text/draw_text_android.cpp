@@ -70,7 +70,7 @@ void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 
 	AndroidFontEntry entry{};
 	entry.font = allocatedFonts_[filename];
-	entry.size = 1.4f * style.sizePts / dpiScale_;   // Not sure why this formula works.
+	entry.size = 1.25f * style.sizePts / dpiScale_;   // Not sure why this formula works.
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
 	fontMap_[style] = entry;

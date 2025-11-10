@@ -39,7 +39,6 @@ public:
 protected:
 	void CreateViews() override;
 	void update() override;
-	void CallbackDeleteConfig(bool yes);
 	UI::Margins RootMargins() const override;
 
 private:

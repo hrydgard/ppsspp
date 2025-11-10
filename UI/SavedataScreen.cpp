@@ -28,6 +28,7 @@
 #include "Common/System/Request.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/AsyncImageFileView.h"
 #include "UI/SavedataScreen.h"
@@ -130,7 +131,7 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 	}
 }
 
-class SavedataPopupScreen : public PopupScreen {
+class SavedataPopupScreen : public UI::PopupScreen {
 public:
 	SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) { }
 
@@ -168,15 +169,15 @@ public:
 		buttonRow->SetSpacing(0);
 		Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
 
-		buttonRow->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		buttonRow->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+		buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 
 			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 
 			std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
-			screenManager()->push(new PromptScreen(gamePath_, confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
+			screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
 				if (result) {
 					ginfo->Delete();
 					TriggerFinish(DR_NO);
@@ -184,7 +185,7 @@ public:
 			}));
 		});
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			buttonRow->Add(new Button(di->T("Show in folder"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+			buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
 				System_ShowFileInFolder(savePath_);
 			});
 		}

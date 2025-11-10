@@ -447,6 +447,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_HAS_ACCELEROMETER:
 		return g_InputManager.AnyAccelerometer();
+	case SYSPROP_USE_IAP:
+		return true;
 	default:
 		return false;
 	}

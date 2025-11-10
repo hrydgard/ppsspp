@@ -218,7 +218,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	LinearLayout *leftColumn;
 	if (!portrait) {
-		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f, false));
+		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f));
 		leftColumn = new LinearLayout(ORIENT_VERTICAL);
 		leftColumn->padding.SetAll(8.0f);
 		leftScrollView->Add(leftColumn);
@@ -226,7 +226,7 @@ void DisplayLayoutScreen::CreateViews() {
 		root_->Add(leftScrollView);
 	}
 
-	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f, false));
+	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f));
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->padding.SetAll(8.0f);
 	rightScrollView->Add(rightColumn);
@@ -239,7 +239,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rightColumn->Add(bottomControls);
 		leftColumn = rightColumn;
 	} else {
-		bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f, false));
+		bottomControls = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, NONE, NONE, 10.0f));
 		root_->Add(bottomControls);
 	}
 

@@ -49,6 +49,21 @@ impl Section {
         }
     }
 
+    pub fn remove_linebreaks(&mut self, key: &str) {
+        for line in self.lines.iter_mut() {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos]
+            } else {
+                continue;
+            };
+            if !prefix.trim().eq(key) {
+                continue;
+            }
+            // Escaped linebreaks.
+            *line = line.replace("\\n", " ");
+        }
+    }
+
     pub fn get_line(&self, key: &str) -> Option<String> {
         for line in self.lines.iter() {
             let prefix = if let Some(pos) = line.find(" =") {

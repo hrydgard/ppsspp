@@ -109,22 +109,30 @@ public:
 
 const float NONE = -FLT_MAX;
 
+enum class Centering {
+	None = 0,
+	Vertical = 1,
+	Horizontal = 2,
+	Both = 3,  // 1 | 2
+};
+ENUM_CLASS_BITOPS(Centering);
+
 class AnchorLayoutParams : public LayoutParams {
 public:
-	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b, bool c = false)
-		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
+	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b, Centering c = Centering::None)
+		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), centering(c) {}
 	// There's a small hack here to make this behave more intuitively - AnchorLayout ordinarily ignores FILL_PARENT.
-	AnchorLayoutParams(Size w, Size h, bool c = false)
-		: LayoutParams(w, h, LP_ANCHOR), left(0), top(0), right(w == FILL_PARENT ? 0 : NONE), bottom(h == FILL_PARENT ? 0 : NONE), center(c) {
+	AnchorLayoutParams(Size w, Size h, Centering c = Centering::None)
+		: LayoutParams(w, h, LP_ANCHOR), left(0), top(0), right(w == FILL_PARENT ? 0 : NONE), bottom(h == FILL_PARENT ? 0 : NONE), centering(c) {
 	}
-	AnchorLayoutParams(float l, float t, float r, float b, bool c = false)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
+	AnchorLayoutParams(float l, float t, float r, float b, Centering c = Centering::None)
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b), centering(c) {}
 
 	// These are not bounds, but distances from the container edges.
 	// Set to NONE to not attach this edge to the container.
 	// If two opposite edges are NONE, centering will happen.
 	float left, top, right, bottom;
-	bool center;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
+	Centering centering;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
 
 	static LayoutParamsType StaticType() {
 		return LP_ANCHOR;

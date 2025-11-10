@@ -29,7 +29,7 @@
 #include "UI/PopupScreens.h"
 #include "GPU/Common/ShaderCommon.h"
 
-class DevMenuScreen : public PopupScreen {
+class DevMenuScreen : public UI::PopupScreen {
 public:
 	DevMenuScreen(const Path &gamePath, I18NCat cat) : PopupScreen(T(cat, "Dev Tools")), gamePath_(gamePath) {}
 
@@ -100,7 +100,7 @@ private:
 	void OnCompleted(DialogResult result) override;
 };
 
-class GPIGPOScreen : public PopupScreen {
+class GPIGPOScreen : public UI::PopupScreen {
 public:
 	GPIGPOScreen(std::string_view title) : PopupScreen(title, "OK") {}
 	const char *tag() const override { return "GPIGPO"; }

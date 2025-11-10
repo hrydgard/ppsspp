@@ -23,7 +23,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
-
+#include "Common/UI/PopupScreens.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -394,17 +394,18 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-			[this](bool result) {
-		if (result) {
-			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-			if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-				return;
-			}
-			g_Config.DeleteGameConfig(info->id);
-			info->hasConfig = false;
-			RecreateViews();
+		new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"),
+			trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [this](bool result) {
+		if (!result) {
+			return;
 		}
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+		if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+			return;
+		}
+		g_Config.DeleteGameConfig(info->id);
+		info->hasConfig = false;
+		RecreateViews();
 	}));
 }
 
@@ -483,7 +484,7 @@ void GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			Path gamePath = gamePath_;
 			screenManager()->push(
-				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+				new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 					[gamePath](bool yes) {
 				if (yes) {
 					std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
@@ -501,6 +502,7 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string prompt;
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
@@ -508,7 +510,7 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 		Path gamePath = gamePath_;
 		ScreenManager *sm = screenManager();
 		screenManager()->push(
-			new PromptScreen(gamePath_, prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+			new UI::MessagePopupScreen(ga->T("Delete Game"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 				[sm, gamePath](bool yes) {
 			if (yes) {
 				std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
@@ -526,7 +528,7 @@ void GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 	screenManager()->switchScreen(new MainScreen());
 }
 
-class SetBackgroundPopupScreen : public PopupScreen {
+class SetBackgroundPopupScreen : public UI::PopupScreen {
 public:
 	SetBackgroundPopupScreen(std::string_view title, const Path &gamePath)
 		: PopupScreen(title), gamePath_(gamePath) {

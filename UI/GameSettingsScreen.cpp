@@ -1709,17 +1709,23 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	System_RestartApp(param);
 }
 
+void GameSettingsScreen::TriggerRestartOrDo(std::function<void()> callback) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		if (yes) {
+			TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
+		} else {
+			callback();
+		}
+	}));
+}
+
 void GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-			if (yes) {
-				TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
-			} else {
-				g_Config.iGPUBackend = (int)GetGPUBackend();
-			}
-		}));
+		TriggerRestartOrDo([]() {
+			g_Config.iGPUBackend = (int)GetGPUBackend();
+		});
 	}
 }
 
@@ -1728,32 +1734,22 @@ void GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-			// If the user ends up deciding not to restart, set the config back to the current backend
-			// so it doesn't get switched by accident.
-			if (yes) {
-				TriggerRestart("GameSettingsScreen::RenderingDeviceYes", editThenRestore_, gamePath_);
-			} else {
-				std::string *deviceNameSetting = GPUDeviceNameSetting();
-				if (deviceNameSetting)
-					*deviceNameSetting = GetGPUBackendDevice();
-				// Needed to redraw the setting.
-				RecreateViews();
-			}
-		}));
+		TriggerRestartOrDo([this]() {
+			std::string *deviceNameSetting = GPUDeviceNameSetting();
+			if (deviceNameSetting)
+				*deviceNameSetting = GetGPUBackendDevice();
+			// Needed to redraw the setting.
+			RecreateViews();
+		});
 	}
 }
 
 void GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-			if (yes) {
-				TriggerRestart("GameSettingsScreen::InflightFramesYes", editThenRestore_, gamePath_);
-			} else {
-				g_Config.iInflightFrames = prevInflightFrames_;
-			}
-		}));
+		TriggerRestartOrDo([this]() {
+			g_Config.iInflightFrames = prevInflightFrames_;
+		});
 	}
 }
 

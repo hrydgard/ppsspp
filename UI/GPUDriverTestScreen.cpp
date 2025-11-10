@@ -301,7 +301,7 @@ void GPUDriverTestScreen::CreateViews() {
 	AnchorLayout *anchor = new AnchorLayout();
 	root_ = anchor;
 
-	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 30.0f, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, false));
+	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 30.0f, TabHolderFlags::Default, nullptr, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, Centering::None));
 	anchor->Add(tabHolder_);
 	tabHolder_->AddTab("Discard", ImageID::invalid(), new LinearLayout(ORIENT_VERTICAL));
 	tabHolder_->AddTab("Shader", ImageID::invalid(), new LinearLayout(ORIENT_VERTICAL));

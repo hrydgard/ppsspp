@@ -24,6 +24,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/TabHolder.h"
+#include "Common/UI/PopupScreens.h"
 #include "UI/BaseScreens.h"
 #include "Common/File/PathBrowser.h"
 
@@ -193,7 +194,7 @@ private:
 	void OnGameSettings(UI::EventParams &e);
 };
 
-class GridSettingsPopupScreen : public PopupScreen {
+class GridSettingsPopupScreen : public UI::PopupScreen {
 public:
 	GridSettingsPopupScreen(std::string_view label) : PopupScreen(label) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
