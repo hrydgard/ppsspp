@@ -22,6 +22,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Color/RGBAUtil.h"
@@ -32,7 +33,7 @@
 
 #include "UI/CustomButtonMappingScreen.h"
 
-class ButtonShapeScreen : public PopupScreen {
+class ButtonShapeScreen : public UI::PopupScreen {
 public:
 	ButtonShapeScreen(std::string_view title, int *setting) : PopupScreen(title), setting_(setting) {}
 
@@ -61,7 +62,7 @@ private:
 	int *setting_;
 };
 
-class ButtonIconScreen : public PopupScreen {
+class ButtonIconScreen : public UI::PopupScreen {
 public:
 	ButtonIconScreen(std::string_view title, int *setting) : PopupScreen(title), setting_(setting) {}
 

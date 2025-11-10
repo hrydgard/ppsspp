@@ -122,10 +122,10 @@ private:
 	std::string pendingMemstickFolder_;
 };
 
-class HostnameSelectScreen : public PopupScreen {
+class HostnameSelectScreen : public UI::PopupScreen {
 public:
 	HostnameSelectScreen(std::string *value, std::vector<std::string> *listItems, std::string_view title)
-		: PopupScreen(title, "OK", "Cancel"), listItems_(listItems), value_(value) {
+		: UI::PopupScreen(title, "OK", "Cancel"), listItems_(listItems), value_(value) {
 		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
 			thiz->ResolverThread();
 		}, this);
@@ -194,7 +194,7 @@ protected:
 	void CreateGestureTab(UI::LinearLayout *parent);
 };
 
-class RestoreSettingsScreen : public PopupScreen {
+class RestoreSettingsScreen : public UI::PopupScreen {
 public:
 	RestoreSettingsScreen(std::string_view title);
 	void CreatePopupContents(UI::ViewGroup *parent) override;

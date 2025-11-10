@@ -1,5 +1,6 @@
 #pragma once
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
@@ -57,7 +58,7 @@ private:
 	UI::TextView *globalStats_ = nullptr;
 };
 
-class AddressPromptScreen : public PopupScreen {
+class AddressPromptScreen : public UI::PopupScreen {
 public:
 	AddressPromptScreen(std::string_view title) : PopupScreen(title, "OK", "Cancel") {}
 

@@ -23,6 +23,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -32,6 +33,7 @@
 #include "Common/System/Request.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Core/KeyMap.h"
 #include "Core/Reporting.h"
@@ -72,7 +74,7 @@ static void AfterSaveStateAction(SaveState::Status status, std::string_view mess
 	}
 }
 
-class ScreenshotViewScreen : public PopupScreen {
+class ScreenshotViewScreen : public UI::PopupScreen {
 public:
 	ScreenshotViewScreen(const Path &filename, std::string title, int slot, Path gamePath)
 		: PopupScreen(title), filename_(filename), slot_(slot), gamePath_(gamePath), title_(title) {}   // PopupScreen will translate Back on its own
@@ -748,18 +750,6 @@ void GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	RecreateViews();
 }
 
-void GamePauseScreen::CallbackDeleteConfig(bool yes) {
-	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-			g_Config.UnloadGameConfig();
-			g_Config.DeleteGameConfig(info->id);
-			info->hasConfig = false;
-			screenManager()->RecreateAllViews();
-		}
-	}
-}
-
 void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
@@ -777,6 +767,17 @@ void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), di->T("Delete"), di->T("Cancel"),
-		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
+		new UI::MessagePopupScreen("", di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"),
+			di->T("Delete"), di->T("Cancel"), [this](bool yes) {
+		if (!yes) {
+			return;
+		}
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+			g_Config.UnloadGameConfig();
+			g_Config.DeleteGameConfig(info->id);
+			info->hasConfig = false;
+			screenManager()->RecreateAllViews();
+		}
+	}));
 }

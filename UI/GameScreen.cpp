@@ -23,7 +23,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
-
+#include "Common/UI/PopupScreens.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -526,7 +526,7 @@ void GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 	screenManager()->switchScreen(new MainScreen());
 }
 
-class SetBackgroundPopupScreen : public PopupScreen {
+class SetBackgroundPopupScreen : public UI::PopupScreen {
 public:
 	SetBackgroundPopupScreen(std::string_view title, const Path &gamePath)
 		: PopupScreen(title), gamePath_(gamePath) {
