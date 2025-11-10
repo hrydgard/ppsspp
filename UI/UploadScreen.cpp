@@ -39,7 +39,7 @@ void UploadScreen::CreateDialogViews(UI::ViewGroup *root) {
 	if (prevRunning_) {
 		container->Add(new TextWithImage(ImageID("I_WIFI"), n->T("With a web browser on the same network, go to:")));
 		for (const auto &ip : localIPs_) {
-			std::string url = StringFromFormat("http://%s:%d/upload", ip.c_str(), WebServerPort());
+			std::string url = StringFromFormat("%s:%d/upload", ip.c_str(), WebServerPort());
 			container->Add(new CopyableText(ImageID("I_WEB_BROWSER"), url));
 		}
 	}

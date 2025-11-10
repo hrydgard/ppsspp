@@ -539,7 +539,12 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *root) {
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		ScreenManager *sm = screenManager();
-		left->Add(new Choice(mm->T("Buy PPSSPP Gold")))->OnClick.Add([sm](UI::EventParams) {
+		Choice *gold = new Choice(mm->T("Buy PPSSPP Gold"));
+		gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
+		gold->SetShine(true);
+
+		left->Add(gold)->OnClick.Add([sm](UI::EventParams) {
 			LaunchBuyGold(sm);
 		});
 		rightYOffset = 74;

@@ -56,13 +56,11 @@
 
 constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE;
 
-GameScreen::GameScreen(const Path &gamePath, bool inGame) : UIBaseDialogScreen(gamePath), inGame_(inGame) {
+GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
-	// Start fetching info, we'll display it as it arrives. We keep the known fetch status in knownFlags_,
-	// and recreate views whenever info->hasFlags != knownFlags_.
-	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_);
+	info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_);
 }
 
 GameScreen::~GameScreen() {
@@ -109,13 +107,25 @@ void GameScreen::update() {
 	}
 }
 
-void GameScreen::CreateViews() {
-	GameInfoFlags hasFlags;
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
-	if (!info) {
+static bool FileTypeSupportsCRC(IdentifiedFileType fileType) {
+	switch (fileType) {
+	case IdentifiedFileType::PSP_PBP:
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_ISO:
+		return true;
+	default:
+		return false;
+	}
+}
+
+void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
+	if (!info_) {
 		// Shouldn't happen
 		return;
 	}
+
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
@@ -127,74 +137,64 @@ void GameScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 15, 15, 0);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(8)));
+	parent->Add(leftColumn);
 
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
-
-	bool fileTypeSupportCRC = false;
-	if (info) {
-		switch (info->fileType) {
-		case IdentifiedFileType::PSP_PBP:
-		case IdentifiedFileType::PSP_PBP_DIRECTORY:
-		case IdentifiedFileType::PSP_ISO_NP:
-		case IdentifiedFileType::PSP_ISO:
-			fileTypeSupportCRC = true;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	AddStandardBack(leftColumn);
-
-	ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(10, 10, 110, NONE));
-	LinearLayout *mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-	mainGameInfo->SetSpacing(3.0f);
+	const bool fileTypeSupportCRC = FileTypeSupportsCRC(info_->fileType);
 
 	// Need an explicit size here because homebrew uses screenshots as icons.
-	badgeHolder->Add(new GameIconView(gamePath_, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
-	badgeHolder->Add(mainGameInfo);
-	leftColumn->Add(badgeHolder);
+	LinearLayout *mainGameInfo;
+	if (portrait) {
+		mainGameInfo = new LinearLayout(ORIENT_VERTICAL);
+		leftColumn->Add(new Spacer(8.0f));
+		leftColumn->Add(new GameIconView(gamePath_, 2.0f, new LinearLayoutParams(UI::Margins(0))));
+		leftColumn->Add(mainGameInfo);
+	} else {
+		mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+		ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL);
+		badgeHolder->Add(new GameIconView(gamePath_, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
+		badgeHolder->Add(mainGameInfo);
+		leftColumn->Add(badgeHolder);
+	}
+	mainGameInfo->SetSpacing(3.0f);
 
-	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
-	leftColumn->Add(infoLayout);
-
-	if (hasFlags & GameInfoFlags::PARAM_SFO) {
+	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
 		// TODO: Add non-translated title here if available in gameDB.
-		TextView *tvTitle = mainGameInfo->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		TextView *tvTitle = mainGameInfo->Add(new TextView(info_->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvTitle->SetShadow(true);
 
-		TextView *tvID = mainGameInfo->Add(new TextView(ReplaceAll(info->id_version, "_", " v"), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		TextView *tvID = mainGameInfo->Add(new TextView(ReplaceAll(info_->id_version, "_", " v"), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvID->SetShadow(true);
 
-		if (info->region != GameRegion::UNKNOWN) {
-			TextView *tvRegion = mainGameInfo->Add(new TextView(ga->T(GameRegionToString(info->region)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		if (info_->region != GameRegion::UNKNOWN) {
+			TextView *tvRegion = mainGameInfo->Add(new TextView(ga->T(GameRegionToString(info_->region)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			tvRegion->SetShadow(true);
 		} else {
-			TextView *tvFileType = mainGameInfo->Add(new TextView(ga->T(IdentifiedFileTypeToString(info->fileType)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			TextView *tvFileType = mainGameInfo->Add(new TextView(ga->T(IdentifiedFileTypeToString(info_->fileType)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			tvFileType->SetShadow(true);
 		}
 	}
 
-	if ((hasFlags & GameInfoFlags::UNCOMPRESSED_SIZE) && (hasFlags & GameInfoFlags::SIZE)) {
+	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
+	leftColumn->Add(infoLayout);
+
+	if ((knownFlags_ & GameInfoFlags::UNCOMPRESSED_SIZE) && (knownFlags_ & GameInfoFlags::SIZE)) {
 		char temp[256];
-		snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("Game"), NiceSizeFormat(info->gameSizeOnDisk).c_str());
-		if (info->gameSizeUncompressed != info->gameSizeOnDisk) {
+		snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("Game"), NiceSizeFormat(info_->gameSizeOnDisk).c_str());
+		if (info_->gameSizeUncompressed != info_->gameSizeOnDisk) {
 			size_t len = strlen(temp);
-			snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
+			snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info_->gameSizeUncompressed).c_str());
 		}
 		TextView *tvGameSize = mainGameInfo->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvGameSize->SetShadow(true);
-		
-		if (info->saveDataSize > 0) {
-			snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
+
+		if (info_->saveDataSize > 0) {
+			snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("SaveData"), NiceSizeFormat(info_->saveDataSize).c_str());
 			TextView *tvSaveDataSize = infoLayout->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			tvSaveDataSize->SetShadow(true);
 		}
-		if (info->installDataSize > 0) {
-			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float)(info->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
+		if (info_->installDataSize > 0) {
+			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float)(info_->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
 			TextView *tvInstallDataSize = infoLayout->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			tvInstallDataSize->SetShadow(true);
 		}
@@ -203,7 +203,7 @@ void GameScreen::CreateViews() {
 	infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 
 	std::string str;
-	if (g_Config.TimeTracker().GetPlayedTimeString(info->id, &str)) {
+	if (g_Config.TimeTracker().GetPlayedTimeString(info_->id, &str)) {
 		TextView *tvPlayTime = infoLayout->Add(new TextView(str, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvPlayTime->SetShadow(true);
 		tvPlayTime->SetText(str);
@@ -222,7 +222,7 @@ void GameScreen::CreateViews() {
 			tvCRC->SetShadow(true);
 
 			if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
-				Button *tvCRCCopy = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
+				Choice *tvCRCCopy = crcHoriz->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 				tvCRCCopy->OnClick.Add([this](UI::EventParams &) {
 					u32 crc = Reporting::RetrieveCRC(gamePath_);
 					char buffer[16];
@@ -235,7 +235,7 @@ void GameScreen::CreateViews() {
 
 			// Let's check the CRC in the game database, looking up the ID and also matching the crc.
 			std::vector<GameDBInfo> dbInfos;
-			if ((hasFlags & GameInfoFlags::PARAM_SFO) && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+			if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && g_gameDB.GetGameInfos(info_->id_version, &dbInfos)) {
 				bool found = false;
 				for (auto &dbInfo : dbInfos) {
 					if (dbInfo.crc == crcVal) {
@@ -250,15 +250,15 @@ void GameScreen::CreateViews() {
 		} else if (!isHomebrew_) {
 			GameDBInfo dbInfo;
 			std::vector<GameDBInfo> dbInfos;
-			if ((hasFlags & GameInfoFlags::PARAM_SFO) && !g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+			if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && !g_gameDB.GetGameInfos(info_->id_version, &dbInfos)) {
 				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
 				// tvVerified_->SetVisibility(UI::V_VISIBLE);
 				// tvVerified_->SetLevel(NoticeLevel::WARN);
-			} else if ((hasFlags & GameInfoFlags::UNCOMPRESSED_SIZE) && info->gameSizeUncompressed != 0) {  // don't do this check if info still pending
+			} else if ((knownFlags_ & GameInfoFlags::UNCOMPRESSED_SIZE) && info_->gameSizeUncompressed != 0) {  // don't do this check if info_ still pending
 				bool found = false;
 				for (auto &dbInfo : dbInfos) {
 					// TODO: Doesn't take CSO/CHD into account.
-					if (info->gameSizeUncompressed == dbInfo.size) {
+					if (info_->gameSizeUncompressed == dbInfo.size) {
 						found = true;
 					}
 				}
@@ -266,7 +266,7 @@ void GameScreen::CreateViews() {
 					// tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
 					// tvVerified_->SetVisibility(UI::V_VISIBLE);
 					// tvVerified_->SetLevel(NoticeLevel::ERROR);
-					// INFO_LOG(Log::Loader, "File size %d not matching game DB", (int)info->gameSizeUncompressed);
+					// INFO_LOG(Log::Loader, "File size %d not matching game DB", (int)info_->gameSizeUncompressed);
 				}
 
 				NoticeView *tvVerified = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -280,8 +280,8 @@ void GameScreen::CreateViews() {
 	tvVerified->SetVisibility(UI::V_GONE);
 	tvVerified->SetSquishy(true);
 
-	// Show plugin info, if any. Later might add checkboxes.
-	auto plugins = HLEPlugins::FindPlugins(info->id, g_Config.sLanguageIni);
+	// Show plugin info_, if any. Later might add checkboxes.
+	auto plugins = HLEPlugins::FindPlugins(info_->id, g_Config.sLanguageIni);
 	if (!plugins.empty()) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		infoLayout->Add(new TextView(sy->T("Plugins"), ALIGN_LEFT, true));
@@ -290,24 +290,31 @@ void GameScreen::CreateViews() {
 		}
 	}
 
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-	root_->Add(rightColumn);
+}
+
+void GameScreen::CreateSettingsViews(UI::LinearLayout *rightColumn) {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ga = GetI18NCategory(I18NCat::GAME);
+
+	const bool fileTypeSupportCRC = FileTypeSupportsCRC(info_->fileType);
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
 	if (!inGame_) {
-		rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Handle(this, &GameScreen::OnPlay);
 	}
 
-	if (!info->id.empty()) {
+	if (!info_->id.empty()) {
 		Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
 		btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
 		if (inGame_)
 			btnGameSettings->SetEnabled(false);
 
-		if (info->hasConfig) {
+		if (info_->hasConfig) {
 			Choice *btnDeleteGameConfig = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 			btnDeleteGameConfig->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
 			if (inGame_)
@@ -320,7 +327,7 @@ void GameScreen::CreateViews() {
 		}
 	}
 
-	if (info->saveDataSize) {
+	if (info_->saveDataSize) {
 		Choice *btnDeleteSaveData = new Choice(ga->T("Delete Save Data"));
 		rightColumnItems->Add(btnDeleteSaveData)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
 	}
@@ -332,12 +339,12 @@ void GameScreen::CreateViews() {
 		deleteChoice->SetEnabled(false);
 	}
 
-	if ((hasFlags & GameInfoFlags::PARAM_SFO) && System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
+	if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
 		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Add([this](UI::EventParams &e) {
 			GameInfoFlags hasFlags;
-			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO, &hasFlags);
+			std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO, &hasFlags);
 			if (hasFlags & GameInfoFlags::PARAM_SFO) {
-				System_CreateGameShortcut(gamePath_, info->GetTitle());
+				System_CreateGameShortcut(gamePath_, info_->GetTitle());
 				g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetI18NCategory(I18NCat::DIALOG)->T("Desktop shortcut created"), 2.0f);
 			}
 		});
@@ -353,7 +360,7 @@ void GameScreen::CreateViews() {
 	}
 
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		rightColumnItems->Add(new Choice(di->T("Show in folder")))->OnClick.Add([this](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER")))->OnClick.Add([this](UI::EventParams &e) {
 			System_ShowFileInFolder(gamePath_);
 		});
 	}
@@ -363,12 +370,12 @@ void GameScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GameScreen::OnCwCheat);
 	}
 
-	if (info->pic1.texture) {
+	if (info_->pic1.texture) {
 		Choice *btnSetBackground = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
 		btnSetBackground->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	}
 
-	isHomebrew_ = info && info->region == GameRegion::HOMEBREW;
+	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
 		Choice *btnCalcCRC = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
 		btnCalcCRC->OnClick.Add([this](UI::EventParams &) {
@@ -466,20 +473,20 @@ void GameScreen::OnPlay(UI::EventParams &e) {
 }
 
 void GameScreen::OnGameSettings(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-	if (info && info->Ready(GameInfoFlags::PARAM_SFO)) {
-		std::string discID = info->GetParamSFO().GetValueString("DISC_ID");
-		if ((discID.empty() || !info->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
+	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (info_ && info_->Ready(GameInfoFlags::PARAM_SFO)) {
+		std::string discID = info_->GetParamSFO().GetValueString("DISC_ID");
+		if ((discID.empty() || !info_->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
 			discID = g_paramSFO.GenerateFakeID(gamePath_);
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
 	}
 }
 
 void GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
-	if (info) {
+	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
+	if (info_) {
 		// Check that there's any savedata to delete
-		if (info->saveDataSize) {
+		if (info_->saveDataSize) {
 			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			Path gamePath = gamePath_;
@@ -487,10 +494,10 @@ void GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 				new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 					[gamePath](bool yes) {
 				if (yes) {
-					std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
-					info->DeleteAllSaveData();
-					info->saveDataSize = 0;
-					info->installDataSize = 0;
+					std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
+					info_->DeleteAllSaveData();
+					info_->saveDataSize = 0;
+					info_->installDataSize = 0;
 				}
 			}));
 		}
@@ -499,8 +506,8 @@ void GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 }
 
 void GameScreen::OnDeleteGame(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (info_->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string prompt;
@@ -513,8 +520,8 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 			new UI::MessagePopupScreen(ga->T("Delete Game"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 				[sm, gamePath](bool yes) {
 			if (yes) {
-				std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
-				info->Delete();
+				std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
+				info_->Delete();
 				g_gameInfoCache->Clear();
 				g_recentFiles.Remove(gamePath.c_str());
 				sm->switchScreen(new MainScreen());

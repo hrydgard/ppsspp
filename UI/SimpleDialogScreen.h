@@ -39,6 +39,9 @@ public:
 	virtual void CreateSettingsViews(UI::LinearLayout *parent) = 0;
 	virtual void CreateContentViews(UI::LinearLayout *parent) = 0;
 	virtual std::string_view GetTitle() const { return ""; }
+	virtual float SettingsWidth() const { return 350.0f; }
+
+	virtual bool SettingsToTheRight() const { return false; }
 
 private:
 	void CreateViews() override;

@@ -170,6 +170,8 @@ public:
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, const Margins &mgn)
 		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(Size w, Size h, Gravity grav, const Margins &mgn)
+		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(grav), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, float wgt, const Margins &mgn)
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(const Margins &mgn)
