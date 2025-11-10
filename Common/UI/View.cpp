@@ -468,15 +468,14 @@ void Choice::ClickInternal() {
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	float totalW = 0.0f;
 	float totalH = 0.0f;
-	int paddingLeft = 12;
-	int paddingRight = 12;
-
 	if (!text_.empty() && !hideTitle_) {
+		int paddingLeft = 12;
+		int paddingRight = 12;
 		if (rightIconImage_.isValid()) {
 			paddingRight = ITEM_HEIGHT;
 		}
 
-		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz();
+		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz() - totalW;
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
@@ -488,19 +487,20 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		float textW = 0.0f, textH = 0.0f;
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availBounds, &textW, &textH, FLAG_WRAP_TEXT);
 		totalH = std::max(totalH, textH);
+		totalW += textW;
 		if (image_.isValid()) {
-			paddingLeft = ITEM_HEIGHT;
+			totalW += 12;
+			totalW += totalH;
 		}
-		totalW = paddingLeft + textW + paddingRight + textPadding_.horiz();
 	} else {
 		if (image_.isValid()) {
 			dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
-			totalW = w * imgScale_ + paddingLeft + paddingRight;
+			totalW = w * imgScale_ + 6;
 			totalH = h * imgScale_;
 		}
 	}
 
-	w = totalW;
+	w = totalW + (text_.empty() ? 16 : 24);
 	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
 }

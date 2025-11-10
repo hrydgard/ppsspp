@@ -1002,9 +1002,10 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			std::string confirmExitMessage = GetConfirmExitMessage();
 			if (!confirmExitMessage.empty()) {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
+				auto mm = GetI18NCategory(I18NCat::MAINMENU);
 				confirmExitMessage += '\n';
 				confirmExitMessage += di->T("Are you sure you want to exit?");
-				screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+				screenManager()->push(new UI::MessagePopupScreen(mm->T("Exit"), confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
 					if (result) {
 						System_ExitApp();
 					}

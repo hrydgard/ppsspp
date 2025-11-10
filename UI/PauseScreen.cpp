@@ -606,7 +606,7 @@ void GamePauseScreen::CreateViews() {
 				std::string confirmMessage = GetConfirmExitMessage();
 				if (!confirmMessage.empty()) {
 					auto di = GetI18NCategory(I18NCat::DIALOG);
-					screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Reset"), di->T("Cancel"), [=](bool result) {
+					screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [=](bool result) {
 						if (result) {
 							System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 						}
@@ -707,9 +707,8 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 
 	if (!confirmExitMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		confirmExitMessage += '\n';
-		confirmExitMessage += di->T("Are you sure you want to exit?");
-		screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+		std::string_view title = di->T("Are you sure you want to exit?");
+		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, di->T("Exit"), di->T("Cancel"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
@@ -766,9 +765,10 @@ void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 
 void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
-		new UI::MessagePopupScreen("", di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"),
-			di->T("Delete"), di->T("Cancel"), [this](bool yes) {
+		new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"),
+			trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [this](bool yes) {
 		if (!yes) {
 			return;
 		}

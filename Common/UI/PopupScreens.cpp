@@ -17,15 +17,10 @@
 namespace UI {
 
 PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
-	: title_(title) {
+	: title_(title), button1_(button1), button2_(button2) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	if (!button1.empty())
-		button1_ = di->T(button1);
-	if (!button2.empty())
-		button2_ = di->T(button2);
-
-	// Auto-assign images.
-	if (button1 == "Delete") {
+	// Auto-assign images. A bit hack to have this here.
+	if (button1 == di->T("Delete") || button1 == di->T("Move to trash")) {
 		button1Image_ = ImageID("I_TRASHCAN");
 	}
 

@@ -106,6 +106,8 @@ private:
 
 	void OnAdhocGuides(UI::EventParams &e);
 
+	void TriggerRestartOrDo(std::function<void()> callback);
+
 	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_ = 0;
 	int iAlternateSpeedPercent2_ = 0;
