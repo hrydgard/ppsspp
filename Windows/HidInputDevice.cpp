@@ -575,8 +575,6 @@ bool ReadDualSenseInput(HANDLE handle, HIDControllerState *state) {
 	buttons &= ~0xF;
 	buttons |= DecodeHatSwitch(report.buttons[0] & 0xF);
 
-	INFO_LOG(Log::sceCtrl, "DualSense accel: %0.2f %0.2f %0.2f", state->accelerometer[0], state->accelerometer[1], state->accelerometer[2]);
-
 	state->buttons = buttons;
 	return true;
 }
