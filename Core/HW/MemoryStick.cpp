@@ -35,8 +35,10 @@
 #include "Common/Thread/Promise.h"
 
 // MS and FatMS states.
-static MemStickState memStickState;
-static MemStickFatState memStickFatState;
+// Initialize to INSERTED state by default to avoid race conditions on Android
+// where the save dialog might check state before MemoryStick_Init() is called.
+static MemStickState memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
+static MemStickFatState memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
 static bool memStickNeedsAssign = false;
 static uint64_t memStickInsertedAt = 0;
 static uint64_t memstickInitialFree = 0;
