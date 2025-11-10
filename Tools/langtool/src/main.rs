@@ -90,6 +90,10 @@ enum Command {
         language: String,
         section: Option<String>,
     },
+    RemoveLinebreaks {
+        section: String,
+        key: String,
+    },
 }
 
 fn copy_missing_lines(
@@ -216,6 +220,14 @@ fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<
     Ok(())
 }
 
+fn remove_linebreaks(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
+    if let Some(old_section) = target_ini.get_section_mut(section) {
+        old_section.remove_linebreaks(key);
+    } else {
+        println!("No section {section}");
+    }
+    Ok(())
+}
 fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str, value: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.insert_line_if_missing(&format!("{key} = {value}"));
@@ -796,6 +808,12 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             } => {
                 remove_key(&mut target_ini, section, key).unwrap();
             }
+            Command::RemoveLinebreaks {
+                ref section,
+                ref key,
+            } => {
+                remove_linebreaks(&mut target_ini, section, key).unwrap();
+            }
             Command::ImportSingle {
                 filename: _,
                 ref section,
@@ -905,6 +923,12 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             ref key,
         } => {
             remove_key(&mut reference_ini, section, key).unwrap();
+        }
+        Command::RemoveLinebreaks {
+            ref section,
+            ref key,
+        } => {
+            remove_linebreaks(&mut reference_ini, section, key).unwrap();
         }
         _ => {}
     }
