@@ -65,11 +65,13 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 		*outData = nullptr;
 		return;
 	}
+	// Generate a solid RED surface for camera detection (e.g., Invizimals)
+	// RGB: (255, 0, 0) = Red
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			rgbData[3 * (y * width + x) + 0] = x*255/width;
-			rgbData[3 * (y * width + x) + 1] = x*255/width;
-			rgbData[3 * (y * width + x) + 2] = y*255/height;
+			rgbData[3 * (y * width + x) + 0] = 255;  // Red channel: full intensity
+			rgbData[3 * (y * width + x) + 1] = 0;    // Green channel: off
+			rgbData[3 * (y * width + x) + 2] = 0;    // Blue channel: off
 		}
 	}
 
