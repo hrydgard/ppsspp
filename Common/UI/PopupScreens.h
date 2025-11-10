@@ -50,7 +50,8 @@ protected:
 
 private:
 	UI::LinearLayout *box_ = nullptr;
-	UI::Button *defaultButton_ = nullptr;
+	UI::Choice *defaultButton_ = nullptr;
+	ImageID button1Image_;
 	std::string title_;
 	std::string button1_;
 	std::string button2_;

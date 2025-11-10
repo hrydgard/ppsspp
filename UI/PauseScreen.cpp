@@ -170,13 +170,13 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 
-	std::string message(di->T("DeleteConfirmSaveState"));
-	message += "\n\n" + info->GetTitle() + " (" + info->id + ")";
+	std::string_view title = di->T("Delete");
+	std::string message = std::string(di->T("DeleteConfirmSaveState")) + "\n\n" + info->GetTitle() + " (" + info->id + ")";
 	message += "\n\n" + title_;
 
 	// TODO: Also show the screenshot on the confirmation screen?
 
-	screenManager()->push(new PromptScreen(gamePath_, message, di->T("Delete"), di->T("Cancel"), [=](bool result) {
+	screenManager()->push(new UI::MessagePopupScreen(title, message, di->T("Delete"), di->T("Cancel"), [=](bool result) {
 		if (result) {
 			SaveState::DeleteSlot(gamePath_, slot_);
 			TriggerFinish(DR_CANCEL);

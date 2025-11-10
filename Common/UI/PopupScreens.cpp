@@ -23,6 +23,12 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 		button1_ = di->T(button1);
 	if (!button2.empty())
 		button2_ = di->T(button2);
+
+	// Auto-assign images.
+	if (button1 == "Delete") {
+		button1Image_ = ImageID("I_TRASHCAN");
+	}
+
 	alpha_ = 0.0f;  // inherited
 }
 
@@ -126,17 +132,25 @@ void PopupScreen::CreateViews() {
 	anchor->Overflow(false);
 	root_ = anchor;
 
-	float yres = screenManager()->getUIContext()->GetBounds().h;
+	const float ySize = FillVertical() ? dc.GetLayoutBounds().h - 30 : WRAP_CONTENT;
+
+	int y = dc.GetBounds().centerY() + offsetY_;
+	Centering vCentering = Centering::Vertical;
+	if (alignTop_) {
+		y = 0;
+		vCentering = Centering::None;
+	}
+
+	const float popupWidth = PopupWidth();
 
 	AnchorLayoutParams *anchorParams;
-	if (!alignTop_) {
-		// Standard centering etc.
-		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
-			dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, Centering::Both);
+	// NOTE: We purely use the popup width here to decide the type of layout, instead of the device orientation.
+	if (dc.GetLayoutBounds().w < popupWidth + 50) {
+		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
+			10, y, 10, NONE, vCentering);
 	} else {
-		// Top-aligned, for dialogs where we need to pop a keyboard below.
-		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
-			NONE, 0, NONE, NONE, Centering::None);
+		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
+			dc.GetBounds().centerX(), y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
@@ -159,6 +173,7 @@ void PopupScreen::CreateViews() {
 	});
 
 	root_->SetDefaultFocusView(box_);
+
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
@@ -167,14 +182,16 @@ void PopupScreen::CreateViews() {
 
 		// Adjust button order to the platform default.
 		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
-			defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
-			if (!button2_.empty())
-				buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+			if (!button2_.empty()) {
+				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+			}
 		} else {
-			if (!button2_.empty())
-				buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
-			defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
+			if (!button2_.empty()) {
+				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+			}
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		}
 
