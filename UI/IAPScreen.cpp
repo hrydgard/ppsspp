@@ -15,9 +15,9 @@ void IAPScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	const bool vertical = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	root_ = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	
 	const bool bought = System_GetPropertyBool(SYSPROP_APP_GOLD);
 

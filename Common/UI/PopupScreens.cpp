@@ -184,9 +184,9 @@ void PopupScreen::CreateViews() {
 			}
 		} else {
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
-			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		}
 

@@ -819,6 +819,9 @@ public:
 	AbstractChoiceWithValueDisplay(std::string_view text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, layoutParams) {
 	}
+	AbstractChoiceWithValueDisplay(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: Choice(text, image, layoutParams) {
+	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;

@@ -497,13 +497,12 @@ class ChoiceWithValueDisplay : public AbstractChoiceWithValueDisplay {
 public:
 	ChoiceWithValueDisplay(int *value, std::string_view text, LayoutParams *layoutParams = 0)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), iValue_(value) {}
-
+	ChoiceWithValueDisplay(int *value, ImageID imageId, LayoutParams *layoutParams = 0)
+		: AbstractChoiceWithValueDisplay("", imageId, layoutParams), iValue_(value) {}
 	ChoiceWithValueDisplay(std::string *value, std::string_view text, I18NCat category, LayoutParams *layoutParams = 0)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), category_(category) {}
-
 	ChoiceWithValueDisplay(std::string *value, std::string_view text, std::string(*translateCallback)(std::string_view value), LayoutParams *layoutParams = 0)
-		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {
-	}
+		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {}
 
 private:
 	std::string ValueText() const override;

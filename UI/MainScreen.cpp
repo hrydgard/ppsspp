@@ -1170,24 +1170,24 @@ UI::ViewGroup *MainScreen::CreateLogoView(bool portrait, UI::LayoutParams *layou
 	return logos;
 }
 
-void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
+void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	if (vertical) {
+	if (portrait) {
 		parent->Add(new Spacer(1.0f, new LinearLayoutParams(1.0f)));
 	}
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		parent->Add(vertical ? new Choice(ImageID("I_FOLDER_OPEN"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+		parent->Add(portrait ? new Choice(ImageID("I_FOLDER_OPEN"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 	}
-	parent->Add(vertical ? new Choice(ImageID("I_GEAR"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	parent->Add(vertical ? new Choice(ImageID("I_INFO"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	parent->Add(portrait ? new Choice(ImageID("I_GEAR"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	parent->Add(portrait ? new Choice(ImageID("I_INFO"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
 
-	if (!vertical) {
+	if (!portrait) {
 		parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	}
 
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = parent->Add(vertical ? new Choice(ImageID("I_ICON_GOLD"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
+		Choice *gold = parent->Add(portrait ? new Choice(ImageID("I_ICON_GOLD"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Add([this](UI::EventParams &) {
 			LaunchBuyGold(this->screenManager());
 		});
@@ -1196,7 +1196,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 		gold->SetShine(true);
 	}
 
-	if (!vertical) {
+	if (!portrait) {
 		parent->Add(new Spacer(25.0));
 	}
 
@@ -1204,8 +1204,8 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	// Additionally, the Exit button creates problems on Android.
 	// Also we remove it in the vertical layout on all platforms, just no space.
-	if (!vertical) {
-		parent->Add(new Choice(mm->T("Exit"), vertical ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
+	if (!portrait) {
+		parent->Add(new Choice(mm->T("Exit"), portrait ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
 	}
 #endif
 }
