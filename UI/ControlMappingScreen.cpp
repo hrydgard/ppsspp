@@ -900,7 +900,7 @@ void VisualMappingScreen::CreateViews() {
 	bounds.w -= leftColumnWidth + 10.0f;
 
 	AnchorLayout *rightColumn = new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f));
-	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, Centering::Both)));
 	psp_->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
 
 	root_->Add(leftColumn);

@@ -94,7 +94,7 @@ private:
 class ButtonPreview : public UI::View {
 public:
 	ButtonPreview(ImageID bgImg, ImageID img, float rotationIcon, bool flipShape, float rotationShape, int x, int y)
-		: View(new UI::AnchorLayoutParams(x, y, UI::NONE, UI::NONE, true)), bgImg_(bgImg), img_(img), rotI_(rotationIcon),
+		: View(new UI::AnchorLayoutParams(x, y, UI::NONE, UI::NONE, UI::Centering::Both)), bgImg_(bgImg), img_(img), rotI_(rotationIcon),
 		flipS_(flipShape), rotS_(rotationShape), x_(x), y_(y) {}
 
 	void Draw(UIContext &dc) override {

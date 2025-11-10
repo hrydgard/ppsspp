@@ -132,11 +132,11 @@ void PopupScreen::CreateViews() {
 	if (!alignTop_) {
 		// Standard centering etc.
 		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
-			dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, true);
+			dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, Centering::Both);
 	} else {
 		// Top-aligned, for dialogs where we need to pop a keyboard below.
 		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
-			NONE, 0, NONE, NONE, false);
+			NONE, 0, NONE, NONE, Centering::None);
 	}
 
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
@@ -250,7 +250,7 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	// Hacky: Override the position to look like a popup menu.
 	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
-	ap->center = false;
+	ap->centering = Centering::None;
 	ap->left = sourceView_->GetBounds().x;
 	ap->top = sourceView_->GetBounds().y2();
 }

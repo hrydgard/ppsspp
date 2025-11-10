@@ -1226,15 +1226,15 @@ protected:
 static UI::AnchorLayoutParams *AnchorInCorner(const Bounds &bounds, int corner, float xOffset, float yOffset) {
 	using namespace UI;
 	switch ((ScreenEdgePosition)g_Config.iChatButtonPosition) {
-	case ScreenEdgePosition::BOTTOM_LEFT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
-	case ScreenEdgePosition::BOTTOM_CENTER: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, yOffset, true);
-	case ScreenEdgePosition::BOTTOM_RIGHT:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, xOffset, yOffset, true);
-	case ScreenEdgePosition::TOP_LEFT:      return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, yOffset, NONE, NONE, true);
-	case ScreenEdgePosition::TOP_CENTER:    return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), yOffset, NONE, NONE, true);
-	case ScreenEdgePosition::TOP_RIGHT:     return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, yOffset, xOffset, NONE, true);
-	case ScreenEdgePosition::CENTER_LEFT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, bounds.centerY(), NONE, NONE, true);
-	case ScreenEdgePosition::CENTER_RIGHT:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), xOffset, NONE, true);
-	default: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
+	case ScreenEdgePosition::BOTTOM_LEFT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, Centering::Both);
+	case ScreenEdgePosition::BOTTOM_CENTER: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, yOffset, Centering::Both);
+	case ScreenEdgePosition::BOTTOM_RIGHT:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, xOffset, yOffset, Centering::Both);
+	case ScreenEdgePosition::TOP_LEFT:      return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, yOffset, NONE, NONE, Centering::Both);
+	case ScreenEdgePosition::TOP_CENTER:    return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), yOffset, NONE, NONE, Centering::Both);
+	case ScreenEdgePosition::TOP_RIGHT:     return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, yOffset, xOffset, NONE, Centering::Both);
+	case ScreenEdgePosition::CENTER_LEFT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, bounds.centerY(), NONE, NONE, Centering::Both);
+	case ScreenEdgePosition::CENTER_RIGHT:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), xOffset, NONE, Centering::Both);
+	default: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, Centering::Both);
 	}
 }
 
@@ -1260,7 +1260,7 @@ void EmuScreen::CreateViews() {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
 
-	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, true));
+	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, Centering::Both));
 	buttons->SetSpacing(20.0f);
 	root_->Add(buttons);
 
@@ -1288,7 +1288,7 @@ void EmuScreen::CreateViews() {
 	});
 	backButton_->SetVisibility(V_GONE);
 
-	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
+	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, Centering::Both)));
 	DeviceOrientation orientation = GetDeviceOrientation();
 	cardboardDisableButton_->OnClick.Add([deviceOrientation](UI::EventParams &) {
 		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(deviceOrientation);
@@ -1311,7 +1311,7 @@ void EmuScreen::CreateViews() {
 		chatMenu_->SetVisibility(UI::V_GONE);
 	}
 
-	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
+	saveStatePreview_ = new AsyncImageFileView(Path(), IS_FIXED, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, Centering::Both));
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
 	saveStatePreview_->SetVisibility(V_GONE);
@@ -1327,7 +1327,7 @@ void EmuScreen::CreateViews() {
 		ImageID("I_TRIANGLE"),
 	};
 
-	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, true)));
+	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, Centering::Both)));
 	loadingSpinner_ = loadingSpinner;
 
 	loadingBG->SetTag("LoadingBG");

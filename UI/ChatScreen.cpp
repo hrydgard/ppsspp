@@ -59,22 +59,22 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	switch (g_Config.iChatScreenPosition) {
 	// the chat screen size is still static 280x240 need a dynamic size based on device resolution 
 	case 0:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, 280, NONE, NONE, 240, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, 280, NONE, NONE, 240, Centering::Both));
 		break;
 	case 1:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, screenBounds.centerX(), NONE, NONE, 240, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, screenBounds.centerX(), NONE, NONE, 240, Centering::Both));
 		break;
 	case 2:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, NONE, NONE, 280, 240, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, NONE, NONE, 280, 240, Centering::Both));
 		break;
 	case 3:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, 280, 240, NONE, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, 280, 240, NONE, NONE, Centering::Both));
 		break;
 	case 4:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, screenBounds.centerX(), 240, NONE, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, screenBounds.centerX(), 240, NONE, NONE, Centering::Both));
 		break;
 	case 5:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, NONE, 240, 280, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(width, WRAP_CONTENT, NONE, 240, 280, NONE, Centering::Both));
 		break;
 	default:
 		box_ = nullptr;

@@ -1135,11 +1135,11 @@ UI::ViewGroup *MainScreen::CreateLogoView(bool portrait, UI::LayoutParams *layou
 	using namespace UI;
 	AnchorLayout *logos = new AnchorLayout(layoutParams);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE)));
 	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE)));
 	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE)));
 
 	std::string versionString = PPSSPP_GIT_VERSION;
 	// Strip the 'v' from the displayed version, and shorten the commit hash.
@@ -1325,7 +1325,7 @@ void MainScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE)
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
-		fullscreenButton_ = logo->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_ = logo->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
 		fullscreenButton_->SetIgnoreText(true);
 		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 #endif

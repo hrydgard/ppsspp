@@ -805,10 +805,12 @@ void AnchorLayout::MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureS
 			width = params->width;
 			height = params->height;
 
-			if (!params->center) {
+			if (!(params->centering & Centering::Horizontal)) {
 				if (params->left > NONE && params->right > NONE) {
 					width = measuredWidth_ - params->left - params->right;
 				}
+			}
+			if (!(params->centering & Centering::Vertical)) {
 				if (params->top > NONE && params->bottom > NONE) {
 					height = measuredHeight_ - params->top - params->bottom;
 				}
@@ -839,22 +841,22 @@ static void ApplyAnchorLayoutParams(float measuredWidth, float measuredHeight, c
 	if (vBounds->h > container.h) vBounds->h = container.h;
 
 	float left = 0, top = 0, right = 0, bottom = 0;
-	bool center = false;
+	Centering centering = Centering::None;
 	if (params) {
 		left = params->left;
 		top = params->top;
 		right = params->right;
 		bottom = params->bottom;
-		center = params->center;
+		centering = params->centering;
 	}
 
 	if (left > NONE) {
 		vBounds->x = container.x + left;
-		if (center)
+		if (centering & Centering::Horizontal)
 			vBounds->x -= vBounds->w * 0.5f;
 	} else if (right > NONE) {
 		vBounds->x = container.x2() - right - vBounds->w;
-		if (center) {
+		if (centering & Centering::Horizontal) {
 			vBounds->x += vBounds->w * 0.5f;
 		}
 	} else {
@@ -864,11 +866,11 @@ static void ApplyAnchorLayoutParams(float measuredWidth, float measuredHeight, c
 
 	if (top > NONE) {
 		vBounds->y = container.y + top;
-		if (center)
+		if (centering & Centering::Vertical)
 			vBounds->y -= vBounds->h * 0.5f;
 	} else if (bottom > NONE) {
 		vBounds->y = container.y2() - bottom - vBounds->h;
-		if (center)
+		if (centering & Centering::Vertical)
 			vBounds->y += vBounds->h * 0.5f;
 	} else {
 		// Both top and bottom are NONE. Center.
