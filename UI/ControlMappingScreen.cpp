@@ -232,7 +232,7 @@ static const BindingCategory cats[] = {
 	{},  // sentinel
 };
 
-void ControlMappingScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {
+void ControlMappingScreen::CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) {
 	using namespace UI;
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 	verticalLayout->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {

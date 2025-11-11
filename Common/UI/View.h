@@ -463,6 +463,10 @@ public:
 	}
 
 	virtual void Recurse(void (*func)(View *view)) {}
+	virtual void SetAutoResult(DialogResult result) {
+		hasAutoResult_ = true;
+		autoResult_ = result;
+	}
 
 protected:
 	// Inputs to layout
@@ -482,6 +486,8 @@ protected:
 
 	// Whether to use popup colors for styling.
 	bool popupStyle_ = false;
+	bool hasAutoResult_ = false;
+	DialogResult autoResult_ = DR_OK;
 
 private:
 	std::function<bool()> enabledFunc_;
@@ -893,6 +899,9 @@ public:
 	virtual void Toggle();
 	virtual bool Toggled() const;
 
+	// we don't allow these for checkboxes.
+	virtual void SetAutoResult(DialogResult result) {}
+
 protected:
 	void ClickInternal() override;
 
@@ -997,7 +1006,6 @@ private:
 	bool small_ = false;
 	bool big_ = false;
 };
-
 
 class TextView : public InertView {
 public:

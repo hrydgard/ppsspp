@@ -221,6 +221,9 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 void Clickable::ClickInternal() {
 	UI::EventParams e{};
 	e.v = this;
+	if (hasAutoResult_) {
+		e.bubbleResult = autoResult_;
+	}
 	OnClick.Trigger(e);
 };
 

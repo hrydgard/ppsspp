@@ -671,7 +671,7 @@ void SavedataScreen::CreateTabs() {
 	});
 }
 
-void SavedataScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {
+void SavedataScreen::CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) {
 	using namespace UI;
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);

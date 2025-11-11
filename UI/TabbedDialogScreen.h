@@ -20,6 +20,7 @@ enum class TabDialogFlags {
 	HorizontalOnlyIcons = 1,
 	VerticalShowIcons = 2,
 	AddTitles = 4,
+	ContextMenuInPortrait = 8,
 };
 ENUM_CLASS_BITOPS(TabDialogFlags);
 
@@ -45,9 +46,10 @@ protected:
 	// Load data and define your tabs here.
 	virtual void PreCreateViews() {}
 	virtual void CreateTabs() = 0;
-	virtual void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {}
+	virtual void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) {}
 	virtual bool ShowSearchControls() const { return true; }
 	virtual void EnsureTabs();
+	virtual bool UsePopupMenuInPortrait() const { return false; }
 	virtual bool ForceHorizontalTabs() const { return false; }
 
 	int GetCurrentTab() const;

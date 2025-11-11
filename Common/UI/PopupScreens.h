@@ -241,7 +241,6 @@ struct ContextMenuItem {
 class PopupContextMenuScreen : public PopupScreen {
 public:
 	PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView);
-	void CreatePopupContents(ViewGroup *parent) override;
 
 	const char *tag() const override { return "ContextMenuPopup"; }
 
@@ -252,11 +251,27 @@ public:
 	UI::Event OnChoice;
 
 private:
+	void CreatePopupContents(ViewGroup *parent) override;
 	const ContextMenuItem *items_;
 	size_t itemCount_;
 	I18NCat category_;
 	UI::View *sourceView_;
 	std::vector<bool> enabled_;
+};
+
+class PopupCallbackScreen : public PopupScreen {
+public:
+	PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView) : PopupScreen(""), createViews_(createViews) {
+		if (sourceView) {
+			SetPopupOrigin(sourceView);
+		}
+	}
+
+	const char *tag() const override { return "ContextMenuPopup"; }
+
+private:
+	void CreatePopupContents(ViewGroup *parent) override;
+	std::function<void(UI::ViewGroup *)> createViews_;
 };
 
 // Reads and writes value to determine the current selection.

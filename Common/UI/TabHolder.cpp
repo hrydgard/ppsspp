@@ -8,7 +8,7 @@
 
 namespace UI {
 
-TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams)
+TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, std::function<void()> contextMenuCallback, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams), tabOrientation_(orientation), flags_(flags) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
@@ -26,6 +26,13 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
 			tabScroll_->Add(tabStrip_);
 			container->Add(tabScroll_);
+			if (contextMenuCallback) {
+				Choice *menuChoice = new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT));
+				menuChoice->OnClick.Add([contextMenuCallback](EventParams &e) {
+					contextMenuCallback();
+				});
+				container->Add(menuChoice);
+			}
 			Add(container);
 		} else {
 			tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
