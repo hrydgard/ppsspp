@@ -235,6 +235,12 @@ jobs:
           args: ./b.sh --headless --unittest --fat --no-png --no-sdl2
           id: macos
         - os: macos-latest
+          extra: libretro_mac
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --libretro
+          id: macos-libretro
+        - os: macos-latest
           extra: ios
           cc: clang
           cxx: clang++
