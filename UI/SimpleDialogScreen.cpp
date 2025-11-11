@@ -50,7 +50,14 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		root_ = root;
 	} else {
 		ignoreBottomInset_ = false;
-		LinearLayout *root = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+		std::string title(GetTitle());
+		root->Add(new TopBar(*screenManager()->getUIContext(), portrait, title));
+		root->SetSpacing(0);
+
+		LinearLayout *columns = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+		root->Add(columns);
+
 		// root_->Add(new TopBar(*screenManager()->getUIContext(), portrait, GetTitle(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
 		ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(SettingsWidth(), FILL_PARENT, 0.0f, Margins(8)));
 		LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT));
@@ -61,11 +68,11 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		settingsScroll->Add(settingsPane);
 
 		if (SettingsToTheRight()) {
-			CreateContentViews(root);
-			root->Add(settingsScroll);
+			CreateContentViews(columns);
+			columns->Add(settingsScroll);
 		} else {
-			root->Add(settingsScroll);
-			CreateContentViews(root);
+			columns->Add(settingsScroll);
+			CreateContentViews(columns);
 		}
 
 		root_ = root;

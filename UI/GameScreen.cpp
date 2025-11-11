@@ -158,21 +158,28 @@ void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
 	}
 	mainGameInfo->SetSpacing(3.0f);
 
+	GameDBInfo dbInfo;
+	std::vector<GameDBInfo> dbInfos;
+	const bool inGameDB = g_gameDB.GetGameInfos(info_->id_version, &dbInfos);
+
 	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
-		// TODO: Add non-translated title here if available in gameDB.
-		TextView *tvTitle = mainGameInfo->Add(new TextView(info_->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		// Show the game ID title below the icon. The top title will be from the DB.
+		std::string title = info_->GetTitle();
+
+		TextView *tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvTitle->SetShadow(true);
 
-		TextView *tvID = mainGameInfo->Add(new TextView(ReplaceAll(info_->id_version, "_", " v"), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvID->SetShadow(true);
+		std::string regionID = ReplaceAll(info_->id_version, "_", " v");
+		regionID += ": ";
 
 		if (info_->region != GameRegion::UNKNOWN) {
-			TextView *tvRegion = mainGameInfo->Add(new TextView(ga->T(GameRegionToString(info_->region)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			tvRegion->SetShadow(true);
+			regionID += GameRegionToString(info_->region);
 		} else {
-			TextView *tvFileType = mainGameInfo->Add(new TextView(ga->T(IdentifiedFileTypeToString(info_->fileType)), ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			tvFileType->SetShadow(true);
+			regionID += IdentifiedFileTypeToString(info_->fileType);
 		}
+
+		TextView *tvID = mainGameInfo->Add(new TextView(regionID, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvID->SetShadow(true);
 	}
 
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
@@ -237,7 +244,7 @@ void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
 			std::vector<GameDBInfo> dbInfos;
 			if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && g_gameDB.GetGameInfos(info_->id_version, &dbInfos)) {
 				bool found = false;
-				for (auto &dbInfo : dbInfos) {
+				for (const auto &dbInfo : dbInfos) {
 					if (dbInfo.crc == crcVal) {
 						found = true;
 					}
@@ -248,9 +255,7 @@ void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
 				}
 			}
 		} else if (!isHomebrew_) {
-			GameDBInfo dbInfo;
-			std::vector<GameDBInfo> dbInfos;
-			if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && !g_gameDB.GetGameInfos(info_->id_version, &dbInfos)) {
+			if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && !inGameDB) {
 				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
 				// tvVerified_->SetVisibility(UI::V_VISIBLE);
 				// tvVerified_->SetLevel(NoticeLevel::WARN);
@@ -309,12 +314,14 @@ void GameScreen::CreateSettingsViews(UI::LinearLayout *rightColumn) {
 	}
 
 	if (!info_->id.empty()) {
-		Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
-		btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
-		if (inGame_)
-			btnGameSettings->SetEnabled(false);
-
 		if (info_->hasConfig) {
+			// Only show the Game Settings button here if the game has a config. Always showing it
+			// is confusing since it'll just control the global settings.
+			Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+			btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
+			if (inGame_)
+				btnGameSettings->SetEnabled(false);
+
 			Choice *btnDeleteGameConfig = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 			btnDeleteGameConfig->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
 			if (inGame_)
@@ -386,15 +393,28 @@ void GameScreen::CreateSettingsViews(UI::LinearLayout *rightColumn) {
 }
 
 void GameScreen::OnCreateConfig(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+	if (!info_->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
 	}
-	g_Config.CreateGameConfig(info->id);
-	g_Config.SaveGameConfig(info->id, info->GetTitle());
-	info->hasConfig = true;
+	g_Config.CreateGameConfig(info_->id);
+	g_Config.SaveGameConfig(info_->id, info_->GetTitle());
+	info_->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
+}
+
+std::string_view GameScreen::GetTitle() const {
+	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
+		std::vector<GameDBInfo> dbInfos;
+		const bool inGameDB = g_gameDB.GetGameInfos(info_->id_version, &dbInfos);
+		if (inGameDB) {
+			titleCache_ = dbInfos[0].title;
+		} else {
+			titleCache_ = std::string(info_->GetTitle());
+		}
+	}
+
+	return titleCache_;
 }
 
 void GameScreen::OnDeleteConfig(UI::EventParams &e) {

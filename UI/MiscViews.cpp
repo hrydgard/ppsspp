@@ -56,7 +56,8 @@ TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view ti
 		e.bubbleResult = DR_BACK;
 	});
 	if (!usePortraitLayout) {
-		backButton_->SetText(dlg->T("Back"));
+		// Not really liking this..
+		// backButton_->SetText(dlg->T("Back"));
 	}
 
 	if (!title.empty()) {

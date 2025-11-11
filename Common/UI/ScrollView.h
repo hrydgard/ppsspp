@@ -48,6 +48,7 @@ public:
 
 private:
 	float ChildSize() const;  // in the scrolled direction
+	float ScrollMax() const;
 	float HardClampedScrollPos(float pos) const;
 
 	// TODO: Don't adjust pull_ within this!

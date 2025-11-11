@@ -532,7 +532,7 @@ void AnalogCalibrationScreen::axis(const AxisInput &axis) {
 
 std::string_view AnalogCalibrationScreen::GetTitle() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	return co->T("Analog Settings");
+	return co->T("Calibrate analog stick");
 }
 
 void AnalogCalibrationScreen::CreateSettingsViews(UI::LinearLayout *scrollContents) {

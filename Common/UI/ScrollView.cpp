@@ -226,15 +226,19 @@ float ScrollView::ChildSize() const {
 	return std::max(0.01f, views_[0]->GetBounds().GetSize(orientation_) + extraSpace);
 }
 
+float ScrollView::ScrollMax() const {
+	const float childHeight = ChildSize();
+	return std::max(0.0f, childHeight - bounds_.GetSize(orientation_));
+}
+
 ScrollView::Bob ScrollView::ComputeBob() const {
 	Bob bob{};
 	if (views_.empty()) {
 		return bob;
 	}
 	const float childHeight = ChildSize();
-	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
-	float ratio = bounds_.h / childHeight;
-
+	const float ratio = bounds_.h / childHeight;
+	const float scrollMax = ScrollMax();
 	if (ratio < 1.0f && scrollMax > 0.0f) {
 		bob.show = true;
 		bob.thickness = draggingBob_ ? 15.0f : 6.0f;
@@ -260,6 +264,8 @@ void ScrollView::Draw(UIContext &dc) {
 
 	// If not anchored at the top of the screen exactly, and not scrolled to the top,
 	// draw a subtle drop shadow to indicate scrollability.
+
+	const float darkness = 0.4f;
 	if (bounds_.y > 0.0f && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
@@ -269,9 +275,31 @@ void ScrollView::Draw(UIContext &dc) {
 		shadowBounds.y -= radius * 2;
 		shadowBounds.h = radius * 2;
 
-		float fade = std::clamp(scrollPos_ * 0.1f, 0.0f, 0.6f);
+		float fade = std::clamp(scrollPos_ * 0.05f, 0.0f, 1.0f) * darkness;
 
 		dc.DrawRectDropShadow(shadowBounds, radius, fade);
+	}
+
+	// Same at the bottom.
+	float y2 = dc.GetLayoutBounds().y2();
+	if (bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
+		float radius = 20.0f;
+
+		Bounds shadowBounds = bounds_;
+		shadowBounds.x -= radius;
+		shadowBounds.w += radius * 2;
+		shadowBounds.y = bounds_.y2() - radius * 2;
+		shadowBounds.h = radius * 2;
+
+		float fade = std::clamp((ScrollMax() - scrollPos_) * 0.05f, 0.0f, 1.0f) * darkness;
+
+		dc.DrawRectDropShadow(shadowBounds, radius, fade);
+	}
+
+	// If there are any additional views, we treat them as overlays attached at the top - they don't scroll, and they're
+	// drawn on top of the shadow. TODO: Give them an idea about the scroll position so they can fade in?
+	for (size_t i = 1; i < views_.size(); ++i) {
+		views_[i]->Draw(dc);
 	}
 
 	dc.PopScissor();

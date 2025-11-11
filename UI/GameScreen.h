@@ -50,6 +50,7 @@ protected:
 	void CreateSettingsViews(UI::LinearLayout *parent) override;
 
 	bool SettingsToTheRight() const override { return true; }
+	std::string_view GetTitle() const override;
 
 private:
 	// Event handlers
@@ -75,4 +76,5 @@ private:
 	bool knownHasCRC_ = false;
 
 	std::shared_ptr<GameInfo> info_;
+	mutable std::string titleCache_;
 };
