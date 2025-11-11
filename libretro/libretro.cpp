@@ -2039,7 +2039,10 @@ void System_AudioClear() {}
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
 bool System_AudioRecordingIsAvailable() { return false; }
 bool System_AudioRecordingState() { return false; }
-
+#elif PPSSPP_PLATFORM(MAC)
+std::vector<std::string> __mac_getDeviceList() { return std::vector<std::string>(); }
+int __mac_startCapture(int width, int height) { return 0; }
+int __mac_stopCapture() { return 0; }
 #endif
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
