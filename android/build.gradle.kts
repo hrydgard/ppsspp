@@ -86,7 +86,9 @@ android {
 		}
 		getByName("release") {
 			isMinifyEnabled = false
-			signingConfig = signingConfigs.getByName("release")
+			if (project.hasProperty("RELEASE_STORE_FILE")) {
+				signingConfig = signingConfigs.getByName("release")
+			}
 		}
 	}
 	externalNativeBuild {
