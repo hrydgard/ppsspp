@@ -56,7 +56,7 @@
 
 constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE;
 
-GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath), inGame_(inGame) {
+GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::SettingsInContextMenu), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
@@ -119,7 +119,7 @@ static bool FileTypeSupportsCRC(IdentifiedFileType fileType) {
 	}
 }
 
-void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
+void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (!info_) {
 		// Shouldn't happen
 		return;
@@ -137,8 +137,13 @@ void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
 
 	Margins actionMenuMargins(0, 15, 15, 0);
 
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(8)));
-	parent->Add(leftColumn);
+	ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(8)));
+
+	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+
+	leftScroll->Add(leftColumn);
+
+	parent->Add(leftScroll);
 
 	const bool fileTypeSupportCRC = FileTypeSupportsCRC(info_->fileType);
 
@@ -295,21 +300,25 @@ void GameScreen::CreateContentViews(UI::LinearLayout *parent) {
 		}
 	}
 
+	if (portrait) {
+		parent->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Handle(this, &GameScreen::OnPlay);
+	}
 }
 
-void GameScreen::CreateSettingsViews(UI::LinearLayout *rightColumn) {
+void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
 	const bool fileTypeSupportCRC = FileTypeSupportsCRC(info_->fileType);
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	if (!inGame_) {
+	if (!inGame_ && !portrait) {
 		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Handle(this, &GameScreen::OnPlay);
 	}
 
@@ -317,7 +326,7 @@ void GameScreen::CreateSettingsViews(UI::LinearLayout *rightColumn) {
 		if (info_->hasConfig) {
 			// Only show the Game Settings button here if the game has a config. Always showing it
 			// is confusing since it'll just control the global settings.
-			Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+			Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings"), ImageID("I_GEAR")));
 			btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
 			if (inGame_)
 				btnGameSettings->SetEnabled(false);

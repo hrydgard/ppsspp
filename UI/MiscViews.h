@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Common/Common.h"
 #include "Common/UI/View.h"
 #include "UI/ViewGroup.h"
 
@@ -15,14 +16,24 @@ public:
 	CopyableText(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams = nullptr);
 };
 
+enum class TopBarFlags {
+	Default = 0,
+	Portrait = 1,
+	ContextMenuButton = 2,
+};
+ENUM_CLASS_BITOPS(TopBarFlags);
+
 class TopBar : public UI::LinearLayout {
 public:
 	// The context is needed to get the theme for the background.
-	TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view title, UI::LayoutParams *layoutParams = nullptr);
+	TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams = nullptr);
 	UI::View *GetBackButton() const { return backButton_; }
+
+	UI::Event OnContextMenuClick;
 
 private:
 	UI::Choice *backButton_ = nullptr;
+	TopBarFlags flags_ = TopBarFlags::Default;
 };
 
 class SettingInfoMessage : public UI::LinearLayout {

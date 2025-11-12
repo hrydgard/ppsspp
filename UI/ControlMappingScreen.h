@@ -137,8 +137,8 @@ public:
 	const char *tag() const override { return "AnalogSetup"; }
 
 protected:
-	void CreateSettingsViews(UI::LinearLayout *parent) override;
-	void CreateContentViews(UI::LinearLayout *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 
 	std::string_view GetTitle() const override;
 private:

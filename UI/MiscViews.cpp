@@ -42,7 +42,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
+TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), flags_(flags) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
@@ -55,10 +55,6 @@ TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view ti
 	backButton_ ->OnClick.Add([](UI::EventParams &e) {
 		e.bubbleResult = DR_BACK;
 	});
-	if (!usePortraitLayout) {
-		// Not really liking this..
-		// backButton_->SetText(dlg->T("Back"));
-	}
 
 	if (!title.empty()) {
 		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
@@ -66,6 +62,13 @@ TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view ti
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
+	}
+
+	if (flags & TopBarFlags::ContextMenuButton) {
+		Choice *menuButton = Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		menuButton->OnClick.Add([this](UI::EventParams &e) {
+			this->OnContextMenuClick.Trigger(e);
+		});
 	}
 }
 

@@ -480,7 +480,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	}
 }
 
-AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath) {
+AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::Default) {
 	mapper_.SetCallbacks(
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
@@ -535,7 +535,7 @@ std::string_view AnalogCalibrationScreen::GetTitle() const {
 	return co->T("Calibrate analog stick");
 }
 
-void AnalogCalibrationScreen::CreateSettingsViews(UI::LinearLayout *scrollContents) {
+void AnalogCalibrationScreen::CreateSettingsViews(UI::ViewGroup *scrollContents) {
 	using namespace UI;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
@@ -551,7 +551,7 @@ void AnalogCalibrationScreen::CreateSettingsViews(UI::LinearLayout *scrollConten
 	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
 }
 
-void AnalogCalibrationScreen::CreateContentViews(UI::LinearLayout *parent) {
+void AnalogCalibrationScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
