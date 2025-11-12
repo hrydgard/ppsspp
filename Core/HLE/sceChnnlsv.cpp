@@ -416,7 +416,7 @@ int sceSdCipherInit(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, cons
 	}
 	else if (uknw == 1)
 	{
-		u8 kirkHeader[37];
+		u8 kirkHeader[37+2048];
 		u8* kirkData = kirkHeader+20;
 		int res = sub_17A8(&g_kirk, kirkHeader);
 		if (res)
