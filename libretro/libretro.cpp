@@ -1218,7 +1218,19 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 
-   g_Config.Load("", "");
+   // Get save directory for PSP structure
+   Path retro_base_dir;
+   Path retro_save_dir;
+   const char* dir_ptr = NULL;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) && dir_ptr)
+      retro_base_dir = Path(dir_ptr);
+   if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) && dir_ptr)
+      retro_save_dir = Path(dir_ptr);
+
+   // Initialize configuration with proper paths
+   g_Config.memStickDirectory = retro_save_dir;
+   g_Config.SetSearchPath(Path(retro_save_dir) / "PSP");
+
    g_Config.iInternalResolution = 0;
 
    // Log levels must be set after g_Config.Load
@@ -1228,14 +1240,22 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
       g_Config.sNickName = std::string(nickname);
 
-   Path retro_base_dir;
-   Path retro_save_dir;
-   const char* dir_ptr = NULL;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) && dir_ptr)
-      retro_base_dir = Path(dir_ptr);
+   // Create PSP directory structure if it doesn't exist
+   Path psp_dir = Path(retro_save_dir) / "PSP";
+   Path system_dir = psp_dir / "SYSTEM";
+   Path savedata_dir = psp_dir / "SAVEDATA";
+   Path cheats_dir = psp_dir / "Cheats";
+   Path game_dir = psp_dir / "GAME";
+   Path flash0_dir = psp_dir / "flash0";
 
-   if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) && dir_ptr)
-      retro_save_dir = Path(dir_ptr);
+   File::CreateFullPath(system_dir);
+   File::CreateFullPath(savedata_dir);
+   File::CreateFullPath(cheats_dir);
+   File::CreateFullPath(game_dir);
+   File::CreateFullPath(flash0_dir);
+
+   // Now load configuration - this will look for ppsspp.ini and controls.ini in PSP/SYSTEM
+   g_Config.Load("", "");
 
    retro_base_dir /= "PPSSPP";
 
