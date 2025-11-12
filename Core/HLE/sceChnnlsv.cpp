@@ -476,7 +476,8 @@ int sceSdCipherUpdate(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 		return -1025;
 	}
 	int i = 0;
-	u8 kirkData[20+2048];
+	u8 kirkData[37 + 2048] = {0};
+	u8* kirkDataPtr = kirkData + 20;
 	if ((u32)alignedLen >= (u32)2048)
 	{
 		for(i = 0; alignedLen >= 2048; i += 2048)
