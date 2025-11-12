@@ -870,6 +870,21 @@ void TouchControlConfig::ResetLayout() {
 	fRightStickHeadScale = 1.0f;
 }
 
+void TouchControlConfig::EnsurePortraitDefaults() {
+	// Force set the head scale values to prevent missing joystick center
+	if (fLeftStickHeadScale <= 0.0f || fLeftStickHeadScale > 3.0f) {
+		fLeftStickHeadScale = 1.0f;
+	}
+	
+	if (fRightStickHeadScale <= 0.0f || fRightStickHeadScale > 3.0f) {
+		fRightStickHeadScale = 1.0f;
+	}
+	
+	// Ensure all scaling values are within valid range
+	fActionButtonSpacing = std::max(0.5f, std::min(3.0f, fActionButtonSpacing));
+	fDpadSpacing = std::max(0.5f, std::min(3.0f, fDpadSpacing));
+}
+
 bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
 	// We do this traditionally for now.
 	return false;

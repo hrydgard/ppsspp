@@ -128,6 +128,7 @@ struct TouchControlConfig : public ConfigBlock {
 	bool bShowTouchSquare = true;
 
 	void ResetLayout();
+	void EnsurePortraitDefaults();  // New method to ensure proper defaults
 
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;

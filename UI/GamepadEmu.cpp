@@ -36,6 +36,22 @@
 
 const float TOUCH_SCALE_FACTOR = 1.5f;
 
+// Utility function to ensure touch control configuration is valid
+void ValidateTouchControlConfig(TouchControlConfig& config) {
+	// Ensure head scales are within valid range
+	if (config.fLeftStickHeadScale <= 0.0f || config.fLeftStickHeadScale > 3.0f) {
+		config.fLeftStickHeadScale = 1.0f;
+	}
+	
+	if (config.fRightStickHeadScale <= 0.0f || config.fRightStickHeadScale > 3.0f) {
+		config.fRightStickHeadScale = 1.0f;
+	}
+	
+	// Ensure spacing values are within valid range
+	config.fActionButtonSpacing = std::max(0.5f, std::min(3.0f, config.fActionButtonSpacing));
+	config.fDpadSpacing = std::max(0.5f, std::min(3.0f, config.fDpadSpacing));
+}
+
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
@@ -427,8 +443,20 @@ void PSPDpad::Draw(UIContext &dc) {
 }
 
 PSPStick::PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
-	: GamepadView(key, layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
+	: GamepadView(key, layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1), headScale_(1.0f) {
 	stick_size_ = 50;
+	
+	// FIXED: Ensure proper head scale initialization based on stick type
+	const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
+	float validatedHeadScale = (stick_ == 0) ? config.fLeftStickHeadScale : config.fRightStickHeadScale;
+	
+	// Validate and set safe default if scale is invalid
+	if (validatedHeadScale <= 0.0f || validatedHeadScale > 3.0f) {
+		validatedHeadScale = 1.0f;
+	}
+	
+	// Set the validated head scale for this instance
+	headScale_ = validatedHeadScale;
 }
 
 void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -464,10 +492,16 @@ void PSPStick::Draw(UIContext &dc) {
 
 	if (!config.bHideStickBackground)
 		dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
-	float headScale = stick_ ? config.fRightStickHeadScale : config.fLeftStickHeadScale;
+	
+	// FIXED: Use validated head scale to prevent center circle issues
+	float validatedHeadScale = headScale_;
+	if (validatedHeadScale <= 0.0f || validatedHeadScale > 3.0f) {
+		validatedHeadScale = 1.0f;  // Safe fallback
+	}
+	
 	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2 && stickDownImg_ != stickImageIndex_)
-		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, downBg, ALIGN_CENTER);
-	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, colorBg, ALIGN_CENTER);
+		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * validatedHeadScale, downBg, ALIGN_CENTER);
+	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * validatedHeadScale, colorBg, ALIGN_CENTER);
 }
 
 bool PSPStick::Touch(const TouchInput &input) {
@@ -483,7 +517,14 @@ bool PSPStick::Touch(const TouchInput &input) {
 	}
 	if (input.flags & TOUCH_DOWN) {
 		const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
-		float fac = 0.5f * (stick_ ? config.fRightStickHeadScale : config.fLeftStickHeadScale)-0.5f;
+		
+		// FIXED: Use validated head scale for bounds calculation
+		float validatedHeadScale = headScale_;
+		if (validatedHeadScale <= 0.0f || validatedHeadScale > 3.0f) {
+			validatedHeadScale = 1.0f;  // Safe fallback
+		}
+		
+		float fac = 0.5f * validatedHeadScale - 0.5f;
 		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
 			if (g_Config.bAutoCenterTouchAnalog) {
 				centerX_ = input.x;

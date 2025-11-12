@@ -136,6 +136,7 @@ protected:
 
 	float centerX_;
 	float centerY_;
+	float headScale_;  // Validated head scale for joystick center circle
 
 private:
 	void ProcessTouch(float x, float y, bool down);
@@ -156,6 +157,9 @@ private:
 };
 
 struct TouchControlConfig;
+
+// Utility function to ensure touch control configuration is valid
+void ValidateTouchControlConfig(TouchControlConfig& config);
 
 // Initializes the layout from Config. if a default layout does not exist, it sets up default values
 void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale = 1.15f);

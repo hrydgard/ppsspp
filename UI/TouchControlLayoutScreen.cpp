@@ -475,6 +475,10 @@ void ControlLayoutView::CreateViews() {
 
 	// Create all the subviews.
 	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation_);
+	
+	// Validate the touch control configuration to prevent joystick center issues
+	ValidateTouchControlConfig(touch);
+	touch.EnsurePortraitDefaults(); // Additional validation for portrait mode
 
 	if (touch.bShowTouchCircle || touch.bShowTouchCross || touch.bShowTouchTriangle || touch.bShowTouchSquare) {
 		PSPActionButtons *actionButtons = new PSPActionButtons(touch.touchActionButtonCenter, "Action buttons", touch.fActionButtonSpacing, bounds);
@@ -598,6 +602,11 @@ void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
 	touch.ResetLayout();
+	
+	// Additional validation after reset
+	ValidateTouchControlConfig(touch);
+	touch.EnsurePortraitDefaults();
+	
 	InitPadLayout(&touch, orientation, bounds.w, bounds.h);
 	RecreateViews();
 };
