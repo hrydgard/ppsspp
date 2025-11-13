@@ -62,6 +62,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/MiscViews.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -77,6 +78,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/HLE/sceUtility.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/GPUCommon.h"
@@ -116,7 +118,7 @@ void SetMemStickDirDarwin(int requesterToken) {
 #endif
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
-	: UITabbedBaseDialogScreen(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
+	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
 }
@@ -208,7 +210,7 @@ void GameSettingsScreen::PreCreateViews() {
 
 	if (editThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.loadGameConfig(gameID_, info->GetTitle());
+		g_Config.LoadGameConfig(gameID_);
 	}
 
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
@@ -220,35 +222,45 @@ void GameSettingsScreen::CreateTabs() {
 	using namespace UI;
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	AddTab("GameSettingsGraphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsGraphics", ms->T("Graphics"), ImageID("I_DISPLAY"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Graphics"), "graphics", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		CreateGraphicsSettings(parent);
 	});
 
-	AddTab("GameSettingsControls", ms->T("Controls"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsControls", ms->T("Controls"), ImageID("I_CONTROLLER"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Controls"), "controls"));
 		CreateControlsSettings(parent);
 	});
 
-	AddTab("GameSettingsAudio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsAudio", ms->T("Audio"), ImageID("I_SPEAKER_MAX"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Audio"), "audio"));
 		CreateAudioSettings(parent);
 	});
 
-	AddTab("GameSettingsNetworking", ms->T("Networking"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsNetworking", ms->T("Networking"), ImageID("I_WIFI"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Networking"), "network"));
 		CreateNetworkingSettings(parent);
 	});
 
-	AddTab("GameSettingsTools", ms->T("Tools"), [this](UI::LinearLayout *parent) {
+	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_TOOLS"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("Tools"), "tools"));
 		CreateToolsSettings(parent);
 	});
 
-	AddTab("GameSettingsSystem", ms->T("System"), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(0);
+	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_PSP"), [this](UI::LinearLayout *parent) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		parent->Add(new PaneTitleBar(gamePath_, ms->T("System"), "system"));
 		CreateSystemSettings(parent);
 	});
-	
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType == DEVICE_TYPE_VR) || g_Config.bForceVR) {
-		AddTab("GameSettingsVR", ms->T("VR"), [this](UI::LinearLayout *parent) {
+		AddTab("GameSettingsVR", ms->T("VR"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
 			CreateVRSettings(parent);
 		});
 	}
@@ -579,21 +591,22 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *smartFiltering = graphicsSettings->Add(new CheckBox(&g_Config.bSmart2DTexFiltering, gr->T("Smart 2D texture filtering")));
 	smartFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
 #else
 	// If you enabled it through the ini, you can see this. Useful for testing.
-	bool showCardboardSettings = g_Config.bEnableCardboardVR;
+	bool showCardboardSettings = config.bEnableCardboardVR;
 #endif
 	if (showCardboardSettings) {
 		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-		graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-		cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		graphicsSettings->Add(new CheckBox(&config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetEnabledPtr(&config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetEnabledPtr(&config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
 	}
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
@@ -853,8 +866,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		CheckBox *touchGliding = controlsSettings->Add(new CheckBox(&g_Config.bTouchGliding, co->T("Keep first touched button pressed when dragging")));
 		touchGliding->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+		TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+
 		// Hide stick background, useful when increasing the size
-		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));
+		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&touch.bHideStickBackground, co->T("Hide touch analog stick background circle")));
 		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// Sticky D-pad.
@@ -1132,7 +1147,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
 	auto langCodeToName = [](std::string_view value) -> std::string {
-		auto &mapping = g_Config.GetLangValuesMapping();
+		auto &mapping = GetLangValuesMapping();
 		auto iter = mapping.find(value);
 		if (iter != mapping.end()) {
 			return iter->second.first;
@@ -1143,10 +1158,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, sy->T("Language"), langCodeToName))->OnClick.Add([&](UI::EventParams &e) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
-		langScreen->OnChoice.Add([&](UI::EventParams &e) {
-			screenManager()->RecreateAllViews();
-			System_Notify(SystemNotification::UI);
-		});
+		// The actual switching is handled in OnCompleted in NewLanguageScreen.
 		if (e.v)
 			langScreen->SetPopupOrigin(e.v);
 		screenManager()->push(langScreen);
@@ -1624,8 +1636,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	if (editThenRestore_) {
 		// In case we didn't have the title yet before, try again.
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.changeGameSpecific(gameID_, info->GetTitle());
-		g_Config.unloadGameConfig();
+		g_Config.ChangeGameSpecific(gameID_, info->GetTitle());
+		g_Config.UnloadGameConfig();
 	}
 
 	System_Notify(SystemNotification::UI);
@@ -1697,17 +1709,23 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	System_RestartApp(param);
 }
 
+void GameSettingsScreen::TriggerRestartOrDo(std::function<void()> callback) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		if (yes) {
+			TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
+		} else {
+			callback();
+		}
+	}));
+}
+
 void GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-			if (yes) {
-				TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
-			} else {
-				g_Config.iGPUBackend = (int)GetGPUBackend();
-			}
-		}));
+		TriggerRestartOrDo([]() {
+			g_Config.iGPUBackend = (int)GetGPUBackend();
+		});
 	}
 }
 
@@ -1716,32 +1734,22 @@ void GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-			// If the user ends up deciding not to restart, set the config back to the current backend
-			// so it doesn't get switched by accident.
-			if (yes) {
-				TriggerRestart("GameSettingsScreen::RenderingDeviceYes", editThenRestore_, gamePath_);
-			} else {
-				std::string *deviceNameSetting = GPUDeviceNameSetting();
-				if (deviceNameSetting)
-					*deviceNameSetting = GetGPUBackendDevice();
-				// Needed to redraw the setting.
-				RecreateViews();
-			}
-		}));
+		TriggerRestartOrDo([this]() {
+			std::string *deviceNameSetting = GPUDeviceNameSetting();
+			if (deviceNameSetting)
+				*deviceNameSetting = GetGPUBackendDevice();
+			// Needed to redraw the setting.
+			RecreateViews();
+		});
 	}
 }
 
 void GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-			if (yes) {
-				TriggerRestart("GameSettingsScreen::InflightFramesYes", editThenRestore_, gamePath_);
-			} else {
-				g_Config.iInflightFrames = prevInflightFrames_;
-			}
-		}));
+		TriggerRestartOrDo([this]() {
+			g_Config.iInflightFrames = prevInflightFrames_;
+		});
 	}
 }
 
@@ -1820,7 +1828,7 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 
 void GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	if (g_Config.bGameSpecific) {
+	if (g_Config.IsGameSpecific()) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(
@@ -1850,7 +1858,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(buttonsRow1);
 	parent->Add(buttonsRow2);
 
-	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_LEFT)));
 	for (char c = '0'; c <= '9'; ++c) {
 		char label[] = { c, '\0' };
 		auto button = buttonsRow1->Add(new Button(label));
@@ -1858,16 +1866,16 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		button->SetTag(label);
 	}
 	buttonsRow1->Add(new Button("."))->OnClick.Handle(this, &HostnameSelectScreen::OnPointClick);
-	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
 
-	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_LEFT)));
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		buttonsRow2->Add(new Button(di->T("Edit")))->OnClick.Handle(this, &HostnameSelectScreen::OnEditClick);
 	}
 	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
 	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
 	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
-	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
 
 	std::vector<std::string> listIP;
 	if (listItems_) {

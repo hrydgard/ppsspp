@@ -1490,6 +1490,7 @@ else()
 		SDL/CocoaBarItems.h
 		SDL/PPSSPPAboutViewController.m
 		SDL/PPSSPPAboutViewController.h
+		SDL/MacCameraHelper.mm
 		UI/DarwinFileSystemServices.mm
 		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
@@ -1504,9 +1505,10 @@ else()
 		set_source_files_properties(SDL/CocoaMetalLayer.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(SDL/CocoaBarItems.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(SDL/PPSSPPAboutViewController.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(SDL/MacCameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
 
 		if(USE_SYSTEM_LIBSDL2)
 			set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
@@ -2786,7 +2788,11 @@ set(NativeAssets
 	assets/shaders
 	assets/themes
 	assets/vfpu
-	assets/Roboto-Condensed.ttf
+	assets/Roboto_Condensed-Regular.ttf
+	assets/Roboto_Condensed-Light.ttf
+	assets/Roboto_Condensed-Bold.ttf
+	assets/Roboto_Condensed-Italic.ttf
+	assets/Inconsolata-Regular.ttf
 	assets/7z.png
 	assets/compat.ini
 	assets/infra-dns.json

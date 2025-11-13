@@ -44,7 +44,7 @@ public:
 	u32 CheckGPUFeatures() const override;
 
 	// These are where we can reset command buffers etc.
-	void BeginHostFrame() override;
+	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 	void EndHostFrame() override;
 
 	void GetStats(char *buffer, size_t bufsize) override;
@@ -61,7 +61,7 @@ public:
 
 protected:
 	void FinishDeferred() override;
-	void CheckRenderResized() override;
+	void CheckRenderResized(const DisplayLayoutConfig &config) override;
 
 private:
 	void BuildReportingInfo() override;

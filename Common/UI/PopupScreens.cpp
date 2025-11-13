@@ -10,8 +10,189 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Common/System/Display.h"
+#include "Common/Math/curves.h"
+#include "Common/Render/DrawBuffer.h"
 
 namespace UI {
+
+PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
+	: title_(title), button1_(button1), button2_(button2) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	// Auto-assign images. A bit hack to have this here.
+	if (button1 == di->T("Delete") || button1 == di->T("Move to trash")) {
+		button1Image_ = ImageID("I_TRASHCAN");
+	}
+
+	alpha_ = 0.0f;  // inherited
+}
+
+void PopupScreen::touch(const TouchInput &touch) {
+	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
+		// Handle down-presses here.
+		UIDialogScreen::touch(touch);
+		return;
+	}
+
+	// Extra bounds to avoid closing the dialog while trying to aim for something
+	// near the edge. Now that we only close on actual down-events, we can shrink
+	// this border a bit.
+	if (!box_->GetBounds().Expand(30.0f, 30.0f).Contains(touch.x, touch.y)) {
+		TriggerFinish(DR_CANCEL);
+	}
+
+	UIDialogScreen::touch(touch);
+}
+
+bool PopupScreen::key(const KeyInput &key) {
+	if (key.flags & KEY_DOWN) {
+		if ((key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_NUMPAD_ENTER) && defaultButton_) {
+			UI::EventParams e{};
+			defaultButton_->OnClick.Trigger(e);
+			return true;
+		}
+	}
+
+	return UIDialogScreen::key(key);
+}
+
+void PopupScreen::update() {
+	UIDialogScreen::update();
+
+	if (defaultButton_)
+		defaultButton_->SetEnabled(CanComplete(DR_OK));
+
+	float animatePos = 1.0f;
+
+	++frames_;
+	if (finishFrame_ >= 0) {
+		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
+		animatePos = 1.0f - leadOut;
+
+		if (frames_ >= finishFrame_ + FRAMES_LEAD_OUT) {
+			// Actual finish happens here.
+			screenManager()->finishDialog(this, finishResult_);
+		}
+	} else if (frames_ < FRAMES_LEAD_IN) {
+		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
+		animatePos = leadIn;
+	}
+
+	if (animatePos < 1.0f) {
+		alpha_ = animatePos;
+		scale_.x = 0.9f + animatePos * 0.1f;
+		scale_.y = 0.9f + animatePos * 0.1f;
+
+		if (hasPopupOrigin_) {
+			float xoff = popupOrigin_.x - g_display.dp_xres / 2;
+			float yoff = popupOrigin_.y - g_display.dp_yres / 2;
+
+			// Pull toward the origin a bit.
+			translation_.x = xoff * (1.0f - animatePos) * 0.2f;
+			translation_.y = yoff * (1.0f - animatePos) * 0.2f;
+		} else {
+			translation_.y = -g_display.dp_yres * (1.0f - animatePos) * 0.2f;
+		}
+	} else {
+		alpha_ = 1.0f;
+		scale_.x = 1.0f;
+		scale_.y = 1.0f;
+		translation_.x = 0.0f;
+		translation_.y = 0.0f;
+	}
+}
+
+void PopupScreen::SetPopupOrigin(const UI::View *view) {
+	hasPopupOrigin_ = true;
+	popupOrigin_ = view->GetBounds().Center();
+}
+
+void PopupScreen::TriggerFinish(DialogResult result) {
+	if (CanComplete(result)) {
+		ignoreInput_ = true;
+		finishFrame_ = frames_;
+		finishResult_ = result;
+
+		OnCompleted(result);
+	}
+	// Inform UI that popup close to hide OSK (if visible)
+	System_NotifyUIEvent(UIEventNotification::POPUP_CLOSED);
+}
+
+void PopupScreen::CreateViews() {
+	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
+	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	anchor->Overflow(false);
+	root_ = anchor;
+
+	const float ySize = FillVertical() ? dc.GetLayoutBounds().h - 30 : WRAP_CONTENT;
+
+	int y = dc.GetBounds().centerY() + offsetY_;
+	Centering vCentering = Centering::Vertical;
+	if (alignTop_) {
+		y = 0;
+		vCentering = Centering::None;
+	}
+
+	const float popupWidth = PopupWidth();
+
+	AnchorLayoutParams *anchorParams;
+	// NOTE: We purely use the popup width here to decide the type of layout, instead of the device orientation.
+	if (dc.GetLayoutBounds().w < popupWidth + 50) {
+		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
+			10, y, 10, NONE, vCentering);
+	} else {
+		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
+			dc.GetBounds().centerX(), y, NONE, NONE, vCentering | Centering::Horizontal);
+	}
+
+	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
+
+	root_->Add(box_);
+	box_->SetBG(dc.GetTheme().popupStyle.background);
+	box_->SetHasDropShadow(hasDropShadow_);
+	// Since we scale a bit, make the dropshadow bleed past the edges.
+	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
+	box_->SetSpacing(0.0f);
+
+	if (!title_.empty()) {
+		View *title = new PopupHeader(title_);
+		box_->Add(title);
+	}
+
+	CreatePopupContents(box_);
+	root_->Recurse([](View *view) {
+		view->SetPopupStyle(true);
+	});
+
+	root_->SetDefaultFocusView(box_);
+
+	if (ShowButtons() && !button1_.empty()) {
+		// And the two buttons at the bottom.
+		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
+		buttonRow->SetSpacing(0);
+		Margins buttonMargins(5, 5);
+
+		// Adjust button order to the platform default.
+		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
+			if (!button2_.empty()) {
+				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+			}
+		} else {
+			if (!button2_.empty()) {
+				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+			}
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
+		}
+
+		box_->Add(buttonRow);
+	}
+}
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -19,8 +200,9 @@ void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	std::vector<std::string_view> messageLines;
 	SplitString(message_, '\n', messageLines);
-	for (auto lineOfText : messageLines)
-		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false));
+	for (auto lineOfText : messageLines) {
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(8))));
+	}
 }
 
 void MessagePopupScreen::OnCompleted(DialogResult result) {
@@ -80,7 +262,7 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	// Hacky: Override the position to look like a popup menu.
 	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
-	ap->center = false;
+	ap->centering = Centering::None;
 	ap->left = sourceView_->GetBounds().x;
 	ap->top = sourceView_->GetBounds().y2();
 }

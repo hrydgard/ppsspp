@@ -45,7 +45,6 @@
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/OSD.h"
@@ -69,9 +68,9 @@ Config g_Config;
 static bool jitForcedOff;
 
 #ifdef _DEBUG
-static const char * const logSectionName = "LogDebug";
+static const std::string_view logSectionName = "LogDebug";
 #else
-static const char * const logSectionName = "Log";
+static const std::string_view logSectionName = "Log";
 #endif
 
 bool TryUpdateSavedPath(Path *path);
@@ -114,8 +113,10 @@ std::string DefaultLangRegion() {
 		IniFile mapping;
 		mapping.LoadFromVFS(g_VFS, "langregion.ini");
 		std::vector<std::string> keys;
-		mapping.GetKeys("LangRegionNames", keys);
-
+		Section *section = mapping.GetSection("LangRegionNames");
+		if (section) {
+			section->GetKeys(&keys);
+		}
 		for (const std::string &key : keys) {
 			if (startsWithNoCase(key, langRegion)) {
 				// Exact submatch, or different case.  Let's use it.
@@ -221,8 +222,8 @@ static int DefaultScreenRotation() {
 #endif
 }
 
-#define SETTING(a, x) (const char *)&a, &a.x
-#define SETTING_IDX(a, x, i) (const char *)&a, &a.x[i]
+#define SETTING(a, x) &a, &a.x
+#define SETTING_IDX(a, x, i) &a, &a.x[i]
 
 // All relative to g_Config.
 static const ConfigSetting generalSettings[] = {
@@ -231,7 +232,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("Enable Logging", SETTING(g_Config, bEnableLogging), true, CfgFlag::PER_GAME),
 	ConfigSetting("FileLogging", SETTING(g_Config, bEnableFileLogging), false, CfgFlag::PER_GAME),
 	ConfigSetting("AutoRun", SETTING(g_Config, bAutoRun), true, CfgFlag::DEFAULT),
-	ConfigSetting("Browse", SETTING(g_Config, bBrowse), false, CfgFlag::DEFAULT),
 	ConfigSetting("IgnoreBadMemAccess", SETTING(g_Config, bIgnoreBadMemAccess), true, CfgFlag::DEFAULT),
 	ConfigSetting("CurrentDirectory", SETTING(g_Config, currentDirectory), "", CfgFlag::DEFAULT),
 	ConfigSetting("ShowDebuggerOnLoad", SETTING(g_Config, bShowDebuggerOnLoad), false, CfgFlag::DEFAULT),
@@ -316,8 +316,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), &DefaultScreenRotation, CfgFlag::DEFAULT),
 #endif
 
-	ConfigSetting("InternalScreenRotation", SETTING(g_Config, iInternalScreenRotation), ROTATION_LOCKED_HORIZONTAL, CfgFlag::PER_GAME),
-
 	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), 1, CfgFlag::DEFAULT),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT),
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT),
@@ -333,6 +331,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("WindowY", SETTING(g_Config, iWindowY), -1, CfgFlag::DEFAULT),
 	ConfigSetting("WindowWidth", SETTING(g_Config, iWindowWidth), 0, CfgFlag::DEFAULT),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
 	ConfigSetting("WindowHeight", SETTING(g_Config, iWindowHeight), 0, CfgFlag::DEFAULT),
+	ConfigSetting("ShrinkIfWindowSmall", SETTING(g_Config, bShrinkIfWindowSmall), false, CfgFlag::DEFAULT),
 #endif
 
 	ConfigSetting("PauseWhenMinimized", SETTING(g_Config, bPauseWhenMinimized), false, CfgFlag::PER_GAME),
@@ -635,11 +634,41 @@ static std::string DefaultInfrastructureUsername() {
 	return std::string();
 }
 
+bool DisplayLayoutConfig::InternalRotationIsPortrait() const {
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !g_Config.bSkipBufferEffects;
+}
+
+bool DisplayLayoutConfig::ResetToDefault(std::string_view blockName) {
+	static const DisplayLayoutConfig defaultLayout = DisplayLayoutConfig();
+	*this = defaultLayout;
+	if (endsWith(blockName, ".Portrait")) {
+		// TODO: On mobile, where the aspect is fixed, we should use the screen size to compute this properly,
+		// so the screen almost touches the top edge.
+		fDisplayOffsetY = 0.25f;
+	}
+	return true;
+}
+
+// These were previously part of Graphics.
+// It's instantiated into g_Config.displayLayoutLandscape and g_Config.displayLayoutPortrait.
+// Defaults are set directly on the struct declaration (and adjusted per instance in ResetToDefault above).
+static const ConfigSetting displayLayoutSettings[] = {
+	ConfigSetting("BufferFiltering", SETTING(g_Config.displayLayoutLandscape, iDisplayFilter), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayStretch", SETTING(g_Config.displayLayoutLandscape, bDisplayStretch), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayOffsetX", SETTING(g_Config.displayLayoutLandscape, fDisplayOffsetX), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayOffsetY", SETTING(g_Config.displayLayoutLandscape, fDisplayOffsetY), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayScale", SETTING(g_Config.displayLayoutLandscape, fDisplayScale), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayIntegerScale", SETTING(g_Config.displayLayoutLandscape, bDisplayIntegerScale), CfgFlag::PER_GAME),
+	ConfigSetting("DisplayAspectRatio", SETTING(g_Config.displayLayoutLandscape, fDisplayAspectRatio), CfgFlag::PER_GAME),
+	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config.displayLayoutLandscape, bIgnoreScreenInsets), CfgFlag::PER_GAME),
+	ConfigSetting("InternalScreenRotation", SETTING(g_Config.displayLayoutLandscape, iInternalScreenRotation), CfgFlag::PER_GAME),
+	ConfigSetting("EnableCardboardVR", SETTING(g_Config.displayLayoutLandscape, bEnableCardboardVR), CfgFlag::PER_GAME),
+	ConfigSetting("CardboardScreenSize", SETTING(g_Config.displayLayoutLandscape, iCardboardScreenSize), CfgFlag::PER_GAME),
+	ConfigSetting("CardboardXShift", SETTING(g_Config.displayLayoutLandscape, iCardboardXShift), CfgFlag::PER_GAME),
+	ConfigSetting("CardboardYShift", SETTING(g_Config.displayLayoutLandscape, iCardboardYShift), CfgFlag::PER_GAME),
+};
+
 static const ConfigSetting graphicsSettings[] = {
-	ConfigSetting("EnableCardboardVR", SETTING(g_Config, bEnableCardboardVR), false, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardScreenSize", SETTING(g_Config, iCardboardScreenSize), 50, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardXShift", SETTING(g_Config, iCardboardXShift), 0, CfgFlag::PER_GAME),
-	ConfigSetting("CardboardYShift", SETTING(g_Config, iCardboardYShift), 0, CfgFlag::PER_GAME),
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
@@ -694,18 +723,10 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AppSwitchMode", SETTING(g_Config, iAppSwitchMode), (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR, CfgFlag::DEFAULT),
 #endif
 
-	ConfigSetting("BufferFiltering", SETTING(g_Config, iDisplayFilter), SCALE_LINEAR, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayOffsetX", SETTING(g_Config, fDisplayOffsetX), 0.5f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayOffsetY", SETTING(g_Config, fDisplayOffsetY), 0.5f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayScale", SETTING(g_Config, fDisplayScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayIntegerScale", SETTING(g_Config, bDisplayIntegerScale), false, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayAspectRatio", SETTING(g_Config, fDisplayAspectRatio), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("DisplayStretch", SETTING(g_Config, bDisplayStretch), false, CfgFlag::PER_GAME),
 	ConfigSetting("DisplayCropTo16x9", SETTING(g_Config, bDisplayCropTo16x9), true, CfgFlag::PER_GAME),
 
 	ConfigSetting("ImmersiveMode", SETTING(g_Config, bImmersiveMode), true, CfgFlag::PER_GAME),
 	ConfigSetting("SustainedPerformanceMode", SETTING(g_Config, bSustainedPerformanceMode), false, CfgFlag::PER_GAME),
-	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config, bIgnoreScreenInsets), true, CfgFlag::DEFAULT),
 
 	ConfigSetting("ReplaceTextures", SETTING(g_Config, bReplaceTextures), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SaveNewTextures", SETTING(g_Config, bSaveNewTextures), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -824,13 +845,97 @@ static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
+void TouchControlConfig::ResetLayout() {
+	// reset puts the settings in a state so they'll then get properly reinitialized in InitPadLayout.
+	auto reset = [](ConfigTouchPos &pos) {
+		pos.x = defaultTouchPosShow.x;
+		pos.y = defaultTouchPosShow.y;
+		pos.scale = defaultTouchPosShow.scale;
+	};
+	reset(touchActionButtonCenter);
+	fActionButtonSpacing = 1.0f;
+	reset(touchDpad);
+	fDpadSpacing = 1.0f;
+	reset(touchStartKey);
+	reset(touchSelectKey);
+	reset(touchFastForwardKey);
+	reset(touchLKey);
+	reset(touchRKey);
+	reset(touchAnalogStick);
+	reset(touchRightAnalogStick);
+	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
+		reset(touchCustom[i]);
+	}
+	fLeftStickHeadScale = 1.0f;
+	fRightStickHeadScale = 1.0f;
+}
+
+bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
+	// We do this traditionally for now.
+	return false;
+}
+
+static const ConfigSetting touchControlSettings[] = {
+	ConfigSetting("ShowTouchCross", SETTING(g_Config.touchControlsLandscape, bShowTouchCross), true, CfgFlag::PER_GAME),
+	ConfigSetting("ShowTouchCircle", SETTING(g_Config.touchControlsLandscape, bShowTouchCircle), true, CfgFlag::PER_GAME),
+	ConfigSetting("ShowTouchSquare", SETTING(g_Config.touchControlsLandscape, bShowTouchSquare), true, CfgFlag::PER_GAME),
+	ConfigSetting("ShowTouchTriangle", SETTING(g_Config.touchControlsLandscape, bShowTouchTriangle), true, CfgFlag::PER_GAME),
+
+	// Combo keys are something else, but I don't want to break the config backwards compatibility so these will stay wrongly named.
+	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 0), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 1), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 2), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 3), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 4), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 5), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 6), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 7), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 8), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 9), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo10X", "fcombo10Y", "comboKeyScale10", "ShowComboKey10", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 10), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo11X", "fcombo11Y", "comboKeyScale11", "ShowComboKey11", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 11), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo12X", "fcombo12Y", "comboKeyScale12", "ShowComboKey12", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 12), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo13X", "fcombo13Y", "comboKeyScale13", "ShowComboKey13", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 13), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo14X", "fcombo14Y", "comboKeyScale14", "ShowComboKey14", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 14), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo15X", "fcombo15Y", "comboKeyScale15", "ShowComboKey15", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 15), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo16X", "fcombo16Y", "comboKeyScale16", "ShowComboKey16", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 16), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo17X", "fcombo17Y", "comboKeyScale17", "ShowComboKey17", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 17), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo18X", "fcombo18Y", "comboKeyScale18", "ShowComboKey18", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 18), defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo19X", "fcombo19Y", "comboKeyScale19", "ShowComboKey19", SETTING_IDX(g_Config.touchControlsLandscape, touchCustom, 19), defaultTouchPosHide, CfgFlag::PER_GAME),
+
+	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
+	ConfigSetting("ActionButtonSpacing2", SETTING(g_Config.touchControlsLandscape, fActionButtonSpacing), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("ActionButtonCenterX", "ActionButtonCenterY", "ActionButtonScale", nullptr, SETTING(g_Config.touchControlsLandscape, touchActionButtonCenter), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("DPadX", "DPadY", "DPadScale", "ShowTouchDpad", SETTING(g_Config.touchControlsLandscape, touchDpad), defaultTouchPosShow, CfgFlag::PER_GAME),
+
+	// Note: these will be overwritten if DPadRadius is set.
+	ConfigSetting("DPadSpacing", SETTING(g_Config.touchControlsLandscape, fDpadSpacing), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", SETTING(g_Config.touchControlsLandscape, touchStartKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", SETTING(g_Config.touchControlsLandscape, touchSelectKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config.touchControlsLandscape, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config.touchControlsLandscape, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config.touchControlsLandscape, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", SETTING(g_Config.touchControlsLandscape, touchAnalogStick), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", SETTING(g_Config.touchControlsLandscape, touchRightAnalogStick), defaultTouchPosHide, CfgFlag::PER_GAME),
+
+	ConfigSetting("LeftStickHeadScale", SETTING(g_Config.touchControlsLandscape, fLeftStickHeadScale), CfgFlag::PER_GAME),
+	ConfigSetting("RightStickHeadScale", SETTING(g_Config.touchControlsLandscape, fRightStickHeadScale), CfgFlag::PER_GAME),
+	ConfigSetting("HideStickBackground", SETTING(g_Config.touchControlsLandscape, bHideStickBackground), CfgFlag::PER_GAME),
+};
+
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchCross", SETTING(g_Config, bShowTouchCross), true, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchCircle", SETTING(g_Config, bShowTouchCircle), true, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchSquare", SETTING(g_Config, bShowTouchSquare), true, CfgFlag::PER_GAME),
-	ConfigSetting("ShowTouchTriangle", SETTING(g_Config, bShowTouchTriangle), true, CfgFlag::PER_GAME),
+	
+	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
+	// sense to default this to on.
+	ConfigSetting("ShowTouchPause", SETTING(g_Config, bShowTouchPause), &DefaultShowPauseButton, CfgFlag::DEFAULT),
+#if defined(USING_WIN_UI)
+	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),
+#endif
 
+	ConfigSetting("ShowTouchControls", SETTING(g_Config, bShowTouchControls), &DefaultShowTouchControls, CfgFlag::PER_GAME),
+
+	// ConfigSetting("KeyMapping", SETTING(g_Config, iMappingMap), 0),
 	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", SETTING_IDX(g_Config, CustomButton, 0), {0, 0, 0, false, false}, CfgFlag::PER_GAME),
 	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", SETTING_IDX(g_Config, CustomButton, 1), {0, 1, 0, false, false}, CfgFlag::PER_GAME),
 	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", SETTING_IDX(g_Config, CustomButton, 2), {0, 2, 0, false, false}, CfgFlag::PER_GAME),
@@ -851,40 +956,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("Custom17Mapping", "Custom17Image", "Custom17Shape", "Custom17Toggle", "Custom17Repeat", SETTING_IDX(g_Config, CustomButton, 17), {0, 2, 9, false, false}, CfgFlag::PER_GAME),
 	ConfigSetting("Custom18Mapping", "Custom18Image", "Custom18Shape", "Custom18Toggle", "Custom18Repeat", SETTING_IDX(g_Config, CustomButton, 18), {0, 3, 9, false, false}, CfgFlag::PER_GAME),
 	ConfigSetting("Custom19Mapping", "Custom19Image", "Custom19Shape", "Custom19Toggle", "Custom19Repeat", SETTING_IDX(g_Config, CustomButton, 19), {0, 4, 9, false, false}, CfgFlag::PER_GAME),
-	// Combo keys are something else, but I don't want to break the config backwards compatibility so these will stay wrongly named.
-	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", SETTING_IDX(g_Config, touchCustom, 0), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", SETTING_IDX(g_Config, touchCustom, 1), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", SETTING_IDX(g_Config, touchCustom, 2), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", SETTING_IDX(g_Config, touchCustom, 3), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", SETTING_IDX(g_Config, touchCustom, 4), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", SETTING_IDX(g_Config, touchCustom, 5), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", SETTING_IDX(g_Config, touchCustom, 6), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", SETTING_IDX(g_Config, touchCustom, 7), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", SETTING_IDX(g_Config, touchCustom, 8), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", SETTING_IDX(g_Config, touchCustom, 9), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo10X", "fcombo10Y", "comboKeyScale10", "ShowComboKey10", SETTING_IDX(g_Config, touchCustom, 10), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo11X", "fcombo11Y", "comboKeyScale11", "ShowComboKey11", SETTING_IDX(g_Config, touchCustom, 11), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo12X", "fcombo12Y", "comboKeyScale12", "ShowComboKey12", SETTING_IDX(g_Config, touchCustom, 12), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo13X", "fcombo13Y", "comboKeyScale13", "ShowComboKey13", SETTING_IDX(g_Config, touchCustom, 13), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo14X", "fcombo14Y", "comboKeyScale14", "ShowComboKey14", SETTING_IDX(g_Config, touchCustom, 14), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo15X", "fcombo15Y", "comboKeyScale15", "ShowComboKey15", SETTING_IDX(g_Config, touchCustom, 15), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo16X", "fcombo16Y", "comboKeyScale16", "ShowComboKey16", SETTING_IDX(g_Config, touchCustom, 16), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo17X", "fcombo17Y", "comboKeyScale17", "ShowComboKey17", SETTING_IDX(g_Config, touchCustom, 17), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo18X", "fcombo18Y", "comboKeyScale18", "ShowComboKey18", SETTING_IDX(g_Config, touchCustom, 18), defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo19X", "fcombo19Y", "comboKeyScale19", "ShowComboKey19", SETTING_IDX(g_Config, touchCustom, 19), defaultTouchPosHide, CfgFlag::PER_GAME),
 
-	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
-	// sense to default this to on.
-	ConfigSetting("ShowTouchPause", SETTING(g_Config, bShowTouchPause), &DefaultShowPauseButton, CfgFlag::DEFAULT),
-#if defined(USING_WIN_UI)
-	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),
-#endif
-
-	ConfigSetting("ShowTouchControls", SETTING(g_Config, bShowTouchControls), &DefaultShowTouchControls, CfgFlag::PER_GAME),
-
-	// ConfigSetting("KeyMapping", SETTING(g_Config, iMappingMap), 0),
-
-#ifdef MOBILE_DEVICE
 	ConfigSetting("TiltBaseAngleY", SETTING(g_Config, fTiltBaseAngleY), 0.9f, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInvertX", SETTING(g_Config, bInvertTiltX), false, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInvertY", SETTING(g_Config, bInvertTiltY), false, CfgFlag::PER_GAME),
@@ -894,7 +966,6 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TiltInverseDeadzone", SETTING(g_Config, fTiltInverseDeadzone), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("TiltCircularDeadzone", SETTING(g_Config, bTiltCircularDeadzone), true, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInputType", SETTING(g_Config, iTiltInputType), 0, CfgFlag::PER_GAME),
-#endif
 
 	ConfigSetting("DisableDpadDiagonals", SETTING(g_Config, bDisableDpadDiagonals), false, CfgFlag::PER_GAME),
 	ConfigSetting("GamepadOnlyFocused", SETTING(g_Config, bGamepadOnlyFocused), false, CfgFlag::PER_GAME),
@@ -908,21 +979,6 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchSnapToGrid", SETTING(g_Config, bTouchSnapToGrid), false, CfgFlag::PER_GAME),
 	ConfigSetting("TouchSnapGridSize", SETTING(g_Config, iTouchSnapGridSize), 64, CfgFlag::PER_GAME),
 
-	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
-	ConfigSetting("ActionButtonSpacing2", SETTING(g_Config, fActionButtonSpacing), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("ActionButtonCenterX", "ActionButtonCenterY", "ActionButtonScale", nullptr, SETTING(g_Config, touchActionButtonCenter), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("DPadX", "DPadY", "DPadScale", "ShowTouchDpad", SETTING(g_Config, touchDpad), defaultTouchPosShow, CfgFlag::PER_GAME),
-
-	// Note: these will be overwritten if DPadRadius is set.
-	ConfigSetting("DPadSpacing", SETTING(g_Config, fDpadSpacing), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", SETTING(g_Config, touchStartKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", SETTING(g_Config, touchSelectKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", SETTING(g_Config, touchAnalogStick), defaultTouchPosShow, CfgFlag::PER_GAME),
-	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", SETTING(g_Config, touchRightAnalogStick), defaultTouchPosHide, CfgFlag::PER_GAME),
-
 	ConfigSetting("AnalogDeadzone", SETTING(g_Config, fAnalogDeadzone), 0.15f, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogInverseDeadzone", SETTING(g_Config, fAnalogInverseDeadzone), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogSensitivity", SETTING(g_Config, fAnalogSensitivity), 1.1f, CfgFlag::PER_GAME),
@@ -934,10 +990,6 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("AllowMappingCombos", SETTING(g_Config, bAllowMappingCombos), false, CfgFlag::DEFAULT),
 	ConfigSetting("StrictComboOrder", SETTING(g_Config, bStrictComboOrder), false, CfgFlag::DEFAULT),
-
-	ConfigSetting("LeftStickHeadScale", SETTING(g_Config, fLeftStickHeadScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("RightStickHeadScale", SETTING(g_Config, fRightStickHeadScale), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("HideStickBackground", SETTING(g_Config, bHideStickBackground), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("UseMouse", SETTING(g_Config, bMouseControl), false, CfgFlag::PER_GAME),
 	ConfigSetting("ConfineMap", SETTING(g_Config, bMouseConfine), false, CfgFlag::PER_GAME),
@@ -1056,104 +1108,57 @@ static const ConfigSetting vrSettings[] = {
 };
 
 // The first column says what structure the parameters are relative to.
-static const ConfigSectionSettings sectionDescs[] = {
-	{(char *)&g_Config, "General", generalSettings, ARRAY_SIZE(generalSettings)},
-	{(char *)&g_Config, "CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
-	{(char *)&g_Config, "Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
-	{(char *)&g_Config, "Sound", soundSettings, ARRAY_SIZE(soundSettings)},
-	{(char *)&g_Config, "Control", controlSettings, ARRAY_SIZE(controlSettings)},
-	{(char *)&g_Config, "SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
-	{(char *)&g_Config, "Network", networkSettings, ARRAY_SIZE(networkSettings)},
-	{(char *)&g_Config, "Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
-	{(char *)&g_Config, "JIT", jitSettings, ARRAY_SIZE(jitSettings)},
-	{(char *)&g_Config, "Theme", themeSettings, ARRAY_SIZE(themeSettings)},
-	{(char *)&g_Config, "VR", vrSettings, ARRAY_SIZE(vrSettings)},
-	{(char *)&g_Config, "Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
+static const ConfigSectionMeta g_sectionMeta[] = {
+	{ &g_Config, generalSettings, ARRAY_SIZE(generalSettings), "General" },
+	{ &g_Config, cpuSettings, ARRAY_SIZE(cpuSettings), "CPU" },
+	{ &g_Config, graphicsSettings, ARRAY_SIZE(graphicsSettings), "Graphics" },
+	{ &g_Config, soundSettings, ARRAY_SIZE(soundSettings), "Sound" },
+	{ &g_Config, controlSettings, ARRAY_SIZE(controlSettings), "Control" },
+	{ &g_Config, systemParamSettings, ARRAY_SIZE(systemParamSettings), "SystemParam" },
+	{ &g_Config, networkSettings, ARRAY_SIZE(networkSettings), "Network" },
+	{ &g_Config, debuggerSettings, ARRAY_SIZE(debuggerSettings), "Debugger" },
+	{ &g_Config, jitSettings, ARRAY_SIZE(jitSettings), "JIT" },
+	{ &g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
+	{ &g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
+	{ &g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
+	{ &g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
+	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config.touchControlsLandscape, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Landscape", "Control" },  // We read the old settings from [Control], since most people played in landscape before.
+	{ &g_Config.touchControlsPortrait, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 };
 
-const size_t numSections = ARRAY_SIZE(sectionDescs);
-
-static void IterateSettings(IniFile &iniFile, std::function<void(char *owner, Section *section, const ConfigSetting &setting)> func) {
-	for (size_t i = 0; i < numSections; ++i) {
-		Section *section = iniFile.GetOrCreateSection(sectionDescs[i].section);
-		char *owner = sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(owner, section, sectionDescs[i].settings[j]);
+ConfigBlock *GetConfigBlockForSection(std::string_view sectionName) {
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		if (equals(meta.section, sectionName)) {
+			return meta.configBlock;
 		}
 	}
+	return nullptr;
 }
 
-static void IterateSettings(std::function<void(char *owner, const ConfigSetting &setting)> func) {
-	for (size_t i = 0; i < numSections; ++i) {
-		char *owner = sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			func(owner, sectionDescs[i].settings[j]);
-		}
-	}
-}
+const size_t numSections = ARRAY_SIZE(g_sectionMeta);
 
-std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
-	static std::map<const void *, const ConfigSetting *> lut;
+std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> &Config::getPtrLUT() {
+	static std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> lut;
 	return lut;
 }
 
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([&ref](const char *owner, const ConfigSetting &setting) {
-		const void *ptr = setting.GetVoidPtr(owner);
-		ref[ptr] = &setting;
-	});
+	for (size_t i = 0; i < numSections; ++i) {
+		ConfigBlock *configBlock = g_sectionMeta[i].configBlock;
+		for (size_t j = 0; j < g_sectionMeta[i].settingsCount; j++) {
+			const void *ptr = g_sectionMeta[i].settings[j].GetVoidPtr(configBlock);
+			ref[ptr] = std::make_pair(configBlock, &g_sectionMeta[i].settings[j]);
+		}
+	}
 }
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
-}
-
-void Config::LoadLangValuesMapping() {
-	IniFile mapping;
-	mapping.LoadFromVFS(g_VFS, "langregion.ini");
-	std::vector<std::string> keys;
-	mapping.GetKeys("LangRegionNames", keys);
-
-	std::map<std::string, int> langCodeMapping;
-	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
-	langCodeMapping["ENGLISH"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	langCodeMapping["FRENCH"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
-	langCodeMapping["SPANISH"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-	langCodeMapping["GERMAN"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
-	langCodeMapping["ITALIAN"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
-	langCodeMapping["DUTCH"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
-	langCodeMapping["PORTUGUESE"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
-	langCodeMapping["RUSSIAN"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
-	langCodeMapping["KOREAN"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
-	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
-	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
-
-	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
-	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
-
-	for (size_t i = 0; i < keys.size(); i++) {
-		std::string langName;
-		if (!langRegionNames->Get(keys[i], &langName)) {
-			continue;
-		}
-		std::string langCode = "ENGLISH";;
-		systemLanguage->Get(keys[i], &langCode);
-		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		if (langCodeMapping.find(langCode) != langCodeMapping.end())
-			iLangCode = langCodeMapping[langCode];
-		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
-	}
-}
-
-const std::map<std::string, std::pair<std::string, int>, std::less<>> &Config::GetLangValuesMapping() {
-	if (langValuesMapping_.empty()) {
-		LoadLangValuesMapping();
-	}
-	return langValuesMapping_;
 }
 
 void Config::Reload() {
@@ -1181,20 +1186,20 @@ bool Config::LoadAppendedConfig() {
 		return false;
 	}
 
-	IterateSettings(iniFile, [&iniFile](char *owner, Section *section, const ConfigSetting &setting) {
-		if (iniFile.Exists(section->name().c_str(), setting.iniKey_)) {
-			setting.ReadFromIniSection(owner, section);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		Section *section = iniFile.GetSection(meta.section);
+		if (!section) {
+			continue;
 		}
-	});
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReadFromIniSection(meta.configBlock, section, false);
+		}
+	}
 
 	INFO_LOG(Log::Loader, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
 
 	Save("Loaded appended config"); // Let's prevent reset
 	return true;
-}
-
-void Config::SetAppendedConfigIni(const Path &path) {
-	appendedConfigFileName_ = path;
 }
 
 void Config::UpdateAfterSettingAutoFrameSkip() {
@@ -1204,6 +1209,29 @@ void Config::UpdateAfterSettingAutoFrameSkip() {
 	
 	if (bAutoFrameSkip && bSkipBufferEffects) {
 		bSkipBufferEffects = false;
+	}
+}
+
+void Config::ReadAllSettings(const IniFile &iniFile) {
+	// Read settings. Note, configblocks can now support their own defaulting mechanism.
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		const Section *section = iniFile.GetSection(meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
+		if (!section && !meta.fallbackSectionName.empty()) {
+			section = iniFile.GetSection(meta.fallbackSectionName);
+			// NOTE: it's tempting to update the configBlock here, but that's not what we want to do!
+			// We just want to read from a different section in the ini file, we still want to read into
+			// the same configBlock.
+		}
+		// If section is still null, we'll handle that gracefully by resetting to defaults.
+		bool applyDefaultPerSetting = true;
+		if (configBlock->ResetToDefault(meta.section)) {
+			applyDefaultPerSetting = false;
+		}
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReadFromIniSection(configBlock, section, applyDefaultPerSetting);
+		}
 	}
 }
 
@@ -1228,9 +1256,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		setting.ReadFromIniSection(owner, section);
-	});
+	ReadAllSettings(iniFile);
 
 	iRunCount++;
 
@@ -1258,12 +1284,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	if (iGPUBackend == 1) {  // d3d9, no longer supported
-		iGPUBackend = 2;  // d3d11
-	}
-
 	if (iMaxRecent > 0) {
 		g_recentFiles.Load(recent, iMaxRecent);
+		g_recentFiles.Clean();
 	}
 
 	// Time tracking
@@ -1309,16 +1332,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			vPostShaderNames.push_back(it.second);
 	}
 
-	// Check for an old dpad setting (very obsolete)
-	Section *control = iniFile.GetSection("Control");
-	if (control) {
-		float f = 0.0f;
-		control->Get("DPadRadius", &f);
-		if (f > 0.0f) {
-			ResetControlLayout();
-		}
-	}
-
 	// Force JIT setting to a valid value for the current system configuration.
 	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
 		if (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) {
@@ -1331,16 +1344,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	LoadStandardControllerIni();
 
-	//so this is all the way down here to overwrite the controller settings
-	//sadly it won't benefit from all the "version conversion" going on up-above
-	//but these configs shouldn't contain older versions anyhow
-	if (bGameSpecific) {
-		loadGameConfig(gameId_, gameIdTitle_);
+	// So this is all the way down here to overwrite the controller settings
+	// sadly it won't benefit from all the "version conversion" going on up-above
+	// but these configs shouldn't contain older versions anyhow
+	if (gameSpecific_) {
+		LoadGameConfig(gameId_);
 	}
 
-	g_recentFiles.Clean();
-
-	PostLoadCleanup(false);
+	PostLoadCleanup();
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
@@ -1351,15 +1362,14 @@ bool Config::Save(const char *saveReason) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
 		WARN_LOG(Log::Loader, "Not saving config - secondary instances don't.");
-
 		// Don't want to retry or something.
 		return true;
 	}
 
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
-		saveGameConfig(gameId_, gameIdTitle_);
+		SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
 
-		PreSaveCleanup(false);
+		PreSaveCleanup();
 
 		g_recentFiles.Clean();
 		IniFile iniFile;
@@ -1370,11 +1380,14 @@ bool Config::Save(const char *saveReason) {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		IterateSettings(iniFile, [&](const char *owner, Section *section, const ConfigSetting &setting) {
-			if (!bGameSpecific || !setting.PerGame()) {
-				setting.WriteToIniSection(owner, section);
+		// Do the writing.
+		for (const ConfigSectionMeta &meta : g_sectionMeta) {
+			Section *section = iniFile.GetOrCreateSection(meta.section);
+			ConfigBlock *configBlock = meta.configBlock;
+			for (size_t j = 0; j < meta.settingsCount; j++) {
+				meta.settings[j].WriteToIniSection(configBlock, section);
 			}
-		});
+		}
 
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
@@ -1388,7 +1401,7 @@ bool Config::Save(const char *saveReason) {
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 
-		if (!bGameSpecific) {
+		if (!gameSpecific_) {
 			Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
@@ -1426,7 +1439,7 @@ bool Config::Save(const char *saveReason) {
 		}
 		INFO_LOG(Log::Loader, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 
-		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
+		if (!gameSpecific_) //otherwise we already did this in SaveGameConfig()
 		{
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_)) {
@@ -1440,7 +1453,7 @@ bool Config::Save(const char *saveReason) {
 			INFO_LOG(Log::Loader, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
 
-		PostSaveCleanup(false);
+		PostSaveCleanup();
 	} else {
 		INFO_LOG(Log::Loader, "Not saving config");
 	}
@@ -1449,16 +1462,18 @@ bool Config::Save(const char *saveReason) {
 }
 
 // A lot more cleanup tasks should be moved into here, and some of these are severely outdated.
-void Config::PostLoadCleanup(bool gameSpecific) {
+void Config::PostLoadCleanup() {
 	// Override ppsspp.ini JIT value to prevent crashing
 	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR);
 	if (jitForcedOff) {
 		g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 
-	// This caps the exponent 4 (so 16x.)
-	if (iAnisotropyLevel > 4) {
-		iAnisotropyLevel = 4;
+	// This caps the exponent 4 (so 16x.). No hardware supports more anyway.
+	iAnisotropyLevel = std::clamp(iAnisotropyLevel, 0, 4);
+
+	if (iGPUBackend == 1) {  // d3d9, no longer supported
+		iGPUBackend = 2;  // d3d11
 	}
 
 	// Set a default MAC, and correct if it's an old format.
@@ -1471,6 +1486,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
 	if (PPSSPP_ID > 1) {
+		NOTICE_LOG(Log::Audio, "Secondary instance %d - silencing audio", (int)PPSSPP_ID);
 		g_Config.iGameVolume = 0;
 	}
 
@@ -1485,7 +1501,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 	}
 }
 
-void Config::PreSaveCleanup(bool gameSpecific) {
+void Config::PreSaveCleanup() {
 	if (jitForcedOff) {
 		// If we forced jit off and it's still set to IR, change it back to jit.
 		if (g_Config.iCpuCore == (int)CPUCore::IR_INTERPRETER)
@@ -1493,7 +1509,7 @@ void Config::PreSaveCleanup(bool gameSpecific) {
 	}
 }
 
-void Config::PostSaveCleanup(bool gameSpecific) {
+void Config::PostSaveCleanup() {
 	if (jitForcedOff) {
 		// Force JIT off again just in case Config::Save() is called without exiting PPSSPP.
 		if (g_Config.iCpuCore == (int)CPUCore::JIT)
@@ -1540,7 +1556,7 @@ void Config::SetSearchPath(const Path &searchPath) {
 	searchPath_ = searchPath;
 }
 
-const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists) {
+Path Config::FindConfigFile(std::string_view baseFilename, bool *exists) const {
 	// Don't search for an absolute path.
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
 		Path path(baseFilename);
@@ -1548,6 +1564,7 @@ const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists)
 		return path;
 	}
 #ifdef _WIN32
+	// Handle paths starting with a drive letter.
 	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
 		Path path(baseFilename);
 		*exists = File::Exists(path);
@@ -1572,16 +1589,24 @@ const Path Config::FindConfigFile(const std::string &baseFilename, bool *exists)
 }
 
 void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
-	if (bGameSpecific) {
+	if (gameSpecific_) {
 		// TODO: This should be possible to do in a cleaner way.
-		deleteGameConfig(gameId_);
-		createGameConfig(gameId_);
+		DeleteGameConfig(gameId_);
+		CreateGameConfig(gameId_);
 		Load();
 	} else {
 		if (whatToRestore & RestoreSettingsBits::SETTINGS) {
-			IterateSettings([log](char *owner, const ConfigSetting &setting) {
-				setting.RestoreToDefault(owner, log);
-			});
+			// Read settings. Note, ConfigBlocks can now support their own defaulting mechanism.
+			for (const auto &meta : g_sectionMeta) {
+				ConfigBlock *configBlock = meta.configBlock;
+				bool applyDefaultPerSetting = true;
+				if (!configBlock->ResetToDefault(meta.section)) {
+					// Reset the settings one by one.
+					for (size_t j = 0; j < meta.settingsCount; j++) {
+						meta.settings[j].RestoreToDefault(configBlock, log);
+					}
+				}
+			}
 		}
 
 		if (whatToRestore & RestoreSettingsBits::CONTROLS) {
@@ -1595,23 +1620,24 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 	}
 }
 
-bool Config::hasGameConfig(const std::string &pGameId) {
+bool Config::HasGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = getGameConfigFile(pGameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 	return exists;
 }
 
-void Config::changeGameSpecific(const std::string &pGameId, const std::string &title) {
-	if (!reload_)
+void Config::ChangeGameSpecific(const std::string &pGameId, std::string_view title) {
+	if (!reload_) {
 		Save("changeGameSpecific");
+	}
+
 	gameId_ = pGameId;
-	gameIdTitle_ = title;
-	bGameSpecific = !pGameId.empty();
+	gameSpecific_ = !pGameId.empty();
 }
 
-bool Config::createGameConfig(const std::string &pGameId) {
+bool Config::CreateGameConfig(std::string_view gameId) {
 	bool exists;
-	Path fullIniFilePath = getGameConfigFile(pGameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
 	if (exists) {
 		INFO_LOG(Log::System, "Game config already exists");
@@ -1622,9 +1648,9 @@ bool Config::createGameConfig(const std::string &pGameId) {
 	return true;
 }
 
-bool Config::deleteGameConfig(const std::string& pGameId) {
-	bool exists;
-	Path fullIniFilePath = Path(getGameConfigFile(pGameId, &exists));
+bool Config::DeleteGameConfig(std::string_view gameId) {
+	bool exists = false;
+	Path fullIniFilePath = Path(GetGameConfigFilePath(gameId, &exists));
 
 	if (exists) {
 		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
@@ -1636,34 +1662,42 @@ bool Config::deleteGameConfig(const std::string& pGameId) {
 	return true;
 }
 
-Path Config::getGameConfigFile(const std::string &pGameId, bool *exists) {
-	const char *ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
-	std::string iniFileName = pGameId + ppssppIniFilename;
+Path Config::GetGameConfigFilePath(std::string_view gameId, bool *exists) {
+	std::string_view ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
+	std::string iniFileName = join(gameId, ppssppIniFilename);
 	Path iniFileNameFull = FindConfigFile(iniFileName, exists);
-
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId, const std::string &titleForComment) {
-	if (pGameId.empty()) {
+bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleForComment) {
+	if (gameId.empty()) {
 		return false;
 	}
 
 	bool exists;
-	Path fullIniFilePath = getGameConfigFile(pGameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
 	IniFile iniFile;
 
+	// Just like regular configs, we should load and save, in order to preserve things like comments.
+	iniFile.Load(fullIniFilePath);
+
 	Section *top = iniFile.GetOrCreateSection("");
-	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), titleForComment.c_str()));
+	if (top->Lines().empty() && !titleForComment.empty()) {
+		top->AddComment(StringFromFormat("Game config for %s - %.*s", gameId.c_str(), STR_VIEW(titleForComment)));
+	}
 
-	PreSaveCleanup(true);
+	PreSaveCleanup();
 
-	IterateSettings(iniFile, [](const char *owner, Section *section, const ConfigSetting &setting) {
-		if (setting.PerGame()) {
-			setting.WriteToIniSection(owner, section);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		Section *section = iniFile.GetOrCreateSection(meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			if (meta.settings[j].PerGame()) {
+				meta.settings[j].WriteToIniSection(configBlock, section);
+			}
 		}
-	});
+	}
 
 	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 	postShaderSetting->Clear();
@@ -1684,19 +1718,22 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	INFO_LOG(Log::Loader, "Game-specific config saved: '%s'", fullIniFilePath.c_str());
 
-	PostSaveCleanup(true);
+	PostSaveCleanup();
 	return true;
 }
 
-bool Config::loadGameConfig(const std::string &pGameId, const std::string &title) {
+bool Config::LoadGameConfig(const std::string &gameId) {
 	bool exists;
-	Path iniFileNameFull = getGameConfigFile(pGameId, &exists);
+	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
 	if (!exists) {
 		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 
-	changeGameSpecific(pGameId, title);
+	_dbg_assert_(!gameId.empty());
+
+	ChangeGameSpecific(gameId);
+
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
 
@@ -1718,55 +1755,63 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 			vPostShaderNames.push_back(v);
 	}
 
-	IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-		if (setting.PerGame()) {
-			setting.ReadFromIniSection(owner, section);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		Section *section = iniFile.GetSection(meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		// Not found? Try the fallback (to upgrade settings that have been moved from old sections).
+		if (!section && !meta.fallbackSectionName.empty()) {
+			section = iniFile.GetSection(meta.fallbackSectionName);
+			// NOTE: it's tempting to update the configBlock here, but that's not what we want to do!
+			// We just want to read from a different section in the ini file, we still want to read into
+			// the same configBlock.
 		}
-	});
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReadFromIniSection(configBlock, section, false);
+		}
+	}
 
 	KeyMap::LoadFromIni(iniFile);
 
 	if (!appendedConfigFileName_.ToString().empty() &&
-		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), pGameId) == appendedConfigUpdatedGames_.end()) {
+		std::find(appendedConfigUpdatedGames_.begin(), appendedConfigUpdatedGames_.end(), gameId) == appendedConfigUpdatedGames_.end()) {
 
 		LoadAppendedConfig();
-		appendedConfigUpdatedGames_.push_back(pGameId);
+		appendedConfigUpdatedGames_.push_back(gameId);
 	}
 
-	PostLoadCleanup(true);
+	PostLoadCleanup();
 	return true;
 }
 
-void Config::unloadGameConfig() {
-	if (bGameSpecific) {
-		changeGameSpecific();
-
-		IniFile iniFile;
-		iniFile.Load(iniFilename_);
-
-		// Reload game specific settings back to standard.
-		IterateSettings(iniFile, [](char *owner, const Section *section, const ConfigSetting &setting) {
-			if (setting.PerGame()) {
-				setting.ReadFromIniSection(owner, section);
-			}
-		});
-
-		auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
-		mPostShaderSetting.clear();
-		for (const auto &[k, v] : postShaderSetting) {
-			mPostShaderSetting[k] = std::stof(v);
-		}
-
-		auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
-		vPostShaderNames.clear();
-		for (const auto &[k, v] : postShaderChain) {
-			if (v != "Off")
-				vPostShaderNames.push_back(v);
-		}
-
-		LoadStandardControllerIni();
-		PostLoadCleanup(true);
+void Config::UnloadGameConfig() {
+	if (!gameSpecific_) {
+		return;
 	}
+
+	gameId_.clear();
+	gameSpecific_ = false;
+
+	// Reload all settings from the main ini file.
+	IniFile iniFile;
+	iniFile.Load(iniFilename_);
+
+	ReadAllSettings(iniFile);
+
+	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	mPostShaderSetting.clear();
+	for (const auto &[k, v] : postShaderSetting) {
+		mPostShaderSetting[k] = std::stof(v);
+	}
+
+	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
+	vPostShaderNames.clear();
+	for (const auto &[k, v] : postShaderChain) {
+		if (v != "Off")
+			vPostShaderNames.push_back(v);
+	}
+
+	LoadStandardControllerIni();
+	PostLoadCleanup();
 }
 
 void Config::LoadStandardControllerIni() {
@@ -1780,56 +1825,13 @@ void Config::LoadStandardControllerIni() {
 	}
 }
 
-void Config::ResetControlLayout() {
-	auto reset = [](ConfigTouchPos &pos) {
-		pos.x = defaultTouchPosShow.x;
-		pos.y = defaultTouchPosShow.y;
-		pos.scale = defaultTouchPosShow.scale;
-	};
-	reset(g_Config.touchActionButtonCenter);
-	g_Config.fActionButtonSpacing = 1.0f;
-	reset(g_Config.touchDpad);
-	g_Config.fDpadSpacing = 1.0f;
-	reset(g_Config.touchStartKey);
-	reset(g_Config.touchSelectKey);
-	reset(g_Config.touchFastForwardKey);
-	reset(g_Config.touchLKey);
-	reset(g_Config.touchRKey);
-	reset(g_Config.touchAnalogStick);
-	reset(g_Config.touchRightAnalogStick);
-	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
-		reset(g_Config.touchCustom[i]);
-	}
-	g_Config.fLeftStickHeadScale = 1.0f;
-	g_Config.fRightStickHeadScale = 1.0f;
-}
-
 void Config::GetReportingInfo(UrlEncoder &data) const {
-	for (size_t i = 0; i < numSections; ++i) {
-		const std::string prefix = std::string("config.") + sectionDescs[i].section;
-		const char *owner = (const char *)sectionDescs[i].owner;
-		for (size_t j = 0; j < sectionDescs[i].settingsCount; j++) {
-			sectionDescs[i].settings[j].ReportSetting(owner, data, prefix);
+	for (const ConfigSectionMeta &meta : g_sectionMeta) {
+		const std::string prefix = join("config.", meta.section);
+		ConfigBlock *configBlock = meta.configBlock;
+		for (size_t j = 0; j < meta.settingsCount; j++) {
+			meta.settings[j].ReportSetting(configBlock, data, prefix);
 		}
-	}
-}
-
-bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
-}
-
-int Config::GetPSPLanguage() {
-	if (g_Config.iLanguage == -1) {
-		const auto &langValuesMapping = GetLangValuesMapping();
-		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
-		if (iter != langValuesMapping.end()) {
-			return iter->second.second;
-		} else {
-			// Fallback to English
-			return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		}
-	} else {
-		return g_Config.iLanguage;
 	}
 }
 
@@ -1879,7 +1881,7 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 void PlayTimeTracker::Load(const Section *section) {
 	tracker_.clear();
 
-	auto map = section->ToMap();
+	const auto map = section->ToMap();
 
 	for (const auto &iter : map) {
 		const std::string &value = iter.second;
@@ -1907,11 +1909,11 @@ bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string
 	}
 
 	int totalSeconds = iter->second.totalTimePlayed;
-	int seconds = totalSeconds % 60;
+	const int seconds = totalSeconds % 60;
 	totalSeconds /= 60;
-	int minutes = totalSeconds % 60;
+	const int minutes = totalSeconds % 60;
 	totalSeconds /= 60;
-	int hours = totalSeconds;
+	const int hours = totalSeconds;
 
 	*str = ApplySafeSubstitutions(ga->T("Time Played: %1h %2m %3s"), hours, minutes, seconds);
 	return true;

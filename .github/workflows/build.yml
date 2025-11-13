@@ -97,7 +97,7 @@ jobs:
       run: cp Windows/Release/*.exe ppsspp/
 
     - name: Upload build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
@@ -113,7 +113,7 @@ jobs:
         Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ github.ref_name }}-Windows-${{ matrix.platform }}.zip"
 
     - name: Upload release
-      uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+      uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
       if: github.ref_type == 'tag'
       with:
         files: releases/*.zip
@@ -147,7 +147,7 @@ jobs:
       run: git submodule update --init pspautotests assets/lang
 
     - name: Download build
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         name: Windows x64 build
         path: ppsspp/
@@ -234,6 +234,12 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest --fat --no-png --no-sdl2
           id: macos
+        - os: macos-latest
+          extra: libretro_mac
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --libretro
+          id: macos-libretro
         - os: macos-latest
           extra: ios
           cc: clang
@@ -362,14 +368,14 @@ jobs:
         fi
 
     - name: Upload build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: matrix.extra == 'test'
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
     - name: Upload iOS build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: matrix.id == 'ios'
       with:
         name: ${{ matrix.id }} build
@@ -381,7 +387,7 @@ jobs:
       run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS & iOS release
-      uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+      uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
       if: github.ref_type == 'tag' && (matrix.id == 'macos' || matrix.id == 'ios')
       with:
         files: |
@@ -427,7 +433,7 @@ jobs:
         git submodule update --init SDL/macOS
 
     - name: Download build
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/

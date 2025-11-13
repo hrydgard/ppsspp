@@ -856,7 +856,7 @@ handleELF:
 
 		if (flags_ & GameInfoFlags::PARAM_SFO) {
 			// We fetch the hasConfig together with the params, since that's what fills out the id.
-			info_->hasConfig = g_Config.hasGameConfig(info_->id);
+			info_->hasConfig = g_Config.HasGameConfig(info_->id);
 		}
 
 		if (flags_ & GameInfoFlags::SIZE) {

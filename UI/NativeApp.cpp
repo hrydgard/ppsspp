@@ -134,9 +134,6 @@
 #include "UI/Theme.h"
 #include "UI/UIAtlas.h"
 
-#if defined(USING_QT_UI)
-#include <QFontDatabase>
-#endif
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
 #include "UWP/UWPHelpers/InputHelpers.h"
@@ -696,41 +693,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	auto des = GetI18NCategory(I18NCat::DESKTOPUI);
-	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
-	// It's intended to be custom for every user.
-	// Only add it to your own personal copies of PPSSPP.
-#if PPSSPP_PLATFORM(UWP)
-	// Roboto font is loaded in TextDrawerUWP.
-	g_Config.sFont = des->T("Font", "Roboto");
-#elif defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
-	// TODO: Could allow a setting to specify a font file to load?
-	// TODO: Make this a constant if we can sanely load the font on other systems?
-	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
-	// The font goes by two names, let's allow either one.
-	if (CheckFontIsUsable(L"Roboto Condensed")) {
-		g_Config.sFont = des->T("Font", "Roboto Condensed");
-	} else {
-		g_Config.sFont = des->T("Font", "Roboto");
-	}
-#elif defined(USING_QT_UI)
-	size_t fontSize = 0;
-	uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &fontSize);
-	if (fontData) {
-		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
-		delete [] fontData;
-
-		QStringList fontsFound = QFontDatabase::applicationFontFamilies(fontID);
-		if (fontsFound.size() >= 1) {
-			// Might be "Roboto" or "Roboto Condensed".
-			g_Config.sFont = des->T("Font", fontsFound.at(0).toUtf8().constData());
-		}
-	} else {
-		// Let's try for it being a system font.
-		g_Config.sFont = des->T("Font", "Roboto Condensed");
-	}
-#endif
-
 	g_BackgroundAudio.SFX().Init();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
@@ -852,7 +814,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d);
 	if (uiContext->Text()) {
-		uiContext->Text()->SetFont("Tahoma", 20, 0);
+		// This seems unnecessary.
+		// uiContext->Text()->SetOrCreateFont(FontStyle(FontID::invalid(), FontFamily::SansSerif, 20, FontStyleFlags::Default));
 	}
 
 	g_screenManager->setUIContext(uiContext);
@@ -1293,7 +1256,8 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 	}
 	else if (message == UIMessage::GPU_RENDER_RESIZED) {
 		if (gpu) {
-			gpu->NotifyRenderResized();
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			gpu->NotifyRenderResized(config);
 		}
 		return true;
 	}
@@ -1399,7 +1363,7 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 #if PPSSPP_PLATFORM(UWP)
-	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active 
+	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
 	if (IgnoreInput(key.keyCode) && !(key.flags & KEY_CHAR)) {
 		return false;
@@ -1415,6 +1379,24 @@ bool NativeKey(const KeyInput &key) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
 				System_ExitApp();
 				return true;
+			}
+		}
+	}
+#endif
+
+#ifdef _DEBUG
+	// Debug hack: Randomize the language with F9!
+	if (false && (key.keyCode == NKCODE_F9 && (key.flags & KEY_DOWN))) {
+		std::vector<File::FileInfo> tempLangs;
+		g_VFS.GetFileListing("lang", &tempLangs, "ini");
+		int x = rand() % tempLangs.size();
+		std::string_view code, part2;
+		if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
+			g_Config.sLanguageIni = code;
+			INFO_LOG(Log::System, "Switching to random language: %s", g_Config.sLanguageIni.c_str());
+			if (g_i18nrepo.LoadIni(g_Config.sLanguageIni)) {
+				g_screenManager->RecreateAllViews();
+				System_Notify(SystemNotification::UI);
 			}
 		}
 	}
@@ -1495,6 +1477,7 @@ void NativeMouseDelta(float dx, float dy) {
 	SendMouseDeltaAxis();
 }
 
+// TODO: Should include a device ID here, since accelerometers can be on pads for example (DualSense).
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, don't do anything special.
@@ -1644,10 +1627,15 @@ bool Native_IsWindowHidden() {
 }
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
+	if (!g_Config.bShrinkIfWindowSmall) {
+		return false;
+	}
+
 	// Can't take this from config as it will not be set if windows is maximized.
 	int w = (int)(pixelWidth * g_display.dpi_scale_real_x);
 	int h = (int)(pixelHeight * g_display.dpi_scale_real_y);
-	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	return config.InternalRotationIsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {

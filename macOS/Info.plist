@@ -137,5 +137,7 @@
 			</dict>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>PPSSPP needs camera access to emulate the PSP camera for games that rely on it (for example, Invizimals).</string>
 </dict>
 </plist>

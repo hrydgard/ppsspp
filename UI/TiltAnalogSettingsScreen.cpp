@@ -44,7 +44,7 @@ void TiltAnalogSettingsScreen::CreateCalibrationView(UI::ViewGroup *parent, UI::
 		switch (g_Config.iTiltInputType) {
 		case TILT_DPAD:
 		{
-			parent->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
+			parent->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, Centering::Both)));
 			break;
 		}
 		case TILT_ACTION_BUTTON:
@@ -52,10 +52,10 @@ void TiltAnalogSettingsScreen::CreateCalibrationView(UI::ViewGroup *parent, UI::
 			AnchorLayout *rightSide = new AnchorLayout(layoutParams);
 			parent->Add(rightSide);
 
-			PSPButton *circle = new PSPButton(CTRL_CIRCLE, "Circle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CIRCLE"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
-			PSPButton *cross = new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, true));
-			PSPButton *triangle = new PSPButton(CTRL_TRIANGLE, "Triangle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_TRIANGLE"), 1.5f, new AnchorLayoutParams(NONE, 100.0f, NONE, NONE, true));
-			PSPButton *square = new PSPButton(CTRL_SQUARE, "Square button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_SQUARE"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
+			PSPButton *circle = new PSPButton(CTRL_CIRCLE, "Circle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CIRCLE"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, Centering::Both));
+			PSPButton *cross = new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, Centering::Both));
+			PSPButton *triangle = new PSPButton(CTRL_TRIANGLE, "Triangle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_TRIANGLE"), 1.5f, new AnchorLayoutParams(NONE, 100.0f, NONE, NONE, Centering::Both));
+			PSPButton *square = new PSPButton(CTRL_SQUARE, "Square button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_SQUARE"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, Centering::Both));
 			rightSide->Add(circle);
 			rightSide->Add(cross);
 			rightSide->Add(triangle);
@@ -67,8 +67,8 @@ void TiltAnalogSettingsScreen::CreateCalibrationView(UI::ViewGroup *parent, UI::
 			AnchorLayout *rightSide = new AnchorLayout(layoutParams);
 			parent->Add(rightSide);
 
-			PSPButton *lTrigger = new PSPButton(CTRL_LTRIGGER, "Left shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_L"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
-			PSPButton *rTrigger = new PSPButton(CTRL_RTRIGGER, "Right shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_R"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
+			PSPButton *lTrigger = new PSPButton(CTRL_LTRIGGER, "Left shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_L"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, Centering::Both));
+			PSPButton *rTrigger = new PSPButton(CTRL_RTRIGGER, "Right shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_R"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, Centering::Both));
 			rTrigger->FlipImageH(true);
 			rightSide->Add(lTrigger);
 			rightSide->Add(rTrigger);
@@ -85,7 +85,7 @@ std::string_view TiltAnalogSettingsScreen::GetTitle() const {
 
 void TiltAnalogSettingsScreen::CreateContentViews(UI::LinearLayout *parent) {
 	using namespace UI;
-	CreateCalibrationView(parent, new LinearLayoutParams(300.0f, 300.0f, 1.0f, G_CENTER));
+	CreateCalibrationView(parent, new LinearLayoutParams(300.0f, 300.0f, 1.0f, Gravity::G_CENTER));
 }
 
 void TiltAnalogSettingsScreen::CreateSettingsViews(UI::LinearLayout *settings) {

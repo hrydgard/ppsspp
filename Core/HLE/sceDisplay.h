@@ -34,3 +34,7 @@ void __DisplaySetWasPaused();
 
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);
+
+// Kinda hacky, but what can you do... we can't pass it through the jit etc.
+struct DisplayLayoutConfig;
+void __DisplaySetDisplayLayoutConfig(const DisplayLayoutConfig &config);

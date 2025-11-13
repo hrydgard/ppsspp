@@ -26,18 +26,20 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/Data/Text/I18n.h"
 
 #include "Core/ControlMapper.h"
 
 #include "UI/BaseScreens.h"
+#include "UI/TabbedDialogScreen.h"
 #include "UI/SimpleDialogScreen.h"
 
 class SingleControlMapper;
 
-class ControlMappingScreen : public UIBaseDialogScreen {
+class ControlMappingScreen : public UITabbedBaseDialogScreen {
 public:
-	explicit ControlMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
+	ControlMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {
 		categoryToggles_[0] = true;
 		categoryToggles_[1] = true;
 		categoryToggles_[2] = true;
@@ -46,11 +48,13 @@ public:
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
-	void CreateViews() override;
+	void CreateTabs() override;
+	void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) override;
 	void update() override;
 
 private:
 	void OnAutoConfigure(UI::EventParams &params);
+	bool ShowSearchControls() const override { return false; }
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
@@ -61,7 +65,7 @@ private:
 	bool categoryToggles_[10]{};
 };
 
-class KeyMappingNewKeyDialog : public PopupScreen {
+class KeyMappingNewKeyDialog : public UI::PopupScreen {
 public:
 	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
 		: PopupScreen(T(i18n, "Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
@@ -94,7 +98,7 @@ private:
 	double delayUntil_ = 0.0f;
 };
 
-class KeyMappingNewMouseKeyDialog : public PopupScreen {
+class KeyMappingNewMouseKeyDialog : public UI::PopupScreen {
 public:
 	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
 		: PopupScreen(T(i18n, "Map Mouse"), "", ""), callback_(callback) {}

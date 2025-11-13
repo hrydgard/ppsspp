@@ -7,41 +7,71 @@ import android.util.Log;
 
 import androidx.annotation.Keep;
 
+import java.util.HashMap;
+
 public class TextRenderer {
-	private static final Paint textPaint;
+	private static class Font {
+		public Paint paint;
+		public Typeface typeFace;
+	}
+
+	private static Paint textPaint = null;
+
 	private static final Paint bg;
 	private static final String TAG = "TextRenderer";
 
+	private static int idGen = 1;
+
+	private static HashMap<java.lang.Integer, Typeface> fontMap = new HashMap<>();
+
 	private static boolean highContrastFontsEnabled = false;
 
+	private static Context ctx;
+
 	static {
-		textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
-		textPaint.setColor(Color.WHITE);
 		bg = new Paint();
 		bg.setColor(0);
 	}
 
-	public static void init(Context ctx) {
+	@Keep
+	public static int allocFont(String ttfFile) {
 		try {
-			Typeface robotoCondensed = Typeface.createFromAsset(ctx.getAssets(), "Roboto-Condensed.ttf");
-			if (robotoCondensed != null) {
-				Log.i(TAG, "Successfully loaded Roboto Condensed");
-				textPaint.setTypeface(robotoCondensed);
+			Typeface typeFace = Typeface.createFromAsset(ctx.getAssets(), ttfFile);
+			if (typeFace != null) {
+				Log.i(TAG, "Successfully loaded typeface from " + ttfFile);
 			} else {
-				Log.e(TAG, "Failed to load Roboto Condensed");
+				Log.e(TAG, "Failed to load asset file " + ttfFile);
 			}
+			int id = idGen++;
+			fontMap.put(id, typeFace);
+			return id;
 		} catch (Exception e) {
 			Log.e(TAG, "Exception when loading typeface. shouldn't happen but is reported. We just fall back." + e);
+			e.printStackTrace();
+			return -1337;
 		}
-		highContrastFontsEnabled = Settings.Secure.getInt(ctx.getContentResolver(), "high_text_contrast_enabled", 0) == 1;
 	}
 
-	private static Point measureLine(String string, double textSize) {
+	@Keep
+	public static void freeAllFonts() {
+		fontMap.clear();
+	}
+
+	public static void init(Context ctx) {
+		Log.i(TAG, "initializing TextDrawerAndroid java side");
+		textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
+		textPaint.setColor(Color.WHITE);
+		highContrastFontsEnabled = Settings.Secure.getInt(ctx.getContentResolver(), "high_text_contrast_enabled", 0) == 1;
+		TextRenderer.ctx = ctx;
+	}
+
+	private static Point measureLine(String string, int font, double textSize) {
 		textPaint.setTextSize((float)textSize);
 		int w = (int) textPaint.measureText(string);
 		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures
 		// which OpenGL does not like - each line must be 4-byte aligned
-		w = (w + 5) & ~1;
+		w = (w + 1) & ~1;
+		w += 2;
 		int h = (int) (textPaint.descent() - textPaint.ascent() + 2.0f);
 		Point p = new Point();
 		p.x = w;
@@ -49,12 +79,12 @@ public class TextRenderer {
 		return p;
 	}
 
-	private static Point measure(String string, double textSize) {
+	private static Point measure(String string, int font, double textSize) {
 		String [] lines = string.replaceAll("\r", "").split("\n");
 		Point total = new Point();
 		total.x = 0;
 		for (String line : lines) {
-			Point sz = measureLine(line, textSize);
+			Point sz = measureLine(line, font, textSize);
 			total.x = Math.max(sz.x, total.x);
 		}
 		total.y = (int) (textPaint.descent() - textPaint.ascent()) * lines.length + 2;
@@ -73,15 +103,17 @@ public class TextRenderer {
 	}
 
 	@Keep
-	public static int measureText(String string, double textSize) {
+	public static int measureText(String string, int font, double textSize) {
+		textPaint.setTypeface(fontMap.get(font));
 		textPaint.setTextSize((float) textSize);
-		Point s = measure(string, textSize);
+		Point s = measure(string, font, textSize);
 		return (s.x << 16) | s.y;
 	}
 
-	public static int[] renderText(String string, double textSize) {
+	public static int[] renderText(String string, int font, double textSize) {
+		textPaint.setTypeface(fontMap.get(font));
 		textPaint.setTextSize((float) textSize);
-		Point s = measure(string, textSize);
+		Point s = measure(string, font, textSize);
 
 		int w = s.x;
 		int h = s.y;

@@ -150,7 +150,7 @@ void ControlMapper::SetCallbacks(
 	std::function<void(VirtKey, bool)> onVKey,
 	std::function<void(VirtKey, float)> onVKeyAnalog,
 	std::function<void(uint32_t, uint32_t)> updatePSPButtons,
-	std::function<void(int, float, float)> setPSPAnalog,
+	std::function<void(int, int, float, float)> setPSPAnalog,
 	std::function<void(int, float, float)> setRawAnalog) {
 	onVKey_ = onVKey;
 	onVKeyAnalog_ = onVKeyAnalog;
@@ -208,7 +208,7 @@ void ControlMapper::UpdateAnalogOutput(int stick) {
 	}
 	converted_[stick][0] = x;
 	converted_[stick][1] = y;
-	setPSPAnalog_(stick, x, y);
+	setPSPAnalog_(iInternalScreenRotationCached_, stick, x, y);
 }
 
 void ControlMapper::ForceReleaseVKey(int vkey) {
@@ -357,7 +357,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	// of crazy input combos if needed.
 
 	int rotations = 0;
-	switch (g_Config.iInternalScreenRotation) {
+	switch (iInternalScreenRotationCached_) {
 	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
 	case ROTATION_LOCKED_VERTICAL:      rotations = 1; break;
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 3; break;
@@ -650,18 +650,19 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 	KeyMap::UnlockMappings();
 }
 
-void ControlMapper::Update(double now) {
+void ControlMapper::Update(const DisplayLayoutConfig &config, double now) {
+	iInternalScreenRotationCached_ = config.iInternalScreenRotation;
 	if (autoRotatingAnalogCW_) {
 		// Clamp to a square
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * -g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * -g_Config.fAnalogAutoRotSpeed)));
 
-		setPSPAnalog_(0, x, y);
+		setPSPAnalog_(iInternalScreenRotationCached_, 0, x, y);
 	} else if (autoRotatingAnalogCCW_) {
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * g_Config.fAnalogAutoRotSpeed)));
 
-		setPSPAnalog_(0, x, y);
+		setPSPAnalog_(iInternalScreenRotationCached_, 0, x, y);
 	}
 }
 
@@ -727,7 +728,7 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 			autoRotatingAnalogCCW_ = false;
 		} else {
 			autoRotatingAnalogCW_ = false;
-			setPSPAnalog_(0, 0.0f, 0.0f);
+			setPSPAnalog_(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
 		}
 		break;
 	case VIRTKEY_ANALOG_ROTATE_CCW:
@@ -736,7 +737,7 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 			autoRotatingAnalogCCW_ = true;
 		} else {
 			autoRotatingAnalogCCW_ = false;
-			setPSPAnalog_(0, 0.0f, 0.0f);
+			setPSPAnalog_(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
 		}
 		break;
 	default:

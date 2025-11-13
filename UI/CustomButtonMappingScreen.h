@@ -26,7 +26,7 @@ namespace UI {
 
 class CustomButtonMappingScreen : public UIBaseDialogScreen {
 public:
-	CustomButtonMappingScreen(const Path &gamePath, int id) : UIBaseDialogScreen(gamePath), id_(id) {}
+	CustomButtonMappingScreen(DeviceOrientation deviceOrientation, const Path &gamePath, int id) : UIBaseDialogScreen(gamePath), deviceOrientation_(deviceOrientation), id_(id) {}
 
 	const char *tag() const override { return "CustomButton"; }
 
@@ -49,4 +49,6 @@ private:
 	private:
 		UI::CheckBox *checkbox_;
 	};
+
+	DeviceOrientation deviceOrientation_;
 };

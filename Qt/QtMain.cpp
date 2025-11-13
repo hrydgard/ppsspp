@@ -446,9 +446,8 @@ void System_Vibrate(int length_ms) {
 		length_ms = 25;
 }
 
-void System_LaunchUrl(LaunchUrlType urlType, const char *url)
-{
-	QDesktopServices::openUrl(QUrl(url));
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
+	QDesktopServices::openUrl(QUrl(std::string(url).c_str()));
 }
 
 AudioBackend *System_CreateAudioBackend() {

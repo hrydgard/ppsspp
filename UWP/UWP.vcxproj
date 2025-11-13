@@ -451,7 +451,19 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Font Include="..\Assets\Roboto-Condensed.ttf">
+    <Font Include="..\Assets\Roboto_Condensed-Regular.ttf">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Font>
+    <Font Include="..\Assets\Roboto_Condensed-Bold.ttf">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Font>
+    <Font Include="..\Assets\Roboto_Condensed-Italic.ttf">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Font>
+    <Font Include="..\Assets\Roboto_Condensed-Light.ttf">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Font>
+    <Font Include="..\Assets\Inconsolata-Regular.ttf">
       <Link>Content\%(Filename)%(Extension)</Link>
     </Font>
   </ItemGroup>

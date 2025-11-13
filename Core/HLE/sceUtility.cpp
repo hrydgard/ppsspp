@@ -24,6 +24,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
+#include "Common/File/VFS/VFS.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -234,6 +235,75 @@ static void UtilityVolatileUnlock(u64 userdata, int cyclesLate) {
 	PSPDialog *dialog = CurrentDialog(currentDialogType);
 	if (dialog)
 		dialog->FinishVolatile();
+}
+
+// Applies the Auto setting if set. Returns an enum value from PSP_SYSTEMPARAM_LANGUAGE_*.
+const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangValuesMapping() {
+	static std::map<std::string, std::pair<std::string, int>, std::less<>> langValuesMapping_;
+
+	static const std::map<std::string_view, int> langCodeMapping = {
+		{"JAPANESE", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE},
+		{"ENGLISH", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH},
+		{"FRENCH", PSP_SYSTEMPARAM_LANGUAGE_FRENCH},
+		{"SPANISH", PSP_SYSTEMPARAM_LANGUAGE_SPANISH},
+		{"GERMAN", PSP_SYSTEMPARAM_LANGUAGE_GERMAN},
+		{"ITALIAN", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN},
+		{"DUTCH", PSP_SYSTEMPARAM_LANGUAGE_DUTCH},
+		{"PORTUGUESE", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE},
+		{"RUSSIAN", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN},
+		{"KOREAN", PSP_SYSTEMPARAM_LANGUAGE_KOREAN},
+		{"CHINESE_TRADITIONAL", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL},
+		{"CHINESE_SIMPLIFIED", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED},
+	};
+
+	if (!langValuesMapping_.empty()) {
+		return langValuesMapping_;
+	}
+
+	// Lazy-load the mapping.
+	IniFile mapping;
+	mapping.LoadFromVFS(g_VFS, "langregion.ini");
+	std::vector<std::string> keys;
+	Section *section = mapping.GetSection("LangRegionNames");
+	if (section) {
+		section->GetKeys(&keys);
+	}
+
+	const Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
+	const Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
+
+	for (size_t i = 0; i < keys.size(); i++) {
+		std::string langName;
+		if (!langRegionNames->Get(keys[i], &langName)) {
+			continue;
+		}
+		std::string langCode = "ENGLISH";
+		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		if (systemLanguage->Get(keys[i], &langCode)) {
+			const auto iter = langCodeMapping.find(langCode);
+			if (iter != langCodeMapping.end()) {
+				iLangCode = iter->second;
+			}
+		}
+		langValuesMapping_[keys[i]] = std::make_pair(langName, iLangCode);
+	}
+
+	return langValuesMapping_;
+}
+
+int GetPSPLanguage() {
+	if (g_Config.iLanguage == -1) {
+		const auto &langValuesMapping = GetLangValuesMapping();
+		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
+		if (iter != langValuesMapping.end()) {
+			return iter->second.second;
+		} else {
+			// Fallback to English
+			return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		}
+	} else {
+		return g_Config.iLanguage;
+	}
 }
 
 void __UtilityInit() {
@@ -1193,7 +1263,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
-		param = g_Config.GetPSPLanguage();
+		param = GetPSPLanguage();
 		if (PSP_CoreParameter().compat.flags().EnglishOrJapaneseOnly) {
 			if (param != PSP_SYSTEMPARAM_LANGUAGE_ENGLISH && param != PSP_SYSTEMPARAM_LANGUAGE_JAPANESE) {
 				param = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;

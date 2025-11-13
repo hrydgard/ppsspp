@@ -5,6 +5,7 @@
 #include "ppsspp_config.h"
 
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 
 class IAPScreen : public UIBaseDialogScreen {
 public:

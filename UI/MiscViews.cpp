@@ -5,7 +5,11 @@
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Math/curves.h"
+#include "Common/StringUtils.h"
 #include "UI/MiscViews.h"
+#include "UI/GameInfoCache.h"
+#include "Core/Config.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
@@ -56,12 +60,12 @@ TopBar::TopBar(const UIContext &ctx, bool usePortraitLayout, std::string_view ti
 	}
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, G_VCENTER)));
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
+		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
 	}
-	SetBG(ctx.GetTheme().itemDownStyle.background);
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
@@ -79,9 +83,9 @@ void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
 		if (lp) {
 			if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
-				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->centering));
 			} else {
-				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->centering));
 			}
 		}
 	}
@@ -127,4 +131,87 @@ std::string SettingInfoMessage::GetText() const {
 void ShinyIcon::Draw(UIContext &dc) {
 	UI::DrawIconShine(dc, bounds_, 1.0f, animated_);
 	UI::ImageView::Draw(dc);
+}
+
+class SimpleGameIconView : public UI::InertView {
+public:
+	SimpleGameIconView(const Path &gamePath, UI::LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), gamePath_(gamePath) {
+	}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		h = UI::ITEM_HEIGHT;
+		float aspect = 1.0f;
+		if (textureHeight_ > 0) {
+			aspect = static_cast<float>(textureWidth_) / static_cast<float>(textureHeight_);
+		}
+		w = h * aspect;
+	}
+
+	void Draw(UIContext &dc) override {
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::ICON);
+		if (!info->Ready(GameInfoFlags::ICON) || !info->icon.texture) {
+			return;
+		}
+
+		Draw::Texture *texture = info->icon.texture;
+
+		textureWidth_ = texture->Width();
+		textureHeight_ = texture->Height();
+
+		dc.Flush();
+		dc.GetDrawContext()->BindTexture(0, texture);
+		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
+		dc.Flush();
+		dc.RebindTexture();
+
+		// Draw the gear icon
+		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR_SMALL"));
+		dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 1, bounds_.y2() - gearImage->h - 1, 1.0f);
+	}
+
+	std::string DescribeText() const override { return ""; }
+
+private:
+	Path gamePath_;
+	int textureWidth_ = 0;
+	int textureHeight_ = 0;
+	bool showGear_ = false;
+};
+
+PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
+	using namespace UI;
+	SetSpacing(10.0f);
+	if (!layoutParams) {
+		layoutParams_->width = UI::FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
+
+	auto dlg = GetI18NCategory(I18NCat::DIALOG);
+
+	if (!title.empty()) {
+		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(10, 0, 20, 0))));
+		titleView->SetBig(true);
+		// If using HCENTER, to balance the centering, add a spacer on the right.
+	}
+
+	Add(new Spacer(10.0f, new LinearLayoutParams(1.0f)));
+
+	// Now add the game icon.
+	if (!gamePath.empty() && g_Config.IsGameSpecific()) {
+		Add(new SimpleGameIconView(gamePath_, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+	}
+
+	if (!settingsCategory.empty()) {
+		std::string settingsUrl;
+		if (settingsCategory[0] == '/') {
+			settingsUrl = join("https://www.ppsspp.org", settingsCategory);
+		} else {
+			settingsUrl = join("https://www.ppsspp.org/docs/settings/", settingsCategory);
+		}
+		Choice *helpButton = Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams()));
+		helpButton->OnClick.Add([settingsUrl](UI::EventParams &) {
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, settingsUrl);
+		});
+	}
 }

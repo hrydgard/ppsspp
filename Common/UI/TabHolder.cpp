@@ -9,7 +9,7 @@
 namespace UI {
 
 TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams)
-	: LinearLayout(Opposite(orientation), layoutParams) {
+	: LinearLayout(Opposite(orientation), layoutParams), tabOrientation_(orientation), flags_(flags) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
 		// This orientation supports adding a back button.
@@ -34,6 +34,8 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 		}
 	} else {
 		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
+		tabContainer_->Add(new Spacer(8.0f));
+		tabContainer_->SetSpacing(0.0f);
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabStrip_->SetTopTabs(true);
 		tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
@@ -62,9 +64,15 @@ void TabHolder::AddBack(UIScreen *parent) {
 	}
 }
 
-void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
+void TabHolder::AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents) {
 	tabs_.push_back(tabContents);
-	tabStrip_->AddChoice(title);
+	if (tabOrientation_ == ORIENT_HORIZONTAL && (flags_ & TabHolderFlags::HorizontalOnlyIcons) && imageId.isValid()) {
+		tabStrip_->AddChoice(imageId);
+	} else if (tabOrientation_ == ORIENT_VERTICAL && (flags_ & TabHolderFlags::VerticalShowIcons) && imageId.isValid()) {
+		tabStrip_->AddChoice(title, imageId);
+	} else {
+		tabStrip_->AddChoice(title);
+	}
 	contents_->Add(tabContents);
 	if (tabs_.size() > 1)
 		tabContents->SetVisibility(V_GONE);
@@ -76,9 +84,15 @@ void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
 	createFuncs_.push_back(nullptr);
 }
 
-void TabHolder::AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb) {
+void TabHolder::AddTabDeferred(std::string_view title, ImageID imageId, std::function<ViewGroup *()> createCb) {
 	tabs_.push_back(nullptr);  // marker
-	tabStrip_->AddChoice(title);
+	if (tabOrientation_ == ORIENT_HORIZONTAL && (flags_ & TabHolderFlags::HorizontalOnlyIcons) && imageId.isValid()) {
+		tabStrip_->AddChoice(imageId);
+	} else if (tabOrientation_ == ORIENT_VERTICAL && (flags_ & TabHolderFlags::VerticalShowIcons) && imageId.isValid()) {
+		tabStrip_->AddChoice(title, imageId);
+	} else {
+		tabStrip_->AddChoice(title);
+	}
 	tabTweens_.push_back(nullptr);
 	createFuncs_.push_back(createCb);
 
@@ -223,8 +237,8 @@ ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 	SetSpacing(0.0f);
 }
 
-void ChoiceStrip::AddChoice(std::string_view title) {
-	StickyChoice *c = new StickyChoice(title, "",
+void ChoiceStrip::AddChoice(std::string_view title, ImageID imageId) {
+	StickyChoice *c = new StickyChoice(title, imageId,
 		orientation_ == ORIENT_HORIZONTAL ?
 		nullptr :
 		new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));

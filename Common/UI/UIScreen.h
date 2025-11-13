@@ -57,11 +57,13 @@ public:
 	void OnCancel(UI::EventParams &e);
 	void OnBack(UI::EventParams &e);
 
+	virtual UI::Margins RootMargins() const { return UI::Margins(0); }
+
 protected:
 	virtual void CreateViews() = 0;
 
 	void RecreateViews() override { recreateViews_ = true; }
-	bool UsePortraitLayout() const;
+	DeviceOrientation GetDeviceOrientation() const;
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);
@@ -79,7 +81,7 @@ protected:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
-	bool lastPortrait_;
+	DeviceOrientation lastOrientation_ = DeviceOrientation::Landscape;
 
 private:
 	std::mutex eventQueueLock_;
@@ -94,60 +96,4 @@ public:
 
 private:
 	bool finished_;
-};
-
-class PopupScreen : public UIDialogScreen {
-public:
-	PopupScreen(std::string_view title, std::string_view button1 = "", std::string_view button2 = "");
-
-	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
-	void CreateViews() override;
-	bool isTransparent() const override { return true; }
-	void touch(const TouchInput &touch) override;
-	bool key(const KeyInput &key) override;
-
-	void TriggerFinish(DialogResult result) override;
-
-	void SetPopupOrigin(const UI::View *view);
-	void SetPopupOffset(float y) { offsetY_ = y; }
-
-	void SetAlignTop(bool alignTop) { alignTop_ = alignTop; }
-
-	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
-
-	// For the postproc param sliders on DisplayLayoutScreen
-	bool wantBrightBackground() const override { return !hasDropShadow_; }
-
-protected:
-	virtual bool FillVertical() const { return false; }
-	virtual UI::Size PopupWidth() const { return 550; }
-	virtual bool ShowButtons() const { return true; }
-	virtual bool CanComplete(DialogResult result) { return true; }
-	virtual void OnCompleted(DialogResult result) {}
-	virtual bool HasTitleBar() const { return true; }
-	const std::string &Title() { return title_; }
-
-	void update() override;
-
-private:
-	UI::LinearLayout *box_ = nullptr;
-	UI::Button *defaultButton_ = nullptr;
-	std::string title_;
-	std::string button1_;
-	std::string button2_;
-
-	enum {
-		FRAMES_LEAD_IN = 6,
-		FRAMES_LEAD_OUT = 4,
-	};
-
-	int frames_ = 0;
-	int finishFrame_ = -1;
-	DialogResult finishResult_ = DR_CANCEL;
-	bool hasPopupOrigin_ = false;
-	Point2D popupOrigin_;
-	float offsetY_ = 0.0f;
-	bool alignTop_ = false;
-
-	bool hasDropShadow_ = true;
 };

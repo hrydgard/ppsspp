@@ -155,10 +155,11 @@ private:
 	float posY_ = 0.0f;
 };
 
-//initializes the layout from Config. if a default layout does not exist,
-//it sets up default values
-void InitPadLayout(float xres, float yres, float globalScale = 1.15f);
-UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPauseButton, ControlMapper* controllMapper);
+struct TouchControlConfig;
+
+// Initializes the layout from Config. if a default layout does not exist, it sets up default values
+void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale = 1.15f);
+UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, bool showPauseButton, ControlMapper *controlMapper);
 
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
@@ -185,7 +186,7 @@ private:
 
 class GestureGamepad : public UI::View {
 public:
-	GestureGamepad(ControlMapper* controllMapper) : controlMapper_(controllMapper) {};
+	explicit GestureGamepad(ControlMapper* controllMapper) : controlMapper_(controllMapper) {}
 
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
@@ -197,8 +198,8 @@ protected:
 	float lastY_ = 0.0f;
 	float deltaX_ = 0.0f;
 	float deltaY_ = 0.0f;
-	float downX_;
-	float downY_;
+	float downX_ = 0.0f;
+	float downY_ = 0.0f;
 	float lastTapRelease_ = 0.0f;
 	float lastTouchDown_ = 0.0f;
 	int dragPointerId_ = -1;

@@ -81,13 +81,13 @@ jobs:
           fi
 
       - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: iOS-IPA build
           path: ppsspp/*.ipa
 
       - name: Upload DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: iOS-DEB build
           path: ppsspp/*.deb

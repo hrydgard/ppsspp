@@ -10,6 +10,7 @@
 #include <jni.h>
 
 struct AndroidFontEntry {
+	int font;
 	float size;
 };
 
@@ -19,8 +20,7 @@ public:
 	~TextDrawerAndroid();
 
 	bool IsReady() const override;
-	uint32_t SetFont(const char *fontName, int size, int flags) override;
-	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
+	void SetOrCreateFont(const FontStyle &style) override;
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
@@ -32,10 +32,13 @@ protected:
 private:
 	// JNI functions
 	jclass cls_textRenderer;
+	jmethodID method_allocFont;
+	jmethodID method_freeAllFonts;
 	jmethodID method_measureText;
 	jmethodID method_renderText;
 
-	std::map<uint32_t, AndroidFontEntry> fontMap_;
+	std::map<FontStyle, AndroidFontEntry> fontMap_;
+	std::map<std::string, int> allocatedFonts_;
 };
 
 #endif

@@ -226,7 +226,7 @@ struct DualSenseOutputReport {
 	u8 rumbleLeft;
 	u8 pad[2];
 	u8 muteLED;
-	u8 micMute;
+	u8 micMute;  // 10
 	u8 other[32];
 	u8 enableBrightness;
 	u8 fade;
@@ -491,6 +491,8 @@ bool ReadDualShockInput(HANDLE handle, HIDControllerState *state) {
 	state->triggerAxes[PS_TRIGGER_L2] = report.l2_analog;
 	state->triggerAxes[PS_TRIGGER_R2] = report.r2_analog;
 
+	state->accValid = false;
+
 	u32 buttons{};
 	int frameCounter = report.buttons[2] >> 2;
 	report.buttons[2] &= 3;
@@ -506,6 +508,8 @@ bool ReadDualShockInput(HANDLE handle, HIDControllerState *state) {
 
 // So strange that this is different!
 struct DualSenseInputReport {
+	u8 firstByte;  // must be 1
+
 	u8 lx;
 	u8 ly;
 	u8 rx;
@@ -514,11 +518,13 @@ struct DualSenseInputReport {
 	u8 l2_analog;
 	u8 r2_analog;
 
-	u8 frameCounter;
+	u8 frameCounter;  // 7
 
-	u8 buttons[3];
+	u8 buttons[3];  // 8-10
+	u8 pad[5];  // 11,12,13,14,15
 
-	// TODO: More stuff (battery, tilt, etc).
+	s16 gyroscope[3];
+	s16 accelerometer[3];
 };
 
 bool ReadDualSenseInput(HANDLE handle, HIDControllerState *state) {
@@ -536,14 +542,13 @@ bool ReadDualSenseInput(HANDLE handle, HIDControllerState *state) {
 	}
 
 	// OK, check the first byte to figure out what we're dealing with here.
-	int offset = 1;
 	if (inputReport[0] != 1) {
 		// Wrong data
 		return false;
 	}
 	// const bool isBluetooth = (reportId == 0x11 || reportId == 0x31);
 
-	memcpy(&report, inputReport + offset, sizeof(report));
+	memcpy(&report, inputReport, sizeof(report));
 
 	// Center the sticks.
 	state->stickAxes[PS_STICK_LX] = report.lx - 128;
@@ -554,6 +559,13 @@ bool ReadDualSenseInput(HANDLE handle, HIDControllerState *state) {
 	// Copy over the triggers.
 	state->triggerAxes[PS_TRIGGER_L2] = report.l2_analog;
 	state->triggerAxes[PS_TRIGGER_R2] = report.r2_analog;
+
+	const float accelScale = (1.0f / 8192.0f) * 9.81f;
+	// We need to remap the axes a bit.
+	state->accValid = true;
+	state->accelerometer[0] = -report.accelerometer[2] * accelScale;
+	state->accelerometer[1] = -report.accelerometer[0] * accelScale;
+	state->accelerometer[2] = report.accelerometer[1] * accelScale;
 
 	u32 buttons{};
 	report.buttons[2] &= 3;  // Remove noise
@@ -607,7 +619,7 @@ static void DecodeSwitchProStick(const u8 *stickData, s8 *outX, s8 *outY) {
 	// INFO_LOG(Log::sceCtrl, "Switch Pro input: x=%d, y=%d, cx=%d, cy=%d", x, y, *outX, *outY);
 }
 
-bool ReadSwitchProInput(HANDLE handle, HIDControllerState *state) {
+static bool ReadSwitchProInput(HANDLE handle, HIDControllerState *state) {
 	BYTE inputReport[SwitchPro_INPUT_REPORT_LEN]{}; // 64-byte input report for Switch Pro
 	DWORD bytesRead = 0;
 	if (!ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
@@ -735,6 +747,10 @@ int HidInputDevice::UpdateState() {
 					axis.value = (float)state.triggerAxes[mapping.triggerAxis] * (1.0f / 255.0f);
 					NativeAxis(&axis, 1);
 				}
+			}
+
+			if (state.accValid) {
+				NativeAccelerometer(state.accelerometer[0], state.accelerometer[1], state.accelerometer[2]);
 			}
 
 			prevState_ = state;

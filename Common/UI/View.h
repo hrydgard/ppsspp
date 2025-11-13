@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Common/Render/TextureAtlas.h"
+#include "Common/Render/Text/Font.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/geom2d.h"
@@ -29,8 +30,6 @@
 struct KeyInput;
 struct TouchInput;
 struct AxisInput;
-
-struct ImageID;
 
 class DrawBuffer;
 class Texture;
@@ -78,22 +77,13 @@ struct Style {
 	ImageID image;  // where applicable.
 };
 
-struct FontStyle {
-	FontStyle() {}
-	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size) {}
-
-	FontID atlasFont{ nullptr };
-	// For native fonts:
-	std::string fontName;
-	int sizePts = 0;
-	int flags = 0;
-};
-
 // To use with an UI atlas.
 struct Theme {
-	FontStyle uiFont;
+	FontStyle uiFontTiny;
 	FontStyle uiFontSmall;
+	FontStyle uiFont;
 	FontStyle uiFontBig;
+	FontStyle uiFontCode;
 
 	ImageID checkOn;
 	ImageID checkOff;
@@ -144,7 +134,7 @@ static constexpr Size FILL_PARENT = -2.0f;
 static constexpr Size ITEM_HEIGHT = 64.f;
 
 // Gravity
-enum Gravity {
+enum class Gravity {
 	G_LEFT = 0,
 	G_RIGHT = 1,
 	G_HCENTER = 2,
@@ -165,6 +155,7 @@ enum Gravity {
 
 	G_VERTMASK = 3 << 2,
 };
+ENUM_CLASS_BITOPS(Gravity);
 
 enum Borders {
 	BORDER_NONE = 0,
@@ -778,10 +769,12 @@ private:
 // Different key handling.
 class StickyChoice : public Choice {
 public:
-	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = 0)
+	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
 		: Choice(text, smallText, false, layoutParams) {}
-	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = 0)
+	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = nullptr)
 		: Choice(buttonImage, layoutParams) {}
+	StickyChoice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: Choice(text, image, layoutParams) {}
 
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &touch) override;
@@ -825,6 +818,9 @@ class AbstractChoiceWithValueDisplay : public Choice {
 public:
 	AbstractChoiceWithValueDisplay(std::string_view text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, layoutParams) {
+	}
+	AbstractChoiceWithValueDisplay(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
+		: Choice(text, image, layoutParams) {
 	}
 
 	void Draw(UIContext &dc) override;
@@ -984,6 +980,25 @@ private:
 	float size_;
 };
 
+// Single-line text only.
+class SimpleTextView : public InertView {
+public:
+	SimpleTextView(std::string_view text, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), text_(text) {
+	}
+	void SetSmall(bool small) { small_ = small; }
+	void SetBig(bool big) { big_ = big; }
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+
+private:
+	FontStyle ComputeStyle(const UIContext &dc) const;
+	std::string text_;
+	bool small_ = false;
+	bool big_ = false;
+};
+
+
 class TextView : public InertView {
 public:
 	TextView(std::string_view text, LayoutParams *layoutParams = 0)
@@ -1015,7 +1030,7 @@ private:
 	int textAlign_;
 	uint32_t textColor_;
 	bool hasTextColor_ = false;
-	bool small_;
+	bool small_ = false;
 	bool big_ = false;
 	bool shadow_ = false;
 	bool focusable_ = false;
@@ -1033,8 +1048,8 @@ public:
 	Event OnClick;
 
 private:
-	bool down_;
-	bool dragging_;
+	bool down_ = false;
+	bool dragging_ = false;
 };
 
 class TextEdit : public View {

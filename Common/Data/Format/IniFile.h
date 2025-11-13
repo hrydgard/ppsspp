@@ -55,7 +55,7 @@ public:
 	Section() {}
 	Section(std::string_view name) : name_(name) {}
 
-	bool Exists(std::string_view key) const;
+	bool HasKey(std::string_view key) const;
 	bool Delete(std::string_view key);
 
 	void Clear();
@@ -96,7 +96,7 @@ public:
 	bool Get(std::string_view key, std::vector<std::string> *values) const;
 
 	// Return a list of all keys in this section
-	bool GetKeys(std::vector<std::string> &keys) const;
+	bool GetKeys(std::vector<std::string> *keys) const;
 
 	bool operator < (const Section& other) const {
 		return name_ < other.name_;
@@ -125,20 +125,6 @@ public:
 
 	bool Save(const Path &path);
 
-	// Returns true if key exists in section
-	bool Exists(std::string_view sectionName, std::string_view key) const;
-
-	// These will not create the section if it doesn't exist.
-	bool Get(std::string_view sectionName, std::string_view key, std::string *value) const;
-	bool Get(std::string_view sectionName, std::string_view key, int* value) const;
-	bool Get(std::string_view sectionName, std::string_view key, uint32_t* value) const;
-	bool Get(std::string_view sectionName, std::string_view key, uint64_t* value) const;
-	bool Get(std::string_view sectionName, std::string_view key, bool* value) const;
-	bool Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values) const;
-
-	bool GetKeys(std::string_view sectionName, std::vector<std::string>& keys) const;
-
-	bool DeleteKey(std::string_view sectionName, std::string_view key);
 	bool DeleteSection(std::string_view sectionName);
 
 	void SortSections();

@@ -39,7 +39,7 @@ static u32 umdPopup = PSP_UMD_POPUP_DISABLE;
 static u32 backlightOffTime;
 
 void __ImposeInit() {
-	language = g_Config.GetPSPLanguage();
+	language = GetPSPLanguage();
 	if (PSP_CoreParameter().compat.flags().EnglishOrJapaneseOnly) {
 		if (language != PSP_SYSTEMPARAM_LANGUAGE_ENGLISH && language != PSP_SYSTEMPARAM_LANGUAGE_JAPANESE) {
 			language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
@@ -73,7 +73,7 @@ static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal) {
 	language = languageVal;
 	buttonValue = buttonVal;
-	if (language != g_Config.GetPSPLanguage()) {
+	if (language != GetPSPLanguage()) {
 		return hleLogWarning(Log::sceUtility, 0, "ignoring requested language");
 	}
 	return hleLogDebug(Log::sceUtility, 0);

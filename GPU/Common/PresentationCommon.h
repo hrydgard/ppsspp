@@ -48,10 +48,12 @@ struct FRect {
 };
 
 struct Bounds;  // from geom2d
+struct DisplayLayoutConfig;
 
-FRect GetScreenFrame(float pixelWidth, float pixelHeight);
+FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight);
 void SetOverrideScreenFrame(const Bounds *bounds);
-void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation);
+struct DisplayLayoutConfig;
+void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation);
 
 namespace Draw {
 class Buffer;
@@ -99,9 +101,13 @@ public:
 		return usePostShader_;
 	}
 
-	bool UpdatePostShader();
+	bool UpdatePostShader(const DisplayLayoutConfig &config);
 
-	void BeginFrame() {
+	void BeginFrame(const DisplayLayoutConfig &config) {
+		if (restorePostShader_) {
+			UpdatePostShader(config);
+			restorePostShader_ = false;
+		}
 		presentedThisFrame_ = false;
 	}
 	bool PresentedThisFrame() const {
@@ -119,9 +125,9 @@ public:
 	void UpdateUniforms(bool hasVideo);
 	void SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight);
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
-	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
+	void CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
-	void CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
+	void CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
 protected:
 	void CreateDeviceObjects();
@@ -135,12 +141,12 @@ protected:
 	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const;
 	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
-	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
+	bool BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
 
 	bool BindSource(int binding, bool bindStereo);
 
-	void GetCardboardSettings(CardboardSettings *cardboardSettings) const;
+	void GetCardboardSettings(const DisplayLayoutConfig &config, CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 
 	Draw::DrawContext *draw_;

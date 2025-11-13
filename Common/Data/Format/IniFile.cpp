@@ -189,11 +189,12 @@ void Section::Clear() {
 	lines_.clear();
 }
 
-bool Section::GetKeys(std::vector<std::string> &keys) const {
-	keys.clear();
+bool Section::GetKeys(std::vector<std::string> *keys) const {
+	keys->clear();
+	keys->reserve(lines_.size());
 	for (const auto &line : lines_) {
 		if (!line.Key().empty())
-			keys.emplace_back(line.Key());
+			keys->emplace_back(line.Key());
 	}
 	return true;
 }
@@ -366,7 +367,7 @@ bool Section::Get(std::string_view key, double* value) const {
 	return false;
 }
 
-bool Section::Exists(std::string_view key) const {
+bool Section::HasKey(std::string_view key) const {
 	for (auto &line : lines_) {
 		if (equalsNoCase(key, line.Key()))
 			return true;
@@ -436,35 +437,6 @@ bool IniFile::DeleteSection(std::string_view sectionName) {
 		}
 	}
 	return false;
-}
-
-bool IniFile::Exists(std::string_view sectionName, std::string_view key) const {
-	const Section* section = GetSection(sectionName);
-	if (!section)
-		return false;
-	return section->Exists(key);
-}
-
-bool IniFile::DeleteKey(std::string_view sectionName, std::string_view key) {
-	Section* section = GetSection(sectionName);
-	if (!section)
-		return false;
-	ParsedIniLine *line = section->GetLine(key);
-	for (auto liter = section->lines_.begin(); liter != section->lines_.end(); ++liter) {
-		if (line == &(*liter)) {
-			section->lines_.erase(liter);
-			return true;
-		}
-	}
-	return false; //shouldn't happen
-}
-
-// Return a list of all keys in a section
-bool IniFile::GetKeys(std::string_view sectionName, std::vector<std::string>& keys) const {
-	const Section *section = GetSection(sectionName);
-	if (!section)
-		return false;
-	return section->GetKeys(keys);
 }
 
 void IniFile::SortSections() {
@@ -565,56 +537,4 @@ bool IniFile::Save(const Path &filename)
 
 	fclose(file);
 	return true;
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, std::string *value) const {
-	const Section *section = GetSection(sectionName);
-	if (!section) {
-		return false;
-	}
-	return section->Get(key, value);
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, std::vector<std::string> *values) const {
-	const Section *section = GetSection(sectionName);
-	if (!section) {
-		return false;
-	}
-	return section->Get(key, values);
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, int *value) const {
-	const Section *section = GetSection(sectionName);
-	if (!section) {
-		return false;
-	} else {
-		return section->Get(key, value);
-	}
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, uint32_t *value) const {
-	const Section *section = GetSection(sectionName);
-	if (!section) {
-		return false;
-	} else {
-		return section->Get(key, value);
-	}
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, uint64_t *value) const {
-	const Section *section = GetSection(sectionName);
-	if (!section) {
-		return false;
-	} else {
-		return section->Get(key, value);
-	}
-}
-
-bool IniFile::Get(std::string_view sectionName, std::string_view key, bool *value) const {
-	const Section *section = GetSection(sectionName);
-	if (!section) {
-		return false;
-	} else {
-		return section->Get(key, value);
-	}
 }

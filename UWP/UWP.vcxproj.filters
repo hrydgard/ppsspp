@@ -290,7 +290,19 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Font Include="..\Assets\Roboto-Condensed.ttf">
+    <Font Include="..\Assets\Roboto_Condensed-Regular.ttf">
+      <Filter>Content</Filter>
+    </Font>
+    <Font Include="..\Assets\Roboto_Condensed-Bold.ttf">
+      <Filter>Content</Filter>
+    </Font>
+    <Font Include="..\Assets\Roboto_Condensed-Light.ttf">
+      <Filter>Content</Filter>
+    </Font>
+    <Font Include="..\Assets\Roboto_Condensed-Italic.ttf">
+      <Filter>Content</Filter>
+    </Font>
+    <Font Include="..\Assets\Inconsolata-Regular.ttf">
       <Filter>Content</Filter>
     </Font>
   </ItemGroup>

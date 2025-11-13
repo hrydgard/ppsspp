@@ -137,7 +137,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					continue;
 				}
 
-				if (section.Exists("Fragment") && section.Exists("Vertex") &&
+				if (section.HasKey("Fragment") && section.HasKey("Vertex") &&
 					(strncasecmp(shaderType.c_str(), "render", shaderType.size()) == 0 ||
 					 strncasecmp(shaderType.c_str(), "StereoToMono", shaderType.size()) == 0)) {
 					// Valid shader!
@@ -197,7 +197,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					} else {
 						notVisible.push_back(info);
 					}
-				} else if (section.Exists("Compute") && strncasecmp(shaderType.c_str(), "texture", shaderType.size()) == 0) {
+				} else if (section.HasKey("Compute") && strncasecmp(shaderType.c_str(), "texture", shaderType.size()) == 0) {
 					// This is a texture shader.
 					TextureShaderInfo info{};
 					std::string temp;

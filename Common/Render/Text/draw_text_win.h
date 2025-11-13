@@ -15,9 +15,8 @@ class TextDrawerWin32 : public TextDrawer {
 public:
 	TextDrawerWin32(Draw::DrawContext *draw);
 	~TextDrawerWin32();
-
-	uint32_t SetFont(const char *fontName, int size, int flags) override;
-	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
+	
+	void SetOrCreateFont(const FontStyle &style) override;
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
@@ -26,7 +25,7 @@ protected:
 	void ClearFonts() override;
 
 	TextDrawerContext *ctx_;
-	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
+	std::map<FontStyle, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 };
 
 #endif

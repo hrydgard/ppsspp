@@ -136,7 +136,7 @@ public:
 	void UpdateCmdInfo() override {}
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput(bool reallyDirty) override;
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
@@ -150,11 +150,11 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void NotifyRenderResized() override;
+	void NotifyRenderResized(const DisplayLayoutConfig &config) override;
 	void NotifyDisplayResized() override;
 
 	void CheckDisplayResized() override;
-	void CheckConfigChanged() override;
+	void CheckConfigChanged(const DisplayLayoutConfig &config) override;
 
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) const override {
 		primaryInfo = "Software";
@@ -209,12 +209,12 @@ public:
 
 	typedef void (SoftGPU::*CmdFunc)(u32 op, u32 diff);
 
-	void BeginHostFrame() override;
+	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 	bool PresentedThisFrame() const override;
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
+	void CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, int srcwidth, int srcheight);
 	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData = nullptr);
 
 	void BuildReportingInfo() override {}

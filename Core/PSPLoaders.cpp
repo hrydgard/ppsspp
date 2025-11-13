@@ -261,8 +261,9 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		return false;
 	}
 
-	//in case we didn't go through EmuScreen::boot
-	g_Config.loadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
+	// If there's a game-specific config, load it.
+	g_Config.LoadGameConfig(id);
+
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
 	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
 	// TODO: We can't use the initial error_string pointer.

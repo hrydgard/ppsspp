@@ -325,7 +325,9 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		ViewportAndScissor vpAndScissor;
-		ConvertViewportAndScissor(useBufferedRendering,
+		ConvertViewportAndScissor(
+			framebufferManager_->GetDisplayLayoutConfigCopy(),
+			useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);

@@ -44,7 +44,7 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void BeginHostFrame() override;
+	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

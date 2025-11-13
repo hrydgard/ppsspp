@@ -31,6 +31,13 @@ enum Orientation {
 	ORIENT_VERTICAL,
 };
 
+// Possibly, we'll add a mode for the book-style dual screen phones later.
+// TODO: Find a better home for this!
+enum class DeviceOrientation {
+	Landscape = 0,
+	Portrait = 1,
+};
+
 // Workaround for X header, ugh.
 #undef Opposite
 

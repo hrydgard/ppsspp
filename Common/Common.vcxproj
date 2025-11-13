@@ -484,6 +484,7 @@
     <ClInclude Include="Render\Text\draw_text_uwp.h" />
     <ClInclude Include="Render\Text\draw_text_win.h" />
     <ClInclude Include="LogReporting.h" />
+    <ClInclude Include="Render\Text\Font.h" />
     <ClInclude Include="RiscVEmitter.h" />
     <ClInclude Include="Serialize\SerializeDeque.h" />
     <ClInclude Include="Serialize\SerializeFuncs.h" />

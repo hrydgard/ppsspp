@@ -135,7 +135,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_FILLED_CIRCLE_3", false},
 	{"I_FILLED_CIRCLE_4", false},
 	{"I_FILLED_CIRCLE_5", false},
-	{"I_SETTINGS_DISPLAY", false},
+	{"I_DISPLAY", false},
 	{"I_NAVIGATE_BACK", false},
 	{"I_NAVIGATE_FORWARD", false},
 	{"I_FOLDER_UPLOAD", false},
@@ -149,6 +149,14 @@ static const ImageMeta imageIDs[] = {
 	{"I_SHARE", false},
 	{"I_LOGO_PLAY_STORE", false},
 	{"I_LOGO_APP_STORE", false},
+	{"I_SEARCH", false},
+	{"I_DEVMENU", false},
+	{"I_CONTROLLER", false},
+	{"I_DEBUGGER", false},
+	{"I_TOOLS", false},
+	{"I_PSP", false},
+	{"I_HOMEBREW_STORE", false},
+	{"I_CHAT", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -174,7 +182,7 @@ static bool IsImageID(std::string_view id) {
 	return GetImageIndex(id) != -1;
 }
 
-Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale) {
+static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 	Bucket bucket;
 
 	// Script fully read, now read images and rasterize the fonts.
@@ -297,7 +305,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 		}
 	}
 
-	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms\n", shapeCount, svgStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
 
 	Instant shadowStart = Instant::Now();
 
@@ -317,7 +325,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 		}
 	}, 0, (int)images.size(), 2, TaskPriority::HIGH);
 
-	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms\n", shadowStart.ElapsedMs());
+	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms", shadowStart.ElapsedMs());
 
 	Instant pngStart = Instant::Now();
 
@@ -364,7 +372,6 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	INFO_LOG(Log::G3D, " - Added %zu images to bucket in %.2f ms", bucket.data.size(), addStart.ElapsedMs());
 
 	int image_width = 512;
-	Image dest;
 
 	Instant bucketStart = Instant::Now();
 	std::vector<Data> results = bucket.Resolve(image_width, dest);
@@ -375,7 +382,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	std::vector<AtlasImage> genAtlasImages;
 	genAtlasImages.reserve(ARRAY_SIZE(imageIDs));
 	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
-		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageIDs[i].id, (float)dest.width(), (float)dest.height(), results));
+		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageIDs[i].id, (float)dest->width(), (float)dest->height(), results));
 	}
 
 	atlas->Clear();
@@ -385,21 +392,36 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 
 	// For debug, write out the atlas.
 	if (SAVE_DEBUG_IMAGES) {
-		dest.SavePNG("../ui_atlas_gen.png");
+		dest->SavePNG("../ui_atlas_gen.png");
 	}
+	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());
+	return true;
+}
 
-	// Then, create the texture too.
+static Image g_cachedUIAtlasImage;
+static float g_cachedDpiScale = 0.0f;
+
+// The caller must cache the Atlas.
+Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale, bool invalidate) {
+	if (g_cachedUIAtlasImage.IsEmpty() || dpiScale != g_cachedDpiScale || invalidate) {
+		g_cachedUIAtlasImage.clear();
+		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage)) {
+			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
+			return nullptr;
+		}
+	}
+	g_cachedDpiScale = dpiScale;
+
+	// Create the texture.
 	Draw::TextureDesc desc{};
-	desc.width = image_width;
-	desc.height = dest.height();
+	desc.width = g_cachedUIAtlasImage.width();
+	desc.height = g_cachedUIAtlasImage.height();
 	desc.depth = 1;
 	desc.mipLevels = 1;
 	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	desc.type = Draw::TextureType::LINEAR2D;
-	desc.initData.push_back((const u8 *)dest.data());
+	desc.initData.push_back((const u8 *)g_cachedUIAtlasImage.data());
 	desc.tag = "UIAtlas";
-
-	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images\n", svgStart.ElapsedMs(), desc.width, desc.height, genAtlasImages.size());
 	return draw->CreateTexture(desc);
 }
 
@@ -414,7 +436,7 @@ static void LoadAtlasMetadata(Atlas &metadata, const char *filename) {
 	delete[] atlas_data;
 }
 
-AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas, float dpiScale) {
+AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas, float dpiScale, bool invalidate) {
 	// Clamp the dpiScale to sane values. Might increase the range later.
 	dpiScale = std::clamp(dpiScale, 0.5f, 4.0f);
 
@@ -422,7 +444,7 @@ AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas, float dpiSca
 	case AtlasChoice::General:
 	{
 		// Generate the atlas from scratch.
-		Draw::Texture *tex = GenerateUIAtlas(draw, &ui_atlas, dpiScale);
+		Draw::Texture *tex = GenerateUIAtlas(draw, &ui_atlas, dpiScale, invalidate);
 		return {&ui_atlas, tex};
 	}
 	case AtlasChoice::Font:

@@ -61,6 +61,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/Data/Collections/ConstMap.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -513,7 +514,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL:
 	case LaunchUrlType::MARKET_URL:
@@ -521,20 +522,20 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 #if PPSSPP_PLATFORM(SWITCH)
 		Uuid uuid = { 0 };
 		WebWifiConfig conf;
-		webWifiCreate(&conf, NULL, url, uuid, 0);
+		webWifiCreate(&conf, NULL, std::string(url).c_str(), uuid, 0);
 		webWifiShow(&conf, NULL);
 #elif defined(MOBILE_DEVICE)
-		INFO_LOG(Log::System, "Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
+		INFO_LOG(Log::System, "Would have gone to %.*s but LaunchBrowser is not implemented on this platform", STR_VIEW(url));
 #elif defined(_WIN32)
 		std::wstring wurl = ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
-		OSXOpenURL(url);
+		OSXOpenURL(std::string(url).c_str());
 #else
-		std::string command = std::string("xdg-open ") + url;
+		std::string command = join("xdg-open ", url);
 		int err = system(command.c_str());
 		if (err) {
-			INFO_LOG(Log::System, "Would have gone to %s but xdg-utils seems not to be installed", url);
+			INFO_LOG(Log::System, "Would have gone to %.*s but xdg-utils seems not to be installed", STR_VIEW(url));
 		}
 #endif
 		break;
@@ -542,18 +543,16 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	case LaunchUrlType::EMAIL_ADDRESS:
 	{
 #if defined(MOBILE_DEVICE)
-		INFO_LOG(Log::System, "Would have opened your email client for %s but LaunchEmail is not implemented on this platform", url);
+		INFO_LOG(Log::System, "Would have opened your email client for %.*s but LaunchEmail is not implemented on this platform", STR_VIEW(url));
 #elif defined(_WIN32)
 		std::wstring mailto = std::wstring(L"mailto:") + ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", mailto.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
-		std::string mailToURL = std::string("mailto:") + url;
-		OSXOpenURL(mailToURL.c_str());
+		OSXOpenURL(join("mailto:", url).c_str());
 #else
-		std::string command = std::string("xdg-email ") + url;
-		int err = system(command.c_str());
+		int err = system(join("xdg-email ", url).c_str());
 		if (err) {
-			INFO_LOG(Log::System, "Would have gone to %s but xdg-utils seems not to be installed", url);
+			INFO_LOG(Log::System, "Would have gone to %.*s but xdg-utils seems not to be installed", STR_VIEW(url));
 		}
 #endif
 		break;

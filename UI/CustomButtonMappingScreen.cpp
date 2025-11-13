@@ -22,6 +22,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Color/RGBAUtil.h"
@@ -32,7 +33,7 @@
 
 #include "UI/CustomButtonMappingScreen.h"
 
-class ButtonShapeScreen : public PopupScreen {
+class ButtonShapeScreen : public UI::PopupScreen {
 public:
 	ButtonShapeScreen(std::string_view title, int *setting) : PopupScreen(title), setting_(setting) {}
 
@@ -61,7 +62,7 @@ private:
 	int *setting_;
 };
 
-class ButtonIconScreen : public PopupScreen {
+class ButtonIconScreen : public UI::PopupScreen {
 public:
 	ButtonIconScreen(std::string_view title, int *setting) : PopupScreen(title), setting_(setting) {}
 
@@ -93,7 +94,7 @@ private:
 class ButtonPreview : public UI::View {
 public:
 	ButtonPreview(ImageID bgImg, ImageID img, float rotationIcon, bool flipShape, float rotationShape, int x, int y)
-		: View(new UI::AnchorLayoutParams(x, y, UI::NONE, UI::NONE, true)), bgImg_(bgImg), img_(img), rotI_(rotationIcon),
+		: View(new UI::AnchorLayoutParams(x, y, UI::NONE, UI::NONE, UI::Centering::Both)), bgImg_(bgImg), img_(img), rotI_(rotationIcon),
 		flipS_(flipShape), rotS_(rotationShape), x_(x), y_(y) {}
 
 	void Draw(UIContext &dc) override {
@@ -132,11 +133,13 @@ void CustomButtonMappingScreen::CreateViews() {
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation_);
+
 	ConfigCustomButton *cfg = nullptr;
 	bool *show = nullptr;
 	memset(array, 0, sizeof(array));
 	cfg = &g_Config.CustomButton[id_];
-	show = &g_Config.touchCustom[id_].show;
+	show = &touch.touchCustom[id_].show;
 	for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++)
 		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
 
@@ -221,7 +224,7 @@ static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKeyData::g_customKeyL
 }
 
 void CustomButtonMappingScreen::saveArray() {
-	if (id_ >= 0 && id_ < Config::CUSTOM_BUTTON_COUNT) {
+	if (id_ >= 0 && id_ < TouchControlConfig::CUSTOM_BUTTON_COUNT) {
 		g_Config.CustomButton[id_].key = arrayToInt(array);
 	}
 }

@@ -50,6 +50,10 @@ static const int MPEG_PCM_ES_OUTPUT_SIZE = 320;
 static const int MPEG_DATA_ES_SIZE = 0xA0000;
 static const int MPEG_DATA_ES_OUTPUT_SIZE = 0xA0000;
 
+// MPEG AVC Resource Management
+static const int MPEG_AVC_RESOURCE_SIZE = 0x20000;
+static const int MPEG_AVC_RESOURCE_FLAG = 0x4;
+
 // MPEG analysis results.
 static const int MPEG_VERSION_0012 = 0;
 static const int MPEG_VERSION_0013 = 1;
@@ -163,6 +167,11 @@ static u32 mpegLibCrc = 0;
 static u32 streamIdGen;
 static int actionPostPut;
 std::map<u32, MpegContext *> g_mpegCtxs;
+
+// MPEG AVC Resource Management
+static u32 sceMpegAvcResourceAddr = 0;
+static u32 sceMpegAvcResourceDataAddr = 0;
+static int sceMpegAvcResourceFlags = 0;
 
 MpegContext::MpegContext() {
 	memcpy(mpegheader, defaultMpegheader, 2048);
@@ -929,16 +938,14 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			avcodec_send_packet(pCodecCtx, &packet);
 		int len = avcodec_receive_frame(pCodecCtx, pFrame);
 		if (len == 0) {
-			len = pFrame->pkt_size;
 			got_picture = 1;
 		} else if (len == AVERROR(EAGAIN)) {
-			len = 0;
 			got_picture = 0;
 		} else {
 			got_picture = 0;
 		}
 #else
-		int len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
+		avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
 #endif
 		DEBUG_LOG(Log::Mpeg, "got_picture %d", got_picture);
 		if (got_picture){
@@ -1963,8 +1970,12 @@ static u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 }
 
 static u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg) {
-	// it's just a random address
-	return hleLogError(Log::Mpeg, 0x12345678, "UNIMPL");
+	if ((sceMpegAvcResourceFlags & MPEG_AVC_RESOURCE_FLAG) == 0) {
+		return hleLogDebug(Log::Mpeg, 0);
+	}
+
+	u32 addr = sceMpegAvcResourceDataAddr & 0xFFC00000;
+	return hleLogDebug(Log::Mpeg, addr);
 }
 
 static u32 sceMpegAvcResourceFinish(u32 mpeg) {
@@ -1972,8 +1983,11 @@ static u32 sceMpegAvcResourceFinish(u32 mpeg) {
 }
 
 static u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg) {
-	ERROR_LOG_REPORT_ONCE(mpegResourceEsBuf, Log::Mpeg, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
-	return hleNoLog(0);
+	if ((sceMpegAvcResourceFlags & MPEG_AVC_RESOURCE_FLAG) == 0) {
+		return hleLogDebug(Log::Mpeg, 0);
+	}
+
+	return hleLogDebug(Log::Mpeg, sceMpegAvcResourceDataAddr);
 }
 
 static u32 sceMpegAvcResourceInit(u32 mpeg) {
@@ -1981,7 +1995,18 @@ static u32 sceMpegAvcResourceInit(u32 mpeg) {
 		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_INVALID_VALUE);
 	}
 
-	return hleLogError(Log::Mpeg, 0, "UNIMPL");
+	if ((sceMpegAvcResourceFlags & MPEG_AVC_RESOURCE_FLAG) != 0) {
+		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_ALREADY_INIT);
+	}
+
+	// Allocate memory for the AVC resource
+	// In a real implementation, this would use sceKernelCreateFpl and sceKernelAllocateFpl
+	// For PPSSPP, we'll simulate the allocation
+	sceMpegAvcResourceAddr = 0x10000000; // Simulated base address
+	sceMpegAvcResourceDataAddr = sceMpegAvcResourceAddr + 8; // Offset for data
+	sceMpegAvcResourceFlags |= MPEG_AVC_RESOURCE_FLAG;
+
+	return hleLogDebug(Log::Mpeg, 0);
 }
 
 // TODO: SIMD this (or rather, the caller).

@@ -813,7 +813,7 @@ void GameBrowser::Refresh() {
 		}
 
 		if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
-			topBar->Add(new Choice(mm->T("PPSSPP Homebrew Store"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
+			topBar->Add(new Choice(mm->T("Homebrew store"), ImageID("I_HOMEBREW_STORE"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
 		}
 
 		if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
@@ -970,7 +970,7 @@ void GameBrowser::Refresh() {
 
 	if (!lastText_.empty()) {
 		Add(new Spacer());
-		Add(new Choice(lastText_, new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT, Margins(10, 0, 0, 10))))->OnClick.Handle(this, &GameBrowser::LastClick);
+		Add(new Choice(lastText_, ImageID("I_LINK_OUT"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT, Margins(10, 0, 0, 10))))->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
 }
 
@@ -1099,7 +1099,7 @@ void MainScreen::CreateRecentTab() {
 	scrollRecentGames->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
 
-	tabHolder_->AddTab(mm->T("Recent"), scrollRecentGames);
+	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
@@ -1119,7 +1119,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	scrollView->Add(gameBrowser);
 	gameBrowsers_.push_back(gameBrowser);
 
-	tabHolder_->AddTab(mm->T(title), scrollView);
+	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), scrollView);
 	if (scrollPos) {
 		scrollView->RememberPosition(scrollPos);
 	}
@@ -1135,11 +1135,11 @@ UI::ViewGroup *MainScreen::CreateLogoView(bool portrait, UI::LayoutParams *layou
 	using namespace UI;
 	AnchorLayout *logos = new AnchorLayout(layoutParams);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE)));
 	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE)));
 	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE, false)));
+	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE)));
 
 	std::string versionString = PPSSPP_GIT_VERSION;
 	// Strip the 'v' from the displayed version, and shorten the commit hash.
@@ -1170,24 +1170,24 @@ UI::ViewGroup *MainScreen::CreateLogoView(bool portrait, UI::LayoutParams *layou
 	return logos;
 }
 
-void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
+void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	if (vertical) {
+	if (portrait) {
 		parent->Add(new Spacer(1.0f, new LinearLayoutParams(1.0f)));
 	}
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		parent->Add(vertical ? new Choice(ImageID("I_FOLDER_OPEN"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+		parent->Add(portrait ? new Choice(ImageID("I_FOLDER_OPEN"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 	}
-	parent->Add(vertical ? new Choice(ImageID("I_GEAR"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	parent->Add(vertical ? new Choice(ImageID("I_INFO"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	parent->Add(portrait ? new Choice(ImageID("I_GEAR"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	parent->Add(portrait ? new Choice(ImageID("I_INFO"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
 
-	if (!vertical) {
+	if (!portrait) {
 		parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	}
 
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = parent->Add(vertical ? new Choice(ImageID("I_ICON_GOLD"), vertical ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
+		Choice *gold = parent->Add(portrait ? new Choice(ImageID("I_ICON_GOLD"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Add([this](UI::EventParams &) {
 			LaunchBuyGold(this->screenManager());
 		});
@@ -1196,14 +1196,17 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool vertical) {
 		gold->SetShine(true);
 	}
 
-	if (!vertical) {
+	if (!portrait) {
 		parent->Add(new Spacer(25.0));
 	}
 
 #if !PPSSPP_PLATFORM(IOS_APP_STORE) && !PPSSPP_PLATFORM(ANDROID)
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	// Additionally, the Exit button creates problems on Android.
-	parent->Add(new Choice(mm->T("Exit"), vertical ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
+	// Also we remove it in the vertical layout on all platforms, just no space.
+	if (!portrait) {
+		parent->Add(new Choice(mm->T("Exit"), portrait ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
+	}
 #endif
 }
 
@@ -1213,7 +1216,7 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UsePortraitLayout();
+	const bool vertical = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -1325,7 +1328,7 @@ void MainScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE)
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");
-		fullscreenButton_ = logo->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, false)));
+		fullscreenButton_ = logo->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
 		fullscreenButton_->SetIgnoreText(true);
 		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
 #endif
@@ -1516,7 +1519,8 @@ void MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 }
 
 void MainScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(Path(), ""));
+	// Not passing a game ID, changing the global settings.
+	screenManager()->push(new GameSettingsScreen(Path()));
 }
 
 void MainScreen::OnCredits(UI::EventParams &e) {
@@ -1616,7 +1620,7 @@ void UmdReplaceScreen::CreateViews() {
 			Path("!RECENT"), BrowseFlags::NONE, &g_Config.bGridView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
-		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
+		leftColumn->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
@@ -1629,7 +1633,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
+	leftColumn->AddTab(mm->T("Games"), ImageID::invalid(), scrollAllGames);
 
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 

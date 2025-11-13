@@ -109,22 +109,30 @@ public:
 
 const float NONE = -FLT_MAX;
 
+enum class Centering {
+	None = 0,
+	Vertical = 1,
+	Horizontal = 2,
+	Both = 3,  // 1 | 2
+};
+ENUM_CLASS_BITOPS(Centering);
+
 class AnchorLayoutParams : public LayoutParams {
 public:
-	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b, bool c = false)
-		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
+	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b, Centering c = Centering::None)
+		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), centering(c) {}
 	// There's a small hack here to make this behave more intuitively - AnchorLayout ordinarily ignores FILL_PARENT.
-	AnchorLayoutParams(Size w, Size h, bool c = false)
-		: LayoutParams(w, h, LP_ANCHOR), left(0), top(0), right(w == FILL_PARENT ? 0 : NONE), bottom(h == FILL_PARENT ? 0 : NONE), center(c) {
+	AnchorLayoutParams(Size w, Size h, Centering c = Centering::None)
+		: LayoutParams(w, h, LP_ANCHOR), left(0), top(0), right(w == FILL_PARENT ? 0 : NONE), bottom(h == FILL_PARENT ? 0 : NONE), centering(c) {
 	}
-	AnchorLayoutParams(float l, float t, float r, float b, bool c = false)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
+	AnchorLayoutParams(float l, float t, float r, float b, Centering c = Centering::None)
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b), centering(c) {}
 
 	// These are not bounds, but distances from the container edges.
 	// Set to NONE to not attach this edge to the container.
 	// If two opposite edges are NONE, centering will happen.
 	float left, top, right, bottom;
-	bool center;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
+	Centering centering;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
 
 	static LayoutParamsType StaticType() {
 		return LP_ANCHOR;
@@ -149,21 +157,23 @@ private:
 class LinearLayoutParams : public LayoutParams {
 public:
 	LinearLayoutParams()
-		: LayoutParams(LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
-	explicit LinearLayoutParams(float wgt, Gravity grav = G_TOPLEFT)
+		: LayoutParams(LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), hasMargins_(false) {}
+	explicit LinearLayoutParams(float wgt, Gravity grav = Gravity::G_TOPLEFT)
 		: LayoutParams(LP_LINEAR), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(float wgt, const Margins &mgn)
-		: LayoutParams(LP_LINEAR), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
-	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
+		: LayoutParams(LP_LINEAR), weight(wgt), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(float wgt, Gravity grav, const Margins &mgn)
+		: LayoutParams(LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = Gravity::G_TOPLEFT)
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(0), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
 		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, const Margins &mgn)
-		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, float wgt, const Margins &mgn)
-		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(const Margins &mgn)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_LINEAR), weight(0.0f), gravity(Gravity::G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 
 	float weight;
 	Gravity gravity;
@@ -226,7 +236,7 @@ struct GridLayoutSettings {
 class GridLayoutParams : public LayoutParams {
 public:
 	GridLayoutParams()
-		: LayoutParams(LP_GRID), gravity(G_CENTER) {}
+		: LayoutParams(LP_GRID), gravity(Gravity::G_CENTER) {}
 	explicit GridLayoutParams(Gravity grav)
 		: LayoutParams(LP_GRID), gravity(grav) {
 	}

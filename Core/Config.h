@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <map>
 #include <vector>
 
@@ -25,6 +26,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+#include "Common/Math/geom2d.h"
 #include "Core/ConfigValues.h"
 
 extern const char *PPSSPP_GIT_VERSION;
@@ -37,6 +39,7 @@ namespace http {
 struct UrlEncoder;
 
 class Section;
+class IniFile;
 
 class PlayTimeTracker {
 public:
@@ -61,17 +64,87 @@ private:
 
 struct ConfigSetting;
 
-struct Config {
+struct ConfigSectionMeta {
+	ConfigBlock *configBlock;
+	const ConfigSetting *settings;
+	size_t settingsCount;
+	std::string_view section;
+	std::string_view fallbackSectionName;  // used if section is not found (useful when moving settings into a struct from Config).
+};
+
+struct DisplayLayoutConfig : public ConfigBlock {
+	int iDisplayFilter = SCALE_LINEAR;    // 1 = linear, 2 = nearest
+	bool bDisplayStretch = false;  // Automatically matches the aspect ratio of the window.
+	float fDisplayOffsetX = 0.5f;
+	float fDisplayOffsetY = 0.5f;
+	float fDisplayScale = 1.0f;   // Relative to the most constraining axis (x or y).
+	bool bDisplayIntegerScale = false;  // Snaps scaling to integer scale factors in raw pixels.
+	float fDisplayAspectRatio = 1.0f;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
+	int iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
+	bool bIgnoreScreenInsets = true;  // Android: Center screen disregarding insets if this is enabled.
+
+	// Deprecated
+	bool bEnableCardboardVR = false; // Cardboard Master Switch
+	int iCardboardScreenSize = 50; // Screen Size (in %)
+	int iCardboardXShift = 0; // X-Shift of Screen (in %)
+	int iCardboardYShift = 0; // Y-Shift of Screen (in %)
+
+	bool InternalRotationIsPortrait() const;
+	bool CanResetToDefault() const override { return true; }
+	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(DisplayLayoutConfig); }  // For sanity checks
+};
+
+struct TouchControlConfig : public ConfigBlock {
+	//space between PSP buttons
+	//the PSP button's center (triangle, circle, square, cross)
+	ConfigTouchPos touchActionButtonCenter;
+	float fActionButtonSpacing = 0.0f;
+	//radius of the D-pad (PSP cross)
+	// int iDpadRadius;
+	//the D-pad (PSP cross) position
+	ConfigTouchPos touchDpad;
+	float fDpadSpacing = 0.0f;
+	ConfigTouchPos touchStartKey;
+	ConfigTouchPos touchSelectKey;
+	ConfigTouchPos touchFastForwardKey;
+	ConfigTouchPos touchLKey;
+	ConfigTouchPos touchRKey;
+	ConfigTouchPos touchAnalogStick;
+	ConfigTouchPos touchRightAnalogStick;
+
+	enum { CUSTOM_BUTTON_COUNT = 20 };
+
+	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
+
+	float fLeftStickHeadScale = 1.0f;
+	float fRightStickHeadScale = 1.0f;
+
+	bool bHideStickBackground = false;
+
+	bool bShowTouchCircle = true;
+	bool bShowTouchCross = true;
+	bool bShowTouchTriangle = true;
+	bool bShowTouchSquare = true;
+
+	void ResetLayout();
+
+	bool CanResetToDefault() const override { return true; }
+	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(TouchControlConfig); }  // For sanity checks
+};
+
+struct Config : public ConfigBlock {
 public:
 	Config();
 	~Config();
 
+	size_t Size() const override { return sizeof(Config); }
+
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
-	bool bGameSpecific = false;
 	bool bUpdatedInstanceCounter = false;
-	bool bBrowse;  // show a file browser on startup. TODO: Does anyone use this?
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
@@ -98,8 +171,6 @@ public:
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
 
-	std::string sFont;
-
 	bool bPauseWhenMinimized;
 
 	bool bPauseExitsEmulator;
@@ -121,6 +192,7 @@ public:
 
 	bool bDisableHTTPS;
 
+	bool bShrinkIfWindowSmall;
 	bool bSeparateSASThread;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
@@ -146,8 +218,7 @@ public:
 	int iDisableHLE;
 	int iForceEnableHLE;  // This is the opposite of DisableHLE but can force on HLE even when we've made it permanently off. Only used in tests, not hooked up to the ini file yet.
 
-	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
-	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
+	int iScreenRotation;  // Screen rotation lock. Only supported on Android and possibly other mobile platforms.
 
 	std::string sReportHost;
 	std::vector<std::string> vPinnedPaths;
@@ -194,28 +265,19 @@ public:
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	bool bSmart2DTexFiltering;
 
-	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
-	int iDisplayFilter;    // 1 = linear, 2 = nearest
-	float fDisplayOffsetX;
-	float fDisplayOffsetY;
-	float fDisplayScale;   // Relative to the most constraining axis (x or y).
-	bool bDisplayIntegerScale;  // Snaps scaling to integer scale factors in raw pixels.
+	// We'll carry over the old single layout into landscape for now.
+	DisplayLayoutConfig displayLayoutLandscape;
+	DisplayLayoutConfig displayLayoutPortrait;
+
 	bool bDisplayCropTo16x9;  // Crops to 16:9 if the resolution is very close.
-	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
 
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
-	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 
 	bool bShowImDebugger;
 
 	int iFrameSkip;
 	bool bAutoFrameSkip;
-
-	bool bEnableCardboardVR; // Cardboard Master Switch
-	int iCardboardScreenSize; // Screen Size (in %)
-	int iCardboardXShift; // X-Shift of Screen (in %)
-	int iCardboardYShift; // Y-Shift of Screen (in %)
 
 	int iWindowX;
 	int iWindowY;
@@ -381,9 +443,11 @@ public:
 	bool bAnalogGesture;
 	float fAnalogGestureSensibility;
 
+	// Controls Visibility
+	bool bShowTouchControls = false;
+
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
-
 	bool bGamepadOnlyFocused;
 
 	// Control Style
@@ -404,40 +468,11 @@ public:
 	// Touch gliding (see #14490)
 	bool bTouchGliding;
 
-	//space between PSP buttons
-	//the PSP button's center (triangle, circle, square, cross)
-	ConfigTouchPos touchActionButtonCenter;
-	float fActionButtonSpacing;
-	//radius of the D-pad (PSP cross)
-	// int iDpadRadius;
-	//the D-pad (PSP cross) position
-	ConfigTouchPos touchDpad;
-	float fDpadSpacing;
-	ConfigTouchPos touchStartKey;
-	ConfigTouchPos touchSelectKey;
-	ConfigTouchPos touchFastForwardKey;
-	ConfigTouchPos touchLKey;
-	ConfigTouchPos touchRKey;
-	ConfigTouchPos touchAnalogStick;
-	ConfigTouchPos touchRightAnalogStick;
+	TouchControlConfig touchControlsLandscape;
+	TouchControlConfig touchControlsPortrait;
 
-	enum { CUSTOM_BUTTON_COUNT = 20 };
-
-	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
-
-	float fLeftStickHeadScale;
-	float fRightStickHeadScale;
-	bool bHideStickBackground;
-
-	// Controls Visibility
-	bool bShowTouchControls;
-
-	bool bShowTouchCircle;
-	bool bShowTouchCross;
-	bool bShowTouchTriangle;
-	bool bShowTouchSquare;
-
-	ConfigCustomButton CustomButton[CUSTOM_BUTTON_COUNT];
+	// These are shared between portrait and landscape, just the positions aren't.
+	ConfigCustomButton CustomButton[TouchControlConfig::CUSTOM_BUTTON_COUNT];
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;
@@ -622,26 +657,27 @@ public:
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
-	//per game config managment, should maybe be in it's own class
-	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
-	bool createGameConfig(const std::string &game_id);
-	bool deleteGameConfig(const std::string& pGameId);
-	bool loadGameConfig(const std::string &game_id, const std::string &title);
-	bool saveGameConfig(const std::string &pGameId, const std::string &title);
-	void unloadGameConfig();
-	Path getGameConfigFile(const std::string &gameId, bool *exists);
-	bool hasGameConfig(const std::string &game_id);
+	// Per-game config management.
+	void ChangeGameSpecific(const std::string &gameId = "", std::string_view title = "");
+
+	// Note: This doesn't switch to the config, just creates it.
+	bool CreateGameConfig(std::string_view gameId);
+	bool DeleteGameConfig(std::string_view gameId);
+	bool LoadGameConfig(const std::string &gameId);
+	bool SaveGameConfig(const std::string &pGameId, std::string_view titleForComment);
+	void UnloadGameConfig();
+
+	Path GetGameConfigFilePath(std::string_view gameId, bool *exists);
+	bool HasGameConfig(std::string_view gameId);
+	bool IsGameSpecific() const { return gameSpecific_; }
 
 	void SetSearchPath(const Path &path);
-	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
+	Path FindConfigFile(std::string_view baseFilename, bool *exists) const;
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
-	void ResetControlLayout();
-
 	void GetReportingInfo(UrlEncoder &data) const;
 
-	bool IsPortrait() const;
 	int NextValidBackend();
 	bool IsBackendEnabled(GPUBackend backend);
 
@@ -651,42 +687,53 @@ public:
 		return bFullScreen;
 	}
 
-	const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();
-	void SetAppendedConfigIni(const Path &path);
+	void SetAppendedConfigIni(const Path &path) { appendedConfigFileName_ = path; }
 	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
 
-	// Applies the Auto setting if set. Returns an enum value from PSP_SYSTEMPARAM_LANGUAGE_*.
-	int GetPSPLanguage();
-
 	PlayTimeTracker &TimeTracker() { return playTimeTracker_; }
 
-protected:
-	void LoadStandardControllerIni();
-	void LoadLangValuesMapping();
-
-	void PostLoadCleanup(bool gameSpecific);
-	void PreSaveCleanup(bool gameSpecific);
-	void PostSaveCleanup(bool gameSpecific);
-
-	static std::map<const void*, const ConfigSetting *> &getPtrLUT();
+	const DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) const {
+		return orientation == DeviceOrientation::Portrait ? displayLayoutPortrait : displayLayoutLandscape;
+	}
+	DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) {
+		return orientation == DeviceOrientation::Portrait ? displayLayoutPortrait : displayLayoutLandscape;
+	}
+	const TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) const {
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) {
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
 
 private:
+	void LoadStandardControllerIni();
+
+	void PostLoadCleanup();
+	void PreSaveCleanup();
+	void PostSaveCleanup();
+
+	friend struct ConfigSetting;
+
+	static std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> &getPtrLUT();
+
+	// Applies defaults for missing settings.
+	void ReadAllSettings(const IniFile &iniFile);
+
 	bool reload_ = false;
+
+	bool gameSpecific_ = false;
 	std::string gameId_;
-	std::string gameIdTitle_;
-	std::map<std::string, std::pair<std::string, int>, std::less<>> langValuesMapping_;
+
 	PlayTimeTracker playTimeTracker_;
+
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;
 	Path appendedConfigFileName_;
 	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here
 	std::vector<std::string> appendedConfigUpdatedGames_;
-
-	// TODO: Remove hack.
-	friend struct ConfigSetting;
 };
 
 std::string CreateRandMAC();

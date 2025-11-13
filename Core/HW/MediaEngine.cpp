@@ -369,7 +369,11 @@ void MediaEngine::closeContext() {
 	m_pCodecCtxs.clear();
 	// These are streams allocated from avformat_new_stream.
 	for (auto &it : m_codecsToClose) {
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+		avcodec_free_context(&it);
+#else
 		avcodec_close(it);
+#endif
 	}
 	m_codecsToClose.clear();
 	if (m_pFormatCtx)
@@ -690,7 +694,7 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 				avcodec_send_packet(m_pCodecCtx, &packet);
 			int result = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
 			if (result == 0) {
-				result = m_pFrame->pkt_size;
+				result = 1;
 				frameFinished = 1;
 			} else if (result == AVERROR(EAGAIN)) {
 				result = 0;

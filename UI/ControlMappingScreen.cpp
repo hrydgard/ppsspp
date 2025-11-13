@@ -72,21 +72,11 @@ private:
 	void OnReplace(UI::EventParams &params);
 	void OnReplaceAll(UI::EventParams &params);
 
-	void MappedCallback(const MultiInputMapping &kdf);
-
-	enum Action {
-		NONE,
-		REPLACEONE,
-		REPLACEALL,
-		ADD,
-	};
+	int pspKey_;
 
 	UI::Choice *addButton_ = nullptr;
 	UI::Choice *replaceAllButton_ = nullptr;
 	std::vector<UI::View *> rows_;
-	Action action_ = NONE;
-	int actionIndex_ = 0;
-	int pspKey_;
 	std::string keyName_;
 	ScreenManager *scrm_;
 };
@@ -167,72 +157,66 @@ void SingleControlMapper::Refresh() {
 	}
 }
 
-void SingleControlMapper::MappedCallback(const MultiInputMapping &kdf) {
-	if (kdf.empty()) {
-		// Don't want to try to add this.
-		return;
-	}
-
-	switch (action_) {
-	case ADD:
-		KeyMap::SetInputMapping(pspKey_, kdf, false);
-		addButton_->SetFocus();
-		break;
-	case REPLACEALL:
-		KeyMap::SetInputMapping(pspKey_, kdf, true);
-		replaceAllButton_->SetFocus();
-		break;
-	case REPLACEONE:
-	{
-		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, actionIndex_, kdf);
+void SingleControlMapper::OnReplace(UI::EventParams &params) {
+	const int index = atoi(params.v->Tag().c_str());
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this, index](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, index, mapping);
 		if (!success) {
 			replaceAllButton_->SetFocus(); // Last got removed as a duplicate
-		} else if (actionIndex_ < (int)rows_.size()) {
-			rows_[actionIndex_]->SetFocus();
+		} else if (index < (int)rows_.size()) {
+			rows_[index]->SetFocus();
 		} else {
 			SetFocus();
 		}
-		break;
-	}
-	default:
-		SetFocus();
-		break;
-	}
-	KeyMap::UpdateNativeMenuKeys();
-	g_IsMappingMouseInput = false;
-}
-
-void SingleControlMapper::OnReplace(UI::EventParams &params) {
-	actionIndex_ = atoi(params.v->Tag().c_str());
-	action_ = REPLACEONE;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
 
 void SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
-	action_ = REPLACEALL;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		KeyMap::SetInputMapping(pspKey_, mapping, true);
+		replaceAllButton_->SetFocus();
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
 
 void SingleControlMapper::OnAdd(UI::EventParams &params) {
-	action_ = ADD;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		KeyMap::SetInputMapping(pspKey_, mapping, false);
+		addButton_->SetFocus();
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
+
 void SingleControlMapper::OnAddMouse(UI::EventParams &params) {
-	action_ = ADD;
 	g_IsMappingMouseInput = true;
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		if (mapping.empty())
+			return;
+		KeyMap::SetInputMapping(pspKey_, mapping, false);
+		addButton_->SetFocus();
+		KeyMap::UpdateNativeMenuKeys();
+		g_IsMappingMouseInput = false;
+	}, I18NCat::KEYMAPPING));
 }
 
 void SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::DeleteNthMapping(pspKey_, index);
-
 	if (index + 1 < (int)rows_.size())
 		rows_[index]->SetFocus();
 	else
 		SetFocus();
 }
-
 
 struct BindingCategory {
 	const char *catName;
@@ -248,68 +232,59 @@ static const BindingCategory cats[] = {
 	{},  // sentinel
 };
 
-void ControlMappingScreen::CreateViews() {
+void ControlMappingScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {
 	using namespace UI;
-	mappers_.clear();
-
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, Margins(10, 0, 0, 10)));
-	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
+	verticalLayout->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
 		KeyMap::ClearAllMappings();
 	});
-	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
+	verticalLayout->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
 		KeyMap::RestoreDefault();
 	});
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	// If there's a builtin controller, restore to default should suffice. No need to conf the controller on top.
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
-		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
+		verticalLayout->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
+	verticalLayout->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
+	verticalLayout->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
+	verticalLayout->Add(new Spacer(12.0f));
+}
 
-	leftColumn->Add(new Choice(km->T("Show PSP")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new VisualMappingScreen(gamePath_));
-	});
-	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
-	leftColumn->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
+void ControlMappingScreen::CreateTabs() {
+	using namespace UI;
+	mappers_.clear();
 
-	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	AddStandardBack(leftColumn);
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-	rightScroll_->SetTag("ControlMapping");
-	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL);
-	rightScroll_->Add(rightColumn);
+	AddTab("keymap", "Control mapping", [this](UI::LinearLayout *parent) {
+		size_t numMappableKeys = 0;
+		const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
 
-	root_->Add(leftColumn);
-	root_->Add(rightScroll_);
+		auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	size_t numMappableKeys = 0;
-	const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
-
-	int curCat = -1;
-	CollapsibleSection *curSection = nullptr;
-	for (size_t i = 0; i < numMappableKeys; i++) {
-		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
-			if (curCat >= 0) {
-				curSection->SetOpenPtr(&categoryToggles_[curCat]);
+		int curCat = -1;
+		CollapsibleSection *curSection = nullptr;
+		for (size_t i = 0; i < numMappableKeys; i++) {
+			if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
+				if (curCat >= 0) {
+					curSection->SetOpenPtr(&categoryToggles_[curCat]);
+				}
+				curCat++;
+				curSection = parent->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
+				curSection->SetSpacing(6.0f);
 			}
-			curCat++;
-			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
-			curSection->SetSpacing(6.0f);
+			SingleControlMapper *mapper = curSection->Add(
+				new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
+					new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
+			mappers_.push_back(mapper);
 		}
-		SingleControlMapper *mapper = curSection->Add(
-			new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
-				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
-		mappers_.push_back(mapper);
-	}
-	if (curCat >= 0 && curSection) {
-		curSection->SetOpenPtr(&categoryToggles_[curCat]);
-	}
-	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
+		if (curCat >= 0 && curSection) {
+			curSection->SetOpenPtr(&categoryToggles_[curCat]);
+		}
+		_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
+	}, TabFlags::Default);
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
 }
@@ -510,7 +485,7 @@ AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPa
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},
 		[&](uint32_t bitsToSet, uint32_t bitsToClear) {},
-		[&](int stick, float x, float y) {
+		[&](int iInternalRotation, int stick, float x, float y) {
 			analogX_[stick] = x;
 			analogY_[stick] = y;
 		},
@@ -521,7 +496,7 @@ AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPa
 }
 
 void AnalogCalibrationScreen::update() {
-	mapper_.Update(time_now_d());
+	mapper_.Update(g_Config.GetDisplayLayoutConfig(GetDeviceOrientation()), time_now_d());
 	// We ignore the secondary stick for now and just use the two views
 	// for raw and psp input.
 	if (stickView_[0]) {
@@ -925,7 +900,7 @@ void VisualMappingScreen::CreateViews() {
 	bounds.w -= leftColumnWidth + 10.0f;
 
 	AnchorLayout *rightColumn = new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f));
-	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, Centering::Both)));
 	psp_->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
 
 	root_->Add(leftColumn);
@@ -1039,7 +1014,10 @@ void VisualMappingScreen::MapNext(bool successive) {
 	} else {
 		psp_->SelectButton(nextKey_);
 	}
-	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), I18NCat::KEYMAPPING);
+
+	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+		HandleKeyMapping(mapping);
+	}, I18NCat::KEYMAPPING);
 
 	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);

@@ -40,6 +40,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Render/ManagedTexture.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -154,7 +155,7 @@ void UIBaseScreen::sendMessage(UIMessage message, const char *value) {
 void UIBaseDialogScreen::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	parent->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)
@@ -169,12 +170,12 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	const bool vertical = UsePortraitLayout();
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	root_ = new AnchorLayout();
 	ViewGroup *rightColumnItems;
 
-	if (!vertical) {
+	if (!portrait) {
 		// Horizontal layout.
 		root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 105, 330, 10)))->SetClip(false);
 		rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(300, WRAP_CONTENT, NONE, 105, 15, NONE));
@@ -187,25 +188,51 @@ void PromptScreen::CreateViews() {
 		root_->Add(rightColumnItems);
 	}
 
-	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
-	yesButton->SetCentered(vertical);
+	Choice *yesButton = new Choice(yesButtonText_, portrait ? new LinearLayoutParams(1.0f) : nullptr);
+	yesButton->SetCentered(portrait);
 	yesButton->OnClick.Add([this](UI::EventParams &e) {
 		TriggerFinish(DR_OK);
 	});
+	Choice *noButton = nullptr;
 	if (!noButtonText_.empty()) {
-		Choice *noButton = rightColumnItems->Add(new Choice(noButtonText_, vertical ? new LinearLayoutParams(1.0f) : nullptr));
-		noButton->SetCentered(vertical);
+		noButton = new Choice(noButtonText_, portrait ? new LinearLayoutParams(1.0f) : nullptr);
+		noButton->SetCentered(portrait);
 		noButton->OnClick.Add([this](UI::EventParams &e) {
 			TriggerFinish(DR_CANCEL);
 		});
-		root_->SetDefaultFocusView(noButton);
+	}
+
+	// The order of the button depends on the platform, if vertical layout is used.
+	// Following UI standards here.
+	if (portrait) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		// On Windows, we put the yes button on the left.
+		rightColumnItems->Add(yesButton);
+		if (noButton) {
+			rightColumnItems->Add(noButton);
+		}
+#else
+		// On other platforms, we put the yes button on the right.
+		if (noButton) {
+			rightColumnItems->Add(noButton);
+		}
+		rightColumnItems->Add(yesButton);
+#endif
 	} else {
+		// In horizontal layout, the buttons are placed vertically, we always put the yes button on top.
+		rightColumnItems->Add(yesButton);
+		if (noButton) {
+			rightColumnItems->Add(noButton);
+		}
+	}
+
+	if (!noButton) {
 		// This is an information screen, not a question.
 		// Sneak in the version of PPSSPP in the bottom left corner, for debug-reporting user screenshots.
 		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
 		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
-		root_->SetDefaultFocusView(yesButton);
 	}
+	root_->SetDefaultFocusView(noButton ? noButton : yesButton);
 }
 
 void PromptScreen::TriggerFinish(DialogResult result) {
@@ -244,7 +271,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 #ifdef _MSC_VER
 #pragma warning(disable:4566)
 #endif
-	auto &langValuesMapping = g_Config.GetLangValuesMapping();
+	auto &langValuesMapping = GetLangValuesMapping();
 
 	std::vector<File::FileInfo> tempLangs;
 	g_VFS.GetFileListing("lang", &tempLangs, "ini");
@@ -303,13 +330,10 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	std::string oldLang = g_Config.sLanguageIni;
 	std::string iniFile = langs_[listView_->GetSelected()].name;
 
-	size_t dot = iniFile.find('.');
-	std::string code;
-	if (dot != std::string::npos)
-		code = iniFile.substr(0, dot);
-
-	if (code.empty())
+	std::string_view code, part2;
+	if (!SplitStringOnce(iniFile, &code, &part2, '.')) {
 		return;
+	}
 
 	g_Config.sLanguageIni = code;
 
@@ -326,6 +350,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 
 	if (iniLoadedSuccessfully) {
 		RecreateViews();
+		System_Notify(SystemNotification::UI);
 	} else {
 		// Failed to load the language ini. Shouldn't really happen, but let's just switch back to the old language.
 		g_Config.sLanguageIni = oldLang;
@@ -492,7 +517,7 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *root) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	const bool portrait = UsePortraitLayout();
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	const bool gold = System_GetPropertyBool(SYSPROP_APP_GOLD);
 

@@ -199,6 +199,8 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 	return prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES;
 }
 
+struct DisplayLayoutConfig;
+
 class GPUCommon : public GPUDebugInterface {
 public:
 	// The constructor might run on the loader thread.
@@ -225,7 +227,7 @@ public:
 	}
 	virtual void Reinitialize();
 
-	virtual void BeginHostFrame();
+	virtual void BeginHostFrame(const DisplayLayoutConfig &config);
 	virtual void EndHostFrame();
 
 	void InterruptStart(int listid);
@@ -236,10 +238,10 @@ public:
 	}
 
 	virtual void CheckDisplayResized() = 0;
-	virtual void CheckConfigChanged() = 0;
+	virtual void CheckConfigChanged(const DisplayLayoutConfig &config) = 0;
 
 	virtual void NotifyDisplayResized();
-	virtual void NotifyRenderResized();
+	virtual void NotifyRenderResized(const DisplayLayoutConfig &config);
 	virtual void NotifyConfigChanged();
 
 	void DumpNextFrame();
@@ -274,7 +276,7 @@ public:
 	uint32_t GetAddrTranslation() override;
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
-	virtual void CopyDisplayToOutput(bool reallyDirty) = 0;
+	virtual void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) = 0;
 	virtual bool PresentedThisFrame() const = 0;
 
 	// Invalidate any cached content sourced from the specified range.
@@ -422,7 +424,7 @@ protected:
 
 	virtual void ClearCacheNextFrame() {}
 
-	virtual void CheckRenderResized() {}
+	virtual void CheckRenderResized(const DisplayLayoutConfig &config) {}
 
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
@@ -566,5 +568,4 @@ private:
 	void DoExecuteCall(u32 target);
 	void PopDLQueue();
 	void CheckDrawSync();
-	int  GetNextListIndex();
 };

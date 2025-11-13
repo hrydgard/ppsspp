@@ -334,8 +334,8 @@ void ProductView::CreateViews() {
 
 	if (!entry_.license.empty()) {
 		LinearLayout *horiz = Add(new LinearLayout(ORIENT_HORIZONTAL));
-		horiz->Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str()), new LinearLayoutParams(0.0, G_VCENTER)));
-		horiz->Add(new Button(di->T("More info"), new LinearLayoutParams(0.0, G_VCENTER)))->OnClick.Add([this](UI::EventParams) {
+		horiz->Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str()), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
+		horiz->Add(new Button(di->T("More info"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)))->OnClick.Add([this](UI::EventParams) {
 			std::string url = StringFromFormat("https://www.ppsspp.org/docs/reference/homebrew-store-distribution/#%s", entry_.file.c_str());
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 		});
@@ -508,7 +508,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 
 std::string_view StoreScreen::GetTitle() const {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	return mm->T("PPSSPP Homebrew Store");
+	return mm->T("Homebrew store");
 }
 
 void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {

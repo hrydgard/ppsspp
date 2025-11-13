@@ -19,8 +19,7 @@ public:
 	TextDrawerSDL(Draw::DrawContext *draw);
 	~TextDrawerSDL();
 
-	uint32_t SetFont(const char *fontName, int size, int flags) override;
-	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
+	void SetOrCreateFont(const FontStyle &style) override;
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
@@ -34,7 +33,11 @@ private:
 	uint32_t CheckMissingGlyph(std::string_view text);
 	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 
-	std::map<uint32_t, TTF_Font *> fontMap_;
+	// NOTE: This can contain dupes. The below doesn't.
+	std::map<FontStyle, TTF_Font *> fontMap_;
+
+	// These are the ones we free. fontMap points into this map.
+	std::map<std::string, TTF_Font *> loadedFonts_;
 
 	std::vector<TTF_Font *> fallbackFonts_;
 	std::vector<std::pair<std::string, int>> fallbackFontPaths_; // path and font face index

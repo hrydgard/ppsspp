@@ -25,7 +25,8 @@
 #include "Common/File/DirListing.h"
 #include "Common/Log/LogManager.h"
 #include "Common/File/VFS/VFS.h"
-
+#include "Common/Data/Text/I18n.h"
+#include "Common/Render/Text/draw_text.h"
 #include "Core/Config.h"
 
 #include "Common/UI/View.h"
@@ -198,15 +199,21 @@ void UpdateTheme() {
 		}
 	}
 
-#if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
-	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 22);
-	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 17);
-	ui_theme.uiFontBig = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 28);
-#else
-	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), "", 20);
-	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 15);
-	ui_theme.uiFontBig = UI::FontStyle(FontID("UBUNTU24"), "", 26);
-#endif
+	// Desktop font override support
+	auto des = GetI18NCategory(I18NCat::DESKTOPUI);
+	std::string_view fontOverride = des->T("Font", "");
+	if (fontOverride == "Font") {
+		fontOverride = "";
+	}
+	if (!fontOverride.empty()) {
+		SetFontNameOverride(FontFamily::SansSerif, fontOverride);
+	}
+
+	ui_theme.uiFontTiny = FontStyle(FontFamily::SansSerif, 12, FontStyleFlags::Default);
+	ui_theme.uiFontSmall = FontStyle(FontFamily::SansSerif, 17, FontStyleFlags::Default);
+	ui_theme.uiFont = FontStyle(FontFamily::SansSerif, 22, FontStyleFlags::Default);
+	ui_theme.uiFontBig = FontStyle(FontFamily::SansSerif, 28, FontStyleFlags::Bold);
+	ui_theme.uiFontCode = FontStyle(FontFamily::Fixed, 14, FontStyleFlags::Default);
 
 	ui_theme.checkOn = ImageID("I_CHECKEDBOX");
 	ui_theme.checkOff = ImageID("I_UNCHECKEDBOX");

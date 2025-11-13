@@ -14,6 +14,8 @@ class ScrollView;
 enum class TabHolderFlags {
 	Default = 0,
 	BackButton = 1,
+	HorizontalOnlyIcons = 2,
+	VerticalShowIcons = 4,
 };
 ENUM_CLASS_BITOPS(TabHolderFlags);
 
@@ -22,11 +24,11 @@ public:
 	TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, LayoutParams *layoutParams);
 
 	template <class T>
-	T *AddTab(std::string_view title, T *tabContents) {
-		AddTabContents(title, tabContents);
+	T *AddTab(std::string_view title, ImageID imageId, T *tabContents) {
+		AddTabContents(title, imageId, tabContents);
 		return tabContents;
 	}
-	void AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb);
+	void AddTabDeferred(std::string_view title, ImageID imageId, std::function<ViewGroup *()> createCb);
 	void EnableTab(int tab, bool enabled);
 
 	void AddBack(UIScreen *parent);
@@ -48,7 +50,7 @@ public:
 	}
 
 private:
-	void AddTabContents(std::string_view title, ViewGroup *tabContents);
+	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
 	void OnTabClick(EventParams &e);
 	bool EnsureTab(int index);  // return true if it actually created a tab.
 
@@ -57,7 +59,9 @@ private:
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
 	ViewGroup *contents_ = nullptr;
+	Orientation tabOrientation_ = ORIENT_HORIZONTAL;
 
+	TabHolderFlags flags_ = TabHolderFlags::Default;
 	int currentTab_ = 0;
 	std::vector<ViewGroup *> tabs_;
 	std::vector<AnchorTranslateTween *> tabTweens_;
@@ -68,7 +72,7 @@ class ChoiceStrip : public LinearLayout {
 public:
 	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0);
 
-	void AddChoice(std::string_view title);
+	void AddChoice(std::string_view title, ImageID imageId = ImageID::invalid());
 	void AddChoice(ImageID buttonImage);
 
 	int GetSelection() const { return selected_; }
