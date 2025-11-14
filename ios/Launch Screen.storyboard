@@ -8,8 +8,8 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <customFonts key="customFonts">
-        <array key="Roboto-Condensed.ttf">
-            <string>Roboto-Condensed</string>
+        <array key="Roboto_Condensed-Regular.ttf">
+            <string>Roboto_Condensed-Regular</string>
         </array>
     </customFonts>
     <scenes>

@@ -32,8 +32,6 @@ enum {
 	MAX_TEXT_HEIGHT = 512
 };
 
-#define APPLE_FONT "RobotoCondensed-Regular"
-
 // for future OpenEmu support
 #ifndef PPSSPP_FONT_BUNDLE
 #define PPSSPP_FONT_BUNDLE [NSBundle mainBundle]
