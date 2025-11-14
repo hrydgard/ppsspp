@@ -150,7 +150,7 @@ public:
 
 private:
 	void OnLoadDump(UI::EventParams &e);
-	bool ShowSearchControls() const { return false; }
+	bool ShowSearchControls() const override { return false; }
 
 	std::vector<std::string> files_;
 	std::shared_ptr<http::Request> listing_;
