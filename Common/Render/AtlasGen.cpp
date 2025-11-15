@@ -106,6 +106,11 @@ std::vector<Data> Bucket::Resolve(int image_width, Image *dest) {
 	ImageU8 masq;
 	masq.resize(image_width, 1);
 	dest->resize(image_width, 1);
+
+	// image_width is set to the square root of the total area of all images.
+	// We shouldn't need more than twice that in height (more likely much less).
+	const int maxHeight = image_width * 2;
+
 	std::sort(data.begin(), data.end(), CompareByArea);
 	for (int i = 0; i < (int)data.size(); i++) {
 		if ((i + 1) % 2000 == 0) {
@@ -115,7 +120,7 @@ std::vector<Data> Bucket::Resolve(int image_width, Image *dest) {
 		int idy = (int)data[i].h;
 		if (idx > 1 && idy > 1) {
 			assert(idx <= image_width);
-			for (int ty = 0; ty < 2047; ty++) {  // TODO: Maybe remove this limit?
+			for (int ty = 0; ty < maxHeight - 1; ty++) {  // TODO: Maybe remove this limit?
 				if (ty + idy + 1 > (int)dest->height()) {
 					// Every 16 lines of new space needed, grow the image.
 					masq.resize(image_width, ty + idy + 16);

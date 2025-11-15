@@ -555,7 +555,6 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
-	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = true;
 	UpdateTextBox();
