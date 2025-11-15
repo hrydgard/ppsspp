@@ -431,26 +431,26 @@ void SavedataBrowser::Update() {
 		int n = gameList_->GetNumSubviews();
 		bool matches = searchFilter_.empty();
 		for (int i = 0; i < n; ++i) {
-			SavedataButton *v = static_cast<SavedataButton *>(gameList_->GetViewByIndex(i));
-
+			View *view = gameList_->GetViewByIndex(i);
 			// Note: might be resetting to empty string.  Can do that right away.
 			if (searchFilter_.empty()) {
-				v->SetVisibility(UI::V_VISIBLE);
+				view->SetVisibility(UI::V_VISIBLE);
 				continue;
 			}
 
-			if (!v->UpdateText()) {
+			SavedataButton *savedataButton = static_cast<SavedataButton *>(view);
+			if (!savedataButton->UpdateText()) {
 				// We'll need to wait until the text is loaded.
 				searchPending_ = true;
-				v->SetVisibility(UI::V_GONE);
+				view->SetVisibility(UI::V_GONE);
 				continue;
 			}
 
-			std::string label = v->DescribeText();
+			std::string label = view->DescribeText();
 			std::transform(label.begin(), label.end(), label.begin(), tolower);
 			bool match = label.find(searchFilter_) != label.npos;
 			matches = matches || match;
-			v->SetVisibility(match ? UI::V_VISIBLE : UI::V_GONE);
+			view->SetVisibility(match ? UI::V_VISIBLE : UI::V_GONE);
 		}
 
 		if (searchingView_) {

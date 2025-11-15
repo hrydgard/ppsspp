@@ -54,6 +54,10 @@ struct Bounds {
 		return Bounds(x_ - radius, y_ - radius, radius * 2.0f, radius * 2.0f);
 	}
 
+	static Bounds FromCenterWH(float x_, float y_, float w, float h) {
+		return Bounds(x_ - w * 0.5f, y_ - h * 0.5f, w, h);
+	}
+
 	float GetSize(Orientation o) const {
 		return (o == ORIENT_HORIZONTAL) ? w : h;
 	}
@@ -114,6 +118,10 @@ struct Bounds {
 	}
 	Bounds Inset(float left, float top, float right, float bottom) const {
 		return Bounds(x + left, y + top, w - left - right, h - top - bottom);
+	}
+
+	float AspectRatio() const {
+		return w / h;
 	}
 
 	float x;

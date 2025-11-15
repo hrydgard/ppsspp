@@ -443,6 +443,12 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
 }
 
+enum class BackgroundFillMode {
+	Stretch = 0,
+	CropToScreen = 1,
+	FitToScreen = 2,
+};
+
 void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	using namespace Draw;
 	using namespace UI;
@@ -454,10 +460,42 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 	}
 
 	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::PIC1)) ? ginfo->GetPIC1() : nullptr;
-	if (pic) {
+	if (pic && pic->texture) {
 		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
-		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+
+		// TODO: Make this configurable?
+		const BackgroundFillMode mode = BackgroundFillMode::CropToScreen;
+
+		const Bounds screenBounds = dc.GetBounds();
+		float imageW = screenBounds.w;
+		float imageH = screenBounds.h;
+		float imageAspect = (float)pic->texture->Width() / (float)pic->texture->Height();
+
+		// Fit the image into the screen bounds according to the fill mode.
+		if (imageAspect > screenBounds.AspectRatio()) {
+			// Image is wider than screen.
+			if (mode == BackgroundFillMode::CropToScreen) {
+				// Crop width.
+				imageW = screenBounds.h * imageAspect;
+			} else if (mode == BackgroundFillMode::FitToScreen) {
+				// Fit height.
+				imageH = screenBounds.w / imageAspect;
+			}
+		} else {
+			// Image is taller than screen.
+			if (mode == BackgroundFillMode::CropToScreen) {
+				// Crop height.
+				imageH = screenBounds.w / imageAspect;
+			} else if (mode == BackgroundFillMode::FitToScreen) {
+				// Fit width.
+				imageW = screenBounds.h / imageAspect;
+			}
+		}
+
+		Bounds finalImageBounds = Bounds::FromCenterWH(screenBounds.centerX(), screenBounds.centerY(), imageW, imageH);
+
+		dc.Draw()->DrawTexRect(finalImageBounds, 0, 0, 1, 1, color);
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
