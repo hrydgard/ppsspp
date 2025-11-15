@@ -578,6 +578,8 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		caps_.textureDepthSupported = true;
 	}
 
+	caps_.maxTextureSize = gl_extensions.maxTextureSize;
+	caps_.maxClipPlanes = gl_extensions.IsGLES ? 0 : gl_extensions.maxClipPlanes;
 	caps_.coordConvention = CoordConvention::OpenGL;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;

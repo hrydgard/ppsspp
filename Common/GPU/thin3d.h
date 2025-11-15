@@ -593,6 +593,9 @@ struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
 
+	uint32_t maxTextureSize;  // largest side.
+	uint32_t maxClipPlanes;
+
 	CoordConvention coordConvention;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;

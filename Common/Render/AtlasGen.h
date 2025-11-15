@@ -104,7 +104,7 @@ struct Data {
 	int w, h;
 	// dimensions of its spot in the world
 	int sx, sy, ex, ey;
-	// offset from the origin
+	// offset from the origin. Used by text rendering.
 	float ox, oy;
 	float voffset;  // to apply at the end
 	// distance to move the origin forward
@@ -119,12 +119,18 @@ struct Data {
 struct Bucket {
 	std::vector<Image> images;
 	std::vector<Data> data;
+	int w = 0;
+	int h = 0;
+
 	void AddItem(Image &&img, const Data &dat) {
 		images.emplace_back(std::move(img));
 		data.emplace_back(dat);
 	}
 	void AddImage(Image &&img, int id);
-	std::vector<Data> Resolve(int image_width, Image *dest);
+
+	void Pack(int image_width);
+	void Pack2(int image_width);
+	std::vector<Data> Resolve(Image *dest);
 };
 
 AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const std::vector<Data> &results);

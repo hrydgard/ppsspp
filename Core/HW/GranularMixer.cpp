@@ -119,7 +119,7 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 			static_cast<u32>(MAX_GRANULE_QUEUE_SIZE));
 
 	if (buffer_size_granules != m_granule_queue_size.load(std::memory_order_relaxed)) {
-		INFO_LOG(Log::Audio, "Granule buffer size changed to %d", buffer_size_granules);
+		DEBUG_LOG(Log::Audio, "Granule buffer size changed to %d", buffer_size_granules);
 	}
 
 	m_granule_queue_size.store(buffer_size_granules, std::memory_order_relaxed);

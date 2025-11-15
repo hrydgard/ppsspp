@@ -298,6 +298,26 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 
 	caps_.coordConvention = CoordConvention::Direct3D11;
 
+	switch (featureLevel_) {
+	case D3D_FEATURE_LEVEL_11_1:
+	case D3D_FEATURE_LEVEL_11_0:
+		caps_.maxTextureSize = 16384;
+		break;
+	case D3D_FEATURE_LEVEL_10_1:
+	case D3D_FEATURE_LEVEL_10_0:
+		caps_.maxTextureSize = 8192;
+		break;
+	case D3D_FEATURE_LEVEL_9_3:
+		caps_.maxTextureSize = 4096;
+		break;
+	case D3D_FEATURE_LEVEL_9_2:
+	case D3D_FEATURE_LEVEL_9_1:
+	default:
+		caps_.maxTextureSize = 2048;
+		break;
+	}
+	caps_.maxClipPlanes = 8;
+
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	caps_.depthClampSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;

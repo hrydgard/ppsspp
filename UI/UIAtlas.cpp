@@ -182,7 +182,7 @@ static bool IsImageID(std::string_view id) {
 	return GetImageIndex(id) != -1;
 }
 
-static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
+static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize) {
 	Bucket bucket;
 
 	// Script fully read, now read images and rasterize the fonts.
@@ -243,7 +243,16 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 			// Rasterize here, and add into image list.
 			rast = nsvgCreateRasterizer();
 
-			const float scale = dpiScale;
+			// If we can tell that the scale won't fit in a supported texture size, reduce it.
+			// This is a conservative check because the SVG has some empty space around the sub-images.
+			float scale = dpiScale;
+			int maxSide = (int)(std::max(image->width, image->height) * scale);
+			if (maxTextureSize > 0 && maxSide > maxTextureSize) {
+				float newScale = (float)maxTextureSize / (float)maxSide;
+				INFO_LOG(Log::G3D, "Reducing SVG scale from %0.2f to %0.2f to fit in max texture size", scale, newScale);
+				scale = newScale;
+			}
+
 			int svgWidth = image->width * scale;
 			int svgHeight = image->height * scale;
 
@@ -287,7 +296,9 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 				img.scale = scale;
 
 				if (SAVE_DEBUG_IMAGES) {
-					pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
+					std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
+					WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
+					pngSave(Path(name), img.data(), img.width(), img.height(), 4);
 				}
 
 				img.ConvertToPremultipliedAlpha();
@@ -296,6 +307,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 			shapeCount = (int)usedShapes.size();
 
 			if (SAVE_DEBUG_IMAGES) {
+				WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
 				pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
 			}
 			delete[] svgImg;
@@ -365,17 +377,23 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 	INFO_LOG(Log::G3D, " - Loaded %d png images in %.2f ms", pngsLoaded, pngStart.ElapsedMs());
 
 	Instant addStart = Instant::Now();
+	int area = 0;
 	for (int i = 0; i < images.size(); i++) {
 		bucket.AddImage(std::move(images[i]), i);
+		area += images[i].width() * images[i].height();
 	}
 
 	INFO_LOG(Log::G3D, " - Added %zu images to bucket in %.2f ms", bucket.data.size(), addStart.ElapsedMs());
 
-	int image_width = 512;
+	int imageWidth = RoundToNextPowerOf2((int)sqrtf(area));
 
 	Instant bucketStart = Instant::Now();
-	std::vector<Data> results = bucket.Resolve(image_width, dest);
-	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms", results.size(), bucketStart.ElapsedMs());
+	bucket.Pack(imageWidth);
+	INFO_LOG(Log::G3D, " - Packed in %.2f ms (image size: %dx%d)", bucketStart.ElapsedMs(), bucket.w, bucket.h);
+
+	Instant resolveStart = Instant::Now();
+	std::vector<Data> results = bucket.Resolve(dest);
+	INFO_LOG(Log::G3D, " - Resolved %zu images in %.2f ms (final image size: %dx%d)", results.size(), resolveStart.ElapsedMs(), dest->width(), dest->height());
 
 	_dbg_assert_(!results.empty());
 	// Fill out the atlas structure.
@@ -392,6 +410,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest) {
 
 	// For debug, write out the atlas.
 	if (SAVE_DEBUG_IMAGES) {
+		WARN_LOG(Log::G3D, "Writing debug image ui_atlas_gen.png");
 		dest->SavePNG("../ui_atlas_gen.png");
 	}
 	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());
@@ -405,7 +424,7 @@ static float g_cachedDpiScale = 0.0f;
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale, bool invalidate) {
 	if (g_cachedUIAtlasImage.IsEmpty() || dpiScale != g_cachedDpiScale || invalidate) {
 		g_cachedUIAtlasImage.clear();
-		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage)) {
+		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize)) {
 			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
 			return nullptr;
 		}
