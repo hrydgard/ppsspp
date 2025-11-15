@@ -776,11 +776,21 @@ void GameBrowser::Refresh() {
 
 	// No topbar on recent screen
 	gameList_ = nullptr;
+
 	if (DisplayTopBar()) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0)));
+		Add(topBar);
+
+		const bool pathOnSeparateLine = g_display.dp_xres < 1050 || portrait_;
+
+		if (pathOnSeparateLine) {
+			Add(new TextView(path_.GetFriendlyPath(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0))));
+		}
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
-			topBar->Add(new Spacer(2.0f));
-			topBar->Add(new TextView(path_.GetFriendlyPath(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
+			if (!pathOnSeparateLine) {
+				topBar->Add(new Spacer(2.0f));
+				topBar->Add(new TextView(path_.GetFriendlyPath(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
+			}
 			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomeClick);
 			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
@@ -832,7 +842,6 @@ void GameBrowser::Refresh() {
 			Refresh();
 		});
 		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
-		Add(topBar);
 
 		if (*gridStyle_) {
 			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 0, 0)));
