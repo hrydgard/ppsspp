@@ -704,6 +704,9 @@
     <ClInclude Include="Render\Text\Font.h">
       <Filter>Render\Text</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\stb\stb_rect_pack.h">
+      <Filter>ext\stb</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1441,6 +1444,9 @@
     </Filter>
     <Filter Include="ext\nanosvg">
       <UniqueIdentifier>{da5bd3c2-d1d9-4e8f-972f-9e53e2a34049}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\stb">
+      <UniqueIdentifier>{8e8641a4-f1db-4609-acc4-66aec9ed8440}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -296,7 +296,9 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 				img.scale = scale;
 
 				if (SAVE_DEBUG_IMAGES) {
-					pngSave(Path(std::string("../buttons_") + PNGNameFromID(shapeId)), img.data(), img.width(), img.height(), 4);
+					std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
+					WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
+					pngSave(Path(name), img.data(), img.width(), img.height(), 4);
 				}
 
 				img.ConvertToPremultipliedAlpha();
@@ -305,6 +307,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			shapeCount = (int)usedShapes.size();
 
 			if (SAVE_DEBUG_IMAGES) {
+				WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
 				pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
 			}
 			delete[] svgImg;
@@ -407,6 +410,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 	// For debug, write out the atlas.
 	if (SAVE_DEBUG_IMAGES) {
+		WARN_LOG(Log::G3D, "Writing debug image ui_atlas_gen.png");
 		dest->SavePNG("../ui_atlas_gen.png");
 	}
 	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());

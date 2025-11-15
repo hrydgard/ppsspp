@@ -8,6 +8,9 @@
 #include <string>
 #include <cmath>
 
+#define STB_RECT_PACK_IMPLEMENTATION
+#include "ext/stb/stb_rect_pack.h"
+
 #include "Common/StringUtils.h"
 #include "Common/Render/TextureAtlas.h"
 
@@ -163,6 +166,39 @@ void Bucket::Pack(int image_width) {
 
 	w = image_width;
 	h = masq.height();
+}
+
+void Bucket::Pack2(int image_width) {
+	// Use stb_rect_pack for packing.
+	stbrp_context context;
+	// These are just temporary storage (the API is allocation-free otherwise).
+	// About one node is needed for each horizontal unit of width.
+	std::vector<stbrp_node> nodes(image_width * 2);
+	stbrp_init_target(&context, image_width, image_width * 2, nodes.data(), nodes.size());
+	// Transfer the rectangles to the rect_pack structs from Data.
+	std::vector<stbrp_rect> rects(data.size());
+	for (int i = 0; i < data.size(); i++) {
+		rects[i].w = (stbrp_coord)data[i].w;
+		rects[i].h = (stbrp_coord)data[i].h;
+		rects[i].id = i;
+	}
+	{
+		stbrp_pack_rects(&context, rects.data(), rects.size());
+	}
+	for (int i = 0; i < (int)data.size(); i++) {
+		int index = rects[i].id;
+		data[index].sx = rects[i].x;
+		data[index].sy = rects[i].y;
+		data[index].ex = rects[i].x + rects[i].w;
+		data[index].ey = rects[i].y + rects[i].h;
+	}
+	w = image_width;
+	h = 0;
+	for (int i = 0; i < (int)data.size(); i++) {
+		if (data[i].ey > h) {
+			h = data[i].ey;
+		}
+	}
 }
 
 std::vector<Data> Bucket::Resolve(Image *dest) {
