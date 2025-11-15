@@ -1616,7 +1616,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		if (vfb) {
 			// Okay, we found one above.
 			// Log should be "Displaying from framebuf" but not worth changing the report.
-			INFO_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			DEBUG_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
 		}
 	}
 
