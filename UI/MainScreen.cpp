@@ -818,7 +818,7 @@ void GameBrowser::Refresh() {
 				});
 			}
 #endif
-		} else {
+		} else if (!pathOnSeparateLine) {
 			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
 

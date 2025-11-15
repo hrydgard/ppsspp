@@ -584,19 +584,24 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		int orientation = getResources().getConfiguration().orientation;
 
 		WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+
 		controller.setSystemBarsBehavior(
 			WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 		);
 
 		if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			if (useImmersive()) {
-				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.captionBar() | WindowInsetsCompat.Type.navigationBars());
+				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
 			} else {
-				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.captionBar());
+				controller.hide(WindowInsetsCompat.Type.statusBars());  // we always hide the status bar in landscape.
 				controller.show(WindowInsetsCompat.Type.navigationBars());
 			}
 		} else {
-			controller.show(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.captionBar() |  WindowInsetsCompat.Type.navigationBars());
+			if (useImmersive()) {
+				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
+			} else {
+				controller.show(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
+			}
 		}
 
 		sizeManager.checkDisplayMeasurements();

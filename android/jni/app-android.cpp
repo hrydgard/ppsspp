@@ -594,7 +594,7 @@ static std::string QueryConfig(std::string_view query) {
 		snprintf(temp, sizeof(temp), "%d", g_Config.iScreenRotation);
 		return temp;
 	} else if (query == "immersiveMode") {
-		return g_Config.bImmersiveMode ? "1" : "0";
+		return g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation()).bImmersiveMode ? "1" : "0";
 	} else if (query == "sustainedPerformanceMode") {
 		return g_Config.bSustainedPerformanceMode ? "1" : "0";
 	} else if (query == "androidJavaGL") {
