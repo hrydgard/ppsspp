@@ -20,7 +20,7 @@ import androidx.annotation.RequiresApi;
 public class SizeManager implements SurfaceHolder.Callback {
 	private static final String TAG = "PPSSPPSizeManager";
 
-	final NativeActivity activity;
+	final PpssppActivity activity;
 	SurfaceView surfaceView = null;
 
 	private int safeInsetLeft = 0;
@@ -42,7 +42,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 
 	private boolean paused = false;
 
-	public SizeManager(final NativeActivity a) {
+	public SizeManager(final PpssppActivity a) {
 		activity = a;
 	}
 

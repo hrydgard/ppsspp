@@ -173,7 +173,7 @@ static float g_safeInsetBottom = 0.0;
 static jmethodID postCommand;
 static jmethodID getDebugString;
 
-static jobject nativeActivity;
+static jobject ppssppActivity;
 
 static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
@@ -241,7 +241,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	gJvm = pjvm;  // cache the JavaVM pointer
 	auto env = getEnv();
 	//replace with one of your classes in the line below
-	auto randomClass = env->FindClass("org/ppsspp/ppsspp/NativeActivity");
+	auto randomClass = env->FindClass("org/ppsspp/ppsspp/PpssppActivity");
 	jclass classClass = env->GetObjectClass(randomClass);
 	auto classLoaderClass = env->FindClass("java/lang/ClassLoader");
 	auto getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader",
@@ -300,7 +300,7 @@ static void EmuThreadFunc() {
 		NativeFrame(graphicsContext);
 
 		std::lock_guard<std::mutex> guard(frameCommandLock);
-		if (!nativeActivity) {
+		if (!ppssppActivity) {
 			ERROR_LOG(Log::System, "No activity, clearing commands");
 			while (!frameCommands.empty())
 				frameCommands.pop();
@@ -519,13 +519,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 
 std::string Android_GetInputDeviceDebugString() {
-	if (!nativeActivity) {
+	if (!ppssppActivity) {
 		return "(N/A)";
 	}
 	auto env = getEnv();
 
 	jstring jparam = env->NewStringUTF("InputDevice");
-	jstring jstr = (jstring)env->CallObjectMethod(nativeActivity, getDebugString, jparam);
+	jstring jstr = (jstring)env->CallObjectMethod(ppssppActivity, getDebugString, jparam);
 	if (!jstr) {
 		env->DeleteLocalRef(jparam);
 		return "(N/A)";
@@ -548,21 +548,21 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	return cpp_string;
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
-	nativeActivity = env->NewGlobalRef(obj);
+extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *env, jobject obj) {
+	ppssppActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
 	_dbg_assert_(postCommand);
 	_dbg_assert_(getDebugString);
 
 	Android_RegisterStorageCallbacks(env, obj);
-	Android_StorageSetActivity(nativeActivity);
+	Android_StorageSetActivity(ppssppActivity);
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
+extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
 	Android_StorageSetActivity(nullptr);
-	env->DeleteGlobalRef(nativeActivity);
-	nativeActivity = nullptr;
+	env->DeleteGlobalRef(ppssppActivity);
+	ppssppActivity = nullptr;
 }
 
 // This is now only used as a trigger for GetAppInfo as a function to all before Init.
@@ -809,7 +809,7 @@ retry:
 
 	if (IsVREnabled()) {
 		Version gitVer(PPSSPP_GIT_VERSION);
-		InitVROnAndroid(gJvm, nativeActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
+		InitVROnAndroid(gJvm, ppssppActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
 		SetVRCallbacks(NativeAxis, NativeKey, NativeTouch);
 	}
 }
@@ -1577,7 +1577,7 @@ static void ProcessFrameCommands(JNIEnv *env) {
 
 		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
 		jstring param = env->NewStringUTF(frameCmd.params.c_str());
-		env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
+		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd);
 		env->DeleteLocalRef(param);
 	}
@@ -1589,7 +1589,7 @@ static void VulkanEmuThread(ANativeWindow *wnd);
 
 // This runs in Vulkan mode only.
 // This handles the entire lifecycle of the Vulkan context, init and exit.
-extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
+extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
 	if (!graphicsContext) {
@@ -1615,7 +1615,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRende
 	return true;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv * env, jobject obj) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanRenderLoop(JNIEnv * env, jobject obj) {
 	if (!renderLoopRunning) {
 		ERROR_LOG(Log::System, "Render loop already exited");
 		return;
@@ -1708,7 +1708,7 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	jobject activityRef = nullptr;
 
 	bool teardownThreadManager = false;
-	// Maybe we should just check nativeActivity instead.
+	// Maybe we should just check ppssppActivity instead.
 	if (!g_threadManager.IsInitialized()) {
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);

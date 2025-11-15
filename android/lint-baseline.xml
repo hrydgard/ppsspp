@@ -24,39 +24,6 @@
     </issue>
 
     <issue
-        id="GestureBackNavigation"
-        message="If intercepting back events, this should be handled through the registration of callbacks; see https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture"
-        errorLine1="  case KeyEvent.KEYCODE_BACK:"
-        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/org/ppsspp/ppsspp/NativeActivity.java"
-            line="1021"
-            column="8"/>
-    </issue>
-
-    <issue
-        id="GestureBackNavigation"
-        message="If intercepting back events, this should be handled through the registration of callbacks; see https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture"
-        errorLine1="  case KeyEvent.KEYCODE_BACK:"
-        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/org/ppsspp/ppsspp/NativeActivity.java"
-            line="1135"
-            column="8"/>
-    </issue>
-
-    <issue
-        id="GestureBackNavigation"
-        message="If intercepting back events, this should be handled through the registration of callbacks; see https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture"
-        errorLine1="  case KeyEvent.KEYCODE_BACK:"
-        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/org/ppsspp/ppsspp/NativeActivity.java"
-            line="1169"
-            column="8"/>
-    </issue>
-
-    <issue
         id="UnusedAttribute"
         message="Attribute `appCategory` is only used in API level 26 and higher (current min is 21)"
         errorLine1="        android:appCategory=&quot;game&quot;"
@@ -87,39 +54,6 @@
             file="AndroidManifest.xml"
             line="118"
             column="22"/>
-    </issue>
-
-    <issue
-        id="QueryPermissionsNeeded"
-        message="Consider adding a `&lt;queries>` declaration to your manifest when calling this method; see https://g.co/dev/packagevisibility for details"
-        errorLine1="    if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {"
-        errorLine2="               ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/org/ppsspp/ppsspp/NativeActivity.java"
-            line="1669"
-            column="16"/>
-    </issue>
-
-    <issue
-        id="SourceLockedOrientationActivity"
-        message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
-        errorLine1="   setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);"
-        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/org/ppsspp/ppsspp/NativeActivity.java"
-            line="538"
-            column="4"/>
-    </issue>
-
-    <issue
-        id="SourceLockedOrientationActivity"
-        message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
-        errorLine1="   setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);"
-        errorLine2="   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/org/ppsspp/ppsspp/NativeActivity.java"
-            line="544"
-            column="4"/>
     </issue>
 
 </issues>
