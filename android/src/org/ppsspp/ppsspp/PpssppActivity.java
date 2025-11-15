@@ -20,6 +20,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -35,12 +36,7 @@ import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
-import android.system.StructStatVfs;
-import android.system.Os;
-import android.os.storage.StorageManager;
-import android.content.ContentResolver;
 import android.database.Cursor;
-import android.provider.DocumentsContract;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -60,12 +56,16 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.documentfile.provider.DocumentFile;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.UUID;
 import java.io.File;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -576,22 +576,29 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@SuppressLint("InlinedApi")
 	private void updateSystemUiVisibility() {
-		setupSystemUiCallback();
+		Window window = getWindow();
 
-		// Compute our _desired_ systemUiVisibility
-		int flags = View.SYSTEM_UI_FLAG_LOW_PROFILE;
-		if (useImmersive()) {
-			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
-			flags |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
-			flags |= View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
-		}
+		window.setStatusBarColor(Color.TRANSPARENT);
+		window.setNavigationBarColor(0x80000000);
 
-		View decorView = getWindow().peekDecorView();
-		if (decorView != null) {
-			decorView.setSystemUiVisibility(flags);
+		int orientation = getResources().getConfiguration().orientation;
+
+		WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+		controller.setSystemBarsBehavior(
+			WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+		);
+
+		if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+			if (useImmersive()) {
+				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.captionBar() | WindowInsetsCompat.Type.navigationBars());
+			} else {
+				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.captionBar());
+				controller.show(WindowInsetsCompat.Type.navigationBars());
+			}
 		} else {
-			Log.i(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
+			controller.show(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.captionBar() |  WindowInsetsCompat.Type.navigationBars());
 		}
+
 		sizeManager.checkDisplayMeasurements();
 	}
 
@@ -624,6 +631,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			System.exit(-1);
 			return;
 		}
+
+		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
 		// In case app launched from homescreen shortcut, get shortcut parameter
 		// using Intent extra string. Intent extra will be null if launch normal
@@ -673,6 +682,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
 
 			sizeManager.setSurfaceView(mGLSurfaceView);
+			setInsetsListener(mGLSurfaceView);
 
 			// Setup the GLSurface and ask android for the correct
 			// Number of bits for r, g, b, a, depth and stencil components
@@ -704,6 +714,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 			mSurfaceView = new NativeSurfaceView(this);
 			sizeManager.setSurfaceView(mSurfaceView);
+			setInsetsListener(mSurfaceView);
 			setContentView(mSurfaceView);
 			startRenderLoopThread();
 		}
@@ -779,6 +790,42 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				Log.e(TAG, "Failed to request framerate: " + e);
 			}
 		}
+	}
+
+	private void setInsetsListener(SurfaceView surfaceView) {
+		ViewCompat.setOnApplyWindowInsetsListener(surfaceView, (v, insets) -> {
+			if (Build.VERSION.SDK_INT >= 28) {
+				int orientation = getResources().getConfiguration().orientation;
+				updateInsets(insets, orientation);  // replace your updateInsets() to support WindowInsetsCompat
+			}
+			return insets;               // or WindowInsetsCompat.CONSUMED if you want to stop propagation
+		});
+	}
+
+	@RequiresApi(Build.VERSION_CODES.P)
+	private void updateInsets(WindowInsetsCompat insetCompat, int orientation) {
+		if (insetCompat == null) {
+			return;
+		}
+
+		Insets insets = insetCompat.getInsets(WindowInsetsCompat.Type.systemBars());
+		int left = insets.left;
+		int right = insets.right;
+		int top = insets.top;
+		int bottom = insets.bottom;
+
+		// Hack to make things symmetrical in landscape.
+		if (orientation == Configuration.ORIENTATION_LANDSCAPE && useImmersive()) {
+			if (left > 0 && right > 0) {
+				int smallest = left;
+				if (right < left)
+					smallest = right;
+				left = smallest;
+				right = smallest;
+			}
+		}
+
+		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom);
 	}
 
 	public void notifySurface(Surface surface) {
