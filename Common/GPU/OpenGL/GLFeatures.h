@@ -44,6 +44,9 @@ struct GLExtensions {
 	bool IsCoreContext;
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
+	int maxTextureSize;
+	int maxClipPlanes;
+
 	// OES
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;

@@ -204,14 +204,19 @@ bool CheckGLExtensions() {
 
 	strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
 	gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
-	
+
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &gl_extensions.maxTextureSize);
+#ifndef USING_GLES2
+	glGetIntegerv(GL_MAX_CLIP_PLANES, &gl_extensions.maxClipPlanes);
+#endif
+
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
 	{ // Grab the version and attempt to parse.		
 		char buffer[128] = { 0 };
 		strncpy(buffer, versionStr, sizeof(buffer) - 1);
 	
-		int len = (int)strlen(buffer);
+		const int len = (int)strlen(buffer);
 		bool beforeDot = true;
 		int lastDigit = 0;
 		for (int i = 0; i < len; i++) {
