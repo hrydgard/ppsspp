@@ -80,10 +80,10 @@ public:
 
 protected:
 	void CreateTabs() override;
-	void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) override;
+	void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) override;
 
 	bool ShowSearchControls() const override { return false; }
-
+	
 private:
 	void OnSavedataButtonClick(UI::EventParams &e);
 	void OnSearch(UI::EventParams &e);

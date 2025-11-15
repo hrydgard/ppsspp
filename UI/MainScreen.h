@@ -46,7 +46,7 @@ ENUM_CLASS_BITOPS(BrowseFlags);
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
+	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -114,7 +114,8 @@ private:
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;
 	ScreenManager *screenManager_;
-	int token_;
+	int token_ = -1;
+	bool portrait_ = false;
 };
 
 class RemoteISOBrowseScreen;

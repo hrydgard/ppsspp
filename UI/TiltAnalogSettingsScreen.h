@@ -26,10 +26,10 @@ class GamepadView;
 
 class TiltAnalogSettingsScreen : public UITwoPaneBaseDialogScreen {
 public:
-	TiltAnalogSettingsScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath) {}
+	TiltAnalogSettingsScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::Default) {}
 
-	void CreateSettingsViews(UI::LinearLayout *parent) override;
-	void CreateContentViews(UI::LinearLayout *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup*parent) override;
 	std::string_view GetTitle() const override;
 
 	void update() override;

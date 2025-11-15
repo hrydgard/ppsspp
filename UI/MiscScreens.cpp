@@ -508,7 +508,7 @@ std::string_view CreditsScreen::GetTitle() const {
 	return mm->T("About PPSSPP");
 }
 
-void CreditsScreen::CreateDialogViews(UI::ViewGroup *root) {
+void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	ignoreBottomInset_ = false;
@@ -528,18 +528,35 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *root) {
 		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	}*/
 
-	root->Add(new CreditsScroller(new LinearLayoutParams(1.0f)));
+	LinearLayout *left;
+	LinearLayout *right;
+	if (portrait) {
+		parent->Add(new CreditsScroller(new LinearLayoutParams(1.0f)));
 
-	LinearLayout *columns = root->Add(new LinearLayout(ORIENT_HORIZONTAL));
+		LinearLayout *columns = parent->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
-	LinearLayout *left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
-	LinearLayout *middle = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	LinearLayout *right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
+		left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
+		columns->Add(new Spacer(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
+	} else {
+		LinearLayout *columns = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f)));
+
+		left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, FILL_PARENT, Margins(10))));
+		left->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
+		columns->Add(new CreditsScroller(new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
+		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, FILL_PARENT, Margins(10))));
+		right->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
+	}
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		ScreenManager *sm = screenManager();
-		left->Add(new Choice(mm->T("Buy PPSSPP Gold")))->OnClick.Add([sm](UI::EventParams) {
+		Choice *gold = new Choice(mm->T("Buy PPSSPP Gold"));
+		gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
+		gold->SetShine(true);
+
+		left->Add(gold)->OnClick.Add([sm](UI::EventParams) {
 			LaunchBuyGold(sm);
 		});
 		rightYOffset = 74;

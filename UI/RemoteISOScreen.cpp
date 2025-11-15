@@ -592,11 +592,11 @@ void RemoteISOBrowseScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	using namespace UI;
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
 	tabHolder_->SetTag("RemoteGames");
 	gameBrowsers_.clear();
@@ -606,7 +606,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	GameBrowser *tabRemoteGames = new GameBrowser(GetRequesterToken(),
-		Path(url_), BrowseFlags::NAVIGATE, &g_Config.bGridView1, screenManager(), "", "",
+		Path(url_), BrowseFlags::NAVIGATE, portrait, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabRemoteGames->SetHomePath(Path(url_));
 

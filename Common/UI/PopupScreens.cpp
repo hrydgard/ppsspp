@@ -267,6 +267,13 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ap->top = sourceView_->GetBounds().y2();
 }
 
+void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
+	createViews_(parent);
+	for (int i = 0; i < parent->GetNumSubviews(); i++) {
+		parent->GetViewByIndex(i)->SetAutoResult(DialogResult::DR_OK);
+	}
+}
+
 std::string ChopTitle(const std::string &title) {
 	size_t pos = title.find('\n');
 	if (pos != title.npos) {

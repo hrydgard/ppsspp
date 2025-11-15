@@ -39,7 +39,7 @@ class SingleControlMapper;
 
 class ControlMappingScreen : public UITabbedBaseDialogScreen {
 public:
-	ControlMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {
+	ControlMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath, TabDialogFlags::ContextMenuInPortrait) {
 		categoryToggles_[0] = true;
 		categoryToggles_[1] = true;
 		categoryToggles_[2] = true;
@@ -49,7 +49,7 @@ public:
 
 protected:
 	void CreateTabs() override;
-	void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) override;
+	void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) override;
 	void update() override;
 
 private:
@@ -137,8 +137,8 @@ public:
 	const char *tag() const override { return "AnalogSetup"; }
 
 protected:
-	void CreateSettingsViews(UI::LinearLayout *parent) override;
-	void CreateContentViews(UI::LinearLayout *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 
 	std::string_view GetTitle() const override;
 private:
