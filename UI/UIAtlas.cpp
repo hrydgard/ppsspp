@@ -385,8 +385,12 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	int imageWidth = RoundToNextPowerOf2((int)sqrtf(area));
 
 	Instant bucketStart = Instant::Now();
-	std::vector<Data> results = bucket.Resolve(imageWidth, dest);
-	INFO_LOG(Log::G3D, " - Bucketed %zu images in %.2f ms (final image size: %dx%d)", results.size(), bucketStart.ElapsedMs(), dest->width(), dest->height());
+	bucket.Pack(imageWidth);
+	INFO_LOG(Log::G3D, " - Packed in %.2f ms (image size: %dx%d)", bucketStart.ElapsedMs(), bucket.w, bucket.h);
+
+	Instant resolveStart = Instant::Now();
+	std::vector<Data> results = bucket.Resolve(dest);
+	INFO_LOG(Log::G3D, " - Resolved %zu images in %.2f ms (final image size: %dx%d)", results.size(), resolveStart.ElapsedMs(), dest->width(), dest->height());
 
 	_dbg_assert_(!results.empty());
 	// Fill out the atlas structure.

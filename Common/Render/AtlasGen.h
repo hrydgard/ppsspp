@@ -119,12 +119,17 @@ struct Data {
 struct Bucket {
 	std::vector<Image> images;
 	std::vector<Data> data;
+	int w = 0;
+	int h = 0;
+
 	void AddItem(Image &&img, const Data &dat) {
 		images.emplace_back(std::move(img));
 		data.emplace_back(dat);
 	}
 	void AddImage(Image &&img, int id);
-	std::vector<Data> Resolve(int image_width, Image *dest);
+
+	void Pack(int image_width);
+	std::vector<Data> Resolve(Image *dest);
 };
 
 AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const std::vector<Data> &results);

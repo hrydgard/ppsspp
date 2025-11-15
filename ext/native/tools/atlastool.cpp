@@ -652,9 +652,11 @@ int GenerateFromScript(const char *script_file, const char *atlas_name, bool hig
 	// Place the subimages onto the main texture. Also writes to png.
 	Image dest;
 	// Place things on the bitmap.
-	printf("Resolving...\n");
 
-	std::vector<Data> results = bucket.Resolve(image_width, &dest);
+	printf("Packing...\n");
+	bucket.Pack(image_width);
+	printf("Resolving...\n");
+	std::vector<Data> results = bucket.Resolve(&dest);
 	if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZSTD_COMPRESSED);
