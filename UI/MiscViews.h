@@ -69,6 +69,5 @@ public:
 	PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams = nullptr);
 
 private:
-	UI::Choice *backButton_ = nullptr;
 	Path gamePath_;
 };

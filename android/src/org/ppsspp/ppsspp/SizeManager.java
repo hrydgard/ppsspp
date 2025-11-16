@@ -1,32 +1,26 @@
 package org.ppsspp.ppsspp;
 
-import android.annotation.TargetApi;
 import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
-import android.view.DisplayCutout;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.WindowInsets;
-
-import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public class SizeManager implements SurfaceHolder.Callback {
 	private static final String TAG = "PPSSPPSizeManager";
 
-	final NativeActivity activity;
+	final PpssppActivity activity;
 	SurfaceView surfaceView = null;
-
-	private int safeInsetLeft = 0;
-	private int safeInsetRight = 0;
-	private int safeInsetTop = 0;
-	private int safeInsetBottom = 0;
 
 	private float densityDpi;
 	private float refreshRate;
@@ -42,7 +36,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 
 	private boolean paused = false;
 
-	public SizeManager(final NativeActivity a) {
+	public SizeManager(final PpssppActivity a) {
 		activity = a;
 	}
 
@@ -67,17 +61,6 @@ public class SizeManager implements SurfaceHolder.Callback {
 			return;
 
 		surfaceView.getHolder().addCallback(this);
-
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			surfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-				@NonNull
-				@Override
-				public WindowInsets onApplyWindowInsets(@NonNull View view, @NonNull WindowInsets windowInsets) {
-					updateInsets(windowInsets);
-					return windowInsets;
-				}
-			});
-		}
 	}
 
 	@Override
@@ -211,27 +194,5 @@ public class SizeManager implements SurfaceHolder.Callback {
 		NativeApp.computeDesiredBackbufferDimensions();
 		sz.x = NativeApp.getDesiredBackbufferWidth();
 		sz.y = NativeApp.getDesiredBackbufferHeight();
-	}
-
-	@RequiresApi(Build.VERSION_CODES.P)
-	private void updateInsets(WindowInsets insets) {
-		if (insets == null) {
-			return;
-		}
-		DisplayCutout cutout = insets.getDisplayCutout();
-		if (cutout != null) {
-			safeInsetLeft = cutout.getSafeInsetLeft();
-			safeInsetRight = cutout.getSafeInsetRight();
-			safeInsetTop = cutout.getSafeInsetTop();
-			safeInsetBottom = cutout.getSafeInsetBottom();
-			// Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
-		} else {
-			// Log.i(TAG, "Safe insets: Cutout was null");
-			safeInsetLeft = 0;
-			safeInsetRight = 0;
-			safeInsetTop = 0;
-			safeInsetBottom = 0;
-		}
-		NativeApp.sendMessageFromJava("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 	}
 }

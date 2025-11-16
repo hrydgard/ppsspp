@@ -51,8 +51,8 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 	}
 
 	auto dlg = GetI18NCategory(I18NCat::DIALOG);
-	backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()));
-	backButton_ ->OnClick.Add([](UI::EventParams &e) {
+	backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+	backButton_->OnClick.Add([](UI::EventParams &e) {
 		e.bubbleResult = DR_BACK;
 	});
 
@@ -180,7 +180,6 @@ private:
 	Path gamePath_;
 	int textureWidth_ = 0;
 	int textureHeight_ = 0;
-	bool showGear_ = false;
 };
 
 PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {

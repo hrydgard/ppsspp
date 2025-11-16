@@ -645,6 +645,7 @@ bool DisplayLayoutConfig::ResetToDefault(std::string_view blockName) {
 		// TODO: On mobile, where the aspect is fixed, we should use the screen size to compute this properly,
 		// so the screen almost touches the top edge.
 		fDisplayOffsetY = 0.25f;
+		bImmersiveMode = false;
 	}
 	return true;
 }
@@ -666,6 +667,7 @@ static const ConfigSetting displayLayoutSettings[] = {
 	ConfigSetting("CardboardScreenSize", SETTING(g_Config.displayLayoutLandscape, iCardboardScreenSize), CfgFlag::PER_GAME),
 	ConfigSetting("CardboardXShift", SETTING(g_Config.displayLayoutLandscape, iCardboardXShift), CfgFlag::PER_GAME),
 	ConfigSetting("CardboardYShift", SETTING(g_Config.displayLayoutLandscape, iCardboardYShift), CfgFlag::PER_GAME),
+	ConfigSetting("ImmersiveMode", SETTING(g_Config.displayLayoutLandscape, bImmersiveMode), CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting graphicsSettings[] = {
@@ -725,7 +727,6 @@ static const ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("DisplayCropTo16x9", SETTING(g_Config, bDisplayCropTo16x9), true, CfgFlag::PER_GAME),
 
-	ConfigSetting("ImmersiveMode", SETTING(g_Config, bImmersiveMode), true, CfgFlag::PER_GAME),
 	ConfigSetting("SustainedPerformanceMode", SETTING(g_Config, bSustainedPerformanceMode), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("ReplaceTextures", SETTING(g_Config, bReplaceTextures), true, CfgFlag::PER_GAME | CfgFlag::REPORT),

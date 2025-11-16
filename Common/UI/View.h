@@ -900,7 +900,7 @@ public:
 	virtual bool Toggled() const;
 
 	// we don't allow these for checkboxes.
-	virtual void SetAutoResult(DialogResult result) {}
+	void SetAutoResult(DialogResult result) override {}
 
 protected:
 	void ClickInternal() override;

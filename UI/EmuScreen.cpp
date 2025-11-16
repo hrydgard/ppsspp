@@ -1199,11 +1199,19 @@ public:
 		if (ginfo->Ready(GameInfoFlags::PIC1) && ginfo->pic1.texture) {
 			Draw::Texture *texture = ginfo->pic1.texture;
 			if (texture) {
+				const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+				// Similar to presentation, we want to put the game PIC1 in the same region of the screen.
+				FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
+				FRect rc;
+				CalculateDisplayOutputRect(config, &rc, texture->Width(), texture->Height(), frame, config.iInternalScreenRotation);
+
+				Bounds bounds(rc.x, rc.y, rc.w, rc.h);
+
 				dc.GetDrawContext()->BindTexture(0, texture);
 
 				double loadTime = ginfo->pic1.timeLoaded;
 				uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
-				dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+				dc.Draw()->DrawTexRect(bounds, 0, 0, 1, 1, color);
 				dc.Flush();
 				dc.RebindTexture();
 			}

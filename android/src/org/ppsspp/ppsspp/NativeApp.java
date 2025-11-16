@@ -114,7 +114,7 @@ public class NativeApp {
 		Log.i(TAG, "motion mouse event");
 		switch (ev.getActionMasked()) {
 			case MotionEvent.ACTION_DOWN: {
-				if (NativeActivity.useModernMouseEvents) {
+				if (PpssppActivity.useModernMouseEvents) {
 					return;
 				}
 				//Log.i(TAG, "Surface Action down. button state: " + ev.getButtonState());
@@ -122,7 +122,7 @@ public class NativeApp {
 				break;
 			}
 			case MotionEvent.ACTION_UP: {
-				if (NativeActivity.useModernMouseEvents) {
+				if (PpssppActivity.useModernMouseEvents) {
 					return;
 				}
 				//Log.i(TAG, "Surface Action up. button state: " + ev.getButtonState());
