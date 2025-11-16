@@ -377,6 +377,7 @@ static const ConfigSetting achievementSettings[] = {
 	// from the ini if manually entered (useful when testing various builds on Android).
 	ConfigSetting("AchievementsToken", SETTING(g_Config, sAchievementsToken), "", CfgFlag::DONT_SAVE),
 	ConfigSetting("AchievementsUserName", SETTING(g_Config, sAchievementsUserName), "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsHost", SETTING(g_Config, sAchievementsHost), "", CfgFlag::DEFAULT),
 
 	// Customizations
 	ConfigSetting("AchievementsSoundEffects", SETTING(g_Config, bAchievementsSoundEffects), true, CfgFlag::DEFAULT),
