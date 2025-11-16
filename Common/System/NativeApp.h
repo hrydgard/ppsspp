@@ -65,6 +65,9 @@ void NativeFrame(GraphicsContext *graphicsContext);
 // The app must fill the buffer completely, doing its own internal buffering if needed.
 void NativeMix(short *audio, int num_samples, int sampleRateHz, void *userdata);
 
+// Runs if System_GetProperty(SYSPROP_HAS_VSYNC_CALLBACK) is supported.
+void NativeVSync(int64_t vsyncId, double frameTime, double expectedPresentationTime);
+
 // Called when it's time to shutdown. After this has been called,
 // no more calls to any other function will be made from the framework
 // before process exit.
