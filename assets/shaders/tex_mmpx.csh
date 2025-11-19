@@ -174,17 +174,19 @@ bool eq(uint C1, uint C2){
 }
 
 bool noteq(uint B, uint A0){
+    return !eq(B,A0);
+}
+/*
+bool fullnoteq(uint B, uint A0){
     return B != A0;
 }
 
 bool rgb_eq(vec4 col1, vec4 col2) {
     vec4 diff = abs(col1 - col2);
-
     if (diff.r > 0.004 || diff.g > 0.004 || diff.b > 0.004) return false;
-
     return true;
 }
-
+*/
 bool v4_noteq(vec4 col1, vec4 col2) {
     vec4 diff = abs(col1 - col2);
 
@@ -268,10 +270,11 @@ vec4 admixX(uint A, uint B, uint C, uint D, uint E, uint F, uint G, uint H, uint
     const vec4 slopEND = vec4(33.0);
 
 	//pre-cal
-	bool eq_B_D = eq(B, D);
 	bool eq_B_C = eq(B, C);
 	bool eq_D_G = eq(D, G);
 
+    // Exit if sandwiched by straight walls on both sides
+    if (eq_B_C && eq_D_G) return slopeBAD;
 
     vec4 rgbaB = unpackUnorm4x8(B);
 	vec4 rgbaD;
@@ -283,9 +286,9 @@ vec4 admixX(uint A, uint B, uint C, uint D, uint E, uint F, uint G, uint H, uint
 	int rgbFl = Fl & 0xFFFFF;
 	int rgbHl = Hl & 0xFFFFF;
 
+	bool eq_B_D = eq(B,D);
 	if (eq_B_D) {
-        // Exit if sandwiched by straight walls on both sides
-        if (eq_B_C && eq_D_G) return slopeBAD;
+
         rgbaX = rgbaB;
 		if ( B != D ) {
 			float alphaD = float(D >> 24) * 0.0039215686;		// 1/255
@@ -293,7 +296,7 @@ vec4 admixX(uint A, uint B, uint C, uint D, uint E, uint F, uint G, uint H, uint
 			}
     } else {
         // Exit if E-A equality does not meet preset logic
-        if ( E == A ) return slopeBAD;
+        if (eq(E,A)) return slopeBAD;
 
         // If D and B are not equal, and the difference between them is greater than the difference between either one and the center point E, exit.
         int diffBD = abs(rgbBl-rgbDl);
@@ -303,14 +306,7 @@ vec4 admixX(uint A, uint B, uint C, uint D, uint E, uint F, uint G, uint H, uint
 
 		// Generate X using the intermediate value of B-D
 		rgbaD = unpackUnorm4x8(D);
-        rgbaX = mix(rgbaB,rgbaD,0.5);
-		// After mixing, use the alpha from the side with less alpha to reduce artifacts.
-		rgbaX.a = min(rgbaB.a,rgbaD.a);
-
-		// Although the rules limit the difference between B and D pixels across 4 channels, we still need to avoid mixing non-transparent black and transparent (black) to generate a darker non-transparent color, causing artifacts.
-		// Alternative: When one is transparent, copy the rgb value of the other. (Not as good as the previous solution)
-		//if (rgbaB.a < 0.003) rgbaB.rgb = rgbaD.rgb;
-		//if (rgbaD.a < 0.003) rgbaD.rgb = rgbaB.rgb;
+		rgbaX = vec4( mix(rgbaB.rgb,rgbaD.rgb,0.5), min(rgbaB.a,rgbaD.a) );
     }
 
 
@@ -335,21 +331,13 @@ vec4 admixX(uint A, uint B, uint C, uint D, uint E, uint F, uint G, uint H, uint
 if (!eq_B_D){
 
 	eq_A_B = eq(A,B);
-	eq_A_D = eq(A,D);
+	if ( !Xisblack && eq_A_B && eq_D_G && eq(B,P) ) return slopeBAD;
 
-	// If B and D are not equal (and not black), and one side is a straight line, the other side must be a single pixel.
-	// Practice: Prevents mixing at corners of parallel lines where B and D are each continuous.
-    if (!Xisblack){
-        if ( eq_A_B && (eq_D_G||eq(D,Q)) ) return slopeBAD;
-        if ( eq_A_D && (eq_B_C||eq(B,P)) ) return slopeBAD;
-    }
+	eq_A_D = eq(A,D);
+	if ( !Xisblack && eq_A_D && eq_B_C && eq(D,Q) ) return slopeBAD;
 
 
     // B D not connected to anything? Not applicable here (Can eliminate some artifacts, but also loses some shapes, especially in non-native pixel art, e.g., character portraits in Double Dragon)
-
-	// Treat near-black like DB?
-    // Practice: Special treatment for non-black in dark areas can easily cause artifacts (Samurai Shodown 2 Charlotte)
-	//if (Xisblack) return rgbaX +slopEND;
 
 	eq_A_P = eq(A,P);
 	eq_A_Q = eq(A,Q);
@@ -362,18 +350,16 @@ if (!eq_B_D){
     // Official original rule
     if ( eq(E,C) || eq(E,G) ) return mixok ? mix(rgbaX,rgbaE,0.381966) +slopEND : rgbaX +slopEND;
     // Enhanced original rule Practice: Beneficial for non-native pixel art, but harmful for native pixel art (JoJo's wall and clock)
-    // if (sim_EC && sim_EG) return mixok ? mix(rgbaX,rgbaE,0.381966) +slopEND : rgbaX +slopEND;
+    if ( !eq_D_G&&eq(E,QG)&&v4i_sim2(rgbaE,G) || !eq_B_C&&eq(E,PC)&&v4i_sim2(rgbaE,C) ) return mixok ? mix(rgbaX,rgbaE,0.381966) +slopEND : rgbaX +slopEND;
 
     eq_E_F = eq(E, F);
     eq_E_H = eq(E, H);
     En3 = eq_E_F && eq_E_H;
 
-    if (En3) return mixok ? mix(rgbaX,rgbaE,0.381966) +slopEND : rgbaX +slopEND;
-    // Exclude "single stick" situations, including eq_E_I single bent stick
-    if ( eq_E_F || eq_E_H ) return theEXIT;
-    // Exclude "three-cell single-side wall" situations
-    if ( eq_A_B&&eq_B_C || eq_A_D&&eq_D_G ) return slopeBAD;
-    // F-H inline trend, placed after the three-cell single-side wall rule as it might be blocked by it
+
+    if (!Xisblack){
+        if ( eq_A_B&&eq_B_C || eq_A_D&&eq_D_G ) return slopeBAD;
+    }
     if ( eq(F,H) ) return mixok ? mix(rgbaX,rgbaE,0.381966) +slopEND : rgbaX +slopEND;
     // Exclude "two-cell single-side wall" situations, merged with next rule
     //if (eq_A_B||eq_A_D) return slopeBAD;
@@ -564,7 +550,7 @@ if (eq_E_A) {
 		// Exit if center E is black (KOF96 power gauge, Punisher's belt) Avoid mixing with too high contrast.
 		if (Eisblack) return theEXIT;
 		// Example of dithering created by changing transparency against same-color background: Black Rock Shooter
-		if ( rgb_eq(rgbaX,rgbaE) ) return slopeBAD;
+		//if ( rgb_eq(rgbaX,rgbaE) ) return slopeBAD;
 
 		return mixok ? mix(rgbaX, rgbaE, 0.381966)+slopEND : mix(rgbaX, rgbaE, 0.618034)+slopEND;
 	}
@@ -897,8 +883,8 @@ vec4 admixS(uint A, uint B, uint C, uint D, uint E, uint F, uint G, uint H, uint
 
     if (any_eq2(F,C,I)) return rgbaE;
 
-    if (eq(R, RI) && !eq(R,I)) return rgbaE;
-    if (eq(H, S) && !eq(H,I)) return rgbaE;
+    if (eq(R, RI) && noteq(R,I)) return rgbaE;
+    if (eq(H, S) && noteq(H,I)) return rgbaE;
 
     if ( eq(R, RC) || eq(G,SG) ) return rgbaE;
 	// 97401/255000 = 0.382/1
