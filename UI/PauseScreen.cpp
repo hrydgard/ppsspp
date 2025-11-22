@@ -431,9 +431,9 @@ void GamePauseScreen::CreateViews() {
 		TopBar *topBar = new TopBar(*screenManager()->getUIContext(), TopBarFlags::ContextMenuButton, title);
 		root_->Add(topBar);
 
-		topBar->OnContextMenuClick.Add([this](UI::EventParams &e) {
+		topBar->OnContextMenuClick.Add([this, portrait](UI::EventParams &e) {
 			UI::View *srcView = e.v;
-			ShowContextMenu(srcView);
+			ShowContextMenu(srcView, portrait);
 		});
 	}
 
@@ -591,7 +591,7 @@ void GamePauseScreen::CreateViews() {
 
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
-	if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
+	if (!portrait && Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
 		auto rp = GetI18NCategory(I18NCat::REPORTING);
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
@@ -624,25 +624,19 @@ void GamePauseScreen::CreateViews() {
 
 		Button *menuButton = middleColumn->Add(new Button("", ImageID("I_THREE_DOTS"), new LinearLayoutParams(64, 64)));
 
-		menuButton->OnClick.Add([this, menuButton](UI::EventParams &e) {
-			ShowContextMenu(menuButton);
+		menuButton->OnClick.Add([this, menuButton, portrait](UI::EventParams &e) {
+			ShowContextMenu(menuButton, portrait);
 		});
 	} else {
 		playButton_ = nullptr;
 	}
 }
 
-void GamePauseScreen::ShowContextMenu(UI::View *menuButton) {
+void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 	using namespace UI;
-	static const ContextMenuItem ingameContextMenu[] = {
-		{ "Reset" },
-	};
-	PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(ingameContextMenu, ARRAY_SIZE(ingameContextMenu), I18NCat::DIALOG, menuButton);
-	screenManager()->push(contextMenu);
-	contextMenu->OnChoice.Add([=](EventParams &e) -> void {
-		switch (e.a) {
-		case 0:  // Reset
-		{
+	PopupCallbackScreen *contextMenu = new UI::PopupCallbackScreen([this, portrait](UI::ViewGroup *parent) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		parent->Add(new Choice(di->T("Reset")))->OnClick.Add([this](UI::EventParams &e) {
 			std::string confirmMessage = GetConfirmExitMessage();
 			if (!confirmMessage.empty()) {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -653,14 +647,18 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton) {
 				}));
 			} else {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-				break;
 			}
-			break;
+		});
+
+		if (portrait) {
+			// Add some other options that are removed from the main screen in portrait mode.
+			if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
+				auto rp = GetI18NCategory(I18NCat::REPORTING);
+				parent->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
+			}
 		}
-		default:
-			break;
-		}
-	});
+	}, menuButton);
+	screenManager()->push(contextMenu);
 }
 
 void GamePauseScreen::OnGameSettings(UI::EventParams &e) {

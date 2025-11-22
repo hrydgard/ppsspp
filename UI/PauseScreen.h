@@ -59,7 +59,7 @@ private:
 	void OnDeleteConfig(UI::EventParams &e);
 
 	void OnState(UI::EventParams &e);
-	void ShowContextMenu(UI::View *menuButton);
+	void ShowContextMenu(UI::View *menuButton, bool portrait);
 
 	// hack
 	bool finishNextFrame_ = false;
