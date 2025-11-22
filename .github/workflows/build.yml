@@ -418,7 +418,7 @@ jobs:
     - name: Fetch tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests assets/lang
+      run: git submodule update --init pspautotests
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
