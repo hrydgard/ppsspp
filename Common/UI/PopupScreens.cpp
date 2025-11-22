@@ -231,8 +231,27 @@ void ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	OnChoice.Dispatch(e);
 }
 
+void AbstractContextMenuScreen::AlignPopup(UI::View *parent) {
+	if (!sourceView_) {
+		// No menu-like arrangement
+		return;
+	}
+
+	// Hacky: Override the position to look like a popup menu.
+
+	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
+	ap->centering = Centering::None;
+	if (sourceView_->GetBounds().x2() > g_display.pixel_xres - 300) {
+		ap->right = sourceView_->GetBounds().x2();
+	} else {
+		ap->left = sourceView_->GetBounds().x;
+	}
+	ap->top = sourceView_->GetBounds().y2();
+
+}
+
 PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView)
-	: PopupScreen("", "", ""), items_(items), itemCount_(itemCount), category_(category), sourceView_(sourceView)
+	: AbstractContextMenuScreen(sourceView), items_(items), itemCount_(itemCount), category_(category)
 {
 	enabled_.resize(itemCount, true);
 	SetPopupOrigin(sourceView);
@@ -260,19 +279,10 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	}
 
-	// Hacky: Override the position to look like a popup menu.
-
-	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
-	ap->centering = Centering::None;
-	if (sourceView_->GetBounds().x2() > g_display.pixel_xres - 300) {
-		ap->right = sourceView_->GetBounds().x2();
-	} else {
-		ap->left = sourceView_->GetBounds().x;
-	}
-	ap->top = sourceView_->GetBounds().y2();
+	AlignPopup(parent);
 }
 
-PopupCallbackScreen::PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView) : PopupScreen(""), createViews_(createViews) {
+PopupCallbackScreen::PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView) : AbstractContextMenuScreen(sourceView), createViews_(createViews) {
 	if (sourceView) {
 		SetPopupOrigin(sourceView);
 	}
@@ -283,6 +293,8 @@ void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
 	for (int i = 0; i < parent->GetNumSubviews(); i++) {
 		parent->GetViewByIndex(i)->SetAutoResult(DialogResult::DR_OK);
 	}
+
+	AlignPopup(parent);
 }
 
 std::string ChopTitle(const std::string &title) {
