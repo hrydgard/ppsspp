@@ -37,6 +37,8 @@
 
 #pragma comment(lib,"dinput8.lib")
 
+using Microsoft::WRL::ComPtr;
+
 // static members of DinputDevice
 unsigned int                  DinputDevice::pInstances = 0;
 Microsoft::WRL::ComPtr<IDirectInput8> DinputDevice::pDI;
@@ -315,27 +317,22 @@ size_t DinputDevice::getNumPads()
 static std::set<u32> DetectXInputVIDPIDs() {
 	std::set<u32> xinputVidPids;
 
-	IWbemLocator* pIWbemLocator = nullptr;
+	ComPtr<IWbemLocator> pIWbemLocator;
 	if (FAILED(CoCreateInstance(__uuidof(WbemLocator), nullptr, CLSCTX_INPROC_SERVER,
-		__uuidof(IWbemLocator), (void**)&pIWbemLocator)))
+		IID_PPV_ARGS(&pIWbemLocator))))
 		return xinputVidPids;
 
-	IWbemServices* pIWbemServices = nullptr;
+	ComPtr<IWbemServices> pIWbemServices;
 	if (FAILED(pIWbemLocator->ConnectServer(_bstr_t(L"root\\cimv2"), nullptr, nullptr, nullptr, 0,
-		nullptr, nullptr, &pIWbemServices))) {
-		pIWbemLocator->Release();
+		nullptr, nullptr, &pIWbemServices)))
 		return xinputVidPids;
-	}
 
-	CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, nullptr,
+	CoSetProxyBlanket(pIWbemServices.Get(), RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, nullptr,
 		RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, nullptr, EOAC_NONE);
 
-	IEnumWbemClassObject* pEnumDevices = nullptr;
-	if (FAILED(pIWbemServices->CreateInstanceEnum(_bstr_t(L"Win32_PNPEntity"), 0, nullptr, &pEnumDevices))) {
-		pIWbemServices->Release();
-		pIWbemLocator->Release();
+	ComPtr<IEnumWbemClassObject> pEnumDevices;
+	if (FAILED(pIWbemServices->CreateInstanceEnum(_bstr_t(L"Win32_PNPEntity"), 0, nullptr, &pEnumDevices)))
 		return xinputVidPids;
-	}
 
 	IWbemClassObject* pDevices[32] = { 0 };
 	ULONG uReturned = 0;
@@ -362,10 +359,6 @@ static std::set<u32> DetectXInputVIDPIDs() {
 			pDevices[i]->Release();
 		}
 	}
-
-	pEnumDevices->Release();
-	pIWbemServices->Release();
-	pIWbemLocator->Release();
 
 	return xinputVidPids;
 }
