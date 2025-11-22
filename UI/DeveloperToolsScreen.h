@@ -6,7 +6,7 @@
 
 class DeveloperToolsScreen : public UITabbedBaseDialogScreen {
 public:
-	DeveloperToolsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
+	DeveloperToolsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath, TabDialogFlags::AddAutoTitles) {}
 
 	void CreateTabs() override;
 	void update() override;
