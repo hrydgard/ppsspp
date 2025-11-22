@@ -95,10 +95,6 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();
-		if (!text_.empty()) {
-			dc.DrawText(text_, bounds_.centerX() + 1, bounds_.centerY() + 1, 0x80000000, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-			dc.DrawText(text_, bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-		}
 	} else {
 		if (!texture_ || texture_->Failed()) {
 			if (!filename_.empty()) {
@@ -108,9 +104,6 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 				// draw a dark gray rectangle to represent no save state.
 				dc.FillRect(UI::Drawable(0x50202020), GetBounds());
 			}
-		}
-		if (!text_.empty()) {
-			dc.DrawText(text_, bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 		}
 	}
 }

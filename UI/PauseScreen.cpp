@@ -212,7 +212,6 @@ public:
 	UI::Event OnScreenshotClicked;
 
 private:
-	void OnScreenshotClick(UI::EventParams &e);
 	void OnSaveState(UI::EventParams &e);
 	void OnLoadState(UI::EventParams &e);
 
@@ -228,10 +227,13 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	using namespace UI;
 
 	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
+
+	std::string number = StringFromFormat("%d", slot + 1);
 	Add(new Spacer(5));
 
+	Add(new TextView(number, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)))->SetBig(true);
+
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
-	fv->SetOverlayText(StringFromFormat("%d", slot_ + 1));
 
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
@@ -248,7 +250,10 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	saveStateButton_ = buttons->Add(new Button(pa->T("Save State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
 
-	fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
+	fv->OnClick.Add([this](UI::EventParams &e) {
+		e.v = this;
+		OnScreenshotClicked.Trigger(e);
+	});
 
 	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		if (!Achievements::HardcoreModeActive()) {
@@ -293,12 +298,6 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 		e2.v = this;
 		OnStateSaved.Trigger(e2);
 	}
-}
-
-void SaveSlotView::OnScreenshotClick(UI::EventParams &e) {
-	UI::EventParams e2{};
-	e2.v = this;
-	OnScreenshotClicked.Trigger(e2);
 }
 
 void GamePauseScreen::update() {
