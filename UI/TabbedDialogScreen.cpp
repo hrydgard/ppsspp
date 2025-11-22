@@ -15,7 +15,10 @@
 void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
 	using namespace UI;
 
-	tabHolder_->AddTabDeferred(title, imageId, [createCallback = std::move(createCallback), tag, flags]() -> UI::ViewGroup * {
+	TabDialogFlags dialogFlags = flags_;
+	Path gamePath = gamePath_;
+	std::string cachedTitle(title);
+	tabHolder_->AddTabDeferred(title, imageId, [createCallback = std::move(createCallback), tag, flags, dialogFlags, gamePath, cachedTitle]() -> UI::ViewGroup * {
 		using namespace UI;
 		ViewGroup *scroll = nullptr;
 		if (!(flags & TabFlags::NonScrollable)) {
@@ -24,6 +27,12 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 		}
 		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
 		contents->SetSpacing(0);
+
+		if (dialogFlags & TabDialogFlags::AddAutoTitles) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			contents->Add(new PaneTitleBar(gamePath, cachedTitle, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		}
+
 		createCallback(contents);
 		if (scroll) {
 			scroll->Add(contents);

@@ -322,24 +322,18 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Handle(this, &GameScreen::OnPlay);
 	}
 
-	if (!info_->id.empty()) {
+	if (!info_->id.empty() && !inGame_) {
 		if (info_->hasConfig) {
 			// Only show the Game Settings button here if the game has a config. Always showing it
 			// is confusing since it'll just control the global settings.
 			Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings"), ImageID("I_GEAR")));
 			btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
-			if (inGame_)
-				btnGameSettings->SetEnabled(false);
 
 			Choice *btnDeleteGameConfig = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 			btnDeleteGameConfig->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
-			if (inGame_)
-				btnDeleteGameConfig->SetEnabled(false);
 		} else {
 			Choice *btnCreateGameConfig = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
 			btnCreateGameConfig->OnClick.Handle(this, &GameScreen::OnCreateConfig);
-			if (inGame_)
-				btnCreateGameConfig->SetEnabled(false);
 		}
 	}
 
@@ -349,10 +343,9 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	}
 
 	// Don't want to be able to delete the game while it's running.
-	Choice *deleteChoice = rightColumnItems->Add(new Choice(ga->T("Delete Game")));
-	deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
-	if (inGame_) {
-		deleteChoice->SetEnabled(false);
+	if (!inGame_) {
+		Choice *deleteChoice = rightColumnItems->Add(new Choice(ga->T("Delete Game")));
+		deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	}
 
 	if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
@@ -367,12 +360,9 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	}
 
 	// TODO: This is synchronous, bad!
-	if (g_recentFiles.ContainsFile(gamePath_.ToString())) {
+	if (!inGame_ && g_recentFiles.ContainsFile(gamePath_.ToString())) {
 		Choice *removeButton = rightColumnItems->Add(new Choice(ga->T("Remove From Recent")));
 		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
-		if (inGame_) {
-			removeButton->SetEnabled(false);
-		}
 	}
 
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
@@ -414,13 +404,7 @@ void GameScreen::OnCreateConfig(UI::EventParams &e) {
 
 std::string_view GameScreen::GetTitle() const {
 	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
-		std::vector<GameDBInfo> dbInfos;
-		const bool inGameDB = g_gameDB.GetGameInfos(info_->id_version, &dbInfos);
-		if (inGameDB) {
-			titleCache_ = dbInfos[0].title;
-		} else {
-			titleCache_ = std::string(info_->GetTitle());
-		}
+		titleCache_ = info_->GetDBTitle();
 	}
 
 	return titleCache_;

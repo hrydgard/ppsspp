@@ -813,20 +813,24 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return;
 		}
 
-		Insets insets = insetCompat.getInsets(WindowInsetsCompat.Type.systemBars());
+		Insets insets = insetCompat.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
 		int left = insets.left;
 		int right = insets.right;
 		int top = insets.top;
 		int bottom = insets.bottom;
 
-		// Hack to make things symmetrical in landscape.
+		// Log.w(TAG, "updateInsets: " + left + ", " + right + ", " + top + ", " + bottom);
+
+		// Hack to make things symmetrical in landscape. Needed on Poco F1, for example.
 		if (orientation == Configuration.ORIENTATION_LANDSCAPE && useImmersive()) {
 			if (left > 0 && right > 0) {
-				int smallest = left;
-				if (right < left)
-					smallest = right;
-				left = smallest;
-				right = smallest;
+				int smallestNonZero = left;
+				if (right < left) {
+					smallestNonZero = right;
+				}
+				// Log.i(TAG, "Both left and right insets but not equal: " + left + " != " + right + " : Equalizing to " + smallest);
+				left = smallestNonZero;
+				right = smallestNonZero;
 			}
 		}
 

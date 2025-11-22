@@ -40,6 +40,7 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Util/GameDB.h"
 #include "Core/Loaders.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/RecentFiles.h"
@@ -377,6 +378,21 @@ std::string GameInfo::GetTitle() {
 		return title;
 	} else {
 		return filePath_.GetFilename();
+	}
+}
+
+std::string GameInfo::GetDBTitle() {
+	std::lock_guard<std::mutex> guard(lock);
+	if (!(hasFlags & GameInfoFlags::PARAM_SFO) && !title.empty()) {
+		return filePath_.GetFilename();
+	}
+
+	std::vector<GameDBInfo> dbInfos;
+	const bool inGameDB = g_gameDB.GetGameInfos(id_version, &dbInfos);
+	if (inGameDB) {
+		return std::string(dbInfos[0].title);
+	} else {
+		return title;
 	}
 }
 

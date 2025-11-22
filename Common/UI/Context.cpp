@@ -64,6 +64,10 @@ void UIContext::BeginFrame() {
 	ActivateTopScissor();
 }
 
+void UIContext::InvalidateAtlas() {
+	atlasInvalid_ = true;  // will cause it to be reloaded on the next frame.
+}
+
 void UIContext::SetTintSaturation(float tint, float sat) {
 	uidrawbuffer_->SetTintSaturation(tint, sat);
 }

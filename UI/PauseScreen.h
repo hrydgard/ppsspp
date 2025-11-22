@@ -25,6 +25,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "UI/BaseScreens.h"
 #include "UI/Screen.h"
+#include "UI/GameInfoCache.h"
 
 class GamePauseScreen : public UIBaseDialogScreen {
 public:
@@ -42,7 +43,7 @@ protected:
 	UI::Margins RootMargins() const override;
 
 private:
-	void CreateSavestateControls(UI::LinearLayout *viewGroup, bool vertical);
+	void CreateSavestateControls(UI::LinearLayout *viewGroup);
 
 	void OnGameSettings(UI::EventParams &e);
 	void OnExit(UI::EventParams &e);
@@ -58,6 +59,7 @@ private:
 	void OnDeleteConfig(UI::EventParams &e);
 
 	void OnState(UI::EventParams &e);
+	void ShowContextMenu(UI::View *menuButton, bool portrait);
 
 	// hack
 	bool finishNextFrame_ = false;

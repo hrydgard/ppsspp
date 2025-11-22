@@ -45,7 +45,7 @@ public:
 
 	RatingChoice *SetEnabledPtrs(bool *enabled);
 
-	Event OnChoice;
+	UI::Event OnChoice;
 
 protected:
 	void Update() override;

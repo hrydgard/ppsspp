@@ -157,6 +157,8 @@ static const ImageMeta imageIDs[] = {
 	{"I_PSP", false},
 	{"I_HOMEBREW_STORE", false},
 	{"I_CHAT", false},
+	{"I_UMD", false},
+	{"I_EXIT", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -423,12 +425,16 @@ static float g_cachedDpiScale = 0.0f;
 // The caller must cache the Atlas.
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale, bool invalidate) {
 	if (g_cachedUIAtlasImage.IsEmpty() || dpiScale != g_cachedDpiScale || invalidate) {
+		INFO_LOG(Log::G3D, "Regenerating atlas (empty: %s). Dpi scale (changed: %s): %0.2f (invalidate=%d)",
+			g_cachedUIAtlasImage.IsEmpty() ? "true" : "false", dpiScale != g_cachedDpiScale ? "true" : "false", dpiScale, invalidate);
+
 		g_cachedUIAtlasImage.clear();
 		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize)) {
 			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
 			return nullptr;
 		}
 	}
+
 	g_cachedDpiScale = dpiScale;
 
 	// Create the texture.
