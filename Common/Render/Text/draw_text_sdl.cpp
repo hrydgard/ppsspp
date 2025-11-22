@@ -261,9 +261,10 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 		int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
 		TTF_Font *font = TTF_OpenFont(useFont.c_str(), ptSize);
 		if (!font) {
-			ERROR_LOG(Log::G3D, "Failed to load font file %s", useFont.c_str());
+			bool exists = File::Exists(useFont);
+			ERROR_LOG(Log::G3D, "Failed to load font file %s: exists=%d", useFont.c_str(), (int)exists);
 		}
-		// Still, mark it with a nullptr to avoid retrying.
+		// Still, even if it failed and font is nullptr, mark it in the map to avoid retrying.
 		loadedFonts_[useFont] = font;
 	}
 
