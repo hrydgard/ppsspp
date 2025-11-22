@@ -1529,6 +1529,11 @@ void NativeResized() {
 	resized = true;
 }
 
+void NativeVSync(int64_t vsyncId, double frameTime, double expectedPresentationTime) {
+	// INFO_LOG(Log::System, "NativeVSync called with id %lld, frameTime %f, expectedPresentationTime %f", (long long)vsyncId, frameTime, expectedPresentationTime);
+	// TODO: Make use of this.
+}
+
 void NativeSetRestarting() {
 	restarting = true;
 }

@@ -476,6 +476,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;  // Update if we add support in FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_SUPPORTS_SHARE_TEXT:
 		return true;
+	case SYSPROP_HAS_VSYNC_CALLBACK:
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -583,6 +585,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioConfig
 	(JNIEnv *env, jclass, jint optimalFPB, jint optimalSR) {
 	optimalFramesPerBuffer = optimalFPB;
 	optimalSampleRate = optimalSR;
+}
+
+// Allow the app to intercept the back button.
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_vsync(JNIEnv *env, jclass, long long frameTimeNanos, long long vsyncId, long long expectedPresentationTimeNanos) {
+	// The frame times should match the raw times we get from the system.
+	NativeVSync(vsyncId, frameTimeNanos > 0 ? from_time_raw(frameTimeNanos) : -1.0, expectedPresentationTimeNanos > 0 ? from_time_raw(expectedPresentationTimeNanos) : -1.0);
 }
 
 // Easy way for the Java side to ask the C++ side for configuration options, such as

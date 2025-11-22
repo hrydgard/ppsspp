@@ -816,7 +816,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 
 	if (orientation == DeviceOrientation::Portrait) {
 		int start_key_X = halfW;
-		int start_key_Y = yres - bottom_button_Y * scale;
+		int start_key_Y = yres - bottom_button_Y * scale + 20;
 		initTouchPos(&config->touchStartKey, start_key_X, start_key_Y);
 
 		int select_key_X = halfW;
@@ -824,7 +824,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 		initTouchPos(&config->touchSelectKey, select_key_X, select_key_Y);
 
 		int fast_forward_key_X = halfW;
-		int fast_forward_key_Y = yres - bottom_button_Y * scale - 100;
+		int fast_forward_key_Y = yres - bottom_button_Y * scale - 140;
 		initTouchPos(&config->touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
 	} else {
 		int start_key_X = halfW + bottom_key_spacing * scale;

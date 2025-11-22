@@ -73,7 +73,8 @@ bool System_AudioRecordingState() { return false; }
 
 // Temporary hacks around annoying linking errors.
 void NativeFrame(GraphicsContext *graphicsContext) { }
-void NativeResized() { }
+void NativeResized() {}
+void NativeVSync(int64_t vsyncId, double frameTime, double expectedPresentationTime) {}
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }

@@ -1356,6 +1356,10 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
+		ios/iOSVulkanContext.h
+		ios/iOSVulkanContext.mm
+		#ios/iOSOpenGLContext.h
+		#ios/iOSOpenGLContext.cpp
 		ios/IAPManager.mm
 		ios/IAPManager.h
 		ios/CameraHelper.mm
