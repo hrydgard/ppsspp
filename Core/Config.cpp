@@ -873,8 +873,9 @@ void TouchControlConfig::ResetLayout() {
 }
 
 bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
-	// We do this traditionally for now.
-	return false;
+	static const TouchControlConfig defaults = TouchControlConfig();
+	*this = defaults;
+	return true;
 }
 
 static const ConfigSetting touchControlSettings[] = {
