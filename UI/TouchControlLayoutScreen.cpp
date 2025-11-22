@@ -587,10 +587,6 @@ void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save("TouchControlLayoutScreen::onFinish");
 }
 
-void TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
-	screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
-}
-
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
 
@@ -670,7 +666,9 @@ void TouchControlLayoutScreen::CreateViews() {
 	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
 	leftColumn->Add(mode_);
-	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
+	});
 	leftColumn->Add(snap);
 	leftColumn->Add(gridSize);
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);

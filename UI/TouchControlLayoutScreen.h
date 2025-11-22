@@ -38,7 +38,6 @@ public:
 
 protected:
 	void OnReset(UI::EventParams &e);
-	void OnVisibility(UI::EventParams &e);
 	void OnMode(UI::EventParams &e);
 
 private:
