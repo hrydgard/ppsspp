@@ -261,10 +261,21 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 
 	// Hacky: Override the position to look like a popup menu.
+
 	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
 	ap->centering = Centering::None;
-	ap->left = sourceView_->GetBounds().x;
+	if (sourceView_->GetBounds().x2() > g_display.pixel_xres - 300) {
+		ap->right = sourceView_->GetBounds().x2();
+	} else {
+		ap->left = sourceView_->GetBounds().x;
+	}
 	ap->top = sourceView_->GetBounds().y2();
+}
+
+PopupCallbackScreen::PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView) : PopupScreen(""), createViews_(createViews) {
+	if (sourceView) {
+		SetPopupOrigin(sourceView);
+	}
 }
 
 void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {

@@ -241,7 +241,6 @@ struct ContextMenuItem {
 class PopupContextMenuScreen : public PopupScreen {
 public:
 	PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView);
-
 	const char *tag() const override { return "ContextMenuPopup"; }
 
 	void SetEnabled(size_t index, bool enabled) {
@@ -261,13 +260,8 @@ private:
 
 class PopupCallbackScreen : public PopupScreen {
 public:
-	PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView) : PopupScreen(""), createViews_(createViews) {
-		if (sourceView) {
-			SetPopupOrigin(sourceView);
-		}
-	}
-
-	const char *tag() const override { return "ContextMenuPopup"; }
+	PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView);
+	const char *tag() const override { return "ContextMenuCallbackPopup"; }
 
 private:
 	void CreatePopupContents(ViewGroup *parent) override;

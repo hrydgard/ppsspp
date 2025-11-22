@@ -105,6 +105,8 @@ public:
 	std::vector<Path> GetSaveDataDirectories();
 
 	std::string GetTitle();
+	std::string GetDBTitle();  // Falls back to GetTitle if not in the DB.
+
 	void SetTitle(const std::string &newTitle);
 
 	const Path &GetFilePath() const {
