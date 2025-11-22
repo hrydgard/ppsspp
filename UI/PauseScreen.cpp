@@ -393,7 +393,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems)
 }
 
 UI::Margins GamePauseScreen::RootMargins() const {
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE && GetDeviceOrientation() == DeviceOrientation::Landscape) {
 		// Add some top margin on mobile so it isn't too close to the status bar, as we place buttons
 		// very close to the top of the screen.
 		return UI::Margins(0, 30, 0, 0);
@@ -598,9 +598,9 @@ void GamePauseScreen::CreateViews() {
 	Choice *exit;
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		exit = rightColumnItems->Add(new Choice(mm->T("Exit")));
+		exit = rightColumnItems->Add(new Choice(mm->T("Exit"), ImageID("I_EXIT")));
 	} else {
-		exit = rightColumnItems->Add(new Choice(pa->T("Exit to menu")));
+		exit = rightColumnItems->Add(new Choice(pa->T("Exit to menu"), ImageID("I_EXIT")));
 	}
 	exit->OnClick.Handle(this, &GamePauseScreen::OnExit);
 	exit->SetEnabled(!bootPending_);

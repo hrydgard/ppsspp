@@ -241,6 +241,9 @@ class AbstractContextMenuScreen : public PopupScreen {
 public:
 	AbstractContextMenuScreen(UI::View *sourceView) : PopupScreen("", "", ""), sourceView_(sourceView) {}
 protected:
+	UI::Size PopupWidth() const override {
+		return 350;
+	}
 	UI::View *sourceView_;
 	void AlignPopup(UI::View *parent);
 };

@@ -241,13 +241,17 @@ void AbstractContextMenuScreen::AlignPopup(UI::View *parent) {
 
 	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
 	ap->centering = Centering::None;
-	if (sourceView_->GetBounds().x2() > g_display.pixel_xres - 300) {
-		ap->right = sourceView_->GetBounds().x2();
+	// TODO: Some more robust check here...
+	if (sourceView_->GetBounds().x2() > g_display.dp_xres - 300) {
+		ap->left = NONE;
+		// NOTE: Right here is not distance from the left, but distance from the right. Doh.
+		ap->right = g_display.dp_xres - sourceView_->GetBounds().x2();
 	} else {
 		ap->left = sourceView_->GetBounds().x;
+		ap->right = NONE;
 	}
 	ap->top = sourceView_->GetBounds().y2();
-
+	ap->bottom = NONE;
 }
 
 PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView)
@@ -293,7 +297,6 @@ void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
 	for (int i = 0; i < parent->GetNumSubviews(); i++) {
 		parent->GetViewByIndex(i)->SetAutoResult(DialogResult::DR_OK);
 	}
-
 	AlignPopup(parent);
 }
 
