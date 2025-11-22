@@ -1205,7 +1205,8 @@ public:
 				FRect rc;
 				CalculateDisplayOutputRect(config, &rc, texture->Width(), texture->Height(), frame, config.iInternalScreenRotation);
 
-				Bounds bounds(rc.x, rc.y, rc.w, rc.h);
+				// Need to adjust for DPI here since we're still in the UI coordinate space here, not the pixel coordinate space used for in-game presentation.
+				Bounds bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y);
 
 				dc.GetDrawContext()->BindTexture(0, texture);
 
