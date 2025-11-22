@@ -302,11 +302,9 @@ void DisplayLayoutScreen::CreateViews() {
 		rightColumn->Add(rotation);
 
 		Choice *center = new Choice(di->T("Reset"));
-		center->OnClick.Add([&config](UI::EventParams &) {
-			config.fDisplayAspectRatio = 1.0f;
-			config.fDisplayScale = 1.0f;
-			config.fDisplayOffsetX = 0.5f;
-			config.fDisplayOffsetY = 0.5f;
+		center->OnClick.Add([&config, portrait](UI::EventParams &) {
+			// Hm, not really ideal to have to use strings here.
+			config.ResetToDefault(portrait ? "DisplayLayout.Portrait" : "DisplayLayout.Landscape");
 		});
 		rightColumn->Add(center);
 
