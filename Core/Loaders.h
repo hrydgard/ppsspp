@@ -165,6 +165,7 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 
 
 enum class ZipFileContents {
+	NOT_A_ZIP_FILE = 0,
 	UNKNOWN,
 	PSP_GAME_DIR,
 	ISO_FILE,

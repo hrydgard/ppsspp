@@ -8,15 +8,11 @@
 #include "Common/Swap.h"
 #include "Core/MemMap.h"
 #include "Common/MemoryUtil.h"
-#include "GPU/ge_constants.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUState.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Breakpoints.h"
-#include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUDefinitions.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/GPUDefinitions.h"
 
 #if defined(__ANDROID__)
 #include <atomic>
