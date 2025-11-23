@@ -44,6 +44,7 @@
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"

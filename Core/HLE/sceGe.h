@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUDefinitions.h"
 #include "Core/MemMap.h"
 
 #define SCE_GE_LIST_COMPLETED  0

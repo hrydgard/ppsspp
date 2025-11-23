@@ -48,7 +48,6 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Util/RecentFiles.h"
 #include "GPU/GPUState.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/Common/PostShader.h"
 
 #include "UI/ControlMappingScreen.h"

@@ -24,6 +24,7 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/GPUDefinitions.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"

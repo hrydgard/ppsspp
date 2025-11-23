@@ -25,6 +25,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"

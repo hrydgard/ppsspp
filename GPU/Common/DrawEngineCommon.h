@@ -24,6 +24,7 @@
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
+#include "GPU/GPUDefinitions.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"

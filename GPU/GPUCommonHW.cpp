@@ -1492,7 +1492,6 @@ void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes(), &recorder_);
 }
 
-
 void GPUCommonHW::Execute_WorldMtxNum(u32 op, u32 diff) {
 	if (!currentList) {
 		gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (op & 0xF);
