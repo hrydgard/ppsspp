@@ -518,6 +518,10 @@ void Choice::Draw(UIContext &dc) {
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
+		if (shine_) {
+			Bounds b = Bounds::FromCenter(bounds_.centerX(), bounds_.centerY(), bounds_.h * 0.4f);
+			DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
+		}
 	} else if (!text_.empty() && !hideTitle_) {
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 

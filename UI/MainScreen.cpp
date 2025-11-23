@@ -1541,12 +1541,12 @@ void MainScreen::OnCredits(UI::EventParams &e) {
 
 void LaunchBuyGold(ScreenManager *screenManager) {
 	if (System_GetPropertyBool(SYSPROP_USE_IAP)) {
-		screenManager->push(new IAPScreen());
+		screenManager->push(new IAPScreen(true));
+	} else if (System_GetPropertyBool(SYSPROP_USE_APP_STORE)) {
+		screenManager->push(new IAPScreen(false));
 	} else {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");
-#elif PPSSPP_PLATFORM(ANDROID)
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
