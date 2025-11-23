@@ -97,15 +97,22 @@ struct DisplayLayoutConfig : public ConfigBlock {
 };
 
 struct TouchControlConfig : public ConfigBlock {
-	//space between PSP buttons
-	//the PSP button's center (triangle, circle, square, cross)
+	constexpr TouchControlConfig() {
+		// Hide all extras and custom buttons by default.
+		touchRightAnalogStick.show = false;
+		for (size_t i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
+			touchCustom[i].show = false;
+		}
+	}
+	// the PSP button's center (triangle, circle, square, cross)
 	ConfigTouchPos touchActionButtonCenter;
-	float fActionButtonSpacing = 0.0f;
-	//radius of the D-pad (PSP cross)
-	// int iDpadRadius;
-	//the D-pad (PSP cross) position
+	// space between those PSP buttons
+	float fActionButtonSpacing = 1.0f;
+	// the D-pad (PSP cross) position
 	ConfigTouchPos touchDpad;
-	float fDpadSpacing = 0.0f;
+	// And its spacing.
+	float fDpadSpacing = 1.0f;
+
 	ConfigTouchPos touchStartKey;
 	ConfigTouchPos touchSelectKey;
 	ConfigTouchPos touchFastForwardKey;
