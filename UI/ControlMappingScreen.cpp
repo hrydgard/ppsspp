@@ -480,7 +480,7 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	}
 }
 
-AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::Default) {
+AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsCanScroll) {
 	mapper_.SetCallbacks(
 		[](int vkey, bool down) {},
 		[](int vkey, float analogValue) {},

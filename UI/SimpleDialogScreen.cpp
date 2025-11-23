@@ -54,11 +54,15 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 				}, nullptr));
 			});
 		} else {
-			ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
-			LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL);
-			settingsScroll->Add(settingsPane);
+			LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			if (flags_ & TwoPaneFlags::SettingsCanScroll) {
+				ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
+				settingsScroll->Add(settingsPane);
+				root->Add(settingsScroll);
+			} else {
+				root->Add(settingsPane);
+			}
 			CreateSettingsViews(settingsPane);
-			root->Add(settingsScroll);
 		}
 		root_ = root;
 	} else {
