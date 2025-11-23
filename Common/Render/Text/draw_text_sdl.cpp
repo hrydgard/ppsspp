@@ -255,20 +255,20 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 		return;
 	}
 
-	std::string useFont = "assets/" + GetFilenameForFontStyle(style) + ".ttf";
-
-	if (loadedFonts_.find(useFont) == loadedFonts_.end()) {
-		int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
-		TTF_Font *font = TTF_OpenFont(useFont.c_str(), ptSize);
+	TTF_Font *font = nullptr;
+	if (fontMap_.find(style) == fontMap_.end()) {
+		std::string useFont = "assets/" + GetFilenameForFontStyle(style) + ".ttf";
+		const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
+		INFO_LOG(Log::G3D, "Loading SDL font %s at size %d pts", useFont.c_str(), ptSize);
+		font = TTF_OpenFont(useFont.c_str(), ptSize);
 		if (!font) {
 			bool exists = File::Exists(Path(useFont));
 			ERROR_LOG(Log::G3D, "Failed to load font file %s: exists=%d", useFont.c_str(), (int)exists);
 		}
 		// Still, even if it failed and font is nullptr, mark it in the map to avoid retrying.
-		loadedFonts_[useFont] = font;
 	}
 
-	fontMap_[style] = loadedFonts_[useFont];
+	fontMap_[style] = font;
 	fontStyle_ = style;
 }
 
@@ -284,8 +284,8 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 	uint32_t missingGlyph = CheckMissingGlyph(str);
 
 	if (missingGlyph) {
-		int ptSize = static_cast<int>(fontStyle_.sizePts / dpiScale_ * 1.25f);
-		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
+		const int ptSize = static_cast<int>(fontStyle_.sizePts / dpiScale_ * 1.25f);
+		const int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
 		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
 		}
@@ -330,11 +330,11 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	if (!font) {
 		return false;
 	}
-	int ptSize = TTF_FontHeight(font) / 1.25;
 
 	uint32_t missingGlyph = CheckMissingGlyph(processedStr);
 
 	if (missingGlyph) {
+		const int ptSize = TTF_FontHeight(font) / 1.25;
 		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
 		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
@@ -393,7 +393,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 }
 
 void TextDrawerSDL::ClearFonts() {
-	for (auto iter : loadedFonts_) {
+	for (auto iter : fontMap_) {
 		if (iter.second) {
 			TTF_CloseFont(iter.second);
 		}
@@ -404,8 +404,7 @@ void TextDrawerSDL::ClearFonts() {
 		}
 	}
 
-	// We wipe all the maps, including fontMap_. Everything it contains is also in loadedFonts_ which is cleared above.
-	loadedFonts_.clear();
+	// We wipe all the maps, including fontMap_.
 	fontMap_.clear();
 	fallbackFonts_.clear();
 }
