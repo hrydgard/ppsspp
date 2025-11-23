@@ -80,7 +80,6 @@ private:
 	void OnConfirmClick(UI::EventParams &params);
 	void OnChoiceClick(UI::EventParams &params);
 
-	SettingInfoMessage *settingInfo_ = nullptr;
 	NoticeView *errorNoticeView_ = nullptr;
 
 	bool initialSetup_;

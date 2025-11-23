@@ -109,7 +109,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	settings->Add(new ItemHeader(co->T("Calibration")));
 	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
 	calibrationInfo->SetSmall(true);
-	calibrationInfo->SetPadding(5);
+	calibrationInfo->SetPadding(Margins(5));
 	settings->Add(calibrationInfo);
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);

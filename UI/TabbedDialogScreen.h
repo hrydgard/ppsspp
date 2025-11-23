@@ -9,8 +9,6 @@
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
 
-class SettingInfoMessage;
-
 namespace UI {
 class TabHolder;
 }
@@ -55,10 +53,7 @@ protected:
 	int GetCurrentTab() const;
 	void SetCurrentTab(int tab);
 
-	void RecreateViews() override;
 	void sendMessage(UIMessage message, const char *value) override;
-
-	SettingInfoMessage *settingInfo_ = nullptr;
 
 private:
 	void ApplySearchFilter();
