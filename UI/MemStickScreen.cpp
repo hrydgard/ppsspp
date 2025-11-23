@@ -316,7 +316,7 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 		size_t pos = newPath.find_last_not_of('/');
 		// Gotta have at least something but a /, and also needs to start with a /.
 		if (newPath.empty() || pos == std::string::npos || newPath[0] != '/') {
-			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), 5.0f);
 			return;
 		}
 		if (pos != newPath.size() - 1) {

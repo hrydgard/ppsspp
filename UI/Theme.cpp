@@ -209,7 +209,7 @@ void UpdateTheme() {
 		SetFontNameOverride(FontFamily::SansSerif, fontOverride);
 	}
 
-	ui_theme.uiFontTiny = FontStyle(FontFamily::SansSerif, 12, FontStyleFlags::Default);
+	ui_theme.uiFontTiny = FontStyle(FontFamily::SansSerif, 14, FontStyleFlags::Default);
 	ui_theme.uiFontSmall = FontStyle(FontFamily::SansSerif, 17, FontStyleFlags::Default);
 	ui_theme.uiFont = FontStyle(FontFamily::SansSerif, 22, FontStyleFlags::Default);
 	ui_theme.uiFontBig = FontStyle(FontFamily::SansSerif, 28, FontStyleFlags::Bold);

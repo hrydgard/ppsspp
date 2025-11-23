@@ -1051,23 +1051,41 @@ void ImageView::Draw(UIContext &dc) {
 const float bulletOffset = 25;
 
 void SimpleTextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(ComputeStyle(dc), 1.0f, 1.0f, text_, &w, &h, 0);
+	dc.MeasureText(*ComputeStyle(dc), 1.0f, 1.0f, text_, &w, &h, 0);
 }
 
 void SimpleTextView::Draw(UIContext &dc) {
 	uint32_t textColor = dc.GetTheme().itemStyle.fgColor;
-	dc.SetFontStyle(ComputeStyle(dc));
+	dc.SetFontStyle(*ComputeStyle(dc));
 	dc.DrawText(text_, bounds_.x, bounds_.y, textColor, 0);
 }
 
-FontStyle SimpleTextView::ComputeStyle(const UIContext &dc) const {
+const FontStyle *SimpleTextView::ComputeStyle(const UIContext &dc) const {
 	if (small_) {
-		return dc.GetTheme().uiFontSmall;
+		return &dc.GetTheme().uiFontSmall;
 	} else if (big_) {
-		return dc.GetTheme().uiFontBig;
+		return &dc.GetTheme().uiFontBig;
 	} else {
-		return dc.GetTheme().uiFont;
+		return &dc.GetTheme().uiFont;
 	}
+}
+
+const FontStyle *TextView::GetTextStyle(const UIContext &dc, TextSize size) {
+	const FontStyle *style = &dc.GetTheme().uiFont;
+	switch (size) {
+	case TextSize::Tiny:
+		style = &dc.GetTheme().uiFontTiny;
+		break;
+	case TextSize::Small:
+		style = &dc.GetTheme().uiFontSmall;
+		break;
+	case TextSize::Big:
+		style = &dc.GetTheme().uiFontBig;
+		break;
+	default:
+		break;
+	}
+	return style;
 }
 
 void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
@@ -1083,17 +1101,12 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	if (bullet_) {
 		bounds.w -= bulletOffset;
 	}
-	const FontStyle *style = &dc.GetTheme().uiFont;
-	if (small_) {
-		style = &dc.GetTheme().uiFontSmall;
-	} else if (big_) {
-		style = &dc.GetTheme().uiFontBig;
-	}
+	const FontStyle *style = GetTextStyle(dc, textSize_);
 	float measuredW;
 	float measuredH;
 	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, bounds, &measuredW, &measuredH, textAlign_);
-	w = measuredW + pad_ * 2.0f;
-	h = measuredH + pad_ * 2.0f;
+	w = measuredW + pad_.horiz();
+	h = measuredH + pad_.vert();
 	if (bullet_) {
 		w += bulletOffset;
 	}
@@ -1122,12 +1135,8 @@ void TextView::Draw(UIContext &dc) {
 		style.background.color &= 0x7fffffff;
 		dc.FillRect(style.background, bounds_);
 	}
-	const FontStyle *style = &dc.GetTheme().uiFont;
-	if (small_) {
-		style = &dc.GetTheme().uiFontSmall;
-	} else if (big_) {
-		style = &dc.GetTheme().uiFontBig;
-	}
+
+	const FontStyle *style = GetTextStyle(dc, textSize_);
 	dc.SetFontStyle(*style);
 
 	Bounds textBounds = bounds_;
@@ -1145,10 +1154,10 @@ void TextView::Draw(UIContext &dc) {
 
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_, textBounds.Offset(1.0f + pad_, 1.0f + pad_), shadowColor, textAlign_);
+		dc.DrawTextRect(text_, textBounds.Offset(1.0f + pad_.left, 1.0f + pad_.top), shadowColor, textAlign_);
 	}
-	dc.DrawTextRect(text_, textBounds.Offset(pad_, pad_), textColor, textAlign_);
-	if (small_ || big_) {
+	dc.DrawTextRect(text_, textBounds.Offset(pad_.left, pad_.top), textColor, textAlign_);
+	if (textSize_ != TextSize::Normal) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 	}

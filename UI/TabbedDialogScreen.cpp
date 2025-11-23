@@ -10,6 +10,7 @@
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
 #include "UI/MiscViews.h"
+#include "Common/UI/Context.h"
 #include "UI/TabbedDialogScreen.h"
 
 void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
@@ -99,15 +100,6 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	if (!portrait) {
 		leftSide += 200.0f;
 	}
-	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, g_display.dp_yres - 200.0f, new AnchorLayoutParams(
-		g_display.dp_xres - leftSide - 40.0f, WRAP_CONTENT,
-		leftSide, g_display.dp_yres - 80.0f - 40.0f, NONE, NONE));
-	root_->Add(settingInfo_);
-
-	// Show it again if we recreated the view
-	if (!oldSettingInfo_.empty()) {
-		settingInfo_->Show(oldSettingInfo_, nullptr);
-	}
 
 	// Let the subclass create its tabs.
 	CreateTabs();
@@ -147,11 +139,6 @@ void UITabbedBaseDialogScreen::sendMessage(UIMessage message, const char *value)
 
 		ApplySearchFilter();
 	}
-}
-
-void UITabbedBaseDialogScreen::RecreateViews() {
-	oldSettingInfo_ = settingInfo_ ? settingInfo_->GetText() : "N/A";
-	UIScreen::RecreateViews();
 }
 
 void UITabbedBaseDialogScreen::EnsureTabs() {
