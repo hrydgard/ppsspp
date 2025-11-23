@@ -849,24 +849,25 @@ static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControl
 
 void TouchControlConfig::ResetLayout() {
 	// reset puts the settings in a state so they'll then get properly reinitialized in InitPadLayout.
-	auto reset = [](ConfigTouchPos &pos) {
-		pos.x = defaultTouchPosShow.x;
-		pos.y = defaultTouchPosShow.y;
-		pos.scale = defaultTouchPosShow.scale;
+	// Intentionally don't modify 'show' here, this is only done in ResetToDefault.
+	auto reset = [](ConfigTouchPos *pos) {
+		pos->x = defaultTouchPosShow.x;
+		pos->y = defaultTouchPosShow.y;
+		pos->scale = defaultTouchPosShow.scale;
 	};
-	reset(touchActionButtonCenter);
+	reset(&touchActionButtonCenter);
 	fActionButtonSpacing = 1.0f;
-	reset(touchDpad);
+	reset(&touchDpad);
 	fDpadSpacing = 1.0f;
-	reset(touchStartKey);
-	reset(touchSelectKey);
-	reset(touchFastForwardKey);
-	reset(touchLKey);
-	reset(touchRKey);
-	reset(touchAnalogStick);
-	reset(touchRightAnalogStick);
+	reset(&touchStartKey);
+	reset(&touchSelectKey);
+	reset(&touchFastForwardKey);
+	reset(&touchLKey);
+	reset(&touchRKey);
+	reset(&touchAnalogStick);
+	reset(&touchRightAnalogStick);
 	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
-		reset(touchCustom[i]);
+		reset(&touchCustom[i]);
 	}
 	fLeftStickHeadScale = 1.0f;
 	fRightStickHeadScale = 1.0f;
@@ -1255,7 +1256,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {
-		ERROR_LOG(Log::Loader, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
+		WARN_LOG(Log::Loader, "Failed to read '%s'. Setting main config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
 
@@ -1820,7 +1821,7 @@ void Config::UnloadGameConfig() {
 void Config::LoadStandardControllerIni() {
 	IniFile controllerIniFile;
 	if (!controllerIniFile.Load(controllerIniFilename_)) {
-		ERROR_LOG(Log::Loader, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
+		WARN_LOG(Log::Loader, "Failed to read '%s'. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
