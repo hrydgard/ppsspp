@@ -33,7 +33,7 @@ private:
 	uint32_t CheckMissingGlyph(std::string_view text);
 	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 
-	std::map<FontStyle, TTF_Font *> fontMap_;
+	std::map<FontStyle, std::pair<TTF_Font *, uint8_t *>> fontMap_;
 
 	std::vector<TTF_Font *> fallbackFonts_;
 	std::vector<std::pair<std::string, int>> fallbackFontPaths_; // path and font face index
