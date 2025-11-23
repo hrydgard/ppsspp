@@ -953,7 +953,7 @@ public:
 	MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
 };
 
-MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
+MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(5.0f);
 	if (!layoutParams) {
@@ -979,7 +979,7 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::
 		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
 
 		auto confirmScreen = new PromptScreen(
-			gamePath_,
+			gamePath,
 			combined, di->T("Yes"), di->T("No"),
 			[&](bool success) {
 				if (success) {

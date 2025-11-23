@@ -278,33 +278,34 @@ void LogViewScreen::CreateViews() {
 	UpdateLog();
 }
 
-void LogConfigScreen::CreateViews() {
+std::string_view LogConfigScreen::GetTitle() const {
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	return dev->T("Logging Channels");
+}
+
+void LogConfigScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
+	parent->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	parent->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
+	parent->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
+	parent->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+}
 
-	LinearLayout *vert = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	vert->SetSpacing(0);
+void LogConfigScreen::CreateContentViews(UI::ViewGroup *parent) {
+	using namespace UI;
 
-	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
-	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
-	topbar->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
-	topbar->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	vert->Add(topbar);
-
-	vert->Add(new ItemHeader(dev->T("Logging Channels")));
-
-	int cellSize = 400;
+	int cellSize = 350;
 
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
 	gridsettings.fillCells = true;
-	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	GridLayout *grid = parent->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		Log type = (Log)i;

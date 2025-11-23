@@ -28,6 +28,8 @@ enum class TwoPaneFlags {
 	Default = 0,
 	SettingsToTheRight = 1,
 	SettingsInContextMenu = 2,
+	SettingsCanScroll = 4,
+	ContentsCanScroll = 8,
 };
 ENUM_CLASS_BITOPS(TwoPaneFlags);
 
