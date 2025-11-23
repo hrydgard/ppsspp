@@ -19,20 +19,29 @@ void IAPScreen::CreateViews() {
 
 	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	
+	if (portrait) {
+		root_->Add(new TopBar(*screenManager()->getUIContext(), TopBarFlags::Default, di->T("PPSSPP Gold")));
+		root_->Add(new Spacer(20.0f));
+	}
 	const bool bought = System_GetPropertyBool(SYSPROP_APP_GOLD);
 
-	// TODO: Support vertical layout!
-	AnchorLayout *leftColumnContainer = new AnchorLayout(new LinearLayoutParams(1.0f, UI::Gravity::G_HCENTER));
-
-	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(600, WRAP_CONTENT, NONE, 105, NONE, 15));
-	leftColumnContainer->Add(leftColumnItems);
-	root_->Add(leftColumnContainer);
+	LinearLayout *leftColumnItems;
+	if (portrait) {
+		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(15,15)));
+		root_->Add(leftColumnItems);
+	} else {
+		ViewGroup *leftColumnContainer = new AnchorLayout(new LinearLayoutParams(1.0f, UI::Gravity::G_HCENTER));
+		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(600, WRAP_CONTENT, NONE, 105, NONE, 15));
+		leftColumnContainer->Add(leftColumnItems);
+		root_->Add(leftColumnContainer);
+	}
 
 	ViewGroup *appTitle = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	appTitle->Add(new ShinyIcon(ImageID("I_ICON_GOLD"), new LinearLayoutParams(64, 64)));
 	appTitle->Add(new TextView("PPSSPP Gold", new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 
 	leftColumnItems->Add(appTitle);
+	leftColumnItems->Add(new Spacer(30.0f));
 	if (!bought) {
 		leftColumnItems->Add(new Spacer(20.0f));
 		leftColumnItems->Add(new TextView(di->T("GoldOverview1", "Buy PPSSPP Gold to support development!")))->SetAlign(FLAG_WRAP_TEXT);
@@ -68,13 +77,15 @@ void IAPScreen::CreateViews() {
 		});
 	}
 
-	Choice *moreInfo = rightColumnItems->Add(new Choice(di->T("More info")));
+	Choice *moreInfo = rightColumnItems->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT")));
 	moreInfo->OnClick.Add([](UI::EventParams &) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");
 	});
 
-	Choice *backButton = rightColumnItems->Add(new Choice(di->T("Back")));
-	backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	if (!portrait) {
+		Choice *backButton = rightColumnItems->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+		backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	}
 
 	// Put the restore purchases button in the bottom right corner. It's rarely useful, but needed.
 	rightColumnItems->Add(new Spacer(new LinearLayoutParams(1.0f)));
