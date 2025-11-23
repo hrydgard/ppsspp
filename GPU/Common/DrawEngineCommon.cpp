@@ -27,6 +27,7 @@
 #include "Common/TimeUtil.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DepthRaster.h"

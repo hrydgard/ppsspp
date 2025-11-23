@@ -482,6 +482,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_USE_IAP:
+		// Not yet implemented, we use a separate gold app on Android
+		return false;
+	case SYSPROP_USE_APP_STORE:
+		return true;
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_ANDROID_SCOPED_STORAGE:

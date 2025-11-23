@@ -34,6 +34,8 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+	BeforeCreateViews();
+
 	auto createContentViews = [this](UI::ViewGroup *parent) {
 		if (flags_ & TwoPaneFlags::ContentsCanScroll) {
 			ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
@@ -65,6 +67,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 			});
 		} else {
 			LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			settingsPane->SetSpacing(0.0f);
 			if (flags_ & TwoPaneFlags::SettingsCanScroll) {
 				ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
 				settingsScroll->Add(settingsPane);
@@ -88,7 +91,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		// root_->Add(new TopBar(*screenManager()->getUIContext(), portrait, GetTitle(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
 		ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(SettingsWidth(), FILL_PARENT, 0.0f, Margins(8)));
 		LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT));
-		settingsPane->SetSpacing(0);
+		settingsPane->SetSpacing(0.0f);
 		CreateSettingsViews(settingsPane);
 		settingsPane->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 		settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);

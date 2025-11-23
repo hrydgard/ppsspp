@@ -27,11 +27,11 @@ void IAPScreen::CreateViews() {
 
 	LinearLayout *leftColumnItems;
 	if (portrait) {
-		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(15,15)));
+		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, UI::Margins(12, 12)));
 		root_->Add(leftColumnItems);
 	} else {
 		ViewGroup *leftColumnContainer = new AnchorLayout(new LinearLayoutParams(1.0f, UI::Gravity::G_HCENTER));
-		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(600, WRAP_CONTENT, NONE, 105, NONE, 15));
+		leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(600, WRAP_CONTENT, NONE, 105, NONE, 12));
 		leftColumnContainer->Add(leftColumnItems);
 		root_->Add(leftColumnContainer);
 	}
@@ -55,25 +55,43 @@ void IAPScreen::CreateViews() {
 	leftColumnItems->Add(new TextView("Henrik Rydgård"));
 	leftColumnItems->Add(new TextView("(hrydgard)"));
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, WRAP_CONTENT, UI::Margins(15,15)));
+	float weight = 0.0f;
+	if (portrait)
+		weight = 1.0f;  // hack to lift the buttons up.
+
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(350, WRAP_CONTENT, weight, UI::Margins(12, 12)));
 	root_->Add(rightColumnItems);
 
 	if (!bought) {
-		Choice *buyButton = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+		ImageID image;
+#if 1 || PPSSPP_PLATFORM(ANDROID)
+		image = ImageID("I_LOGO_PLAY_STORE");
+#elif PPSSPP_PLATFORM(IOS)
+		image = ImageID("I_LOGO_APP_STORE");
+#endif
+		Choice *buyButton = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold"), image));
 		buyButton->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
 		buyButton->SetShine(true);
 		const int requesterToken = GetRequesterToken();
 		buyButton->OnClick.Add([this, requesterToken](UI::EventParams &) {
 			INFO_LOG(Log::System, "Showing purchase UI...");
-			System_IAPMakePurchase(requesterToken, "org.ppsspp.gold", [this](const char *responseString, int intValue) {
-				INFO_LOG(Log::System, "PPSSPP Gold purchase successful!");
-				auto di = GetI18NCategory(I18NCat::DIALOG);
-				g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("GoldThankYou", "Thank you for supporting the PPSSPP project!"), 3.0f);
-				RecreateViews();
-			}, []() {
-				WARN_LOG(Log::System, "Purchase failed or cancelled!");
-			});
-			// TODO: What do we do here?
+
+			if (useIAP_) {
+				System_IAPMakePurchase(requesterToken, "org.ppsspp.gold", [this](const char *responseString, int intValue) {
+					INFO_LOG(Log::System, "PPSSPP Gold purchase successful!");
+					auto di = GetI18NCategory(I18NCat::DIALOG);
+					g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("GoldThankYou", "Thank you for supporting the PPSSPP project!"), 3.0f);
+					RecreateViews();
+				}, []() {
+					WARN_LOG(Log::System, "Purchase failed or cancelled!");
+				});
+			} else {
+#if PPSSPP_PLATFORM(ANDROID)
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
+#else
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
+#endif
+			}
 		});
 	}
 
@@ -87,19 +105,23 @@ void IAPScreen::CreateViews() {
 		backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
 
-	// Put the restore purchases button in the bottom right corner. It's rarely useful, but needed.
-	rightColumnItems->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	Choice *restorePurchases = new Choice(di->T("Restore purchase"));
-	const int requesterToken = GetRequesterToken();
-	restorePurchases->OnClick.Add([this, requesterToken, restorePurchases](UI::EventParams &) {
-		restorePurchases->SetEnabled(false);
-		INFO_LOG(Log::System, "Requesting purchase restore");
-		System_IAPRestorePurchases(requesterToken, [this](const char *responseString, int) {
-			INFO_LOG(Log::System, "Successfully restored purchases!");
-			RecreateViews();
-		}, []() {
-			WARN_LOG(Log::System, "Failed restoring purchases");
+	if (useIAP_) {
+		// Put the restore purchases button in the bottom right corner in landscape. It's rarely useful, but needed.
+		if (!portrait) {
+			rightColumnItems->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		}
+		Choice *restorePurchases = new Choice(di->T("Restore purchase"));
+		const int requesterToken = GetRequesterToken();
+		restorePurchases->OnClick.Add([this, requesterToken, restorePurchases](UI::EventParams &) {
+			restorePurchases->SetEnabled(false);
+			INFO_LOG(Log::System, "Requesting purchase restore");
+			System_IAPRestorePurchases(requesterToken, [this](const char *responseString, int) {
+				INFO_LOG(Log::System, "Successfully restored purchases!");
+				RecreateViews();
+			}, []() {
+				WARN_LOG(Log::System, "Failed restoring purchases");
+			});
 		});
-	});
-	rightColumnItems->Add(restorePurchases);
+		rightColumnItems->Add(restorePurchases);
+	}
 }

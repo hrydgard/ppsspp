@@ -28,7 +28,6 @@
 #include "Common/LogReporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 #if PPSSPP_ARCH(ARM)

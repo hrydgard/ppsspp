@@ -33,8 +33,8 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "GPU/GPU.h"
+#include "GPU/GPUDefinitions.h"
 #include "GPU/ge_constants.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/Common/Draw2D.h"
 
 enum {

@@ -48,7 +48,6 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Util/RecentFiles.h"
 #include "GPU/GPUState.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/Common/PostShader.h"
 
 #include "UI/ControlMappingScreen.h"
@@ -426,7 +425,7 @@ void LogoScreen::touch(const TouchInput &touch) {
 void LogoScreen::DrawForeground(UIContext &dc) {
 	using namespace Draw;
 
-	const Bounds &bounds = dc.GetBounds();
+	const Bounds &bounds = dc.GetLayoutBounds();
 
 	dc.Begin();
 
@@ -443,23 +442,25 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	char temp[256];
+
+	const float startY = bounds.centerY() - 70;
+
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T_cstr("created", "Created by"), 0xC3, 0xA5);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		UI::DrawIconShine(dc, Bounds::FromCenter(bounds.centerX() - 125, bounds.centerY() - 30, 60.0f), 0.7f, true);
-		dc.Draw()->DrawImage(ImageID("I_ICON_GOLD"), bounds.centerX() - 125, bounds.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
+		UI::DrawIconShine(dc, Bounds::FromCenter(bounds.centerX() - 125, startY, 60.0f), 0.7f, true);
+		dc.Draw()->DrawImage(ImageID("I_ICON_GOLD"), bounds.centerX() - 125, startY, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
 	} else {
-		dc.Draw()->DrawImage(ImageID("I_ICON"), bounds.centerX() - 125, bounds.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.Draw()->DrawImage(ImageID("I_ICON"), bounds.centerX() - 125, startY, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
 	}
-	dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds.centerX() + 45, bounds.centerY() - 30, 1.5f, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds.centerX() + 45, startY, 1.5f, 0xFFFFFFFF, ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", bounds.w / 2, bounds.h / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
-	dc.DrawText(cr->T_cstr("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
+	dc.DrawText(temp, bounds.centerX(), startY + 70, textColor, ALIGN_CENTER);
+	dc.DrawText(cr->T_cstr("license", "Free Software under GPL 2.0+"), bounds.centerX(), startY + 110, textColor, ALIGN_CENTER);
 
-	int ppsspp_org_y = bounds.h / 2 + 130;
-	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
+	dc.DrawText("www.ppsspp.org", bounds.centerX(), startY + 160, textColor, ALIGN_CENTER);
 
 #if !PPSSPP_PLATFORM(UWP) || defined(_DEBUG)
 	// Draw the graphics API, except on UWP where it's always D3D11
@@ -469,7 +470,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	// Add some emoji for testing.
 	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
-	dc.DrawText(apiName, bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
+	dc.DrawText(apiName, bounds.centerX(), startY + 200, textColor, ALIGN_CENTER);
 #endif
 
 	dc.Flush();
