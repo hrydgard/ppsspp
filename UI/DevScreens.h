@@ -27,6 +27,8 @@
 #include "UI/TabbedDialogScreen.h"
 #include "UI/BaseScreens.h"
 #include "UI/PopupScreens.h"
+#include "UI/SimpleDialogScreen.h"
+
 #include "GPU/Common/ShaderCommon.h"
 
 class DevMenuScreen : public UI::PopupScreen {
@@ -60,14 +62,17 @@ private:
 	void OnDisableAll(UI::EventParams &e);
 };
 
-class LogConfigScreen : public UIBaseDialogScreen {
+class LogConfigScreen : public UITwoPaneBaseDialogScreen {
 public:
-	LogConfigScreen() {}
-	void CreateViews() override;
+	LogConfigScreen() : UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::ContentsCanScroll | TwoPaneFlags::SettingsInContextMenu) {}
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "LogConfig"; }
 
 private:
+	std::string_view GetTitle() const override;
+
 	void OnToggleAll(UI::EventParams &e);
 	void OnEnableAll(UI::EventParams &e);
 	void OnDisableAll(UI::EventParams &e);

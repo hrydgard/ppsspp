@@ -34,6 +34,16 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+	auto createContentViews = [this](UI::ViewGroup *parent) {
+		if (flags_ & TwoPaneFlags::ContentsCanScroll) {
+			ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
+			parent->Add(contentScroll);
+			CreateContentViews(contentScroll);
+		} else {
+			CreateContentViews(parent);
+		}
+	};
+
 	if (portrait) {
 		// Portrait layout is just a vertical stack.
 		ignoreBottomInset_ = true;
@@ -45,7 +55,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		}
 		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
 		root->SetSpacing(0);
-		CreateContentViews(root);
+		createContentViews(root);
 
 		if (flags_ & TwoPaneFlags::SettingsInContextMenu) {
 			topBar->OnContextMenuClick.Add([this](UI::EventParams &e) {
@@ -85,11 +95,11 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		settingsScroll->Add(settingsPane);
 
 		if (flags_ & TwoPaneFlags::SettingsToTheRight) {
-			CreateContentViews(columns);
+			createContentViews(columns);
 			columns->Add(settingsScroll);
 		} else {
 			columns->Add(settingsScroll);
-			CreateContentViews(columns);
+			createContentViews(columns);
 		}
 
 		root_ = root;
