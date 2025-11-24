@@ -202,6 +202,7 @@ struct ConfigSetting {
 	void ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const;
 
 	// Easy flag accessors.
+	CfgFlag Flags() const { return flags_; }
 	bool PerGame() const { return flags_ & CfgFlag::PER_GAME; }
 	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
 	bool Report() const { return flags_ & CfgFlag::REPORT; }

@@ -132,9 +132,45 @@ public:
 };
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
-	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editThenRestore_(editThenRestore) {
+	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
+
+	if (editGameSpecificThenRestore_) {
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+		g_Config.LoadGameConfig(gameID_);
+	}
+
+	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
+	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
+	iAlternateSpeedPercentAnalog_ = (g_Config.iAnalogFpsLimit * 100) / 60;
+}
+
+GameSettingsScreen::~GameSettingsScreen() {
+	Reporting::Enable(enableReports_, "report.ppsspp.org");
+	Reporting::UpdateConfig();
+	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
+		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
+	}
+
+	if (editGameSpecificThenRestore_) {
+		// We already saved above. Just unload the game config.
+		// Note that we are leaving the screen here in practice, we don't need to reset the bool.
+		g_Config.UnloadGameConfig();
+	}
+
+	System_Notify(SystemNotification::UI);
+
+	KeyMap::UpdateNativeMenuKeys();
+
+	// Wipe some caches after potentially changing settings.
+	// Let's not send resize messages here, handled elsewhere.
+	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+}
+
+void GameSettingsScreen::PreCreateViews() {
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+	ReloadAllThemeInfo();
 }
 
 // This needs before run CheckGPUFeatures()
@@ -216,20 +252,6 @@ static bool PathToVisualUsbPath(Path path, std::string &outPath) {
 		break;
 	}
 	return false;
-}
-
-void GameSettingsScreen::PreCreateViews() {
-	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
-	ReloadAllThemeInfo();
-
-	if (editThenRestore_) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.LoadGameConfig(gameID_);
-	}
-
-	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
-	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
-	iAlternateSpeedPercentAnalog_ = (g_Config.iAnalogFpsLimit * 100) / 60;
 }
 
 void GameSettingsScreen::CreateTabs() {
@@ -1613,29 +1635,6 @@ void GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
 	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
 }
 
-void GameSettingsScreen::onFinish(DialogResult result) {
-	Reporting::Enable(enableReports_, "report.ppsspp.org");
-	Reporting::UpdateConfig();
-	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
-		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
-	}
-
-	if (editThenRestore_) {
-		// In case we didn't have the title yet before, try again.
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-		g_Config.ChangeGameSpecific(gameID_, info->GetTitle());
-		g_Config.UnloadGameConfig();
-	}
-
-	System_Notify(SystemNotification::UI);
-
-	KeyMap::UpdateNativeMenuKeys();
-
-	// Wipe some caches after potentially changing settings.
-	// Let's not send resize messages here, handled elsewhere.
-	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-}
-
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DialogResult::DR_OK) {
 		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
@@ -1700,7 +1699,7 @@ void GameSettingsScreen::TriggerRestartOrDo(std::function<void()> callback) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 		if (yes) {
-			TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
+			TriggerRestart("GameSettingsScreen::RenderingBackendYes", editGameSpecificThenRestore_, gamePath_);
 		} else {
 			callback();
 		}

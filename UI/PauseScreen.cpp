@@ -808,7 +808,6 @@ void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		std::string gameId = info->id;
 		g_Config.CreateGameConfig(gameId);
-		g_Config.ChangeGameSpecific(gameId, info->GetTitle());
 		g_Config.SaveGameConfig(gameId, info->GetTitle());
 		if (info) {
 			info->hasConfig = true;
