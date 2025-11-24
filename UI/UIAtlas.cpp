@@ -116,6 +116,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_THREE_DOTS", true},
 	{"I_INFO", false},
 	{"I_RETROACHIEVEMENTS_LOGO", false},
+	{"I_ACHIEVEMENT", false},
 	{"I_CHECKMARK", false},
 	{"I_PLAY", false},
 	{"I_STOP", false},
@@ -159,6 +160,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_CHAT", false},
 	{"I_UMD", false},
 	{"I_EXIT", false},
+	{"I_CHEAT", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
