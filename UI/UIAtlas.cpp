@@ -79,6 +79,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_UP_DIRECTORY", false},
 	{"I_GEAR", false},
 	{"I_GEAR_SMALL", true},
+	{"I_GEAR_STAR", false},
 	{"I_1", true},
 	{"I_2", true},
 	{"I_3", true},

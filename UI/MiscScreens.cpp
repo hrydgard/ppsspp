@@ -529,6 +529,8 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		root_->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 10, 10, NONE, NONE, false)))->SetScale(1.5f);
 	}*/
 
+	constexpr float columnWidth = 265.0f;
+
 	LinearLayout *left;
 	LinearLayout *right;
 	if (portrait) {
@@ -536,16 +538,16 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 		LinearLayout *columns = parent->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
-		left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
+		left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(columnWidth, WRAP_CONTENT, Margins(10))));
 		columns->Add(new Spacer(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, WRAP_CONTENT, Margins(10))));
+		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(columnWidth, WRAP_CONTENT, Margins(10))));
 	} else {
 		LinearLayout *columns = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f)));
 
-		left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, FILL_PARENT, Margins(10))));
+		left = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(columnWidth, FILL_PARENT, Margins(10))));
 		left->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
 		columns->Add(new CreditsScroller(new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
-		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250.0f, FILL_PARENT, Margins(10))));
+		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(columnWidth, FILL_PARENT, Margins(10))));
 		right->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
 	}
 
