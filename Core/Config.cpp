@@ -1734,17 +1734,18 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 }
 
 bool Config::LoadGameConfig(const std::string &gameId) {
+	bool exists;
+	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
+	if (!exists) {
+		// Bail if there's no game-specific config.
+		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
+		return false;
+	}
+
 	// Switch to game specific mode, if we're not in it.
 	if (gameId_.empty()) {
 		INFO_LOG(Log::Loader, "Switching to game specific mode before load: %s", gameId.c_str());
 		gameId_ = gameId;
-	}
-
-	bool exists;
-	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
-	if (!exists) {
-		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
-		return false;
 	}
 
 	IniFile iniFile;
