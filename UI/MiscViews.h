@@ -28,11 +28,13 @@ public:
 	// The context is needed to get the theme for the background.
 	TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams = nullptr);
 	UI::View *GetBackButton() const { return backButton_; }
+	UI::View *GetContextMenuButton() const { return contextMenuButton_; }
 
 	UI::Event OnContextMenuClick;
 
 private:
 	UI::Choice *backButton_ = nullptr;
+	UI::Choice *contextMenuButton_ = nullptr;
 	TopBarFlags flags_ = TopBarFlags::Default;
 };
 

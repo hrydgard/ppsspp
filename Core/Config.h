@@ -368,7 +368,7 @@ public:
 	int iSDLAudioBufferSize;
 	int iAudioBufferSize;
 	bool bFillAudioGaps;
-	int iAudioSyncMode;
+	int iAudioPlaybackMode;
 
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;

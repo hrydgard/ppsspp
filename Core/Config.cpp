@@ -798,7 +798,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("AudioBufferSize", SETTING(g_Config, iSDLAudioBufferSize), 256, CfgFlag::DEFAULT),
 
 	ConfigSetting("FillAudioGaps", SETTING(g_Config, bFillAudioGaps), true, CfgFlag::DEFAULT),
-	ConfigSetting("AudioSyncMode", SETTING(g_Config, iAudioSyncMode), (int)AudioSyncMode::CLASSIC_PITCH, CfgFlag::DEFAULT),
+	ConfigSetting("AudioSyncMode", SETTING(g_Config, iAudioPlaybackMode), (int)AudioSyncMode::CLASSIC_PITCH, CfgFlag::DEFAULT),
 
 	// Legacy volume settings, these get auto upgraded through default handlers on the new settings. NOTE: Must be before the new ones in the order here.
 	// The default settings here are still relevant, they will get propagated into the new ones.
@@ -1734,17 +1734,18 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 }
 
 bool Config::LoadGameConfig(const std::string &gameId) {
+	bool exists;
+	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
+	if (!exists) {
+		// Bail if there's no game-specific config.
+		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
+		return false;
+	}
+
 	// Switch to game specific mode, if we're not in it.
 	if (gameId_.empty()) {
 		INFO_LOG(Log::Loader, "Switching to game specific mode before load: %s", gameId.c_str());
 		gameId_ = gameId;
-	}
-
-	bool exists;
-	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
-	if (!exists) {
-		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
-		return false;
 	}
 
 	IniFile iniFile;

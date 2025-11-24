@@ -1472,7 +1472,7 @@ void DrawAudioOut(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
+	if (g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR) {
 		// Show granular stats
 		GranularStats stats;
 		g_granular.GetStats(&stats);

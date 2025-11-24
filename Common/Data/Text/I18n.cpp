@@ -81,6 +81,8 @@ std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
 			// Too early. This is probably in desktop-ui translation.
 			return !def.empty() ? def : key;
 		}
+		INFO_LOG(Log::UI, "Missing translation %.*s (%.*s)", STR_VIEW(key), STR_VIEW(def));
+
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		std::string missedKey(key);
 		if (!def.empty())
@@ -100,6 +102,8 @@ const char *I18NCategory::T_cstr(const char *key, const char *def) {
 			// Too early. This is probably in desktop-ui translation.
 			return def ? def : key;
 		}
+		INFO_LOG(Log::UI, "Missing translation %s (%s)", key, def);
+
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		std::string missedKey(key);
 		if (def)
@@ -148,7 +152,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 	IniFile ini;
 	Path iniPath;
 
-//	INFO_LOG(Log::System, "Loading lang ini %s", iniPath.c_str());
+//	INFO_LOG(Log::UI, "Loading lang ini %s", iniPath.c_str());
 	if (!overridePath.empty()) {
 		iniPath = overridePath / (languageID + ".ini");
 	} else {
@@ -180,7 +184,7 @@ void I18NRepo::LogMissingKeys() const {
 	for (size_t i = 0; i < (size_t)I18NCat::CATEGORY_COUNT; i++) {
 		auto &cat = cats_[i];
 		for (auto &key : cat->Missed()) {
-			INFO_LOG(Log::System, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
+			INFO_LOG(Log::UI, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
 		}
 	}
 }

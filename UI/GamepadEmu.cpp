@@ -167,12 +167,15 @@ void MultiTouchButton::Draw(UIContext &dc) {
 
 	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, bgAngle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
 
-	int y = bounds_.centerY();
+	float x = bounds_.centerX();
+	float y = bounds_.centerY();
 	// Hack round the fact that the center of the rectangular picture the triangle is contained in
-	// is not at the "weight center" of the triangle.
+	// is not at the "weight center" of the triangle. Same for fast-forward.
 	if (img_ == ImageID("I_TRIANGLE"))
 		y -= 2.8f * scale;
-	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), y, scale, angle_ * (M_PI * 2 / 360.0f), color);
+	if (img_ == ImageID("I_FAST_FORWARD_LINE"))
+		x += 2.0f * scale;
+	dc.Draw()->DrawImageRotated(img_, x, y, scale, angle_ * (M_PI * 2 / 360.0f), color);
 }
 
 bool BoolButton::Touch(const TouchInput &input) {
@@ -937,7 +940,7 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 	};
 
 	if (showPauseButton) {
-		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_ARROW"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, Centering::Both)))->SetAngle(90);
+		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_HAMBURGER"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, Centering::Both)));
 	}
 
 	// touchActionButtonCenter.show will always be true, since that's the default.
@@ -953,9 +956,8 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 	addPSPButton(CTRL_START, "Start button", rectImage, ImageID("I_RECT"), ImageID("I_START"), config.touchStartKey);
 	addPSPButton(CTRL_SELECT, "Select button", rectImage, ImageID("I_RECT"), ImageID("I_SELECT"), config.touchSelectKey);
 
-	BoolButton *fastForward = addBoolButton(&PSP_CoreParameter().fastForward, "Fast-forward button", rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), config.touchFastForwardKey);
+	BoolButton *fastForward = addBoolButton(&PSP_CoreParameter().fastForward, "Fast-forward button", rectImage, ImageID("I_RECT"), ImageID("I_FAST_FORWARD_LINE"), config.touchFastForwardKey);
 	if (fastForward) {
-		fastForward->SetAngle(180.0f);
 		fastForward->OnChange.Add([](UI::EventParams &e) {
 			if (e.a && coreState == CORE_STEPPING_CPU) {
 				Core_Resume();

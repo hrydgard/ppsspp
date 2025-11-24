@@ -79,6 +79,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_UP_DIRECTORY", false},
 	{"I_GEAR", false},
 	{"I_GEAR_SMALL", true},
+	{"I_GEAR_STAR", false},
 	{"I_1", true},
 	{"I_2", true},
 	{"I_3", true},
@@ -122,6 +123,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_STOP", false},
 	{"I_PAUSE", false},
 	{"I_FAST_FORWARD", false},
+	{"I_FAST_FORWARD_LINE", false},
 	{"I_RECORD", false},
 	{"I_SPEAKER", false},
 	{"I_SPEAKER_MAX", false},
@@ -161,6 +163,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_UMD", false},
 	{"I_EXIT", false},
 	{"I_CHEAT", false},
+	{"I_HAMBURGER", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
