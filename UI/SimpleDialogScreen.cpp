@@ -48,7 +48,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	if (portrait) {
 		// Portrait layout is just a vertical stack.
-		ignoreBottomInset_ = true;
+		if (flags_ & TwoPaneFlags::SettingsCanScroll) {
+			ignoreBottomInset_ = true;
+		}
 		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 		TopBarFlags topBarFlags = TopBarFlags::Portrait;
@@ -60,14 +62,15 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		createContentViews(root);
 
 		if (flags_ & (TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::CustomContextMenu)) {
-			topBar->OnContextMenuClick.Add([this](UI::EventParams &e) {
+			View *menuButton = topBar->GetContextMenuButton();
+			topBar->OnContextMenuClick.Add([this, menuButton](UI::EventParams &e) {
 				this->screenManager()->push(new PopupCallbackScreen([this](UI::ViewGroup *parent) {
 					if (flags_ & TwoPaneFlags::CustomContextMenu) {
 						CreateContextMenu(parent);
 					} else {
 						CreateSettingsViews(parent);
 					}
-				}, nullptr));
+				}, menuButton));
 			});
 		}
 		if (!(flags_ & TwoPaneFlags::SettingsInContextMenu)) {
@@ -98,10 +101,11 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		root->SetSpacing(0);
 
 		if (flags_ & TwoPaneFlags::CustomContextMenu) {
-			topBar->OnContextMenuClick.Add([this](UI::EventParams &e) {
+			View *menuButton = topBar->GetContextMenuButton();
+			topBar->OnContextMenuClick.Add([this, menuButton](UI::EventParams &e) {
 				this->screenManager()->push(new PopupCallbackScreen([this](UI::ViewGroup *parent) {
 					CreateContextMenu(parent);
-				}, nullptr));
+				}, menuButton));
 			});
 		}
 		LinearLayout *columns = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));

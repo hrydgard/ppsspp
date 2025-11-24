@@ -25,6 +25,7 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 	}
 
 	alpha_ = 0.0f;  // inherited
+	ignoreInsets_ = true;  // for layout purposes.
 }
 
 void PopupScreen::touch(const TouchInput &touch) {
