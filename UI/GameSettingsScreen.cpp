@@ -677,9 +677,9 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 
 	static const char *syncModes[] = { "Smooth (reduces artifacts)", "Classic (lowest latency)" };
 
-	audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioSyncMode, a->T("Synchronization mode"), syncModes, 0, ARRAY_SIZE(syncModes), I18NCat::AUDIO, screenManager()));
+	audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioPlaybackMode, a->T("Playback mode"), syncModes, 0, ARRAY_SIZE(syncModes), I18NCat::AUDIO, screenManager()));
 	audioSettings->Add(new CheckBox(&g_Config.bFillAudioGaps, a->T("Fill audio gaps")))->SetEnabledFunc([]() {
-		return g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR;
+		return g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR;
 	});
 
 	audioSettings->Add(new ItemHeader(a->T("Game volume")));
