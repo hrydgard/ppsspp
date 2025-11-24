@@ -1166,9 +1166,9 @@ Config::~Config() {
 }
 
 void Config::Reload() {
-	reload_ = true;
+	inReload_ = true;
 	Load();
-	reload_ = false;
+	inReload_ = false;
 }
 
 // Call this if you change the search path (such as when changing memstick directory. can't
@@ -1351,15 +1351,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// So this is all the way down here to overwrite the controller settings
 	// sadly it won't benefit from all the "version conversion" going on up-above
 	// but these configs shouldn't contain older versions anyhow
-	if (gameSpecific_) {
-		LoadGameConfig(gameId_);
-	}
+	_dbg_assert_(!IsGameSpecific());
 
 	PostLoadCleanup();
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
 
+// If we're in game specific mode, we need to:
+// * Save the game-specific settings to the game-specific ini file.
+// * Then, save the NON-game-specific settings ONLY to the regular ini file!
 bool Config::Save(const char *saveReason) {
 	double startTime = time_now_d();
 	if (!IsFirstInstance()) {
@@ -1371,7 +1372,10 @@ bool Config::Save(const char *saveReason) {
 	}
 
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
-		SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
+		if (IsGameSpecific()) {
+			// Save just the game-specific settings to the game-specific ini.
+			SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
+		}
 
 		PreSaveCleanup();
 
@@ -1389,6 +1393,10 @@ bool Config::Save(const char *saveReason) {
 			Section *section = iniFile.GetOrCreateSection(meta.section);
 			ConfigBlock *configBlock = meta.configBlock;
 			for (size_t j = 0; j < meta.settingsCount; j++) {
+				if (IsGameSpecific() && (meta.settings[j].Flags() & CfgFlag::PER_GAME)) {
+					// Skip per-game settings in non-game-specific ini.
+					continue;
+				}
 				meta.settings[j].WriteToIniSection(configBlock, section);
 			}
 		}
@@ -1405,7 +1413,9 @@ bool Config::Save(const char *saveReason) {
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 
-		if (!gameSpecific_) {
+		if (!IsGameSpecific()) {
+			// These settings can be game specific, and so are handled in SaveGameConfig().
+
 			Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
@@ -1443,8 +1453,8 @@ bool Config::Save(const char *saveReason) {
 		}
 		INFO_LOG(Log::Loader, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 
-		if (!gameSpecific_) //otherwise we already did this in SaveGameConfig()
-		{
+		if (!IsGameSpecific()) {
+			// These settings can be game specific, and so are handled in SaveGameConfig().
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_)) {
 				ERROR_LOG(Log::Loader, "Error saving controller config - can't read ini first '%s'", controllerIniFilename_.c_str());
@@ -1593,8 +1603,8 @@ Path Config::FindConfigFile(std::string_view baseFilename, bool *exists) const {
 }
 
 void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
-	if (gameSpecific_) {
-		// TODO: This should be possible to do in a cleaner way.
+	if (IsGameSpecific()) {
+		// TODO: This could be done in a cleaner way.
 		DeleteGameConfig(gameId_);
 		CreateGameConfig(gameId_);
 		Load();
@@ -1628,15 +1638,6 @@ bool Config::HasGameConfig(std::string_view gameId) {
 	bool exists = false;
 	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 	return exists;
-}
-
-void Config::ChangeGameSpecific(const std::string &pGameId, std::string_view title) {
-	if (!reload_) {
-		Save("changeGameSpecific");
-	}
-
-	gameId_ = pGameId;
-	gameSpecific_ = !pGameId.empty();
 }
 
 bool Config::CreateGameConfig(std::string_view gameId) {
@@ -1678,6 +1679,11 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 		return false;
 	}
 
+	if (gameId_.empty()) {
+		INFO_LOG(Log::G3D, "Switching to game-specific mode for saving config: %s", gameId.c_str());
+		gameId_ = gameId;
+	}
+
 	bool exists;
 	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
 
@@ -1693,6 +1699,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 	PreSaveCleanup();
 
+	// Do all the actual saving.
 	for (const ConfigSectionMeta &meta : g_sectionMeta) {
 		Section *section = iniFile.GetOrCreateSection(meta.section);
 		ConfigBlock *configBlock = meta.configBlock;
@@ -1727,16 +1734,18 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 }
 
 bool Config::LoadGameConfig(const std::string &gameId) {
+	// Switch to game specific mode, if we're not in it.
+	if (gameId_.empty()) {
+		INFO_LOG(Log::Loader, "Switching to game specific mode before load: %s", gameId.c_str());
+		gameId_ = gameId;
+	}
+
 	bool exists;
 	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
 	if (!exists) {
 		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
-
-	_dbg_assert_(!gameId.empty());
-
-	ChangeGameSpecific(gameId);
 
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
@@ -1784,16 +1793,16 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 	}
 
 	PostLoadCleanup();
+
+	DEBUG_LOG(Log::Loader, "Game-specific config loaded: %s", gameId_.c_str());
 	return true;
 }
 
 void Config::UnloadGameConfig() {
-	if (!gameSpecific_) {
-		return;
-	}
+	_dbg_assert_(IsGameSpecific());
 
+	// Leave game-specific mode.
 	gameId_.clear();
-	gameSpecific_ = false;
 
 	// Reload all settings from the main ini file.
 	IniFile iniFile;

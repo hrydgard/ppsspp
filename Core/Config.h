@@ -665,9 +665,6 @@ public:
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
-	// Per-game config management.
-	void ChangeGameSpecific(const std::string &gameId = "", std::string_view title = "");
-
 	// Note: This doesn't switch to the config, just creates it.
 	bool CreateGameConfig(std::string_view gameId);
 	bool DeleteGameConfig(std::string_view gameId);
@@ -677,7 +674,7 @@ public:
 
 	Path GetGameConfigFilePath(std::string_view gameId, bool *exists);
 	bool HasGameConfig(std::string_view gameId);
-	bool IsGameSpecific() const { return gameSpecific_; }
+	bool IsGameSpecific() const { return !gameId_.empty(); }
 
 	void SetSearchPath(const Path &path);
 	Path FindConfigFile(std::string_view baseFilename, bool *exists) const;
@@ -729,15 +726,17 @@ private:
 	// Applies defaults for missing settings.
 	void ReadAllSettings(const IniFile &iniFile);
 
-	bool reload_ = false;
+	bool inReload_ = false;
 
-	bool gameSpecific_ = false;
+	// If not empty, we're using a game-specific config.
 	std::string gameId_;
 
 	PlayTimeTracker playTimeTracker_;
 
+	// Always the paths to the main configs, doesn't change with game-specific overlay.
 	Path iniFilename_;
 	Path controllerIniFilename_;
+
 	Path searchPath_;
 	Path appendedConfigFileName_;
 	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here

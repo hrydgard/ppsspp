@@ -30,6 +30,7 @@ enum class TwoPaneFlags {
 	SettingsInContextMenu = 2,
 	SettingsCanScroll = 4,
 	ContentsCanScroll = 8,
+	CustomContextMenu = 16,
 };
 ENUM_CLASS_BITOPS(TwoPaneFlags);
 
@@ -48,6 +49,7 @@ public:
 	virtual void BeforeCreateViews() {}  // If something needs to happen before both settings and contents, this is a good place.
 	virtual void CreateSettingsViews(UI::ViewGroup *parent) = 0;
 	virtual void CreateContentViews(UI::ViewGroup *parent) = 0;
+	virtual void CreateContextMenu(UI::ViewGroup *parent) {}  // only called if CustomContextMenu is set in flags.
 	virtual std::string_view GetTitle() const { return ""; }
 	virtual float SettingsWidth() const { return 350.0f; }
 
