@@ -24,11 +24,12 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/Context.h"
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 
 struct CheatFileInfo;
 class CWCheatEngine;
 
-class CwCheatScreen : public UIBaseDialogScreen {
+class CwCheatScreen : public UITwoPaneBaseDialogScreen {
 public:
 	CwCheatScreen(const Path &gamePath);
 	~CwCheatScreen();
@@ -47,7 +48,10 @@ public:
 	const char *tag() const override { return "CwCheat"; }
 
 protected:
-	void CreateViews() override;
+	void BeforeCreateViews() override;
+	void CreateSettingsViews(UI::ViewGroup *) override;
+	void CreateContentViews(UI::ViewGroup *) override;
+	std::string_view GetTitle() const override;
 
 private:
 	void OnCheckBox(int index);
@@ -57,7 +61,6 @@ private:
 	bool HasCheatWithName(const std::string &name);
 	bool RebuildCheatFile(int index);
 
-	UI::ScrollView *rightScroll_ = nullptr;
 	UI::TextView *errorMessageView_ = nullptr;
 
 	CWCheatEngine *engine_ = nullptr;

@@ -65,6 +65,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/RetroAchievementScreens.h"
+#include "UI/TouchControlLayoutScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/MiscViews.h"
 
@@ -367,7 +368,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems)
 
 	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
-		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
 		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
@@ -414,6 +415,7 @@ void GamePauseScreen::CreateViews() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto nw = GetI18NCategory(I18NCat::NETWORKING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
 	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
 
@@ -530,8 +532,7 @@ void GamePauseScreen::CreateViews() {
 	LinearLayout *middleColumn = nullptr;
 	ViewGroup *buttonColumn = nullptr;
 	if (portrait) {
-		buttonColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, actionMenuMargins));
-
+		buttonColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		root_->Add(buttonColumn);
 	} else {
 		middleColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64, FILL_PARENT, Margins(0, 10, 0, 15)));
@@ -574,16 +575,22 @@ void GamePauseScreen::CreateViews() {
 		createGameConfig->SetEnabled(!bootPending_);
 	}
 
-	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> void {
+	rightColumnItems->Add(new Choice(gr->T("Display layout & effects"), ImageID("I_DISPLAY")))->OnClick.Add([&](UI::EventParams &) -> void {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	});
+	if (g_Config.bShowTouchControls) {
+		rightColumnItems->Add(new Choice(co->T("Edit touch control layout..."), ImageID("I_CONTROLLER")))->OnClick.Add([&](UI::EventParams &) -> void {
+			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
+		});
+	}
+
 	if (g_Config.bEnableCheats && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
 	}
 	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
-		rightColumnItems->Add(new Choice(ac->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(ac->T("Achievements"), ImageID("I_ACHIEVEMENT")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
 		});
 	}
@@ -598,10 +605,23 @@ void GamePauseScreen::CreateViews() {
 	Choice *exit;
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		exit = rightColumnItems->Add(new Choice(mm->T("Exit"), ImageID("I_EXIT")));
+		exit = new Choice(mm->T("Exit"), ImageID("I_EXIT"));
 	} else {
-		exit = rightColumnItems->Add(new Choice(pa->T("Exit to menu"), ImageID("I_EXIT")));
+		exit = new Choice(pa->T("Exit to menu"), ImageID("I_EXIT"));
 	}
+
+	if (portrait) {
+		UI::LinearLayout *exitRow = new UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 0)));
+		rightColumnItems->Add(exitRow);
+		exitRow->Add(exit);
+		exit->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
+		Choice *continueChoice = new Choice(pa->T("Continue"), ImageID("I_PLAY"));
+		exitRow->Add(continueChoice);
+		continueChoice->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
+	} else {
+		rightColumnItems->Add(exit);
+	}
+
 	exit->OnClick.Handle(this, &GamePauseScreen::OnExit);
 	exit->SetEnabled(!bootPending_);
 
