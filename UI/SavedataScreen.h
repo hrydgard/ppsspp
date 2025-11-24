@@ -97,23 +97,6 @@ private:
 	std::string searchFilter_;
 };
 
-class GameImageView : public UI::InertView {
-public:
-	GameImageView(const Path &gamePath, GameInfoFlags image, float scale, UI::LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), image_(image), gamePath_(gamePath), scale_(scale) {}
-
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	void Draw(UIContext &dc) override;
-	std::string DescribeText() const override { return ""; }
-
-private:
-	Path gamePath_;
-	GameInfoFlags image_;
-	float scale_ = 1.0f;
-	int textureWidth_ = 0;
-	int textureHeight_ = 0;
-};
-
 class SavedataButton : public UI::Clickable {
 public:
 	SavedataButton(const Path &gamePath, UI::LayoutParams *layoutParams = 0)

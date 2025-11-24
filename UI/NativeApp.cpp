@@ -111,6 +111,7 @@
 #include "Core/Util/PortManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
 
@@ -255,16 +256,6 @@ void PostLoadConfig() {
 #if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
 	CreateSysDirectories();
 #endif
-}
-
-static Path GetFailedBackendsDir() {
-	Path failedBackendsDir;
-	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-		failedBackendsDir = GetSysDirectory(DIRECTORY_APP_CACHE);
-	} else {
-		failedBackendsDir = GetSysDirectory(DIRECTORY_SYSTEM);
-	}
-	return failedBackendsDir;
 }
 
 static void CheckFailedGPUBackends() {

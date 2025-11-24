@@ -887,6 +887,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/RecentFiles.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
+	       $(COREDIR)/Util/PathUtil.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
 	       $(CORE_DIR)/UI/GameInfoCache.cpp
 

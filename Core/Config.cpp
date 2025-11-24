@@ -57,6 +57,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PathUtil.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
 
@@ -72,8 +73,6 @@ static const std::string_view logSectionName = "LogDebug";
 #else
 static const std::string_view logSectionName = "Log";
 #endif
-
-bool TryUpdateSavedPath(Path *path);
 
 static const std::vector<std::string_view> defaultProAdhocServerList = {
 	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
@@ -1177,10 +1176,10 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
 	const char *ppssppIniFilename = IsVREnabled() ? "ppssppvr.ini" : "ppsspp.ini";
 	bool exists;
-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : ppssppIniFilename, &exists);
+	iniFilename_ = FindConfigFile(searchPath_, useIniFilename ? iniFileName : ppssppIniFilename, &exists);
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
 	const char *controlsIniFilename = IsVREnabled() ? "controlsvr.ini" : "controls.ini";
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
+	controllerIniFilename_ = FindConfigFile(searchPath_, useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
 }
 
 bool Config::LoadAppendedConfig() {
@@ -1538,68 +1537,8 @@ void Config::NotifyUpdatedCpuCore() {
 	}
 }
 
-// On iOS, the path to the app documents directory changes on each launch.
-// Example path:
-// /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
-// The GUID part changes on each launch.
-bool TryUpdateSavedPath(Path *path) {
-#if PPSSPP_PLATFORM(IOS)
-	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
-	std::string pathStr = path->ToString();
-
-	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";
-	if (startsWith(pathStr, applicationRoot)) {
-		size_t documentsPos = pathStr.find("/Documents/");
-		if (documentsPos == std::string::npos) {
-			return false;
-		}
-		std::string memstick = g_Config.memStickDirectory.ToString();
-		size_t memstickDocumentsPos = memstick.find("/Documents");  // Note: No trailing slash, or we won't find it.
-		*path = Path(memstick.substr(0, memstickDocumentsPos) + pathStr.substr(documentsPos));
-		return true;
-	} else {
-		// Path can't be auto-updated.
-		return false;
-	}
-#else
-	return false;
-#endif
-}
-
 void Config::SetSearchPath(const Path &searchPath) {
 	searchPath_ = searchPath;
-}
-
-Path Config::FindConfigFile(std::string_view baseFilename, bool *exists) const {
-	// Don't search for an absolute path.
-	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
-		Path path(baseFilename);
-		*exists = File::Exists(path);
-		return path;
-	}
-#ifdef _WIN32
-	// Handle paths starting with a drive letter.
-	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
-		Path path(baseFilename);
-		*exists = File::Exists(path);
-		return path;
-	}
-#endif
-
-	Path filename = searchPath_ / baseFilename;
-	if (File::Exists(filename)) {
-		*exists = true;
-		return filename;
-	}
-	*exists = false;
-	// Make sure at least the directory it's supposed to be in exists.
-	Path parent = filename.NavigateUp();
-
-	// We try to create the path and ignore if it fails (already exists).
-	if (parent != GetSysDirectory(DIRECTORY_SYSTEM)) {
-		File::CreateFullPath(parent);
-	}
-	return filename;
 }
 
 void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
@@ -1636,13 +1575,13 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 
 bool Config::HasGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 	return exists;
 }
 
 bool Config::CreateGameConfig(std::string_view gameId) {
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 
 	if (exists) {
 		INFO_LOG(Log::System, "Game config already exists");
@@ -1655,7 +1594,7 @@ bool Config::CreateGameConfig(std::string_view gameId) {
 
 bool Config::DeleteGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = Path(GetGameConfigFilePath(gameId, &exists));
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 
 	if (exists) {
 		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
@@ -1665,13 +1604,6 @@ bool Config::DeleteGameConfig(std::string_view gameId) {
 		}
 	}
 	return true;
-}
-
-Path Config::GetGameConfigFilePath(std::string_view gameId, bool *exists) {
-	std::string_view ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
-	std::string iniFileName = join(gameId, ppssppIniFilename);
-	Path iniFileNameFull = FindConfigFile(iniFileName, exists);
-	return iniFileNameFull;
 }
 
 bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleForComment) {
@@ -1685,7 +1617,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 	}
 
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 
 	IniFile iniFile;
 
@@ -1735,7 +1667,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 bool Config::LoadGameConfig(const std::string &gameId) {
 	bool exists;
-	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
+	Path iniFileNameFull = GetGameConfigFilePath(searchPath_, gameId, &exists);
 	if (!exists) {
 		// Bail if there's no game-specific config.
 		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());

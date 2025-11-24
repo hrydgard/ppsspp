@@ -315,6 +315,7 @@
     <ClInclude Include="..\..\Core\Util\AtracTrack.h" />
     <ClInclude Include="..\..\Core\Util\GameDB.h" />
     <ClInclude Include="..\..\Core\Util\MemStick.h" />
+    <ClInclude Include="..\..\Core\Util\PathUtil.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\Util\RecentFiles.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
@@ -621,6 +622,7 @@
     <ClCompile Include="..\..\Core\Util\AtracTrack.cpp" />
     <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
     <ClCompile Include="..\..\Core\Util\MemStick.cpp" />
+    <ClCompile Include="..\..\Core\Util\PathUtil.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\Util\RecentFiles.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />

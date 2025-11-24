@@ -402,13 +402,16 @@ void GameInfo::SetTitle(const std::string &newTitle) {
 }
 
 void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
-	if (draw && icon.dataLoaded && !icon.texture) {
+	if (!draw) {
+		return;
+	}
+	if (icon.dataLoaded && !icon.texture) {
 		SetupTexture(draw, icon);
 	}
-	if (draw && pic0.dataLoaded && !pic0.texture) {
+	if (pic0.dataLoaded && !pic0.texture) {
 		SetupTexture(draw, pic0);
 	}
-	if (draw && pic1.dataLoaded && !pic1.texture) {
+	if (pic1.dataLoaded && !pic1.texture) {
 		SetupTexture(draw, pic1);
 	}
 }
