@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 
 #include "Common/File/Path.h"
@@ -34,3 +35,4 @@ bool CreateSysDirectories();
 Path GetGameConfigFilePath(const Path &searchPath, std::string_view gameId, bool *exists);
 bool TryUpdateSavedPath(Path *path);
 Path GetFailedBackendsDir();
+std::string GetFriendlyPath(Path path, Path aliasMatch, std::string_view aliasDisplay);

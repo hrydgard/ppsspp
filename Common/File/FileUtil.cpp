@@ -329,6 +329,7 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 }
 #endif
 
+// Canonicalize the given path, resolving symlinks, relative paths, etc.
 std::string ResolvePath(std::string_view path) {
 	if (LOG_IO) {
 		INFO_LOG(Log::IO, "ResolvePath %.*s", (int)path.size(), path.data());

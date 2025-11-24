@@ -184,3 +184,28 @@ Path GetFailedBackendsDir() {
 	}
 	return failedBackendsDir;
 }
+
+std::string GetFriendlyPath(Path path, Path aliasMatch, std::string_view aliasDisplay) {
+	// Show relative to memstick root if there.
+	if (path.StartsWith(aliasMatch)) {
+		std::string p;
+		if (aliasMatch.ComputePathTo(path, p)) {
+			return join(aliasDisplay, p);
+		}
+		std::string str = path.ToString();
+		if (aliasMatch.size() < str.length()) {
+			return join(aliasDisplay, str.substr(aliasMatch.size()));
+		} else {
+			return std::string(aliasDisplay);
+		}
+	}
+
+	std::string str = path.ToString();
+#if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
+	char *home = getenv("HOME");
+	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
+		return std::string("~") + str.substr(strlen(home));
+	}
+#endif
+	return path.ToVisualString();
+}
