@@ -1393,6 +1393,9 @@
     <ClCompile Include="HW\GranularMixer.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="Util\PathUtil.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2249,6 +2252,9 @@
     </ClInclude>
     <ClInclude Include="HW\GranularMixer.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\PathUtil.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
