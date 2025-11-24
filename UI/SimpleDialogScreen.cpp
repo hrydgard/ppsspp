@@ -52,7 +52,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 		TopBarFlags topBarFlags = TopBarFlags::Portrait;
-		if (flags_ & TwoPaneFlags::SettingsInContextMenu) {
+		if (flags_ & (TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::CustomContextMenu)) {
 			topBarFlags |= TopBarFlags::ContextMenuButton;
 		}
 		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
@@ -62,7 +62,11 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & TwoPaneFlags::SettingsInContextMenu) {
 			topBar->OnContextMenuClick.Add([this](UI::EventParams &e) {
 				this->screenManager()->push(new PopupCallbackScreen([this](UI::ViewGroup *parent) {
-					CreateSettingsViews(parent);
+					if (flags_ & TwoPaneFlags::CustomContextMenu) {
+						CreateContextMenu(parent);
+					} else {
+						CreateSettingsViews(parent);
+					}
 				}, nullptr));
 			});
 		} else {

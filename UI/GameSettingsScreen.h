@@ -35,8 +35,8 @@ class Path;
 class GameSettingsScreen : public UITabbedBaseDialogScreen {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
+	~GameSettingsScreen();
 
-	void onFinish(DialogResult result) override;
 	const char *tag() const override { return "GameSettings"; }
 
 protected:
@@ -118,7 +118,7 @@ private:
 	bool analogSpeedMapped_ = false;
 
 	// edit the game-specific settings and restore the global settings after exiting
-	bool editThenRestore_ = false;
+	bool editGameSpecificThenRestore_ = false;
 
 	// Android-only
 	std::string pendingMemstickFolder_;

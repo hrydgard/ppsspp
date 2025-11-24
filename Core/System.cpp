@@ -735,7 +735,9 @@ void PSP_Shutdown(bool success) {
 
 	currentMIPS = nullptr;
 
-	g_Config.UnloadGameConfig();
+	if (g_Config.IsGameSpecific()) {
+		g_Config.UnloadGameConfig();
+	}
 
 	Core_NotifyLifecycle(CoreLifecycle::STOPPED);
 
