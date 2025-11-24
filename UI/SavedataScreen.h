@@ -97,10 +97,10 @@ private:
 	std::string searchFilter_;
 };
 
-class GameIconView : public UI::InertView {
+class GameImageView : public UI::InertView {
 public:
-	GameIconView(const Path &gamePath, float scale, UI::LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), gamePath_(gamePath), scale_(scale) {}
+	GameImageView(const Path &gamePath, GameInfoFlags image, float scale, UI::LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), image_(image), gamePath_(gamePath), scale_(scale) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -108,6 +108,7 @@ public:
 
 private:
 	Path gamePath_;
+	GameInfoFlags image_;
 	float scale_ = 1.0f;
 	int textureWidth_ = 0;
 	int textureHeight_ = 0;

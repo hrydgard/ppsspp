@@ -64,7 +64,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 	detail_ = nullptr;
 	if (type == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		if (showIcon) {
-			toprow->Add(new GameIconView(savePath, 2.0f, new LinearLayoutParams(Margins(5, 5))));
+			toprow->Add(new GameImageView(savePath, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(Margins(5, 5))));
 		}
 		// Contents to the right of the image:
 		LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
@@ -723,19 +723,34 @@ void SavedataScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+void GameImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = textureWidth_;
 	h = textureHeight_;
 }
 
-void GameIconView::Draw(UIContext &dc) {
+void GameImageView::Draw(UIContext &dc) {
 	using namespace UI;
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::ICON);
-	if (!info->Ready(GameInfoFlags::ICON) || !info->icon.texture) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, image_);
+	if (!info->Ready(image_) || !info->icon.texture) {
 		return;
 	}
 
-	Draw::Texture *texture = info->icon.texture;
+	Draw::Texture *texture = nullptr;
+	switch (image_) {
+	case GameInfoFlags::ICON:
+		texture = info->icon.texture;
+		break;
+	case GameInfoFlags::PIC0:
+		texture = info->pic0.texture;
+		break;
+	case GameInfoFlags::PIC1:
+		texture = info->pic1.texture;
+		break;
+	}
+
+	if (!texture) {
+		return;
+	}
 
 	textureWidth_ = texture->Width() * scale_;
 	textureHeight_ = texture->Height() * scale_;

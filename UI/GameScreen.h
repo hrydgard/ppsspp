@@ -41,13 +41,12 @@ public:
 
 	void update() override;
 
-	ScreenRenderFlags render(ScreenRenderMode mode) override;
-
 	const char *tag() const override { return "Game"; }
 
 protected:
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContextMenu(UI::ViewGroup *parent) override;
 
 	std::string_view GetTitle() const override;
 
