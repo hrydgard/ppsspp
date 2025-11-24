@@ -616,6 +616,8 @@ void GamePauseScreen::CreateViews() {
 		exitRow->Add(exit);
 		exit->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 		Choice *continueChoice = new Choice(pa->T("Continue"), ImageID("I_PLAY"));
+		continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root_->SetDefaultFocusView(continueChoice);
 		exitRow->Add(continueChoice);
 		continueChoice->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 	} else {
