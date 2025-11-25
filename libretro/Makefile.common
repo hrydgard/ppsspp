@@ -889,6 +889,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PathUtil.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
+	       $(COREDIR)/Util/GameDB.cpp \
 	       $(CORE_DIR)/UI/GameInfoCache.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
