@@ -373,7 +373,7 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 	}
 
 	if (info_->pic1.texture) {
-		Choice *btnSetBackground = parent->Add(new Choice(ga->T("Use UI background")));
+		Choice *btnSetBackground = parent->Add(new Choice(ga->T("Use background as UI background")));
 		btnSetBackground->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	}
 
@@ -508,72 +508,23 @@ void GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 	screenManager()->switchScreen(new MainScreen());
 }
 
-class SetBackgroundPopupScreen : public UI::PopupScreen {
-public:
-	SetBackgroundPopupScreen(std::string_view title, const Path &gamePath)
-		: PopupScreen(title), gamePath_(gamePath) {
-		timeStart_ = time_now_d();
-	}
-	const char *tag() const override { return "SetBackgroundPopup"; }
-
-protected:
-	bool FillVertical() const override { return false; }
-	bool ShowButtons() const override { return false; }
-	void CreatePopupContents(UI::ViewGroup *parent) override;
-	void update() override;
-
-private:
-	Path gamePath_;
-	double timeStart_;
-	double timeDone_ = 0.0;
-
-	enum class Status {
-		PENDING,
-		DELAY,
-		DONE,
-	};
-	Status status_ = Status::PENDING;
-};
-
-void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
-	auto ga = GetI18NCategory(I18NCat::GAME);
-	parent->Add(new UI::TextView(ga->T("One moment please..."), ALIGN_LEFT | ALIGN_VCENTER, false, new UI::LinearLayoutParams(UI::Margins(10, 0, 10, 10))));
-}
-
-void SetBackgroundPopupScreen::update() {
-	PopupScreen::update();
-
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PIC1);
-	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::PIC1)) {
-		GameInfoTex *pic = nullptr;
-		if (info->pic1.dataLoaded && info->pic1.data.size()) {
-			pic = &info->pic1;
-		}
-
-		if (pic) {
-			const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
-			File::WriteStringToFile(false, pic->data, bgPng);
-		}
-
-		UIBackgroundShutdown();
-
-		// It's worse if it flickers, stay open for at least 1s.
-		timeDone_ = timeStart_ + 1.0;
-		status_ = Status::DELAY;
-	}
-
-	if (status_ == Status::DELAY && timeDone_ <= time_now_d()) {
-		TriggerFinish(DR_OK);
-		status_ = Status::DONE;
-	}
-}
-
 void GameScreen::OnSetBackground(UI::EventParams &e) {
 	auto ga = GetI18NCategory(I18NCat::GAME);
-	// This popup is used to prevent any race condition:
-	// g_gameInfoCache may take time to load the data, and a crash could happen if they exit before then.
-	SetBackgroundPopupScreen *pop = new SetBackgroundPopupScreen(ga->T("Setting Background"), gamePath_);
-	if (e.v)
-		pop->SetPopupOrigin(e.v);
-	screenManager()->push(pop);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PIC1);
+	if (!info->Ready(GameInfoFlags::PIC1)) {
+		return;
+	}
+
+	GameInfoTex *pic = nullptr;
+	if (info->pic1.dataLoaded && info->pic1.data.size()) {
+		pic = &info->pic1;
+	}
+
+	if (pic) {
+		const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
+		File::WriteStringToFile(false, pic->data, bgPng);
+	}
+
+	// Reinitializes the UI background.
+	UIBackgroundShutdown();
 }
