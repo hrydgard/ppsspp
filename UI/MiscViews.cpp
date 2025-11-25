@@ -65,8 +65,8 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 	}
 
 	if (flags & TopBarFlags::ContextMenuButton) {
-		Choice *menuButton = Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
-		menuButton->OnClick.Add([this](UI::EventParams &e) {
+		contextMenuButton_ = Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		contextMenuButton_->OnClick.Add([this](UI::EventParams &e) {
 			this->OnContextMenuClick.Trigger(e);
 		});
 	}
@@ -157,4 +157,56 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, settingsUrl);
 		});
 	}
+}
+
+void GameImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = textureWidth_;
+	h = textureHeight_;
+}
+
+void GameImageView::Draw(UIContext &dc) {
+	using namespace UI;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, image_);
+	if (!info->Ready(image_) || !info->icon.texture) {
+		return;
+	}
+
+	Draw::Texture *texture = nullptr;
+	switch (image_) {
+	case GameInfoFlags::ICON:
+		texture = info->icon.texture;
+		break;
+	case GameInfoFlags::PIC0:
+		texture = info->pic0.texture;
+		break;
+	case GameInfoFlags::PIC1:
+		texture = info->pic1.texture;
+		break;
+	}
+
+	if (!texture) {
+		return;
+	}
+
+	textureWidth_ = texture->Width() * scale_;
+	textureHeight_ = texture->Height() * scale_;
+
+	// Fade icon with the backgrounds.
+	double loadTime = info->icon.timeLoaded;
+	auto pic = info->GetPIC1();
+	if (pic) {
+		loadTime = std::max(loadTime, pic->timeLoaded);
+	}
+	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
+
+	// Adjust size so we don't stretch the image vertically or horizontally.
+	// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
+	int x = bounds_.x + (bounds_.w - nw) / 2.0f;
+
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, texture);
+	dc.Draw()->Rect(x, bounds_.y, nw, bounds_.h, color);
+	dc.Flush();
+	dc.RebindTexture();
 }

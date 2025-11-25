@@ -2468,6 +2468,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/MemStick.h
 	Core/Util/GameDB.cpp
 	Core/Util/GameDB.h
+	Core/Util/PathUtil.cpp
+	Core/Util/PathUtil.h
 	Core/Util/PortManager.cpp
 	Core/Util/PortManager.h
 	Core/Util/BlockAllocator.cpp

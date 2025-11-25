@@ -368,7 +368,7 @@ public:
 	int iSDLAudioBufferSize;
 	int iAudioBufferSize;
 	bool bFillAudioGaps;
-	int iAudioSyncMode;
+	int iAudioPlaybackMode;
 
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;
@@ -672,12 +672,10 @@ public:
 	bool SaveGameConfig(const std::string &pGameId, std::string_view titleForComment);
 	void UnloadGameConfig();
 
-	Path GetGameConfigFilePath(std::string_view gameId, bool *exists);
 	bool HasGameConfig(std::string_view gameId);
 	bool IsGameSpecific() const { return !gameId_.empty(); }
 
 	void SetSearchPath(const Path &path);
-	Path FindConfigFile(std::string_view baseFilename, bool *exists) const;
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
@@ -744,7 +742,6 @@ private:
 };
 
 std::string CreateRandMAC();
-bool TryUpdateSavedPath(Path *path);
 
 // TODO: Find a better place for this.
 extern http::RequestManager g_DownloadManager;

@@ -204,31 +204,6 @@ void PathBrowser::ResetPending() {
 	pendingPath_.clear();
 }
 
-std::string PathBrowser::GetFriendlyPath() const {
-	// Show relative to memstick root if there.
-	if (path_.StartsWith(aliasMatch_)) {
-		std::string p;
-		if (aliasMatch_.ComputePathTo(path_, p)) {
-			return aliasDisplay_ + p;
-		}
-		std::string str = path_.ToString();
-		if (aliasMatch_.size() < str.length()) {
-			return aliasDisplay_ + str.substr(aliasMatch_.size());
-		} else {
-			return aliasDisplay_;
-		}
-	}
-
-    std::string str = path_.ToString();
-#if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
-	char *home = getenv("HOME");
-	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
-		return std::string("~") + str.substr(strlen(home));
-	}
-#endif
-	return path_.ToVisualString();
-}
-
 bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *extensionFilter, bool *cancel) {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	while (!IsListingReady() && (!cancel || !*cancel)) {

@@ -116,6 +116,8 @@ private:
 	ScreenManager *screenManager_;
 	int token_ = -1;
 	bool portrait_ = false;
+	Path aliasMatch_;
+	std::string aliasDisplay_;
 };
 
 class RemoteISOBrowseScreen;

@@ -570,7 +570,7 @@ void GamePauseScreen::CreateViews() {
 		delGameConfig->SetEnabled(!bootPending_);
 	} else if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		rightColumnItems->Add(new Choice(pa->T("Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config")));
+		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config"), ImageID("I_GEAR_STAR")));
 		createGameConfig->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 		createGameConfig->SetEnabled(!bootPending_);
 	}
@@ -616,6 +616,8 @@ void GamePauseScreen::CreateViews() {
 		exitRow->Add(exit);
 		exit->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 		Choice *continueChoice = new Choice(pa->T("Continue"), ImageID("I_PLAY"));
+		continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root_->SetDefaultFocusView(continueChoice);
 		exitRow->Add(continueChoice);
 		continueChoice->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 	} else {
