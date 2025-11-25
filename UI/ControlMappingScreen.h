@@ -37,9 +37,9 @@
 
 class SingleControlMapper;
 
-class ControlMappingScreen : public UITabbedBaseDialogScreen {
+class ControlMappingScreen : public UITwoPaneBaseDialogScreen {
 public:
-	ControlMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath, TabDialogFlags::ContextMenuInPortrait) {
+	ControlMappingScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::ContentsCanScroll) {
 		categoryToggles_[0] = true;
 		categoryToggles_[1] = true;
 		categoryToggles_[2] = true;
@@ -48,13 +48,14 @@ public:
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
-	void CreateTabs() override;
-	void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
+
+	std::string_view GetTitle() const override;
 
 private:
 	void OnAutoConfigure(UI::EventParams &params);
-	bool ShowSearchControls() const override { return false; }
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 

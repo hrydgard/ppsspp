@@ -676,7 +676,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Spacer(0.0f));
 
 	LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
-	rightColumn->Add(new TextView(co->T(DeviceOrientationToString(orientation))));
+	rightColumn->Add(new TextView(co->T(DeviceOrientationToString(orientation))))->SetTextSize(TextSize::Small);
 	rightColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	float previewHeight = bounds.h * layoutAreaScale;
 	layoutView_ = rightColumn->Add(new ControlLayoutView(GetDeviceOrientation(), new LinearLayoutParams(FILL_PARENT, previewHeight)));

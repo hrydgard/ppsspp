@@ -7,7 +7,7 @@
 void UISimpleBaseDialogScreen::CreateViews() {
 	using namespace UI;
 
-	const bool canScroll = CanScroll();
+	const bool canScroll = flags_ & SimpleDialogFlags::ContentsCanScroll;
 	ignoreBottomInset_ = canScroll;
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
@@ -36,9 +36,17 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	BeforeCreateViews();
 
-	auto createContentViews = [this](UI::ViewGroup *parent) {
+	auto createContentViews = [this, portrait](UI::ViewGroup *parent) {
 		if (flags_ & TwoPaneFlags::ContentsCanScroll) {
-			ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
+			Margins margins(8, 8, 8, 0);
+			if (flags_ & TwoPaneFlags::SettingsToTheRight) {
+				// If settings are in context menu, we want to avoid double margins on the sides.
+				margins.left = 0;
+			} else {
+				margins.right = 0;
+			}
+
+			ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, margins));
 			parent->Add(contentScroll);
 			CreateContentViews(contentScroll);
 		} else {

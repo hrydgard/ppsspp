@@ -9,7 +9,7 @@
 #include "UI/UploadScreen.h"
 #include "UI/MiscViews.h"
 
-UploadScreen::UploadScreen(const Path &targetFolder) : targetFolder_(targetFolder) {
+UploadScreen::UploadScreen(const Path &targetFolder) : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::Default), targetFolder_(targetFolder) {
 	std::vector<std::string> ips;
 	net::GetLocalIP4List(ips);
 	localIPs_.clear();

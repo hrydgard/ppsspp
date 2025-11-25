@@ -422,7 +422,7 @@ void ProductView::OnLaunchClick(UI::EventParams &e) {
 	OnClickLaunch.Trigger(e2);
 }
 
-StoreScreen::StoreScreen() {
+StoreScreen::StoreScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::Default) {
 	lang_ = g_Config.sLanguageIni;
 	loading_ = true;
 
