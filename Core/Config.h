@@ -120,6 +120,7 @@ struct TouchControlConfig : public ConfigBlock {
 	ConfigTouchPos touchRKey;
 	ConfigTouchPos touchAnalogStick;
 	ConfigTouchPos touchRightAnalogStick;
+	ConfigTouchPos touchPauseKey;
 
 	enum { CUSTOM_BUTTON_COUNT = 20 };
 

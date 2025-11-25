@@ -99,7 +99,8 @@ void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
 	toggles_.push_back({ "Right Analog Stick", &touch.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
 		screenManager()->push(new RightAnalogMappingScreen(gamePath_));
 	}});
-	toggles_.push_back({ "Fast-forward", &touch.touchFastForwardKey.show, ImageID::invalid(), nullptr });
+	toggles_.push_back({ "Fast-forward", &touch.touchFastForwardKey.show, ImageID::invalid(), nullptr});
+	toggles_.push_back({ "Pause", &touch.touchPauseKey.show, ImageID("I_HAMBURGER"), nullptr});
 
 	for (int i = 0; i < TouchControlConfig::CUSTOM_BUTTON_COUNT; i++) {
 		char temp[256];
@@ -116,6 +117,7 @@ void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
 
 		CheckBox *checkbox = new CheckBox(toggle.show, "", "", new LinearLayoutParams(50, WRAP_CONTENT));
 		row->Add(checkbox);
+
 		Choice *choice;
 		if (toggle.handle) {
 			// Handle custom button strings differently, and hackily. But will extend to arbitrary button counts.

@@ -829,19 +829,6 @@ static bool DefaultShowTouchControls() {
 	}
 }
 
-static bool DefaultShowPauseButton() {
-	switch (System_GetPropertyInt(SYSPROP_DEVICE_TYPE)) {
-	case DEVICE_TYPE_MOBILE:
-	case DEVICE_TYPE_DESKTOP:
-		return true;
-	case DEVICE_TYPE_VR:
-	case DEVICE_TYPE_TV:
-		return false;
-	default:
-		return false;
-	}
-}
-
 static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
@@ -865,6 +852,8 @@ void TouchControlConfig::ResetLayout() {
 	reset(&touchRKey);
 	reset(&touchAnalogStick);
 	reset(&touchRightAnalogStick);
+	reset(&touchPauseKey);
+
 	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
 		reset(&touchCustom[i]);
 	}
@@ -875,6 +864,18 @@ void TouchControlConfig::ResetLayout() {
 bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
 	static const TouchControlConfig defaults = TouchControlConfig();
 	*this = defaults;
+
+	switch (System_GetPropertyInt(SYSPROP_DEVICE_TYPE)) {
+	case DEVICE_TYPE_MOBILE:
+	case DEVICE_TYPE_DESKTOP:
+		touchPauseKey.show = true;
+		break;
+	case DEVICE_TYPE_VR:
+	case DEVICE_TYPE_TV:
+		touchPauseKey.show = false;
+		break;
+	}
+
 	return true;
 }
 
@@ -918,6 +919,7 @@ static const ConfigSetting touchControlSettings[] = {
 	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config.touchControlsLandscape, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config.touchControlsLandscape, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config.touchControlsLandscape, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("PauseKeyX", "PauseKeyY", "PauseKeyScale", "ShowTouchPause", SETTING(g_Config.touchControlsLandscape, touchPauseKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", SETTING(g_Config.touchControlsLandscape, touchAnalogStick), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", SETTING(g_Config.touchControlsLandscape, touchRightAnalogStick), defaultTouchPosHide, CfgFlag::PER_GAME),
 
@@ -929,9 +931,6 @@ static const ConfigSetting touchControlSettings[] = {
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
 	
-	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
-	// sense to default this to on.
-	ConfigSetting("ShowTouchPause", SETTING(g_Config, bShowTouchPause), &DefaultShowPauseButton, CfgFlag::DEFAULT),
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),
 #endif
