@@ -940,7 +940,7 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 	};
 
 	if (showPauseButton) {
-		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_HAMBURGER"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, Centering::Both)));
+		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_HAMBURGER"), 1.0f, new AnchorLayoutParams(halfW, 28, NONE, NONE, Centering::Both)));
 	}
 
 	// touchActionButtonCenter.show will always be true, since that's the default.
