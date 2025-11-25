@@ -70,9 +70,9 @@ public:
 	std::string DescribeText() const override { return ""; }
 
 private:
+	GameInfoTex *GetTex(std::shared_ptr<GameInfo> info) const;
+
 	Path gamePath_;
 	GameInfoFlags image_;
 	float scale_ = 1.0f;
-	int textureWidth_ = 0;
-	int textureHeight_ = 0;
 };

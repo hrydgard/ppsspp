@@ -160,36 +160,50 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 }
 
 void GameImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = textureWidth_;
-	h = textureHeight_;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, image_);
+	GameInfoTex *tex = GetTex(info);
+	w = 0;
+	h = 0;
+	if (!tex || !tex->texture) {
+		return;
+	}
+	Draw::Texture *texture = tex->texture;
+	w = tex->texture->Width();
+	h = tex->texture->Height();
+}
+
+GameInfoTex *GameImageView::GetTex(std::shared_ptr<GameInfo> info) const {
+	GameInfoTex *tex = nullptr;
+	switch (image_) {
+	case GameInfoFlags::ICON:
+		tex = &info->icon;
+		break;
+	case GameInfoFlags::PIC0:
+		tex = &info->pic0;
+		break;
+	case GameInfoFlags::PIC1:
+		tex = &info->pic1;
+		break;
+	}
+	return tex;
 }
 
 void GameImageView::Draw(UIContext &dc) {
 	using namespace UI;
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, image_);
-	if (!info->Ready(image_) || !info->icon.texture) {
+	if (!info->Ready(image_)) {
 		return;
 	}
 
-	Draw::Texture *texture = nullptr;
-	switch (image_) {
-	case GameInfoFlags::ICON:
-		texture = info->icon.texture;
-		break;
-	case GameInfoFlags::PIC0:
-		texture = info->pic0.texture;
-		break;
-	case GameInfoFlags::PIC1:
-		texture = info->pic1.texture;
-		break;
-	}
-
-	if (!texture) {
+	GameInfoTex *tex = GetTex(info);
+	if (!tex || !tex->texture) {
 		return;
 	}
 
-	textureWidth_ = texture->Width() * scale_;
-	textureHeight_ = texture->Height() * scale_;
+	Draw::Texture *texture = tex->texture;
+
+	float textureWidth_ = texture->Width() * scale_;
+	float textureHeight_ = texture->Height() * scale_;
 
 	// Fade icon with the backgrounds.
 	double loadTime = info->icon.timeLoaded;

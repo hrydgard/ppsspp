@@ -114,7 +114,7 @@ public:
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
 	Bounds GetLayoutBounds(bool ignoreBottomInset = false) const;
-	Draw::DrawContext *GetDrawContext() { return draw_; }
+	Draw::DrawContext *GetDrawContext() const { return draw_; }
 	const UI::Theme &GetTheme() const {
 		return *theme;
 	}
