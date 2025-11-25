@@ -135,6 +135,13 @@ void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
 		} else {
 			choice = new CheckBoxChoice(mc->T(toggle.key), checkbox, new LinearLayoutParams(1.0f));
 		}
+
+		// Cannot hide the back button if the system doesn't have a built-in one.
+		if (toggle.key == "Pause" && !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
+			checkbox->SetEnabled(false);
+			choice->SetEnabled(false);
+		}
+
 		choice->SetCentered(true);
 		row->Add(choice);
 		grid->Add(row);
