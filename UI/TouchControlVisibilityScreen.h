@@ -49,10 +49,11 @@ private:
 	bool nextToggleAll_ = true;
 };
 
-class RightAnalogMappingScreen : public UIBaseDialogScreen {
+class RightAnalogMappingScreen : public UISimpleBaseDialogScreen {
 public:
-	RightAnalogMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
-	void CreateViews() override;
+	RightAnalogMappingScreen(const Path &gamePath) : UISimpleBaseDialogScreen(gamePath, SimpleDialogFlags::ContentsCanScroll) {}
+	void CreateDialogViews(UI::ViewGroup *parent) override;
+	std::string_view GetTitle() const override;
 
 	const char *tag() const override { return "RightAnalogMapping"; }
 };

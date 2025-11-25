@@ -149,7 +149,12 @@ void TouchControlVisibilityScreen::onFinish(DialogResult result) {
 	g_Config.Save("TouchControlVisibilityScreen::onFinish");
 }
 
-void RightAnalogMappingScreen::CreateViews() {
+std::string_view RightAnalogMappingScreen::GetTitle() const {
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
+	return mc->T("Right Analog Stick");
+}
+
+void RightAnalogMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -158,34 +163,19 @@ void RightAnalogMappingScreen::CreateViews() {
 
 	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
-	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, TabHolderFlags::Default, nullptr, nullptr, new AnchorLayoutParams(10, 0, 10, 0, Centering::None));
-	root_->Add(tabHolder);
-	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
-	tabHolder->AddTab(co->T("Binds"), ImageID::invalid(), rightPanel);
-	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
-	vert->SetSpacing(0);
-
 	static const char *rightAnalogButton[] = {"None", "L", "R", "Square", "Triangle", "Circle", "Cross", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "Start", "Select", "RightAn.Up", "RightAn.Down", "RightAn.Left", "RightAn.Right", "An.Up", "An.Down", "An.Left", "An.Right"};
 
-	vert->Add(new ItemHeader(co->T("Analog Style")));
-	vert->Add(new CheckBox(&touch.touchRightAnalogStick.show, co->T("Visible")));
-	vert->Add(new CheckBox(&g_Config.bRightAnalogCustom, co->T("Use custom right analog")));
-	vert->Add(new CheckBox(&g_Config.bRightAnalogDisableDiagonal, co->T("Disable diagonal input")))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	parent->Add(new ItemHeader(co->T("Analog Style")));
+	parent->Add(new CheckBox(&touch.touchRightAnalogStick.show, co->T("Visible")));
+	parent->Add(new CheckBox(&g_Config.bRightAnalogCustom, co->T("Use custom right analog")));
+	parent->Add(new CheckBox(&g_Config.bRightAnalogDisableDiagonal, co->T("Disable diagonal input")))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
 
-	vert->Add(new ItemHeader(co->T("Analog Binding")));
-	PopupMultiChoice *rightAnalogUp = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogUp, mc->T("RightAn.Up"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()));
-	PopupMultiChoice *rightAnalogDown = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogDown, mc->T("RightAn.Down"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()));
-	PopupMultiChoice *rightAnalogLeft = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogLeft, mc->T("RightAn.Left"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()));
-	PopupMultiChoice *rightAnalogRight = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogRight, mc->T("RightAn.Right"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()));
-	PopupMultiChoice *rightAnalogPress = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogPress, co->T("Keep this button pressed when right analog is pressed"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton) - 8, I18NCat::MAPPABLECONTROLS, screenManager()));
-	rightAnalogUp->SetEnabledPtr(&g_Config.bRightAnalogCustom);
-	rightAnalogDown->SetEnabledPtr(&g_Config.bRightAnalogCustom);
-	rightAnalogLeft->SetEnabledPtr(&g_Config.bRightAnalogCustom);
-	rightAnalogRight->SetEnabledPtr(&g_Config.bRightAnalogCustom);
-	rightAnalogPress->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	parent->Add(new ItemHeader(co->T("Analog Binding")));
+	parent->Add(new PopupMultiChoice(&g_Config.iRightAnalogUp, mc->T("RightAn.Up"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	parent->Add(new PopupMultiChoice(&g_Config.iRightAnalogDown, mc->T("RightAn.Down"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	parent->Add(new PopupMultiChoice(&g_Config.iRightAnalogLeft, mc->T("RightAn.Left"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	parent->Add(new PopupMultiChoice(&g_Config.iRightAnalogRight, mc->T("RightAn.Right"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	parent->Add(new PopupMultiChoice(&g_Config.iRightAnalogPress, co->T("Keep this button pressed when right analog is pressed"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton) - 8, I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bRightAnalogCustom);
 }
 
 void CheckBoxChoice::HandleClick(UI::EventParams &e) {
