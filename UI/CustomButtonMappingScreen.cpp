@@ -121,15 +121,13 @@ std::string_view CustomButtonMappingScreen::GetTitle() const {
 	return co->T("Custom touch button setup");
 }
 
-void CustomButtonMappingScreen::CreateViews() {
+void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
 	using namespace CustomKeyData;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
-	root_ = new LinearLayout(ORIENT_VERTICAL);
-	root_->Add(new ItemHeader(GetTitle()));
-	LinearLayout *root__ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0));
-	root_->Add(root__);
+	LinearLayout *root__ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0));
+	parent->Add(root__);
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
@@ -143,13 +141,14 @@ void CustomButtonMappingScreen::CreateViews() {
 	for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++)
 		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
 
+	// TODO: Less hacky layout work
+	const Bounds layoutBounds = screenManager()->getUIContext()->GetLayoutBounds();
 	leftColumn->Add(new ButtonPreview(g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg->shape].i : customKeyShapes[cfg->shape].l, 
-			customKeyImages[cfg->image].i, customKeyImages[cfg->image].r, customKeyShapes[cfg->shape].f, customKeyShapes[cfg->shape].r, 62, 82));
+			customKeyImages[cfg->image].i, customKeyImages[cfg->image].r, customKeyShapes[cfg->shape].f, customKeyShapes[cfg->shape].r, layoutBounds.x + 62, layoutBounds.y + 102));
 
 	root__->Add(leftColumn);
+
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
-	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	root__->Add(rightScroll);
 
 	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);

@@ -21,7 +21,7 @@
 #include <string>
 #include "Common/Render/TextureAtlas.h"
 #include "UI/BaseScreens.h"
-#include "UI/TabbedDialogScreen.h"
+#include "UI/SimpleDialogScreen.h"
 
 namespace UI {
 	class CheckBox;
@@ -34,18 +34,16 @@ struct TouchButtonToggle {
 	std::function<void(UI::EventParams&)> handle;
 };
 
-class TouchControlVisibilityScreen : public UITabbedBaseDialogScreen {
+class TouchControlVisibilityScreen : public UITwoPaneBaseDialogScreen {
 public:
-	TouchControlVisibilityScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
-	void CreateTabs() override;
+	TouchControlVisibilityScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::ContentsCanScroll) {}
+	void CreateContentViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void onFinish(DialogResult result) override;
 
 	const char *tag() const override { return "TouchControlVisibility"; }
 
-protected:
-	bool ShowSearchControls() const override { return false; }
-	void CreateVisibilityTab(UI::LinearLayout *contents);
-
+	std::string_view GetTitle() const override;
 private:
 	std::vector<TouchButtonToggle> toggles_;
 	bool nextToggleAll_ = true;

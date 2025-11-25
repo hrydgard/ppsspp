@@ -7,7 +7,7 @@
 void UISimpleBaseDialogScreen::CreateViews() {
 	using namespace UI;
 
-	const bool canScroll = CanScroll();
+	const bool canScroll = flags_ & SimpleDialogFlags::ContentsCanScroll;
 	ignoreBottomInset_ = canScroll;
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;

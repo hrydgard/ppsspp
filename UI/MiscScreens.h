@@ -119,13 +119,12 @@ private:
 
 class CreditsScreen : public UISimpleBaseDialogScreen {
 public:
-	CreditsScreen() : UISimpleBaseDialogScreen() {}
+	CreditsScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::Default) {}
 	void update() override;
 
 protected:
 	std::string_view GetTitle() const override;
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;
-	bool CanScroll() const override { return false; }
 	const char *tag() const override { return "Credits"; }
 };

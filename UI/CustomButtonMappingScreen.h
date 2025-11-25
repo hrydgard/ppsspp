@@ -19,23 +19,25 @@
 
 #include "UI/BaseScreens.h"
 #include "UI/GamepadEmu.h"
+#include "UI/SimpleDialogScreen.h"
 
 namespace UI {
 	class CheckBox;
 }
 
-class CustomButtonMappingScreen : public UIBaseDialogScreen {
+class CustomButtonMappingScreen : public UISimpleBaseDialogScreen {
 public:
-	CustomButtonMappingScreen(DeviceOrientation deviceOrientation, const Path &gamePath, int id) : UIBaseDialogScreen(gamePath), deviceOrientation_(deviceOrientation), id_(id) {}
+	CustomButtonMappingScreen(DeviceOrientation deviceOrientation, const Path &gamePath, int id) : UISimpleBaseDialogScreen(gamePath, SimpleDialogFlags::Default), deviceOrientation_(deviceOrientation), id_(id) {}
 
 	const char *tag() const override { return "CustomButton"; }
 
-	void CreateViews() override;
+	void CreateDialogViews(UI::ViewGroup *parent) override;
 	void onFinish(DialogResult result) override;
 
 protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	std::string_view GetTitle() const;
+	std::string_view GetTitle() const override;
+
 private:
 	void saveArray();
 

@@ -46,15 +46,27 @@ private:
 	UI::CheckBox *checkbox_;
 };
 
-void TouchControlVisibilityScreen::CreateTabs() {
+std::string_view TouchControlVisibilityScreen::GetTitle() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	return co->T("Touch Control Visibility");
+}
 
-	AddTab("Visibility", co->T("Visibility"), [this](UI::LinearLayout *contents) {
-		CreateVisibilityTab(contents);
+void TouchControlVisibilityScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	Choice *toggleAll = parent->Add(new Choice(di->T("Toggle All")));
+	toggleAll->OnClick.Add([this](UI::EventParams &e) {
+		// TODO: Is this a meaningful operation to support?
+		for (auto toggle : toggles_) {
+			*toggle.show = nextToggleAll_;
+		}
+		nextToggleAll_ = !nextToggleAll_;
 	});
 }
 
-void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
+void TouchControlVisibilityScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
 	using namespace CustomKeyData;
 
@@ -63,25 +75,10 @@ void TouchControlVisibilityScreen::CreateVisibilityTab(UI::LinearLayout *vert) {
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	Choice *toggleAll = new Choice(di->T("Toggle All"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 84));
-
-	vert->SetSpacing(0);
-
-	vert->Add(toggleAll)->OnClick.Add([this](UI::EventParams &e) {
-		// TODO: Is this a meaningful operation to support?
-		for (auto toggle : toggles_) {
-			*toggle.show = nextToggleAll_;
-		}
-		nextToggleAll_ = !nextToggleAll_;
-	});
-
-	vert->Add(new ItemHeader(co->T("Touch Control Visibility")));
-
 	const int cellSize = portrait ? std::min((g_display.dp_xres / 2 - 10), 290) : 380;
-
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
 	gridsettings.fillCells = true;
-	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	GridLayout *grid = parent->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
 

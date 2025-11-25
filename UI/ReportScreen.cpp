@@ -418,7 +418,7 @@ void ReportScreen::HandleBrowser(UI::EventParams &e) {
 }
 
 ReportFinishScreen::ReportFinishScreen(const Path &gamePath, ReportingOverallScore score)
-	: UISimpleBaseDialogScreen(), gamePath_(gamePath), score_(score) {
+	: UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::ContentsCanScroll), gamePath_(gamePath), score_(score) {
 }
 
 std::string_view ReportFinishScreen::GetTitle() const {

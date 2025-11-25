@@ -5,11 +5,17 @@
 
 #include "UI/BaseScreens.h"
 
+enum class SimpleDialogFlags {
+	Default = 0,
+	ContentsCanScroll = 8,
+};
+ENUM_CLASS_BITOPS(SimpleDialogFlags);
+
 // The simpler cousin of TabbedDialogScreen, without tabs or the other bling,
 // but with a consistent portrait-compatible back button and title.
 class UISimpleBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	UISimpleBaseDialogScreen(const Path &gamePath = Path()) : UIBaseDialogScreen(gamePath) {
+	UISimpleBaseDialogScreen(const Path &gamePath, SimpleDialogFlags flags) : UIBaseDialogScreen(gamePath), flags_(flags) {
 		// We need to check CanScroll before we know whether to ignore
 		// bottom inset. Can't do that here, we do it in CreateViews
 	}
@@ -17,11 +23,10 @@ public:
 	// Override this, don't override CreateViews. And don't touch root_ directly.
 	virtual void CreateDialogViews(UI::ViewGroup *parent) = 0;
 	virtual std::string_view GetTitle() const { return ""; }
-protected:
-	virtual bool CanScroll() const { return true; }
 
 private:
 	void CreateViews() override;
+	SimpleDialogFlags flags_;
 };
 
 enum class TwoPaneFlags {
