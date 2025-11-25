@@ -142,7 +142,7 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
-	float opacity = g_gamepadOpacity;
+	float opacity = std::max(g_gamepadOpacity, minimumAlpha_);
 	if (opacity <= 0.0f)
 		return;
 
@@ -757,13 +757,30 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	const float scale = globalScale;
 	const int halfW = xres / 2;
 
-	auto initTouchPos = [=](ConfigTouchPos *touch, float x, float y) {
+	auto initTouchPos = [=](ConfigTouchPos *touch, float x, float y, float extraScale = 1.0f) {
 		if (touch->x == -1.0f || touch->y == -1.0f) {
 			touch->x = x / xres;
 			touch->y = std::max(y, 20.0f * globalScale) / yres;
-			touch->scale = scale;
+			touch->scale = scale * extraScale;
 		}
 	};
+
+	// Pause button. Has some special handling, it MUST be visible on some platforms.
+	float Pause_button_center_X = halfW;
+	float Pause_button_center_Y = 28.0f;
+
+	if (!System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
+		// Make really sure the pause button will be visible. Setting to -1 ensures reinit.
+		if (config->touchPauseKey.x < 0.0f || config->touchPauseKey.x > 1.0f) {
+			config->touchPauseKey.x = -1;
+		}
+		if (config->touchPauseKey.y < 0.0f || config->touchPauseKey.y > 1.0f) {
+			config->touchPauseKey.y = -1;
+		}
+		config->touchPauseKey.show = true;
+	}
+
+	initTouchPos(&config->touchPauseKey, Pause_button_center_X, Pause_button_center_Y, 0.8f);
 
 	// PSP buttons (triangle, circle, square, cross)---------------------
 	// space between the PSP buttons (triangle, circle, square and cross)
@@ -878,7 +895,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	}
 }
 
-UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, bool showPauseButton, ControlMapper *controlMapper) {
+UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper) {
 	using namespace UI;
 
 	AnchorLayout *root = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -939,8 +956,12 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 		return nullptr;
 	};
 
-	if (showPauseButton) {
-		root->Add(new BoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_HAMBURGER"), 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, Centering::Both)));
+	if (config.touchPauseKey.show) {
+		auto button = addBoolButton(pause, "Pause button", roundImage, ImageID("I_ROUND"), ImageID("I_HAMBURGER"), config.touchPauseKey);
+		if (button) {
+			// The user is not allowed to hide this completely on some platforms - it must be findable.
+			button->SetMinimumAlpha(0.1f);
+		}
 	}
 
 	// touchActionButtonCenter.show will always be true, since that's the default.

@@ -486,6 +486,7 @@ void ControlLayoutView::CreateViews() {
 	}
 
 	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
+	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
 	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
@@ -502,6 +503,8 @@ void ControlLayoutView::CreateViews() {
 	if (touch.touchDpad.show) {
 		controls_.push_back(new PSPDPadButtons(touch.touchDpad, "D-pad", touch.fDpadSpacing, bounds));
 	}
+
+	addDragDropButton(touch.touchPauseKey, "Pause button", roundImage, ImageID("I_HAMBURGER"));
 
 	addDragDropButton(touch.touchSelectKey, "Select button", rectImage, ImageID("I_SELECT"));
 	addDragDropButton(touch.touchStartKey, "Start button", rectImage, ImageID("I_START"));

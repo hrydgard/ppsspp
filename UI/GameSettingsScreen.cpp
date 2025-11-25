@@ -899,18 +899,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 		}
 
-		// On non iOS systems, offer to let the user see this button.
-		// Some Windows touch devices don't have a back button or other button to call up the menu.
-		if (System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
-			CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, co->T("Show Touch Pause Menu Button")));
-
-			// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
-			if (!PSP_IsInited()) {
-				enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
-			} else {
-				enablePauseBtn->SetEnabled(false);
-			}
-		}
+		// The pause button is now a regular on-screen button.
 
 		CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, co->T("Disable D-Pad diagonals (4-way touch)")));
 		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);

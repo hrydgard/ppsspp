@@ -55,6 +55,7 @@ public:
 	MultiTouchButton *SetAngle(float angle, float bgAngle) { angle_ = angle; bgAngle_ = bgAngle; return this; }
 
 	bool CanGlide() const;
+	void SetMinimumAlpha(float minAlpha) { minimumAlpha_ = minAlpha; }
 
 protected:
 	uint32_t pointerDownMask_ = 0;
@@ -67,6 +68,7 @@ private:
 	float bgAngle_ = 0.0f;
 	float angle_ = 0.0f;
 	bool flipImageH_ = false;
+	float minimumAlpha_ = 0.0f;
 };
 
 class BoolButton : public MultiTouchButton {
@@ -159,7 +161,7 @@ struct TouchControlConfig;
 
 // Initializes the layout from Config. if a default layout does not exist, it sets up default values
 void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale = 1.15f);
-UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, bool showPauseButton, ControlMapper *controlMapper);
+UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper);
 
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
