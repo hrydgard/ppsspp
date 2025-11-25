@@ -57,7 +57,7 @@ using KeyMap::MultiInputMapping;
 
 class SingleControlMapper : public UI::LinearLayout {
 public:
-	SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
+	SingleControlMapper(int pspKey, std::string keyName, bool portrait, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
 	~SingleControlMapper() {
 		g_IsMappingMouseInput = false;
 	}
@@ -79,10 +79,11 @@ private:
 	std::vector<UI::View *> rows_;
 	std::string keyName_;
 	ScreenManager *scrm_;
+	bool portrait_;
 };
 
-SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
-	: UI::LinearLayout(ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm) {
+SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, bool portrait, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
+	: UI::LinearLayout(ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), portrait_(portrait) {
 	Refresh();
 }
 
@@ -129,7 +130,7 @@ void SingleControlMapper::Refresh() {
 		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
 	}
 
-	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
+	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, portrait_ ? new LinearLayoutParams(1.0f) : new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
 	rightColumn->SetSpacing(2.0f);
 	std::vector<MultiInputMapping> mappings;
 	KeyMap::InputMappingsFromPspButton(pspKey_, &mappings, false);
@@ -261,6 +262,8 @@ void ControlMappingScreen::CreateTabs() {
 		size_t numMappableKeys = 0;
 		const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
 
+		bool portrait = this->GetDeviceOrientation() == DeviceOrientation::Portrait;
+
 		auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
 		int curCat = -1;
@@ -275,7 +278,7 @@ void ControlMappingScreen::CreateTabs() {
 				curSection->SetSpacing(6.0f);
 			}
 			SingleControlMapper *mapper = curSection->Add(
-				new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
+				new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, portrait, screenManager(),
 					new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 			mappers_.push_back(mapper);
