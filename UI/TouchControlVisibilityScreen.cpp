@@ -125,7 +125,7 @@ void TouchControlVisibilityScreen::CreateContentViews(UI::ViewGroup *parent) {
 			} else {
 				truncate_cpy(translated, sizeof(translated), mc->T(toggle.key));
 			}
-			choice = new Choice(std::string(translated) + " (" + std::string(mc->T("tap to customize")) + ")", "", false, new LinearLayoutParams(1.0f));
+			choice = new Choice(std::string(translated) + " (" + std::string(mc->T("tap to customize")) + ")", "", new LinearLayoutParams(1.0f));
 			choice->OnClick.Add(toggle.handle);
 		} else if (toggle.img.isValid()) {
 			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));

@@ -106,6 +106,7 @@ imgui.ini
 
 # debug file
 ui_atlas_gen.png
+buttons_rasterized.png
 
 # For vim
 *.swp

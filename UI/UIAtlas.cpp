@@ -21,6 +21,7 @@
 #include "ext/nanosvg/src/nanosvgrast.h"
 
 constexpr bool SAVE_DEBUG_IMAGES = false;
+constexpr bool SAVE_DEBUG_ATLAS = false;
 
 static Atlas ui_atlas;
 static Atlas font_atlas;
@@ -164,6 +165,10 @@ static const ImageMeta imageIDs[] = {
 	{"I_EXIT", false},
 	{"I_CHEAT", false},
 	{"I_HAMBURGER", false},
+	{"I_DEVICE_ROTATION_LANDSCAPE_REV", false},
+	{"I_DEVICE_ROTATION_AUTO", false},
+	{"I_DEVICE_ROTATION_LANDSCAPE", false},
+	{"I_DEVICE_ROTATION_PORTRAIT", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -191,6 +196,12 @@ static bool IsImageID(std::string_view id) {
 
 static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize) {
 	Bucket bucket;
+
+#ifdef _DEBUG
+	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+		_dbg_assert_(imageIDs[i].id.size() < 32);
+	}
+#endif
 
 	// Script fully read, now read images and rasterize the fonts.
 	std::vector<Image> images(ARRAY_SIZE(imageIDs));
@@ -313,7 +324,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 			shapeCount = (int)usedShapes.size();
 
-			if (SAVE_DEBUG_IMAGES) {
+			if (SAVE_DEBUG_ATLAS) {
 				WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
 				pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
 			}
@@ -416,7 +427,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	atlas->num_images = (int)genAtlasImages.size();
 
 	// For debug, write out the atlas.
-	if (SAVE_DEBUG_IMAGES) {
+	if (SAVE_DEBUG_ATLAS) {
 		WARN_LOG(Log::G3D, "Writing debug image ui_atlas_gen.png");
 		dest->SavePNG("../ui_atlas_gen.png");
 	}

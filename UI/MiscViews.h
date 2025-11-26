@@ -76,3 +76,5 @@ private:
 	GameInfoFlags image_;
 	float scale_ = 1.0f;
 };
+
+void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text);

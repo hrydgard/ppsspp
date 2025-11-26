@@ -282,27 +282,12 @@ private:
 class PopupMultiChoice : public AbstractChoiceWithValueDisplay {
 public:
 	PopupMultiChoice(int *value, std::string_view text, const char **choices, int minVal, int numChoices,
-		I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
-		: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices),
-		category_(category), screenManager_(screenManager) {
-		if (choices) {
-			// If choices is nullptr, we're being called from PopupMultiChoiceDynamic where value doesn't yet point to anything valid.
-			if (*value >= numChoices + minVal)
-				*value = numChoices + minVal - 1;
-			if (*value < minVal)
-				*value = minVal;
-			UpdateText();
-		}
-		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
-	}
+		I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
 
 	void Update() override;
 
 	void HideChoice(int c) {
 		hidden_.insert(c);
-	}
-	void SetChoiceIcon(int c, ImageID id) {
-		icons_[c] = id;
 	}
 	bool IsChoiceHidden(int c) const {
 		return hidden_.find(c) != hidden_.end();
@@ -311,11 +296,24 @@ public:
 	void SetPreOpenCallback(std::function<void(PopupMultiChoice *)> callback) {
 		preOpenCallback_ = callback;
 	}
+	void SetChoiceIcon(int c, ImageID id) {
+		icons_[c] = id;
+	}
+	void SetChoiceIcons(std::map<int, ImageID> icons) {
+		icons_ = icons;
+	}
 
 	UI::Event OnChoice;
 
 protected:
 	std::string ValueText() const override;
+	ImageID ValueImage() const override {
+		auto iter = icons_.find(*value_);
+		if (iter != icons_.end()) {
+			return iter->second;
+		}
+		return ImageID::invalid();
+	}
 
 	int *value_;
 	const char **choices_;
@@ -346,8 +344,7 @@ public:
 	// TODO: This all is absolutely terrible, just done this way to be conformant with the internals of PopupMultiChoice.
 	PopupMultiChoiceDynamic(std::string *value, std::string_view text, const std::vector<std::string> &choices,
 		I18NCat category, ScreenManager *screenManager, std::vector<std::string> *values = nullptr, UI::LayoutParams *layoutParams = nullptr)
-		: UI::PopupMultiChoice(&valueInt_, text, nullptr, 0, (int)choices.size(), category, screenManager, layoutParams),
-		valueStr_(value) {
+		: UI::PopupMultiChoice(&valueInt_, text, nullptr, 0, (int)choices.size(), category, screenManager, layoutParams), valueStr_(value) {
 		if (values) {
 			_dbg_assert_(choices.size() == values->size());
 		}

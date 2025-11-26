@@ -706,10 +706,10 @@ public:
 class Choice : public ClickableItem {
 public:
 	Choice(std::string_view text, LayoutParams *layoutParams = nullptr)
-		: Choice(text, "", false, layoutParams) { }
+		: ClickableItem(layoutParams), text_(text) { }
 	Choice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), image_(image) {}
-	Choice(std::string_view text, std::string_view smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
+	Choice(std::string_view text, std::string_view smallText, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
@@ -725,7 +725,10 @@ public:
 	void SetDrawTextFlags(u32 flags) {
 		drawTextFlags_ = flags;
 	}
-	void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
+	void SetIconLeft(ImageID iconImage) {
+		image_ = iconImage;
+	}
+	void SetIconRight(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
 		rightIconKeepColor_ = keepColor;
 		rightIconScale_ = scale;
 		rightIconRot_ = rot;
@@ -776,7 +779,7 @@ private:
 class StickyChoice : public Choice {
 public:
 	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
-		: Choice(text, smallText, false, layoutParams) {}
+		: Choice(text, smallText, layoutParams) {}
 	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = nullptr)
 		: Choice(buttonImage, layoutParams) {}
 	StickyChoice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
@@ -835,8 +838,10 @@ public:
 	void SetPasswordDisplay() {
 		passwordMasking_ = true;
 	}
+
 protected:
 	virtual std::string ValueText() const = 0;
+	virtual ImageID ValueImage() const { return ImageID::invalid(); }
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 

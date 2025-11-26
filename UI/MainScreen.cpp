@@ -1206,7 +1206,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 		gold->OnClick.Add([this](UI::EventParams &) {
 			LaunchBuyGold(this->screenManager());
 		});
-		gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
 		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
 		gold->SetShine(true);
 	}

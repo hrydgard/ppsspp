@@ -574,7 +574,9 @@ void ListView::CreateAllItems() {
 				imageID = &iter->second;
 			}
 			View *v = linLayout_->Add(adaptor_->CreateItemView(i, imageID));
-			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, std::placeholders::_1));
+			adaptor_->AddEventCallback(v, [this, i](UI::EventParams &e) {
+				OnItemCallback(i, e);
+			});
 		}
 	}
 }
@@ -601,9 +603,12 @@ void ListView::OnItemCallback(int num, EventParams &e) {
 }
 
 View *ChoiceListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
-	Choice *choice = new Choice(items_[index]);
+	Choice *choice;
 	if (optionalImageID) {
-		choice->SetIcon(*optionalImageID);
+		choice = new Choice(items_[index], *optionalImageID);
+	} else {
+		choice = new Choice(items_[index]);
+		//choice->SetIconRight(*optionalImageID);
 	}
 	return choice;
 }
@@ -614,10 +619,14 @@ void ChoiceListAdaptor::AddEventCallback(View *view, std::function<void(EventPar
 }
 
 View *StringVectorListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
-	Choice *choice = new Choice(items_[index], "", index == selected_);
+	ImageID temp;
 	if (optionalImageID) {
-		choice->SetIcon(*optionalImageID);
+		temp = *optionalImageID;
 	}
+	Choice *choice = new Choice(items_[index], temp);
+	// if (optionalImageID) {
+	// 	choice->SetIconRight(*optionalImageID);
+	// }
 	return choice;
 }
 
