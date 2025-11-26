@@ -65,7 +65,7 @@ private:
 	bool finishNextFrame_ = false;
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
 
-	UI::Button *playButton_ = nullptr;
+	UI::Choice *playButton_ = nullptr;
 
 	// State change tracking, a bit ugly heh, but works.
 	bool lastOnline_ = false;

@@ -158,7 +158,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	vertLayout->Add(new CheckBox(show, co->T("Visible")));
 
 	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
-	icon->SetIcon(ImageID(customKeyImages[cfg->image].i), 1.0f, customKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
+	icon->SetIconRight(ImageID(customKeyImages[cfg->image].i), 1.0f, customKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
 	icon->OnClick.Add([=](UI::EventParams &e) {
 		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
 		if (e.v)
@@ -168,7 +168,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	});
 
 	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
-	shape->SetIcon(ImageID(customKeyShapes[cfg->shape].l), 0.6f, customKeyShapes[cfg->shape].r*PI/180, customKeyShapes[cfg->shape].f, false); // Set right icon on the choice
+	shape->SetIconRight(ImageID(customKeyShapes[cfg->shape].l), 0.6f, customKeyShapes[cfg->shape].r*PI/180, customKeyShapes[cfg->shape].f, false); // Set right icon on the choice
 	shape->OnClick.Add([=](UI::EventParams &e) {
 		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
 		if (e.v)
