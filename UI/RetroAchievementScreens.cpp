@@ -107,7 +107,6 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
 	}
 
-	achievements->Add(new ItemHeader(ac->T("Achievements")));
 	achievements->Add(new GameAchievementSummaryView());
 
 	if (Achievements::EncoreModeActive()) {
@@ -117,6 +116,8 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
 		filter, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
 
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+
 	for (uint32_t i = 0; i < list->num_buckets; i++) {
 		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
 		if (!bucket.num_achievements) {
@@ -124,7 +125,14 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		}
 		// Populate the subset list as we go.
 		const rc_client_subset_t *subset = rc_client_get_subset_info(Achievements::GetClient(), bucket.subset_id);
-		std::string title = StringFromFormat("%s - %s (%d)", subset->title, ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
+
+		std::string title;
+		if (equals(subset->title, client_game->title)) {
+			title = StringFromFormat("%s (%d)", ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
+		} else {
+			title = StringFromFormat("%s - %s (%d)", subset->title, ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
+		}
+
 		CollapsibleSection *section = achievements->Add(new CollapsibleSection(title));
 		section->SetSpacing(2.0f);
 		for (uint32_t j = 0; j < bucket.num_achievements; j++) {
