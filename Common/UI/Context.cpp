@@ -229,16 +229,16 @@ void UIContext::MeasureText(const FontStyle &style, float scaleX, float scaleY, 
 	}
 }
 
-void UIContext::MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align) const {
+void UIContext::MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float maxWidth, float *x, float *y, int align) const {
 	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureTextRect(AtlasFontFromStyle(style), str, bounds, x, y, align);
+		Draw()->MeasureTextRect(AtlasFontFromStyle(style), str, maxWidth, x, y, align);
 	} else {
 		textDrawer_->SetOrCreateFont(style);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureStringRect(str, bounds, x, y, align);
+		textDrawer_->MeasureStringRect(str, maxWidth, x, y, align);
 		textDrawer_->SetOrCreateFont(*fontStyle_);
 	}
 }
@@ -295,11 +295,11 @@ void UIContext::DrawTextRect(std::string_view str, const Bounds &bounds, uint32_
 
 static constexpr float MIN_TEXT_SCALE = 0.7f;
 
-float UIContext::CalculateTextScale(std::string_view str, float availWidth, float availHeight) const {
+float UIContext::CalculateTextScale(std::string_view str, float availWidth) const {
 	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, availHeight);
-	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, str, availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, str, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER);
 	if (actualWidth > availWidth) {
+		// TODO: Return feedback that wrapping was needed.
 		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
 	}
 	return 1.0f;
@@ -312,7 +312,7 @@ void UIContext::DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, 
 	}
 	float origScaleX = fontScaleX_;
 	float origScaleY = fontScaleY_;
-	float scale = CalculateTextScale(str, bounds.w / origScaleX, bounds.h / origScaleY);
+	float scale = CalculateTextScale(str, bounds.w / origScaleX);
 	SetFontScale(scale * origScaleX, scale * origScaleY);
 	Bounds textBounds(bounds.x, bounds.y, bounds.w, bounds.h);
 	DrawTextRect(str, textBounds, color, align);

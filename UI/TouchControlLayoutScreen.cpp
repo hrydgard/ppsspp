@@ -655,8 +655,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(12.0f, 0.0f))));
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
-	mode_->AddChoice(di->T("Move"));
-	mode_->AddChoice(di->T("Resize"));
+	mode_->AddChoice(di->T("Move"), ImageID("I_MOVE"));
+	mode_->AddChoice(di->T("Resize"), ImageID("I_RESIZE"));
 	mode_->SetSelection(0, false);
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 

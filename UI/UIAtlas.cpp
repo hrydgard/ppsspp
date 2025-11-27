@@ -169,6 +169,8 @@ static const ImageMeta imageIDs[] = {
 	{"I_DEVICE_ROTATION_AUTO", false},
 	{"I_DEVICE_ROTATION_LANDSCAPE", false},
 	{"I_DEVICE_ROTATION_PORTRAIT", false},
+	{"I_MOVE", false},
+	{"I_RESIZE", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

@@ -788,8 +788,7 @@ void PPGeMeasureText(float *w, float *h, std::string_view text, float scale, int
 		int dtalign = (WrapType & PPGE_LINE_WRAP_WORD) ? FLAG_WRAP_TEXT : 0;
 		if (WrapType & PPGE_LINE_USE_ELLIPSIS)
 			dtalign |= FLAG_ELLIPSIZE_TEXT;
-		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f : wrapWidth, 272.0f);
-		textDrawer->MeasureStringRect(s, b, &mw, &mh, dtalign);
+		textDrawer->MeasureStringRect(s, wrapWidth <= 0 ? 480.0f : wrapWidth, &mw, &mh, dtalign);
 
 		if (w)
 			*w = mw;
@@ -1121,7 +1120,7 @@ void PPGeDrawTextWrapped(std::string_view text, float x, float y, float wrapWidt
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
 		int tdalign = 0;
 		textDrawer->SetFontScale(style.scale, style.scale);
-		textDrawer->MeasureStringRect(s, b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
+		textDrawer->MeasureStringRect(s, b.w, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
 
 		// Check if we need to scale the text down to fit better.
 		PPGeStyle adjustedStyle = style;
@@ -1129,7 +1128,7 @@ void PPGeDrawTextWrapped(std::string_view text, float x, float y, float wrapWidt
 			// Cheap way to get the line height.
 			float oneLine, twoLines;
 			textDrawer->MeasureString("|", &actualWidth, &oneLine);
-			textDrawer->MeasureStringRect("|\n|", Bounds(0, 0, 480, 272), &actualWidth, &twoLines);
+			textDrawer->MeasureStringRect("|\n|", 480, &actualWidth, &twoLines);
 
 			float lineHeight = twoLines - oneLine;
 			if (actualHeight > wrapHeight * maxScaleDown) {

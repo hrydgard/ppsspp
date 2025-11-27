@@ -285,8 +285,8 @@ void DisplayLayoutScreen::CreateViews() {
 
 		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		mode_->AddChoice(di->T("Inactive"));
-		mode_->AddChoice(di->T("Move"));
-		mode_->AddChoice(di->T("Resize"));
+		mode_->AddChoice(di->T("Move"));  // , ImageID("I_MOVE")  (can't fit the icons here yet, especially not in portrait)
+		mode_->AddChoice(di->T("Resize")); //  , ImageID("I_RESIZE"));
 		mode_->SetSelection(0, false);
 		bottomControls->Add(mode_);
 
