@@ -632,22 +632,26 @@ void GamePauseScreen::CreateViews() {
 
 	if (middleColumn) {
 		middleColumn->SetSpacing(portrait ? 8.0f : 20.0f);
-		playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
+		playButton_ = middleColumn->Add(new Choice(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
 		playButton_->OnClick.Add([=](UI::EventParams &e) {
 			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
-			playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+			playButton_->SetIconLeft(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
 		});
 
 		bool mustRunBehind = MustRunBehind();
 		playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
 
-		Button *infoButton = middleColumn->Add(new Button("", ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
+		Choice *infoButton = middleColumn->Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
 		infoButton->OnClick.Add([=](UI::EventParams &e) {
 			screenManager()->push(new GameScreen(gamePath_, true));
 		});
 
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+			AddRotationPicker(screenManager(), middleColumn, false);
+		}
+
 		if (!portrait) {
-			Button *menuButton = middleColumn->Add(new Button("", ImageID("I_THREE_DOTS"), new LinearLayoutParams(64, 64)));
+			Choice *menuButton = middleColumn->Add(new Choice("", ImageID("I_THREE_DOTS"), new LinearLayoutParams(64, 64)));
 			menuButton->OnClick.Add([this, menuButton, portrait](UI::EventParams &e) {
 				ShowContextMenu(menuButton, portrait);
 			});

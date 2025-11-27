@@ -70,7 +70,7 @@ void IAPScreen::CreateViews() {
 		image = ImageID("I_LOGO_APP_STORE");
 #endif
 		Choice *buyButton = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold"), image));
-		buyButton->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		buyButton->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
 		buyButton->SetShine(true);
 		const int requesterToken = GetRequesterToken();
 		buyButton->OnClick.Add([this, requesterToken](UI::EventParams &) {

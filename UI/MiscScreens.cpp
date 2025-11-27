@@ -555,7 +555,7 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		ScreenManager *sm = screenManager();
 		Choice *gold = new Choice(mm->T("Buy PPSSPP Gold"));
-		gold->SetIcon(ImageID("I_ICON_GOLD"), 0.5f);
+		gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
 		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
 		gold->SetShine(true);
 

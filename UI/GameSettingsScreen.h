@@ -100,7 +100,6 @@ private:
 	void OnMemoryStickMyDoc(UI::EventParams &e);
 	void OnMemoryStickOther(UI::EventParams &e);
 #endif
-	void OnScreenRotation(UI::EventParams &e);
 	void OnImmersiveModeChange(UI::EventParams &e);
 	void OnSustainedPerformanceModeChange(UI::EventParams &e);
 
