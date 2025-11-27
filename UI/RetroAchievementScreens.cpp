@@ -85,13 +85,13 @@ void RetroAchievementsListScreen::CreateTabs() {
 
 inline const char *AchievementBucketTitle(int bucketType) {
 	switch (bucketType) {
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked achievements";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked achievements";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNSUPPORTED:          return "Unsupported achievements";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNOFFICIAL:           return "Unofficial achievements";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_RECENTLY_UNLOCKED:    return "Recently unlocked achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNSUPPORTED:          return "Unsupported";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNOFFICIAL:           return "Unofficial";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_RECENTLY_UNLOCKED:    return "Recently unlocked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_ACTIVE_CHALLENGE:     return "Achievements with active challenges";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_ALMOST_THERE:         return "Almost completed achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_ALMOST_THERE:         return "Almost completed";
 	default: return "?";
 	}
 }
@@ -122,7 +122,9 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		if (!bucket.num_achievements) {
 			continue;
 		}
-		std::string title = StringFromFormat("%s (%d)", ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
+		// Populate the subset list as we go.
+		const rc_client_subset_t *subset = rc_client_get_subset_info(Achievements::GetClient(), bucket.subset_id);
+		std::string title = StringFromFormat("%s - %s (%d)", subset->title, ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
 		CollapsibleSection *section = achievements->Add(new CollapsibleSection(title));
 		section->SetSpacing(2.0f);
 		for (uint32_t j = 0; j < bucket.num_achievements; j++) {
@@ -216,7 +218,7 @@ void RetroAchievementsLeaderboardScreen::CreateLeaderboardTab(UI::LinearLayout *
 	using namespace UI;
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	layout->Add(new TextView(leaderboard->description));
+	layout->Add(new TextView(leaderboard->description, FLAG_WRAP_TEXT, false));
 	layout->Add(new ItemHeader(ac->T("Leaderboard")));
 
 	auto strip = layout->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
