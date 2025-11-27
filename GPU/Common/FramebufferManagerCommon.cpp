@@ -1208,8 +1208,12 @@ void FramebufferManagerCommon::DrawPixels(const DisplayLayoutConfig *config, Vir
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
-		_dbg_assert_(channel == RASTER_COLOR);
 		_dbg_assert_(config);
+		if (!config) {
+			// TODO: This shouldn't happen, but apparently can.
+			return;
+		}
+		_dbg_assert_(channel == RASTER_COLOR);
 		// We are drawing directly to the back buffer so need to flip.
 		// Should more of this be handled by the presentation engine?
 		if (needBackBufferYSwap_)
