@@ -202,6 +202,7 @@ void DisplayLayoutScreen::CreateViews() {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -233,6 +234,10 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
+
+	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"));
+	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumn->Add(back);
 
 	LinearLayout *bottomControls;
 	if (portrait) {
@@ -284,9 +289,9 @@ void DisplayLayoutScreen::CreateViews() {
 		}
 
 		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-		mode_->AddChoice(di->T("Inactive"));
-		mode_->AddChoice(di->T("Move"));
-		mode_->AddChoice(di->T("Resize"));
+		mode_->AddChoice(sy->T("Off"));
+		mode_->AddChoice(ImageID("I_MOVE"));
+		mode_->AddChoice(ImageID("I_RESIZE"));
 		mode_->SetSelection(0, false);
 		bottomControls->Add(mode_);
 
@@ -311,10 +316,6 @@ void DisplayLayoutScreen::CreateViews() {
 
 		rightColumn->Add(new Spacer(12.0f));
 	}
-
-	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"));
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumn->Add(back);
 
 	if (portrait) {
 		leftColumn->Add(new Spacer(24.0f));

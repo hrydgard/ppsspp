@@ -45,7 +45,7 @@ void MeasureBySpec(Size sz, float contentDim, MeasureSpec spec, float *measured)
 	}
 }
 
-static void ApplyBoundBySpec(float &bound, MeasureSpec spec) {
+void ApplyBoundBySpec(float &bound, MeasureSpec spec) {
 	switch (spec.type) {
 	case AT_MOST:
 		bound = bound < spec.size ? bound : spec.size;
@@ -485,10 +485,9 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		}
 		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
 			availWidth = layoutParams_->width;
-		float scale = dc.CalculateTextScale(text_, availWidth, bounds_.h);
-		Bounds availBounds(0, 0, availWidth, vert.size);
+		float scale = dc.CalculateTextScale(text_, availWidth);
 		float textW = 0.0f, textH = 0.0f;
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availBounds, &textW, &textH, FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 		totalH = std::max(totalH, textH);
 		totalW += textW;
 		if (image_.isValid()) {
@@ -592,7 +591,7 @@ void InfoItem::Draw(UIContext &dc) {
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
 
 	float leftWidth, leftHeight;
-	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, padBounds, &leftWidth, &leftHeight, ALIGN_VCENTER);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, padBounds.w, &leftWidth, &leftHeight, ALIGN_VCENTER);
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
@@ -622,16 +621,13 @@ void ItemHeader::Draw(UIContext &dc) {
 }
 
 void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
-	if (bounds.w < 0) {
+	float availWidth = layoutParams_->width;
+	if (availWidth < 0) {
 		// If there's no size, let's grow as big as we want.
-		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
 	}
-	if (bounds.h < 0) {
-		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
-	}
-	ApplyBoundsBySpec(bounds, horiz, vert);
-	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, text_, bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+	ApplyBoundBySpec(availWidth, horiz);
+	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 std::string ItemHeader::DescribeText() const {
@@ -664,16 +660,13 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 }
 
 void CollapsibleHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
-	if (bounds.w < 0) {
+	float availWidth = layoutParams_->width;
+	if (availWidth < 0) {
 		// If there's no size, let's grow as big as we want.
-		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
 	}
-	if (bounds.h < 0) {
-		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
-	}
-	ApplyBoundsBySpec(bounds, horiz, vert);
-	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, text_, bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+	ApplyBoundBySpec(availWidth, horiz);
+	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 void CollapsibleHeader::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -859,11 +852,10 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 
 	if (!text_.empty()) {
-		float scale = dc.CalculateTextScale(text_, availWidth, bounds_.h);
+		float scale = dc.CalculateTextScale(text_, availWidth);
 
 		float actualWidth, actualHeight;
-		Bounds availBounds(0, 0, availWidth, bounds_.h);
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		h = std::max(actualHeight, ITEM_HEIGHT);
 	} else {
 		h = std::max(imageH, ITEM_HEIGHT);
@@ -1093,22 +1085,19 @@ const FontStyle *TextView::GetTextStyle(const UIContext &dc, TextSize size) {
 }
 
 void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
-	if (bounds.w < 0) {
+	float availWidth = layoutParams_->width;
+	if (availWidth < 0) {
 		// If there's no size, let's grow as big as we want.
-		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
 	}
-	if (bounds.h < 0) {
-		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
-	}
-	ApplyBoundsBySpec(bounds, horiz, vert);
+	ApplyBoundBySpec(availWidth, horiz);
 	if (bullet_) {
-		bounds.w -= bulletOffset;
+		availWidth -= bulletOffset;
 	}
 	const FontStyle *style = GetTextStyle(dc, textSize_);
 	float measuredW;
 	float measuredH;
-	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, bounds, &measuredW, &measuredH, textAlign_);
+	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, availWidth, &measuredW, &measuredH, textAlign_);
 	w = measuredW + pad_.horiz();
 	h = measuredH + pad_.vert();
 	if (bullet_) {
