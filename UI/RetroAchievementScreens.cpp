@@ -422,6 +422,7 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSaveStateInHardcoreMode, ac->T("Allow Save State in Hardcore Mode (but not Load State)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 }
 
+// TODO : Use a spec horizontally.
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h) {
 	*w = 0.0f;
 	switch (style) {
