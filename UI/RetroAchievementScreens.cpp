@@ -422,7 +422,6 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSaveStateInHardcoreMode, ac->T("Allow Save State in Hardcore Mode (but not Load State)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 }
 
-// TODO : Use a spec horizontally.
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h) {
 	*w = 0.0f;
 	switch (style) {
@@ -440,17 +439,6 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 		*h = 72.0f;
 		break;
 	}
-}
-
-static void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
-	std::string description = Achievements::GetGameAchievementSummary();
-
-	float tw, th;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
-
-	dc.MeasureText(dc.GetTheme().uiFont, 0.66f, 0.66f, description, w, h);
-	*h += 8.0f + th;
-	*w += 8.0f;
 }
 
 static void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
@@ -588,6 +576,19 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.PopScissor();
 }
 
+static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view title, float maxWidth, float *w, float *h) {
+	std::string description = Achievements::GetGameAchievementSummary();
+
+	float iconSpace = 64.0f;
+	float availableWidth = maxWidth - iconSpace - 5.0f - 5.0f - 8.0f;
+
+	float titleWidth, titleHeight;
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, title, availableWidth, &titleWidth, &titleHeight, FLAG_ELLIPSIZE_TEXT);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 0.66f, 0.66f, description, availableWidth, w, h, FLAG_WRAP_TEXT);
+	*h += 8.0f + titleHeight;
+	*w += 8.0f;
+}
+
 static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha, const rc_client_game_t *gameInfo) {
 	using namespace UI;
 	UI::Drawable background = dc.GetTheme().itemStyle.background;
@@ -604,12 +605,12 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_ELLIPSIZE_TEXT);
 
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
@@ -620,7 +621,7 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	if (RC_OK == rc_client_game_get_image_url(gameInfo, url, sizeof(url))) {
 		Achievements::DownloadImageIfMissing(cacheKey, url);
 		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
-			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}
 
@@ -768,9 +769,15 @@ void GameAchievementSummaryView::Draw(UIContext &dc) {
 	}
 }
 
-void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// Somehow wrong!
-	MeasureGameAchievementSummary(dc, &w, &h);
+void GameAchievementSummaryView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+	float layoutWidth = layoutParams_->width;
+	if (layoutWidth < 0) {
+		// If there's no size, let's grow as big as we want.
+		layoutWidth = horiz.size;
+	}
+	ApplyBoundBySpec(layoutWidth, horiz);
+	MeasureGameAchievementSummary(dc, client_game->title, layoutWidth, &w, &h);
 }
 
 void LeaderboardSummaryView::Draw(UIContext &dc) {

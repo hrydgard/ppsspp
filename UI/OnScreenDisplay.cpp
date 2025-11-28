@@ -204,11 +204,6 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	}
 }
 
-static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::Entry &bar, float *width, float *height) {
-	*height = 36;
-	*width = 450.0f;
-}
-
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
@@ -390,8 +385,11 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			break;
 		}
 		case OSDType::PROGRESS_BAR:
-			MeasureOSDProgressBar(dc, entry, &measuredEntry.w, &measuredEntry.h);
+		{
+			measuredEntry.h = 36;
+			measuredEntry.w = std::min(450.0f, bounds_.w - 50.0f);
 			break;
+		}
 		default:
 			MeasureOSDEntry(dc, entry, measuredEntry.align, bounds_.w, &measuredEntry.w, &measuredEntry.h, &measuredEntry.h1);
 			break;
