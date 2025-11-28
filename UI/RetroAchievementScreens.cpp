@@ -125,9 +125,8 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		}
 		// Populate the subset list as we go.
 		const rc_client_subset_t *subset = rc_client_get_subset_info(Achievements::GetClient(), bucket.subset_id);
-
 		std::string title;
-		if (equals(subset->title, client_game->title)) {
+		if (!subset || equals(subset->title, client_game->title)) {
 			title = StringFromFormat("%s (%d)", ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
 		} else {
 			title = StringFromFormat("%s - %s (%d)", subset->title, ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
