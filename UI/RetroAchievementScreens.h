@@ -112,7 +112,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override;
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const;
 };
 
 class LeaderboardSummaryView : public UI::ClickableItem {

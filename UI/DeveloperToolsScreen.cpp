@@ -384,10 +384,10 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
 	});
 	list->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning, a pretty long warning heading", "Some\nAdditional\nDetail, some of which is very, very long and wide and will need line wrapping on most screens.");
 	});
 	list->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
+		g_OSD.Show(OSDType::MESSAGE_INFO, "Info, info info info info info info info info info info");
 	});
 	// This one is clickable
 	list->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
