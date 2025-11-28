@@ -236,6 +236,8 @@ enum SystemProperty {
 	SYSPROP_USE_IAP,
 	SYSPROP_USE_APP_STORE,
 	SYSPROP_SUPPORTS_SHARE_TEXT,
+
+	SYSPROP_HAS_VSYNC_CALLBACK,
 };
 
 enum class SystemNotification {

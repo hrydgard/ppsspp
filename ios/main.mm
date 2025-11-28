@@ -37,6 +37,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/System/Display.h"
+#include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
@@ -647,6 +648,8 @@ int main(int argc, char *argv[]) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
 	}
+
+	TimeInit();
 
 	g_logManager.EnableOutput(LogOutput::Stdio);
 
