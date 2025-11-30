@@ -770,6 +770,11 @@ void GameAchievementSummaryView::Draw(UIContext &dc) {
 
 void GameAchievementSummaryView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
 	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+	if (!client_game) {
+		w = 0;
+		h = 0;
+		return;
+	}
 	float layoutWidth = layoutParams_->width;
 	if (layoutWidth < 0) {
 		// If there's no size, let's grow as big as we want.

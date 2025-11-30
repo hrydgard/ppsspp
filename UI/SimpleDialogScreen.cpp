@@ -36,7 +36,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	BeforeCreateViews();
 
-	auto createContentViews = [this, portrait](UI::ViewGroup *parent) {
+	auto createContentViews = [this](UI::ViewGroup *parent) {
 		if (flags_ & TwoPaneFlags::ContentsCanScroll) {
 			Margins margins(8, 8, 8, 0);
 			if (flags_ & TwoPaneFlags::SettingsToTheRight) {
