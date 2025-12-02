@@ -305,7 +305,7 @@ jobs:
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
+      uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
       # Disable ccache on macos for now, it's become buggy for some reason.
       if: matrix.id != 'macos'
       with:
@@ -474,7 +474,7 @@ jobs:
         chown -R $(id -u):$(id -g) $PWD
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
+      uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
 
     - name: Compile ffmpeg
       run: |
