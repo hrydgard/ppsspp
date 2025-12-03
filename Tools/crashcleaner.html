@@ -1,0 +1,180 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Android Crash Dump Cleaner</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            margin: 18px;
+        }
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 20px;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 320px;
+            resize: vertical;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, "Roboto Mono", monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .controls {
+            margin: 10px 0 14px 0;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #bbb;
+            background: #f6f6f6;
+            cursor: pointer;
+        }
+
+            button:active {
+                transform: translateY(1px);
+            }
+
+        .small {
+            font-size: 12px;
+            color: #555;
+        }
+
+        .col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Android crash dump cleaner</h1>
+    <div class="row">
+        <div class="col">
+            <label for="input">Input (paste crash dump here)</label>
+            <textarea id="input" placeholder="Paste Android backtrace here..."></textarea>
+            <div class="controls">
+                <div class="top-actions">
+                    <button id="convert">Convert →</button>
+                    <button id="clearInput">Clear input</button>
+                    <button id="example">Insert example</button>
+                </div>
+                <div style="margin-left:auto" class="small">Automatically removes BuildId and shortens paths to the arch + filename.</div>
+            </div>
+        </div>
+
+        <div class="col">
+            <label for="output">Output (copy from here)</label>
+            <textarea id="output" readonly placeholder="Converted output will appear here..."></textarea>
+            <div class="controls">
+                <button id="copy">Copy output</button>
+                <button id="clearOutput">Clear output</button>
+                <div style="margin-left:auto" class="small" id="copystatus"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Core cleaning function
+        function cleanCrashDump(text) {
+        // Split lines and process each.
+        const lines = text.split(/\r?\n/);
+        const archPattern = /(\/(?:arm64|arm|aarch64|x86_64|x86)\/[^)\s]+)/i;
+        const buildIdPattern = /\s*\(BuildId:[^)]+\)\s*$/g;
+
+        return lines.map(line => {
+        // 1) Remove trailing "(BuildId: ...)" occurrences
+        line = line.replace(buildIdPattern, '');
+
+        // 2) Find an architecture-based path inside the line (like /arm64/libfoo.so or /arm/libfoo.so)
+        // If found, replace the long absolute path (the first slash..until space or '(') with that arch-based substring.
+        const archMatch = line.match(archPattern);
+        if (archMatch) {
+        // Replace the first full absolute path (starting with slash up to space or '(') with the short archMatch[0].
+        // This aims to turn: /data/app/.../lib/arm64/libppsspp_jni.so  =>  /arm64/libppsspp_jni.so
+        line = line.replace(/\/[^()\s]+/, archMatch[0]);
+        }
+
+        return line;
+        }).join("\n");
+        }
+
+        // UI wiring
+        const inputEl = document.getElementById('input');
+        const outputEl = document.getElementById('output');
+        const convertBtn = document.getElementById('convert');
+        const copyBtn = document.getElementById('copy');
+        const clearInputBtn = document.getElementById('clearInput');
+        const clearOutputBtn = document.getElementById('clearOutput');
+        const exampleBtn = document.getElementById('example');
+        const copyStatus = document.getElementById('copystatus');
+
+        convertBtn.addEventListener('click', () => {
+        const inText = inputEl.value;
+        outputEl.value = cleanCrashDump(inText);
+        copyStatus.textContent = '';
+        });
+
+        copyBtn.addEventListener('click', async () => {
+        try {
+        await navigator.clipboard.writeText(outputEl.value);
+        copyStatus.textContent = 'Copied ✓';
+        setTimeout(() => { copyStatus.textContent = ''; }, 1500);
+        } catch (e) {
+        copyStatus.textContent = 'Copy failed';
+        console.error(e);
+        }
+        });
+
+        clearInputBtn.addEventListener('click', () => { inputEl.value = ''; });
+        clearOutputBtn.addEventListener('click', () => { outputEl.value = ''; copyStatus.textContent = ''; });
+
+        exampleBtn.addEventListener('click', () => {
+        inputEl.value = `backtrace:
+        #00  pc 0x0000000001310974  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (ff_seek_frame_binary+360) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #01  pc 0x0000000001311700  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (av_seek_frame+572) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #02  pc 0x0000000000ab4e9c  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (MediaEngine::openContext(bool)+760) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #03  pc 0x0000000000ab5be4  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (MediaEngine::addStreamData(unsigned char const*, int)+388) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #04  pc 0x0000000000a1b048  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (PostPutAction::run(MipsCall&)+1072) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #05  pc 0x000000000096b7cc  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (HLEReturnFromMipsCall()+652) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #06  pc 0x000000000096bfd8  /data/app/~~Hyfi4AvhSN3X30k-enAkTA==/org.ppsspp.ppsspp-ICO6UNv4-Hyh2OmM_FmvZA==/lib/arm64/libppsspp_jni.so (CallSyscallWithoutFlags(HLEFunction const*)) (BuildId: bf1ef0a0943c53c1f57b19b0e3c71c5d7135877e)
+        #07  pc 0x00000000000c2068`;
+        });
+
+        // Optional: convert on paste/drop for convenience
+        inputEl.addEventListener('paste', (e) => {
+        // small convenience: automatically convert after paste
+        setTimeout(() => {
+        outputEl.value = cleanCrashDump(inputEl.value);
+        }, 50);
+        });
+
+    </script>
+</body>
+</html>
