@@ -11,6 +11,10 @@
 #include <switch.h>
 #endif // HAVE_LIBNX
 
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+#include <mach/mach_time.h>
+#endif
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #endif // __EMSCRIPTEN__
@@ -87,7 +91,6 @@ double from_time_raw_relative(uint64_t raw_time) {
 double time_now_unix_utc() {
 	const int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
 	const double TICKS_PER_SECOND = 10000000; //a tick is 100ns
-
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
 	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
@@ -118,7 +121,71 @@ int64_t Instant::ElapsedNanos() const {
 	return (int64_t)(ElapsedSeconds() * 1000000000.0);
 }
 
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#elif PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+
+static double g_machTimeConversion = 0.0;
+static double g_machTimeConversionNanos = 0.0;
+static int64_t g_startTime = 0;
+
+void TimeInit() {
+	mach_timebase_info_data_t info;
+	mach_timebase_info(&info);
+	g_startTime = mach_absolute_time();
+	// nanoseconds per tick
+	g_machTimeConversionNanos = (double)info.numer / (double)info.denom;
+	g_machTimeConversion = (double)info.numer / (double)info.denom / 1e9;
+}
+
+double time_now_d() {
+	return (double)(mach_absolute_time() - g_startTime) * g_machTimeConversion;
+}
+
+uint64_t time_now_raw() {
+	return mach_absolute_time();
+}
+
+double from_time_raw(uint64_t raw_time) {
+	return (double)(raw_time - g_startTime) * g_machTimeConversion;
+}
+
+double from_time_raw_relative(uint64_t raw_time) {
+	return (double)raw_time * g_machTimeConversion;
+}
+
+double from_mach_time_interval(double interval) {
+	return interval - g_startTime * g_machTimeConversion;
+}
+
+double time_now_unix_utc() {
+	struct timespec tp;
+	clock_gettime(CLOCK_REALTIME, &tp);
+	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+}
+
+void yield() {
+	#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	_mm_pause();
+	#elif PPSSPP_ARCH(ARM64)
+	// Took this out for now. See issue #17877
+	// __builtin_arm_isb(15);
+	#endif
+}
+
+Instant::Instant() {
+	nativeStart_ = mach_absolute_time();
+}
+
+int64_t Instant::ElapsedNanos() const {
+	uint64_t now = mach_absolute_time();
+	return (int64_t)((double)(now - nativeStart_) * g_machTimeConversionNanos);
+}
+
+double Instant::ElapsedSeconds() const {
+	uint64_t now = mach_absolute_time();
+	return (double)(now - nativeStart_) * g_machTimeConversion;
+}
+
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
 
 void TimeInit() {
 	// Nothing to do.
@@ -313,8 +380,9 @@ void sleep_precise(double seconds, const char *reason) {
 		{
 			double remainingSeconds = (targetQpc - qpc.QuadPart) / (double)QpcPerSecond;
 			INT64 sleepTicks = (INT64)((remainingSeconds - TOLERANCE) * 10'000'000);
-			if (sleepTicks <= 0)
+			if (sleepTicks <= 0) {
 				break;
+			}
 			LARGE_INTEGER due;
 			due.QuadPart = -(sleepTicks > maxTicks ? maxTicks : sleepTicks);
 			// Note: SetWaitableTimerEx is not available on Vista.
@@ -329,12 +397,12 @@ void sleep_precise(double seconds, const char *reason) {
 		const double TOLERANCE = 0.000'02;
 		double sleepMs = (seconds - TOLERANCE) * 1000 - SchedulerPeriodMs; // Sleep for 1 scheduler period less than requested.
 		int sleepSlices = (int)(sleepMs / SchedulerPeriodMs);
-		if (sleepSlices > 0)
+		if (sleepSlices > 0) {
 			Sleep((DWORD)sleepSlices * SchedulerPeriodMs);
+		}
 		QueryPerformanceCounter(&qpc);
 	}
-	while (qpc.QuadPart < targetQpc) // Spin for any remaining time.
-	{
+	while (qpc.QuadPart < targetQpc) { // Spin for any remaining time.
 		YieldProcessor();
 		QueryPerformanceCounter(&qpc);
 	}

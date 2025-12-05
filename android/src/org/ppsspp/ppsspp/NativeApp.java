@@ -73,6 +73,9 @@ public class NativeApp {
 	public static native void setSatInfoAndroid(short index, short id, short elevation, short azimuth, short snr, short good);
 	public static native void pushCameraImageAndroid(byte[] image);
 
+	// From the choreographer.
+	public static native void vsync(long frameTimeNanos, long vsyncId, long expectedPresentationTimeNanos);
+
 	// Wrappers
 	public static void reportException(Exception e, String data) {
 		StringBuilder str = new StringBuilder(e.toString() + "\n" + e.getMessage() + "\n");
