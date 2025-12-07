@@ -697,7 +697,6 @@ void GPUCommon::ReapplyGfxState() {
 	// 0x42 to 0xEA
 	for (int i = GE_CMD_VIEWPORTXSCALE; i < GE_CMD_TRANSFERSTART; i++) {
 		switch (i) {
-		case GE_CMD_LOADCLUT:
 		case GE_CMD_TEXSYNC:
 		case GE_CMD_TEXFLUSH:
 			break;
