@@ -95,7 +95,7 @@ public:
 	const FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
 	void MeasureText(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
-	void MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align = 0) const;
+	void MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float maxWidth, float *x, float *y, int align = 0) const;
 	void DrawText(std::string_view str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
@@ -103,7 +103,7 @@ public:
 	// Will squeeze the text into the bounds if needed.
 	void DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 
-	float CalculateTextScale(std::string_view str, float availWidth, float availHeight) const;
+	float CalculateTextScale(std::string_view str, float availWidth) const;
 
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);

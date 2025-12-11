@@ -327,7 +327,7 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 				break;
 			}
 			// Decode the Unicode code point from the UTF-8 sequence
-			uint32_t code_point = ((input[i] & 0x07) << 18) |
+			const uint32_t code_point = ((input[i] & 0x07) << 18) |
 				((input[i + 1] & 0x3F) << 12) |
 				((input[i + 2] & 0x3F) << 6) |
 				(input[i + 3] & 0x3F);

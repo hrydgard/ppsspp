@@ -137,12 +137,24 @@ public class InputDeviceState {
 	public boolean onKeyDown(KeyEvent event) {
 		int keyCode = event.getKeyCode();
 		boolean repeat = event.getRepeatCount() > 0;
+
+		if (isInvalidKeyCode(keyCode) && isEventSentByNintendoSwitchLeftJoyCon(event)) {
+			keyCode = remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(event.getScanCode());
+			// need to pass false for the repeat flag, otherwise pressing two adjacent dpad buttons simultaneously to move diagonally does not work.
+			return NativeApp.keyDown(deviceId, keyCode, false); 
+		}
+
 		return NativeApp.keyDown(deviceId, keyCode, repeat);
 	}
 
 	// This is called from dispatchKeyEvent.
 	public boolean onKeyUp(KeyEvent event) {
 		int keyCode = event.getKeyCode();
+
+		if (isInvalidKeyCode(keyCode) && isEventSentByNintendoSwitchLeftJoyCon(event)) {
+			keyCode = remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(event.getScanCode());
+		}
+
 		return NativeApp.keyUp(deviceId, keyCode);
 	}
 
@@ -165,5 +177,28 @@ public class InputDeviceState {
 		}
 		NativeApp.joystickAxis(deviceId, mAxisIds, mValues, count);
 		return true;
+	}
+
+	private boolean isInvalidKeyCode(int keyCode) {
+		return keyCode == 0;
+	}
+
+	private boolean isEventSentByNintendoSwitchLeftJoyCon(KeyEvent event) {
+		return event.getDevice().getName().contains("Nintendo Switch Left Joy-Con");
+	}
+
+	private int remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(int scanCode) {
+		switch (scanCode) {
+			case 544:
+				return KeyEvent.KEYCODE_DPAD_UP;
+			case 545:
+				return KeyEvent.KEYCODE_DPAD_DOWN;
+			case 546:
+				return KeyEvent.KEYCODE_DPAD_LEFT;
+			case 547:
+				return KeyEvent.KEYCODE_DPAD_RIGHT;
+			default:
+				return 0;
+		}
 	}
 }

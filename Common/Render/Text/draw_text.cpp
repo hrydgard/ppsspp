@@ -148,15 +148,15 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawer::MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align) {
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 
 	float plainW, plainH;
 	MeasureString(str, &plainW, &plainH);
 
-	if (wrap && plainW > bounds.w) {
+	if (wrap && plainW > maxWidth) {
 		std::string toMeasure = std::string(str);
-		WrapString(toMeasure, toMeasure, bounds.w, wrap);
+		WrapString(toMeasure, toMeasure, maxWidth, wrap);
 		MeasureString(toMeasure, w, h);
 	} else {
 		*w = plainW;
