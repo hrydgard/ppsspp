@@ -37,6 +37,7 @@ import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
 import android.database.Cursor;
+import android.view.Choreographer;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -81,6 +82,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// Lifecycle tracker, to detect erroneous states.
 	private final LifeCycle lifeCycle = new LifeCycle();
+
+	private final Choreographer choreographer = Choreographer.getInstance();
 
 	// Graphics and audio interfaces for Vulkan (javaGL = false)
 	private NativeSurfaceView mSurfaceView;
@@ -615,6 +618,40 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+			vsyncCallback = new Choreographer.VsyncCallback() {
+				@Override
+				public void onVsync(Choreographer.FrameData frameData) {
+					// API 33+ path
+					long frameTimeNanos = frameData.getFrameTimeNanos();
+					Choreographer.FrameTimeline timeline = frameData.getPreferredFrameTimeline();
+					long vsyncId = timeline.getVsyncId();
+					long expectedPresentationTimeNanos = timeline.getExpectedPresentationTimeNanos();
+
+					// Call your native framework:
+					NativeApp.vsync(frameTimeNanos, vsyncId, expectedPresentationTimeNanos);
+
+					// Re-post for next vsync
+					choreographer.postVsyncCallback(this);
+				}
+			};
+		} else {
+			frameCallback = new Choreographer.FrameCallback() {
+				@Override
+				public void doFrame(long frameTimeNanos) {
+					// This is the fallback path (pre-API 33)
+					// Convert to e.g. milliseconds if needed:
+					long frameTimeMs = frameTimeNanos / 1_000_000L;
+
+					// Call your native framework, e.g. nativeOnVsync(frameTimeNanos, -1, -1);
+					NativeApp.vsync(frameTimeNanos, /*vsyncId=*/-1, /*expectedPresentationTimeNanos=*/-1);
+
+					// Re-post for next frame
+					choreographer.postFrameCallback(this);
+				}
+			};
+		}
+
 		if (m_hasNoNativeBinary) {
 			new Thread() {
 				@Override
@@ -961,6 +998,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onPause();
 		lifeCycle.onPause();
 
+		// Remove callbacks so we stop receiving events
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+			choreographer.removeVsyncCallback(vsyncCallback);
+		} else {
+			choreographer.removeFrameCallback(frameCallback);
+		}
+
 		if (!javaGL) {
 			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
@@ -1005,6 +1049,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			startRenderLoopThread();
 		} else if (mGLSurfaceView != null) {
 			mGLSurfaceView.onResume();
+		}
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+			choreographer.postVsyncCallback(vsyncCallback);
+		} else {
+			choreographer.postFrameCallback(frameCallback);
 		}
 		Log.i(TAG, "onResume end");
 	}
@@ -1861,4 +1911,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return "bad debug string: " + str;
 		}
 	}
+
+	// Callback objects (we’ll reuse the same instance so we can remove them cleanly)
+	private Choreographer.FrameCallback frameCallback;
+	private Choreographer.VsyncCallback vsyncCallback;
 }
