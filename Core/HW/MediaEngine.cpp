@@ -467,12 +467,62 @@ int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 #ifdef USE_FFMPEG
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
 			m_mpegheaderSize = m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
+			// Initialize FFmpeg context after stream offset calculation
 			int streamOffset = (int)(*(s32_be *)(m_mpegheader + 8));
-			if (streamOffset <= m_mpegheaderSize) {
-				m_mpegheaderSize = streamOffset;
-				m_pdata->pop_front(0, m_mpegheaderSize);
-				openContext();
+			INFO_LOG(Log::ME, "Stream offset calculated: %d", streamOffset);
+			INFO_LOG(Log::ME, "m_mpegheaderSize: %d", m_mpegheaderSize);
+			
+			// Check if we already have enough data to reach stream offset
+			// If m_mpegheaderSize >= streamOffset, we're already positioned correctly
+			// If m_mpegheaderSize < streamOffset, we need to read additional data
+			if (m_mpegheaderSize >= streamOffset) {
+				// We already have enough data to reach the stream offset position
+				INFO_LOG(Log::ME, "Already have sufficient data to reach stream offset (m_mpegheaderSize: %d >= streamOffset: %d)", m_mpegheaderSize, streamOffset);
+				
+				// Calculate how many bytes to skip to position at stream offset
+				int bytesToSkip = streamOffset;
+				if (bytesToSkip > 0 && bytesToSkip < m_mpegheaderSize) {
+					INFO_LOG(Log::ME, "Skipping %d bytes to position at stream offset", bytesToSkip);
+					m_pdata->pop_front(0, bytesToSkip);
+					m_mpegheaderSize -= bytesToSkip;
+					INFO_LOG(Log::ME, "Remaining header data: %d bytes", m_mpegheaderSize);
+					
+					// Verify we have MPEG-TS sync marker at current position
+					u8 syncCheck[4] = {0};
+					size_t syncCheckSize = m_pdata->get_front(syncCheck, sizeof(syncCheck));
+					if (syncCheckSize >= 4 && syncCheck[0] == 0x00 && syncCheck[1] == 0x00 && 
+					    syncCheck[2] == 0x01 && syncCheck[3] == 0xba) {
+						INFO_LOG(Log::ME, "MPEG-TS sync marker confirmed at stream position");
+					} else {
+						INFO_LOG(Log::ME, "Warning: MPEG-TS sync marker not found at expected position");
+					}
+				}
+			} else {
+				// Need to read additional data to reach stream offset
+				int additionalHeaderSize = streamOffset - m_mpegheaderSize;
+				INFO_LOG(Log::ME, "Reading additional header data to reach stream offset: %d bytes", additionalHeaderSize);
+				u8* additionalHeader = new u8[additionalHeaderSize];
+				size_t bytesRead = m_pdata->get_front(additionalHeader, additionalHeaderSize);
+				if (bytesRead == additionalHeaderSize) {
+					m_pdata->pop_front(0, additionalHeaderSize);
+					INFO_LOG(Log::ME, "Successfully reached stream offset position");
+				} else {
+					ERROR_LOG(Log::ME, "Failed to read additional header data");
+					delete[] additionalHeader;
+					return 0;
+				}
+				delete[] additionalHeader;
+				m_mpegheaderSize = streamOffset;  // Update size after reading
 			}
+			
+			// Preserve video data for FFmpeg instead of consuming it
+			INFO_LOG(Log::ME, "Initializing FFmpeg context for video with MPEG-TS data preserved");
+			INFO_LOG(Log::ME, "Video data available for FFmpeg: %d bytes", m_mpegheaderSize);
+			
+			// Do NOT consume the video data - let FFmpeg read it directly		
+			
+			openContext();
+			INFO_LOG(Log::ME, "FFmpeg context initialization completed");
 		}
 #endif // USE_FFMPEG
 
