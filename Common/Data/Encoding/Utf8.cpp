@@ -312,7 +312,7 @@ size_t encode_utf8_modified(uint32_t code_point, unsigned char* output) {
 // A function to convert regular UTF-8 to Java Modified UTF-8. Only used on Android.
 // Written by ChatGPT and corrected and modified.
 void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) {
-	output->resize(input.length() * 6); // worst case: every character is encoded as 6 bytes. shouldn't happen, though.
+	output->resize(input.length() * 6); // worst case: every input character is encoded as 6 bytes. Can't really plausibly happen, though.
 	size_t out_idx = 0;
 	for (size_t i = 0; i < input.length(); ) {
 		unsigned char c = input[i];
@@ -326,11 +326,18 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 				// Bad.
 				break;
 			}
+			uint8_t b0 = (uint8_t)input[i];
+			uint8_t b1 = (uint8_t)input[i + 1];
+			uint8_t b2 = (uint8_t)input[i + 2];
+			uint8_t b3 = (uint8_t)input[i + 3];
+
 			// Decode the Unicode code point from the UTF-8 sequence
-			const uint32_t code_point = ((input[i] & 0x07) << 18) |
-				((input[i + 1] & 0x3F) << 12) |
-				((input[i + 2] & 0x3F) << 6) |
-				(input[i + 3] & 0x3F);
+			const uint32_t code_point = ((b0 & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
+			if (code_point < 0x10000 || code_point > 0x10FFFF) {
+				// invalid UTF-8
+				i += 4;
+				continue;
+			}
 
 			// Convert to surrogate pair
 			uint16_t high_surrogate = ((code_point - 0x10000) / 0x400) + 0xD800;
