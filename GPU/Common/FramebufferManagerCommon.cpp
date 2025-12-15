@@ -650,7 +650,7 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 			// Sanity check the depth buffer pointer.
 			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
 				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
-				DrawPixels(nullptr, currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
+				DrawPixels(currentRenderVfb_, 0, 0, (const u8 *)src, GE_FORMAT_DEPTH16, currentRenderVfb_->z_stride, currentRenderVfb_->width, currentRenderVfb_->height, RASTER_DEPTH, "Depth Upload");
 			}
 		}
 	}
@@ -1175,7 +1175,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 					// TODO: This doesn't seem quite right anymore.
 					fmt = displayFormat_;
 				}
-				DrawPixels(nullptr, vfb, 0, 0, Memory::GetPointerUnchecked(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
+				DrawPixels(vfb, 0, 0, Memory::GetPointerUnchecked(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
 				SetColorUpdated(vfb, gstate_c.skipDrawReason);
 			} else {
 				INFO_LOG(Log::FrameBuf, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
@@ -1191,38 +1191,40 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
 
-void FramebufferManagerCommon::DrawPixels(const DisplayLayoutConfig *config, VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag) {
+void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
 	DrawTextureFlags flags;
-	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		if (channel == RASTER_DEPTH || PSP_CoreParameter().compat.flags().NearestFilteringOnFramebufferCreate) {
-			flags = DRAWTEX_NEAREST;
-		} else {
-			flags = DRAWTEX_LINEAR;
+	if (useBufferedRendering_ && vfb) {
+		_dbg_assert_(vfb->fbo);
+		if (vfb->fbo) {
+			if (channel == RASTER_DEPTH || PSP_CoreParameter().compat.flags().NearestFilteringOnFramebufferCreate) {
+				flags = DRAWTEX_NEAREST;
+			} else {
+				flags = DRAWTEX_LINEAR;
+			}
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, {Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP}, tag);
+			SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
+			draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 		}
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
-		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
-		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
-		_dbg_assert_(config);
-		if (!config) {
-			// TODO: This shouldn't happen, but apparently can.
-			return;
-		}
+		// The hacky way to get the display layout config (normally we pass it down, but it would require a lot of plumbing here).
+		// This is only for non-buffered rendering.
+		auto config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		// Here config is valid.
 		_dbg_assert_(channel == RASTER_COLOR);
 		// We are drawing directly to the back buffer so need to flip.
 		// Should more of this be handled by the presentation engine?
 		if (needBackBufferYSwap_)
 			std::swap(v0, v1);
-		flags = config->iDisplayFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+		flags = config.iDisplayFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 		flags = flags | DRAWTEX_TO_BACKBUFFER;
-		FRect frame = GetScreenFrame(config ? config->bIgnoreScreenInsets : false, pixelWidth_, pixelHeight_);
+		FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, pixelWidth_, pixelHeight_);
 		FRect rc;
-		CalculateDisplayOutputRect(*config, &rc, 480.0f, 272.0f, frame, ROTATION_LOCKED_HORIZONTAL);
+		CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(rc.x, rc.y, rc.w, rc.h);
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
@@ -2187,7 +2189,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		const u8 *srcBase = Memory::GetPointerUnchecked(src);
 		GEBufferFormat srcFormat = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : dstBuffer->fb_format;
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
-		DrawPixels(nullptr, dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
+		DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
@@ -2719,7 +2721,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			WARN_LOG_ONCE(btud, Log::G3D, "Block transfer upload %08x -> %08x (%dx%d %d,%d bpp=%d %s)", srcBasePtr, dstBasePtr, width, height, dstX, dstY, bpp, RasterChannelToString(dstRect.channel));
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-			DrawPixels(nullptr, dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride * bpp / 2, (int)(dstRect.w_bytes / 2), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
+			DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride * bpp / 2, (int)(dstRect.w_bytes / 2), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
 			RebindFramebuffer("RebindFramebuffer - UploadDepth");
 			return true;
 		}
@@ -2814,7 +2816,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				// Resizing may change the viewport/etc.
 				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 			}
-			DrawPixels(nullptr, dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
+			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			RebindFramebuffer("RebindFramebuffer - NotifyBlockTransferAfter");
 		}
@@ -3529,6 +3531,14 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	bool linearFilter,
 	int scaleFactor,
 	Draw2DPipeline *pipeline, const char *tag) {
+
+	_dbg_assert_(src);
+	_dbg_assert_(dest);
+	_dbg_assert_(pipeline);
+
+	if (!src || !dest) {
+		// Nothing we can do, other than trying to catch it in debug with the asserts above.
+	}
 
 	if (pipeline->info.writeChannel == RASTER_DEPTH) {
 		_dbg_assert_(draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported);
