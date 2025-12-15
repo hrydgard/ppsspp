@@ -172,6 +172,7 @@ static float g_safeInsetBottom = 0.0;
 
 static jmethodID postCommand;
 static jmethodID getDebugString;
+static jmethodID getNativeCrashHistory;
 
 static jobject ppssppActivity;
 
@@ -544,6 +545,34 @@ std::string Android_GetInputDeviceDebugString() {
 	return retVal;
 }
 
+std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
+	std::vector<std::string> crashHistory;
+	if (!ppssppActivity || !getNativeCrashHistory) {
+		return crashHistory;
+	}
+	auto env = getEnv();
+	jobject jlist = env->CallObjectMethod(ppssppActivity, getNativeCrashHistory, maxEntries);
+	if (!jlist) {
+		return crashHistory;
+	}
+	jclass arrayListClass = env->GetObjectClass(jlist);
+	jmethodID sizeMethod = env->GetMethodID(arrayListClass, "size", "()I");
+	jmethodID getMethod = env->GetMethodID(arrayListClass, "get", "(I)Ljava/lang/Object;");
+	jint listSize = env->CallIntMethod(jlist, sizeMethod);
+	for (jint i = 0; i < listSize; i++) {
+		jstring jstr = (jstring)env->CallObjectMethod(jlist, getMethod, i);
+		if (jstr) {
+			const char *charArray = env->GetStringUTFChars(jstr, nullptr);
+			crashHistory.emplace_back(charArray);
+			env->ReleaseStringUTFChars(jstr, charArray);
+			env->DeleteLocalRef(jstr);
+		}
+	}
+	env->DeleteLocalRef(arrayListClass);
+	env->DeleteLocalRef(jlist);
+	return crashHistory;
+}
+
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	if (!jstr)
 		return "";
@@ -557,8 +586,11 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *
 	ppssppActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
+	getNativeCrashHistory = env->GetMethodID(env->GetObjectClass(obj), "getNativeCrashHistory", "(I)Ljava/util/ArrayList;");
+
 	_dbg_assert_(postCommand);
 	_dbg_assert_(getDebugString);
+	// It's OK if getNativeCrashHistory is missing.
 
 	Android_RegisterStorageCallbacks(env, obj);
 	Android_StorageSetActivity(ppssppActivity);

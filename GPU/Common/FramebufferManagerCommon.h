@@ -363,7 +363,7 @@ public:
 	bool DrawFramebufferToOutput(const DisplayLayoutConfig &config, const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
 
 	// TODO: Should split into one that uses config, and one that doesn't.
-	void DrawPixels(const DisplayLayoutConfig *config, VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag);
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 

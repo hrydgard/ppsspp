@@ -1,14 +1,18 @@
 package org.ppsspp.ppsspp;
 
+import static java.nio.file.Files.readAllBytes;
+
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Keep;
 
+import org.ppsspp.proto.TombstoneProtos;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.ApplicationExitInfo;
 import android.app.UiModeManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -31,7 +35,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
-import android.os.ParcelFileDescriptor;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.text.InputType;
@@ -63,10 +66,15 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.documentfile.provider.DocumentFile;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.io.File;
+import java.io.InputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -1860,5 +1868,125 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else {
 			return "bad debug string: " + str;
 		}
+	}
+	private static String exitReasonToString(int reason) {
+		switch (reason) {
+			case android.app.ApplicationExitInfo.REASON_ANR:
+				return "ANR (Application Not Responding)";
+			case android.app.ApplicationExitInfo.REASON_CRASH:
+				return "Crash (Java/Kotlin Exception)";
+			case android.app.ApplicationExitInfo.REASON_CRASH_NATIVE:
+				return "Native Crash";
+			case android.app.ApplicationExitInfo.REASON_DEPENDENCY_DIED:
+				return "Dependency Died";
+			case android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE:
+				return "Excessive Resource Usage";
+			case android.app.ApplicationExitInfo.REASON_EXIT_SELF:
+				return "Exited Self (Graceful Exit)";
+			case android.app.ApplicationExitInfo.REASON_INITIALIZATION_FAILURE:
+				return "Initialization Failure";
+			case android.app.ApplicationExitInfo.REASON_LOW_MEMORY:
+				return "Low Memory Kill";
+			case android.app.ApplicationExitInfo.REASON_OTHER:
+				return "Other";
+			case android.app.ApplicationExitInfo.REASON_PERMISSION_CHANGE:
+				return "Permission Change";
+			case android.app.ApplicationExitInfo.REASON_SIGNALED:
+				return "Signaled (OS Kill)";
+			case android.app.ApplicationExitInfo.REASON_UNKNOWN:
+				return "Unknown";
+			case android.app.ApplicationExitInfo.REASON_USER_REQUESTED:
+				return "User Requested Stop";
+			case android.app.ApplicationExitInfo.REASON_USER_STOPPED:
+				return "User Force Stopped";
+
+			// Android 14 (API 34) added these
+			case android.app.ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE:
+				return "Package State Change"; // API 34+
+			case android.app.ApplicationExitInfo.REASON_PACKAGE_UPDATED:
+				return "Package Updated"; // API 34+
+			case android.app.ApplicationExitInfo.REASON_FREEZER:
+				return "App Freezer"; // API 34+
+			default:
+				return "Unrecognized Reason (" + reason + ")";
+		}
+	}
+
+	static String getFilenameFromPath(String path) {
+		int lastSlashIndex = path.lastIndexOf('/');
+		if (lastSlashIndex != -1) {
+			return path.substring(lastSlashIndex + 1);
+		} else {
+			return path;
+		}
+	}
+
+	@RequiresApi(api = Build.VERSION_CODES.R)
+	public ArrayList<String> getNativeCrashHistory(int max) {
+		ActivityManager activityManager =
+			(ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+
+		Log.i(TAG, "Fetching " + max + " exit reasons...");
+		List<ApplicationExitInfo> exitReasons =
+			activityManager.getHistoricalProcessExitReasons(
+				/* packageName */ null,
+				/* pid */ 0,
+				/* maxNum */ max
+			);
+
+		SimpleDateFormat timestampFormatter = new SimpleDateFormat("MMM dd, yyyy 'at' HH:mm:ss", Locale.getDefault());
+		ArrayList<String> tombstones = new ArrayList<>();
+		for (ApplicationExitInfo aei : exitReasons) {
+			if (aei.getReason() == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+				try {
+					// Get the tombstone input stream
+					InputStream trace = aei.getTraceInputStream();
+					if (trace != null) {
+						try {
+							// Tombstone is a protobuf-generated class
+							TombstoneProtos.Tombstone tombstone = TombstoneProtos.Tombstone.parseFrom(trace);
+
+							Log.i(TAG, "Adding tombstone.");
+							StringBuilder desc = new StringBuilder(exitReasonToString(aei.getReason()) + "\n\n");
+							Date exitDate = new Date(aei.getTimestamp());
+							desc.append(timestampFormatter.format(exitDate)).append("\n");
+							if (!tombstone.getAbortMessage().isEmpty()) {
+								desc.append(tombstone.getAbortMessage()).append("\n");
+							} else {
+								for (TombstoneProtos.Cause x : tombstone.getCausesList()) {
+									desc.append(x.getHumanReadable()).append("\n");
+								}
+							}
+							int crashingTid = tombstone.getTid();
+							TombstoneProtos.Thread thread = tombstone.getThreadsMap().get(crashingTid);
+							if (thread != null) {
+								desc.append("Stack trace of crashing thread:\n");
+								for (int i = 0; i < thread.getCurrentBacktraceCount(); i++) {
+									TombstoneProtos.BacktraceFrame frame = thread.getCurrentBacktrace(i);
+									String functionName = frame.getFunctionName();
+									if (functionName != null && !functionName.isEmpty()) {
+										desc.append(String.format("%08x: %s : %s + %x\n", frame.getRelPc(), getFilenameFromPath(frame.getFileName()), functionName, frame.getFunctionOffset()));
+									}
+								}
+							}
+							// Format the tombstone to be displayable.
+							tombstones.add(desc.toString());
+							// use tombstone...
+						} catch (Exception e) {
+							Log.e(TAG, e.toString());
+						}
+					} else {
+						Log.e(TAG, "Trace input stream was null, ignoring. Reason: " + exitReasonToString(aei.getReason()));
+					}
+				} catch (Exception e) {
+					Log.e(TAG, e.toString());
+				}
+			} else {
+				String desc = exitReasonToString(aei.getReason()) + "\n\n";
+				// desc += aei.toString(); no interesting data
+				tombstones.add(desc);
+			}
+		}
+		return tombstones;
 	}
 }

@@ -59,7 +59,6 @@ private:
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	UI::ScrollView *rightScroll_ = nullptr;
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
 

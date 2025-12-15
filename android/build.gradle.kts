@@ -1,7 +1,10 @@
+import com.google.protobuf.gradle.*
+
 plugins {
 	id("com.android.application")
 	id("com.gladed.androidgitversion")
 	id("org.jetbrains.kotlin.android")
+	id("com.google.protobuf")
 }
 
 // Kotlin DSL syntax for configuring the extension
@@ -18,6 +21,23 @@ dependencies {
 	// Will replace with a different plugin soon.
 	implementation("androidx.appcompat:appcompat:1.6.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
+	implementation("com.google.protobuf:protobuf-javalite:3.25.3")
+}
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:3.25.3"
+	}
+
+	generateProtoTasks {
+		all().forEach { task ->
+			task.builtins {
+				register("java") {
+					option("lite")
+				}
+			}
+		}
+	}
 }
 
 android {
@@ -41,7 +61,7 @@ android {
 	}
 
 	compileSdk = 36
-	ndkVersion = "28.2.13676358"
+	ndkVersion = "29.0.14206865"
 
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_11

@@ -65,6 +65,7 @@ void I18NRepo::Clear() {
 I18NCategory::I18NCategory(const Section &section) {
 	std::map<std::string, std::string> sectionMap = section.ToMap();
 	SetMap(sectionMap);
+	name_ = section.name().c_str();
 }
 
 void I18NCategory::Clear() {
@@ -81,7 +82,7 @@ std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
 			// Too early. This is probably in desktop-ui translation.
 			return !def.empty() ? def : key;
 		}
-		INFO_LOG(Log::UI, "Missing translation %.*s (%.*s)", STR_VIEW(key), STR_VIEW(def));
+		INFO_LOG(Log::UI, "Missing translation [%s] %.*s (%.*s)", name_.c_str(), STR_VIEW(key), STR_VIEW(def));
 
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		std::string missedKey(key);
