@@ -74,13 +74,10 @@ public:
 		std::string s_value;
 		int i_value = 0;
 
-		u8* u_value = nullptr;
-		unsigned int u_size = 0;
+		std::vector<u8> u_value;
 
-		void SetData(const u8* data, int size);
-
-		~ValueData() {
-			delete[] u_value;
+		void SetData(const u8* data, int size) {
+			u_value = std::vector<u8>(data, data + size);
 		}
 	};
 
