@@ -547,7 +547,7 @@ std::string Android_GetInputDeviceDebugString() {
 
 std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
 	std::vector<std::string> crashHistory;
-	if (!ppssppActivity) {
+	if (!ppssppActivity || !getNativeCrashHistory) {
 		return crashHistory;
 	}
 	auto env = getEnv();
@@ -590,6 +590,7 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *
 
 	_dbg_assert_(postCommand);
 	_dbg_assert_(getDebugString);
+	// It's OK if getNativeCrashHistory is missing.
 
 	Android_RegisterStorageCallbacks(env, obj);
 	Android_StorageSetActivity(ppssppActivity);
