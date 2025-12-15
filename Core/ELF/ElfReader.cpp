@@ -538,8 +538,12 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 				ERROR_LOG(Log::Loader, "Segment %d size+offset invalid, reading outside the input", i);
 				continue;
 			}
+			if (p->p_filesz > p->p_memsz) {
+				ERROR_LOG(Log::Loader, "Segment %d filesz invalid - bigger than memsz", i);
+				continue;
+			}
 			const u32 srcSize = p->p_filesz;
-			const u32 dstSize = p->p_memsz;  // can be bigger than size-in-file (p_filesz), we'll zero the rest below.
+			const u32 dstSize = p->p_memsz;  // can be bigger than size-in-file (p_filesz), we'll zero the rest below. But cannot be smaller!
 			u8 *dst = Memory::GetPointerWriteRange(writeAddr, dstSize);
 			if (dst) {
 				if (srcSize < dstSize) {
