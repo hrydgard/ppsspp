@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "android/jni/app-android.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/System/OSD.h"
@@ -183,7 +184,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 
 #if PPSSPP_PLATFORM(ANDROID)
-	static const char *framerateModes[] = { "Default", "Request 60Hz", "Force 60Hz" };
+	static const char *framerateModes[] = { "Default", "Request 60 Hz", "Force 60Hz" };
 	PopupMultiChoice *framerateMode = list->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));
 	framerateMode->SetEnabledFunc([]() { return System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30; });
 	framerateMode->OnChoice.Add([](UI::EventParams &e) {
@@ -562,6 +563,29 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	}
 }
 
+void DeveloperToolsScreen::CreateCrashHistoryTab(UI::LinearLayout *list) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	std::vector<std::string> reports = Android_GetNativeCrashHistory(20);
+    list->Add(new ItemHeader(dev->T("Crash history")));
+	if (reports.empty()) {
+		list->Add(new TextView(di->T("None")));
+		return;
+	}
+	for (size_t i = 0; i < reports.size(); i++) {
+		std::string name = StringFromFormat("Crash %d", (int)i);
+		CollapsibleSection *section = list->Add(new CollapsibleSection(name));
+		const std::string report = reports[i];
+		if (report.size() > 150) {
+			section->Add(new Choice(di->T("Copy to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([report](UI::EventParams&) {
+				System_CopyStringToClipboard(report);
+			});
+		}
+		section->Add(new TextView(report, FLAG_WRAP_TEXT | FLAG_DYNAMIC_ASCII, true));
+	}
+}
+
 void DeveloperToolsScreen::CreateTabs() {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -600,6 +624,14 @@ void DeveloperToolsScreen::CreateTabs() {
 		CreateMIPSTracerTab(parent);
 	});
 #endif
+//#if PPSSPP_PLATFORM(ANDROID) 
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+		AddTab("Crash history", dev->T("Crash history"), [this](UI::LinearLayout *parent) {
+			CreateCrashHistoryTab(parent);
+		});
+	}
+//#endif
+
 	// Reconsider whenever recreating views.
 	hasTexturesIni_ = HasIni::MAYBE;
 }
