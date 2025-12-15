@@ -11,4 +11,7 @@
 
 /** The Metal-compatibile view. */
 @interface PPSSPPMetalView : UIView
+@property (nonatomic, strong) CADisplayLink *displayLink;
+- (void)startDisplayLink;
+- (void)stopDisplayLink;
 @end

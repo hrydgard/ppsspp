@@ -2000,6 +2000,7 @@ void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
+void NativeVSync(int64_t vsyncId, double frameTime, double expectedPresentationTime) {}
 
 void System_Toast(std::string_view str) {}
 

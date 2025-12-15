@@ -104,7 +104,6 @@ PPSSPPBaseViewController *sharedViewController;
 @property (nonatomic, strong) EAGLContext *glContext;
 @property (nonatomic, strong) GLKView *glView;
 @property (nonatomic, strong) CADisplayLink *displayLink;
-@property (nonatomic, assign) NSTimeInterval lastTimestamp;
 
 @property (nonatomic, strong) EAGLContext* context;
 
@@ -214,8 +213,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 	[self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
 
-	self.lastTimestamp = 0;
-
 	[[DisplayManager shared] setupDisplayListener];
 
 	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
@@ -275,29 +272,24 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond {
 	_preferredFramesPerSecond = preferredFramesPerSecond;
 	if (self.displayLink) {
-		if (@available(iOS 10.0, *)) {
-			self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
-		} else {
-			self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / preferredFramesPerSecond));
-		}
+		self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
 	}
 }
 
 - (void)displayLinkFired:(CADisplayLink *)dl {
-	// compute delta time
+	static uint64_t presentId = 0;
+	presentId++;
+
 	NSTimeInterval timestamp = dl.timestamp;
-	NSTimeInterval delta = 0;
-	if (self.lastTimestamp > 0) {
-		delta = timestamp - self.lastTimestamp;
-	} else {
-		delta = dl.duration; // fallback
-	}
-	self.lastTimestamp = timestamp;
+	NSTimeInterval targetTimestamp = dl.targetTimestamp;
+
+	// Probably don't need to call this, we handle it ourselves below.
+	NativeVSync(presentId, from_mach_time_interval(timestamp), from_mach_time_interval(targetTimestamp));
 
 	// Ensure context is current before drawing
 	[EAGLContext setCurrentContext:self.glContext];
 
-	// Trigger GLKView draw
+	// Trigger GLKView draw, which in turn calls glkView:drawInRect.
 	[self.glView display];
 }
 
