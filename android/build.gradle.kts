@@ -160,6 +160,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+				debugSymbolLevel = "FULL"
 			}
 		}
 		create("gold") {
@@ -179,6 +180,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+				debugSymbolLevel = "FULL"
 			}
 		}
 		create("legacy") {
@@ -199,6 +201,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+				debugSymbolLevel = "FULL"
 			}
 		}
 		create("vr") {
