@@ -1606,13 +1606,18 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 
 		memcpy(&offset0, fileptr + 8, 4);
 		int numfiles = (offset0 - 8) / 4;
+		if (numfiles <= 0 || numfiles > 16) {
+			*error_string = "Invalid PBP header - can't load";
+			return nullptr;
+		}
 		offsets[0] = offset0;
 		if (12 + 4 * numfiles > fileSize) {
 			*error_string = "ELF file truncated - can't load";
 			return nullptr;
 		}
-		for (int i = 1; i < numfiles; i++)
-			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
+		for (int i = 1; i < numfiles; i++) {
+			memcpy(&offsets[i], fileptr + 12 + 4 * i, 4);
+		}
 
 		if (offsets[6] > fileSize || offsets[5] > offsets[6]) {
 			// File is too small to fully contain the ELF! Must have been truncated.
@@ -1625,6 +1630,7 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 		size_t elfSize = offsets[6] - offsets[5];
 		if (offsets[5] & 3) {
 			// Our loader does NOT like to load from an unaligned address on ARM! Copy to a new block.
+			// TODO: Actually, this is not really a concern on modern ARM CPUs, but let's keep it for now.
 			temp = new u8[elfSize];
 
 			memcpy(temp, fileptr + offsets[5], elfSize);
