@@ -316,7 +316,7 @@ void ChoiceStrip::EnableChoice(int choice, bool enabled) {
 
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
-	if (topTabs_ && (input.flags & KEY_DOWN)) {
+	if (topTabs_ && (input.flags & KeyInputFlags::DOWN)) {
 		if (IsTabLeftKey(input)) {
 			if (selected_ > 0) {
 				SetSelection(selected_ - 1, true);

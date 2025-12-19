@@ -250,7 +250,7 @@ void ControlMapper::ReleaseAll() {
 				if (input.second.value != 0.0) {
 					KeyInput key;
 					key.deviceId = input.first.deviceId;
-					key.flags = KEY_UP;
+					key.flags = KeyInputFlags::UP;
 					key.keyCode = (InputKeyCode)input.first.keyCode;
 					keys.push_back(key);
 				}
@@ -538,7 +538,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 }
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
-	if (key.flags & KEY_IS_REPEAT) {
+	if (key.flags & KeyInputFlags::IS_REPEAT) {
 		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
 		return true;
 	}
@@ -552,14 +552,14 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		deviceTimestamps_[(int)key.deviceId] = now;
 	}
 
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		curInput_[mapping] = { 1.0f, now };
-	} else if (key.flags & KEY_UP) {
+	} else if (key.flags & KeyInputFlags::UP) {
 		curInput_[mapping] = { 0.0f, now};
 	}
 
 	// TODO: See if this can be simplified further somehow.
-	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
+	if ((key.flags & KeyInputFlags::DOWN) && key.keyCode == NKCODE_BACK) {
 		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
 		DEBUG_LOG(Log::System, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 		if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
@@ -666,25 +666,25 @@ void ControlMapper::Update(const DisplayLayoutConfig &config, double now) {
 	}
 }
 
-void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
+void ControlMapper::PSPKey(int deviceId, int pspKeyCode, KeyInputFlags flags) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (pspKeyCode >= VIRTKEY_FIRST) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
-		if (flags & KEY_DOWN) {
+		if (flags & KeyInputFlags::DOWN) {
 			virtKeys_[vk] = 1.0f;
 			onVKey((VirtKey)pspKeyCode, true);
 			onVKeyAnalog(deviceId, (VirtKey)pspKeyCode, 1.0f);
 		}
-		if (flags & KEY_UP) {
+		if (flags & KeyInputFlags::UP) {
 			virtKeys_[vk] = 0.0f;
 			onVKey((VirtKey)pspKeyCode, false);
 			onVKeyAnalog(deviceId, (VirtKey)pspKeyCode, 0.0f);
 		}
 	} else {
 		// INFO_LOG(Log::System, "pspKey %d %d", pspKeyCode, flags);
-		if (flags & KEY_DOWN)
+		if (flags & KeyInputFlags::DOWN)
 			updatePSPButtons_(pspKeyCode, 0);
-		if (flags & KEY_UP)
+		if (flags & KeyInputFlags::UP)
 			updatePSPButtons_(0, pspKeyCode);
 	}
 }

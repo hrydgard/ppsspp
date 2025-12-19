@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 
+#include "Common/Common.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Log.h"
 
@@ -128,64 +129,66 @@ public:
 	void FormatDebug(char *buffer, size_t bufSize) const;
 };
 
-enum {
-	TOUCH_MOVE = 1 << 0,
-	TOUCH_DOWN = 1 << 1,
-	TOUCH_UP = 1 << 2,
-	TOUCH_CANCEL = 1 << 3,  // Sent by scrollviews to their children when they detect a scroll
-	TOUCH_WHEEL = 1 << 4,  // Scrollwheel event. Usually only affects Y but can potentially affect X.
-	TOUCH_MOUSE = 1 << 5,  // Identifies that this touch event came from a mouse. Id is now set to the mouse button for DOWN/UP commands.
-	TOUCH_RELEASE_ALL = 1 << 6,  // Useful for app focus switches when events may be lost.
-	TOUCH_HOVER = 1 << 7,
+// Be careful about changing these values as some are set on the Android java side!
+enum class TouchInputFlags {
+	MOVE = 1 << 0,
+	DOWN = 1 << 1,
+	UP = 1 << 2,
+	CANCEL = 1 << 3,  // Sent by scrollviews to their children when they detect a scroll
+	WHEEL = 1 << 4,  // Scrollwheel event. Usually only affects Y but can potentially affect X.
+	MOUSE = 1 << 5,  // Identifies that this touch event came from a mouse. Id is now set to the mouse button for DOWN/UP commands.
+	RELEASE_ALL = 1 << 6,  // Useful for app focus switches when events may be lost.
+	HOVER = 1 << 7,
 
 	// These are the Android getToolType() codes, shifted by 10. Unused currently.
-	TOUCH_TOOL_MASK = 7 << 10,
-	TOUCH_TOOL_UNKNOWN = 0 << 10,
-	TOUCH_TOOL_FINGER = 1 << 10,
-	TOUCH_TOOL_STYLUS = 2 << 10,
-	TOUCH_TOOL_MOUSE = 3 << 10,
-	TOUCH_TOOL_ERASER = 4 << 10,
-
-	TOUCH_MAX_POINTERS = 10,
+	// TOOL_MASK = 7 << 10,
+	// TOOL_UNKNOWN = 0 << 10,
+	// TOOL_FINGER = 1 << 10,
+	// TOOL_STYLUS = 2 << 10,
+	// TOOL_MOUSE = 3 << 10,
+	// TOOL_ERASER = 4 << 10,
 };
+ENUM_CLASS_BITOPS(TouchInputFlags);
+
+constexpr int TOUCH_MAX_POINTERS = 10;
 
 // Used for asynchronous touch input.
 // DOWN is always on its own. 
 // MOVE and UP can be combined.
+// TODO: As this handles both mouse and touch, should probably rename to PointerInput or something.
 struct TouchInput {
 	float x;
 	float y;
 	int id; // Needs to be <= GestureDetector::MAX_PTRS (10.)
 	int buttons;  // bit mask
-	int flags;
+	TouchInputFlags flags;
 	double timestamp;
 };
 
-#undef KEY_DOWN
-#undef KEY_UP
-
-enum {
-	KEY_DOWN = 1 << 0,
-	KEY_UP = 1 << 1,
-	KEY_HASWHEELDELTA = 1 << 2,
-	KEY_IS_REPEAT = 1 << 3,
-	KEY_CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KEY_DOWN and KEY_UP are zero when this is set.
+enum class KeyInputFlags {
+	DOWN = 1 << 0,
+	UP = 1 << 1,
+	HAS_WHEEL_DELTA = 1 << 2,
+	IS_REPEAT = 1 << 3,
+	CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KeyInputFlags::DOWN and KeyInputFlags::UP are zero when this is set.
 };
+ENUM_CLASS_BITOPS(KeyInputFlags);
 
 struct KeyInput {
 	KeyInput() {}
-	KeyInput(InputDeviceID devId, InputKeyCode code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
-	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KEY_CHAR) {}
+	KeyInput(InputDeviceID devId, InputKeyCode code, KeyInputFlags fl) : deviceId(devId), keyCode(code), flags(fl) {}
+	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KeyInputFlags::CHAR) {}
 	InputDeviceID deviceId;
 	union {
 		InputKeyCode keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
-		int unicodeChar;  // for KEY_CHAR
+		int unicodeChar;  // for KeyInputFlags::CHAR
 	};
-	int flags;
+	KeyInputFlags flags;
 
 	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags.
+	// TODO: Move mousewheel events to TouchInput?
 	int Delta() const {
-		return flags >> 16;
+		return (s32)flags >> 16;
 	}
 };
 

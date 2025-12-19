@@ -134,7 +134,7 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 
 	if (!title.empty()) {
-		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(10, 0, 20, 0))));
+		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(8, 0, 20, 0))));
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 	}
@@ -153,7 +153,7 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 		} else {
 			settingsUrl = join("https://www.ppsspp.org/docs/settings/", settingsCategory);
 		}
-		Choice *helpButton = Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams()));
+		Choice *helpButton = Add(new Choice(ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams()));
 		helpButton->OnClick.Add([settingsUrl](UI::EventParams &) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, settingsUrl);
 		});

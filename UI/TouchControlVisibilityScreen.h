@@ -34,11 +34,11 @@ struct TouchButtonToggle {
 	std::function<void(UI::EventParams&)> handle;
 };
 
-class TouchControlVisibilityScreen : public UITwoPaneBaseDialogScreen {
+class TouchControlVisibilityScreen : public UISimpleBaseDialogScreen {
 public:
-	TouchControlVisibilityScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::ContentsCanScroll) {}
-	void CreateContentViews(UI::ViewGroup *parent) override;
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	TouchControlVisibilityScreen(const Path &gamePath) : UISimpleBaseDialogScreen(gamePath, SimpleDialogFlags::ContentsCanScroll | SimpleDialogFlags::CustomContextMenu) {}
+	void CreateDialogViews(UI::ViewGroup *parent) override;
+	void CreateContextMenu(UI::ViewGroup *parent) override;
 	void onFinish(DialogResult result) override;
 
 	const char *tag() const override { return "TouchControlVisibility"; }

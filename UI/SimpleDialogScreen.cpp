@@ -13,11 +13,25 @@ void UISimpleBaseDialogScreen::CreateViews() {
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	root_->Add(new TopBar(*screenManager()->getUIContext(), portrait ? TopBarFlags::Portrait : TopBarFlags::Default, GetTitle()));
+
+	TopBarFlags topBarFlags = portrait ? TopBarFlags::Portrait : TopBarFlags::Default;
+	if (flags_ & SimpleDialogFlags::CustomContextMenu) {
+		topBarFlags |= TopBarFlags::ContextMenuButton;
+	}
+
+	TopBar *topBar = root_->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
+	if (flags_ & SimpleDialogFlags::CustomContextMenu) {
+		View *menuButton = topBar->GetContextMenuButton();
+		topBar->OnContextMenuClick.Add([this, menuButton](UI::EventParams &e) {
+			this->screenManager()->push(new PopupCallbackScreen([this](UI::ViewGroup *parent) {
+				CreateContextMenu(parent);
+			}, menuButton));
+		});
+	}
 
 	if (canScroll) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
+		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, 8, 0)));
 		contents->SetSpacing(0);
 		CreateDialogViews(contents);
 		scroll->Add(contents);
@@ -120,12 +134,12 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		root->Add(columns);
 
 		// root_->Add(new TopBar(*screenManager()->getUIContext(), portrait, GetTitle(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
-		ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(SettingsWidth(), FILL_PARENT, 0.0f, Margins(8)));
-		LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT));
+		ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(SettingsWidth(), FILL_PARENT, 0.0f, Margins(0, 8, 0, 0)));
+		LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, Margins(0, 8, 0, 0)));
 		settingsPane->SetSpacing(0.0f);
 		CreateSettingsViews(settingsPane);
-		settingsPane->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
-		settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		// settingsPane->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
+		// settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		settingsScroll->Add(settingsPane);
 
 		if (flags_ & TwoPaneFlags::SettingsToTheRight) {

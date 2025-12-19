@@ -24,6 +24,7 @@
 #include "UI/SystemInfoScreen.h"
 #include "UI/IconCache.h"
 #include "UI/BaseScreens.h"
+#include "UI/MiscViews.h"
 #include "UI/OnScreenDisplay.h"
 #include "android/jni/app-android.h"
 
@@ -109,6 +110,9 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+
+	// bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	// deviceSpecs->Add(new TopBar(*screenManager()->getUIContext(), portrait ? TopBarFlags::Portrait : TopBarFlags::Default, si->T("Device Info")));
 
 	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
 
@@ -411,12 +415,12 @@ void SystemInfoScreen::CreateDriverBugsTab(UI::LinearLayout *driverBugs) {
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
 		if (draw->GetBugs().Has(i)) {
 			anyDriverBugs = true;
-			driverBugs->Add(new TextView(draw->GetBugs().GetBugName(i), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			driverBugs->Add(new InfoItem(draw->GetBugs().GetBugName(i), "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		}
 	}
 
 	if (!anyDriverBugs) {
-		driverBugs->Add(new TextView(si->T("No GPU driver bugs detected"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		driverBugs->Add(new InfoItem(si->T("No GPU driver bugs detected"), "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	}
 }
 
@@ -463,38 +467,38 @@ void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
 	CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
 	std::vector<std::string> features = draw->GetFeatureList();
 	for (const auto &feature : features) {
-		vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		vulkanFeatures->Add(new TextView(feature, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
 	for (const auto &mode : draw->GetPresentModeList(di->T("Current"))) {
-		presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		presentModes->Add(new TextView(mode, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
 	for (const auto &format : draw->GetSurfaceFormatList()) {
-		colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		colorFormats->Add(new TextView(format, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
 	std::vector<std::string> extensions = draw->GetExtensionList(true, true);
 	std::sort(extensions.begin(), extensions.end());
 	for (auto &extension : extensions) {
-		enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		enabledExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 	// Also get instance extensions
 	enabledExtensions->Add(new ItemHeader(si->T("Instance")));
 	extensions = draw->GetExtensionList(false, true);
 	std::sort(extensions.begin(), extensions.end());
 	for (auto &extension : extensions) {
-		enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		enabledExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
 	extensions = draw->GetExtensionList(true, false);
 	std::sort(extensions.begin(), extensions.end());
 	for (auto &extension : extensions) {
-		vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		vulkanExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
@@ -502,6 +506,6 @@ void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
 	extensions = draw->GetExtensionList(false, false);
 	std::sort(extensions.begin(), extensions.end());
 	for (auto &extension : extensions) {
-		vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		vulkanExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 }

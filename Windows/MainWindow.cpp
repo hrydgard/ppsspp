@@ -890,7 +890,7 @@ namespace MainWindow
 					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 				}
 				// There's no release event, but we simulate it in NativeKey/NativeFrame.
-				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+				key.flags = (KeyInputFlags)((u32)KeyInputFlags::DOWN | (u32)KeyInputFlags::HAS_WHEEL_DELTA | (wheelDelta << 16));
 				NativeKey(key);
 			}
 			break;
@@ -1142,7 +1142,7 @@ namespace MainWindow
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
-				touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				touch.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				touch.buttons = 1;
 				touch.x = x;
 				touch.y = y;
@@ -1191,7 +1191,7 @@ namespace MainWindow
 
 				// Mouse moves now happen also when no button is pressed.
 				TouchInput touch{};
-				touch.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				touch.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
 				if (wParam & MK_LBUTTON) {
 					touch.buttons |= 1;
 				}
@@ -1217,7 +1217,7 @@ namespace MainWindow
 
 				TouchInput touch{};
 				touch.buttons = 1;
-				touch.flags = TOUCH_UP | TOUCH_MOUSE;
+				touch.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				touch.x = x;
 				touch.y = y;
 				NativeTouch(touch);
@@ -1236,7 +1236,7 @@ namespace MainWindow
 
 			TouchInput touch{};
 			touch.buttons = 2;
-			touch.flags = TOUCH_DOWN | TOUCH_MOUSE;
+			touch.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 			touch.x = x;
 			touch.y = y;
 			NativeTouch(touch);
@@ -1250,7 +1250,7 @@ namespace MainWindow
 
 			TouchInput touch{};
 			touch.buttons = 2;
-			touch.flags = TOUCH_UP | TOUCH_MOUSE;
+			touch.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 			touch.x = x;
 			touch.y = y;
 			NativeTouch(touch);

@@ -186,7 +186,7 @@ bool IsScrollKey(const KeyInput &input) {
 static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
 	// Ignore repeats for focus moves.
-	if ((key.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
+	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 		if (IsDPadKey(key) || IsScrollKey(key)) {
 			// Let's only repeat DPAD initially.
 			HeldKey hk;
@@ -205,7 +205,7 @@ static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 			retval = KeyEventResult::ACCEPT;
 		}
 	}
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		// We ignore the device ID here (in the comparator for HeldKey), due to the Ouya quirk mentioned above.
 		if (!heldKeys.empty()) {
 			HeldKey hk;
@@ -232,7 +232,7 @@ KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
 		retval = KeyEventResult::PASS_THROUGH;
 		break;
 	default:
-		if (!(key.flags & KEY_IS_REPEAT)) {
+		if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
 			// If a repeat, we follow what KeyEventToFocusMoves set it to.
 			// Otherwise we signal that we used the key, always.
 			retval = KeyEventResult::ACCEPT;
@@ -249,7 +249,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 void TouchEvent(const TouchInput &touch, ViewGroup *root) {
 	focusForced = false;
 	root->Touch(touch);
-	if ((touch.flags & TOUCH_DOWN) && !focusForced) {
+	if ((touch.flags & TouchInputFlags::DOWN) && !focusForced) {
 		EnableFocusMovement(false);
 	}
 }
@@ -289,14 +289,14 @@ void AxisEvent(const AxisInput &axis, ViewGroup *root) {
 		if (old == cur)
 			return;
 		if (old == DirState::POS) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_UP }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KeyInputFlags::UP }, root);
 		} else if (old == DirState::NEG) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_UP }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KeyInputFlags::UP }, root);
 		}
 		if (cur == DirState::POS) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_DOWN }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KeyInputFlags::DOWN }, root);
 		} else if (cur == DirState::NEG) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_DOWN }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KeyInputFlags::DOWN }, root);
 		}
 	};
 
@@ -357,7 +357,7 @@ restart:
 			KeyInput key;
 			key.keyCode = iter->key;
 			key.deviceId = iter->deviceId;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			KeyEvent(key, root);
 
 			focusMoves.push_back(key.keyCode);

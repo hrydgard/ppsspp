@@ -87,7 +87,7 @@ bool UIScreen::key(const KeyInput &key) {
 }
 
 bool UIScreen::UnsyncTouch(const TouchInput &touch) {
-	if (ClickDebug && root_ && (touch.flags & TOUCH_DOWN)) {
+	if (ClickDebug && root_ && (touch.flags & TouchInputFlags::DOWN)) {
 		INFO_LOG(Log::System, "Touch down!");
 		std::vector<UI::View *> views;
 		root_->Query(touch.x, touch.y, views);
@@ -173,7 +173,7 @@ void UIScreen::update() {
 			key(ev.key);
 			break;
 		case QueuedEventType::TOUCH:
-			if (ClickDebug && (ev.touch.flags & TOUCH_DOWN)) {
+			if (ClickDebug && (ev.touch.flags & TouchInputFlags::DOWN)) {
 				INFO_LOG(Log::System, "Touch down!");
 				std::vector<UI::View *> views;
 				root_->Query(ev.touch.x, ev.touch.y, views);
@@ -267,7 +267,7 @@ void UIScreen::TriggerFinish(DialogResult result) {
 
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
-	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
+	if (!retval && (key.flags & KeyInputFlags::DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
 			ERROR_LOG(Log::System, "Screen already finished");
 		} else {

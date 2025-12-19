@@ -68,7 +68,7 @@ public:
 
 		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(orientation_);
 
-		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
+		if ((touch.flags & TouchInputFlags::MOVE) != 0 && dragging_) {
 			float relativeTouchX = touch.x - startX_;
 			float relativeTouchY = touch.y - startY_;
 
@@ -87,7 +87,7 @@ public:
 			}
 		}
 
-		if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
+		if ((touch.flags & TouchInputFlags::DOWN) != 0 && !dragging_) {
 			// Check that we're in the central 80% of the screen.
 			// If outside, it may be a drag from displaying the back button on phones
 			// where you have to drag from the side, etc.
@@ -102,7 +102,7 @@ public:
 			}
 		}
 
-		if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
+		if ((touch.flags & TouchInputFlags::UP) != 0 && dragging_) {
 			dragging_ = false;
 		}
 

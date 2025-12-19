@@ -148,7 +148,7 @@ void ScreenManager::switchToNext() {
 void ScreenManager::touch(const TouchInput &touch) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Send release all events to every screen layer.
-	if (touch.flags & TOUCH_RELEASE_ALL) {
+	if (touch.flags & TouchInputFlags::RELEASE_ALL) {
 		for (auto &layer : stack_) {
 			Screen *screen = layer.screen;
 			layer.screen->UnsyncTouch(screen->transformTouch(touch));
@@ -156,7 +156,7 @@ void ScreenManager::touch(const TouchInput &touch) {
 	} else if (!stack_.empty()) {
 		// Let the overlay know about touch-downs, to be able to dismiss popups.
 		bool skip = false;
-		if (overlayScreen_ && (touch.flags & TOUCH_DOWN)) {
+		if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
 			skip = overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
 		}
 		if (!skip) {
@@ -170,7 +170,7 @@ bool ScreenManager::key(const KeyInput &key) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	bool result = false;
 	// Send key up to every screen layer, to avoid stuck keys.
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		for (auto &layer : stack_) {
 			result = layer.screen->UnsyncKey(key);
 		}
@@ -300,7 +300,7 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 		TouchInput input{};
 		input.x = -50000.0f;
 		input.y = -50000.0f;
-		input.flags = TOUCH_RELEASE_ALL;
+		input.flags = TouchInputFlags::RELEASE_ALL;
 		input.timestamp = time_now_d();
 		input.id = 0;
 		touch(input);
@@ -345,7 +345,7 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	TouchInput input{};
 	input.x = -50000.0f;
 	input.y = -50000.0f;
-	input.flags = TOUCH_RELEASE_ALL;
+	input.flags = TouchInputFlags::RELEASE_ALL;
 	input.timestamp = time_now_d();
 	input.id = 0;
 	touch(input);

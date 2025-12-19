@@ -386,7 +386,7 @@ static Point2D ClampTo(const Point2D &p, const Bounds &b) {
 bool ControlLayoutView::Touch(const TouchInput &touch) {
 	using namespace UI;
 
-	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
+	if ((touch.flags & TouchInputFlags::MOVE) && pickedControl_ != nullptr) {
 		if (mode_ == 0) {
 
 			// Allow placing the control halfway outside the play area.
@@ -435,7 +435,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			pickedControl_->SetScale(newScale);
 		}
 	}
-	if ((touch.flags & TOUCH_DOWN) && pickedControl_ == 0) {
+	if ((touch.flags & TouchInputFlags::DOWN) && pickedControl_ == 0) {
 		pickedControl_ = getPickedControl(touch.x, touch.y);
 		if (pickedControl_) {
 			startDragX_ = touch.x;
@@ -448,7 +448,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			startScale_ = pickedControl_->GetScale();
 		}
 	}
-	if ((touch.flags & TOUCH_UP) && pickedControl_ != 0) {
+	if ((touch.flags & TouchInputFlags::UP) && pickedControl_ != 0) {
 		pickedControl_->SavePosition();
 		pickedControl_ = 0;
 	}

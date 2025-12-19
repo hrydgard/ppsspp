@@ -111,14 +111,14 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 	_dbg_assert_(input.id >= 0 && input.id < TOUCH_MAX_POINTERS);
 
 	bool retval = GamepadView::Touch(input);
-	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
+	if ((input.flags & TouchInputFlags::DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
 		if (CanGlide() && !primaryButton[input.id])
 			primaryButton[input.id] = this;
 	}
-	if (input.flags & TOUCH_MOVE) {
-		if (!(input.flags & TOUCH_MOUSE) || input.buttons) {
+	if (input.flags & TouchInputFlags::MOVE) {
+		if (!(input.flags & TouchInputFlags::MOUSE) || input.buttons) {
 			if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
 				if (CanGlide() && !primaryButton[input.id]) {
 					primaryButton[input.id] = this;
@@ -129,12 +129,12 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		pointerDownMask_ &= ~(1 << input.id);
 		usedPointerMask &= ~(1 << input.id);
 		primaryButton[input.id] = nullptr;
 	}
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		pointerDownMask_ = 0;
 		usedPointerMask = 0;
 	}
@@ -233,7 +233,7 @@ bool CustomButton::Touch(const TouchInput &input) {
 		if (!repeat_) {
 			for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, (on_ && toggle_) ? KeyInputFlags::UP : KeyInputFlags::DOWN);
 				}
 			}
 		}
@@ -242,7 +242,7 @@ bool CustomButton::Touch(const TouchInput &input) {
 		if (!repeat_) {
 			for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, KeyInputFlags::UP);
 				}
 			}
 		}
@@ -264,13 +264,13 @@ void CustomButton::Update() {
 		} else if (pressedFrames_ == DOWN_FRAME) {
 			for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, KeyInputFlags::UP);
 				}
 			}
 		} else if (on_ && pressedFrames_ == 0) {
 			for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, g_customKeyList[i].c, KeyInputFlags::DOWN);
 				}
 			}
 			pressedFrames_ = 1;
@@ -304,15 +304,15 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 bool PSPDpad::Touch(const TouchInput &input) {
 	bool retval = GamepadView::Touch(input);
 
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
 			dragPointerId_ = input.id;
 			usedPointerMask |= 1 << input.id;
 			ProcessTouch(input.x, input.y, true);
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
-		if (!(input.flags & TOUCH_MOUSE) || input.buttons) {
+	if (input.flags & TouchInputFlags::MOVE) {
+		if (!(input.flags & TouchInputFlags::MOUSE) || input.buttons) {
 			if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
 				dragPointerId_ = input.id;
 			}
@@ -321,7 +321,7 @@ bool PSPDpad::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			usedPointerMask &= ~(1 << input.id);
@@ -475,7 +475,7 @@ void PSPStick::Draw(UIContext &dc) {
 
 bool PSPStick::Touch(const TouchInput &input) {
 	bool retval = GamepadView::Touch(input);
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
@@ -484,7 +484,7 @@ bool PSPStick::Touch(const TouchInput &input) {
 		analogPointerMask = 0;
 		return retval;
 	}
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
 		float fac = 0.5f * (stick_ ? config.fRightStickHeadScale : config.fLeftStickHeadScale)-0.5f;
 		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
@@ -502,13 +502,13 @@ bool PSPStick::Touch(const TouchInput &input) {
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			centerX_ = bounds_.centerX();
@@ -586,7 +586,7 @@ void PSPCustomStick::Draw(UIContext &dc) {
 
 bool PSPCustomStick::Touch(const TouchInput &input) {
 	bool retval = GamepadView::Touch(input);
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
@@ -596,7 +596,7 @@ bool PSPCustomStick::Touch(const TouchInput &input) {
 		analogPointerMask = 0;
 		return false;
 	}
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
 		float fac = 0.5f * config.fRightStickHeadScale - 0.5f;
 		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
@@ -614,13 +614,13 @@ bool PSPCustomStick::Touch(const TouchInput &input) {
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			centerX_ = bounds_.centerX();
@@ -1034,12 +1034,12 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 		return false;
 	}
 
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		return false;
 	}
 
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (dragPointerId_ == -1) {
 			dragPointerId_ = input.id;
 			lastX_ = input.x;
@@ -1049,14 +1049,14 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0 )
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KeyInputFlags::DOWN);
 				haveDoubleTapped_ = true;
 			}
 
 			lastTouchDown_ = now;
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (input.id == dragPointerId_) {
 			deltaX_ += input.x - lastX_;
 			deltaY_ += input.y - lastY_;
@@ -1073,7 +1073,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			if (time_now_d() - lastTouchDown_ < 0.3f)
@@ -1081,7 +1081,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 			if (haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0)
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KeyInputFlags::UP);
 				haveDoubleTapped_ = false;
 			}
 
@@ -1110,37 +1110,37 @@ void GestureGamepad::Update() {
 	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KeyInputFlags::DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KeyInputFlags::UP);
 			swipeRightReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeLeft != 0) {
 		if (dx < -th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KeyInputFlags::DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KeyInputFlags::UP);
 			swipeLeftReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeUp != 0) {
 		if (dy < -th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KeyInputFlags::DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KeyInputFlags::UP);
 			swipeUpReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeDown != 0) {
 		if (dy > th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KeyInputFlags::DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KeyInputFlags::UP);
 			swipeDownReleased_ = true;
 		}
 	}

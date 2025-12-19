@@ -223,7 +223,7 @@
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer {
 	if (recognizer.state == UIGestureRecognizerStateEnded) {
 		KeyInput key;
-		key.flags = KEY_DOWN | KEY_UP;
+		key.flags = KeyInputFlags::DOWN | KeyInputFlags::UP;
 		key.keyCode = NKCODE_BACK;
 		key.deviceId = DEVICE_ID_TOUCH;
 		NativeKey(key);
@@ -346,7 +346,7 @@ extern float g_safeInsetBottom;
 - (void)deleteBackward {
 	KeyInput input{};
 	input.deviceId = DEVICE_ID_KEYBOARD;
-	input.flags = KEY_DOWN | KEY_UP;
+	input.flags = KeyInputFlags::DOWN | KeyInputFlags::UP;
 	input.keyCode = NKCODE_DEL;
 	NativeKey(input);
 	INFO_LOG(Log::System, "Backspace");

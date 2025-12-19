@@ -139,10 +139,10 @@ public:
 	bool Touch(const TouchInput &input) override {
 		bool retval = UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
-		if (hovering_ && (input.flags & TOUCH_DOWN)) {
+		if (hovering_ && (input.flags & TouchInputFlags::DOWN)) {
 			holdStart_ = time_now_d();
 		}
-		if (input.flags & TOUCH_UP) {
+		if (input.flags & TouchInputFlags::UP) {
 			holdStart_ = 0;
 		}
 		return retval;
@@ -153,15 +153,15 @@ public:
 
 		if (HasFocus() && UI::IsInfoKey(key)) {
 			// If the button mapped to triangle, then show the info.
-			if (key.flags & KEY_UP) {
+			if (key.flags & KeyInputFlags::UP) {
 				showInfo = true;
 			}
 		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
 			// If it's the right mouse button, and it's not otherwise mapped, show the info also.
-			if (key.flags & KEY_DOWN) {
+			if (key.flags & KeyInputFlags::DOWN) {
 				showInfoPressed_ = true;
 			}
-			if ((key.flags & KEY_UP) && showInfoPressed_) {
+			if ((key.flags & KeyInputFlags::UP) && showInfoPressed_) {
 				showInfo = true;
 				showInfoPressed_ = false;
 			}
@@ -1215,14 +1215,20 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 		parent->Add(new Spacer(25.0));
 	}
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE) && !PPSSPP_PLATFORM(ANDROID)
+	// Remove the exit button in vertical layout on all platforms, just no space.
+	bool showExitButton = !portrait;
+	// Also, always hide the exit button on mobile platforms that are not supposed to have one.
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	showExitButton = false;
+#elif PPSSPP_PLATFORM(ANDROID)
+	// Allow it in Android TV only.
+	showExitButton = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV;
+#endif
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	// Additionally, the Exit button creates problems on Android.
-	// Also we remove it in the vertical layout on all platforms, just no space.
-	if (!portrait) {
-		parent->Add(new Choice(mm->T("Exit"), portrait ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
+	if (showExitButton) {
+		parent->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	}
-#endif
 }
 
 void MainScreen::CreateViews() {
@@ -1369,7 +1375,7 @@ void MainScreen::CreateViews() {
 }
 
 bool MainScreen::key(const KeyInput &touch) {
-	if (touch.flags & KEY_DOWN) {
+	if (touch.flags & KeyInputFlags::DOWN) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = true;
 		if (touch.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
@@ -1379,7 +1385,7 @@ bool MainScreen::key(const KeyInput &touch) {
 				searchChanged_ = true;
 			});
 		}
-	} else if (touch.flags & KEY_UP) {
+	} else if (touch.flags & KeyInputFlags::UP) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = false;
 	}

@@ -16,16 +16,20 @@ ScrollView::~ScrollView() {
 	lastScrollPosY = 0;
 }
 
-void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	// Respect margins
-	Margins margins;
+Margins ScrollView::GetMargins() const {
 	if (views_.size()) {
 		const LinearLayoutParams *linLayoutParams = views_[0]->GetLayoutParams()->As<LinearLayoutParams>();
 		if (linLayoutParams) {
-			margins = linLayoutParams->margins;
+			return linLayoutParams->margins;
 		}
 	}
+	return Margins(0);
+}
 
+void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	// Respect margins
+	const Margins margins = GetMargins();
+	
 	// The scroll view itself simply obeys its parent - but also tries to fit the child if possible.
 	MeasureBySpec(layoutParams_->width, horiz.size, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, vert.size, vert, &measuredHeight_);
@@ -68,11 +72,7 @@ void ScrollView::Layout() {
 	Bounds scrolled;
 
 	// Respect margins
-	Margins margins;
-	const LinearLayoutParams *linLayoutParams = views_[0]->GetLayoutParams()->As<LinearLayoutParams>();
-	if (linLayoutParams) {
-		margins = linLayoutParams->margins;
-	}
+	const Margins margins = GetMargins();
 
 	scrolled.w = views_[0]->GetMeasuredWidth() - margins.horiz();
 	scrolled.h = views_[0]->GetMeasuredHeight() - margins.vert();
@@ -118,10 +118,10 @@ bool ScrollView::Key(const KeyInput &input) {
 		break;
 	}
 
-	if (input.flags & KEY_DOWN) {
+	if ((input.flags & KeyInputFlags::DOWN) && mouseHover_) {
 		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) &&
-			(input.flags & KEY_HASWHEELDELTA)) {
-			scrollSpeed = (float)(short)(input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
+			(input.flags & KeyInputFlags::HAS_WHEEL_DELTA)) {
+			scrollSpeed = (float)((s32)input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
 		}
 
 		switch (input.keyCode) {
@@ -142,7 +142,7 @@ const float friction = 0.92f;
 const float stop_threshold = 0.1f;
 
 bool ScrollView::Touch(const TouchInput &input) {
-	if ((input.flags & TOUCH_DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
+	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
@@ -159,7 +159,7 @@ bool ScrollView::Touch(const TouchInput &input) {
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
-	if ((input.flags & TOUCH_UP) && input.id == scrollTouchId_) {
+	if ((input.flags & TouchInputFlags::UP) && input.id == scrollTouchId_) {
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, input.id, info)) {
 			inertia_ = info[1];
@@ -168,12 +168,17 @@ bool ScrollView::Touch(const TouchInput &input) {
 		draggingBob_ = false;
 	}
 
+	if (input.flags & TouchInputFlags::MOUSE) {
+		// Kinda hacky, we should make a proper hover mechanism.
+		mouseHover_ = bounds_.Contains(input.x, input.y);
+	}
+
 	// We modify the input2 we send to children, so we can cancel drags if we start scrolling, and stuff like that.
 	TouchInput input2;
 	if (CanScroll()) {
 		if (draggingBob_) {
 			// Cancel any drags/holds on the children instantly to avoid accidental click-throughs.
-			input2.flags = TOUCH_UP | TOUCH_CANCEL;
+			input2.flags = TouchInputFlags::UP | TouchInputFlags::CANCEL;
 			// Skip the gesture manager, do calculations directly.
 			// Might switch to the gesture later.
 			Bob bob = ComputeBob();
@@ -190,7 +195,7 @@ bool ScrollView::Touch(const TouchInput &input) {
 		} else {
 			input2 = gesture_.Update(input, bounds_);
 			float info[4];
-			if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TOUCH_DOWN)) {
+			if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TouchInputFlags::DOWN)) {
 				float pos = scrollStart_ - info[0];
 				scrollPos_ = pos;
 				scrollTarget_ = pos;
@@ -203,7 +208,7 @@ bool ScrollView::Touch(const TouchInput &input) {
 		scrollToTarget_ = false;
 	}
 
-	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y)) {
+	if (!(input.flags & TouchInputFlags::DOWN) || bounds_.Contains(input.x, input.y)) {
 		return ViewGroup::Touch(input2);
 	} else {
 		return false;

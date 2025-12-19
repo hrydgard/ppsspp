@@ -7,6 +7,7 @@
 
 enum class SimpleDialogFlags {
 	Default = 0,
+	CustomContextMenu = 1,
 	ContentsCanScroll = 8,
 };
 ENUM_CLASS_BITOPS(SimpleDialogFlags);
@@ -22,6 +23,7 @@ public:
 
 	// Override this, don't override CreateViews. And don't touch root_ directly.
 	virtual void CreateDialogViews(UI::ViewGroup *parent) = 0;
+	virtual void CreateContextMenu(UI::ViewGroup *parent) {}  // only called if CustomContextMenu is set in flags.
 	virtual std::string_view GetTitle() const { return ""; }
 
 private:

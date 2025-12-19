@@ -1016,7 +1016,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			if (event.key.repeat > 0) { break;}
 			int k = event.key.keysym.sym;
 			KeyInput key;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			auto mapped = KeyMapRawSDLtoNative.find(k);
 			if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
 				break;
@@ -1065,7 +1065,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			if (event.key.repeat > 0) { break;}
 			int k = event.key.keysym.sym;
 			KeyInput key;
-			key.flags = KEY_UP;
+			key.flags = KeyInputFlags::UP;
 			auto mapped = KeyMapRawSDLtoNative.find(k);
 			if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
 				break;
@@ -1080,7 +1080,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			int pos = 0;
 			int c = u8_nextchar(event.text.text, &pos, strlen(event.text.text));
 			KeyInput key;
-			key.flags = KEY_CHAR;
+			key.flags = KeyInputFlags::CHAR;
 			key.unicodeChar = c;
 			key.deviceId = DEVICE_ID_KEYBOARD;
 			NativeKey(key);
@@ -1096,7 +1096,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_MOVE;
+			input.flags = TouchInputFlags::MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 			break;
@@ -1109,14 +1109,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_DOWN;
+			input.flags = TouchInputFlags::DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
 			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			NativeKey(key);
 			break;
 		}
@@ -1128,14 +1128,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_UP;
+			input.flags = TouchInputFlags::UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
 			KeyInput key;
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-			key.flags = KEY_UP;
+			key.flags = KeyInputFlags::UP;
 			NativeKey(key);
 			break;
 		}
@@ -1148,11 +1148,11 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				input.buttons = 1;
 				input.id = 0;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
@@ -1162,29 +1162,29 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				input.buttons = 2;
 				input.id = 0;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_MIDDLE:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X1:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X2:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
@@ -1194,18 +1194,18 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 #if SDL_VERSION_ATLEAST(2, 0, 18)
 			if (event.wheel.preciseY != 0.0f) {
 				// Should the scale be DPI-driven?
 				const float scale = 30.0f;
 				key.keyCode = event.wheel.preciseY > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
-				key.flags |= KEY_HASWHEELDELTA;
+				key.flags |= KeyInputFlags::HAS_WHEEL_DELTA;
 				int wheelDelta = event.wheel.preciseY * scale;
 				if (event.wheel.preciseY < 0) {
 						wheelDelta = -wheelDelta;
 				}
-				key.flags |= wheelDelta << 16;
+				key.flags = (KeyInputFlags)((u32)key.flags | (wheelDelta << 16));
 				NativeKey(key);
 				break;
 			}
@@ -1224,7 +1224,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
-			input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+			input.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
 			input.buttons = inputTracker->mouseDown;
 			input.id = 0;
 			NativeTouch(input);
@@ -1241,10 +1241,10 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				input.buttons = 1;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
@@ -1256,28 +1256,28 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				input.buttons = 2;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_MIDDLE:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X1:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X2:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
@@ -1755,7 +1755,7 @@ int main(int argc, char *argv[]) {
 
 	// Avoid the IME popup when holding keys. This doesn't affect all versions of SDL.
 	// Note: We re-enable it in text input fields! This is necessary otherwise we don't receive
-	// KEY_CHAR events.
+	// KeyInputFlags::CHAR events.
 	SDL_StopTextInput();
 
 	InitSDLAudioDevice();

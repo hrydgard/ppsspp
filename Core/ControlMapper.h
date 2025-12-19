@@ -31,7 +31,7 @@ public:
 	// Inject raw PSP key input directly, such as from touch screen controls.
 	// Combined with the mapped input. Unlike __Ctrl APIs, this supports
 	// virtual key codes, including analog mappings.
-	void PSPKey(int deviceId, int pspKeyCode, int flags);
+	void PSPKey(int deviceId, int pspKeyCode, KeyInputFlags flags);
 
 	// Toggle swapping DPAD and Analog. Useful on some input devices with few buttons.
 	void ToggleSwapAxes();

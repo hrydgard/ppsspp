@@ -409,7 +409,7 @@ void LogoScreen::sendMessage(UIMessage message, const char *value) {
 }
 
 bool LogoScreen::key(const KeyInput &key) {
-	if (key.deviceId != DEVICE_ID_MOUSE && (key.flags & KEY_DOWN)) {
+	if (key.deviceId != DEVICE_ID_MOUSE && (key.flags & KeyInputFlags::DOWN)) {
 		Next();
 		return true;
 	}
@@ -417,7 +417,7 @@ bool LogoScreen::key(const KeyInput &key) {
 }
 
 void LogoScreen::touch(const TouchInput &touch) {
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		Next();
 	}
 }
@@ -482,14 +482,14 @@ public:
 	bool Touch(const TouchInput &touch) override {
 		if (touch.id != 0)
 			return false;
-		if (touch.flags & TOUCH_DOWN) {
+		if (touch.flags & TouchInputFlags::DOWN) {
 			dragYStart_ = touch.y;
 			dragYOffsetStart_ = dragOffset_;
 		}
-		if (touch.flags & TOUCH_UP) {
+		if (touch.flags & TouchInputFlags::UP) {
 			dragYStart_ = -1.0f;
 		}
-		if (touch.flags & TOUCH_MOVE) {
+		if (touch.flags & TouchInputFlags::MOVE) {
 			if (dragYStart_ >= 0.0f) {
 				dragOffset_ = dragYOffsetStart_ + (touch.y - dragYStart_);
 			}

@@ -116,7 +116,7 @@ void TouchInputHandler::touchUp(int id, float x, float y){
 	touchevent.id = id;
 	touchevent.x = x;
 	touchevent.y = y;
-	touchevent.flags = TOUCH_UP;
+	touchevent.flags = TouchInputFlags::UP;
 	NativeTouch(touchevent);
 }
 
@@ -125,7 +125,7 @@ void TouchInputHandler::touchDown(int id, float x, float y){
 	touchevent.id = id;
 	touchevent.x = x;
 	touchevent.y = y;
-	touchevent.flags = TOUCH_DOWN;
+	touchevent.flags = TouchInputFlags::DOWN;
 	NativeTouch(touchevent);
 }
 
@@ -134,7 +134,7 @@ void TouchInputHandler::touchMove(int id, float x, float y){
 	touchevent.id = id;
 	touchevent.x = x;
 	touchevent.y = y;
-	touchevent.flags = TOUCH_MOVE;
+	touchevent.flags = TouchInputFlags::MOVE;
 	NativeTouch(touchevent);
 }
 

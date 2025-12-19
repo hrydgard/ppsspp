@@ -521,7 +521,7 @@ void ShaderViewScreen::CreateViews() {
 }
 
 bool ShaderViewScreen::key(const KeyInput &ki) {
-	if (ki.flags & KEY_CHAR) {
+	if (ki.flags & KeyInputFlags::CHAR) {
 		if (ki.unicodeChar == 'C' || ki.unicodeChar == 'c') {
 			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 		}
@@ -605,7 +605,7 @@ void FrameDumpTestScreen::update() {
 
 void TouchTestScreen::touch(const TouchInput &touch) {
 	UIBaseDialogScreen::touch(touch);
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -626,7 +626,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 	}
-	if (touch.flags & TOUCH_MOVE) {
+	if (touch.flags & TouchInputFlags::MOVE) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -639,7 +639,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			WARN_LOG(Log::System, "Move with buttons %d without touch down: %d", touch.buttons, touch.id);
 		}
 	}
-	if (touch.flags & TOUCH_UP) {
+	if (touch.flags & TouchInputFlags::UP) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -707,10 +707,10 @@ bool TouchTestScreen::key(const KeyInput &key) {
 	UIScreen::key(key);
 	char buf[512];
 	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
-		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
-		(key.flags & KEY_UP) ? "UP" : "",
-		(key.flags & KEY_DOWN) ? "DOWN" : "",
-		(key.flags & KEY_CHAR) ? "CHAR" : "");
+		(key.flags & KeyInputFlags::IS_REPEAT) ? "REP" : "",
+		(key.flags & KeyInputFlags::UP) ? "UP" : "",
+		(key.flags & KeyInputFlags::DOWN) ? "DOWN" : "",
+		(key.flags & KeyInputFlags::CHAR) ? "CHAR" : "");
 	keyEventLog_.push_back(buf);
 	UpdateLogView();
 	return true;

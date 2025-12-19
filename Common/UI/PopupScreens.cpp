@@ -29,7 +29,7 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 }
 
 void PopupScreen::touch(const TouchInput &touch) {
-	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
+	if (!box_ || (touch.flags & TouchInputFlags::DOWN) == 0) {
 		// Handle down-presses here.
 		UIDialogScreen::touch(touch);
 		return;
@@ -46,7 +46,7 @@ void PopupScreen::touch(const TouchInput &touch) {
 }
 
 bool PopupScreen::key(const KeyInput &key) {
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		if ((key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_NUMPAD_ENTER) && defaultButton_) {
 			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);

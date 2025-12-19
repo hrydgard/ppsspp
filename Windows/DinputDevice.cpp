@@ -263,7 +263,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 		bool down = (state.rgbButtons[i] & downMask) == downMask;
 		KeyInput key;
 		key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
-		key.flags = down ? KEY_DOWN : KEY_UP;
+		key.flags = down ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 		key.keyCode = dinput_buttons[i];
 		NativeKey(key);
 
@@ -275,7 +275,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 		KeyInput dpad[4]{};
 		for (int i = 0; i < 4; ++i) {
 			dpad[i].deviceId = DEVICE_ID_PAD_0 + pDevNum;
-			dpad[i].flags = KEY_UP;
+			dpad[i].flags = KeyInputFlags::UP;
 		}
 		dpad[0].keyCode = NKCODE_DPAD_UP;
 		dpad[1].keyCode = NKCODE_DPAD_LEFT;
@@ -285,16 +285,16 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 		if (LOWORD(state.rgdwPOV[0]) != JOY_POVCENTERED) {
 			// These are the edges, so we use or.
 			if (state.rgdwPOV[0] >= JOY_POVLEFT_FORWARD || state.rgdwPOV[0] <= JOY_POVFORWARD_RIGHT) {
-				dpad[0].flags = KEY_DOWN;
+				dpad[0].flags = KeyInputFlags::DOWN;
 			}
 			if (state.rgdwPOV[0] >= JOY_POVBACKWARD_LEFT && state.rgdwPOV[0] <= JOY_POVLEFT_FORWARD) {
-				dpad[1].flags = KEY_DOWN;
+				dpad[1].flags = KeyInputFlags::DOWN;
 			}
 			if (state.rgdwPOV[0] >= JOY_POVRIGHT_BACKWARD && state.rgdwPOV[0] <= JOY_POVBACKWARD_LEFT) {
-				dpad[2].flags = KEY_DOWN;
+				dpad[2].flags = KeyInputFlags::DOWN;
 			}
 			if (state.rgdwPOV[0] >= JOY_POVFORWARD_RIGHT && state.rgdwPOV[0] <= JOY_POVRIGHT_BACKWARD) {
-				dpad[3].flags = KEY_DOWN;
+				dpad[3].flags = KeyInputFlags::DOWN;
 			}
 		}
 
