@@ -150,7 +150,7 @@ protected:
 
 private:
 	void ResolverThread();
-	void SendEditKey(InputKeyCode keyCode, int flags = 0);
+	void SendEditKey(InputKeyCode keyCode, KeyInputFlags flags = (KeyInputFlags)0);
 
 	void OnNumberClick(UI::EventParams &e);
 	void OnPointClick(UI::EventParams &e);

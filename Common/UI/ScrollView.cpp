@@ -118,10 +118,10 @@ bool ScrollView::Key(const KeyInput &input) {
 		break;
 	}
 
-	if ((input.flags & KEY_DOWN) && mouseHover_) {
+	if ((input.flags & KeyInputFlags::DOWN) && mouseHover_) {
 		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) &&
-			(input.flags & KEY_HASWHEELDELTA)) {
-			scrollSpeed = (float)(short)(input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
+			(input.flags & KeyInputFlags::HAS_WHEEL_DELTA)) {
+			scrollSpeed = (float)((s32)input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
 		}
 
 		switch (input.keyCode) {

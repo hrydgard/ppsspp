@@ -111,7 +111,8 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	deviceSpecs->Add(new TopBar(*screenManager()->getUIContext(), TopBarFlags::Default, si->T("Device Info")));
+	// bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	// deviceSpecs->Add(new TopBar(*screenManager()->getUIContext(), portrait ? TopBarFlags::Portrait : TopBarFlags::Default, si->T("Device Info")));
 
 	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
 

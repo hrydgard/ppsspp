@@ -1248,9 +1248,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, j
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
-	keyInput.flags = KEY_DOWN;
+	keyInput.flags = KeyInputFlags::DOWN;
 	if (isRepeat) {
-		keyInput.flags |= KEY_IS_REPEAT;
+		keyInput.flags |= KeyInputFlags::IS_REPEAT;
 	}
 	return NativeKey(keyInput);
 }
@@ -1267,7 +1267,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
-	keyInput.flags = KEY_UP;
+	keyInput.flags = KeyInputFlags::UP;
 	return NativeKey(keyInput);
 }
 
@@ -1350,7 +1350,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 		case 3: input.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
 		default: WARN_LOG(Log::System, "Unexpected mouse button %d", button);
 		}
-		input.flags = action == 1 ? KEY_DOWN : KEY_UP;
+		input.flags = action == 1 ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 		if (input.keyCode != 0) {
 			NativeKey(input);
 		}
@@ -1377,7 +1377,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	}
 	// There's no separate keyup event for mousewheel events,
 	// so we release it with a slight delay.
-	key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+	key.flags = (KeyInputFlags)((u32)KeyInputFlags::DOWN | (u32)KeyInputFlags::HAS_WHEEL_DELTA | (wheelDelta << 16));
 	NativeKey(key);
 	return true;
 }

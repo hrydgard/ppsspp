@@ -346,7 +346,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (time_now_d() < delayUntil_)
 		return true;
 
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
 			// Don't map
 			return true;
@@ -359,7 +359,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 
 		InputMapping newMapping(key.deviceId, key.keyCode);
 
-		if (!(key.flags & KEY_IS_REPEAT)) {
+		if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
 			if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
 				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 			} else if (!mapping_.mappings.contains(newMapping)) {
@@ -368,7 +368,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			}
 		}
 	}
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		// If the key released wasn't part of the mapping, ignore it here. Some device can cause
 		// stray key-up events.
 		InputMapping upMapping(key.deviceId, key.keyCode);
@@ -401,7 +401,7 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 		return false;
 	if (ignoreInput_)
 		return true;
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		if (key.keyCode == NKCODE_ESCAPE) {
 			TriggerFinish(DR_OK);
 			g_IsMappingMouseInput = false;
@@ -913,7 +913,7 @@ void VisualMappingScreen::CreateViews() {
 }
 
 bool VisualMappingScreen::key(const KeyInput &key) {
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		std::vector<int> pspKeys;
 		KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys);
 		for (int pspKey : pspKeys) {

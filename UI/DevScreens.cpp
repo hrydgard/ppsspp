@@ -521,7 +521,7 @@ void ShaderViewScreen::CreateViews() {
 }
 
 bool ShaderViewScreen::key(const KeyInput &ki) {
-	if (ki.flags & KEY_CHAR) {
+	if (ki.flags & KeyInputFlags::CHAR) {
 		if (ki.unicodeChar == 'C' || ki.unicodeChar == 'c') {
 			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 		}
@@ -707,10 +707,10 @@ bool TouchTestScreen::key(const KeyInput &key) {
 	UIScreen::key(key);
 	char buf[512];
 	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
-		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
-		(key.flags & KEY_UP) ? "UP" : "",
-		(key.flags & KEY_DOWN) ? "DOWN" : "",
-		(key.flags & KEY_CHAR) ? "CHAR" : "");
+		(key.flags & KeyInputFlags::IS_REPEAT) ? "REP" : "",
+		(key.flags & KeyInputFlags::UP) ? "UP" : "",
+		(key.flags & KeyInputFlags::DOWN) ? "DOWN" : "",
+		(key.flags & KeyInputFlags::CHAR) ? "CHAR" : "");
 	keyEventLog_.push_back(buf);
 	UpdateLogView();
 	return true;

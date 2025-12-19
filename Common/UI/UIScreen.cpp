@@ -267,7 +267,7 @@ void UIScreen::TriggerFinish(DialogResult result) {
 
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
-	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
+	if (!retval && (key.flags & KeyInputFlags::DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
 			ERROR_LOG(Log::System, "Screen already finished");
 		} else {

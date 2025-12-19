@@ -15,7 +15,7 @@ Bounds g_imguiCentralNodeBounds;
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 	ImGuiIO &io = ImGui::GetIO();
 
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		// Specially handle scroll events and any other special keys.
 		switch (key.keyCode) {
 		case NKCODE_EXT_MOUSEWHEEL_UP:
@@ -34,13 +34,13 @@ void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 		}
 		}
 	}
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
 		if (keyCode != ImGuiKey_None) {
 			io.AddKeyEvent(keyCode, false);
 		}
 	}
-	if (key.flags & KEY_CHAR) {
+	if (key.flags & KeyInputFlags::CHAR) {
 		const int unichar = key.unicodeChar;
 
 		if (unichar >= 0x20) {

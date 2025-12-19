@@ -170,7 +170,7 @@ bool ScreenManager::key(const KeyInput &key) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	bool result = false;
 	// Send key up to every screen layer, to avoid stuck keys.
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		for (auto &layer : stack_) {
 			result = layer.screen->UnsyncKey(key);
 		}

@@ -649,7 +649,7 @@ void HidInputDevice::ReleaseAllKeys(const ButtonInputMapping *buttonMappings, in
 		const auto &mapping = buttonMappings[i];
 		KeyInput key;
 		key.deviceId = DEVICE_ID_XINPUT_0 + pad_;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		key.keyCode = mapping.keyCode;
 		NativeKey(key);
 	}
@@ -716,14 +716,14 @@ int HidInputDevice::UpdateState() {
 				if (downMask & mapping.button) {
 					KeyInput key;
 					key.deviceId = deviceID;
-					key.flags = KEY_DOWN;
+					key.flags = KeyInputFlags::DOWN;
 					key.keyCode = mapping.keyCode;
 					NativeKey(key);
 				}
 				if (upMask & mapping.button) {
 					KeyInput key;
 					key.deviceId = deviceID;
-					key.flags = KEY_UP;
+					key.flags = KeyInputFlags::UP;
 					key.keyCode = mapping.keyCode;
 					NativeKey(key);
 				}

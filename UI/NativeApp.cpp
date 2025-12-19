@@ -1335,7 +1335,7 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_MOUSE;
 		key.keyCode = keyCode;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
 	}
 
@@ -1356,7 +1356,7 @@ bool NativeKey(const KeyInput &key) {
 #if PPSSPP_PLATFORM(UWP)
 	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
-	if (IgnoreInput(key.keyCode) && !(key.flags & KEY_CHAR)) {
+	if (IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
 		return false;
 	}
 #endif
@@ -1377,7 +1377,7 @@ bool NativeKey(const KeyInput &key) {
 
 #ifdef _DEBUG
 	// Debug hack: Randomize the language with F9!
-	if (false && (key.keyCode == NKCODE_F9 && (key.flags & KEY_DOWN))) {
+	if (false && (key.keyCode == NKCODE_F9 && (key.flags & KeyInputFlags::DOWN))) {
 		std::vector<File::FileInfo> tempLangs;
 		g_VFS.GetFileListing("lang", &tempLangs, "ini");
 		int x = rand() % tempLangs.size();
@@ -1398,11 +1398,11 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	// Handle releases of mousewheel keys.
-	if ((key.flags & KEY_DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+	if ((key.flags & KeyInputFlags::DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
 		ProcessWheelRelease(key.keyCode, now, true);
 	}
 
-	HLEPlugins::SetKey(key.keyCode, (key.flags & KEY_DOWN) ? 1 : 0);
+	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
 	// Dispatch the key event.
 	bool retval = g_screenManager->key(key);
 

@@ -890,7 +890,7 @@ namespace MainWindow
 					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 				}
 				// There's no release event, but we simulate it in NativeKey/NativeFrame.
-				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+				key.flags = (KeyInputFlags)((u32)KeyInputFlags::DOWN | (u32)KeyInputFlags::HAS_WHEEL_DELTA | (wheelDelta << 16));
 				NativeKey(key);
 			}
 			break;

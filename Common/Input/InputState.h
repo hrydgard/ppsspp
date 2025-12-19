@@ -164,27 +164,25 @@ struct TouchInput {
 	double timestamp;
 };
 
-#undef KEY_DOWN
-#undef KEY_UP
-
-enum KeyInputFlags {
-	KEY_DOWN = 1 << 0,
-	KEY_UP = 1 << 1,
-	KEY_HASWHEELDELTA = 1 << 2,
-	KEY_IS_REPEAT = 1 << 3,
-	KEY_CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KEY_DOWN and KEY_UP are zero when this is set.
+enum class KeyInputFlags {
+	DOWN = 1 << 0,
+	UP = 1 << 1,
+	HAS_WHEEL_DELTA = 1 << 2,
+	IS_REPEAT = 1 << 3,
+	CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KeyInputFlags::DOWN and KeyInputFlags::UP are zero when this is set.
 };
+ENUM_CLASS_BITOPS(KeyInputFlags);
 
 struct KeyInput {
 	KeyInput() {}
-	KeyInput(InputDeviceID devId, InputKeyCode code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
-	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KEY_CHAR) {}
+	KeyInput(InputDeviceID devId, InputKeyCode code, KeyInputFlags fl) : deviceId(devId), keyCode(code), flags(fl) {}
+	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KeyInputFlags::CHAR) {}
 	InputDeviceID deviceId;
 	union {
 		InputKeyCode keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
-		int unicodeChar;  // for KEY_CHAR
+		int unicodeChar;  // for KeyInputFlags::CHAR
 	};
-	int flags;
+	KeyInputFlags flags;
 
 	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags.
 	// TODO: Move mousewheel events to TouchInput?

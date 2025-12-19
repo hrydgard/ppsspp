@@ -998,7 +998,8 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
-	networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
+	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
+	wiki->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
@@ -1053,7 +1054,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	qc->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 #endif
 
-#if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
+#if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KeyInputFlags::CHAR support is added
 	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
 	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat1, n->T("Quick Chat 2"), "", 32, screenManager()));
 	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat2, n->T("Quick Chat 3"), "", 32, screenManager()));
@@ -1868,10 +1869,10 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	progressView_->SetVisibility(UI::V_GONE);
 }
 
-void HostnameSelectScreen::SendEditKey(InputKeyCode keyCode, int flags) {
+void HostnameSelectScreen::SendEditKey(InputKeyCode keyCode, KeyInputFlags flags) {
 	auto oldView = UI::GetFocusedView();
 	UI::SetFocusedView(addrView_);
-	KeyInput fakeKey{ DEVICE_ID_KEYBOARD, keyCode, KEY_DOWN | flags };
+	KeyInput fakeKey{ DEVICE_ID_KEYBOARD, keyCode, KeyInputFlags::DOWN | flags };
 	addrView_->Key(fakeKey);
 	UI::SetFocusedView(oldView);
 }
@@ -1879,12 +1880,12 @@ void HostnameSelectScreen::SendEditKey(InputKeyCode keyCode, int flags) {
 void HostnameSelectScreen::OnNumberClick(UI::EventParams &e) {
 	std::string text = e.v ? e.v->Tag() : "";
 	if (text.length() == 1 && text[0] >= '0' && text[0] <= '9') {
-		SendEditKey((InputKeyCode)text[0], KEY_CHAR);  // ASCII for digits match keycodes.
+		SendEditKey((InputKeyCode)text[0], KeyInputFlags::CHAR);  // ASCII for digits match keycodes.
 	}
 }
 
 void HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
-	SendEditKey((InputKeyCode)'.', KEY_CHAR);
+	SendEditKey((InputKeyCode)'.', KeyInputFlags::CHAR);
 }
 
 void HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {

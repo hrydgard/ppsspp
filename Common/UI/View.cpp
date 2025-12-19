@@ -361,13 +361,13 @@ bool Clickable::Key(const KeyInput &key) {
 	// TODO: Replace most of Update with this.
 
 	bool ret = false;
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		if (IsAcceptKey(key)) {
 			down_ = true;
 			ret = true;
 		}
 	}
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		if (IsAcceptKey(key)) {
 			if (down_) {
 				ClickInternal();
@@ -407,7 +407,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 	}
 
 	// TODO: Replace most of Update with this.
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		if (IsAcceptKey(key)) {
 			down_ = true;
 			UI::PlayUISound(UI::UISound::TOGGLE_ON);
@@ -475,7 +475,9 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		int paddingLeft = 12;
 		int paddingRight = 12;
 		if (rightIconImage_.isValid()) {
-			paddingRight = ITEM_HEIGHT;
+			float imgW, imgH;
+			dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
+			paddingRight = std::max(ITEM_HEIGHT, imgW);
 		}
 
 		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz() - totalW;
@@ -540,7 +542,9 @@ void Choice::Draw(UIContext &dc) {
 		}
 
 		if (rightIconImage_.isValid()) {
-			paddingRight = bounds_.h;
+			float imgW, imgH;
+			dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
+			paddingRight = std::max(ITEM_HEIGHT, imgW);
 		}
 
 		float availWidth = bounds_.w - (paddingLeft + paddingRight + textPadding_.horiz());
@@ -616,7 +620,7 @@ void ItemHeader::Draw(UIContext &dc) {
 
 	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().headerStyle;
 	dc.FillRect(style.background, bounds_);
-	dc.DrawText(text_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(text_, bounds_.x + 8, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }
 
@@ -1293,7 +1297,7 @@ bool TextEdit::Key(const KeyInput &input) {
 		return false;
 	bool textChanged = false;
 	// Process hardcoded navigation keys. These aren't chars.
-	if (input.flags & KEY_DOWN) {
+	if (input.flags & KeyInputFlags::DOWN) {
 		switch (input.keyCode) {
 		case NKCODE_CTRL_LEFT:
 		case NKCODE_CTRL_RIGHT:
@@ -1396,7 +1400,7 @@ bool TextEdit::Key(const KeyInput &input) {
 		}
 	}
 
-	if (input.flags & KEY_UP) {
+	if (input.flags & KeyInputFlags::UP) {
 		switch (input.keyCode) {
 		case NKCODE_CTRL_LEFT:
 		case NKCODE_CTRL_RIGHT:
@@ -1408,7 +1412,7 @@ bool TextEdit::Key(const KeyInput &input) {
 	}
 
 	// Process chars.
-	if (input.flags & KEY_CHAR) {
+	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
 		if (unichar >= 0x20 && !ctrlDown_) {  // Ignore control characters.
 			// Insert it! (todo: do it with a string insert)
@@ -1521,7 +1525,7 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 bool Slider::Key(const KeyInput &input) {
-	if (HasFocus() && (input.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
+	if (HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT)) {
 		if (ApplyKey(input.keyCode)) {
 			Clamp();
 			repeat_ = 0;
@@ -1529,7 +1533,7 @@ bool Slider::Key(const KeyInput &input) {
 			return true;
 		}
 		return false;
-	} else if ((input.flags & KEY_UP) && input.keyCode == repeatCode_) {
+	} else if ((input.flags & KeyInputFlags::UP) && input.keyCode == repeatCode_) {
 		repeat_ = -1;
 		return false;
 	} else {
@@ -1722,7 +1726,7 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 bool SliderFloat::Key(const KeyInput &input) {
-	if (HasFocus() && (input.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
+	if (HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT)) {
 		if (ApplyKey(input.keyCode)) {
 			Clamp();
 			repeat_ = 0;
@@ -1730,7 +1734,7 @@ bool SliderFloat::Key(const KeyInput &input) {
 			return true;
 		}
 		return false;
-	} else if ((input.flags & KEY_UP) && input.keyCode == repeatCode_) {
+	} else if ((input.flags & KeyInputFlags::UP) && input.keyCode == repeatCode_) {
 		repeat_ = -1;
 		return false;
 	} else {

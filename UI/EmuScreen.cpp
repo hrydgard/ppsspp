@@ -1071,8 +1071,8 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
 
 	// Update imgui modifier flags
-	if (key.flags & (KEY_DOWN | KEY_UP)) {
-		bool down = (key.flags & KEY_DOWN) != 0;
+	if (key.flags & (KeyInputFlags::DOWN | KeyInputFlags::UP)) {
+		bool down = (key.flags & KeyInputFlags::DOWN) != 0;
 		switch (key.keyCode) {
 		case NKCODE_CTRL_LEFT: keyCtrlLeft_ = down; break;
 		case NKCODE_CTRL_RIGHT: keyCtrlRight_ = down; break;
@@ -1090,7 +1090,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
 		// We need to manually implement it here :/
 		if (g_Config.bShowImDebugger && imguiInited_) {
-			if (key.flags & (KEY_UP | KEY_DOWN)) {
+			if (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN)) {
 				InputMapping mapping(key.deviceId, key.keyCode);
 				std::vector<int> pspButtons;
 				bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
@@ -1121,7 +1121,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 			}
 		} else {
 			// Let up-events through to the controlMapper_ so input doesn't get stuck.
-			if (key.flags & KEY_UP) {
+			if (key.flags & KeyInputFlags::UP) {
 				controlMapper_.Key(key, &pauseTrigger_);
 			}
 		}
@@ -1148,7 +1148,7 @@ bool EmuScreen::key(const KeyInput &key) {
 		ImGui_ImplPlatform_KeyEvent(key);
 	}
 
-	if (!retval && (key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+	if (!retval && (key.flags & KeyInputFlags::DOWN) != 0 && UI::IsEscapeKey(key)) {
 		if (chatMenu_)
 			chatMenu_->Close();
 		if (chatButton_)

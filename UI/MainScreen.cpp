@@ -153,15 +153,15 @@ public:
 
 		if (HasFocus() && UI::IsInfoKey(key)) {
 			// If the button mapped to triangle, then show the info.
-			if (key.flags & KEY_UP) {
+			if (key.flags & KeyInputFlags::UP) {
 				showInfo = true;
 			}
 		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
 			// If it's the right mouse button, and it's not otherwise mapped, show the info also.
-			if (key.flags & KEY_DOWN) {
+			if (key.flags & KeyInputFlags::DOWN) {
 				showInfoPressed_ = true;
 			}
-			if ((key.flags & KEY_UP) && showInfoPressed_) {
+			if ((key.flags & KeyInputFlags::UP) && showInfoPressed_) {
 				showInfo = true;
 				showInfoPressed_ = false;
 			}
@@ -1369,7 +1369,7 @@ void MainScreen::CreateViews() {
 }
 
 bool MainScreen::key(const KeyInput &touch) {
-	if (touch.flags & KEY_DOWN) {
+	if (touch.flags & KeyInputFlags::DOWN) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = true;
 		if (touch.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
@@ -1379,7 +1379,7 @@ bool MainScreen::key(const KeyInput &touch) {
 				searchChanged_ = true;
 			});
 		}
-	} else if (touch.flags & KEY_UP) {
+	} else if (touch.flags & KeyInputFlags::UP) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = false;
 	}

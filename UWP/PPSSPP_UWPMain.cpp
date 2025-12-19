@@ -204,7 +204,7 @@ void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtual
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = iter->second;
-		key.flags = KEY_DOWN | (repeatCount > 1 ? KEY_IS_REPEAT : 0);
+		key.flags = KeyInputFlags::DOWN | (repeatCount > 1 ? KeyInputFlags::IS_REPEAT : 0);
 		NativeKey(key);
 	}
 }
@@ -215,7 +215,7 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = iter->second;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
 	}
 }
@@ -227,9 +227,9 @@ void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = (InputKeyCode)keyCode;
-		// After many tests turns out for char just add `KEY_CHAR` for the flags
-		// any other flag like `KEY_DOWN` will cause conflict and trigger something else
-		key.flags = KEY_CHAR;
+		// After many tests turns out for char just add `KeyInputFlags::CHAR` for the flags
+		// any other flag like `KeyInputFlags::DOWN` will cause conflict and trigger something else
+		key.flags = KeyInputFlags::CHAR;
 		NativeKey(key);
 	}
 }
@@ -245,16 +245,16 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	KeyInput keyInput{};
 	keyInput.keyCode = key;
 	keyInput.deviceId = DEVICE_ID_MOUSE;
-	keyInput.flags = KEY_DOWN;
+	keyInput.flags = KeyInputFlags::DOWN;
 	NativeKey(keyInput);
 
-	// KEY_UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
+	// KeyInputFlags::UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
 }
 
 bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
 	KeyInput keyInput{};
 	keyInput.deviceId = DEVICE_ID_KEYBOARD;
-	keyInput.flags = KEY_DOWN | KEY_UP;
+	keyInput.flags = KeyInputFlags::DOWN | KeyInputFlags::UP;
 	switch (button) {
 	case HardwareButton::BACK:
 		keyInput.keyCode = NKCODE_BACK;
@@ -284,12 +284,12 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	key.deviceId = DEVICE_ID_MOUSE;
 	if (touchEvent & TouchInputFlags::DOWN) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-		key.flags = KEY_DOWN;
+		key.flags = KeyInputFlags::DOWN;
 		NativeKey(key);
 	}
 	if (touchEvent & TouchInputFlags::UP) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
 	}
 }
