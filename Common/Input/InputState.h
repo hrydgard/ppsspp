@@ -129,6 +129,7 @@ public:
 	void FormatDebug(char *buffer, size_t bufSize) const;
 };
 
+// Be careful about changing these values as some are set on the Android java side!
 enum class TouchInputFlags {
 	MOVE = 1 << 0,
 	DOWN = 1 << 1,

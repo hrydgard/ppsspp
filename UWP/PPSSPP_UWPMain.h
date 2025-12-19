@@ -48,7 +48,7 @@ public:
 	void OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKey);
 	void OnCharacterReceived(int scanCode,unsigned int keyCode);
 
-	void OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp);
+	void OnTouchEvent(TouchInputFlags flags, int touchId, float x, float y, double timestamp);
 
 	void OnMouseWheel(float delta);
 

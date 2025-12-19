@@ -220,7 +220,7 @@ void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::C
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TouchInputFlags::DOWN|TouchInputFlags::MOVE, pointerId, X, Y, (double)timestamp);
+	m_main->OnTouchEvent(TouchInputFlags::DOWN | TouchInputFlags::MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->SetPointerCapture();
 	}
@@ -233,7 +233,7 @@ void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TouchInputFlags::UP|TouchInputFlags::MOVE, pointerId, X, Y, (double)timestamp);
+	m_main->OnTouchEvent(TouchInputFlags::UP | TouchInputFlags::MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->ReleasePointerCapture();
 	}

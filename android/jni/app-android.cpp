@@ -1232,7 +1232,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.id = pointerId;
 	touch.x = x * display_scale_x * g_display.dpi_scale_x;
 	touch.y = y * display_scale_y * g_display.dpi_scale_y;
-	touch.flags = code;
+	touch.flags = (TouchInputFlags)code;
 	NativeTouch(touch);
 }
 

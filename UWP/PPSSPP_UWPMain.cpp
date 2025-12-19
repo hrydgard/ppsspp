@@ -204,7 +204,9 @@ void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtual
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = iter->second;
-		key.flags = KeyInputFlags::DOWN | (repeatCount > 1 ? KeyInputFlags::IS_REPEAT : 0);
+		key.flags = KeyInputFlags::DOWN;
+		if (repeatCount > 1)
+			key.flags |= KeyInputFlags::IS_REPEAT;
 		NativeKey(key);
 	}
 }
@@ -264,7 +266,7 @@ bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
 	}
 }
 
-void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
+void PPSSPP_UWPMain::OnTouchEvent(TouchInputFlags flags, int touchId, float x, float y, double timestamp) {
 	// We get the coordinate in Windows' device independent pixels already. So let's undo that,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
@@ -276,18 +278,18 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	input.id = touchId;
 	input.x = x * dpiFactor_x;
 	input.y = y * dpiFactor_y;
-	input.flags = touchEvent;
+	input.flags = flags;
 	input.timestamp = timestamp;
 	NativeTouch(input);
 
 	KeyInput key{};
 	key.deviceId = DEVICE_ID_MOUSE;
-	if (touchEvent & TouchInputFlags::DOWN) {
+	if (flags & TouchInputFlags::DOWN) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 		key.flags = KeyInputFlags::DOWN;
 		NativeKey(key);
 	}
-	if (touchEvent & TouchInputFlags::UP) {
+	if (flags & TouchInputFlags::UP) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
