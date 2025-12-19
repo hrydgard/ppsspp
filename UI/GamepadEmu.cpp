@@ -111,14 +111,14 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 	_dbg_assert_(input.id >= 0 && input.id < TOUCH_MAX_POINTERS);
 
 	bool retval = GamepadView::Touch(input);
-	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
+	if ((input.flags & TouchInputFlags::DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
 		if (CanGlide() && !primaryButton[input.id])
 			primaryButton[input.id] = this;
 	}
-	if (input.flags & TOUCH_MOVE) {
-		if (!(input.flags & TOUCH_MOUSE) || input.buttons) {
+	if (input.flags & TouchInputFlags::MOVE) {
+		if (!(input.flags & TouchInputFlags::MOUSE) || input.buttons) {
 			if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
 				if (CanGlide() && !primaryButton[input.id]) {
 					primaryButton[input.id] = this;
@@ -129,12 +129,12 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		pointerDownMask_ &= ~(1 << input.id);
 		usedPointerMask &= ~(1 << input.id);
 		primaryButton[input.id] = nullptr;
 	}
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		pointerDownMask_ = 0;
 		usedPointerMask = 0;
 	}
@@ -304,15 +304,15 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 bool PSPDpad::Touch(const TouchInput &input) {
 	bool retval = GamepadView::Touch(input);
 
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
 			dragPointerId_ = input.id;
 			usedPointerMask |= 1 << input.id;
 			ProcessTouch(input.x, input.y, true);
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
-		if (!(input.flags & TOUCH_MOUSE) || input.buttons) {
+	if (input.flags & TouchInputFlags::MOVE) {
+		if (!(input.flags & TouchInputFlags::MOUSE) || input.buttons) {
 			if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
 				dragPointerId_ = input.id;
 			}
@@ -321,7 +321,7 @@ bool PSPDpad::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			usedPointerMask &= ~(1 << input.id);
@@ -475,7 +475,7 @@ void PSPStick::Draw(UIContext &dc) {
 
 bool PSPStick::Touch(const TouchInput &input) {
 	bool retval = GamepadView::Touch(input);
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
@@ -484,7 +484,7 @@ bool PSPStick::Touch(const TouchInput &input) {
 		analogPointerMask = 0;
 		return retval;
 	}
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
 		float fac = 0.5f * (stick_ ? config.fRightStickHeadScale : config.fLeftStickHeadScale)-0.5f;
 		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
@@ -502,13 +502,13 @@ bool PSPStick::Touch(const TouchInput &input) {
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			centerX_ = bounds_.centerX();
@@ -586,7 +586,7 @@ void PSPCustomStick::Draw(UIContext &dc) {
 
 bool PSPCustomStick::Touch(const TouchInput &input) {
 	bool retval = GamepadView::Touch(input);
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
@@ -596,7 +596,7 @@ bool PSPCustomStick::Touch(const TouchInput &input) {
 		analogPointerMask = 0;
 		return false;
 	}
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
 		float fac = 0.5f * config.fRightStickHeadScale - 0.5f;
 		if (dragPointerId_ == -1 && bounds_.Expand(bounds_.w*fac, bounds_.h*fac).Contains(input.x, input.y)) {
@@ -614,13 +614,13 @@ bool PSPCustomStick::Touch(const TouchInput &input) {
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (input.id == dragPointerId_) {
 			ProcessTouch(input.x, input.y, true);
 			retval = true;
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			centerX_ = bounds_.centerX();
@@ -1034,12 +1034,12 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 		return false;
 	}
 
-	if (input.flags & TOUCH_RELEASE_ALL) {
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		return false;
 	}
 
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (dragPointerId_ == -1) {
 			dragPointerId_ = input.id;
 			lastX_ = input.x;
@@ -1056,7 +1056,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			lastTouchDown_ = now;
 		}
 	}
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (input.id == dragPointerId_) {
 			deltaX_ += input.x - lastX_;
 			deltaY_ += input.y - lastY_;
@@ -1073,7 +1073,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			}
 		}
 	}
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			if (time_now_d() - lastTouchDown_ < 0.3f)

@@ -29,7 +29,7 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 }
 
 void PopupScreen::touch(const TouchInput &touch) {
-	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
+	if (!box_ || (touch.flags & TouchInputFlags::DOWN) == 0) {
 		// Handle down-presses here.
 		UIDialogScreen::touch(touch);
 		return;

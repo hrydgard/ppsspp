@@ -244,11 +244,11 @@ bool Clickable::Touch(const TouchInput &input) {
 	}
 
 	// Ignore buttons other than the left one.
-	if ((input.flags & TOUCH_MOUSE) && (input.buttons & 1) == 0) {
+	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
 		return contains;
 	}
 
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
@@ -258,12 +258,12 @@ bool Clickable::Touch(const TouchInput &input) {
 			down_ = false;
 			dragging_ = false;
 		}
-	} else if (input.flags & TOUCH_MOVE) {
+	} else if (input.flags & TouchInputFlags::MOVE) {
 		if (dragging_)
 			down_ = bounds_.Contains(input.x, input.y);
 	}
-	if (input.flags & TOUCH_UP) {
-		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
+	if (input.flags & TouchInputFlags::UP) {
+		if ((input.flags & TouchInputFlags::CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
 			ClickInternal();
 		}
 		down_ = false;
@@ -389,7 +389,7 @@ bool StickyChoice::Touch(const TouchInput &touch) {
 		return contains;
 	}
 
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		if (contains) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
@@ -1163,11 +1163,11 @@ bool ClickableTextView::Touch(const TouchInput &input) {
 	bool contains = bounds_.Contains(input.x, input.y);
 
 	// Ignore buttons other than the left one.
-	if ((input.flags & TOUCH_MOUSE) && (input.buttons & 1) == 0) {
+	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
 		return contains;
 	}
 
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
@@ -1177,12 +1177,12 @@ bool ClickableTextView::Touch(const TouchInput &input) {
 			down_ = false;
 			dragging_ = false;
 		}
-	} else if (input.flags & TOUCH_MOVE) {
+	} else if (input.flags & TouchInputFlags::MOVE) {
 		if (dragging_)
 			down_ = bounds_.Contains(input.x, input.y);
 	}
-	if (input.flags & TOUCH_UP) {
-		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
+	if (input.flags & TouchInputFlags::UP) {
+		if ((input.flags & TouchInputFlags::CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
 			EventParams e{};
 			e.v = this;
 			OnClick.Trigger(e);
@@ -1279,7 +1279,7 @@ static std::string FirstLine(const std::string &text) {
 }
 
 bool TextEdit::Touch(const TouchInput &touch) {
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(touch.x, touch.y)) {
 			SetFocusedView(this, true);
 			return true;
@@ -1485,20 +1485,20 @@ void Spinner::Draw(UIContext &dc) {
 
 bool TriggerButton::Touch(const TouchInput &input) {
 	bool contains = bounds_.Contains(input.x, input.y);
-	if (input.flags & TOUCH_DOWN) {
+	if (input.flags & TouchInputFlags::DOWN) {
 		if (contains) {
 			down_ |= 1 << input.id;
 		}
 	}
 
-	if (input.flags & TOUCH_MOVE) {
+	if (input.flags & TouchInputFlags::MOVE) {
 		if (contains)
 			down_ |= 1 << input.id;
 		else
 			down_ &= ~(1 << input.id);
 	}
 
-	if (input.flags & TOUCH_UP) {
+	if (input.flags & TouchInputFlags::UP) {
 		down_ &= ~(1 << input.id);
 	}
 

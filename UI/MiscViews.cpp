@@ -153,7 +153,7 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 		} else {
 			settingsUrl = join("https://www.ppsspp.org/docs/settings/", settingsCategory);
 		}
-		Choice *helpButton = Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams()));
+		Choice *helpButton = Add(new Choice(ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams()));
 		helpButton->OnClick.Add([settingsUrl](UI::EventParams &) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, settingsUrl);
 		});

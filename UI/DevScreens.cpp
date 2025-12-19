@@ -605,7 +605,7 @@ void FrameDumpTestScreen::update() {
 
 void TouchTestScreen::touch(const TouchInput &touch) {
 	UIBaseDialogScreen::touch(touch);
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -626,7 +626,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 	}
-	if (touch.flags & TOUCH_MOVE) {
+	if (touch.flags & TouchInputFlags::MOVE) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -639,7 +639,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			WARN_LOG(Log::System, "Move with buttons %d without touch down: %d", touch.buttons, touch.id);
 		}
 	}
-	if (touch.flags & TOUCH_UP) {
+	if (touch.flags & TouchInputFlags::UP) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {

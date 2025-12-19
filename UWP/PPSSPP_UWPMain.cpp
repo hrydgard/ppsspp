@@ -282,12 +282,12 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 
 	KeyInput key{};
 	key.deviceId = DEVICE_ID_MOUSE;
-	if (touchEvent & TOUCH_DOWN) {
+	if (touchEvent & TouchInputFlags::DOWN) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 		key.flags = KEY_DOWN;
 		NativeKey(key);
 	}
-	if (touchEvent & TOUCH_UP) {
+	if (touchEvent & TouchInputFlags::UP) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
 		key.flags = KEY_UP;
 		NativeKey(key);

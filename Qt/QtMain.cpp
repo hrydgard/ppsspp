@@ -599,14 +599,14 @@ bool MainUI::event(QEvent *e) {
 			case Qt::TouchPointReleased:
 				input.x = touchPoint.pos().x() * g_display.dpi_scale_x * xscale;
 				input.y = touchPoint.pos().y() * g_display.dpi_scale_y * yscale;
-				input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
+				input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TouchInputFlags::DOWN : TouchInputFlags::UP;
 				input.id = touchPoint.id();
 				NativeTouch(input);
 				break;
 			case Qt::TouchPointMoved:
 				input.x = touchPoint.pos().x() * g_display.dpi_scale_x * xscale;
 				input.y = touchPoint.pos().y() * g_display.dpi_scale_y * yscale;
-				input.flags = TOUCH_MOVE;
+				input.flags = TouchInputFlags::MOVE;
 				input.id = touchPoint.id();
 				NativeTouch(input);
 				break;
@@ -625,7 +625,7 @@ bool MainUI::event(QEvent *e) {
 		case Qt::LeftButton:
 			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
 			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
-			input.flags = ((e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP) | TOUCH_MOUSE;
+			input.flags = ((e->type() == QEvent::MouseButtonPress) ? TouchInputFlags::DOWN : TouchInputFlags::UP) | TouchInputFlags::MOUSE;
 			input.id = 0;
 			NativeTouch(input);
 			break;
@@ -648,7 +648,7 @@ bool MainUI::event(QEvent *e) {
 	case QEvent::MouseMove:
 		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
 		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
-		input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+		input.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
 		input.id = 0;
 		NativeTouch(input);
 		break;

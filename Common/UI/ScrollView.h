@@ -47,6 +47,7 @@ public:
 	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) override;
 
 private:
+	Margins GetMargins() const;
 	float ChildSize() const;  // in the scrolled direction
 	float ScrollMax() const;
 	float HardClampedScrollPos(float pos) const;
@@ -79,6 +80,7 @@ private:
 	float *rememberPos_ = nullptr;
 	bool alignOpposite_ = false;
 	bool draggingBob_ = false;
+	bool mouseHover_ = false;
 
 	float barDragStart_ = 0.0f;
 	float barDragOffset_ = 0.0f;

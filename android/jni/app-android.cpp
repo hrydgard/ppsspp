@@ -1319,7 +1319,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 
 	if (button == 0) {
 		// It's a pure mouse move.
-		input.flags = TOUCH_MOUSE | TOUCH_MOVE;
+		input.flags = TouchInputFlags::MOUSE | TouchInputFlags::MOVE;
 		input.x = x;
 		input.y = y;
 		input.id = 0;
@@ -1329,10 +1329,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 		input.y = y;
 		switch (action) {
 		case 1:
-			input.flags = TOUCH_MOUSE | TOUCH_DOWN;
+			input.flags = TouchInputFlags::MOUSE | TouchInputFlags::DOWN;
 			break;
 		case 2:
-			input.flags = TOUCH_MOUSE | TOUCH_UP;
+			input.flags = TouchInputFlags::MOUSE | TouchInputFlags::UP;
 			break;
 		}
 		input.id = 0;

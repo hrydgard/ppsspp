@@ -51,7 +51,7 @@ std::string_view TouchControlVisibilityScreen::GetTitle() const {
 	return co->T("Touch Control Visibility");
 }
 
-void TouchControlVisibilityScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void TouchControlVisibilityScreen::CreateContextMenu(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -66,7 +66,7 @@ void TouchControlVisibilityScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	});
 }
 
-void TouchControlVisibilityScreen::CreateContentViews(UI::ViewGroup *parent) {
+void TouchControlVisibilityScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
 	using namespace CustomKeyData;
 

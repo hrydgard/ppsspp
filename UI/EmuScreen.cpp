@@ -680,7 +680,7 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
 			// This just prevents the gamepad from timing out.
 			GamepadTouch();
@@ -1166,7 +1166,7 @@ void EmuScreen::touch(const TouchInput &touch) {
 		if (!ImGui::GetIO().WantCaptureMouse) {
 			UIScreen::touch(touch);
 		}
-	} else if (g_Config.bMouseControl && !(touch.flags & TOUCH_UP) && (touch.flags & TOUCH_MOUSE)) {
+	} else if (g_Config.bMouseControl && !(touch.flags & TouchInputFlags::UP) && (touch.flags & TouchInputFlags::MOUSE)) {
 		// don't do anything as the mouse pointer is hidden in this case.
 		// But we let touch-up events through to avoid getting stuck if the user toggles mouse control.
 	} else {
@@ -1174,7 +1174,7 @@ void EmuScreen::touch(const TouchInput &touch) {
 		if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
 			// Avoid pressing touch button behind the chat
 			if (!chatMenu_->Contains(touch.x, touch.y)) {
-				if ((touch.flags & TOUCH_DOWN) != 0) {
+				if ((touch.flags & TouchInputFlags::DOWN) != 0) {
 					chatMenu_->Close();
 					if (chatButton_)
 						chatButton_->SetVisibility(UI::V_VISIBLE);

@@ -109,7 +109,7 @@ bool ViewGroup::Touch(const TouchInput &input) {
 		if (view->GetVisibility() == V_VISIBLE) {
 			bool touch = view->Touch(input);
 			any = any || touch;
-			if (exclusiveTouch_ && touch && (input.flags & TOUCH_DOWN)) {
+			if (exclusiveTouch_ && touch && (input.flags & TouchInputFlags::DOWN)) {
 				break;
 			}
 		}

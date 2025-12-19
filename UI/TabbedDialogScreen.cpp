@@ -26,7 +26,7 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 			scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 			scroll->SetTag(tag);
 		}
-		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
+		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, 8, 0)));
 		contents->SetSpacing(0);
 
 		if (dialogFlags & TabDialogFlags::AddAutoTitles) {
@@ -87,7 +87,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		if (flags_ & TabDialogFlags::VerticalShowIcons) {
 			tabHolderFlags |= TabHolderFlags::VerticalShowIcons;
 		}
-		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, filterNotice_, nullptr, new AnchorLayoutParams(10, 0, 10, 0));
+		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, filterNotice_, nullptr, new AnchorLayoutParams(10, 0, 0, 0));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
 		root_->Add(tabHolder_);

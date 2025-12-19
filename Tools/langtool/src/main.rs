@@ -57,8 +57,8 @@ enum Command {
         key: String,
     },
     CopyKey {
-        old: String,
-        new: String,
+        old_section: String,
+        new_section: String,
         key: String,
     },
     DupeKey {
@@ -789,11 +789,11 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             }
             Command::CopyKey {
                 // Copies between sections
-                ref old,
-                ref new,
+                ref old_section,
+                ref new_section,
                 ref key,
             } => {
-                copy_key(&mut target_ini, old, new, key).unwrap();
+                copy_key(&mut target_ini, old_section, new_section, key).unwrap();
             }
             Command::DupeKey {
                 ref section,
@@ -904,11 +904,11 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         }
         Command::CopyKey {
             // between sections
-            ref old,
-            ref new,
+            ref old_section,
+            ref new_section,
             ref key,
         } => {
-            copy_key(&mut reference_ini, old, new, key).unwrap();
+            copy_key(&mut reference_ini, old_section, new_section, key).unwrap();
         }
         Command::DupeKey {
             // Inside a section, preserving a value

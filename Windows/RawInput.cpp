@@ -308,7 +308,7 @@ namespace WindowsRawInput {
 
 		TouchInput touch;
 		touch.id = 0;
-		touch.flags = TOUCH_MOVE;
+		touch.flags = TouchInputFlags::MOVE;
 		touch.x = mouseX;
 		touch.y = mouseY;
 

@@ -332,9 +332,9 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {
-				touch.flags = TOUCH_DOWN;
+				touch.flags = TouchInputFlags::DOWN;
 				cbNativeTouch(touch);
-				touch.flags = TOUCH_UP;
+				touch.flags = TouchInputFlags::UP;
 				cbNativeTouch(touch);
 			}
 			mousePressed = pressed;

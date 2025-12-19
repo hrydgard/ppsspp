@@ -1096,7 +1096,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_MOVE;
+			input.flags = TouchInputFlags::MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 			break;
@@ -1109,7 +1109,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_DOWN;
+			input.flags = TouchInputFlags::DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
@@ -1128,7 +1128,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_UP;
+			input.flags = TouchInputFlags::UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
@@ -1148,7 +1148,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				input.buttons = 1;
 				input.id = 0;
 				NativeTouch(input);
@@ -1162,7 +1162,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				input.buttons = 2;
 				input.id = 0;
 				NativeTouch(input);
@@ -1224,7 +1224,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
-			input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+			input.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
 			input.buttons = inputTracker->mouseDown;
 			input.id = 0;
 			NativeTouch(input);
@@ -1241,7 +1241,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				input.buttons = 1;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
@@ -1256,7 +1256,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				input.buttons = 2;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);

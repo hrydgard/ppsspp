@@ -139,10 +139,10 @@ public:
 	bool Touch(const TouchInput &input) override {
 		bool retval = UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
-		if (hovering_ && (input.flags & TOUCH_DOWN)) {
+		if (hovering_ && (input.flags & TouchInputFlags::DOWN)) {
 			holdStart_ = time_now_d();
 		}
-		if (input.flags & TOUCH_UP) {
+		if (input.flags & TouchInputFlags::UP) {
 			holdStart_ = 0;
 		}
 		return retval;
