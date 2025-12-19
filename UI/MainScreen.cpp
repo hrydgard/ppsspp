@@ -1215,14 +1215,20 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 		parent->Add(new Spacer(25.0));
 	}
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE) && !PPSSPP_PLATFORM(ANDROID)
+	// Remove the exit button in vertical layout on all platforms, just no space.
+	bool showExitButton = !portrait;
+	// Also, always hide the exit button on mobile platforms that are not supposed to have one.
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	showExitButton = false;
+#elif PPSSPP_PLATFORM(ANDROID)
+	// Allow it in Android TV only.
+	showExitButton = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV;
+#endif
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	// Additionally, the Exit button creates problems on Android.
-	// Also we remove it in the vertical layout on all platforms, just no space.
-	if (!portrait) {
-		parent->Add(new Choice(mm->T("Exit"), portrait ? new LinearLayoutParams() : nullptr))->OnClick.Handle(this, &MainScreen::OnExit);
+	if (showExitButton) {
+		parent->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	}
-#endif
 }
 
 void MainScreen::CreateViews() {
