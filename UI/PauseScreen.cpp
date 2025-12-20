@@ -342,7 +342,7 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 bool GamePauseScreen::key(const KeyInput &key) {
-	if (!UIScreen::key(key) && (key.flags & KEY_DOWN)) {
+	if (!UIScreen::key(key) && (key.flags & KeyInputFlags::DOWN)) {
 		// Special case to be able to unpause with a bound pause key.
 		// Normally we can't bind keys used in the UI.
 		InputMapping mapping(key.deviceId, key.keyCode);
@@ -362,13 +362,12 @@ bool GamePauseScreen::key(const KeyInput &key) {
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems) {
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
+	static const int NUM_SAVESLOTS = 5;
+
 	using namespace UI;
 
-	// Number of visual save slots to display in the pause menu. Clamped to valid range.
-	int numSaveSlots = std::max(1, std::min(g_Config.iNumSaveStateSlots, SaveState::NUM_SLOTS));
-
 	leftColumnItems->SetSpacing(10.0);
-	for (int i = 0; i < numSaveSlots; i++) {
+	for (int i = 0; i < NUM_SAVESLOTS; i++) {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);

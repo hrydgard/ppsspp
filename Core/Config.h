@@ -319,8 +319,6 @@ public:
 	int iAnalogFpsLimit;
 	int iMaxRecent;
 	int iCurrentStateSlot;
-	// Number of savestate slots shown in the pause menu (1..SaveState::NUM_SLOTS).
-	int iNumSaveStateSlots = 10;
 	int iRewindSnapshotInterval;
 	bool bUISound;
 	bool bEnableStateUndo;
