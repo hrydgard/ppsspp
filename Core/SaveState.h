@@ -33,6 +33,7 @@ namespace SaveState {
 	};
 	typedef std::function<void(Status status, std::string_view message)> Callback;
 
+	static const int NUM_SLOTS = 5;
 	static const char * const STATE_EXTENSION = "ppst";
 	static const char * const SCREENSHOT_EXTENSION = "jpg";
 	static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
@@ -43,7 +44,7 @@ namespace SaveState {
 	void Init();
 	void Shutdown();
 
-	// Cycle through the savestate slots
+	// Cycle through the 5 savestate slots
 	void PrevSlot();
 	void NextSlot();
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback);
