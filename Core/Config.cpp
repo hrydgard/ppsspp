@@ -263,6 +263,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("DumpAudio", SETTING(g_Config, bDumpAudio), false, CfgFlag::DEFAULT),
 	ConfigSetting("SaveLoadResetsAVdumping", SETTING(g_Config, bSaveLoadResetsAVdumping), false, CfgFlag::DEFAULT),
 	ConfigSetting("StateSlot", SETTING(g_Config, iCurrentStateSlot), 0, CfgFlag::PER_GAME),
+	ConfigSetting("NumSaveStateSlots", SETTING(g_Config, iNumSaveStateSlots), 10, CfgFlag::DEFAULT),
 	ConfigSetting("EnableStateUndo", SETTING(g_Config, bEnableStateUndo), &DefaultEnableStateUndo, CfgFlag::PER_GAME),
 	ConfigSetting("StateLoadUndoGame", SETTING(g_Config, sStateLoadUndoGame), "NA", CfgFlag::DEFAULT),
 	ConfigSetting("StateUndoLastSaveGame", SETTING(g_Config, sStateUndoLastSaveGame), "NA", CfgFlag::DEFAULT),
