@@ -1351,6 +1351,17 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	rewindInterval->SetFormat(di->T("%d seconds"));
 	rewindInterval->SetZeroLabel(sy->T("Off"));
 
+	systemSettings->Add(new ItemHeader(sy->T("Savestates")));
+
+	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
+	systemSettings->Add(new CheckBox(&g_Config.bShowSetAutoLoadButton, sy->T("Show 'Set Auto Load' button")));
+	static const char* autoLoadSaveStateChoices[] = { "Off", "Oldest Save", "Newest Save", "Savestate slot selection" };
+	PopupSliderChoice* SavestateSlotAmount = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateSlotAmount, 1, 100, 5, sy->T("Savestate slot amount"), screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iAutoLoadSaveState, sy->T("Auto Load Savestate"), autoLoadSaveStateChoices, 0, ARRAY_SIZE(autoLoadSaveStateChoices), I18NCat::SYSTEM, screenManager()));
+	PopupSliderChoice* SavestateSlotAmountAutoload = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateAutoLoadSlot, 1, g_Config.iSaveStateSlotAmount, 1, sy->T("Savestate Auto Load slot"), screenManager()));
+	// Enable on value 3: "Savestate slot selection"
+	SavestateSlotAmountAutoload->SetEnabled(g_Config.iAutoLoadSaveState == 3);
+
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 
 	PopupSliderChoice *exitConfirmation = systemSettings->Add(new PopupSliderChoice(&g_Config.iAskForExitConfirmationAfterSeconds, 0, 1200, 60, sy->T("Ask for exit confirmation after seconds"), screenManager(), "s"));
@@ -1367,14 +1378,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	}
 
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
-
-	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
-	static const char* autoLoadSaveStateChoices[] = {"Off", "Oldest Save", "Newest Save", "Savestate slot selection"};
-	PopupSliderChoice *SavestateSlotAmount = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateSlotAmount, 1, 100, 5, sy->T("Savestate slot amount"), screenManager()));
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iAutoLoadSaveState, sy->T("Auto Load Savestate"), autoLoadSaveStateChoices, 0, ARRAY_SIZE(autoLoadSaveStateChoices), I18NCat::SYSTEM, screenManager()));
-	PopupSliderChoice *SavestateSlotAmountAutoload = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateAutoLoadSlot, 1, g_Config.iSaveStateSlotAmount, 1, sy->T("Savestate Auto Load slot"), screenManager()));
-	// Enable on value 3: "Savestate slot selection"
-	SavestateSlotAmountAutoload->SetEnabled(g_Config.iAutoLoadSaveState == 3);
 
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
 		systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));

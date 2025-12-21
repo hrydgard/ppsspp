@@ -102,7 +102,7 @@ protected:
 		Margins contentMargins(10, 0);
 		content->Add(new AsyncImageFileView(filename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
 
-		GridLayoutSettings gridsettings(240, 64, 5);
+		GridLayoutSettings gridsettings(240, 50, 5);
 		gridsettings.fillCells = true;
 		GridLayout *grid = content->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
@@ -122,6 +122,7 @@ protected:
 		grid->Add(new Choice(pa->T("Save State")))->OnClick.Handle(this, &ScreenshotViewScreen::OnSaveState);
 		// We can unconditionally show the load state button, because you can only pop this dialog up if a state exists.
 		grid->Add(new Choice(pa->T("Load State")))->OnClick.Handle(this, &ScreenshotViewScreen::OnLoadState);
+		grid->Add(new Choice(pa->T("Set Auto Load Slot")))->OnClick.Handle(this, &ScreenshotViewScreen::OnSetAutoLoadStateSlot);
 		grid->Add(new Choice(pa->T("Delete State")))->OnClick.Handle(this, &ScreenshotViewScreen::OnDeleteState);
 		if (undoButton) {
 			grid->Add(undoButton)->OnClick.Handle(this, &ScreenshotViewScreen::OnUndoState);
@@ -137,6 +138,7 @@ private:
 	void OnLoadState(UI::EventParams &e);
 	void OnUndoState(UI::EventParams &e);
 	void OnDeleteState(UI::EventParams &e);
+	void OnSetAutoLoadStateSlot(UI::EventParams& e);
 
 	Path filename_;
 	Path gamePath_;
@@ -186,6 +188,14 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 	}));
 }
 
+void ScreenshotViewScreen::OnSetAutoLoadStateSlot(UI::EventParams& e) {
+	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
+		g_Config.iCurrentStateSlot = slot_;
+		g_Config.iSaveStateAutoLoadSlot = slot_ + 1;
+		TriggerFinish(DR_OK);
+	}
+}
+
 class SaveSlotView : public UI::LinearLayout {
 public:
 	SaveSlotView(const Path &gamePath, int slot, UI::LayoutParams *layoutParams = nullptr);
@@ -215,9 +225,11 @@ public:
 private:
 	void OnSaveState(UI::EventParams &e);
 	void OnLoadState(UI::EventParams &e);
+	void OnSetAutoLoadStateSlot(UI::EventParams& e);
 
 	UI::Button *saveStateButton_ = nullptr;
 	UI::Button *loadStateButton_ = nullptr;
+	UI::Button *autoloadStateButton_ = nullptr;
 
 	int slot_;
 	Path gamePath_;
@@ -251,6 +263,14 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	saveStateButton_ = buttons->Add(new Button(pa->T("Save State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
 
+	autoloadStateButton_ = buttons->Add(new Button(pa->T("Set Auto Load"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
+	autoloadStateButton_->OnClick.Handle(this, &SaveSlotView::OnSetAutoLoadStateSlot);
+
+	if (g_Config.bShowSetAutoLoadButton)
+		autoloadStateButton_->SetVisibility(UI::V_VISIBLE);
+	else
+		autoloadStateButton_->SetVisibility(UI::V_GONE);
+
 	fv->OnClick.Add([this](UI::EventParams &e) {
 		e.v = this;
 		OnScreenshotClicked.Trigger(e);
@@ -264,13 +284,21 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 
 		std::string dateStr = SaveState::GetSlotDateAsString(gamePath_, slot_);
 		if (!dateStr.empty()) {
-			TextView *dateView = new TextView(dateStr, new LinearLayoutParams(0.0, Gravity::G_VCENTER));
-			dateView->SetSmall(true);
-			lines->Add(dateView)->SetShadow(true);
+			if (g_Config.iSaveStateAutoLoadSlot == slot_ + 1) {
+				TextView* dateView = new TextView(dateStr + " (Auto Load Slot)", new LinearLayoutParams(0.0, Gravity::G_VCENTER));
+				dateView->SetSmall(true);
+				lines->Add(dateView)->SetShadow(true);
+			} else {
+				TextView* dateView = new TextView(dateStr, new LinearLayoutParams(0.0, Gravity::G_VCENTER));
+				dateView->SetSmall(true);
+				lines->Add(dateView)->SetShadow(true);
+			}
 		}
 	} else {
 		fv->SetFilename(Path());
 	}
+
+	
 }
 
 void SaveSlotView::Draw(UIContext &dc) {
@@ -285,6 +313,16 @@ void SaveSlotView::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
+		UI::EventParams e2{};
+		e2.v = this;
+		OnStateLoaded.Trigger(e2);
+	}
+}
+
+void SaveSlotView::OnSetAutoLoadStateSlot(UI::EventParams& e) {
+	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
+		g_Config.iCurrentStateSlot = slot_;
+		g_Config.iSaveStateAutoLoadSlot = slot_ + 1;
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateLoaded.Trigger(e2);
