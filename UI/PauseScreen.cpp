@@ -266,10 +266,17 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	autoloadStateButton_ = buttons->Add(new Button(pa->T("Set Auto Load"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 	autoloadStateButton_->OnClick.Handle(this, &SaveSlotView::OnSetAutoLoadStateSlot);
 
-	if (g_Config.bShowSetAutoLoadButton)
+	if (g_Config.bShowSetAutoLoadButton) {
 		autoloadStateButton_->SetVisibility(UI::V_VISIBLE);
-	else
+		if (g_Config.iSaveStateAutoLoadSlot == slot_ + 1) {
+			autoloadStateButton_->SetEnabled(false);
+		}
+		else {
+			autoloadStateButton_->SetEnabled(true);
+		}
+	} else {
 		autoloadStateButton_->SetVisibility(UI::V_GONE);
+	}
 
 	fv->OnClick.Add([this](UI::EventParams &e) {
 		e.v = this;
