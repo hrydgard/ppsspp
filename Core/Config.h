@@ -325,8 +325,9 @@ public:
 	std::string sStateLoadUndoGame;
 	std::string sStateUndoLastSaveGame;
 	int iStateUndoLastSaveSlot;
-	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
+	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, 3 = Savestate slot selection
 	int iSaveStateSlotAmount; 
+	int iSaveStateAutoLoadSlot;
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bEnablePlugins;

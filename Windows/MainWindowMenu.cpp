@@ -1206,6 +1206,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ((i == g_Config.iFrameSkip) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		// Obsolete because of adjustable savestate amount?
 		static const int savestateSlot[] = {
 			ID_FILE_SAVESTATE_SLOT_1,
 			ID_FILE_SAVESTATE_SLOT_2,
@@ -1220,9 +1221,11 @@ namespace MainWindow {
 		else if (g_Config.iCurrentStateSlot >= g_Config.iSaveStateSlotAmount)
 			g_Config.iCurrentStateSlot = g_Config.iSaveStateSlotAmount - 1;
 
+
 		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
-		}
+		} 
+
 
 #if !PPSSPP_API(ANY_GL)
 		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);

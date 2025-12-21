@@ -244,6 +244,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("DisableHTTPS", SETTING(g_Config, bDisableHTTPS), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AutoLoadSaveState", SETTING(g_Config, iAutoLoadSaveState), 0, CfgFlag::PER_GAME),
 	ConfigSetting("SaveStateSlotAmount", SETTING(g_Config, iSaveStateSlotAmount), 5, CfgFlag::DEFAULT),
+	ConfigSetting("SaveStateSlotAutoLoadSlot", SETTING(g_Config, iSaveStateAutoLoadSlot), 1, CfgFlag::PER_GAME),
 	ConfigSetting("EnableCheats", SETTING(g_Config, bEnableCheats), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("EnablePlugins", SETTING(g_Config, bEnablePlugins), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("CwCheatRefreshRate", SETTING(g_Config, iCwCheatRefreshIntervalMs), 77, CfgFlag::PER_GAME),
