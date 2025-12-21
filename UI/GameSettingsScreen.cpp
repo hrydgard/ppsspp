@@ -1354,7 +1354,8 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ItemHeader(sy->T("Savestates")));
 
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
-	systemSettings->Add(new CheckBox(&g_Config.bShowSetAutoLoadButton, sy->T("Show 'Set Auto Load' button")));
+	systemSettings->Add(new CheckBox(&g_Config.bHideStateWarnings, sy->T("Hide warnings on savestate load")));
+	systemSettings->Add(new CheckBox(&g_Config.bShowSetAutoLoadButton, sy->T("Show 'Set Auto Load' button in pause menu")));
 	static const char* autoLoadSaveStateChoices[] = { "Off", "Oldest Save", "Newest Save", "Savestate slot selection" };
 	PopupSliderChoice* SavestateSlotAmount = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateSlotAmount, 1, 100, 5, sy->T("Savestate slot amount"), screenManager()));
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iAutoLoadSaveState, sy->T("Auto Load Savestate"), autoLoadSaveStateChoices, 0, ARRAY_SIZE(autoLoadSaveStateChoices), I18NCat::SYSTEM, screenManager()));

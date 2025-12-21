@@ -192,7 +192,7 @@ void ScreenshotViewScreen::OnSetAutoLoadStateSlot(UI::EventParams& e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		g_Config.iSaveStateAutoLoadSlot = slot_ + 1;
-		TriggerFinish(DR_OK);
+		TriggerFinish(DR_BACK);
 	}
 }
 
