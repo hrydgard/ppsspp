@@ -112,7 +112,7 @@ static int8_t EGL_Open(SDL_Window *window) {
 #if SDL_VERSION_ATLEAST(2, 0, 2) && defined(SDL_VIDEO_DRIVER_WAYLAND)
 		case SDL_SYSWM_WAYLAND:
 			g_Display = (EGLNativeDisplayType)sysInfo.info.wl.display;
-			g_Window = (EGLNativeWindowType)sysInfo.info.wl.shell_surface;
+			g_Window = (EGLNativeWindowType)sysInfo.info.wl.egl_window;
 			break;
 #endif
 #if SDL_VERSION_ATLEAST(2, 0, 5) && defined(SDL_VIDEO_DRIVER_VIVANTE)
