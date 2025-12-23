@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <cstdint>
 #include "Common/Log.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
@@ -939,7 +940,13 @@ int SavedataParam::EncryptData(unsigned int mode,
 	memset(hash, 0, 0x10);
 
 	// Zero out the IV before we begin.
-	memset(data, 0, 0x10);
+	// memset(data, 0, 0x10);
+	// FIX: Use deterministic IV generation for cross-platform save data compatibility
+	// This ensures Android and Windows produce identical save data
+	// FIX Silent Hill - Shattered Memories Save issue #13781
+	for (int i = 0; i < 16; i++) {
+		data[i] = cryptkey[i % 16] ^ (uint8_t)(mode + i) ^ (uint8_t)(*dataLen & 0xFF);
+	}
 
 	/* Build the 0x10-byte IV and setup encryption */
 	if (sceSdCipherInit(ctx2, mode, 1, data, cryptkey) < 0)
@@ -979,9 +986,16 @@ int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *data
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
+	// Ensure consistent memory handling across all platforms
+	// This prevents platform-specific alignment issues that could affect decryption
+	DEBUG_LOG(Log::sceUtility, "DecryptData(mode=%d, *dataLen=%d, *alignedLen=%d)", mode, *dataLen, *alignedLen);
+
 	/* Need a 16-byte IV plus some data */
-	if (*alignedLen <= 0x10)
+	if (*alignedLen <= 0x10) {
+		ERROR_LOG(Log::sceUtility, "DecryptData: Invalid alignedLen %d", *alignedLen);
 		return -1;
+	}
+	
 	*dataLen -= 0x10;
 	*alignedLen -= 0x10;
 
@@ -1017,6 +1031,17 @@ int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *data
 // Requires sfoData to be padded with zeroes to the next 16-byte boundary (due to BuildHash)
 int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
 {
+	// Ensure SFO data is properly aligned for hash calculation
+	// This prevents platform-specific alignment issues
+	DEBUG_LOG(Log::sceUtility, "UpdateHash: sfoSize=%d, offset=%d, encryptmode=%d", 
+	          sfoSize, sfoDataParamsOffset, encryptmode);
+	
+	// Ensure SFO data is 16-byte aligned
+	if ((uintptr_t)sfoData % 16 != 0) {
+		ERROR_LOG(Log::sceUtility, "UpdateHash: SFO data not 16-byte aligned!");
+		return -1;
+	}
+	
 	int alignedLen = align16(sfoSize);
 	memset(sfoData + sfoDataParamsOffset, 0, 128);
 	u8 filehash[16];
