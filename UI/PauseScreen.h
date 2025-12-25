@@ -61,6 +61,8 @@ private:
 	void OnState(UI::EventParams &e);
 	void ShowContextMenu(UI::View *menuButton, bool portrait);
 
+	void AddExtraOptions(UI::ViewGroup *parent);
+
 	// hack
 	bool finishNextFrame_ = false;
 	DialogResult finishNextFrameResult_ = DR_CANCEL;

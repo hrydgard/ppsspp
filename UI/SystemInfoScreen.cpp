@@ -410,6 +410,8 @@ void SystemInfoScreen::CreateDriverBugsTab(UI::LinearLayout *driverBugs) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
+	driverBugs->Add(new ItemHeader(si->T("Driver bugs")));
+
 	bool anyDriverBugs = false;
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
