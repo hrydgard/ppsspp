@@ -2045,8 +2045,8 @@ void EmuScreen::AutoLoadSaveState() {
 	case (int)AutoLoadSaveState::NEWEST: // "Newest Save"
 		autoSlot = SaveState::GetNewestSlot(gamePath_);
 		break;
-	default: // try the specific save state slot specified
-		autoSlot = (SaveState::HasSaveInSlot(gamePath_, g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
+	default: // "Selected Slot"
+		autoSlot = (SaveState::HasSaveInSlot(gamePath_, g_Config.iSaveStateAutoLoadSlot - 1)) ? (g_Config.iSaveStateAutoLoadSlot - 1) : -1;
 		break;
 	}
 
@@ -2054,7 +2054,7 @@ void EmuScreen::AutoLoadSaveState() {
 		SaveState::LoadSlot(gamePath_, autoSlot, [this, autoSlot](SaveState::Status status, std::string_view message) {
 			AfterSaveStateAction(status, message);
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			std::string msg = std::string(sy->T("Auto Load Savestate")) + ": " + StringFromFormat("%d", autoSlot);
+			std::string msg = std::string(sy->T("Auto Load Savestate")) + ": " + StringFromFormat("%d", autoSlot + 1);
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, msg);
 			if (status == SaveState::Status::FAILURE) {
 				autoLoadFailed_ = true;
