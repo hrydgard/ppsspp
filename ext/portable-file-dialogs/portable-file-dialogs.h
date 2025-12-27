@@ -56,6 +56,10 @@
 #include <thread>   // std::mutex, std::this_thread
 #include <chrono>   // std::chrono
 
+#if PPSSPP_PLATFORM(SWITCH)
+#define __EMSCRIPTEN__ 1 // Opt into alternative codepaths, maybe rework later to not-supported define
+#endif
+
 // Versions of mingw64 g++ up to 9.3.0 do not have a complete IFileDialog
 #ifndef PFD_HAS_IFILEDIALOG
 #   define PFD_HAS_IFILEDIALOG 1
@@ -1638,7 +1642,7 @@ inline message::message(std::string const &title,
         return "";
     });
 
-#elif __EMSCRIPTEN__
+#elif defined(__EMSCRIPTEN__)
     std::string full_message;
     switch (_icon)
     {
@@ -1650,6 +1654,7 @@ inline message::message(std::string const &title,
 
     full_message += ' ' + title + "\n\n" + text;
 
+#if !PPSSPP_PLATFORM(SWITCH)
     // This does not really start an async task; it just passes the
     // EM_ASM_INT return value to a fake start() function.
     m_async->start(EM_ASM_INT(
@@ -1659,6 +1664,7 @@ inline message::message(std::string const &title,
         alert(UTF8ToString($0));
         return 0;
     }, full_message.c_str(), _choice == choice::ok_cancel));
+#endif
 #else
     auto command = desktop_helper();
 

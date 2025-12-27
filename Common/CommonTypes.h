@@ -46,12 +46,14 @@ typedef signed __int64 s64;
 #define Framebuffer _Framebuffer
 #define Waitable _Waitable
 #define ThreadContext _ThreadContext
+#define BreakReason _BreakReason
 #include <switch.h>
 // Cleanup
 #undef Event
 #undef Framebuffer
 #undef Waitable
 #undef ThreadContext
+#undef BreakReason
 
 // Conflicting types with libnx
 #ifndef _u64
@@ -61,6 +63,8 @@ typedef signed __int64 s64;
 #ifndef s64
 #define s64 _s64
 #endif // _s64
+
+#undef BIT // Conflicting declarations for Arm64Emitter
 
 typedef unsigned char   u_char;
 typedef unsigned short  u_short;

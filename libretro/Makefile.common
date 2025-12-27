@@ -2,9 +2,10 @@ HAVE_LIBRETRO_VFS ?= 1
 
 FFMPEGDIR		= $(CORE_DIR)/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
+RETROCOMMONDIR	= $(CORE_DIR)/libretro/libretro-common_nx
 COREDIR			= $(CORE_DIR)/Core
 COMMONDIR		= $(CORE_DIR)/Common
-GPUCOMMONDIR		= $(CORE_DIR)/GPU/Common
+GPUCOMMONDIR    = $(CORE_DIR)/GPU/Common
 GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
@@ -43,7 +44,9 @@ INCFLAGS += \
 	-I$(EXTDIR)/libkirk \
 	-I$(EXTDIR)/xbrz \
 	-I$(EXTDIR)/xxhash \
-	-I$(EXTDIR)/glew
+	-I$(EXTDIR)/glew \
+	-I$(RETROCOMMONDIR)/include \
+	-I$(RETROCOMMONDIR)
 
 INCFLAGS += -I$(EXTDIR)/libzip
 SOURCES_C += \
@@ -157,6 +160,10 @@ SOURCES_C += \
 	$(EXTDIR)/libzip/zip_utf-8.c \
 	$(EXTDIR)/libzip/zip_err_str.c
 
+ifneq ($(platform), libnx)
+SOURCES_CXX += $(COMMONDIR)/MemoryUtil.cpp
+endif
+
 ifeq ($(PLATFORM_EXT), win32)
 	SOURCES_C += \
 		$(EXTDIR)/libzip/zip_source_file_win32.c \
@@ -172,7 +179,9 @@ else
 		$(EXTDIR)/libzip/zip_random_unix.c
 endif
 
-SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
+ifneq ($(PLATFORM_EXT), libnx)
+	SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
+endif
 
 SOURCES_CXX += \
 	$(EXTDIR)/minimp3/minimp3.cpp
@@ -478,7 +487,12 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLMemory.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLProfiler.cpp \
-	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
+	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp
+
+# No Vulkan on the Switch: libnx has no loader and the portlibs have no
+# headers, so the whole backend comes out of the build there.
+ifneq ($(platform), libnx)
+SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
@@ -492,7 +506,10 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/VulkanDescSet.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanProfiler.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanBarrier.cpp \
-	$(COMMONDIR)/GPU/Vulkan/VulkanGraphicsContext.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanGraphicsContext.cpp
+endif
+
+SOURCES_CXX += \
 	$(COMMONDIR)/Input/GestureDetector.cpp \
 	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Math/curves.cpp \
@@ -532,7 +549,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
-	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/RiscVCPUDetect.cpp \
 	$(COMMONDIR)/LogReporting.cpp \
 	$(COMMONDIR)/SysError.cpp \
@@ -669,6 +685,10 @@ else ifeq ($(PLATFORM_EXT), android)
 SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
 		   $(COMMONDIR)/Render/Text/draw_text_android.cpp
+else ifeq ($(platform), libnx)
+SOURCES_CXX += $(COMMONDIR)/MemArenaHorizon.cpp \
+	       $(COMMONDIR)/MemoryUtilHorizon.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 else
 COREFLAGS += -DVK_USE_PLATFORM_XLIB_KHR
 SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
@@ -935,7 +955,7 @@ ifeq ($(WITH_DYNAREC),1)
 			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
-      DYNAFLAGS += -D_ARCH_64
+      DYNAFLAGS += -D_ARCH_64 -DARM64
       SOURCES_CXX += $(COMMONDIR)/Arm64Emitter.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64Asm.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64CompALU.cpp \
@@ -1012,6 +1032,7 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
+ifneq ($(platform), libnx)
 INCFLAGS += -I$(EXTDIR)/miniupnp-build -I$(EXTDIR)/miniupnp/miniupnpc/include -I$(EXTDIR)/miniupnp/miniupnpc/src
 SOURCES_C += \
     $(EXTDIR)/miniupnp/miniupnpc/src/addr_is_reserved.c \
@@ -1029,6 +1050,7 @@ SOURCES_C += \
     $(EXTDIR)/miniupnp/miniupnpc/src/upnpdev.c \
     $(EXTDIR)/miniupnp/miniupnpc/src/upnperrors.c \
     $(EXTDIR)/miniupnp/miniupnpc/src/upnpreplyparse.c
+endif
 
 SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
