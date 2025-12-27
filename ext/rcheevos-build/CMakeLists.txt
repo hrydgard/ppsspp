@@ -42,5 +42,10 @@ set(ALL_SOURCE_FILES
 
 add_library(rcheevos STATIC ${ALL_SOURCE_FILES})
 
+if(USE_LIBNX)
+  # Avoid fseeko64 and simliar variants
+  remove_definitions(-D_LARGEFILE64_SOURCE=1)
+endif()
+
 target_compile_definitions(rcheevos PUBLIC RC_DISABLE_LUA)
 target_include_directories(rcheevos PUBLIC ../rcheevos/include ../rcheevos/src/rapi)

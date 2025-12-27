@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <strings.h> // strcasecmp on Switch
 #include "Common/Log.h"
 #include "Common/Math/expression_parser.h"
 #include "Common/StringUtils.h"

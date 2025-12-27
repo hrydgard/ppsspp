@@ -20,6 +20,10 @@
 #endif
 #endif
 
+#include <glsym/rglgen.h>
+extern const struct rglgen_sym_map rglgen_symbol_map_ppsspp;
+extern "C" void rglgen_resolve_symbols_custom(rglgen_proc_address_t proc, const struct rglgen_sym_map *map);
+
 class GLRenderManager;
 
 #if defined(USING_EGL)
@@ -334,7 +338,7 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 #ifdef USING_GLES2
 		{3, 2}, {3, 1}, {3, 0}, {2, 0},
 #else
-		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
+		{0, 0}, {4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
 		{3, 3}, {3, 2}, {3, 1}, {3, 0},
 #endif
 	};
@@ -359,8 +363,8 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		SetGLCoreContext(false);
 #else
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		SetGLCoreContext(true);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
+		SetGLCoreContext(false);
 #endif
 		window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
 		if (!window) {
@@ -428,7 +432,9 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 	}
 #endif
 
-#ifndef USING_GLES2
+	rglgen_resolve_symbols_custom(&eglGetProcAddress, &rglgen_symbol_map_ppsspp);
+
+#if !defined(USING_GLES2) && !PPSSPP_PLATFORM(SWITCH)
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
 	// glewExperimental allows us to force GLEW to search for the pointers anyway.
 	if (gl_extensions.IsCoreContext) {

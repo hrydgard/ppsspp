@@ -22051,6 +22051,10 @@ static void Platform_SetClipboardTextFn_DefaultImpl(ImGuiContext* ctx, const cha
 #endif
 #endif // #ifndef IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS
 
+#if defined(__SWITCH__)
+#define IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS
+#endif
+
 #ifndef IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS
 #ifdef _WIN32
 #include <shellapi.h>   // ShellExecuteA()
