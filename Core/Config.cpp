@@ -1580,12 +1580,18 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 }
 
 bool Config::HasGameConfig(std::string_view gameId) {
+	if (gameId.empty()) {
+		return false;
+	}
 	bool exists = false;
 	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 	return exists;
 }
 
 bool Config::CreateGameConfig(std::string_view gameId) {
+	if (gameId.empty()) {
+		return false;
+	}
 	bool exists;
 	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 

@@ -232,7 +232,7 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	std::string number = StringFromFormat("%d", slot + 1);
 	Add(new Spacer(5));
 
-	Add(new TextView(number, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)))->SetBig(true);
+	Add(new TextView(number, new LinearLayoutParams(40.0f, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)))->SetBig(true);
 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 
@@ -571,6 +571,12 @@ void GamePauseScreen::CreateViews() {
 
 	if (g_paramSFO.IsValid() && g_Config.HasGameConfig(g_paramSFO.GetDiscID())) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		if (g_Config.HasGameConfig(g_paramSFO.GetValueString("DISC_ID"))) {
+			Choice *delGameConfig = rightColumnItems->Add(new Choice(pa->T("Delete Game Config")));
+			delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+			delGameConfig->SetEnabled(!bootPending_);
+		}
 	} else if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		rightColumnItems->Add(new Choice(pa->T("Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config"), ImageID("I_GEAR_STAR")));
@@ -601,9 +607,8 @@ void GamePauseScreen::CreateViews() {
 
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
-	if (!portrait && Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
-		auto rp = GetI18NCategory(I18NCat::REPORTING);
-		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
+	if (!portrait) {
+		AddExtraOptions(rightColumnItems);
 	}
 	rightColumnItems->Add(new Spacer(20.0));
 	Choice *exit;
@@ -680,21 +685,20 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 			}
 		});
 
-		auto pa = GetI18NCategory(I18NCat::PAUSE);
-
-		Choice *delGameConfig = parent->Add(new Choice(pa->T("Delete Game Config")));
-		delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
-		delGameConfig->SetEnabled(!bootPending_);
-
 		if (portrait) {
-			// Add some other options that are removed from the main screen in portrait mode.
-			if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
-				auto rp = GetI18NCategory(I18NCat::REPORTING);
-				parent->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
-			}
+			AddExtraOptions(parent);
 		}
 	}, menuButton);
 	screenManager()->push(contextMenu);
+}
+
+void GamePauseScreen::AddExtraOptions(UI::ViewGroup *parent) {
+	using namespace UI;
+	// Add some other options that are removed from the main screen in portrait mode.
+	if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
+		auto rp = GetI18NCategory(I18NCat::REPORTING);
+		parent->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
+	}
 }
 
 void GamePauseScreen::OnGameSettings(UI::EventParams &e) {
@@ -829,7 +833,7 @@ void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 		if (info) {
 			info->hasConfig = true;
 		}
-		screenManager()->topScreen()->RecreateViews();
+		RecreateViews();
 	}
 }
 
