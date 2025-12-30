@@ -907,7 +907,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 		return;
 
 	u8 *buf = fileData->buf;
-	u32 size = Memory::ValidSize(fileData->buf.ptr, fileData->bufSize);
+	u32 size = Memory::ClampValidSizeAt(fileData->buf.ptr, fileData->bufSize);
 	s64 readSize = -1;
 	if (ReadPSPFile(filePath, &buf, size, &readSize)) {
 		fileData->size = readSize;

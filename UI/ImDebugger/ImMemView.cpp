@@ -111,7 +111,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 			uint32_t words[4];
 			uint8_t bytes[16];
 		} memory;
-		int valid = debugger_ != nullptr && debugger_->isAlive() ? Memory::ValidSize(address, 16) / 4 : 0;
+		int valid = debugger_ != nullptr && debugger_->isAlive() ? Memory::ClampValidSizeAt(address, 16) / 4 : 0;
 		for (int i = 0; i < valid; ++i) {
 			memory.words[i] = debugger_->readMemory(address + i * 4);
 		}
@@ -995,7 +995,7 @@ void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
 	}
 
 	if (ImGui::Button(mode_ == MemDumpMode::Raw ? "Dump to file" : "Disassemble to file")) {
-		uint32_t validSize = Memory::ValidSize(address_, size_);
+		uint32_t validSize = Memory::ClampValidSizeAt(address_, size_);
 		if (validSize != size_) {
 			errorMsg_ = "Address range out of bounds";
 			if (Memory::IsValidAddress(address_)) {

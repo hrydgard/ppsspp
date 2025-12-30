@@ -924,7 +924,7 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 
 	// This is just regular strncpy, but being explicit to avoid warnings/safety fixes on missing null.
 	u32 i = 0;
-	u32 srcSize = Memory::ValidSize(src, size);
+	u32 srcSize = Memory::ClampValidSizeAt(src, size);
 	const u8 *srcp = Memory::GetPointerUnchecked(src);
 	u8 *destp = Memory::GetPointerWriteUnchecked(dest);
 	for (i = 0; i < srcSize; ++i) {
@@ -934,7 +934,7 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 		*destp++ = c;
 	}
 
-	u32 destSize = Memory::ValidSize(dest, size);
+	u32 destSize = Memory::ClampValidSizeAt(dest, size);
 	for (; i < destSize; ++i) {
 		*destp++ = 0;
 	}

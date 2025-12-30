@@ -2118,7 +2118,7 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 					break;
 				case WatchFormat::STR:
 					if (Memory::IsValidAddress(value)) {
-						uint32_t len = Memory::ValidSize(value, 255);
+						uint32_t len = Memory::ClampValidSizeAt(value, 255);
 						ImGui::Text("%.*s", len, Memory::GetCharPointer(value));
 					} else {
 						ImGui::Text("%08x", value);

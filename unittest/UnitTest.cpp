@@ -683,23 +683,23 @@ static bool TestMemMap() {
 			EXPECT_FALSE(Memory::IsValidAddress(base + range.size));
 			EXPECT_FALSE(Memory::IsValidAddress(base - 1));
 
-			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size + 1), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size - 1), range.size - 1);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0), 0);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x80000001), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x40000001), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x20000001), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x10000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, range.size), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, range.size + 1), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, range.size - 1), range.size - 1);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0), 0);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x80000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x40000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x20000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x10000001), range.size);
 
-			EXPECT_EQ_HEX(Memory::ValidSize(base + range.size - 0x10, 0x20000001), 0x10);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base + range.size - 0x10, 0x20000001), 0x10);
 		}
 	}
 
 	EXPECT_FALSE(Memory::IsValidAddress(0x00015000));
 	EXPECT_FALSE(Memory::IsValidAddress(0x04900000));
-	EXPECT_EQ_HEX(Memory::ValidSize(0x00015000, 4), 0);
-	EXPECT_EQ_HEX(Memory::ValidSize(0x04900000, 4), 0);
+	EXPECT_EQ_HEX(Memory::ClampValidSizeAt(0x00015000, 4), 0);
+	EXPECT_EQ_HEX(Memory::ClampValidSizeAt(0x04900000, 4), 0);
 
 	return true;
 }

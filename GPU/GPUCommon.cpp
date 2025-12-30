@@ -1813,8 +1813,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 					u32 dstLinePos = dstLineStartAddr;
 					for (u32 i = 0; i < bytesToCopy; i += 64) {
 						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
-						u32 srcValid = Memory::ValidSize(srcLinePos, chunk);
-						u32 dstValid = Memory::ValidSize(dstLinePos, chunk);
+						u32 srcValid = Memory::ClampValidSizeAt(srcLinePos, chunk);
+						u32 dstValid = Memory::ClampValidSizeAt(dstLinePos, chunk);
 
 						// First chunk, for which both are valid.
 						u32 bothSize = std::min(srcValid, dstValid);
@@ -1849,14 +1849,14 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 			if (notifyAll) {
 				if (srcWraps) {
-					u32 validSize = Memory::ValidSize(src, srcSize);
+					u32 validSize = Memory::ClampValidSizeAt(src, srcSize);
 					NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag, tagSize);
 					NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag, tagSize);
 				} else {
 					NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
 				}
 				if (dstWraps) {
-					u32 validSize = Memory::ValidSize(dst, dstSize);
+					u32 validSize = Memory::ClampValidSizeAt(dst, dstSize);
 					NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag, tagSize);
 					NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag, tagSize);
 				} else {
