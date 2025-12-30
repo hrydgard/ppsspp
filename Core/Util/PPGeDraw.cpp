@@ -1418,10 +1418,11 @@ bool PPGeImage::IsValid() {
 	if (loadFailed_)
 		return false;
 
-	if (!Memory::IsValidRange(this->png_, (u32)this->size_)) {
+	if (size_ && !Memory::IsValidRange(this->png_, (u32)this->size_)) {
 		return false;
 	}
 
+	// TODO: It's really wacky to call Decimate from in here.
 	if (texture_ == 0) {
 		Decimate();
 		return Load();

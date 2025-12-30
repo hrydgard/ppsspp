@@ -1683,7 +1683,7 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	int outPitch32 = outPitch / sizeof(uint32_t);
 	const DXTBlock *src = (const DXTBlock *)texptr;
 
-	if (!Memory::IsValidRange(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock))) {
+	if (!Memory::IsValidRange(texaddr, ((h + 3) / 4) * (bufw / 4) * sizeof(DXTBlock))) {
 		ERROR_LOG_REPORT(Log::G3D, "DXT%d texture extends beyond valid RAM: %08x + %d x %d", n, texaddr, bufw, h);
 		uint32_t limited = Memory::ValidSize(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock));
 		// This might possibly be 0, but try to decode what we can (might even be how the PSP behaves.)
