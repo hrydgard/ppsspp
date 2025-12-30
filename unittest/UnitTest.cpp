@@ -665,7 +665,7 @@ static bool TestMemMap() {
 	static const Range ranges[] = {
 		{ 0x08000000, Memory::RAM_DOUBLE_SIZE, Flags::ALLOW_KERNEL },
 		{ 0x00010000, Memory::SCRATCHPAD_SIZE, Flags::NO_KERNEL },
-		{ 0x04000000, 0x00800000, Flags::NO_KERNEL },
+		{ 0x04000000, 0x00800000, Flags::NO_KERNEL },  // VRAM (although we don't take wrapping into account here...)
 	};
 	static const uint32_t extraBits[] = {
 		0x00000000,

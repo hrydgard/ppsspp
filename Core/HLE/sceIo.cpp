@@ -836,8 +836,7 @@ static void IoStartAsyncThread(int id, FileNode *f) {
 	f->pendingAsyncResult = true;
 }
 
-static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize)
-{
+static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize) {
 	if (!Memory::IsValidNullTerminatedString(alias_addr) ||
 		!Memory::IsValidNullTerminatedString(physical_addr) ||
 		!Memory::IsValidNullTerminatedString(filesystem_addr)) {

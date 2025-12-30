@@ -61,8 +61,12 @@ u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at a
 // This matches how we handle 32-bit masking.
 u8 *m_pUncachedKernelRAM[3];
 
-// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
-// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
+// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled, so actually it's not correct
+// to mirror them like we do here unfortunately.
+// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer, and things mostly work out
+// since when we write to the depth buffer (like with the depth rasterizer or the software renderer)
+// we write unswizzled data anyway. There are some exceptions, Silent Hill abuses the swizzling in ways that break
+// our software renderer.
 u8 *m_pPhysicalVRAM[4];
 u8 *m_pUncachedVRAM[4];
 
