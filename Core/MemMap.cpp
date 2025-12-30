@@ -495,22 +495,27 @@ void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
 	Memory::WriteUnchecked_U32(_Value.encoding, address);
 }
 
-void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char *tag) {
-	if (IsValidRange(_Address, _iLength)) {
-		uint8_t *ptr = GetPointerWriteUnchecked(_Address);
-		memset(ptr, _iValue, _iLength);
+void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {
+	if (size == 0) {
+		// We ignore invalid addresses etc if the length is zero.
+		return;
+	}
+
+	if (IsValidRange(addr, size)) {
+		uint8_t *ptr = GetPointerWriteUnchecked(addr);
+		memset(ptr, value, size);
 	} else {
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
 		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
-		for (size_t i = 0; i < _iLength; i++) {
-			if (Memory::IsValidAddress(_Address + (u32)i)) {
-				WriteUnchecked_U8(_iValue, (u32)(_Address + i));
+		for (size_t i = 0; i < size; i++) {
+			if (Memory::IsValidAddress(addr + (u32)i)) {
+				WriteUnchecked_U8(value, (u32)(addr + i));
 			}
 		}
 	}
 
 	if (tag) {
-		NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, size, tag, strlen(tag));
 	}
 }
 
