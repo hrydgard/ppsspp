@@ -913,7 +913,7 @@ void CtrlWatchList::GetColumnText(wchar_t *dest, size_t destSize, int row, int c
 				break;
 			case WatchFormat::STR:
 				if (Memory::IsValidAddress(value)) {
-					uint32_t len = Memory::ValidSize(value, 255);
+					uint32_t len = Memory::ClampValidSizeAt(value, 255);
 					swprintf_s(dest, destSize, L"%.*S", len, Memory::GetCharPointer(value));
 				} else {
 					wsprintf(dest, L"(0x%08X)", value);

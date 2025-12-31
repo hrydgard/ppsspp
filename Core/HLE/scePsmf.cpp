@@ -292,7 +292,7 @@ public:
 		const u32 EP_MAP_STRIDE = 1 + 1 + 4 + 4;
 		if (psmf->headerOffset != 0 && !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + EP_MAP_STRIDE * psmf->EPMapEntriesNum)) {
 			ERROR_LOG(Log::ME, "Invalid PSMF EP map entry count: %d", psmf->EPMapEntriesNum);
-			psmf->EPMapEntriesNum = Memory::ValidSize(psmf->headerOffset + psmf->EPMapOffset, EP_MAP_STRIDE * psmf->EPMapEntriesNum) / EP_MAP_STRIDE;
+			psmf->EPMapEntriesNum = Memory::ClampValidSizeAt(psmf->headerOffset + psmf->EPMapOffset, EP_MAP_STRIDE * psmf->EPMapEntriesNum) / EP_MAP_STRIDE;
 		}
 
 		psmf->EPMap.clear();
@@ -372,7 +372,7 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 
 	if (data != 0 && !Memory::IsValidRange(data, 0x82 + numStreams * 16)) {
 		ERROR_LOG(Log::ME, "Invalid PSMF stream count: %d", numStreams);
-		numStreams = Memory::ValidSize(data + 0x82, numStreams * 16) / 16;
+		numStreams = Memory::ClampValidSizeAt(data + 0x82, numStreams * 16) / 16;
 	}
 
 	for (int i = 0; i < numStreams; i++) {

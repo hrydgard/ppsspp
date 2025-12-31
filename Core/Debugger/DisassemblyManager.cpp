@@ -44,7 +44,7 @@ bool isInInterval(u32 start, u32 size, u32 value) {
 }
 
 bool IsLikelyStringAt(uint32_t addr) {
-	uint32_t maxLen = Memory::ValidSize(addr, 128);
+	uint32_t maxLen = Memory::ClampValidSizeAt(addr, 128);
 	if (maxLen <= 1)
 		return false;
 	const char *p = Memory::GetCharPointer(addr);
@@ -92,7 +92,7 @@ static HashType computeHash(u32 address, u32 size)
 	if (!Memory::IsValidAddress(address))
 		return 0;
 
-	size = Memory::ValidSize(address, size);
+	size = Memory::ClampValidSizeAt(address, size);
 #if PPSSPP_ARCH(AMD64)
 	return XXH3_64bits(Memory::GetPointerUnchecked(address), size);
 #else

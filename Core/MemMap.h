@@ -356,17 +356,17 @@ inline bool IsValidNullTerminatedString(const u32 address) {
 	return false;
 }
 
-inline u32 ValidSize(const u32 address, const u32 requested_size) {
+inline u32 ClampValidSizeAt(const u32 address, const u32 requestedSize) {
 	u32 max_size = MaxSizeAtAddress(address);
-	if (requested_size > max_size) {
+	if (requestedSize > max_size) {
 		return max_size;
 	}
-	return requested_size;
+	return requestedSize;
 }
 
 // NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
 inline bool IsValidRange(const u32 address, const u32 size) {
-	return ValidSize(address, size) == size;
+	return ClampValidSizeAt(address, size) == size;
 }
 
 // NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
@@ -375,7 +375,7 @@ inline bool IsValid4AlignedRange(const u32 address, const u32 size) {
 	if (address & 3) {
 		return false;
 	}
-	return ValidSize(address, size) == size;
+	return ClampValidSizeAt(address, size) == size;
 }
 
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -

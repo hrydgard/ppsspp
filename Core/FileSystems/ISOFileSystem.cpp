@@ -430,7 +430,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		} else {
 			int block = (u16)desc.firstLETableSector;
-			u32 size = Memory::ValidSize(outdataPtr, (u32)desc.pathTableLength);
+			u32 size = Memory::ClampValidSizeAt(outdataPtr, (u32)desc.pathTableLength);
 			u8 *out = Memory::GetPointerWriteRange(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();

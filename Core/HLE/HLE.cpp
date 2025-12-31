@@ -1044,7 +1044,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 		case 's':
 			if (Memory::IsValidAddress(regval)) {
 				const char *s = Memory::GetCharPointer(regval);
-				const int safeLen = Memory::ValidSize(regval, 128);
+				const int safeLen = Memory::ClampValidSizeAt(regval, 128);
 				if (strnlen(s, safeLen) >= safeLen) {
 					APPEND_FMT("%.*s...", safeLen, Memory::GetCharPointer(regval));
 				} else {

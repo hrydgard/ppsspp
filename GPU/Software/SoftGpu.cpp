@@ -1003,7 +1003,7 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 
 	bool changed = false;
 	if (Memory::IsValidAddress(clutAddr)) {
-		u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
+		u32 validSize = Memory::ClampValidSizeAt(clutAddr, clutTotalBytes);
 		changed = memcmp(clut, Memory::GetPointerUnchecked(clutAddr), validSize) != 0;
 		if (changed)
 			Memory::MemcpyUnchecked(clut, clutAddr, validSize);

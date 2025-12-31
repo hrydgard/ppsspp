@@ -444,7 +444,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
-		WARN_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
+		INFO_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
@@ -907,7 +907,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 		return;
 
 	u8 *buf = fileData->buf;
-	u32 size = Memory::ValidSize(fileData->buf.ptr, fileData->bufSize);
+	u32 size = Memory::ClampValidSizeAt(fileData->buf.ptr, fileData->bufSize);
 	s64 readSize = -1;
 	if (ReadPSPFile(filePath, &buf, size, &readSize)) {
 		fileData->size = readSize;

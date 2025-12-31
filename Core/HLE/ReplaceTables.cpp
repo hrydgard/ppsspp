@@ -418,7 +418,7 @@ static int Replace_memset_jak() {
 }
 
 static uint32_t SafeStringLen(const uint32_t ptr, uint32_t maxLen = 0x07FFFFFF) {
-	maxLen = Memory::ValidSize(ptr, 0x07FFFFFF);
+	maxLen = Memory::ClampValidSizeAt(ptr, 0x07FFFFFF);
 	const uint8_t *p = Memory::GetPointerRange(ptr, maxLen);
 	if (!p)
 		return 0;

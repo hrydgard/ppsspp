@@ -61,8 +61,12 @@ u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at a
 // This matches how we handle 32-bit masking.
 u8 *m_pUncachedKernelRAM[3];
 
-// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
-// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
+// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled, so actually it's not correct
+// to mirror them like we do here unfortunately.
+// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer, and things mostly work out
+// since when we write to the depth buffer (like with the depth rasterizer or the software renderer)
+// we write unswizzled data anyway. There are some exceptions, Silent Hill abuses the swizzling in ways that break
+// our software renderer.
 u8 *m_pPhysicalVRAM[4];
 u8 *m_pUncachedVRAM[4];
 
@@ -491,22 +495,27 @@ void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
 	Memory::WriteUnchecked_U32(_Value.encoding, address);
 }
 
-void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char *tag) {
-	if (IsValidRange(_Address, _iLength)) {
-		uint8_t *ptr = GetPointerWriteUnchecked(_Address);
-		memset(ptr, _iValue, _iLength);
+void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {
+	if (size == 0) {
+		// We ignore invalid addresses etc if the length is zero.
+		return;
+	}
+
+	if (IsValidRange(addr, size)) {
+		uint8_t *ptr = GetPointerWriteUnchecked(addr);
+		memset(ptr, value, size);
 	} else {
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
 		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
-		for (size_t i = 0; i < _iLength; i++) {
-			if (Memory::IsValidAddress(_Address + (u32)i)) {
-				WriteUnchecked_U8(_iValue, (u32)(_Address + i));
+		for (size_t i = 0; i < size; i++) {
+			if (Memory::IsValidAddress(addr + (u32)i)) {
+				WriteUnchecked_U8(value, (u32)(addr + i));
 			}
 		}
 	}
 
 	if (tag) {
-		NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, size, tag, strlen(tag));
 	}
 }
 

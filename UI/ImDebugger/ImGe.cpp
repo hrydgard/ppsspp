@@ -464,7 +464,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 	if (stride > width) {
 		srcBytes -= stride - width;
 	}
-	if (Memory::ValidSize(addr, srcBytes) != srcBytes) {
+	if (Memory::ClampValidSizeAt(addr, srcBytes) != srcBytes) {
 		// TODO: Show a message that the address is out of bounds.
 		return;
 	}
