@@ -20,6 +20,7 @@ set_target_properties(ppsspp_libretro PROPERTIES PREFIX "")
 if(ANDROID)
 	set_target_properties(ppsspp_libretro PROPERTIES SUFFIX "_android.so")
 endif()
+target_include_directories(ppsspp_libretro PRIVATE libretro-common/include)
 
 if(NOT MSVC)
    if (APPLE OR IOS)

@@ -17,6 +17,7 @@ INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
 	-I$(CORE_DIR)/libretro \
+	-I$(LIBRETROCOMMONDIR)/include \
 	-I$(EXTDIR)/libadrenotools/lib/linkernsbypass \
 	-I$(EXTDIR)/libadrenotools/include \
 	-I$(EXTDIR)/OpenXR-SDK/include \
@@ -1121,7 +1122,6 @@ endif
 
 ifeq ($(HAVE_LIBRETRO_VFS), 1)
 DEFINES += -DHAVE_LIBRETRO_VFS
-INCFLAGS += -I$(LIBRETROCOMMONDIR)/include
 SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
              $(LIBRETROCOMMONDIR)/compat/fopen_utf8.c \
              $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \

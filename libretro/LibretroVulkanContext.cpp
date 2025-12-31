@@ -10,7 +10,7 @@
 #include "Common/Data/Text/Parsers.h"
 
 #include "libretro/LibretroVulkanContext.h"
-#include "libretro/libretro_vulkan.h"
+#include <libretro_vulkan.h>
 #include <GPU/Vulkan/VulkanRenderManager.h>
 
 static VulkanContext *vk;

@@ -46,7 +46,7 @@
 
 #include "UI/AudioCommon.h"
 
-#include "libretro/libretro.h"
+#include <libretro.h>
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/libretro_core_options.h"
 
@@ -1473,7 +1473,7 @@ static void retro_check_backend(void)
       else if (!strcmp(var.value, "vulkan"))
          backend = RETRO_HW_CONTEXT_VULKAN;
       else if (!strcmp(var.value, "d3d11"))
-         backend = RETRO_HW_CONTEXT_DIRECT3D;
+         backend = RETRO_HW_CONTEXT_D3D11;
       else if (!strcmp(var.value, "none"))
          backend = RETRO_HW_CONTEXT_NONE;
    }
