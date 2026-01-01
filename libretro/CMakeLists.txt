@@ -12,6 +12,19 @@ if(WIN32)
 		LibretroD3D11Context.cpp)
 endif()
 
+set(LIBRETRO_SRCS ${LIBRETRO_SRCS}
+	libretro-common/compat/compat_posix_string.c
+	libretro-common/compat/fopen_utf8.c
+	libretro-common/compat/compat_strl.c
+	libretro-common/encodings/encoding_utf.c
+	libretro-common/file/file_path.c
+	libretro-common/file/file_path_io.c
+	libretro-common/streams/file_stream.c
+	libretro-common/streams/file_stream_transforms.c
+	libretro-common/string/stdstring.c
+	libretro-common/time/rtime.c
+	libretro-common/vfs/vfs_implementation.c)
+
 include_directories(libretro)
 
 add_library(ppsspp_libretro SHARED ${LIBRETRO_SRCS})

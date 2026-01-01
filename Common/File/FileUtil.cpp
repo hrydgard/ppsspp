@@ -77,6 +77,10 @@
 #endif  // !PPSSPP_PLATFORM(IOS)
 #endif  // __APPLE__
 
+#ifdef HAVE_LIBRETRO_VFS
+#include <file/file_path.h>
+#endif
+
 #include "Common/Data/Encoding/Utf8.h"
 
 #include <sys/stat.h>
@@ -105,10 +109,26 @@ constexpr bool LOG_IO = false;
 #define DIR_SEP_CHRS "/"
 #endif
 
+#ifdef HAVE_LIBRETRO_VFS
+retro_vfs_mkdir_t LibretroMkdirCallback = nullptr;
+
+static int LibretroMkdir(const char *path) noexcept {
+	return LibretroMkdirCallback != nullptr ? LibretroMkdirCallback(path) : retro_vfs_mkdir_impl(path);
+}
+#endif
+
 // This namespace has various generic functions related to files and paths.
 // The code still needs a ton of cleanup.
 // REMEMBER: strdup considered harmful!
 namespace File {
+
+#ifdef HAVE_LIBRETRO_VFS
+void InitLibretroVFS(const struct retro_vfs_interface_info *vfs) noexcept {
+	filestream_vfs_init(vfs);
+	path_vfs_init(vfs);
+	LibretroMkdirCallback = vfs->required_interface_version >= 3 ? vfs->iface->mkdir : nullptr;
+}
+#endif
 
 FILE *OpenCFile(const Path &path, const char *mode) {
 	if (LOG_IO) {
@@ -120,6 +140,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break;
+#ifndef HAVE_LIBRETRO_VFS
 	case PathType::CONTENT_URI:
 		// We're gonna need some error codes..
 		if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
@@ -167,7 +188,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			FILE *f = fdopen(descriptor, fmode);
 			if (f && (!strcmp(mode, "at") || !strcmp(mode, "a"))) {
 				// Append mode - not sure we got a "true" append mode, so seek to the end.
-				fseek(f, 0, SEEK_END);
+				Fseek(f, 0, SEEK_END);
 			}
 			return f;
 		} else {
@@ -175,12 +196,29 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			return nullptr;
 		}
 		break;
+#endif
 	default:
 		ERROR_LOG(Log::IO, "OpenCFile(%s): PathType not yet supported", path.c_str());
 		return nullptr;
 	}
 
-#if defined(_WIN32) && defined(UNICODE)
+#ifdef HAVE_LIBRETRO_VFS
+	if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
+		INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for read.", path.c_str());
+		return filestream_open(path.c_str(), RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+	} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt") || !strcmp(mode, "at") || !strcmp(mode, "a")) {
+		INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for write.", path.c_str());
+		bool append = !strcmp(mode, "at") || !strcmp(mode, "a");
+		FILE *f = filestream_open(path.c_str(), append && Exists(path) ? RETRO_VFS_FILE_ACCESS_WRITE | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : RETRO_VFS_FILE_ACCESS_WRITE, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		if (f != nullptr && append) {
+			Fseek(f, 0, SEEK_END);
+		}
+		return f;
+	} else {
+		ERROR_LOG(Log::IO, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
+		return nullptr;
+	}
+#elif defined(_WIN32) && defined(UNICODE)
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	// We shouldn't use _wfopen here,
 	// this function is not allowed to read outside Local and Installation folders
@@ -438,7 +476,9 @@ bool Exists(const Path &path) {
 		return Android_FileExists(path.c_str());
 	}
 
-#if defined(_WIN32)
+#ifdef HAVE_LIBRETRO_VFS
+	return path_is_valid(path.c_str());
+#elif defined(_WIN32)
 
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
 #if !PPSSPP_PLATFORM(UWP)
@@ -488,7 +528,9 @@ bool IsDirectory(const Path &path) {
 		return false;
 	}
 
-#if defined(_WIN32)
+#ifdef HAVE_LIBRETRO_VFS
+	return path_is_directory(path.c_str());
+#elif defined(_WIN32)
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 #if PPSSPP_PLATFORM(UWP)
 	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
@@ -543,7 +585,12 @@ bool Delete(const Path &filename) {
 		return false;
 	}
 
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	if (filestream_delete(filename.c_str()) != 0) {
+		WARN_LOG(Log::IO, "Delete: DeleteFile failed on %s", filename.c_str());
+		return false;
+	}
+#elif defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	if (!DeleteFileFromAppW(filename.ToWString().c_str())) {
 		WARN_LOG(Log::IO, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
@@ -603,7 +650,17 @@ bool CreateDir(const Path &path) {
 	}
 
 	DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	switch (LibretroMkdir(path.ToString().c_str())) {
+		case -2:
+			DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		case 0:
+			return true;
+		default:
+			ERROR_LOG(Log::IO, "CreateDir: mkdir failed on %s", path.c_str());
+			return false;
+	}
+#elif defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	if (CreateDirectoryFromAppW(path.ToWString().c_str(), NULL))
 		return true;
@@ -715,6 +772,13 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 
 	INFO_LOG(Log::IO, "Rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 
+#ifdef HAVE_LIBRETRO_VFS
+	if (filestream_rename(srcFilename.c_str(), destFilename.c_str()) == 0)
+		return true;
+	ERROR_LOG(Log::IO, "Rename: failed %s --> %s",
+			  srcFilename.c_str(), destFilename.c_str());
+	return false;
+#else
 #if defined(_WIN32) && defined(UNICODE)
 #if PPSSPP_PLATFORM(UWP)
 	if (MoveFileFromAppW(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str()))
@@ -733,6 +797,7 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 	ERROR_LOG(Log::IO, "Rename: failed %s --> %s: %s",
 			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
+#endif
 }
 
 // copies file srcFilename to destFilename, returns true on success
@@ -762,7 +827,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	}
 
 	INFO_LOG(Log::IO, "Copy by OpenCFile: %s --> %s", srcFilename.c_str(), destFilename.c_str());
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(HAVE_LIBRETRO_VFS)
 #if PPSSPP_PLATFORM(UWP)
 	if (CopyFileFromAppW(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
@@ -906,7 +971,9 @@ uint64_t GetFileSize(const Path &filename) {
 		return false;
 	}
 
-#if defined(_WIN32) && defined(UNICODE)
+#ifdef HAVE_LIBRETRO_VFS
+	return path_get_size(filename.c_str());
+#elif defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
 #if PPSSPP_PLATFORM(UWP)
 	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
@@ -939,45 +1006,19 @@ uint64_t GetFileSize(const Path &filename) {
 }
 
 uint64_t GetFileSize(FILE *f) {
-	// This will only support 64-bit when large file support is available.
-	// That won't be the case on some versions of Android, at least.
-#if defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
-	int fd = fileno(f);
-
-	off64_t pos = lseek64(fd, 0, SEEK_CUR);
-	off64_t size = lseek64(fd, 0, SEEK_END);
-	if (size != pos && lseek64(fd, pos, SEEK_SET) != pos) {
+	uint64_t pos = Ftell(f);
+	if (Fseek(f, 0, SEEK_END) != 0) {
+		return 0;
+	}
+	uint64_t size = Ftell(f);
+	// Reset the seek position to where it was when we started.
+	if (size != pos && Fseek(f, pos, SEEK_SET) != 0) {
 		// Should error here.
 		return 0;
 	}
 	if (size == -1)
 		return 0;
 	return size;
-#else
-#ifdef _WIN32
-	uint64_t pos = _ftelli64(f);
-#else
-	uint64_t pos = ftello(f);
-#endif
-	if (fseek(f, 0, SEEK_END) != 0) {
-		return 0;
-	}
-#ifdef _WIN32
-	uint64_t size = _ftelli64(f);
-	// Reset the seek position to where it was when we started.
-	if (size != pos && _fseeki64(f, pos, SEEK_SET) != 0) {
-#else
-	uint64_t size = ftello(f);
-	// Reset the seek position to where it was when we started.
-	if (size != pos && fseeko(f, pos, SEEK_SET) != 0) {
-#endif
-		// Should error here.
-		return 0;
-	}
-	if (size == -1)
-		return 0;
-	return size;
-#endif
 }
 
 // creates an empty file filename, returns true on success
@@ -1017,6 +1058,12 @@ bool DeleteDir(const Path &path) {
 		return false;
 	}
 
+#ifdef HAVE_LIBRETRO_VFS
+	if (filestream_delete(path.c_str()) == 0)
+		return true;
+	ERROR_LOG(Log::IO, "DeleteDir: %s", path.c_str());
+	return false;
+#else
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
@@ -1032,6 +1079,7 @@ bool DeleteDir(const Path &path) {
 	ERROR_LOG(Log::IO, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
 
 	return false;
+#endif
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
@@ -1164,6 +1212,64 @@ const Path &GetExeDirectory() {
 	return ExePath;
 }
 
+int Fseek(FILE *file, int64_t offset, int whence) {
+#ifdef HAVE_LIBRETRO_VFS
+	switch (whence) {
+		default:
+			whence = RETRO_VFS_SEEK_POSITION_START;
+			break;
+		case SEEK_CUR:
+			whence = RETRO_VFS_SEEK_POSITION_CURRENT;
+			break;
+		case SEEK_END:
+			whence = RETRO_VFS_SEEK_POSITION_END;
+			break;
+	}
+	return filestream_seek(file, offset, whence) < 0 ? -1 : 0;
+#elif defined(_WIN32)
+	return _fseeki64(file, offset, whence);
+#elif defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+	return lseek64(fileno(file), offset, whence) == -1 ? -1 : 0;
+#else
+	return fseeko(file, offset, whence);
+#endif
+}
+
+int64_t Fseektell(FILE *file, int64_t offset, int whence) {
+#ifdef HAVE_LIBRETRO_VFS
+	switch (whence) {
+		default:
+			whence = RETRO_VFS_SEEK_POSITION_START;
+			break;
+		case SEEK_CUR:
+			whence = RETRO_VFS_SEEK_POSITION_CURRENT;
+			break;
+		case SEEK_END:
+			whence = RETRO_VFS_SEEK_POSITION_END;
+			break;
+	}
+	return filestream_seek(file, offset, whence) < 0 ? -1 : filestream_tell(file);
+#elif defined(_WIN32)
+	return _fseeki64(file, offset, whence) != 0 ? -1 : _ftelli64(file);
+#elif defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+	return lseek64(fileno(file), offset, whence);
+#else
+	return fseeko(file, offset, whence) != 0 ? -1 : ftello(file);
+#endif
+}
+
+int64_t Ftell(FILE *file) {
+#ifdef HAVE_LIBRETRO_VFS
+	return filestream_tell(file);
+#elif defined(_WIN32)
+	return _ftelli64(file);
+#elif defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+	return lseek64(fileno(file), 0, SEEK_CUR);
+#else
+	return ftello(file);
+#endif
+}
+
 
 IOFile::IOFile(const Path &filename, const char openmode[]) {
 	Open(filename, openmode);
@@ -1183,21 +1289,21 @@ bool IOFile::Open(const Path& filename, const char openmode[])
 
 bool IOFile::Close()
 {
-	if (!IsOpen() || 0 != std::fclose(m_file))
+	if (!IsOpen() || 0 != fclose(m_file))
 		m_good = false;
 
 	m_file = NULL;
 	return m_good;
 }
 
-std::FILE* IOFile::ReleaseHandle()
+FILE* IOFile::ReleaseHandle()
 {
-	std::FILE* const ret = m_file;
+	FILE* const ret = m_file;
 	m_file = NULL;
 	return ret;
 }
 
-void IOFile::SetHandle(std::FILE* file)
+void IOFile::SetHandle(FILE* file)
 {
 	Close();
 	Clear();
@@ -1214,7 +1320,7 @@ uint64_t IOFile::GetSize()
 
 bool IOFile::Seek(int64_t off, int origin)
 {
-	if (!IsOpen() || 0 != fseeko(m_file, off, origin))
+	if (!IsOpen() || 0 != Fseek(m_file, off, origin))
 		m_good = false;
 
 	return m_good;
@@ -1223,14 +1329,14 @@ bool IOFile::Seek(int64_t off, int origin)
 uint64_t IOFile::Tell()
 {
 	if (IsOpen())
-		return ftello(m_file);
+		return Ftell(m_file);
 	else
 		return -1;
 }
 
 bool IOFile::Flush()
 {
-	if (!IsOpen() || 0 != std::fflush(m_file))
+	if (!IsOpen() || 0 != fflush(m_file))
 		m_good = false;
 
 	return m_good;
@@ -1239,7 +1345,9 @@ bool IOFile::Flush()
 bool IOFile::Resize(uint64_t size)
 {
 	if (!IsOpen() || 0 !=
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+		filestream_truncate(m_file, size)
+#elif defined(_WIN32)
 		// ector: _chsize sucks, not 64-bit safe
 		// F|RES: changed to _chsize_s. i think it is 64-bit safe
 		_chsize_s(_fileno(m_file), size)
@@ -1280,7 +1388,7 @@ bool ReadFileToStringOptions(bool textFile, bool allowShort, const Path &filenam
 		if (textFile) {
 			// totalRead doesn't take \r into account since they might be skipped in this mode.
 			// So let's just ask how far the cursor got.
-			totalRead = ftell(f);
+			totalRead = Ftell(f);
 		}
 		success = allowShort ? (totalRead <= len) : (totalRead == len);
 	}
@@ -1294,14 +1402,14 @@ uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
 		*size = 0;
 		return nullptr;
 	}
-	fseek(file, 0, SEEK_END);
-	size_t f_size = ftell(file);
+	Fseek(file, 0, SEEK_END);
+	size_t f_size = Ftell(file);
 	if ((long)f_size < 0) {
 		*size = 0;
 		fclose(file);
 		return nullptr;
 	}
-	fseek(file, 0, SEEK_SET);
+	Fseek(file, 0, SEEK_SET);
 	// NOTE: If you find ~10 memory leaks from here, with very varying sizes, it might be the VFPU LUTs.
 	uint8_t *contents = new uint8_t[f_size + 1];
 	if (fread(contents, 1, f_size, file) != f_size) {
@@ -1349,6 +1457,7 @@ void ChangeMTime(const Path &path, time_t mtime) {
 		return;
 	}
 
+#ifndef HAVE_LIBRETRO_VFS
 #ifdef _WIN32
 	_utimbuf buf{};
 	buf.actime = mtime;
@@ -1359,6 +1468,7 @@ void ChangeMTime(const Path &path, time_t mtime) {
 	buf.actime = mtime;
 	buf.modtime = mtime;
 	utime(path.c_str(), &buf);
+#endif
 #endif
 }
 

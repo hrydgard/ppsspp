@@ -249,7 +249,7 @@ static void DiscHandler(const http::ServerRequest &request, const Path &filename
 		}
 
 		FILE *fp = File::OpenCFile(filename, "rb");
-		if (!fp || fseek(fp, begin, SEEK_SET) != 0) {
+		if (!fp || File::Fseek(fp, begin, SEEK_SET) != 0) {
 			request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");
 			request.Out()->Push("File access failed.");
 			if (fp) {

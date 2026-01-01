@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdlib>
 #include <mutex>
+#include <fstream>
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
@@ -401,11 +402,11 @@ void retro_set_environment(retro_environment_t cb)
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
 
-   #ifdef HAVE_LIBRETRO_VFS
-      struct retro_vfs_interface_info vfs_iface_info { 1, nullptr };
-      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
-         filestream_vfs_init(&vfs_iface_info);
-   #endif
+#ifdef HAVE_LIBRETRO_VFS
+   struct retro_vfs_interface_info vfs_iface_info { 2, nullptr };
+   if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+      File::InitLibretroVFS(&vfs_iface_info);
+#endif
 }
 
 static int get_language_auto(void)

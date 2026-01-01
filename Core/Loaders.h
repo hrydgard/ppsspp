@@ -20,13 +20,9 @@
 #include <string>
 #include <memory>
 
-#ifdef SHARED_LIBZIP
-#include <zip.h>
-#else
-#include "ext/libzip/zip.h"
-#endif
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+#include "Common/File/VFS/ZipFileReader.h"
 
 enum class IdentifiedFileType {
 	ERROR_IDENTIFYING,
@@ -191,8 +187,8 @@ struct ZipFileInfo {
 	std::string contentName;
 };
 
-struct zip *ZipOpenPath(const Path &fileName);
-void ZipClose(zip *z);
+ZipContainer ZipOpenPath(const Path &fileName);
+void ZipClose(ZipContainer &z);
 
 bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
-void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
+void DetectZipFileContents(zip_t *z, ZipFileInfo *info);

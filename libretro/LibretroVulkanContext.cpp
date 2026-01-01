@@ -13,6 +13,8 @@
 #include <libretro_vulkan.h>
 #include <GPU/Vulkan/VulkanRenderManager.h>
 
+#undef fflush
+
 static VulkanContext *vk;
 
 void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR surface, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char **required_device_extensions, unsigned num_required_device_extensions, const char **required_device_layers, unsigned num_required_device_layers, const VkPhysicalDeviceFeatures *required_features);

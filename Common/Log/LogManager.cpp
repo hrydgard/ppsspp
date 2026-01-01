@@ -382,6 +382,10 @@ void OutputDebugStringUTF8(const char *p) {
 
 #endif
 
+#ifdef HAVE_LIBRETRO_VFS
+#undef fprintf
+#endif
+
 void LogManager::StdioLog(const LogMessage &message) {
 #if PPSSPP_PLATFORM(ANDROID)
 #ifndef LOG_APP_NAME

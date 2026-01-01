@@ -32,6 +32,8 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/ShaderUniforms.h"
 
+#include "Common/File/FileUtil.h"
+
 class VulkanContext;
 class DrawEngineVulkan;
 class VulkanPushPool;

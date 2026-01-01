@@ -24,7 +24,7 @@
 #include "Common/File/Path.h"
 #include "Core/FileSystems/FileSystem.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(HAVE_LIBRETRO_VFS)
 typedef void * HANDLE;
 #endif
 
@@ -34,7 +34,9 @@ struct DirectoryFileHandle {
 		SKIP_REPLAY,
 	};
 
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	FILE *hFile = nullptr;
+#elif defined(_WIN32)
 	HANDLE hFile = (HANDLE)-1;
 #else
 	int hFile = -1;
