@@ -970,7 +970,6 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch) {
 	_dbg_assert_(src && dst);
-
 	_dbg_assert_(src != dst);
 
 	// Check that the depth address is even the same before actually blitting.
@@ -3536,8 +3535,9 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	_dbg_assert_(dest);
 	_dbg_assert_(pipeline);
 
-	if (!src || !dest) {
+	if (!src || !dest || !pipeline) {
 		// Nothing we can do, other than trying to catch it in debug with the asserts above.
+		return;
 	}
 
 	if (pipeline->info.writeChannel == RASTER_DEPTH) {
