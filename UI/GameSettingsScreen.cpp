@@ -1353,7 +1353,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 
-	PopupSliderChoice *exitConfirmation = systemSettings->Add(new PopupSliderChoice(&g_Config.iAskForExitConfirmationAfterSeconds, 0, 1200, 60, sy->T("Ask for exit confirmation after seconds"), screenManager(), "s"));
+	PopupSliderChoice *exitConfirmation = systemSettings->Add(new PopupSliderChoice(&g_Config.iAskForExitConfirmationAfterSeconds, 0, 1200, 300, sy->T("Ask for exit confirmation after seconds"), screenManager(), "s"));
 	exitConfirmation->SetZeroLabel(sy->T("Off"));
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
