@@ -124,6 +124,9 @@ protected:
 	bool ignoreGlobalDpi_ = false;
 	FontStyle fontStyle_{};
 
+	// We will clamp strings to this length to avoid various degenenerate behaviors.k
+	static constexpr size_t MAX_TEXT_LENGTH = 16384;
+
 	std::map<CacheKeyType, std::unique_ptr<TextStringEntry>> cache_;
 	std::map<CacheKeyType, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };

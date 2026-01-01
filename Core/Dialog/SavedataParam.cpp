@@ -892,7 +892,7 @@ std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPa
 bool SavedataParam::GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]) {
 	auto entries = GetSFOEntries(dirPath);
 
-	for (auto entry : entries) {
+	for (const auto &entry : entries) {
 		if (strncmp(entry.filename, filename.c_str(), sizeof(entry.filename)) == 0) {
 			memcpy(hash, entry.hash, sizeof(entry.hash));
 			return true;
@@ -920,13 +920,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 }
 
 // Note: The work is done in-place, hence the memmove etc.
-int SavedataParam::EncryptData(unsigned int mode,
-		 unsigned char *data,
-		 int *dataLen,
-		 int *alignedLen,
-		 unsigned char *hash,
-		 unsigned char *cryptkey)
-{
+int SavedataParam::EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, const u8 *cryptkey) {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
@@ -975,7 +969,7 @@ int SavedataParam::EncryptData(unsigned int mode,
 }
 
 // Note: The work is done in-place, hence the memmove etc.
-int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash) {
+int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, const u8 *cryptkey, const u8 *expectedHash) {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
@@ -1015,8 +1009,7 @@ int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *data
 }
 
 // Requires sfoData to be padded with zeroes to the next 16-byte boundary (due to BuildHash)
-int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
-{
+int SavedataParam::UpdateHash(u8 *sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode) {
 	int alignedLen = align16(sfoSize);
 	memset(sfoData + sfoDataParamsOffset, 0, 128);
 	u8 filehash[16];

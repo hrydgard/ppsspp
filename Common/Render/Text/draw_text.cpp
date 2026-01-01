@@ -126,6 +126,11 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 		return;
 	}
 
+	// Clamp the size to something sane.
+	if (str.size() > MAX_TEXT_LENGTH) {
+		str = str.substr(0, MAX_TEXT_LENGTH);
+	}
+
 	const CacheKeyType key{std::string(str), fontStyle_};
 
 	TextMeasureEntry *entry;
@@ -150,6 +155,11 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 
 void TextDrawer::MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align) {
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+
+	// Clamp the size to something sane.
+	if (str.size() > MAX_TEXT_LENGTH) {
+		str = str.substr(0, MAX_TEXT_LENGTH);
+	}
 
 	float plainW, plainH;
 	MeasureString(str, &plainW, &plainH);
@@ -181,16 +191,25 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const 
 		y = bounds.y2();
 	}
 
+	// Clamp the size to something sane.
+	if (str.size() > MAX_TEXT_LENGTH) {
+		str = str.substr(0, MAX_TEXT_LENGTH);
+	}
+
 	std::string toDraw(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		WrapString(toDraw, str, bounds.w, wrap);
 	}
-
 	DrawString(target, toDraw, x, y, color, align);
 }
 
 bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor) {
+	// Clamp the size to something sane.
+	if (str.size() > MAX_TEXT_LENGTH) {
+		str = str.substr(0, MAX_TEXT_LENGTH);
+	}
+
 	std::string toDraw(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {

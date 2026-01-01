@@ -131,8 +131,10 @@ public:
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
 
+	// These return true if they handled the operation enough that the actual memory operation should be skipped. Not always a clear-cut case...
 	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE);
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
+
 	virtual bool PerformReadbackToMemory(u32 dest, int size);
 	virtual bool PerformWriteColorFromMemory(u32 dest, int size);
 
