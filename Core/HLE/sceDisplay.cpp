@@ -571,7 +571,12 @@ void __DisplaySetDisplayLayoutConfig(const DisplayLayoutConfig &config) {
 }
 
 void __DisplayFlip(int cyclesLate) {
-	_dbg_assert_(gpu);
+	if (!gpu) {
+		_dbg_assert_(gpu);
+		// Something has gone wrong.
+		flippedThisFrame = true;
+		return;
+	}
 
 	__DisplaySetFramerate();
 

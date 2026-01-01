@@ -596,8 +596,7 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 			return nullptr;
 		}
 	}
-	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
-	return shader;
+	return draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
 }
 
 void PresentationCommon::SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight) {

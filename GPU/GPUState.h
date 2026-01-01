@@ -682,7 +682,10 @@ public:
 	ShaderDepalMode shaderDepalMode;
 	GEBufferFormat depalFramebufferFormat;
 
-	u32 getRelativeAddress(u32 data) const;
+	u32 getRelativeAddress(u32 data) const {
+		u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
+		return (offsetAddr + baseExtended) & 0x0FFFFFFF;
+	}
 	static void Reset();
 	void DoState(PointerWrap &p);
 };
@@ -692,7 +695,3 @@ class GPUDebugInterface;
 
 extern GPUStateCache gstate_c;
 
-inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
-	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
-	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
-}
