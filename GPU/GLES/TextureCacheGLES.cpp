@@ -248,6 +248,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	if (plan.depth == 1) {
 		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, th, 1, plan.levelsToCreate);
 	} else {
+		_dbg_assert_(draw_->GetDeviceCaps().texture3DSupported);
 		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, th, plan.depth, 1);
 	}
 
