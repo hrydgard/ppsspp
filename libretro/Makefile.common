@@ -17,7 +17,6 @@ INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
 	-I$(CORE_DIR)/libretro \
-	-I$(LIBRETROCOMMONDIR)/include \
 	-I$(EXTDIR)/libadrenotools/lib/linkernsbypass \
 	-I$(EXTDIR)/libadrenotools/include \
 	-I$(EXTDIR)/OpenXR-SDK/include \
@@ -1124,15 +1123,18 @@ ifeq ($(HAVE_LIBRETRO_VFS), 1)
 DEFINES += -DHAVE_LIBRETRO_VFS
 SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
              $(LIBRETROCOMMONDIR)/compat/fopen_utf8.c \
-             $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \
              $(LIBRETROCOMMONDIR)/compat/compat_strl.c \
+             $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \
              $(LIBRETROCOMMONDIR)/file/file_path.c \
+             $(LIBRETROCOMMONDIR)/file/file_path_io.c \
              $(LIBRETROCOMMONDIR)/streams/file_stream.c \
              $(LIBRETROCOMMONDIR)/streams/file_stream_transforms.c \
              $(LIBRETROCOMMONDIR)/string/stdstring.c \
              $(LIBRETROCOMMONDIR)/time/rtime.c \
              $(LIBRETROCOMMONDIR)/vfs/vfs_implementation.c
 endif
+
+INCFLAGS += -I$(LIBRETROCOMMONDIR)/include
 
 GIT_VERSION_SRC = $(CORE_DIR)/git-version.cpp
 GIT_VERSION := $(shell git describe --always || echo v-1.unknown)
