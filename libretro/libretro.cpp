@@ -6,7 +6,6 @@
 #include <vector>
 #include <cstdlib>
 #include <mutex>
-#include <fstream>
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
@@ -1858,10 +1857,11 @@ void retro_cheat_reset(void) {
    Path file=cheatEngine->CheatFilename();
 
    // Output cheats to cheat file
-   std::ofstream outFile;
-   outFile.open(file.c_str());
-   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
-   outFile.close();
+   FILE *outFile = File::OpenCFile(file, "wb");
+   if (outFile != nullptr) {
+      fprintf(outFile, "_S %s\n", g_paramSFO.GetDiscID().c_str());
+      fclose(outFile);
+   }
 
    g_Config.bReloadCheats = true;
 
@@ -1881,10 +1881,20 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
 
    // Read cheats file
    std::vector<std::string> cheats;
-   std::ifstream cheat_content(file.c_str());
-   std::stringstream buffer;
-   buffer << cheat_content.rdbuf();
-   std::string existing_cheats=ReplaceAll(buffer.str(), std::string("\n_C"), std::string("|"));
+   std::string cheat_content;
+   FILE *inFile = File::OpenCFile(file, "rb");
+   if (inFile != nullptr) {
+      std::array<uint8_t, 4096> buffer;
+      for (;;) {
+         size_t n = fread(buffer.data(), 1, buffer.size(), inFile);
+         cheat_content.append((const char *)buffer.data(), n);
+         if (n < buffer.size()) {
+            break;
+         }
+      }
+      fclose(inFile);
+   }
+   std::string existing_cheats=ReplaceAll(cheat_content, std::string("\n_C"), std::string("|"));
    SplitString(existing_cheats, '|', cheats);
 
    // Generate Cheat String
@@ -1916,13 +1926,14 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
    }
 
    // Output cheats to cheat file
-   std::ofstream outFile;
-   outFile.open(file.c_str());
-   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
-   for (int i=1; i < cheats.size(); i++) {
-      outFile << "_C" << cheats[i] << std::endl;
+   FILE *outFile = File::OpenCFile(file, "wb");
+   if (outFile != nullptr) {
+      fprintf(outFile, "_S %s\n", g_paramSFO.GetDiscID().c_str());
+      for (const std::string &cheat : cheats) {
+         fprintf(outFile, "_C%s\n", cheat.c_str());
+      }
+      fclose(outFile);
    }
-   outFile.close();
 
    g_Config.bReloadCheats = true;
 
