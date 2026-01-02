@@ -1225,7 +1225,7 @@ int Fseek(FILE *file, int64_t offset, int whence) {
 			whence = RETRO_VFS_SEEK_POSITION_END;
 			break;
 	}
-	return filestream_seek(file, offset, whence) < 0 ? -1 : 0;
+	return filestream_seek(file, offset, whence) == -1 ? -1 : 0;
 #elif defined(_WIN32)
 	return _fseeki64(file, offset, whence);
 #elif defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
@@ -1248,7 +1248,7 @@ int64_t Fseektell(FILE *file, int64_t offset, int whence) {
 			whence = RETRO_VFS_SEEK_POSITION_END;
 			break;
 	}
-	return filestream_seek(file, offset, whence) < 0 ? -1 : filestream_tell(file);
+	return filestream_seek(file, offset, whence) == -1 ? -1 : filestream_tell(file);
 #elif defined(_WIN32)
 	return _fseeki64(file, offset, whence) != 0 ? -1 : _ftelli64(file);
 #elif defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
@@ -1402,9 +1402,8 @@ uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
 		*size = 0;
 		return nullptr;
 	}
-	Fseek(file, 0, SEEK_END);
-	size_t f_size = Ftell(file);
-	if ((long)f_size < 0) {
+	int64_t f_size = Fseektell(file, 0, SEEK_END);
+	if (f_size < 0) {
 		*size = 0;
 		fclose(file);
 		return nullptr;
