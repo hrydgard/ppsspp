@@ -1,3 +1,5 @@
+HAVE_LIBRETRO_VFS ?= 1
+
 FFMPEGDIR		= $(CORE_DIR)/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
@@ -1120,7 +1122,7 @@ SOURCES_C += \
 endif
 
 ifeq ($(HAVE_LIBRETRO_VFS), 1)
-DEFINES += -DHAVE_LIBRETRO_VFS
+COREFLAGS += -DHAVE_LIBRETRO_VFS
 SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
              $(LIBRETROCOMMONDIR)/compat/fopen_utf8.c \
              $(LIBRETROCOMMONDIR)/compat/compat_strl.c \
