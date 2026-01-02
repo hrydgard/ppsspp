@@ -879,22 +879,27 @@ handleELF:
 		}
 
 		if (flags_ & GameInfoFlags::SIZE) {
-			std::lock_guard<std::mutex> lock(info_->lock);
-			info_->gameSizeOnDisk = info_->GetSizeOnDiskInBytes();
+			const u64 gameSizeOnDisk = info_->GetSizeOnDiskInBytes();
+			u64 saveDataSize = 0;
+			u64 installDataSize = 0;
+
 			switch (info_->fileType) {
 			case IdentifiedFileType::PSP_ISO:
 			case IdentifiedFileType::PSP_ISO_NP:
 			case IdentifiedFileType::PSP_DISC_DIRECTORY:
 			case IdentifiedFileType::PSP_PBP:
 			case IdentifiedFileType::PSP_PBP_DIRECTORY:
-				info_->saveDataSize = info_->GetGameSavedataSizeInBytes();
-				info_->installDataSize = info_->GetInstallDataSizeInBytes();
+				saveDataSize = info_->GetGameSavedataSizeInBytes();
+				installDataSize = info_->GetInstallDataSizeInBytes();
 				break;
 			default:
-				info_->saveDataSize = 0;
-				info_->installDataSize = 0;
 				break;
 			}
+
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->gameSizeOnDisk = gameSizeOnDisk;
+			info_->saveDataSize = saveDataSize;
+			info_->installDataSize = installDataSize;
 		}
 		if (flags_ & GameInfoFlags::UNCOMPRESSED_SIZE) {
 			info_->gameSizeUncompressed = info_->GetSizeUncompressedInBytes();

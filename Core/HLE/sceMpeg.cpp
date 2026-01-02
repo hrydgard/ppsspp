@@ -581,7 +581,7 @@ static int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	}
 
 	// Kinda destructive, no? Shouldn't this just do what sceMpegQueryStreamSize does?
-	AnalyzeMpeg(Memory::GetPointerWriteUnchecked(bufferAddr), Memory::ValidSize(bufferAddr, 32768), ctx);
+	AnalyzeMpeg(Memory::GetPointerWriteUnchecked(bufferAddr), Memory::ClampValidSizeAt(bufferAddr, 32768), ctx);
 
 	if (ctx->mpegMagic != PSMF_MAGIC) {
 		Memory::WriteUnchecked_U32(0, offsetAddr);
@@ -608,7 +608,7 @@ static u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	ctx.mediaengine = nullptr;  // makes sure we don't actually load the stream.
 	ctx.isAnalyzed = false;
 
-	AnalyzeMpeg(Memory::GetPointerWriteUnchecked(bufferAddr), Memory::ValidSize(bufferAddr, 32768), &ctx);
+	AnalyzeMpeg(Memory::GetPointerWriteUnchecked(bufferAddr), Memory::ClampValidSizeAt(bufferAddr, 32768), &ctx);
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
 		Memory::WriteUnchecked_U32(0, sizeAddr);
@@ -1405,7 +1405,7 @@ void PostPutAction::run(MipsCall &call) {
 		// TODO: Faster / less wasteful validation.
 		auto demuxer = std::make_unique<MpegDemux>(packetsAddedThisRound * 2048, 0);
 		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
-		uint32_t bufSize = Memory::ValidSize(ringbuffer->data + readOffset * 2048, packetsAddedThisRound * 2048);
+		uint32_t bufSize = Memory::ClampValidSizeAt(ringbuffer->data + readOffset * 2048, packetsAddedThisRound * 2048);
 		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
 		bool invalid = false;
 		for (uint32_t i = 0; i < bufSize / 2048; ++i) {
@@ -1442,7 +1442,7 @@ void PostPutAction::run(MipsCall &call) {
 			packetsAddedThisRound = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
 		const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
-		uint32_t dataSize = Memory::ValidSize(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
+		uint32_t dataSize = Memory::ClampValidSizeAt(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
 		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, dataSize) / 2048;
 		if (actuallyAdded != packetsAddedThisRound) {
 			WARN_LOG_REPORT(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");

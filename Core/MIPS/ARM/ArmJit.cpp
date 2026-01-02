@@ -497,7 +497,6 @@ void ArmJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 }
 
 bool ArmJit::ReplaceJalTo(u32 dest) {
-#if PPSSPP_ARCH(ARM)
 	const ReplacementTableEntry *entry = nullptr;
 	u32 funcSize = 0;
 	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
@@ -546,7 +545,6 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
-#endif
 	return true;
 }
 

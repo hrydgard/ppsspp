@@ -89,7 +89,7 @@ const u8 *ParamSFOData::GetValueData(std::string_view key, unsigned int *size) c
 		return 0;
 	}
 	if (size) {
-		*size = it->second.u_value.size();
+		*size = (unsigned int)it->second.u_value.size();
 	}
 	return it->second.u_value.data();
 }

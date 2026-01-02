@@ -444,7 +444,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
-		WARN_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
+		INFO_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
@@ -892,7 +892,7 @@ std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPa
 bool SavedataParam::GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]) {
 	auto entries = GetSFOEntries(dirPath);
 
-	for (auto entry : entries) {
+	for (const auto &entry : entries) {
 		if (strncmp(entry.filename, filename.c_str(), sizeof(entry.filename)) == 0) {
 			memcpy(hash, entry.hash, sizeof(entry.hash));
 			return true;
@@ -907,7 +907,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 		return;
 
 	u8 *buf = fileData->buf;
-	u32 size = Memory::ValidSize(fileData->buf.ptr, fileData->bufSize);
+	u32 size = Memory::ClampValidSizeAt(fileData->buf.ptr, fileData->bufSize);
 	s64 readSize = -1;
 	if (ReadPSPFile(filePath, &buf, size, &readSize)) {
 		fileData->size = readSize;
@@ -920,13 +920,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 }
 
 // Note: The work is done in-place, hence the memmove etc.
-int SavedataParam::EncryptData(unsigned int mode,
-		 unsigned char *data,
-		 int *dataLen,
-		 int *alignedLen,
-		 unsigned char *hash,
-		 unsigned char *cryptkey)
-{
+int SavedataParam::EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, const u8 *cryptkey) {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
@@ -975,7 +969,7 @@ int SavedataParam::EncryptData(unsigned int mode,
 }
 
 // Note: The work is done in-place, hence the memmove etc.
-int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash) {
+int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, const u8 *cryptkey, const u8 *expectedHash) {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
@@ -1015,8 +1009,7 @@ int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *data
 }
 
 // Requires sfoData to be padded with zeroes to the next 16-byte boundary (due to BuildHash)
-int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
-{
+int SavedataParam::UpdateHash(u8 *sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode) {
 	int alignedLen = align16(sfoSize);
 	memset(sfoData + sfoDataParamsOffset, 0, 128);
 	u8 filehash[16];

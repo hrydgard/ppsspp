@@ -400,7 +400,7 @@ void Recorder::EmitTextureData(int level, u32 texaddr) {
 
 	CommandType type = CommandType((int)CommandType::TEXTURE0 + level);
 	const u8 *p = Memory::GetPointerUnchecked(texaddr);
-	u32 bytes = Memory::ValidSize(texaddr, sizeInRAM);
+	u32 bytes = Memory::ClampValidSizeAt(texaddr, sizeInRAM);
 	std::vector<u8> framebufData;
 
 	if (Memory::IsVRAMAddress(texaddr)) {
@@ -506,10 +506,10 @@ void Recorder::EmitTransfer(u32 op) {
 	int bpp = gstate.getTransferBpp();
 
 	u32 srcBytes = ((srcY + height - 1) * srcStride + (srcX + width)) * bpp;
-	srcBytes = Memory::ValidSize(srcBasePtr, srcBytes);
+	srcBytes = Memory::ClampValidSizeAt(srcBasePtr, srcBytes);
 
 	u32 dstBytes = ((dstY + height - 1) * dstStride + (dstX + width)) * bpp;
-	dstBytes = Memory::ValidSize(dstBasePtr, dstBytes);
+	dstBytes = Memory::ClampValidSizeAt(dstBasePtr, dstBytes);
 
 	if (srcBytes != 0) {
 		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes, 16);
@@ -530,7 +530,7 @@ void Recorder::EmitClut(u32 op) {
 	// Actually should only be 0x3F, but we allow enhanced CLUTs.  See #15727.
 	u32 blocks = (op & 0x7F) == 0x40 ? 0x40 : (op & 0x3F);
 	u32 bytes = blocks * 32;
-	bytes = Memory::ValidSize(addr, bytes);
+	bytes = Memory::ClampValidSizeAt(addr, bytes);
 
 	if (bytes != 0) {
 		// Send the original address so VRAM can be reasoned about.
@@ -690,7 +690,7 @@ void Recorder::NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 		memcpy(pushbuf.data() + cmd.ptr, &dest, sizeof(dest));
 		commands.push_back(cmd);
 
-		sz = Memory::ValidSize(dest, sz);
+		sz = Memory::ClampValidSizeAt(dest, sz);
 		if (sz != 0) {
 			EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointerUnchecked(dest), sz, 1);
 			UpdateLastVRAM(dest, sz);
@@ -712,7 +712,7 @@ void Recorder::NotifyMemset(u32 dest, int v, u32 sz) {
 	};
 
 	if (Memory::IsVRAMAddress(dest)) {
-		sz = Memory::ValidSize(dest, sz);
+		sz = Memory::ClampValidSizeAt(dest, sz);
 		MemsetCommand data{ dest, v, sz };
 
 		FlushRegisters();

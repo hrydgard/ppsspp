@@ -122,7 +122,7 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		return;
 	}
 	if (!Memory::IsValidRange(read_, numBlocks_ * 16)) {
-		WARN_LOG_REPORT(Log::SasMix, "Bad VAG samples address? %08x / %d", read_, numBlocks_);
+		WARN_LOG_REPORT_ONCE(badvagaddr, Log::SasMix, "Bad VAG samples address? %08x / %d", read_, numBlocks_);
 		return;
 	}
 

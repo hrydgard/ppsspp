@@ -1813,8 +1813,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 					u32 dstLinePos = dstLineStartAddr;
 					for (u32 i = 0; i < bytesToCopy; i += 64) {
 						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
-						u32 srcValid = Memory::ValidSize(srcLinePos, chunk);
-						u32 dstValid = Memory::ValidSize(dstLinePos, chunk);
+						u32 srcValid = Memory::ClampValidSizeAt(srcLinePos, chunk);
+						u32 dstValid = Memory::ClampValidSizeAt(dstLinePos, chunk);
 
 						// First chunk, for which both are valid.
 						u32 bothSize = std::min(srcValid, dstValid);
@@ -1849,14 +1849,14 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 			if (notifyAll) {
 				if (srcWraps) {
-					u32 validSize = Memory::ValidSize(src, srcSize);
+					u32 validSize = Memory::ClampValidSizeAt(src, srcSize);
 					NotifyMemInfo(MemBlockFlags::READ, src, validSize, tag, tagSize);
 					NotifyMemInfo(MemBlockFlags::READ, PSP_GetVidMemBase(), srcSize - validSize, tag, tagSize);
 				} else {
 					NotifyMemInfo(MemBlockFlags::READ, src, srcSize, tag, tagSize);
 				}
 				if (dstWraps) {
-					u32 validSize = Memory::ValidSize(dst, dstSize);
+					u32 validSize = Memory::ClampValidSizeAt(dst, dstSize);
 					NotifyMemInfo(MemBlockFlags::WRITE, dst, validSize, tag, tagSize);
 					NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetVidMemBase(), dstSize - validSize, tag, tagSize);
 				} else {
@@ -1908,16 +1908,21 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 }
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
-	/*
-	// TODO: Should add this. But let's do it after the 1.18 release.
-	if (dest == 0 || src == 0) {
-		_dbg_assert_msg_(false, "Bad PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);
-		return false;
-	}
-	*/
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);
-		// Let's not ignore this yet but if we hit this, we should investigate.
+		return false;
+	}
+
+	// If dest is not a valid address, just ignore.
+	if (!Memory::IsValidAddress(dest)) {
+		_dbg_assert_msg_(false, "Invalid address for PerformMemorySet: %08x, size %d", dest, size);
+		return false;
+	}
+
+	// Check for invalid memory range. Should we reject? For now, let's clamp it.
+	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
+		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		size = Memory::ClampValidSizeAt(dest, size);
 	}
 
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
@@ -1948,6 +1953,23 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 }
 
 bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
+	if (size == 0) {
+		_dbg_assert_msg_(false, "Zero-sized PerformMemorySet: %08x, value %02x, size %d", dest, v, size);
+		return false;
+	}
+
+	// If dest is not a valid address, just ignore.
+	if (!Memory::IsValidAddress(dest)) {
+		_dbg_assert_msg_(false, "Invalid address for PerformMemorySet: %08x, size %d", dest, size);
+		return false;
+	}
+
+	// Check for invalid memory range. Should we reject? For now, let's clamp it.
+	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
+		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		size = Memory::ClampValidSizeAt(dest, size);
+	}
+
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		Memory::Memset(dest, v, size, "GPUMemset");

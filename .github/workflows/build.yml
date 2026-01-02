@@ -97,7 +97,7 @@ jobs:
       run: cp Windows/Release/*.exe ppsspp/
 
     - name: Upload build
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
@@ -147,7 +147,7 @@ jobs:
       run: git submodule update --init pspautotests assets/lang
 
     - name: Download build
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v7
       with:
         name: Windows x64 build
         path: ppsspp/
@@ -368,14 +368,14 @@ jobs:
         fi
 
     - name: Upload build
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       if: matrix.extra == 'test'
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
     - name: Upload iOS build
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       if: matrix.id == 'ios'
       with:
         name: ${{ matrix.id }} build
@@ -433,7 +433,7 @@ jobs:
         git submodule update --init SDL/macOS
 
     - name: Download build
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v7
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/

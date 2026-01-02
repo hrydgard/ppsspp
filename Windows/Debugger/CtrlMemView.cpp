@@ -241,7 +241,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 			uint32_t words[4];
 			uint8_t bytes[16];
 		} memory;
-		int valid = debugger_ != nullptr && debugger_->isAlive() ? Memory::ValidSize(address, 16) / 4 : 0;
+		int valid = debugger_ != nullptr && debugger_->isAlive() ? Memory::ClampValidSizeAt(address, 16) / 4 : 0;
 		for (int i = 0; i < valid; ++i) {
 			memory.words[i] = debugger_->readMemory(address + i * 4);
 		}

@@ -332,6 +332,8 @@ bool MediaEngine::openContext(bool keepReadPos) {
 			return false;
 	}
 
+	// Here it shouldn't be possible for m_videoStream to be invalid.
+
 	if (!setVideoStream(m_videoStream, true))
 		return false;
 

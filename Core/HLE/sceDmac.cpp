@@ -48,6 +48,7 @@ void __DmacDoState(PointerWrap &p) {
 static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
+		// We let the GPU deal with invalid range.
 		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
 	if (!skip && size != 0) {

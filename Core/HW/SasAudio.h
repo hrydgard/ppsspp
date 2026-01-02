@@ -102,9 +102,6 @@ enum VoiceType {
 // It compresses 28 16-bit samples into a block of 16 bytes.
 class VagDecoder {
 public:
-	VagDecoder() : data_(0), read_(0), end_(true) {
-		memset(samples, 0, sizeof(samples));
-	}
 	void Start(u32 dataPtr, u32 vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
@@ -117,7 +114,7 @@ public:
 	u32 GetReadPtr() const { return read_; }
 
 private:
-	s16 samples[28];
+	s16 samples[28]{};
 	int curSample = 0;
 
 	u32 data_ = 0;
@@ -132,7 +129,7 @@ private:
 
 	bool loopEnabled_ = false;
 	bool loopAtNextBlock_ = false;
-	bool end_ = false;
+	bool end_ = true;
 };
 
 class SasAtrac3 {
