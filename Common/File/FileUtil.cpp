@@ -110,8 +110,14 @@ constexpr bool LOG_IO = false;
 #endif
 
 #ifdef HAVE_LIBRETRO_VFS
-retro_vfs_mkdir_t LibretroMkdirCallback = nullptr;
+static retro_vfs_mkdir_t LibretroMkdirCallback = nullptr;
 
+// Creates a directory at the given path. Parent directories are not created if
+// they are missing. If the libretro VFS is supported by the libretro frontend,
+// it will be used; if the libretro VFS is not supported by the frontend, the
+// mkdir function will be used instead. Returns 0 if the directory did not exist
+// and was successfully created, -2 if the directory already exists or -1 if
+// some other error occurred.
 static int LibretroMkdir(const char *path) noexcept {
 	return LibretroMkdirCallback != nullptr ? LibretroMkdirCallback(path) : retro_vfs_mkdir_impl(path);
 }
