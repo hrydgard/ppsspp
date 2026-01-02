@@ -15,26 +15,23 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/StringUtils.h"
 
-ZipContainer::ZipContainer() noexcept : sourceData_ {{}, nullptr}, zip_(nullptr) {}
+ZipContainer::ZipContainer() noexcept : sourceData_(nullptr), zip_(nullptr) {}
 
-ZipContainer::ZipContainer(const Path &path) : sourceData_ {path, nullptr}, zip_(nullptr) {
-	zip_source_t *source = zip_source_function_create(SourceCallback, &sourceData_, nullptr);
+ZipContainer::ZipContainer(const Path &path) : sourceData_(new SourceData {path, nullptr}), zip_(nullptr) {
+	zip_source_t *source = zip_source_function_create(SourceCallback, sourceData_, nullptr);
 	if ((zip_ = zip_open_from_source(source, ZIP_RDONLY, nullptr)) == nullptr) {
 		zip_source_free(source);
 	}
 }
 
-ZipContainer::ZipContainer(ZipContainer &&other) noexcept : sourceData_(other.sourceData_), zip_(other.zip_) {
-	other.sourceData_.path.clear();
-	other.sourceData_.file = nullptr;
-	other.zip_ = nullptr;
+ZipContainer::ZipContainer(ZipContainer &&other) noexcept {
+	*this = std::move(other);
 }
 
 ZipContainer &ZipContainer::operator=(ZipContainer &&other) noexcept {
 	sourceData_ = other.sourceData_;
 	zip_ = other.zip_;
-	other.sourceData_.path.clear();
-	other.sourceData_.file = nullptr;
+	other.sourceData_ = nullptr;
 	other.zip_ = nullptr;
 	return *this;
 }
@@ -47,6 +44,10 @@ void ZipContainer::close() noexcept {
 	if (zip_ != nullptr) {
 		zip_close(zip_);
 		zip_ = nullptr;
+	}
+	if (sourceData_ != nullptr) {
+		delete sourceData_;
+		sourceData_ = nullptr;
 	}
 }
 
@@ -79,6 +80,7 @@ zip_int64_t ZipContainer::SourceCallback(void *userdata, void *data, zip_uint64_
 				sourceData.file = newFile;
 				return 0;
 			}
+
 		case ZIP_SOURCE_READ:
 			{
 				size_t n = fread(data, 1, len, sourceData.file);
@@ -91,10 +93,11 @@ zip_int64_t ZipContainer::SourceCallback(void *userdata, void *data, zip_uint64_
 			return 0;
 
 		case ZIP_SOURCE_STAT:
-			{
-				if (sourceData.file == nullptr) {
-					return -1;
-				}
+			if (sourceData.file == nullptr) {
+				zip_stat_t *stat = (zip_stat_t *)data;
+				zip_stat_init(stat);
+				stat->valid = 0;
+			} else {
 				int64_t pos = File::Ftell(sourceData.file);
 				if (pos == -1) {
 					return -1;
@@ -110,8 +113,8 @@ zip_int64_t ZipContainer::SourceCallback(void *userdata, void *data, zip_uint64_
 				zip_stat_init(stat);
 				stat->valid = ZIP_STAT_SIZE;
 				stat->size = size;
-				return 0;
 			}
+			return 0;
 
 		case ZIP_SOURCE_ERROR:
 			return ZIP_ER_INTERNAL;

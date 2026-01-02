@@ -31,7 +31,7 @@ private:
 	struct SourceData {
 		Path path;
 		FILE *file;
-	} sourceData_;
+	} *sourceData_;
 	zip_t *zip_;
 
 	static zip_int64_t SourceCallback(void *userdata, void *data, zip_uint64_t len, zip_source_cmd_t cmd);
