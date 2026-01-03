@@ -109,14 +109,9 @@ public class TextRenderer {
 		Point s = measure(string, font, textSize);
 		return (s.x << 16) | s.y;
 	}
-
-	public static int[] renderText(String string, int font, double textSize) {
+	public static int[] renderText(String string, int font, double textSize, int w, int h) {
 		textPaint.setTypeface(fontMap.get(font));
 		textPaint.setTextSize((float) textSize);
-		Point s = measure(string, font, textSize);
-
-		int w = s.x;
-		int h = s.y;
 
 		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bmp);

@@ -1225,6 +1225,11 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 
 	for (auto &iter : desc.shaders) {
 		VKShaderModule *vkshader = (VKShaderModule *)iter;
+		if (!iter) {
+			ERROR_LOG(Log::G3D, "Null shader in pipeline creation");
+			delete pipeline;
+			return nullptr;
+		}
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {

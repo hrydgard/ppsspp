@@ -567,7 +567,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 				caps_.fragmentShaderInt32Supported = true;
 			}
 		}
-		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
+		caps_.texture3DSupported = gl_extensions.GLES3 || gl_extensions.OES_texture_3D;
 		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {
 		if (gl_extensions.VersionGEThan(3, 3, 0)) {
@@ -1308,6 +1308,12 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 			ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader in module");
 			return false;
 		}
+	}
+
+	if (linkShaders.empty()) {
+		// Can't proceed.
+		ERROR_LOG(Log::G3D, "LinkShaders: No valid shaders to link");
+		return false;
 	}
 
 	std::vector<GLRProgram::Semantic> semantics;

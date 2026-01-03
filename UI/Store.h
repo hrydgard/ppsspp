@@ -104,6 +104,5 @@ private:
 
 	UI::ViewGroup *scrollItemView_ = nullptr;
 	UI::ViewGroup *productPanel_ = nullptr;
-	UI::TextView *titleText_ = nullptr;
 };
 
