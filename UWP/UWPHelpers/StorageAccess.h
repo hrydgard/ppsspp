@@ -23,10 +23,14 @@
 #include <list>
 #include <string>
 
-using namespace Windows::Storage;
+winrt::hstring GetDataFromLocalSettings(winrt::hstring key);
 
 // Local settings
 std::string GetDataFromLocalSettings(std::string key);
+bool AddDataToLocalSettings(winrt::hstring key, winrt::hstring data, bool replace);
 bool AddDataToLocalSettings(std::string key, std::string data, bool replace);
-void AddItemToFutureList(IStorageItem^ item);
+
+void AddItemToFutureList(const winrt::Windows::Storage::IStorageItem& item);
+winrt::Windows::Storage::IStorageItem GetItemByKey(winrt::hstring key);
+
 std::list<std::string> GetFutureAccessList();
