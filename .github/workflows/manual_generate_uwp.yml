@@ -80,6 +80,11 @@ jobs:
           echo "single ${ github.event.inputs.buildConfiguration }"
           echo $env:GITHUB_WORKSPACE
       
+      - name: Restore NuGet packages
+        working-directory: ${{ github.workspace }}/UWP
+        run: |
+          nuget restore PPSSPP_UWP.sln
+
       - name: Execute MSIX build
         working-directory: ${{ github.workspace }}
         env:

@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "pch.h"
 #include <list>
+#include <thread>
 
 #include "InputHelpers.h"
 #include "UWPUtil.h"
@@ -26,14 +28,14 @@
 #include <ppl.h>
 #include <ppltasks.h>
 
-using namespace Windows::System;
-using namespace Windows::Foundation;
-using namespace Windows::UI::Core;
-using namespace Windows::UI::ViewManagement;
-using namespace Windows::ApplicationModel::Core;
-using namespace Windows::Data::Xml::Dom;
-using namespace Windows::UI::Notifications;
-using namespace Windows::UI::ViewManagement;
+using namespace winrt;
+using namespace winrt::Windows::System;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::UI::Core;
+using namespace winrt::Windows::UI::ViewManagement;
+using namespace winrt::Windows::ApplicationModel::Core;
+using namespace winrt::Windows::Data::Xml::Dom;
+using namespace winrt::Windows::UI::Notifications;
 
 #pragma region Extenstions
 template<typename T>
@@ -44,14 +46,14 @@ bool findInList(std::list<T>& inputList, T& str) {
 
 #pragma region Input Devices
 bool isKeyboardAvailable() {
-	Windows::Devices::Input::KeyboardCapabilities^ keyboardCapabilities = ref new Windows::Devices::Input::KeyboardCapabilities();
-	bool hasKeyboard = keyboardCapabilities->KeyboardPresent != 0;
+	winrt::Windows::Devices::Input::KeyboardCapabilities keyboardCapabilities;
+	bool hasKeyboard = keyboardCapabilities.KeyboardPresent() != 0;
 	return hasKeyboard;
 }
 
 bool isTouchAvailable() {
-	Windows::Devices::Input::TouchCapabilities^ touchCapabilities = ref new Windows::Devices::Input::TouchCapabilities();
-	bool hasTouch = touchCapabilities->TouchPresent != 0;
+	winrt::Windows::Devices::Input::TouchCapabilities touchCapabilities;
+	bool hasTouch = touchCapabilities.TouchPresent() != 0;
 	return hasTouch;
 }
 #pragma endregion
@@ -61,28 +63,35 @@ bool isTouchAvailable() {
 bool dPadInputActive = false;
 bool textEditActive = false;
 bool inputPaneVisible = false;
-Platform::Agile<Windows::UI::ViewManagement::InputPane> inputPane = nullptr;
+winrt::agile_ref<InputPane> inputPane = nullptr;
 
-void OnShowing(InputPane^ pane, InputPaneVisibilityEventArgs^ args) {
+void OnShowing(const InputPane& pane, const InputPaneVisibilityEventArgs& args) {
 	inputPaneVisible = true;
 }
-void OnHiding(InputPane^ pane, InputPaneVisibilityEventArgs^ args) {
+void OnHiding(const InputPane& pane, const InputPaneVisibilityEventArgs& args) {
 	inputPaneVisible = false;
 }
 
 void PrepareInputPane() {
-	inputPane = InputPane::GetForCurrentView();
-	inputPane->Showing += ref new Windows::Foundation::TypedEventHandler<InputPane^, InputPaneVisibilityEventArgs^>(&OnShowing);
-	inputPane->Hiding += ref new Windows::Foundation::TypedEventHandler<InputPane^, InputPaneVisibilityEventArgs^>(&OnHiding);
+	auto pane = InputPane::GetForCurrentView();
+	pane.Showing(OnShowing);
+	pane.Hiding(OnHiding);
+	inputPane = pane;
 }
 
 // Show input pane (OSK)
 bool ShowInputPane() {
-	return !isInputPaneVisible() ? inputPane->TryShow() : true;
+	if (inputPane) {
+		return !isInputPaneVisible() ? inputPane.get().TryShow() : true;
+	}
+	return false;
 }
 // Hide input pane (OSK)
 bool HideInputPane() {
-	return isInputPaneVisible() ? inputPane->TryHide() : true;
+	if (inputPane) {
+		return isInputPaneVisible() ? inputPane.get().TryHide() : true;
+	}
+	return false;
 }
 
 // Check if input pane (OSK) visible
@@ -107,9 +116,9 @@ bool isDPadActive() {
 
 void ActivateTextEditInput(bool byFocus) {
 	// Must be performed from UI thread
-	Windows::ApplicationModel::Core::CoreApplication::MainView->CoreWindow->Dispatcher->RunAsync(
+	CoreApplication::MainView().CoreWindow().Dispatcher().RunAsync(
 	CoreDispatcherPriority::Normal,
-	ref new Windows::UI::Core::DispatchedHandler([=]()
+	[byFocus]()
 	{
 		if (byFocus) {
 			// Why we should delay? (Mostly happen on XBox)
@@ -130,14 +139,14 @@ void ActivateTextEditInput(bool byFocus) {
 		}
 		DEBUG_LOG(Log::Common, "Text edit active");
 		textEditActive = true;
-	}));
+	});
 }
 
 void DeactivateTextEditInput(bool byFocus) {
 	// Must be performed from UI thread
-	Windows::ApplicationModel::Core::CoreApplication::MainView->CoreWindow->Dispatcher->RunAsync(
+	CoreApplication::MainView().CoreWindow().Dispatcher().RunAsync(
 	CoreDispatcherPriority::Normal,
-	ref new Windows::UI::Core::DispatchedHandler([=]()
+	[byFocus]()
 	{
 		if (isInputPaneVisible()) {
 			if (HideInputPane()) {
@@ -151,7 +160,7 @@ void DeactivateTextEditInput(bool byFocus) {
 			DEBUG_LOG(Log::Common, "Text edit inactive");
 			textEditActive = false;
 		}
-	}));
+	});
 }
 
 bool IgnoreInput(int keyCode) {
@@ -200,17 +209,17 @@ bool IgnoreInput(int keyCode) {
 #pragma region Keys Status
 bool IsCapsLockOn() {
 	// TODO: Perform this on UI thread, delayed as currently `KeyDown` don't detect those anyway
-	auto capsLockState = CoreApplication::MainView->CoreWindow->GetKeyState(VirtualKey::CapitalLock);
+	auto capsLockState = CoreApplication::MainView().CoreWindow().GetKeyState(VirtualKey::CapitalLock);
 	return (capsLockState == CoreVirtualKeyStates::Locked);
 }
 bool IsShiftOnHold() {
 	// TODO: Perform this on UI thread, delayed as currently `KeyDown` don't detect those anyway
-	auto shiftState = CoreApplication::MainView->CoreWindow->GetKeyState(VirtualKey::Shift);
+	auto shiftState = CoreApplication::MainView().CoreWindow().GetKeyState(VirtualKey::Shift);
 	return (shiftState == CoreVirtualKeyStates::Down);
 }
 bool IsCtrlOnHold() {
 	// TODO: Perform this on UI thread, delayed as currently `KeyDown` don't detect those anyway
-	auto ctrlState = CoreApplication::MainView->CoreWindow->GetKeyState(VirtualKey::Control);
+	auto ctrlState = CoreApplication::MainView().CoreWindow().GetKeyState(VirtualKey::Control);
 	return (ctrlState == CoreVirtualKeyStates::Down);
 }
 #pragma endregion
@@ -231,18 +240,18 @@ std::string GetLangRegion() {
 }
 
 bool IsXBox() {
-	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-	return deviceInfo->DeviceFamily == "Windows.Xbox";
+	auto deviceInfo = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo();
+	return deviceInfo.DeviceFamily() == L"Windows.Xbox";
 }
 
 bool IsMobile() {
-	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-	return deviceInfo->DeviceFamily == "Windows.Mobile";
+	auto deviceInfo = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo();
+	return deviceInfo.DeviceFamily() == L"Windows.Mobile";
 }
 
 void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
-	Platform::String^ deviceFamilyVersion = Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamilyVersion;
-	uint64_t version = std::stoull(deviceFamilyVersion->Data());
+	winrt::hstring deviceFamilyVersion = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo().DeviceFamilyVersion();
+	uint64_t version = std::stoull(std::wstring(deviceFamilyVersion));
 
 	major = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
 	minor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
