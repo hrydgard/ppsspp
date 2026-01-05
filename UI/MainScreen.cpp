@@ -1212,7 +1212,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	}
 
 	if (!portrait) {
-		parent->Add(new Spacer(25.0));
+		parent->Add(new Spacer(16.0));
 	}
 
 	// Remove the exit button in vertical layout on all platforms, just no space.

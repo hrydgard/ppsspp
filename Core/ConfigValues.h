@@ -43,6 +43,8 @@ constexpr int VOLUME_FULL = 10;
 constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
 constexpr int AUDIOSAMPLES_MIN = 0;
 constexpr int AUDIOSAMPLES_MAX = 2048;
+constexpr float NO_DEFAULT_FLOAT = -1000000.0f;
+constexpr int NO_DEFAULT_INT = -1000000;
 
 // This matches exactly the old shift-based curve.
 float Volume10ToMultiplier(int volume);

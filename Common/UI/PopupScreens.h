@@ -13,8 +13,8 @@ enum class StringRestriction;
 
 namespace UI {
 
-static const float NO_DEFAULT_FLOAT = -1000000.0f;
-static const int NO_DEFAULT_INT = -1000000;
+constexpr float NO_DEFAULT_FLOAT = -1000000.0f;
+constexpr int NO_DEFAULT_INT = -1000000;
 
 class PopupScreen : public UIDialogScreen {
 public:

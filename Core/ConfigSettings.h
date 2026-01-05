@@ -207,6 +207,11 @@ struct ConfigSetting {
 	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
 	bool Report() const { return flags_ & CfgFlag::REPORT; }
 
+	int GetDefaultInt() const {
+		_dbg_assert_(type_ == Type::TYPE_INT);
+		return defaultCallback_.i ? defaultCallback_.i() : default_.i;
+	}
+
 	std::string_view iniKey_;
 	const char *ini2_ = nullptr;
 	const char *ini3_ = nullptr;
@@ -216,11 +221,10 @@ struct ConfigSetting {
 	const Type type_;
 
 	// Returns false if per-game settings are not currently used
-	static bool perGame(void *ptr);
+	static bool PerGame(void *ptr);
 
 	const void *GetVoidPtr(ConfigBlock *configBlock) const {
 		char *configBlockBase = (char *)configBlock;
-		// undefined behavior but in reality will work.
 		return (const void *)(configBlockBase + offset_);
 	}
 

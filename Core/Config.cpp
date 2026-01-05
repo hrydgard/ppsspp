@@ -801,6 +801,7 @@ static const ConfigSetting soundSettings[] = {
 
 	// Legacy volume settings, these get auto upgraded through default handlers on the new settings. NOTE: Must be before the new ones in the order here.
 	// The default settings here are still relevant, they will get propagated into the new ones.
+	// In 1.21 or so, let's get rid of these.
 	ConfigSetting("GlobalVolume", SETTING(g_Config, iLegacyGameVolume), VOLUME_FULL, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
 	ConfigSetting("ReverbVolume", SETTING(g_Config, iLegacyReverbVolume), VOLUME_FULL, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
 	ConfigSetting("AchievementSoundVolume", SETTING(g_Config, iLegacyAchievementVolume), 6, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
@@ -1145,9 +1146,25 @@ std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> &C
 	return lut;
 }
 
-Config::Config() {
+int Config::GetDefaultValueInt(int *configSetting) {
+	const auto &lut = getPtrLUT();
+	auto it = lut.find(configSetting);
+	if (it != lut.end()) {
+		const ConfigBlock *block = it->second.first;
+		if (block->CanResetToDefault()) {
+			// TODO: Support this.
+			_dbg_assert_(false);
+			return NO_DEFAULT_INT;
+		}
+		const ConfigSetting *setting = it->second.second;
+		return setting->GetDefaultInt();
+	}
+	return NO_DEFAULT_INT;
+}
+
+void Config::Init() {
 	// Initialize the pointer->setting lookup map.
-	auto ref = getPtrLUT();
+	auto &ref = getPtrLUT();
 	for (size_t i = 0; i < numSections; ++i) {
 		ConfigBlock *configBlock = g_sectionMeta[i].configBlock;
 		for (size_t j = 0; j < g_sectionMeta[i].settingsCount; j++) {
@@ -1155,6 +1172,7 @@ Config::Config() {
 			ref[ptr] = std::make_pair(configBlock, &g_sectionMeta[i].settings[j]);
 		}
 	}
+	_dbg_assert_(ref.size() > 1);
 }
 
 Config::~Config() {
