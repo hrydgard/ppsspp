@@ -451,7 +451,7 @@ static u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 da
 	if (ring->semaID != 0) {
 		// I'm starting to think this is just padding or something.
 		// It's not written by this function.
-		WARN_LOG(Log::Mpeg, "Detected semaID %d", ring->semaID);
+		WARN_LOG(Log::Mpeg, "Detected 'semaID' (might not be) %d (%08x)", ring->semaID, ring->semaID);
 	}
 	ring->mpeg = 0;
 	// This isn't in ver 0104, but it is in 0105.
