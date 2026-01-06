@@ -118,18 +118,19 @@ public:
 	}
 
 	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
-		dc.Flush();
-		dc.Begin();
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
+
+		dc.Flush();
+		dc.Begin();
 		if (last_xres != xres || last_yres != yres) {
 			Regenerate(xres, yres);
 		}
 
-		for (int i = 0; i < COUNT; i++) {
-			float x = xbase[i] + dc.GetBounds().x;
-			float y = ybase[i] + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
-			float angle = (float)sin(i + t);
+		for (size_t i = 0; i < base.size(); i++) {
+			const float x = base[i].x + dc.GetBounds().x;
+			const float y = base[i].y + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
+			const float angle = sinf(i + t);
 			int n = i & 3;
 			Color color = is_colored ? colorAlpha(COLORS[n], alpha * 0.25f) : colorAlpha(DEFAULT_COLOR, alpha * 0.1f);
 			ui_draw2d.DrawImageRotated(SYMBOLS[n], x, y, 1.0f, angle, color);
@@ -138,22 +139,23 @@ public:
 	}
 
 private:
-	static constexpr int COUNT = 100;
 	static constexpr Color DEFAULT_COLOR = 0xC0FFFFFF;
 	static constexpr Color COLORS[4] = {0xFFE3B56F, 0xFF615BFF, 0xFFAA88F3, 0xFFC2CC7A,}; // X O D A
 	static const ImageID SYMBOLS[4];
 
 	bool is_colored = false;
-	float xbase[COUNT]{};
-	float ybase[COUNT]{};
+	std::vector<Point2D> base;
 	float last_xres = 0;
 	float last_yres = 0;
 
 	void Regenerate(int xres, int yres) {
+		int count = xres * yres / (120.0f * 120.0f);
+		base.resize(count);
+
 		GMRng rng;
-		for (int i = 0; i < COUNT; i++) {
-			xbase[i] = rng.F() * xres;
-			ybase[i] = rng.F() * yres;
+		rng.Init(time_now_d() * 100239);
+		for (size_t i = 0; i < base.size(); i++) {
+			base[i] = { rng.F() * xres, rng.F() * yres };
 		}
 
 		last_xres = xres;
