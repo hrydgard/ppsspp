@@ -2764,15 +2764,16 @@ int NetAdhocctl_Create(const char *groupName) {
 int sceNetAdhocctlCreate(const char *groupName) {
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (groupName)
-		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+		strncpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlCreate(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return hleLogError(Log::sceNet, -1, "WLAN off");
+		ERROR_LOG(Log::sceNet, "sceNetAdhocctlCreate(%s) failed: WLAN off", grpName);
+		return -1;  // Not sure about the correct error code here.
 	}
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CREATE;
-	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(groupName));
+	return NetAdhocctl_Create(groupName);
 }
 
 int sceNetAdhocctlConnect(const char* groupName) {
@@ -2781,12 +2782,13 @@ int sceNetAdhocctlConnect(const char* groupName) {
 		strncpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlConnect(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return hleLogError(Log::sceNet, -1, "WLAN off");
+		ERROR_LOG(Log::sceNet, "sceNetAdhocctlConnect(%s) failed: WLAN off", grpName);
+		return -1;  // Not sure about the correct error code here.
 	}
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CONNECT;
-	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(groupName));
+	return NetAdhocctl_Create(groupName);
 }
 
 int sceNetAdhocctlJoin(u32 scanInfoAddr) {

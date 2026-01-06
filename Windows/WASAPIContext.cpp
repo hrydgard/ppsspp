@@ -84,6 +84,24 @@ WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
 	return AudioFormat::Unhandled;
 }
 
+bool GetDeviceDesc(IMMDevice *device, AudioDeviceDesc *desc) {
+	ComPtr<IPropertyStore> props;
+	device->OpenPropertyStore(STGM_READ, &props);
+	PROPVARIANT nameProp;
+	PropVariantInit(&nameProp);
+	props->GetValue(PKEY_Device_FriendlyName, &nameProp);
+	LPWSTR id_str = 0;
+	bool success = false;
+	if (SUCCEEDED(device->GetId(&id_str))) {
+		desc->name = ConvertWStringToUTF8(nameProp.pwszVal);
+		desc->uniqueId = ConvertWStringToUTF8(id_str);
+		CoTaskMemFree(id_str);
+		success = true;
+	}
+	PropVariantClear(&nameProp);
+	return success;
+}
+
 void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool captureDevices) {
 	ComPtr<IMMDeviceCollection> collection;
 	enumerator_->EnumAudioEndpoints(captureDevices ? eCapture : eRender, DEVICE_STATE_ACTIVE, &collection);
@@ -100,23 +118,10 @@ void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool 
 		ComPtr<IMMDevice> device;
 		collection->Item(i, &device);
 
-		ComPtr<IPropertyStore> props;
-		device->OpenPropertyStore(STGM_READ, &props);
-
-		PROPVARIANT nameProp;
-		PropVariantInit(&nameProp);
-		props->GetValue(PKEY_Device_FriendlyName, &nameProp);
-
-		LPWSTR id_str = 0;
-		if (SUCCEEDED(device->GetId(&id_str))) {
-			AudioDeviceDesc desc;
-			desc.name = ConvertWStringToUTF8(nameProp.pwszVal);
-			desc.uniqueId = ConvertWStringToUTF8(id_str);
+		AudioDeviceDesc desc{};
+		if (GetDeviceDesc(device.Get(), &desc)) {
 			output->push_back(desc);
-			CoTaskMemFree(id_str);
 		}
-
-		PropVariantClear(&nameProp);
 	}
 }
 
@@ -144,11 +149,15 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		}
 	}
 
+	AudioDeviceDesc desc{};
+	GetDeviceDesc(device.Get(), &desc);
+	INFO_LOG(Log::Audio, "Activating audio device: %s", desc.name.c_str());
+
 	deviceId_ = uniqueId;
 
 	HRESULT hr = E_FAIL;
 	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
-	if (false && latencyMode != LatencyMode::Safe) {
+	if (latencyMode != LatencyMode::Safe) {
 		hr = device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&audioClient3_);
 	}
 
@@ -167,7 +176,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		} else {
 			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
 
-			INFO_LOG(Log::Audio, "default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
+			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
 			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
 
 			audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -192,7 +201,11 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	if (!audioClient3_) {
 		// Fallback to IAudioClient (older OS)
-		device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
+		HRESULT hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
+		if (FAILED(hr)) {
+			ERROR_LOG(Log::Audio, "Failed to activate audio device: %08lx", hr);
+			return false;
+		}
 
 		audioClient_->GetMixFormat(&format_);
 
@@ -245,7 +258,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
 		const REFERENCE_TIME duration = minPeriod;
-		HRESULT hr = audioClient_->Initialize(
+		hr = audioClient_->Initialize(
 			AUDCLNT_SHAREMODE_SHARED,
 			AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraStreamFlags,
 			duration,  // This is a minimum, the result might be larger. We use GetBufferSize to check.
@@ -271,6 +284,8 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	}
 
 	latencyMode_ = latencyMode;
+
+	_dbg_assert_(audioClient_ || audioClient3_);
 
 	Start();
 
@@ -321,9 +336,13 @@ void WASAPIContext::AudioLoop() {
 	if (audioClient3_) {
 		audioClient3_->Start();
 		audioClient3_->GetBufferSize(&available);
-	} else {
+	} else if (audioClient_) {
 		audioClient_->Start();
 		audioClient_->GetBufferSize(&available);
+	} else {
+		// No audio client, nothing to do.
+		WARN_LOG(Log::Audio, "No audio client");
+		return;
 	}
 
 	const AudioFormat format = Classify(format_);
