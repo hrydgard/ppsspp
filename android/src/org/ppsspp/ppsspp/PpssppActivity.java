@@ -1151,14 +1151,25 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (!passThrough) {
 			switch (event.getAction()) {
 				case KeyEvent.ACTION_DOWN:
-					Log.i(TAG, "KeyEvent Down");
+				{
+					int unicode = event.getUnicodeChar();
+					if (unicode != 0 && !Character.isISOControl(unicode)) {
+						char c = (char) unicode;
+						Log.i(TAG, "Key char event " + unicode);
+						// Handle alphanumeric character
+						NativeApp.keyChar(NativeApp.DEVICE_ID_KEYBOARD, (int)c);
+						return true;
+					}
+
+					// Log.i(TAG, "KeyEvent Down");
 					if (state.onKeyDown(event)) {
 						return true;
 					}
 					break;
+				}
 
 				case KeyEvent.ACTION_UP:
-					Log.i(TAG, "KeyEvent Up");
+					// Log.i(TAG, "KeyEvent Up");
 					if (state.onKeyUp(event)) {
 						return true;
 					}

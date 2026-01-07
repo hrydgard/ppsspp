@@ -1271,6 +1271,18 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyChar(JNIEnv *, jclass, jint deviceId, jint unicodeChar) {
+	if (!renderer_inited) {
+		return false; // could probably return true here too..
+	}
+
+	KeyInput keyInput;
+	keyInput.deviceId = (InputDeviceID)deviceId;
+	keyInput.unicodeChar = unicodeChar;
+	keyInput.flags = KeyInputFlags::CHAR;
+	return NativeKey(keyInput);
+}
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jintArray axisIds, jfloatArray values, jint count) {
 	if (!renderer_inited)

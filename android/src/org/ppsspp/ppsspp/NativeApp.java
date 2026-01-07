@@ -51,6 +51,7 @@ public class NativeApp {
 
 	public static native boolean keyDown(int deviceId, int key, boolean isRepeat);
 	public static native boolean keyUp(int deviceId, int key);
+	public static native boolean keyChar(int deviceId, int unicodeChar);
 
 	public static native void joystickAxis(int deviceId, int []axis, float []value, int count);
 
