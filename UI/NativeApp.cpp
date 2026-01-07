@@ -530,6 +530,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		forceLogLevel = true;
 	};
 
+	// TODO: Need a much better command line argument parser.
+
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
 #if defined(__APPLE__)
@@ -580,6 +582,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.iForceFullScreen = 1;
 					System_ToggleFullscreenState("1");
+				}
+				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
+					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
 				if (!strcmp(argv[i], "--windowed")) {
 					g_Config.iForceFullScreen = 0;

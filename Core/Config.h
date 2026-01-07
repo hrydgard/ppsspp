@@ -662,6 +662,8 @@ public:
 	Path internalDataDirectory;
 	Path appCacheDirectory;
 
+	Path mountRoot;  // Actually, mount as host0. keeping consistent with headless args.
+
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
 	void Reload();
