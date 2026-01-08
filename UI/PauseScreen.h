@@ -53,8 +53,6 @@ private:
 	void OnLoadUndo(UI::EventParams &e);
 	void OnLastSaveUndo(UI::EventParams &e);
 
-	void OnScreenshotClicked(UI::EventParams &e);
-
 	void OnCreateConfig(UI::EventParams &e);
 	void OnDeleteConfig(UI::EventParams &e);
 

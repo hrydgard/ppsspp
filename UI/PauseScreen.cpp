@@ -211,6 +211,7 @@ public:
 	UI::Event OnStateLoaded;
 	UI::Event OnStateSaved;
 	UI::Event OnScreenshotClicked;
+	UI::Event OnSelected;
 
 private:
 	void OnSaveState(UI::EventParams &e);
@@ -232,7 +233,13 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	std::string number = StringFromFormat("%d", slot + 1);
 	Add(new Spacer(5));
 
-	Add(new TextView(number, new LinearLayoutParams(40.0f, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)))->SetBig(true);
+	// TEMP HACK: use some other view, like a Choice, themed differently to enable keyboard access to selection.
+	ClickableTextView *numberView = Add(new ClickableTextView(number, new LinearLayoutParams(40.0f, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)));
+	numberView->SetBig(true);
+	numberView->OnClick.Add([this](UI::EventParams &e) {
+		e.v = this;
+		OnSelected.Trigger(e);
+	});
 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 
@@ -369,23 +376,38 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems)
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
-		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
+		slot->OnScreenshotClicked.Add([this](UI::EventParams &e) {
+			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+			int slot = v->GetSlot();
+			g_Config.iCurrentStateSlot = v->GetSlot();
+			if (SaveState::HasSaveInSlot(gamePath_, slot)) {
+				Path fn = v->GetScreenshotFilename();
+				std::string title = v->GetScreenshotTitle();
+				Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
+				screenManager()->push(screen);
+			}
+		});
+		slot->OnSelected.Add([this](UI::EventParams &e) {
+			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+			g_Config.iCurrentStateSlot = v->GetSlot();
+			RecreateViews();
+		});
 	}
 	leftColumnItems->Add(new Spacer(0.0));
 
 	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 0))));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load")));
+		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK")));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(gamePath_));
 		loadUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLoadUndo);
 
-		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save")));
+		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK")));
 		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(gamePath_));
 		saveUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLastSaveUndo);
 	}
 
 	if (g_Config.iRewindSnapshotInterval > 0 && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind")));
+		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND")));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
 	}
@@ -718,18 +740,6 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 			// There may have been changes to our savestates, so let's recreate.
 			RecreateViews();
 		}
-	}
-}
-
-void GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
-	SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
-	int slot = v->GetSlot();
-	g_Config.iCurrentStateSlot = v->GetSlot();
-	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
-		Path fn = v->GetScreenshotFilename();
-		std::string title = v->GetScreenshotTitle();
-		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
-		screenManager()->push(screen);
 	}
 }
 

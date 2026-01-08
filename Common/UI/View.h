@@ -1047,8 +1047,6 @@ public:
 	bool CanBeFocused() const override { return focusable_; }
 
 private:
-	static const FontStyle *GetTextStyle(const UIContext &dc, TextSize size);
-
 	std::string text_;
 	int textAlign_;
 	uint32_t textColor_;
@@ -1190,5 +1188,6 @@ bool IsTabRightKey(const KeyInput &key);
 
 // TODO: Doesn't really belong here.
 void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animated);
+const FontStyle *GetTextStyle(const UIContext &dc, TextSize size);
 
 }  // namespace
