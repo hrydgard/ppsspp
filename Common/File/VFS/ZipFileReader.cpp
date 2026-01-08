@@ -19,7 +19,7 @@ ZipContainer::ZipContainer() noexcept : sourceData_(nullptr), zip_(nullptr) {}
 
 ZipContainer::ZipContainer(const Path &path) : sourceData_(new SourceData {path, nullptr}), zip_(nullptr) {
 	zip_source_t *source = zip_source_function_create(SourceCallback, sourceData_, nullptr);
-	if ((zip_ = zip_open_from_source(source, ZIP_RDONLY, nullptr)) == nullptr) {
+	if (source != nullptr && (zip_ = zip_open_from_source(source, ZIP_RDONLY, nullptr)) == nullptr) {
 		zip_source_free(source);
 	}
 }
