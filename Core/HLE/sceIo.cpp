@@ -2589,7 +2589,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			key_ptr = nullptr;
 		}
 
-		DEBUG_LOG(Log::sceIo, "Decrypting PGD DRM files");
+		INFO_LOG(Log::sceIo, "ioctl: Decrypting PGD DRM files from '%s'", f->fullpath.c_str());
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		KirkState *kirk = __ChnnlsvKirkState();
