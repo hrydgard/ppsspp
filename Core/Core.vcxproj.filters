@@ -1396,6 +1396,9 @@
     <ClCompile Include="Util\PathUtil.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="SaveStateRewind.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2255,6 +2258,9 @@
     </ClInclude>
     <ClInclude Include="Util\PathUtil.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveStateRewind.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

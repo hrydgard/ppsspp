@@ -517,7 +517,7 @@ bool IsDirectory(const Path &path) {
 
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
-bool Delete(const Path &filename) {
+bool Delete(const Path &filename, bool quiet) {
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(200, "slow-io-sim");
 	}
@@ -533,7 +533,9 @@ bool Delete(const Path &filename) {
 	// Return true because we care about the file no
 	// being there, not the actual delete.
 	if (!Exists(filename)) {
-		WARN_LOG(Log::IO, "Delete: '%s' already does not exist", filename.c_str());
+		if (!quiet) {
+			WARN_LOG(Log::IO, "Delete: '%s' already does not exist", filename.c_str());
+		}
 		return true;
 	}
 

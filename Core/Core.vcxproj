@@ -926,6 +926,7 @@
     <ClCompile Include="RetroAchievements.cpp" />
     <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
+    <ClCompile Include="SaveStateRewind.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="TiltEventProcessor.cpp" />
@@ -1295,6 +1296,7 @@
     <ClInclude Include="RetroAchievements.h" />
     <ClInclude Include="SaveState.h" />
     <ClInclude Include="MIPS\MIPSStackWalk.h" />
+    <ClInclude Include="SaveStateRewind.h" />
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="TiltEventProcessor.h" />

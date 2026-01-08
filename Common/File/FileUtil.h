@@ -96,7 +96,7 @@ bool CreateFullPath(const Path &fullPath);
 
 // Deletes a given file by name, return true on success
 // Doesn't support deleting a directory (although it will work on some platforms - ideally shouldn't)
-bool Delete(const Path &filename);
+bool Delete(const Path &filename, bool quiet = false);
 
 // Deletes a directory by name, returns true on success
 // Directory must be empty.
