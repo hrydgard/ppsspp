@@ -335,7 +335,7 @@ namespace MainWindow {
 			RemoveMenu(saveStateSlots, 0, MF_BYPOSITION);
 		}
 
-		auto dt = GetI18NCategory(I18NCat::DESKTOPUI);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		// Add new items
 		for (int i = 0; i < Config::iSaveStateSlotCount; ++i) {
 			std::string number = StringFromFormat("%d", i + 1);
@@ -343,7 +343,7 @@ namespace MainWindow {
 				// Add an accelerator for the first 10 slots.
 				number = "&" + number;
 			}
-			std::string label = ApplySafeSubstitutions(dt->T("Slot %1"), number);
+			std::string label = ApplySafeSubstitutions(di->T("Slot %1"), number);
 			AppendMenu(
 				saveStateSlots,
 				MF_STRING,
