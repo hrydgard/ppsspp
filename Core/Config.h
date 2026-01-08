@@ -151,6 +151,9 @@ public:
 
 	size_t Size() const override { return sizeof(Config); }
 
+	// TODO: Make a config setting.
+	static constexpr int iSaveStateSlotCount = 5;
+
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;

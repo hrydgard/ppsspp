@@ -326,6 +326,31 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_HELP_GITHUB);
 		TranslateMenuItem(menu, ID_HELP_DISCORD);
 		TranslateMenuItem(menu, ID_HELP_ABOUT);
+
+		// Dynamically create the save state slot selector menu.
+		// TODO: In the future, maybe change it to separate save and load submenus?
+		HMENU fileMenu = GetSubmenuById(menu, ID_FILE_MENU);
+		HMENU saveStateSlots = GetSubmenuById(fileMenu, ID_FILE_SAVESTATE_SLOT_MENU);
+		while (GetMenuItemCount(saveStateSlots) > 0) {
+			RemoveMenu(saveStateSlots, 0, MF_BYPOSITION);
+		}
+
+		auto dt = GetI18NCategory(I18NCat::DESKTOPUI);
+		// Add new items
+		for (int i = 0; i < Config::iSaveStateSlotCount; ++i) {
+			std::string number = StringFromFormat("%d", i + 1);
+			if (i < 10) {
+				// Add an accelerator for the first 10 slots.
+				number = "&" + number;
+			}
+			std::string label = ApplySafeSubstitutions(dt->T("Slot %1"), number);
+			AppendMenu(
+				saveStateSlots,
+				MF_STRING,
+				ID_FILE_SAVESTATE_SLOT_BASE + i,
+				ConvertUTF8ToWString(label).c_str()
+			);
+		}
 	}
 
 	void TranslateMenus(HWND hWnd, HMENU menu) {
@@ -584,16 +609,6 @@ namespace MainWindow {
 			}
 			break;
 		}
-
-		case ID_FILE_SAVESTATE_SLOT_1:
-		case ID_FILE_SAVESTATE_SLOT_2:
-		case ID_FILE_SAVESTATE_SLOT_3:
-		case ID_FILE_SAVESTATE_SLOT_4:
-		case ID_FILE_SAVESTATE_SLOT_5:
-			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_1;
-			}
-			break;
 
 		case ID_FILE_QUICKLOADSTATE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
@@ -978,6 +993,13 @@ namespace MainWindow {
 			break;
 
 		default:
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+				if (wmId >= ID_FILE_SAVESTATE_SLOT_BASE && wmId < ID_FILE_SAVESTATE_SLOT_BASE + g_Config.iSaveStateSlotCount) {
+					g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_BASE;
+				}
+				break;
+			}
+
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 			if (rc_client_raintegration_activate_menu_item(Achievements::GetClient(), LOWORD(wParam))) {
 				break;
@@ -1206,22 +1228,14 @@ namespace MainWindow {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ((i == g_Config.iFrameSkip) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		static const int savestateSlot[] = {
-			ID_FILE_SAVESTATE_SLOT_1,
-			ID_FILE_SAVESTATE_SLOT_2,
-			ID_FILE_SAVESTATE_SLOT_3,
-			ID_FILE_SAVESTATE_SLOT_4,
-			ID_FILE_SAVESTATE_SLOT_5,
-		};
-
 		if (g_Config.iCurrentStateSlot < 0)
 			g_Config.iCurrentStateSlot = 0;
 
-		else if (g_Config.iCurrentStateSlot >= SaveState::NUM_SLOTS)
-			g_Config.iCurrentStateSlot = SaveState::NUM_SLOTS - 1;
+		else if (g_Config.iCurrentStateSlot >= Config::iSaveStateSlotCount)
+			g_Config.iCurrentStateSlot = Config::iSaveStateSlotCount - 1;
 
-		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
-			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
+		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
+			CheckMenuItem(menu, ID_FILE_SAVESTATE_SLOT_BASE + i, MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 #if !PPSSPP_API(ANY_GL)
@@ -1233,9 +1247,9 @@ namespace MainWindow {
 
 	// This one is pretty expensive so we handle it separately.
 	static void UpdateBackendSubMenu(HMENU menu) {
-		bool allowD3D11 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11);
-		bool allowOpenGL = g_Config.IsBackendEnabled(GPUBackend::OPENGL);
-		bool allowVulkan = g_Config.IsBackendEnabled(GPUBackend::VULKAN);
+		const bool allowD3D11 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11);
+		const bool allowOpenGL = g_Config.IsBackendEnabled(GPUBackend::OPENGL);
+		const bool allowVulkan = g_Config.IsBackendEnabled(GPUBackend::VULKAN);
 
 		switch (GetGPUBackend()) {
 		case GPUBackend::OPENGL:

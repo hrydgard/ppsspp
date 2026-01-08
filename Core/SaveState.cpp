@@ -554,12 +554,12 @@ double g_lastSaveTime = -1.0;
 
 	void PrevSlot()
 	{
-		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot - 1 + NUM_SLOTS) % NUM_SLOTS;
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot - 1 + Config::iSaveStateSlotCount) % Config::iSaveStateSlotCount;
 	}
 
 	void NextSlot()
 	{
-		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % Config::iSaveStateSlotCount;
 	}
 
 	static void DeleteIfExists(const Path &fn) {
@@ -807,7 +807,7 @@ double g_lastSaveTime = -1.0;
 	int GetNewestSlot(const Path &gameFilename) {
 		int newestSlot = -1;
 		tm newestDate = {0};
-		for (int i = 0; i < NUM_SLOTS; i++) {
+		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
 			Path fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;
@@ -824,7 +824,7 @@ double g_lastSaveTime = -1.0;
 	int GetOldestSlot(const Path &gameFilename) {
 		int oldestSlot = -1;
 		tm oldestDate = {0};
-		for (int i = 0; i < NUM_SLOTS; i++) {
+		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
 			Path fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;

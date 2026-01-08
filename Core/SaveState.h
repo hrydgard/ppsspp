@@ -33,7 +33,6 @@ namespace SaveState {
 	};
 	typedef std::function<void(Status status, std::string_view message)> Callback;
 
-	static const int NUM_SLOTS = 5;
 	static const char * const STATE_EXTENSION = "ppst";
 	static const char * const SCREENSHOT_EXTENSION = "jpg";
 	static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
