@@ -1,12 +1,12 @@
 #pragma once
 
+#include "pch.h"
 #include "Common/Data/Encoding/Utf8.h"
 
-inline Platform::String ^ToPlatformString(std::string_view str) {
-	return ref new Platform::String(ConvertUTF8ToWString(str).c_str());
+inline winrt::hstring ToHString(std::string_view str) {
+	return winrt::hstring(ConvertUTF8ToWString(str));
 }
 
-inline std::string FromPlatformString(Platform::String ^str) {
-	std::wstring wstr(str->Data());
-	return ConvertWStringToUTF8(wstr);
+inline std::string FromHString(const winrt::hstring& str) {
+	return ConvertWStringToUTF8(std::wstring(str));
 }

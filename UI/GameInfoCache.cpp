@@ -935,6 +935,14 @@ void GameInfoCache::Clear() {
 	CancelAll();
 
 	std::lock_guard<std::mutex> lock(mapLock_);
+	// NOTE: Some shared_pointers might have other owners. We still need to wipe their textures here.
+	for (auto &[key, value] : info_) {
+		std::lock_guard<std::mutex> lock(value->lock);
+		value->pic0.Clear();
+		value->pic1.Clear();
+		value->icon.Clear();
+		value->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON);
+	}
 	info_.clear();
 }
 

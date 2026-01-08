@@ -25,7 +25,7 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 		method_allocFont = env->GetStaticMethodID(cls_textRenderer, "allocFont", "(Ljava/lang/String;)I");
 		method_freeAllFonts = env->GetStaticMethodID(cls_textRenderer, "freeAllFonts", "()V");
 		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;ID)I");
-		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;ID)[I");
+		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;IDII)[I");
 	} else {
 		ERROR_LOG(Log::G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
@@ -126,7 +126,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	// WARN_LOG(Log::G3D, "Text: '%.*s' (%02x)", (int)str.length(), str.data(), str[0]);
 
 	// TODO: Handle bold/italic
-	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size);
+	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size, imageWidth, imageHeight);
 	env->DeleteLocalRef(jstr);
 
 	entry.texture = nullptr;
@@ -137,7 +137,12 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	entry.lastUsedFrame = frameCount_;
 
 	jint *jimage = env->GetIntArrayElements(imageData, nullptr);
-	_assert_(env->GetArrayLength(imageData) == imageWidth * imageHeight);
+	if (env->GetArrayLength(imageData) != imageWidth * imageHeight) {
+		ERROR_LOG(Log::G3D, "TextRenderer returned bad image size");
+		env->ReleaseIntArrayElements(imageData, jimage, JNI_ABORT);
+		env->DeleteLocalRef(imageData);
+		return false;
+	}
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];

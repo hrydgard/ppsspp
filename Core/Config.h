@@ -145,8 +145,9 @@ struct TouchControlConfig : public ConfigBlock {
 
 struct Config : public ConfigBlock {
 public:
-	Config();
 	~Config();
+
+	void Init();
 
 	size_t Size() const override { return sizeof(Config); }
 
@@ -661,6 +662,8 @@ public:
 	Path internalDataDirectory;
 	Path appCacheDirectory;
 
+	Path mountRoot;  // Actually, mount as host0. keeping consistent with headless args.
+
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
 	void Reload();
@@ -710,6 +713,8 @@ public:
 	TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) {
 		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
 	}
+
+	static int GetDefaultValueInt(int *configSetting);
 
 private:
 	void LoadStandardControllerIni();

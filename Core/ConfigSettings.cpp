@@ -8,7 +8,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Config.h"
 
-bool ConfigSetting::perGame(void *ptr) {
+bool ConfigSetting::PerGame(void *ptr) {
 	return g_Config.IsGameSpecific() && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr].second->PerGame();
 }
 

@@ -1252,6 +1252,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 
+		// Keep going if these commands don't change state.
 		case GE_CMD_TEXBUFWIDTH0:
 		case GE_CMD_TEXADDR0:
 			if (data != gstate.cmdmem[data >> 24])

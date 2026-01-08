@@ -116,16 +116,16 @@ public class ShortcutActivity extends Activity {
 
 		PpssppActivity.CheckABIAndLoadLibrary();
 		String gameName = name;
-		byte[] iconData = null;
+		byte[] iconData;
 		Object[] result = queryGameInfo(this, path);
 		if (result != null && result.length >= 2) {
 			if (result[0] != null) {
 				gameName = (String) result[0];     // index 0 = name
 			}
 			iconData = (byte[]) result[1];     // index 1 = raw PNG/JPEG bytes, or null
-
 			Log.i(TAG, "Game name: " + gameName);
 		} else {
+			iconData = null;
 			Log.e(TAG, "Bad return value from queryGameInfo");
 		}
 
@@ -138,29 +138,37 @@ public class ShortcutActivity extends Activity {
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name);
 
 		if (iconData != null) {
-			// Try to create a PNG from the iconData.
-			Bitmap bmp = BitmapFactory.decodeByteArray(iconData, 0, iconData.length);
-			if (bmp != null) {
-				// Pad the bitmap into a square, to keep it a nice 2:1 aspect ratio.
-				Bitmap paddedBitmap = Bitmap.createBitmap(
-					bmp.getWidth(), bmp.getWidth(),
-					Bitmap.Config.ARGB_8888);
-				Canvas canvas = new Canvas(paddedBitmap);
-				canvas.drawARGB(0, 0, 0, 0);
-				int y = (bmp.getWidth() - bmp.getHeight()) / 2;
-				if (y < 0) {
-					// To be safe from wacky-aspect-ratio bitmaps.
-					y = 0;
+			try {
+				// Try to create a PNG from the iconData.
+				Bitmap bmp = BitmapFactory.decodeByteArray(iconData, 0, iconData.length);
+				if (bmp != null) {
+					// Pad the bitmap into a square, to keep it a nice 2:1 aspect ratio.
+					Bitmap paddedBitmap = Bitmap.createBitmap(
+						bmp.getWidth(), bmp.getWidth(),
+						Bitmap.Config.ARGB_8888);
+					Canvas canvas = new Canvas(paddedBitmap);
+					canvas.drawARGB(0, 0, 0, 0);
+					int y = (bmp.getWidth() - bmp.getHeight()) / 2;
+					if (y < 0) {
+						// To be safe from wacky-aspect-ratio bitmaps.
+						y = 0;
+					}
+					canvas.drawBitmap(bmp, 0, y, new Paint(Paint.FILTER_BITMAP_FLAG));
+					// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
+					responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
 				}
-				canvas.drawBitmap(bmp, 0, y, new Paint(Paint.FILTER_BITMAP_FLAG));
-				// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
-				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
+			} catch (Exception e) {
+				NativeApp.reportException(e, "Error assigning generated icon");
 			}
 		} else {
 			Log.i(TAG, "No icon available, falling back to PPSSPP icon");
-			// Fall back to the PPSSPP icon.
-			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.mipmap.ic_launcher);
-			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
+			try {
+				// Fall back to the PPSSPP icon.
+				ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.mipmap.ic_launcher);
+				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
+			} catch (Exception e) {
+				NativeApp.reportException(e, "Error assigning default icon");
+			}
 		}
 
 		setResult(RESULT_OK, responseIntent);

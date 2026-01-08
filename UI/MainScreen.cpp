@@ -323,9 +323,7 @@ void GameButton::Draw(UIContext &dc) {
 		// Super simple drawing for GE dumps.
 		dc.PushScissor(bounds_);
 		const std::string currentTitle = ginfo->GetTitle();
-		dc.SetFontScale(0.6f * g_Config.fGameGridScale, 0.6f * g_Config.fGameGridScale);
 		dc.DrawText(title_, bounds_.x + 4.0f, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_LEFT);
-		dc.SetFontScale(1.0f, 1.0f);
 		title_ = currentTitle;
 		dc.Draw()->Flush();
 		dc.PopScissor();
@@ -479,14 +477,11 @@ void DirButton::Draw(UIContext &dc) {
 
 	bool compact = bounds_.w < 180 * (gridStyle_ ? g_Config.fGameGridScale : 1.0);
 
-	if (gridStyle_) {
-		dc.SetFontScale(g_Config.fGameGridScale, g_Config.fGameGridScale);
-	}
 	if (compact) {
 		// No folder icon, except "up"
 		dc.PushScissor(bounds_);
 		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
-			dc.DrawText(text, bounds_.x + 5, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.DrawTextRect(text, bounds_.Inset(5, 2), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 			if (pinned_) {
 				ImageID pinID = ImageID("I_PIN");
 				const AtlasImage *pinImg = dc.Draw()->GetAtlas()->getImage(pinID);
@@ -503,14 +498,11 @@ void DirButton::Draw(UIContext &dc) {
 			scissor = true;
 		}
 		dc.Draw()->DrawImage(image, bounds_.x + 72, bounds_.centerY(), 0.88f*(gridStyle_ ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
-		dc.DrawText(text, bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText(text, bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER| FLAG_WRAP_TEXT);
 
 		if (scissor) {
 			dc.PopScissor();
 		}
-	}
-	if (gridStyle_) {
-		dc.SetFontScale(1.0, 1.0);
 	}
 }
 
@@ -1212,7 +1204,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	}
 
 	if (!portrait) {
-		parent->Add(new Spacer(25.0));
+		parent->Add(new Spacer(16.0));
 	}
 
 	// Remove the exit button in vertical layout on all platforms, just no space.

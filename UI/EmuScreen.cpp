@@ -306,7 +306,7 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso.clear();
-	coreParam.mountRoot.clear();
+	coreParam.mountRoot = g_Config.mountRoot;
 	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.headLess = false;
 

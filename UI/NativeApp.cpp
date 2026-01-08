@@ -339,6 +339,8 @@ static void ClearFailedGPUBackends() {
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
+	g_Config.Init();
+
 	IncrementDebugCounter(DebugCounter::APP_BOOT);
 
 	// Probably an excessive timeout. it only causes delays on shutdown, though.
@@ -528,6 +530,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		forceLogLevel = true;
 	};
 
+	// TODO: Need a much better command line argument parser.
+
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
 #if defined(__APPLE__)
@@ -578,6 +582,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.iForceFullScreen = 1;
 					System_ToggleFullscreenState("1");
+				}
+				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
+					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
 				if (!strcmp(argv[i], "--windowed")) {
 					g_Config.iForceFullScreen = 0;

@@ -185,6 +185,8 @@ GameInfoTex *GameImageView::GetTex(std::shared_ptr<GameInfo> info) const {
 	case GameInfoFlags::PIC1:
 		tex = &info->pic1;
 		break;
+	default:
+		break;
 	}
 	return tex;
 }

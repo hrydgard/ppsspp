@@ -19,6 +19,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <regex>
+#include <thread>
 
 #include "LaunchItem.h"
 #include "StorageAccess.h"
@@ -31,6 +32,11 @@
 #include <ppl.h>
 #include <ppltasks.h>
 
+using namespace winrt;
+using namespace winrt::Windows::Storage;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::ApplicationModel::Activation;
+
 #pragma region LaunchItemClass
 class LaunchItem {
 public:
@@ -38,31 +44,30 @@ public:
 	}
 
 	~LaunchItem() {
-		delete storageFile;
 	}
 
-	void Activate(IStorageFile^ file) {
+	void Activate(const IStorageFile& file) {
 		storageFile = file;
 		AddItemToFutureList(storageFile);
 		launchPath = std::string();
 		launchOnExit = std::string();
 	}
 
-	void Activate(ProtocolActivatedEventArgs^ args) {
+	void Activate(const ProtocolActivatedEventArgs& args) {
 		try {
 			unsigned i;
-			Windows::Foundation::WwwFormUrlDecoder^ query = args->Uri->QueryParsed;
+			auto query = args.Uri().QueryParsed();
 
-			for (i = 0; i < query->Size; i++)
+			for (i = 0; i < query.Size(); i++)
 			{
-				IWwwFormUrlDecoderEntry^ arg = query->GetAt(i);
+				auto arg = query.GetAt(i);
 
-				if (arg->Name == "cmd")
+				if (arg.Name() == L"cmd")
 				{
-					auto command = FromPlatformString(arg->Value);
+					auto command = FromHString(arg.Value());
 					DEBUG_LOG(Log::FileSystem, "Launch command %s", command.c_str());
 
-					std::regex rgx("\"(.+[^\\/]+)\"");
+					std::regex rgx("\"(.+[^\\\\/]+)\"");
 					std::smatch match;
 
 					if (std::regex_search(command, match, rgx)) {
@@ -76,8 +81,8 @@ public:
 						DEBUG_LOG(Log::FileSystem, "Launch target %s", launchPath.c_str());
 					}
 				}
-				else if (arg->Name == "launchOnExit") {
-					launchOnExit = FromPlatformString(arg->Value);
+				else if (arg.Name() == L"launchOnExit") {
+					launchOnExit = FromHString(arg.Value());
 					DEBUG_LOG(Log::FileSystem, "On exit URI %s", launchOnExit.c_str());
 				}
 			}
@@ -90,13 +95,13 @@ public:
 
 	void Start() {
 		if (IsValid()) {
-			concurrency::create_task([&] {
+			std::thread([this] {
 				SetState(true);
 				std::string path = GetFilePath();
 				// Delay to be able to launch on startup too
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path);
-			});
+			}).detach();
 		}
 	}
 
@@ -114,7 +119,7 @@ public:
 	std::string GetFilePath() {
 		std::string path = launchPath;
 		if (storageFile != nullptr) {
-			path = FromPlatformString(storageFile->Path);
+			path = FromHString(storageFile.Path());
 		}
 		return path;
 	}
@@ -127,8 +132,8 @@ public:
 		if (!launchOnExit.empty()) {
 			if (callLaunchOnExit) {
 				DEBUG_LOG(Log::FileSystem, "Calling back %s", launchOnExit.c_str());
-				auto uri = ref new Windows::Foundation::Uri(ToPlatformString(launchOnExit));
-				Windows::System::Launcher::LaunchUriAsync(uri);
+				auto uri = winrt::Windows::Foundation::Uri(ToHString(launchOnExit));
+				winrt::Windows::System::Launcher::LaunchUriAsync(uri);
 			}
 			else {
 				DEBUG_LOG(Log::FileSystem, "Ignoring callback %s, due to callLaunchOnExit is false", launchOnExit.c_str());
@@ -138,7 +143,7 @@ public:
 	}
 
 private:
-	IStorageFile^ storageFile;
+	IStorageFile storageFile = nullptr;
 	std::string launchPath;
 	std::string launchOnExit;
 	bool handled = false;
@@ -146,17 +151,24 @@ private:
 #pragma endregion
 
 LaunchItem launchItemHandler;
-void DetectLaunchItem(IActivatedEventArgs^ activateArgs, bool onlyActivate) {
+void DetectLaunchItem(const IActivatedEventArgs& activateArgs, bool onlyActivate) {
 	if (activateArgs != nullptr) {
 		if (!launchItemHandler.IsHandled()) {
-			if (activateArgs->Kind == ActivationKind::File) {
-				FileActivatedEventArgs^ fileArgs = dynamic_cast<FileActivatedEventArgs^>(activateArgs);
-				launchItemHandler.Activate((StorageFile^)fileArgs->Files->GetAt(0));
+			if (activateArgs.Kind() == ActivationKind::File) {
+				auto fileArgs = activateArgs.try_as<FileActivatedEventArgs>();
+				if (fileArgs) {
+					auto file = fileArgs.Files().GetAt(0).try_as<StorageFile>();
+					if (file) {
+						launchItemHandler.Activate(file);
+					}
+				}
 			}
-			else if (activateArgs->Kind == ActivationKind::Protocol)
+			else if (activateArgs.Kind() == ActivationKind::Protocol)
 			{
-				ProtocolActivatedEventArgs^ protocolArgs = dynamic_cast<ProtocolActivatedEventArgs^>(activateArgs);
-				launchItemHandler.Activate(protocolArgs);
+				auto protocolArgs = activateArgs.try_as<ProtocolActivatedEventArgs>();
+				if (protocolArgs) {
+					launchItemHandler.Activate(protocolArgs);
+				}
 			}
 			if (!onlyActivate) {
 				launchItemHandler.Start();
@@ -165,7 +177,7 @@ void DetectLaunchItem(IActivatedEventArgs^ activateArgs, bool onlyActivate) {
 	}
 }
 
-std::string GetLaunchItemPath(IActivatedEventArgs^ activateArgs) {
+std::string GetLaunchItemPath(const IActivatedEventArgs& activateArgs) {
 	DetectLaunchItem(activateArgs, true); // Just activate
 	if (launchItemHandler.IsValid()) {
 		// Expected that 'GetLaunchItemPath' called to handle startup item
