@@ -92,7 +92,7 @@ private:
 	void InstallZipContents(ZipFileTask task);
 
 	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot);
-	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info);
+	bool InstallMemstickZip(const Path &zipFile, const Path &dest, const ZipFileInfo &info);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &destDir);
 	void UninstallGame(const std::string &name);
 
