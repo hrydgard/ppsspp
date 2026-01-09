@@ -1070,7 +1070,7 @@ const FontStyle *SimpleTextView::ComputeStyle(const UIContext &dc) const {
 	}
 }
 
-const FontStyle *TextView::GetTextStyle(const UIContext &dc, TextSize size) {
+const FontStyle *GetTextStyle(const UIContext &dc, TextSize size) {
 	const FontStyle *style = &dc.GetTheme().uiFont;
 	switch (size) {
 	case TextSize::Tiny:

@@ -168,13 +168,13 @@ static void SaveStateActionFinished(SaveState::Status status, std::string_view m
 void MainWindow::qlstateAct()
 {
 	Path gamePath = PSP_CoreParameter().fileToStart;
-	SaveState::LoadSlot(gamePath, 0, SaveStateActionFinished);
+	SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), 0, SaveStateActionFinished);
 }
 
 void MainWindow::qsstateAct()
 {
 	Path gamePath = PSP_CoreParameter().fileToStart;
-	SaveState::SaveSlot(gamePath, 0, SaveStateActionFinished);
+	SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), 0, SaveStateActionFinished);
 }
 
 void MainWindow::lstateAct()

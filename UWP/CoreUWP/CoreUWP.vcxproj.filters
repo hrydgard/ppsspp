@@ -411,6 +411,7 @@
     <ClCompile Include="..\..\ext\xxhash.c" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\Core\Util\PathUtil.cpp" />
+    <ClCompile Include="..\..\Core\SaveStateRewind.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Core\AVIDump.h" />
@@ -683,6 +684,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\Core\Util\PathUtil.h" />
+    <ClInclude Include="..\..\Core\SaveStateRewind.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE" />

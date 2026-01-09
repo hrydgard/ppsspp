@@ -2475,6 +2475,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Replay.h
 	Core/SaveState.cpp
 	Core/SaveState.h
+	Core/SaveStateRewind.cpp
+	Core/SaveStateRewind.h
 	Core/Screenshot.cpp
 	Core/Screenshot.h
 	Core/System.cpp

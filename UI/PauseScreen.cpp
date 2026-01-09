@@ -78,8 +78,8 @@ static void AfterSaveStateAction(SaveState::Status status, std::string_view mess
 
 class ScreenshotViewScreen : public UI::PopupScreen {
 public:
-	ScreenshotViewScreen(const Path &filename, std::string title, int slot, Path gamePath)
-		: PopupScreen(title), filename_(filename), slot_(slot), gamePath_(gamePath), title_(title) {}   // PopupScreen will translate Back on its own
+	ScreenshotViewScreen(const Path &screenshotFilename, std::string_view saveStatePrefix, std::string_view title, int slot, Path gamePath)
+		: PopupScreen(title), screenshotFilename_(screenshotFilename), saveStatePrefix_(saveStatePrefix), slot_(slot), gamePath_(gamePath), title_(title) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {
 		return slot_;
@@ -100,7 +100,7 @@ protected:
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		Margins contentMargins(10, 0);
-		content->Add(new AsyncImageFileView(filename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
+		content->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
 
 		GridLayoutSettings gridsettings(240, 64, 5);
 		gridsettings.fillCells = true;
@@ -108,7 +108,7 @@ protected:
 
 		Choice *back = new Choice(di->T("Back"));
 
-		const bool hasUndo = SaveState::HasUndoSaveInSlot(gamePath_, slot_);
+		const bool hasUndo = SaveState::HasUndoSaveInSlot(saveStatePrefix_, slot_);
 		const bool undoEnabled = g_Config.bEnableStateUndo;
 
 		Choice *undoButton = nullptr;
@@ -138,8 +138,9 @@ private:
 	void OnUndoState(UI::EventParams &e);
 	void OnDeleteState(UI::EventParams &e);
 
-	Path filename_;
+	Path screenshotFilename_;
 	Path gamePath_;
+	std::string saveStatePrefix_;
 	std::string title_;
 	int slot_;
 };
@@ -147,7 +148,7 @@ private:
 void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
+		SaveState::SaveSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
 		TriggerFinish(DR_OK); //OK will close the pause screen as well
 	}
 }
@@ -155,14 +156,14 @@ void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
+		SaveState::LoadSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
 		TriggerFinish(DR_OK);
 	}
 }
 
 void ScreenshotViewScreen::OnUndoState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
-		SaveState::UndoSaveSlot(gamePath_, slot_);
+		SaveState::UndoSaveSlot(saveStatePrefix_, slot_);
 		TriggerFinish(DR_CANCEL);
 	}
 }
@@ -180,7 +181,7 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 
 	screenManager()->push(new UI::MessagePopupScreen(title, message, di->T("Delete"), di->T("Cancel"), [=](bool result) {
 		if (result) {
-			SaveState::DeleteSlot(gamePath_, slot_);
+			SaveState::DeleteSlot(saveStatePrefix_, slot_);
 			TriggerFinish(DR_CANCEL);
 		}
 	}));
@@ -188,7 +189,7 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 
 class SaveSlotView : public UI::LinearLayout {
 public:
-	SaveSlotView(const Path &gamePath, int slot, UI::LayoutParams *layoutParams = nullptr);
+	SaveSlotView(std::string_view saveStatePrefix, int slot, UI::LayoutParams *layoutParams = nullptr);
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500; h = 90;
@@ -205,12 +206,13 @@ public:
 	}
 
 	std::string GetScreenshotTitle() const {
-		return SaveState::GetSlotDateAsString(gamePath_, slot_);
+		return SaveState::GetSlotDateAsString(saveStatePrefix_, slot_);
 	}
 
 	UI::Event OnStateLoaded;
 	UI::Event OnStateSaved;
 	UI::Event OnScreenshotClicked;
+	UI::Event OnSelected;
 
 private:
 	void OnSaveState(UI::EventParams &e);
@@ -220,19 +222,25 @@ private:
 	UI::Button *loadStateButton_ = nullptr;
 
 	int slot_;
-	Path gamePath_;
+	std::string saveStatePrefix_;
 	Path screenshotFilename_;
 };
 
-SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
+SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), slot_(slot), saveStatePrefix_(saveStatePrefix) {
 	using namespace UI;
 
-	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
+	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(saveStatePrefix_, slot, SaveState::SCREENSHOT_EXTENSION);
 
 	std::string number = StringFromFormat("%d", slot + 1);
 	Add(new Spacer(5));
 
-	Add(new TextView(number, new LinearLayoutParams(40.0f, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)))->SetBig(true);
+	// TEMP HACK: use some other view, like a Choice, themed differently to enable keyboard access to selection.
+	ClickableTextView *numberView = Add(new ClickableTextView(number, new LinearLayoutParams(40.0f, WRAP_CONTENT, 0.0f, Gravity::G_VCENTER)));
+	numberView->SetBig(true);
+	numberView->OnClick.Add([this](UI::EventParams &e) {
+		e.v = this;
+		OnSelected.Trigger(e);
+	});
 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 
@@ -256,13 +264,13 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 		OnScreenshotClicked.Trigger(e);
 	});
 
-	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
+	if (SaveState::HasSaveInSlot(saveStatePrefix_, slot)) {
 		if (!Achievements::HardcoreModeActive()) {
 			loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 		}
 
-		std::string dateStr = SaveState::GetSlotDateAsString(gamePath_, slot_);
+		std::string dateStr = SaveState::GetSlotDateAsString(saveStatePrefix_, slot_);
 		if (!dateStr.empty()) {
 			TextView *dateView = new TextView(dateStr, new LinearLayoutParams(0.0, Gravity::G_VCENTER));
 			dateView->SetSmall(true);
@@ -284,7 +292,7 @@ void SaveSlotView::Draw(UIContext &dc) {
 void SaveSlotView::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
+		SaveState::LoadSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateLoaded.Trigger(e2);
@@ -294,7 +302,7 @@ void SaveSlotView::OnLoadState(UI::EventParams &e) {
 void SaveSlotView::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
+		SaveState::SaveSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateSaved.Trigger(e2);
@@ -335,6 +343,7 @@ GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 	// So we can tell if something blew up while on the pause screen.
 	std::string assertStr = "PauseScreen: " + filename.GetFilename();
 	SetExtraAssertInfo(assertStr.c_str());
+	saveStatePrefix_ = SaveState::GetGamePrefix(g_paramSFO);
 }
 
 GamePauseScreen::~GamePauseScreen() {
@@ -366,26 +375,41 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems)
 
 	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
-		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
+		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(saveStatePrefix_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
-		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
+		slot->OnScreenshotClicked.Add([this](UI::EventParams &e) {
+			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+			int slot = v->GetSlot();
+			g_Config.iCurrentStateSlot = v->GetSlot();
+			if (SaveState::HasSaveInSlot(saveStatePrefix_, slot)) {
+				Path fn = v->GetScreenshotFilename();
+				std::string title = v->GetScreenshotTitle();
+				Screen *screen = new ScreenshotViewScreen(fn, saveStatePrefix_, title, v->GetSlot(), gamePath_);
+				screenManager()->push(screen);
+			}
+		});
+		slot->OnSelected.Add([this](UI::EventParams &e) {
+			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+			g_Config.iCurrentStateSlot = v->GetSlot();
+			RecreateViews();
+		});
 	}
 	leftColumnItems->Add(new Spacer(0.0));
 
 	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 0))));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load")));
-		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(gamePath_));
+		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK")));
+		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
 		loadUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLoadUndo);
 
-		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save")));
-		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(gamePath_));
+		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK")));
+		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(saveStatePrefix_));
 		saveUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLastSaveUndo);
 	}
 
 	if (g_Config.iRewindSnapshotInterval > 0 && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind")));
+		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND")));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
 	}
@@ -721,18 +745,6 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	}
 }
 
-void GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
-	SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
-	int slot = v->GetSlot();
-	g_Config.iCurrentStateSlot = v->GetSlot();
-	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
-		Path fn = v->GetScreenshotFilename();
-		std::string title = v->GetScreenshotTitle();
-		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
-		screenManager()->push(screen);
-	}
-}
-
 int GetUnsavedProgressSeconds() {
 	const double timeSinceSaveState = SaveState::SecondsSinceLastSavestate();
 	const double timeSinceGameSave = SecondsSinceLastGameSave();
@@ -811,13 +823,13 @@ void GamePauseScreen::OnRewind(UI::EventParams &e) {
 }
 
 void GamePauseScreen::OnLoadUndo(UI::EventParams &e) {
-	SaveState::UndoLoad(gamePath_, &AfterSaveStateAction);
+	SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
 
 	TriggerFinish(DR_CANCEL);
 }
 
 void GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
-	SaveState::UndoLastSave(gamePath_);
+	SaveState::UndoLastSave(saveStatePrefix_);
 
 	RecreateViews();
 }
