@@ -144,21 +144,13 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
-		Matrix4x4 proj_through;
-		if (flipViewport) {
-			proj_through.setOrthoD3D(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
-		} else {
-			proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
-		}
-		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
-			proj_through = proj_through * g_display.rot_matrix;
-		}
-
-		// RT offsets come from split framebuffers (Killzone)
-		proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
-		proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
-
-		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
+		const float xywh[4] = {
+			(float)gstate_c.curRTOffsetX,
+			(float)gstate_c.curRTOffsetY,
+			(float)gstate_c.curRTWidth,
+			(float)gstate_c.curRTHeight,
+		};
+		CopyFloat4(ub->xywh, xywh);
 	}
 
 	// Transform

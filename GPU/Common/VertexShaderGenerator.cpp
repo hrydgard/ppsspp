@@ -409,7 +409,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		if (isModeThrough) {
-			WRITE(p, "uniform mat4 u_proj_through;\n");
+			WRITE(p, "uniform vec4 u_xywh;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -747,7 +747,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			// The proj_through matrix already has the rotation, if needed.
-			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
+			WRITE(p, "  vec4 outPos;\n");
+			WRITE(p, "  outPos.x = ((position.x - u_xywh.x) / u_xywh.z) * 2.0 - 1.0;");
+			WRITE(p, "  outPos.y = ((position.y - u_xywh.y) / u_xywh.w) * 2.0 - 1.0;");
+			WRITE(p, "  outPos.z = position.z;\n");
+			WRITE(p, "  outPos.w = 1.0;\n");
 		} else {
 			if (compat.shaderLanguage == GLSL_VULKAN) {
 				// Apply rotation from the uniform.

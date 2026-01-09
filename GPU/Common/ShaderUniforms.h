@@ -21,7 +21,7 @@ enum : uint64_t {
 // Every line here is a 4-float.
 struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
-	float proj_through[16];
+	float xywh[4];  // replacement for the old proj_through
 	float view[12];
 	float world[12];
 	float tex[12];
@@ -46,7 +46,7 @@ struct alignas(16) UB_VS_FS_Base {
 
 static const char * const ub_baseStr =
 R"(  mat4 u_proj;
-  mat4 u_proj_through;
+  vec4 u_xywh;
   mat3x4 u_view;
   mat3x4 u_world;
   mat3x4 u_texmtx;

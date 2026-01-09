@@ -122,7 +122,6 @@ void GPU_D3D11::BeginHostFrame(const DisplayLayoutConfig &config) {
 	shaderManager_->DirtyLastShader();
 
 	framebufferManager_->BeginFrame(config);
-	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?

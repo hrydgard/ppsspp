@@ -105,7 +105,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	queries.push_back({ &u_proj, "u_proj" });
 	queries.push_back({ &u_proj_lens, "u_proj_lens" });
-	queries.push_back({ &u_proj_through, "u_proj_through" });
+	queries.push_back({ &u_xywh, "u_xywh" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
@@ -448,13 +448,13 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		render_->SetUniformF1(&u_rotation, useBufferedRendering ? 0 : (float)g_display.rotation);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
-		Matrix4x4 proj_through;
-		if (useBufferedRendering) {
-			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
-		} else {
-			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0.0f, 0.0f, 1.0f);
-		}
-		render_->SetUniformM4x4(&u_proj_through, proj_through.getReadPtr());
+		const float xywh[4] = {
+			(float)gstate_c.curRTOffsetX,
+			(float)gstate_c.curRTOffsetY,
+			(float)gstate_c.curRTWidth,
+			(float)gstate_c.curRTHeight,
+		};
+		render_->SetUniformF(&u_xywh, 4, xywh);
 	}
 	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
