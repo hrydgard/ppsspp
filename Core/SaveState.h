@@ -74,7 +74,7 @@ namespace SaveState {
 	int GetOldestSlot(std::string_view gamePrefix);
 	
 	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot);
-	Path GenerateSaveSlotFilename(std::string_view gamePrefix, int slot, const char *extension);
+	Path GenerateSaveSlotPath(std::string_view gamePrefix, int slot, const char *extension);
 
 	std::string GetTitle(const Path &filename);
 

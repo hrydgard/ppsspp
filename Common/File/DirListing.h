@@ -18,6 +18,7 @@ struct FileInfo {
 	bool isWritable = false;
 	uint64_t size = 0;
 
+
 	uint64_t atime = 0;
 	uint64_t mtime = 0;
 	uint64_t ctime = 0;

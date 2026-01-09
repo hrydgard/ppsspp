@@ -19,6 +19,8 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <string>
+#include <set>
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -85,6 +87,11 @@ static int saveDataGeneration = 0;
 static int lastSaveDataGeneration = 0;
 static std::string saveStateInitialGitVersion = "";
 static StateRingbuffer rewindStates;
+
+// Updated by Rescan. This is to avoid calling Exists a lot of times, which could be slow
+// on some Android devices when we allow many save states.
+static double g_lastRescan = 0.0;
+static std::map<std::string, uint64_t, std::less<>> g_files;  // the value is the mod-time.
 
 struct SaveStart {
 	void DoState(PointerWrap &p);
@@ -335,8 +342,12 @@ enum class OperationType {
 	}
 
 	// The prefix is always based on GenerateFullDiscId. So we can find these by scanning, too.
-	Path GenerateSaveSlotFilename(std::string_view gamePrefix, int slot, const char *extension) {
-		std::string filename = StringFromFormat("%.*s_%d.%s", STR_VIEW(gamePrefix), slot, extension);
+	std::string GenerateSaveSlotFilename(std::string_view gamePrefix, int slot, const char *extension) {
+		return StringFromFormat("%.*s_%d.%s", STR_VIEW(gamePrefix), slot, extension);
+	}
+
+	Path GenerateSaveSlotPath(std::string_view gamePrefix, int slot, const char *extension) {
+		std::string filename = GenerateSaveSlotFilename(gamePrefix, slot, extension);
 		return GetSysDirectory(DIRECTORY_SAVESTATE) / filename;
 	}
 
@@ -377,7 +388,7 @@ enum class OperationType {
 			return;
 		}
 
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			// This add only 1 extra state, should we just always enable it?
 			if (g_Config.bEnableStateUndo) {
@@ -443,10 +454,10 @@ enum class OperationType {
 			return;
 		}
 
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
-		Path fnUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_STATE_EXTENSION);
+		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
+		Path fnUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
-			Path shot = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
+			Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
 			auto renameCallback = [=](Status status, std::string_view message) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
@@ -466,7 +477,7 @@ enum class OperationType {
 			};
 			// Let's also create a screenshot.
 			if (g_Config.bEnableStateUndo) {
-				Path shotUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_SCREENSHOT_EXTENSION);
+				Path shotUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_SCREENSHOT_EXTENSION);
 				DeleteIfExists(shotUndo);
 				RenameIfExists(shot, shotUndo);
 			}
@@ -478,6 +489,7 @@ enum class OperationType {
 				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."));
 			}
 		}
+		Rescan(gamePrefix);
 	}
 
 	bool UndoSaveSlot(std::string_view gamePrefix, int slot) {
@@ -485,30 +497,32 @@ enum class OperationType {
 			return false;
 		}
 
-		Path fnUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_STATE_EXTENSION);
+		Path fnUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_STATE_EXTENSION);
 
 		// Do nothing if there's no undo.
 		if (File::Exists(fnUndo)) {
-			Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
-			Path shot = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
-			Path shotUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_SCREENSHOT_EXTENSION);
+			Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
+			Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
+			Path shotUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_SCREENSHOT_EXTENSION);
 			// Swap them so they can undo again to redo.  Mistakes happen.
 			SwapIfExists(shotUndo, shot);
 			SwapIfExists(fnUndo, fn);
 			return true;
 		}
 
+		Rescan(gamePrefix);
 		return false;
 	}
 
 	void DeleteSlot(std::string_view gamePrefix, int slot) {
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
-		Path shot = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
+		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
+		Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
 
 		if (File::Exists(fn)) {
 			DeleteIfExists(fn);
 			DeleteIfExists(shot);
 		}
+		Rescan(gamePrefix);
 	}
 
 	bool UndoLastSave(std::string_view gamePrefix) {
@@ -519,7 +533,9 @@ enum class OperationType {
 		if (g_Config.sStateUndoLastSaveGame != gamePrefix)
 			return false;
 
-		return UndoSaveSlot(gamePrefix, g_Config.iStateUndoLastSaveSlot);
+		bool retval = UndoSaveSlot(gamePrefix, g_Config.iStateUndoLastSaveSlot);
+		Rescan(gamePrefix);
+		return retval;
 	}
 
 	void Rescan(std::string_view gamePrefix) {
@@ -530,21 +546,29 @@ enum class OperationType {
 		std::string prefix(gamePrefix);
 		prefix += "_";
 
-		File::GetFilesInDir(GetSysDirectory(DIRECTORY_SAVESTATE), &file, nullptr, 0, prefix);
-
-		for (const auto &f : file) {
-			INFO_LOG(Log::System, "%s", f.name.c_str());
+		if (!File::GetFilesInDir(GetSysDirectory(DIRECTORY_SAVESTATE), &file, nullptr, 0, prefix)) {
+			ERROR_LOG(Log::System, "Failed to list savestate directory!");
+			return;
 		}
+
+		g_files.clear();
+		for (const auto &f : file) {
+			g_files[f.name] = f.mtime;
+		}
+
+		g_lastRescan = time_now_d();
+	}
+
+	static bool SaveStateFileExists(std::string_view gamePrefix, int slot, const char *extension) {
+		return g_files.find(GenerateSaveSlotFilename(gamePrefix, slot, extension)) != g_files.end();
 	}
 
 	bool HasSaveInSlot(std::string_view gamePrefix, int slot) {
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
-		return File::Exists(fn);
+		return SaveStateFileExists(gamePrefix, slot, STATE_EXTENSION);
 	}
 
 	bool HasUndoSaveInSlot(std::string_view gamePrefix, int slot) {
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_STATE_EXTENSION);
-		return File::Exists(fn);
+		return SaveStateFileExists(gamePrefix, slot, UNDO_STATE_EXTENSION);
 	}
 
 	bool HasUndoLastSave(std::string_view gamePrefix) {
@@ -555,8 +579,7 @@ enum class OperationType {
 	}
 
 	bool HasScreenshotInSlot(std::string_view gamePrefix, int slot) {
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
-		return File::Exists(fn);
+		return SaveStateFileExists(gamePrefix, slot, SCREENSHOT_EXTENSION);
 	}
 
 	bool HasUndoLoad(std::string_view gamePrefix) {
@@ -603,14 +626,13 @@ enum class OperationType {
 
 	int GetNewestSlot(std::string_view gamePrefix) {
 		int newestSlot = -1;
-		tm newestDate = {0};
+		int64_t newestTime = 0;
 		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
-			Path fn = GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION);
-			if (File::Exists(fn)) {
-				tm time;
-				bool success = File::GetModifTime(fn, time);
-				if (success && newestDate < time) {
-					newestDate = time;
+			auto iter = g_files.find(GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION));
+			if (iter != g_files.end()) {
+				int64_t mod = iter->second;
+				if (mod > newestTime) {
+					newestTime = mod;
 					newestSlot = i;
 				}
 			}
@@ -620,14 +642,13 @@ enum class OperationType {
 
 	int GetOldestSlot(std::string_view gamePrefix) {
 		int oldestSlot = -1;
-		tm oldestDate = {0};
+		int64_t oldestTime = INT64_MAX;
 		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
-			Path fn = GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION);
-			if (File::Exists(fn)) {
-				tm time;
-				bool success = File::GetModifTime(fn, time);
-				if (success && (!oldestDate || oldestDate > time)) {
-					oldestDate = time;
+			auto iter = g_files.find(GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION));
+			if (iter != g_files.end()) {
+				int64_t mod = iter->second;
+				if (mod < oldestTime) {
+					oldestTime = mod;
 					oldestSlot = i;
 				}
 			}
@@ -636,27 +657,31 @@ enum class OperationType {
 	}
 
 	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
-		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
-		tm time;
-		if (File::GetModifTime(fn, time)) {
-			char buf[256];
-			// TODO: Use local time format? Americans and some others might not like ISO standard :)
-			switch (g_Config.iDateFormat) {
-			case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
-				break;
-			case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
-				strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
-				break;
-			case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-				strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
-				break;
-			default: // Should never happen
-				return "";
-			}
-			return std::string(buf);
+		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+		auto iter = g_files.find(fn);
+		if (iter == g_files.end()) {
+			return "";
 		}
-		return "";
+		time_t t = iter->second;
+		tm time;
+		localtime_r((time_t*)&t, &time);
+		char buf[256];
+		// TODO: Use local time format instead of the configured PSP format?
+		// Americans and some others might not like ISO standard :)
+		switch (g_Config.iDateFormat) {
+		case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+			break;
+		case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+			strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+			break;
+		case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+			strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+			break;
+		default: // Should never happen
+			return "";
+		}
+		return buf;
 	}
 
 	std::vector<Operation> Flush() {
@@ -667,8 +692,7 @@ enum class OperationType {
 		return copy;
 	}
 
-	bool HandleLoadFailure(bool wasRewinding)
-	{
+	bool HandleLoadFailure(bool wasRewinding) {
 		if (wasRewinding) {
 			WARN_LOG(Log::SaveState, "HandleLoadFailure - trying a rewind state.");
 			// Okay, first, let's give the next rewind state a shot - maybe we can at least not reset entirely.

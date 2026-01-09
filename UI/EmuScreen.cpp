@@ -362,15 +362,13 @@ void EmuScreen::bootComplete() {
 
 	if (g_paramSFO.IsValid()) {
 		g_Discord.SetPresenceGame(SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::NoLineBreaksOrSpecials));
-	} else {
-		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
-	}
-
-	if (g_paramSFO.IsValid()) {
 		std::string gameTitle = SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::NoLineBreaksOrSpecials, 0, 32);
 		std::string id = g_paramSFO.GetValueString("DISC_ID");
 		extraAssertInfoStr_ = id + " " + gameTitle;
 		SetExtraAssertInfo(extraAssertInfoStr_.c_str());
+		SaveState::Rescan(SaveState::GetGamePrefix(g_paramSFO));
+	} else {
+		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 
 	UpdateUIState(UISTATE_INGAME);
@@ -1485,7 +1483,7 @@ void EmuScreen::update() {
 
 			Path fn;
 			if (SaveState::HasSaveInSlot(gamePrefix, currentSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(gamePrefix, currentSlot, SaveState::SCREENSHOT_EXTENSION);
+				fn = SaveState::GenerateSaveSlotPath(gamePrefix, currentSlot, SaveState::SCREENSHOT_EXTENSION);
 			}
 
 			saveStatePreview_->SetFilename(fn);
