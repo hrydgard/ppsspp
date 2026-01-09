@@ -567,15 +567,15 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const {
 	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
 	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
-	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
+	maxZValue = 1.000030517578125f * gstate.getViewportZScale();
 	minZValue = -maxZValue;
 	// Scale and offset the Z appropriately, since we baked that into a projection transform.
 	if (params_.usesHalfZ) {
-		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
-		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+		maxZValue = maxZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
+		minZValue = minZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
 	} else {
-		maxZValue += gstate_c.vpZOffset;
-		minZValue += gstate_c.vpZOffset;
+		maxZValue += gstate.getViewportZCenter();
+		minZValue += gstate.getViewportZCenter();
 	}
 	// In case scale was negative, flip.
 	if (minZValue > maxZValue)

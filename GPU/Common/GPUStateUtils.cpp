@@ -637,165 +637,27 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 
 	DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 
-	if (out.throughMode) {
-		// If renderX/renderY are offset to compensate for a split framebuffer,
-		// applying the offset to the viewport isn't enough, since the viewport clips.
-		// We need to apply either directly to the vertices, or to the "through" projection matrix.
-		out.viewportX = displayOffsetX;
-		out.viewportY = displayOffsetY;
-		out.viewportW = curRTWidth * renderWidthFactor;
-		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = depthScale.EncodeFromU16(0.0f);
-		out.depthRangeMax = depthScale.EncodeFromU16(65536.0f);
-	} else {
-		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXScale = gstate.getViewportXScale();
-		float vpXCenter = gstate.getViewportXCenter();
-		float vpYScale = gstate.getViewportYScale();
-		float vpYCenter = gstate.getViewportYCenter();
+	// If renderX/renderY are offset to compensate for a split framebuffer,
+	// applying the offset to the viewport isn't enough, since the viewport clips.
+	// We need to apply either directly to the vertices, or to the "through" projection matrix.
+	out.viewportX = displayOffsetX;
+	out.viewportY = displayOffsetY;
+	out.viewportW = curRTWidth * renderWidthFactor;
+	out.viewportH = curRTHeight * renderHeightFactor;
+	// TODO: This clip the entire draw if minz > maxz.
+	float minz = gstate.getDepthRangeMin();
+	float maxz = gstate.getDepthRangeMax();
 
-		// The viewport transform appears to go like this:
-		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
-		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
-		// Zscreen = vpZCenter + vpZScale * Zview
+	out.depthRangeMin = depthScale.EncodeFromU16(minz);
+	out.depthRangeMax = depthScale.EncodeFromU16(maxz);
 
-		// The viewport is normally centered at 2048,2048 but can also be centered at other locations.
-		// Offset is subtracted from the viewport center and is also set to values in those ranges, and is set so that the viewport will cover
-		// the desired screen area ([0-480)x[0-272)), so 1808,1912.
-
-		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
-		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);
-		gstate_c.vpWidth = vpXScale * 2.0f;
-		gstate_c.vpHeight = vpYScale * 2.0f;
-
-		float vpWidth = fabsf(gstate_c.vpWidth);
-		float vpHeight = fabsf(gstate_c.vpHeight);
-
-		float left = renderX + vpX0;
-		float top = renderY + vpY0;
-		float right = left + vpWidth;
-		float bottom = top + vpHeight;
-
-		out.widthScale = 1.0f;
-		out.xOffset = 0.0f;
-		out.heightScale = 1.0f;
-		out.yOffset = 0.0f;
-
-		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
-		{
-			float overageLeft = std::max(-left, 0.0f);
-			float overageRight = std::max(right - bufferWidth, 0.0f);
-
-			// Expand viewport to cover scissor region. The viewport doesn't clip on the PSP.
-			if (right < scissorX2) {
-				overageRight -= scissorX2 - right;
-			}
-			if (left > scissorX1) {
-				overageLeft += scissorX1 - left;
-			}
-
-			// Our center drifted by the difference in overages.
-			float drift = overageRight - overageLeft;
-
-			if (overageLeft != 0.0f || overageRight != 0.0f) {
-				left += overageLeft;
-				right -= overageRight;
-
-				// Protect against the viewport being entirely outside the scissor.
-				// Emit a tiny but valid viewport. Really, we should probably emit a flag to ignore draws.
-				if (right <= left) {
-					right = left + 1.0f;
-				}
-
-				out.widthScale = vpWidth / (right - left);
-				out.xOffset = drift / (right - left);
-			}
-		}
-
-		{
-			float overageTop = std::max(-top, 0.0f);
-			float overageBottom = std::max(bottom - bufferHeight, 0.0f);
-
-			// Expand viewport to cover scissor region. The viewport doesn't clip on the PSP.
-			if (bottom < scissorY2) {
-				overageBottom -= scissorY2 - bottom;
-			}
-			if (top > scissorY1) {
-				overageTop += scissorY1 - top;
-			}
-			// Our center drifted by the difference in overages.
-			float drift = overageBottom - overageTop;
-
-			if (overageTop != 0.0f || overageBottom != 0.0f) {
-				top += overageTop;
-				bottom -= overageBottom;
-
-				// Protect against the viewport being entirely outside the scissor.
-				// Emit a tiny but valid  viewport. Really, we should probably emit a flag to ignore draws.
-				if (bottom <= top) {
-					bottom = top + 1.0f;
-				}
-
-				out.heightScale = vpHeight / (bottom - top);
-				out.yOffset = drift / (bottom - top);
-			}
-		}
-
-		out.viewportX = left * renderWidthFactor + displayOffsetX;
-		out.viewportY = top * renderHeightFactor + displayOffsetY;
-		out.viewportW = (right - left) * renderWidthFactor;
-		out.viewportH = (bottom - top) * renderHeightFactor;
-
-		// The depth viewport parameters are the same, but we handle it a bit differently.
-		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
-		// So, we apply the depth range as minz/maxz, and transform for the viewport.
-		float vpZScale = gstate.getViewportZScale();
-		float vpZCenter = gstate.getViewportZCenter();
-		// TODO: This clip the entire draw if minz > maxz.
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
-
-		if (gstate.isDepthClampEnabled() && (minz == 0 || maxz == 65535)) {
-			// Here, we should "clamp."  But clamping per fragment would be slow.
-			// So, instead, we just increase the available range and hope.
-			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
-			float fullDepthRange = 65535.0f * (depthScale.Scale() - 1.0f) * (1.0f / 2.0f);
-			if (minz == 0) {
-				minz -= fullDepthRange;
-			}
-			if (maxz == 65535) {
-				maxz += fullDepthRange;
-			}
-		} else if (maxz == 65535) {
-			// This means clamp isn't enabled, but we still want to allow values up to 65535.99.
-			// If DepthSliceFactor() is 1.0, though, this would make out.depthRangeMax exceed 1.
-			// Since that would clamp, it would make Z=1234 not match between draws when maxz changes.
-			if (depthScale.Scale() > 1.0f)
-				maxz = 65535.99f;
-		}
-
-		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
-		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
-		out.depthScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
-		// This adjusts the center from halfActualZRange to vpZCenter.
-		out.zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
-
-		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-			out.depthScale = 1.0f;
-			out.zOffset = 0.0f;
-			out.depthRangeMin = depthScale.EncodeFromU16(vpZCenter - vpZScale);
-			out.depthRangeMax = depthScale.EncodeFromU16(vpZCenter + vpZScale);
-		} else {
-			out.depthRangeMin = depthScale.EncodeFromU16(minz);
-			out.depthRangeMax = depthScale.EncodeFromU16(maxz);
-		}
-
-		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
-		// Of course, if this happens we've skewed out.depthScale/out.zOffset and may get z-fighting.
-		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
-		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
-	}
+	// Not really using these now.
+	out.widthScale = 1.0f;
+	out.heightScale = 1.0f;
+	out.depthScale = 1.0f;
+	out.zOffset = 0.0f;
+	out.xOffset = 0.0f;
+	out.yOffset = 0.0f;
 }
 
 void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor) {
