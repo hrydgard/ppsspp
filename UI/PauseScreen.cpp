@@ -229,7 +229,7 @@ private:
 SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), slot_(slot), saveStatePrefix_(saveStatePrefix) {
 	using namespace UI;
 
-	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(saveStatePrefix_, slot, SaveState::SCREENSHOT_EXTENSION);
+	screenshotFilename_ = SaveState::GenerateSaveSlotPath(saveStatePrefix_, slot, SaveState::SCREENSHOT_EXTENSION);
 
 	std::string number = StringFromFormat("%d", slot + 1);
 	Add(new Spacer(5));
@@ -344,6 +344,7 @@ GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 	std::string assertStr = "PauseScreen: " + filename.GetFilename();
 	SetExtraAssertInfo(assertStr.c_str());
 	saveStatePrefix_ = SaveState::GetGamePrefix(g_paramSFO);
+	SaveState::Rescan(saveStatePrefix_);
 }
 
 GamePauseScreen::~GamePauseScreen() {
