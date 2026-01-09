@@ -613,7 +613,7 @@ namespace MainWindow {
 		case ID_FILE_QUICKLOADSTATE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
 			break;
 
@@ -622,7 +622,7 @@ namespace MainWindow {
 			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_LOAD_STATE)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 				}
 			}
 			break;
@@ -631,7 +631,7 @@ namespace MainWindow {
 		{
 			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
 			break;
 		}
@@ -642,7 +642,7 @@ namespace MainWindow {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
 				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 				}
 			}

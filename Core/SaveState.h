@@ -25,6 +25,9 @@
 #include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
 
+class ParamSFOData;
+#undef Process
+
 namespace SaveState {
 	enum class Status {
 		FAILURE,
@@ -42,30 +45,36 @@ namespace SaveState {
 	void PrevSlot();
 	void NextSlot();
 
+	std::string GetGamePrefix(const ParamSFOData &paramSFO);
+
 	// Run the various actions directly.
-	void SaveSlot(const Path &gameFilename, int slot, Callback callback);
-	void LoadSlot(const Path &gameFilename, int slot, Callback callback);
-	bool UndoSaveSlot(const Path &gameFilename, int slot);
-	bool UndoLastSave(const Path &gameFilename);
-	bool UndoLoad(const Path &gameFilename, Callback callback);
-	void DeleteSlot(const Path &gameFilename, int slot);
+	void SaveSlot(std::string_view gamePrefix, int slot, Callback callback);
+	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback);
+	bool UndoSaveSlot(std::string_view gamePrefix, int slot);
+	bool UndoLastSave(std::string_view gamePrefix);
+	bool UndoLoad(std::string_view gamePrefix, Callback callback);
+	void DeleteSlot(std::string_view gamePrefix, int slot);
+
+	// This will rescan the save state directory for files associated with the specified game.
+	// Note that when we have many save states, this is really important on Android.
+	void Rescan(std::string_view gamePrefix);
 
 	// Checks whether there's an existing save in the specified slot.
-	bool HasSaveInSlot(const Path &gameFilename, int slot);
-	bool HasUndoSaveInSlot(const Path &gameFilename, int slot);
-	bool HasUndoLastSave(const Path &gameFilename);
-	bool HasUndoLoad(const Path &gameFilename);
-	bool HasScreenshotInSlot(const Path &gameFilename, int slot);
+	bool HasSaveInSlot(std::string_view gamePrefix, int slot);
+	bool HasUndoSaveInSlot(std::string_view gamePrefix, int slot);
+	bool HasUndoLastSave(std::string_view gamePrefix);
+	bool HasUndoLoad(std::string_view gamePrefix);
+	bool HasScreenshotInSlot(std::string_view gamePrefix, int slot);
 
 	// Just returns the current slot from config.
 	int GetCurrentSlot();
 
 	// Returns -1 if there's no oldest/newest slot.
-	int GetNewestSlot(const Path &gameFilename);
-	int GetOldestSlot(const Path &gameFilename);
+	int GetNewestSlot(std::string_view gamePrefix);
+	int GetOldestSlot(std::string_view gamePrefix);
 	
-	std::string GetSlotDateAsString(const Path &gameFilename, int slot);
-	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension);
+	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot);
+	Path GenerateSaveSlotFilename(std::string_view gamePrefix, int slot, const char *extension);
 
 	std::string GetTitle(const Path &filename);
 

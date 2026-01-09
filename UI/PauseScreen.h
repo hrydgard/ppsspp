@@ -75,6 +75,8 @@ private:
 	bool lastDNSConfigLoaded_ = false;
 
 	bool bootPending_ = false;
+
+	std::string saveStatePrefix_;
 };
 
 std::string GetConfirmExitMessage();

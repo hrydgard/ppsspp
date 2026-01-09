@@ -315,9 +315,13 @@ enum class OperationType {
 		return filename.GetFilename() + " " + std::string(sy->T("(broken)"));
 	}
 
-	std::string GenerateFullDiscId(const Path &gameFilename) {
-		std::string discId = g_paramSFO.GetValueString("DISC_ID");
-		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
+	// TODO: gameFilename is ignored!
+	// This means that this must always be called in-game, otherwise it will not work!
+	//
+	// This particular ID string generation is specific for save states.
+	static std::string GenerateFullDiscId(const ParamSFOData &paramSFO) {
+		std::string discId = paramSFO.GetValueString("DISC_ID");
+		std::string discVer = paramSFO.GetValueString("DISC_VERSION");
 		if (discId.empty()) {
 			// Should never happen.
 			discId = g_paramSFO.GenerateFakeID(Path());
@@ -326,9 +330,13 @@ enum class OperationType {
 		return StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
 	}
 
-	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension)
-	{
-		std::string filename = StringFromFormat("%s_%d.%s", GenerateFullDiscId(gameFilename).c_str(), slot, extension);
+	std::string GetGamePrefix(const ParamSFOData &paramSFO) {
+		return GenerateFullDiscId(paramSFO);
+	}
+
+	// The prefix is always based on GenerateFullDiscId. So we can find these by scanning, too.
+	Path GenerateSaveSlotFilename(std::string_view gamePrefix, int slot, const char *extension) {
+		std::string filename = StringFromFormat("%.*s_%d.%s", STR_VIEW(gamePrefix), slot, extension);
 		return GetSysDirectory(DIRECTORY_SAVESTATE) / filename;
 	}
 
@@ -364,13 +372,12 @@ enum class OperationType {
 		}
 	}
 
-	void LoadSlot(const Path &gameFilename, int slot, Callback callback)
-	{
+	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return;
 		}
 
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			// This add only 1 extra state, should we just always enable it?
 			if (g_Config.bEnableStateUndo) {
@@ -380,7 +387,7 @@ enum class OperationType {
 					if (status != Status::FAILURE) {
 						DeleteIfExists(backup);
 						File::Rename(backup.WithExtraExtension(".tmp"), backup);
-						g_Config.sStateLoadUndoGame = GenerateFullDiscId(gameFilename);
+						g_Config.sStateLoadUndoGame = gamePrefix;
 						g_Config.Save("Saving config for savestate last load undo");
 					} else {
 						ERROR_LOG(Log::SaveState, "Saving load undo state failed: %.*s", (int)message.size(), message.data());
@@ -405,12 +412,12 @@ enum class OperationType {
 		}
 	}
 
-	bool UndoLoad(const Path &gameFilename, Callback callback) {
+	bool UndoLoad(std::string_view gamePrefix, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return false;
 		}
 
-		if (g_Config.sStateLoadUndoGame != GenerateFullDiscId(gameFilename)) {
+		if (g_Config.sStateLoadUndoGame != gamePrefix) {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"));
@@ -431,21 +438,21 @@ enum class OperationType {
 		}
 	}
 
-	void SaveSlot(const Path &gameFilename, int slot, Callback callback) {
+	void SaveSlot(std::string_view gamePrefix, int slot, Callback callback) {
 		if (!NetworkAllowSaveState()) {
 			return;
 		}
 
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+		Path fnUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
-			Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+			Path shot = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
 			auto renameCallback = [=](Status status, std::string_view message) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
 						RenameIfExists(fn, fnUndo);
-						g_Config.sStateUndoLastSaveGame = GenerateFullDiscId(gameFilename);
+						g_Config.sStateUndoLastSaveGame = gamePrefix;
 						g_Config.iStateUndoLastSaveSlot = slot;
 						g_Config.Save("Saving config for savestate last save undo");
 					} else {
@@ -459,7 +466,7 @@ enum class OperationType {
 			};
 			// Let's also create a screenshot.
 			if (g_Config.bEnableStateUndo) {
-				Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
+				Path shotUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_SCREENSHOT_EXTENSION);
 				DeleteIfExists(shotUndo);
 				RenameIfExists(shot, shotUndo);
 			}
@@ -473,18 +480,18 @@ enum class OperationType {
 		}
 	}
 
-	bool UndoSaveSlot(const Path &gameFilename, int slot) {
+	bool UndoSaveSlot(std::string_view gamePrefix, int slot) {
 		if (!NetworkAllowSaveState()) {
 			return false;
 		}
 
-		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		Path fnUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_STATE_EXTENSION);
 
 		// Do nothing if there's no undo.
 		if (File::Exists(fnUndo)) {
-			Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-			Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
-			Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
+			Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+			Path shot = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
+			Path shotUndo = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_SCREENSHOT_EXTENSION);
 			// Swap them so they can undo again to redo.  Mistakes happen.
 			SwapIfExists(shotUndo, shot);
 			SwapIfExists(fnUndo, fn);
@@ -494,9 +501,9 @@ enum class OperationType {
 		return false;
 	}
 
-	void DeleteSlot(const Path &gameFilename, int slot) {
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+	void DeleteSlot(std::string_view gamePrefix, int slot) {
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+		Path shot = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
 
 		if (File::Exists(fn)) {
 			DeleteIfExists(fn);
@@ -504,42 +511,57 @@ enum class OperationType {
 		}
 	}
 
-	bool UndoLastSave(const Path &gameFilename) {
+	bool UndoLastSave(std::string_view gamePrefix) {
 		if (!NetworkAllowSaveState()) {
 			return false;
 		}
 
-		if (g_Config.sStateUndoLastSaveGame != GenerateFullDiscId(gameFilename))
+		if (g_Config.sStateUndoLastSaveGame != gamePrefix)
 			return false;
 
-		return UndoSaveSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
+		return UndoSaveSlot(gamePrefix, g_Config.iStateUndoLastSaveSlot);
 	}
 
-	bool HasSaveInSlot(const Path &gameFilename, int slot) {
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+	void Rescan(std::string_view gamePrefix) {
+		// Currently nothing to do here.
+		// On Android this would be important to rescan the save state directory.
+		std::vector<File::FileInfo> file;
+
+		std::string prefix(gamePrefix);
+		prefix += "_";
+
+		File::GetFilesInDir(GetSysDirectory(DIRECTORY_SAVESTATE), &file, nullptr, 0, prefix);
+
+		for (const auto &f : file) {
+			INFO_LOG(Log::System, "%s", f.name.c_str());
+		}
+	}
+
+	bool HasSaveInSlot(std::string_view gamePrefix, int slot) {
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
 		return File::Exists(fn);
 	}
 
-	bool HasUndoSaveInSlot(const Path &gameFilename, int slot) {
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+	bool HasUndoSaveInSlot(std::string_view gamePrefix, int slot) {
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, UNDO_STATE_EXTENSION);
 		return File::Exists(fn);
 	}
 
-	bool HasUndoLastSave(const Path &gameFilename) {
-		if (g_Config.sStateUndoLastSaveGame != GenerateFullDiscId(gameFilename))
+	bool HasUndoLastSave(std::string_view gamePrefix) {
+		if (g_Config.sStateUndoLastSaveGame != gamePrefix)
 			return false;
 
-		return HasUndoSaveInSlot(gameFilename, g_Config.iStateUndoLastSaveSlot);
+		return HasUndoSaveInSlot(gamePrefix, g_Config.iStateUndoLastSaveSlot);
 	}
 
-	bool HasScreenshotInSlot(const Path &gameFilename, int slot) {
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+	bool HasScreenshotInSlot(std::string_view gamePrefix, int slot) {
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
 	}
 
-	bool HasUndoLoad(const Path &gameFilename) {
+	bool HasUndoLoad(std::string_view gamePrefix) {
 		Path fn = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
-		return File::Exists(fn) && g_Config.sStateLoadUndoGame == GenerateFullDiscId(gameFilename);
+		return File::Exists(fn) && g_Config.sStateLoadUndoGame == gamePrefix;
 	}
 
 	bool operator < (const tm &t1, const tm &t2) {
@@ -579,11 +601,11 @@ enum class OperationType {
 		return true;
 	}
 
-	int GetNewestSlot(const Path &gameFilename) {
+	int GetNewestSlot(std::string_view gamePrefix) {
 		int newestSlot = -1;
 		tm newestDate = {0};
 		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
-			Path fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
+			Path fn = GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;
 				bool success = File::GetModifTime(fn, time);
@@ -596,11 +618,11 @@ enum class OperationType {
 		return newestSlot;
 	}
 
-	int GetOldestSlot(const Path &gameFilename) {
+	int GetOldestSlot(std::string_view gamePrefix) {
 		int oldestSlot = -1;
 		tm oldestDate = {0};
 		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
-			Path fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
+			Path fn = GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;
 				bool success = File::GetModifTime(fn, time);
@@ -613,8 +635,8 @@ enum class OperationType {
 		return oldestSlot;
 	}
 
-	std::string GetSlotDateAsString(const Path &gameFilename, int slot) {
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
+		Path fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
 		tm time;
 		if (File::GetModifTime(fn, time)) {
 			char buf[256];
@@ -637,8 +659,7 @@ enum class OperationType {
 		return "";
 	}
 
-	std::vector<Operation> Flush()
-	{
+	std::vector<Operation> Flush() {
 		std::lock_guard<std::mutex> guard(mutex);
 		std::vector<Operation> copy = pending;
 		pending.clear();
