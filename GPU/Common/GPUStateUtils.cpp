@@ -611,12 +611,6 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	// We take care negative offsets of in the projection matrix.
-	// These come from split framebuffers (Killzone).
-	// TODO: Might be safe to do get rid of this here and do the same for positive offsets?
-	renderX = std::max(gstate_c.curRTOffsetX, 0);
-	renderY = std::max(gstate_c.curRTOffsetY, 0);
-
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
 	int scissorY1 = gstate.getScissorY1();
@@ -629,8 +623,8 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		out.scissorW = 0;
 		out.scissorH = 0;
 	} else {
-		out.scissorX = (renderX * renderWidthFactor) + displayOffsetX + scissorX1 * renderWidthFactor;
-		out.scissorY = (renderY * renderHeightFactor) + displayOffsetY + scissorY1 * renderHeightFactor;
+		out.scissorX = displayOffsetX + scissorX1 * renderWidthFactor;
+		out.scissorY = displayOffsetY + scissorY1 * renderHeightFactor;
 		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
 		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
 	}
@@ -647,8 +641,8 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		// If renderX/renderY are offset to compensate for a split framebuffer,
 		// applying the offset to the viewport isn't enough, since the viewport clips.
 		// We need to apply either directly to the vertices, or to the "through" projection matrix.
-		out.viewportX = renderX * renderWidthFactor + displayOffsetX;
-		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
+		out.viewportX = displayOffsetX;
+		out.viewportY = displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
 		out.depthRangeMin = depthScale.EncodeFromU16(0.0f);
