@@ -352,7 +352,9 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 bool GamePauseScreen::key(const KeyInput &key) {
-	if (!UIScreen::key(key) && (key.flags & KeyInputFlags::DOWN)) {
+	bool handled = UIDialogScreen::key(key);
+
+	if (!handled && (key.flags & KeyInputFlags::DOWN)) {
 		// Special case to be able to unpause with a bound pause key.
 		// Normally we can't bind keys used in the UI.
 		InputMapping mapping(key.deviceId, key.keyCode);
@@ -366,7 +368,7 @@ bool GamePauseScreen::key(const KeyInput &key) {
 		}
 		return false;
 	}
-	return false;
+	return handled;
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems) {
