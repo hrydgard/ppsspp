@@ -326,6 +326,15 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_HELP_GITHUB);
 		TranslateMenuItem(menu, ID_HELP_DISCORD);
 		TranslateMenuItem(menu, ID_HELP_ABOUT);
+	}
+
+	void TranslateMenus(HWND hWnd, HMENU menu) {
+
+		const std::string curLanguageID = g_i18nrepo.LanguageID();
+		if (curLanguageID != menuLanguageID || KeyMap::HasChanged(menuKeymapGeneration)) {
+			DoTranslateMenus(hWnd, menu);
+			menuLanguageID = curLanguageID;
+		}
 
 		// Dynamically create the save state slot selector menu.
 		// TODO: In the future, maybe change it to separate save and load submenus?
@@ -337,7 +346,7 @@ namespace MainWindow {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		// Add new items
-		for (int i = 0; i < Config::iSaveStateSlotCount; ++i) {
+		for (int i = 0; i < g_Config.iSaveStateSlotCount; ++i) {
 			std::string number = StringFromFormat("%d", i + 1);
 			if (i < 10) {
 				// Add an accelerator for the first 10 slots.
@@ -351,21 +360,8 @@ namespace MainWindow {
 				ConvertUTF8ToWString(label).c_str()
 			);
 		}
-	}
 
-	void TranslateMenus(HWND hWnd, HMENU menu) {
-		bool changed = false;
-
-		const std::string curLanguageID = g_i18nrepo.LanguageID();
-		if (curLanguageID != menuLanguageID || KeyMap::HasChanged(menuKeymapGeneration)) {
-			DoTranslateMenus(hWnd, menu);
-			menuLanguageID = curLanguageID;
-			changed = true;
-		}
-
-		if (changed) {
-			DrawMenuBar(hWnd);
-		}
+		DrawMenuBar(hWnd);
 	}
 
 	void BrowseAndBootDone(std::string filename);
@@ -1231,10 +1227,10 @@ namespace MainWindow {
 		if (g_Config.iCurrentStateSlot < 0)
 			g_Config.iCurrentStateSlot = 0;
 
-		else if (g_Config.iCurrentStateSlot >= Config::iSaveStateSlotCount)
-			g_Config.iCurrentStateSlot = Config::iSaveStateSlotCount - 1;
+		else if (g_Config.iCurrentStateSlot >= g_Config.iSaveStateSlotCount)
+			g_Config.iCurrentStateSlot = g_Config.iSaveStateSlotCount - 1;
 
-		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
+		for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
 			CheckMenuItem(menu, ID_FILE_SAVESTATE_SLOT_BASE + i, MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 

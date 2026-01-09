@@ -151,9 +151,6 @@ public:
 
 	size_t Size() const override { return sizeof(Config); }
 
-	// TODO: Make a config setting.
-	static constexpr int iSaveStateSlotCount = 5;
-
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
@@ -329,7 +326,8 @@ public:
 	std::string sStateLoadUndoGame;
 	std::string sStateUndoLastSaveGame;
 	int iStateUndoLastSaveSlot;
-	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
+	int iAutoLoadSaveState; // 0 = off, 1 = oldest (deprecated), 2 = newest, 3+ = slot number + 3 (up to 5)
+	int iSaveStateSlotCount;
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bEnablePlugins;

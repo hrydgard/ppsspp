@@ -356,11 +356,11 @@ enum class OperationType {
 	}
 
 	void PrevSlot() {
-		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot - 1 + Config::iSaveStateSlotCount) % Config::iSaveStateSlotCount;
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot - 1 + g_Config.iSaveStateSlotCount) % g_Config.iSaveStateSlotCount;
 	}
 
 	void NextSlot() {
-		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % Config::iSaveStateSlotCount;
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % g_Config.iSaveStateSlotCount;
 	}
 
 	static void DeleteIfExists(const Path &fn) {
@@ -627,7 +627,7 @@ enum class OperationType {
 	int GetNewestSlot(std::string_view gamePrefix) {
 		int newestSlot = -1;
 		int64_t newestTime = 0;
-		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
+		for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
 			auto iter = g_files.find(GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION));
 			if (iter != g_files.end()) {
 				int64_t mod = iter->second;
@@ -643,7 +643,7 @@ enum class OperationType {
 	int GetOldestSlot(std::string_view gamePrefix) {
 		int oldestSlot = -1;
 		int64_t oldestTime = INT64_MAX;
-		for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
+		for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
 			auto iter = g_files.find(GenerateSaveSlotFilename(gamePrefix, i, STATE_EXTENSION));
 			if (iter != g_files.end()) {
 				int64_t mod = iter->second;

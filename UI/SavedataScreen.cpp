@@ -663,11 +663,11 @@ void SavedataScreen::CreateTabs() {
 	using namespace UI;
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
-	AddTab("SavedataBrowser", sa->T("Save Data"), [this](UI::LinearLayout *parent) {
+	AddTab("SavedataBrowser", sa->T("Save data"), [this](UI::LinearLayout *parent) {
 		CreateSavedataTab(parent);
 	});
 
-	AddTab("SavedataStatesBrowser", sa->T("Save States"), [this](UI::LinearLayout *parent) {
+	AddTab("SavedataStatesBrowser", sa->T("Save states"), [this](UI::LinearLayout *parent) {
 		CreateSavestateTab(parent);
 	});
 }

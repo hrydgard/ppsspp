@@ -268,6 +268,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("StateUndoLastSaveGame", SETTING(g_Config, sStateUndoLastSaveGame), "NA", CfgFlag::DEFAULT),
 	ConfigSetting("StateUndoLastSaveSlot", SETTING(g_Config, iStateUndoLastSaveSlot), -5, CfgFlag::DEFAULT), // Start with an "invalid" value
 	ConfigSetting("RewindSnapshotInterval", SETTING(g_Config, iRewindSnapshotInterval), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SaveStateSlotCount", SETTING(g_Config, iSaveStateSlotCount), 5, CfgFlag::DEFAULT),
 
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
@@ -1536,6 +1537,9 @@ void Config::PostLoadCleanup() {
 	} else if (g_Config.iScreenRotation == ROTATION_LOCKED_VERTICAL180) {
 		g_Config.iScreenRotation = ROTATION_LOCKED_VERTICAL;
 	}
+
+	// Clamp save state slot count to somewhat sane limits.
+	g_Config.iSaveStateSlotCount = std::clamp(g_Config.iSaveStateSlotCount, 1, 100);
 }
 
 void Config::PreSaveCleanup() {

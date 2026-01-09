@@ -245,6 +245,7 @@ SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::Layou
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	LinearLayout *lines = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	lines->SetSpacing(2.0f);
@@ -264,13 +265,18 @@ SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::Layou
 		OnScreenshotClicked.Trigger(e);
 	});
 
-	if (SaveState::HasSaveInSlot(saveStatePrefix_, slot)) {
+	if (SaveState::HasSaveInSlot(saveStatePrefix_, slot_)) {
 		if (!Achievements::HardcoreModeActive()) {
 			loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 		}
 
 		std::string dateStr = SaveState::GetSlotDateAsString(saveStatePrefix_, slot_);
+
+		if (slot_ == g_Config.iAutoLoadSaveState - 3) {
+			dateStr += " (" + std::string(sy->T("Auto load savestate")) + ")";
+		}
+
 		if (!dateStr.empty()) {
 			TextView *dateView = new TextView(dateStr, new LinearLayoutParams(0.0, Gravity::G_VCENTER));
 			dateView->SetSmall(true);
@@ -352,7 +358,9 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 bool GamePauseScreen::key(const KeyInput &key) {
-	if (!UIScreen::key(key) && (key.flags & KeyInputFlags::DOWN)) {
+	bool handled = UIDialogScreen::key(key);
+
+	if (!handled && (key.flags & KeyInputFlags::DOWN)) {
 		// Special case to be able to unpause with a bound pause key.
 		// Normally we can't bind keys used in the UI.
 		InputMapping mapping(key.deviceId, key.keyCode);
@@ -366,7 +374,7 @@ bool GamePauseScreen::key(const KeyInput &key) {
 		}
 		return false;
 	}
-	return false;
+	return handled;
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems) {
@@ -375,7 +383,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems)
 	using namespace UI;
 
 	leftColumnItems->SetSpacing(10.0);
-	for (int i = 0; i < Config::iSaveStateSlotCount; i++) {
+	for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(saveStatePrefix_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);

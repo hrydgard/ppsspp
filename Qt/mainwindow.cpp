@@ -534,7 +534,7 @@ void MainWindow::createMenus()
 
 	QStringList slotNames;
 	QList<int> slotIndices;
-	for (int i = 0; i < Config::iSaveStateSlotCount; ++i) {
+	for (int i = 0; i < g_Config.iSaveStateSlotCount; ++i) {
 		slotNames << QString::number(i + 1);
 		slotIndices << i;
 	}
