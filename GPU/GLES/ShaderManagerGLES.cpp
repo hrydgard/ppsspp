@@ -106,6 +106,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_proj, "u_proj" });
 	queries.push_back({ &u_proj_lens, "u_proj_lens" });
 	queries.push_back({ &u_xywh, "u_xywh" });
+	queries.push_back({ &u_vpScale, "u_vpScale" });
+	queries.push_back({ &u_vpOffset, "u_vpOffset" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });

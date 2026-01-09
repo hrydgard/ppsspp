@@ -159,6 +159,22 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
+	if (dirtyUniforms & DIRTY_RASTER_OFFSET) {
+		ub->rasterOffset[0] = gstate.getOffsetX();
+		ub->rasterOffset[1] = gstate.getOffsetY();
+	}
+
+	if (dirtyUniforms & DIRTY_VIEWPORT_UNIFORMS) {
+		// TODO: This should be a couple of SIMD instructions.
+		// NOTE: The Z raster/scale offset are not yet used.
+		ub->vpScale[0] = gstate.getViewportXScale();
+		ub->vpScale[1] = gstate.getViewportYScale();
+		ub->vpScale[2] = gstate.getViewportZScale();
+		ub->vpOffset[0] = gstate.getViewportXCenter();
+		ub->vpOffset[1] = gstate.getViewportYCenter();
+		ub->vpOffset[2] = gstate.getViewportZCenter();
+	}
+
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
 		ConvertMatrix4x3To3x4Transposed(ub->world, gstate.worldMatrix);
