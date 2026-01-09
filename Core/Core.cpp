@@ -45,6 +45,8 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 
+#include "ext/aemu_postoffice/client/postoffice_client.h"
+
 // Step command to execute next
 static std::mutex g_stepMutex;
 
@@ -156,6 +158,9 @@ void Core_NotifyLifecycle(CoreLifecycle stage) {
 void Core_Stop() {
 	Core_ResetException();
 	Core_UpdateState(CORE_POWERDOWN);
+
+	// close all active aemu postoffice sessions if exist
+	aemu_post_office_init();
 }
 
 void Core_UpdateState(CoreState newState) {

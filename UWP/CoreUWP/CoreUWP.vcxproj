@@ -486,6 +486,18 @@
     <ClCompile Include="..\..\Core\HLE\sceNet_lib.cpp" />
     <ClCompile Include="..\..\Core\HLE\NetAdhocCommon.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhoc.cpp" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\delay_impl_windows.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\mutex_impl_windows.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceOpenPSID.cpp" />

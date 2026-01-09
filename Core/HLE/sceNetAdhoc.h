@@ -42,6 +42,7 @@ struct AdhocSendTarget {
 	u32 ip;
 	u16 port; // original port
 	u16 portOffset; // port offset specific for this target IP
+	SceNetEtherAddr mac;
 };
 
 struct AdhocSendTargets {
