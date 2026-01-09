@@ -41,6 +41,8 @@ namespace SaveState {
 	// Cycle through the 5 savestate slots
 	void PrevSlot();
 	void NextSlot();
+
+	// Run the various actions directly.
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback);
 	void LoadSlot(const Path &gameFilename, int slot, Callback callback);
 	bool UndoSaveSlot(const Path &gameFilename, int slot);
@@ -55,6 +57,7 @@ namespace SaveState {
 	bool HasUndoLoad(const Path &gameFilename);
 	bool HasScreenshotInSlot(const Path &gameFilename, int slot);
 
+	// Just returns the current slot from config.
 	int GetCurrentSlot();
 
 	// Returns -1 if there's no oldest/newest slot.
@@ -62,7 +65,6 @@ namespace SaveState {
 	int GetOldestSlot(const Path &gameFilename);
 	
 	std::string GetSlotDateAsString(const Path &gameFilename, int slot);
-	std::string GenerateFullDiscId(const Path &gameFilename);
 	Path GenerateSaveSlotFilename(const Path &gameFilename, int slot, const char *extension);
 
 	std::string GetTitle(const Path &filename);

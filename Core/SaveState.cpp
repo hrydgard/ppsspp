@@ -26,6 +26,7 @@
 #include "Common/System/System.h"
 
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
@@ -68,7 +69,9 @@ static const char * const LOAD_UNDO_NAME = "load_undo.ppst";
 
 namespace SaveState {
 
+// Used for "confirm exit if you haven't saved in a while"
 double g_lastSaveTime = -1.0;
+
 static bool needsProcess = false;
 static bool needsRestart = false;
 static std::mutex mutex;
