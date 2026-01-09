@@ -1235,11 +1235,7 @@ int Fseek(FILE *file, int64_t offset, int whence) {
 #elif defined(_WIN32)
 	return _fseeki64(file, offset, whence);
 #elif (defined(__ANDROID__) && __ANDROID_API__ < 24) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
-	// Flush the stream's internal buffers
-	if (fseek(file, 0, SEEK_CUR) != 0) {
-		return -1;
-	}
-	return lseek64(fileno(file), offset, whence) == -1 ? -1 : 0;
+	return fseek(file, offset, whence);
 #else
 	return fseeko(file, offset, whence);
 #endif
@@ -1262,11 +1258,7 @@ int64_t Fseektell(FILE *file, int64_t offset, int whence) {
 #elif defined(_WIN32)
 	return _fseeki64(file, offset, whence) != 0 ? -1 : _ftelli64(file);
 #elif (defined(__ANDROID__) && __ANDROID_API__ < 24) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
-	// Flush the stream's internal buffers
-	if (fseek(file, 0, SEEK_CUR) != 0) {
-		return -1;
-	}
-	return lseek64(fileno(file), offset, whence);
+	return fseek(file, offset, whence) != 0 ? -1 : ftell(file);
 #else
 	return fseeko(file, offset, whence) != 0 ? -1 : ftello(file);
 #endif
@@ -1278,7 +1270,7 @@ int64_t Ftell(FILE *file) {
 #elif defined(_WIN32)
 	return _ftelli64(file);
 #elif defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
-	return lseek64(fileno(file), 0, SEEK_CUR);
+	return ftell(file);
 #else
 	return ftello(file);
 #endif
