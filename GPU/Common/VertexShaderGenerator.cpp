@@ -519,6 +519,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// See comment above this function (GenerateVertexShader).
 	if (!isModeThrough && gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
+		// TODO: This is now bogus and should be properly integrated in the new pipeline!
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
@@ -865,54 +866,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 			}
 		}
-
-		// Perform the perspective projection and viewport transform.
-		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
-		// We leave W as is to preserve the perspective correct interpolation.
-
-		if (vertexRangeCulling) {
-			// Position is now already projected here.
-			WRITE(p, "  vec3 projPos = outPos.xyz;\n");
-			WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
-
-			if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-				// Vertex range culling doesn't happen when Z clips, note sign of w is important.
-				WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
-				const char *outMin = "projPos.x < 0.0 || projPos.y < 0.0";
-				const char *outMax = "projPos.x > 4096.0 || projPos.y > 4096.0";
-				WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
-				WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "  }\n");
-				WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
-				WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
-				WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "  }\n");
-			}
-
-			const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
-			const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
-			if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-				// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
-				// We add a small amount to prevent errors as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
-				WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", compat.vsOutPrefix, vertexRangeClipSuffix, 0.0625 / 65536.0);
-			}
-			if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
-				// Cull any triangle fully outside in the same direction when depth clamp enabled.
-				// We check u_depthRange in case depthScale was zero - in that case we can't work out the cull distance.
-				WRITE(p, "  if (u_cullRangeMin.w > 0.0 && u_depthRange.w != 0.0f) {\n");
-				WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
-				WRITE(p, "    %sgl_CullDistance%s = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix, cull1);
-				WRITE(p, "  } else {\n");
-				WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull0);
-				WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull1);
-				WRITE(p, "  }\n");
-			}
-		}
-
-		// Apply raster offset after the range culling.
-		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -1278,10 +1231,64 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  }\n");
 	}
 
+	if (!isModeThrough) {
+		// Perform the perspective projection and viewport transform. (We'll undo it later, after we applied the viewport).
+		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
+	}
+
+	if (vertexRangeCulling) {
+		// Position is now already projected here.
+		WRITE(p, "  vec3 projPos = outPos.xyz;\n");
+		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+
+		if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+			// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+			WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
+			const char *outMin = "projPos.x < 0.0 || projPos.y < 0.0";
+			const char *outMax = "projPos.x > 4096.0 || projPos.y > 4096.0";
+			WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
+			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
+			WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
+			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+		}
+
+		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
+		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
+			// We add a small amount to prevent errors as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", compat.vsOutPrefix, vertexRangeClipSuffix, 0.0625 / 65536.0);
+		}
+		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
+			// Cull any triangle fully outside in the same direction when depth clamp enabled.
+			// We check u_depthRange in case depthScale was zero - in that case we can't work out the cull distance.
+			WRITE(p, "  if (u_cullRangeMin.w > 0.0 && u_depthRange.w != 0.0f) {\n");
+			WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
+			WRITE(p, "    %sgl_CullDistance%s = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix, cull1);
+			WRITE(p, "  } else {\n");
+			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull0);
+			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull1);
+			WRITE(p, "  }\n");
+		}
+	}
+
+	if (!isModeThrough) {
+		// Apply raster offset after the range culling.
+		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
+	}
+
 	// Convert to NDC space.
 	WRITE(p, "  outPos.x = ((outPos.x - u_xywh.x) / u_xywh.z) * 2.0 - 1.0;\n");
 	WRITE(p, "  outPos.y = ((outPos.y - u_xywh.y) / u_xywh.w) * 2.0 - 1.0;\n");
 	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");
+
+	// After all our changes, multiply xyz back with z to get clip space position.
+	WRITE(p, "  outPos.xyz *= outPos.w;\n");
 
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
