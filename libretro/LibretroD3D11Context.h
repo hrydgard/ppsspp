@@ -1,7 +1,7 @@
 #pragma once
 
 #define HAVE_D3D11
-#include "libretro/libretro_d3d.h"
+#include <libretro_d3d.h>
 #include "libretro/LibretroGraphicsContext.h"
 
 class LibretroD3D11Context : public LibretroHWRenderContext {

@@ -62,15 +62,6 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 		return;
 	}
 
-#if HAVE_LIBRETRO_VFS
-    isOpenedByFd_ = false;
-    handle_ = filestream_open(filename.c_str(), RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
-    filestream_seek(handle_, 0, RETRO_VFS_SEEK_POSITION_END);
-    filesize_ = filestream_tell(handle_);
-    filestream_seek(handle_, 0, RETRO_VFS_SEEK_POSITION_START);
-    return;
-#endif
-
 #if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
 	if (filename.Type() == PathType::CONTENT_URI) {
 		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
@@ -87,7 +78,11 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 #endif
 
 #if defined(HAVE_LIBRETRO_VFS)
-    // Nothing to do here...
+	file_ = File::OpenCFile(filename, "rb");
+	if (file_ == nullptr) {
+		return;
+	}
+	filesize_ = File::GetFileSize(file_);
 #elif !defined(_WIN32)
 
 	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
@@ -123,7 +118,9 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 
 LocalFileLoader::~LocalFileLoader() {
 #if defined(HAVE_LIBRETRO_VFS)
-    filestream_close(handle_);
+	if (file_ != nullptr) {
+		fclose(file_);
+	}
 #elif !defined(_WIN32)
 	if (fd_ != -1) {
 		close(fd_);
@@ -138,8 +135,7 @@ LocalFileLoader::~LocalFileLoader() {
 bool LocalFileLoader::Exists() {
 	// If we opened it for reading, it must exist.  Done.
 #if defined(HAVE_LIBRETRO_VFS)
-    return handle_ != 0;
-
+	return file_ != nullptr;
 #elif !defined(_WIN32)
 	if (isOpenedByFd_) {
 		// As an optimization, if we already tried and failed, quickly return.
@@ -178,9 +174,9 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 	}
 
 #if defined(HAVE_LIBRETRO_VFS)
-    std::lock_guard<std::mutex> guard(readLock_);
-	filestream_seek(handle_, absolutePos, RETRO_VFS_SEEK_POSITION_START);
-	return filestream_read(handle_, data, bytes * count) / bytes;
+	std::lock_guard<std::mutex> guard(readLock_);
+	File::Fseek(file_, absolutePos, SEEK_SET);
+	return fread(data, bytes, count, file_);
 #elif PPSSPP_PLATFORM(SWITCH)
 	// Toolchain has no fancy IO API.  We must lock.
 	std::lock_guard<std::mutex> guard(readLock_);

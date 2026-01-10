@@ -134,12 +134,7 @@ bool PNGHeaderPeek::IsValidPNGHeader() const {
 }
 
 bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel) {
-	png_image png{};
-	png.version = PNG_IMAGE_VERSION;
-	png.format = bytesPerPixel == 3 ? PNG_FORMAT_RGB : PNG_FORMAT_RGBA;
-	png.width = w;
-	png.height = h;
-	const int row_stride = w * bytesPerPixel;
+	png_bytepp row_ptrs = nullptr;
 
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
@@ -147,16 +142,28 @@ bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPe
 		return false;
 	}
 
-	int result = png_image_write_to_stdio(&png, fp, 0, buffer, row_stride, nullptr);
-
-	if (png.warning_or_error >= 2) {
-		ERROR_LOG(Log::IO, "Saving image to PNG produced errors.");
+	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, pngErrorHandler, pngWarningHandler);
+	if (png_ptr == nullptr) {
+		fclose(fp);
+		ERROR_LOG(Log::IO, "PNG encode failed.");
+		return false;
 	}
 
-	png_image_free(&png);
-	fclose(fp);
+	png_infop info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == nullptr) {
+		png_destroy_write_struct(&png_ptr, nullptr);
+		fclose(fp);
+		ERROR_LOG(Log::IO, "PNG encode failed.");
+		return false;
+	}
 
-	if (!result) {
+	if (setjmp(png_jmpbuf(png_ptr))) {
+		if (row_ptrs != nullptr) {
+			png_free(png_ptr, row_ptrs);
+		}
+		png_destroy_write_struct(&png_ptr, &info_ptr);
+		fclose(fp);
+
 		// Should we even do this?
 		File::Delete(filename);
 
@@ -164,5 +171,26 @@ bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPe
 		return false;
 	}
 
+	png_set_write_fn(png_ptr, fp, [](png_structp png_ptr, png_bytep data, png_size_t size) {
+		if (fwrite(data, 1, size, (FILE *)png_get_io_ptr(png_ptr)) < size) {
+			png_error(png_ptr, "Failed to write to file.");
+		}
+	}, [](png_structp png_ptr) {
+		fflush((FILE *)png_get_io_ptr(png_ptr));
+	});
+
+	png_set_IHDR(png_ptr, info_ptr, w, h, 8, bytesPerPixel == 3 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+	row_ptrs = (png_bytepp)png_malloc(png_ptr, (png_alloc_size_t)h * (png_alloc_size_t)sizeof(png_bytep));
+	for (png_alloc_size_t i = 0; i < h; ++i) {
+		row_ptrs[i] = (png_bytep)buffer + (png_alloc_size_t)w * (png_alloc_size_t)bytesPerPixel * i;
+	}
+	png_set_rows(png_ptr, info_ptr, row_ptrs);
+
+	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, nullptr);
+
+	png_free(png_ptr, row_ptrs);
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+	fclose(fp);
 	return true;
 }

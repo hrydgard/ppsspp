@@ -20,6 +20,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Render/AtlasGen.h"
 
@@ -74,7 +75,7 @@ void Image::SaveZIM(const char *zim_name, int zim_format) {
 	for (int y = 0; y < height(); y++) {
 		memcpy(image_data + y * width() * 4, (dat.data() + y * w), width() * 4);
 	}
-	FILE *f = fopen(zim_name, "wb");
+	FILE *f = File::OpenCFile(Path(zim_name), "wb");
 	// SaveZIM takes ownership over image_data, there's no leak.
 	::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
 	fclose(f);

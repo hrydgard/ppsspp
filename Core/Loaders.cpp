@@ -319,39 +319,25 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 }
 
 // Close the return value with ZipClose (if non-null, of course).
-struct zip *ZipOpenPath(const Path &fileName) {
-	int error = 0;
-	// Need to special case for content URI here, similar to OpenCFile.
-	struct zip *z;
-#if PPSSPP_PLATFORM(ANDROID)
-	if (fileName.Type() == PathType::CONTENT_URI) {
-		int fd = File::OpenFD(fileName, File::OPEN_READ);
-		z = zip_fdopen(fd, 0, &error);
-	} else
-#endif
-	{  // continuation of above else in the ifdef
-		z = zip_open(fileName.c_str(), 0, &error);
-	}
-
-	if (!z) {
-		ERROR_LOG(Log::HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
+ZipContainer ZipOpenPath(const Path &fileName) {
+	ZipContainer z(fileName);
+	if (z == nullptr) {
+		ERROR_LOG(Log::HLE, "Failed to open ZIP file '%s'", fileName.c_str());
 	}
 	return z;
 }
 
-void ZipClose(struct zip *z) {
-	if (z)
-		zip_close(z);
+void ZipClose(ZipContainer &z) {
+	z.close();
 }
 
 bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
-	struct zip *z = ZipOpenPath(fileName);
+	ZipContainer z = ZipOpenPath(fileName);
 	if (!z) {
 		info->contents = ZipFileContents::UNKNOWN;
 		return false;
 	}
 	DetectZipFileContents(z, info);
-	zip_close(z);
 	return true;
 }
 
@@ -408,7 +394,7 @@ static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *da
 	}
 }
 
-void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
+void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
 	_dbg_assert_(numFiles >= 0);
 

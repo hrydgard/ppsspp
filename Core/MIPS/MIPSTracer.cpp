@@ -119,7 +119,7 @@ bool MIPSTracer::flush_to_file() {
 	}
 
 	INFO_LOG(Log::JIT, "Trace flushed, closing the file...");
-	std::fclose(output);
+	fclose(output);
 
 	clear();
 	return true;
@@ -144,7 +144,7 @@ void MIPSTracer::flush_block_to_file(const TraceBlockInfo& block_info) {
 		snprintf(buffer, sizeof(buffer), "0x%08x: ", addr);
 		MIPSDisAsm(storage.read_asm(index), addr, buffer + prefix_size, sizeof(buffer) - prefix_size, true);
 
-		std::fprintf(output, "%s\n", buffer);
+		fprintf(output, "%s\n", buffer);
 	}
 }
 

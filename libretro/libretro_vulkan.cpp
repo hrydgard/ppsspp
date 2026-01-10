@@ -9,7 +9,8 @@
 #include "Core/Config.h"
 
 #define VK_NO_PROTOTYPES
-#include "libretro/libretro_vulkan.h"
+#include <libretro_vulkan.h>
+#include "libretro/LibretroGraphicsContext.h"
 
 using namespace PPSSPP_VK;
 

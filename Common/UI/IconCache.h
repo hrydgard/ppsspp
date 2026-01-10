@@ -6,6 +6,8 @@
 #include <mutex>
 #include <cstdint>
 
+#include "Common/File/Path.h"
+
 
 class UIContext;
 
