@@ -542,12 +542,14 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 }
 
 void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const {
+	// TODO: The below is probably completely bogus now.
+
 	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
 	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
 	maxZValue = 1.000030517578125f * gstate.getViewportZScale();
 	minZValue = -maxZValue;
 	// Scale and offset the Z appropriately, since we baked that into a projection transform.
-	if (params_.usesHalfZ) {
+	if (true) {  // params_.usesHalfZ) {
 		maxZValue = maxZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
 		minZValue = minZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
 	} else {
@@ -707,10 +709,10 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / fabsf(gstate.getViewportXScale()));
-	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / fabsf(gstate.getViewportYScale()));
-	float du = 1.0f / gstate_c.curTextureWidth;
-	float dv = 1.0f / gstate_c.curTextureHeight;
+	float dx = 1.0f;
+	float dy = 1.0f;
+	float du = 1.0f;
+	float dv = 1.0f;
 
 	if (throughmode) {
 		dx = 1.0f;
@@ -731,8 +733,8 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 			const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtx2.x * transVtx2.pos_w - transVtx1.x * transVtx1.pos_w;
-			float vertical = transVtx2.y * transVtx2.pos_w - transVtx1.y * transVtx1.pos_w;
+			float horizontal = transVtx2.x - transVtx1.x;
+			float vertical = transVtx2.y - transVtx1.y;
 
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
@@ -740,13 +742,13 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 			float yoff = addWidth.y * dy;
 
 			// bottom right
-			trans[0].CopyFromWithOffset(transVtx2, xoff * transVtx2.pos_w, yoff * transVtx2.pos_w);
+			trans[0].CopyFromWithOffset(transVtx2, xoff, yoff);
 			// top right
-			trans[1].CopyFromWithOffset(transVtx1, xoff * transVtx1.pos_w, yoff * transVtx1.pos_w);
+			trans[1].CopyFromWithOffset(transVtx1, xoff, yoff);
 			// top left
-			trans[2].CopyFromWithOffset(transVtx1, -xoff * transVtx1.pos_w, -yoff * transVtx1.pos_w);
+			trans[2].CopyFromWithOffset(transVtx1, -xoff, -yoff);
 			// bottom left
-			trans[3].CopyFromWithOffset(transVtx2, -xoff * transVtx2.pos_w, -yoff * transVtx2.pos_w);
+			trans[3].CopyFromWithOffset(transVtx2, -xoff, -yoff);
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
@@ -779,21 +781,21 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 			const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtxTL.x * transVtxTL.pos_w - transVtxBL.x * transVtxBL.pos_w;
-			float vertical = transVtxTL.y * transVtxTL.pos_w - transVtxBL.y * transVtxBL.pos_w;
+			float horizontal = transVtxTL.x - transVtxBL.x;
+			float vertical = transVtxTL.y - transVtxBL.y;
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
 			// bottom right
 			trans[0] = transVtxBL;
-			trans[0].x += addWidth.x * dx * trans[0].pos_w;
-			trans[0].y += addWidth.y * dy * trans[0].pos_w;
+			trans[0].x += addWidth.x * dx;
+			trans[0].y += addWidth.y * dy;
 			trans[0].u += addWidth.x * du * trans[0].uv_w;
 			trans[0].v += addWidth.y * dv * trans[0].uv_w;
 
 			// top right
 			trans[1] = transVtxTL;
-			trans[1].x += addWidth.x * dx * trans[1].pos_w;
-			trans[1].y += addWidth.y * dy * trans[1].pos_w;
+			trans[1].x += addWidth.x * dx;
+			trans[1].y += addWidth.y * dy;
 			trans[1].u += addWidth.x * du * trans[1].uv_w;
 			trans[1].v += addWidth.y * dv * trans[1].uv_w;
 
@@ -856,8 +858,8 @@ bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, int vertsSi
 
 		// Create the bottom right version.
 		TransformedVertex transVtxBR = transVtxTL;
-		transVtxBR.x += dx * transVtxTL.pos_w;
-		transVtxBR.y += dy * transVtxTL.pos_w;
+		transVtxBR.x += dx;
+		transVtxBR.y += dy;
 		transVtxBR.u += du * transVtxTL.uv_w;
 		transVtxBR.v += dv * transVtxTL.uv_w;
 

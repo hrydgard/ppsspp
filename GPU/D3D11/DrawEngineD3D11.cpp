@@ -402,7 +402,6 @@ void DrawEngineD3D11::Flush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
-		params.usesHalfZ = true;
 
 		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
 			// We need to rotate the index buffer to simulate a different provoking vertex.

@@ -58,7 +58,6 @@ struct SoftwareTransformParams {
 	TextureCacheCommon *texCache;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
-	bool usesHalfZ;
 };
 
 // Converts an index buffer to make the provoking vertex the last.
