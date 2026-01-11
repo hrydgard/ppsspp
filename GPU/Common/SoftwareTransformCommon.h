@@ -70,8 +70,8 @@ class SoftwareTransform {
 public:
 	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
 
-	void SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
-	void Transform(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
+	// indsSize is in indices, not bytes.
+	void Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 protected:
 	// NOTE: The viewport must be up to date!
@@ -84,7 +84,6 @@ protected:
 	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 
 	const SoftwareTransformParams &params_;
-	Lin::Matrix4x4 projMatrix_;
 };
 
 class DrawEngineCommon;

@@ -114,26 +114,8 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 	return true;
 }
 
-void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
-	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
-
-	if (invertedY) {
-		projMatrix_.xy = -projMatrix_.xy;
-		projMatrix_.yy = -projMatrix_.yy;
-		projMatrix_.zy = -projMatrix_.zy;
-		projMatrix_.wy = -projMatrix_.wy;
-	}
-	if (invertedX) {
-		projMatrix_.xx = -projMatrix_.xx;
-		projMatrix_.yx = -projMatrix_.yx;
-		projMatrix_.zx = -projMatrix_.zx;
-		projMatrix_.wx = -projMatrix_.wx;
-	}
-
-	projMatrix_.translateAndScale(trans, scale);
-}
-
-void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
+// At the end, this calls ProjectClipAndExpand which will expand rectangles as necessary, or apply culling.
+void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -382,7 +364,16 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
-			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
+			float xyzw[4];
+			Vec3ByMatrix44(xyzw, v, projMtx);
+
+			// Here we also need to apply the viewport.
+			Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(xyzw[0] / xyzw[3], xyzw[1] / xyzw[3], xyzw[2] / xyzw[3]));
+			transformed[index].x = xyz.x;
+			transformed[index].y = xyz.y;
+			transformed[index].z = xyz.z;
+			transformed[index].pos[3] = xyzw[3];
+
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
