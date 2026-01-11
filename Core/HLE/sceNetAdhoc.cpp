@@ -177,7 +177,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			if (masterGameModeArea.dataUpdated) {
 				int sentcount = 0;
 				for (auto& gma : replicaGameModeAreas) {
-					if (!gma.dataSent && IsSocketReady(sock->data.pdp.id, false, true) > 0) {
+					if (!gma.dataSent && (g_Config.bServerHasRelay || IsSocketReady(sock->data.pdp.id, false, true) > 0)) {
 						u16_le port = ADHOC_GAMEMODE_PORT;
 						auto it = gameModePeerPorts.find(gma.mac);
 						if (it != gameModePeerPorts.end())
@@ -241,7 +241,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			}
 
 			// Recv new Replica data when available
-			if (IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+			if (g_Config.bServerHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0) {
 				SceNetEtherAddr sendermac;
 				s32_le senderport = ADHOC_GAMEMODE_PORT;
 				s32_le bufsz = gameModeBuffSize;
