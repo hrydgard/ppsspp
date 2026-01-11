@@ -750,7 +750,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = vec4(position.x, position.y, position.z, 1.0);\n");
 		} else {
-			if (compat.shaderLanguage == GLSL_VULKAN) {
+			if (false && compat.shaderLanguage == GLSL_VULKAN) {
 				// Apply rotation from the uniform.
 				WRITE(p, "  mat2 displayRotation = mat2(\n");
 				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
@@ -771,8 +771,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 
 			// Here we need to apply the viewport and also range culling, just like with the hardware transform below.
-
-
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -866,6 +864,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 			}
 		}
+
+		// Perform the perspective projection and viewport transform. (We'll undo it later, after we applied the viewport).
+		// In software transform mode, this is performed in software.
+		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -1229,11 +1231,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  } else {\n");
 		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
 		WRITE(p, "  }\n");
-	}
-
-	if (!isModeThrough) {
-		// Perform the perspective projection and viewport transform. (We'll undo it later, after we applied the viewport).
-		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
 	}
 
 	if (vertexRangeCulling) {
