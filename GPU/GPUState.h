@@ -25,6 +25,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/lin/vec3.h"
 
 class PointerWrap;
 
@@ -386,9 +387,13 @@ struct GPUgstate {
 	float getViewportXScale() const { return getFloat24(viewportxscale); }
 	float getViewportYScale() const { return getFloat24(viewportyscale); }
 	float getViewportZScale() const { return getFloat24(viewportzscale); }
+	// TODO: Rename to offset?
 	float getViewportXCenter() const { return getFloat24(viewportxcenter); }
 	float getViewportYCenter() const { return getFloat24(viewportycenter); }
 	float getViewportZCenter() const { return getFloat24(viewportzcenter); }
+
+	Lin::Vec3 getViewportScale() const { return Lin::Vec3(getViewportXScale(), getViewportYScale(), getViewportZScale()); }
+	Lin::Vec3 getViewportOffset() const { return Lin::Vec3(getViewportXCenter(), getViewportYCenter(), getViewportZCenter()); }
 
 	// Fixed 12.4 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
