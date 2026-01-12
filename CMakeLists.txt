@@ -1676,7 +1676,7 @@ if(ANDROID)
 	endif()
 endif()
 
-if (IOS)
+if (IOS AND NOT LIBRETRO)
 	set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
