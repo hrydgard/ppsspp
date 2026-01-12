@@ -6,7 +6,7 @@
 
 class LibretroD3D11Context : public LibretroHWRenderContext {
 public:
-   LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 11) {}
+   LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_D3D11, 11) {}
    bool Init() override;
 
    void SwapBuffers() override;
