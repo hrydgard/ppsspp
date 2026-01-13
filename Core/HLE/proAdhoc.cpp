@@ -424,12 +424,9 @@ void deleteAllAdhocSockets() {
 			if (g_Config.bServerHasRelay){
 				if (sock->type == SOCK_PTP){
 					// sync
-					if (sock->connect_threads != NULL){
-						while(sock->connect_threads->size() != 0){
-							sock->connect_threads->at(sock->connect_threads->size() - 1).join();
-							sock->connect_threads->pop_back();
-						}
-						delete sock->connect_threads;
+					if (sock->connect_thread != NULL){
+						sock->connect_thread->join();
+						delete sock->connect_thread;
 					}
 					void *socket = sock->postoffice_handle;
 					if (socket != NULL){

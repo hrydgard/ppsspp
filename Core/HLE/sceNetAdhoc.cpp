@@ -89,7 +89,7 @@ std::map<u64, AdhocSendTargets> sendTargetPeers;
 int gameModeNotifyEvent = -1;
 
 #define AEMU_POSTOFFICE_PORT 27313
-#define AEMU_POSTOFFICE_ID 999
+#define AEMU_POSTOFFICE_ID_BASE 2048
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
@@ -1019,9 +1019,9 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 	internal->data.ptp.rcv_sb_cc = adhocSockets[idx]->data.ptp.rcv_sb_cc;
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
-	internal->data.ptp.id = AEMU_POSTOFFICE_ID;
+	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + idx;
 	internal->flags = 0;
-	internal->connect_threads = NULL;
+	internal->connect_thread = NULL;
 
 	AdhocSocket **slot = NULL;
 	int i;
@@ -1113,6 +1113,51 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
+static int ptp_connect_postoffice(int idx, const char *caller){
+	AdhocSocket *internal = adhocSockets[idx];
+
+	struct aemu_post_office_sock_addr addr;
+	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
+	addr.port = htons(AEMU_POSTOFFICE_PORT);
+
+	if (internal->postoffice_handle != NULL){
+		return 0;
+	}
+
+	if (internal->connect_thread_done){
+		if (internal->connect_thread != NULL){
+			internal->connect_thread->join();
+			delete internal->connect_thread;
+			internal->connect_thread = NULL;
+		}
+
+		internal->connect_thread_done = false;
+		internal->connect_thread_result = 0;
+
+		internal->connect_thread = new std::thread([internal, addr, idx] {
+			int state;
+			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
+			if (ptp_socket == NULL){
+				internal->connect_thread_result = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
+				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
+				internal->connect_thread_done = true;
+				return;
+			}
+			internal->postoffice_handle = ptp_socket;
+			internal->connect_thread_result = 0;
+			INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postoffice_handle);
+			internal->connect_thread_done = true;
+			return;
+		});;
+
+		DEBUG_LOG(Log::sceNet, "%s: started connect thread on id %d", __func__, idx + 1);
+		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
+
+	DEBUG_LOG(Log::sceNet, "%s: id %d is connecting", __func__, idx + 1);
+	return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+}
+
 int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeer) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
@@ -1135,8 +1180,16 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
-		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-		sockerr = socket_errno;
+		if (g_Config.bServerHasRelay){
+			ret = ptp_connect_postoffice(req.id - 1, __func__);
+			if (ret != 0){
+				ret = SOCKET_ERROR;
+				sockerr = EAGAIN;
+			}
+		}else{
+			ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
+			sockerr = socket_errno;
+		}
 		if (sockerr != 0)
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 		else
@@ -1145,7 +1198,22 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check the connection state (assuming "connect" has been called before and is in-progress)
 	// Note: On Linux "select" can return > 0 (with SO_ERROR = 0) even when the connection is not accepted yet, thus need "getpeername" to ensure
 	else {
-		ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
+		if (g_Config.bServerHasRelay){
+			if (sock->postoffice_handle == NULL){
+				ret = SOCKET_ERROR;
+				if (sock->connect_thread_done && sock->connect_thread_result == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED){
+					sockerr = ECONNREFUSED;
+				}else{
+					sockerr = EAGAIN;
+				}
+			}else{
+				// the handle is there, we're ready to go
+				ret = 1;
+				sockerr = 0;
+			}
+		}else{
+			ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
+		}
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Select(%i) = %i, error = %i", req.id, ptpsocket.lport, ptpsocket.id, ret, sockerr);
 		if (sockerr != 0) {
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: SelectError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
@@ -1160,7 +1228,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	// Check whether the connection has been established or not
-	if (ret != SOCKET_ERROR) {
+	if (!g_Config.bServerHasRelay && ret != SOCKET_ERROR) {
 		socklen_t sinlen = sizeof(sin);
 		memset(&sin, 0, sinlen);
 		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
@@ -1642,7 +1710,6 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	internal->data.pdp.laddr = *saddr;
 	internal->data.pdp.lport = sport;
 	internal->data.pdp.rcv_sb_cc = bufsize;
-	internal->data.pdp.id = AEMU_POSTOFFICE_ID;
 	internal->flags = 0;
 
 	AdhocSocket **free_slot = NULL;
@@ -1657,6 +1724,8 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 		free(internal);
 		return ERROR_NET_NO_SPACE;
 	}
+
+	internal->data.pdp.id = AEMU_POSTOFFICE_ID_BASE + i;
 
 	*free_slot = internal;
 	pdp_postoffice_recover(i);
@@ -2275,10 +2344,10 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE, "not enough space");
 				}
 
-				sinlen = sizeof(sin);
-				memset(&sin, 0, sinlen);
-				// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
-				if (pdpsocket.id != AEMU_POSTOFFICE_ID){
+				if (!g_Config.bServerHasRelay){
+					sinlen = sizeof(sin);
+					memset(&sin, 0, sinlen);
+					// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
 					received = recvfrom(pdpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 					error = socket_errno;
 				}
@@ -3816,9 +3885,9 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 	internal->data.ptp.pport = dport;
 	internal->data.ptp.rcv_sb_cc = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
-	internal->data.ptp.id = AEMU_POSTOFFICE_ID;
 	internal->flags = 0;
-	internal->connect_threads = new std::vector<std::thread>();
+	internal->connect_thread = NULL;
+	internal->connect_thread_done = true;
 
 	AdhocSocket **slot = NULL;
 	int i;
@@ -3834,6 +3903,8 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 		ERROR_LOG(Log::sceNet, "%s: cannot find free socket mapper slot while opening ptp socket", __func__);
 		return ERROR_NET_NO_SPACE;
 	}
+
+	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + i;
 
 	*slot = internal;
 	INFO_LOG(Log::sceNet, "%s: created ptp socket with id %d", __func__, i + 1);
@@ -4257,74 +4328,12 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_INITIALIZED, "not initialized");
 }
 
-static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
-	INFO_LOG(Log::sceNet, "%s: id %d timeout %u nonblock %d", __func__, idx + 1, timeout, nonblock);
-	AdhocSocket *internal = adhocSockets[idx];
-
-	// Phantasy Star Portable 2 will try to reconnect even when previous connect already success, so we should return success too if it's already connected
-	if (internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED)
-		return 0;
-
-	struct aemu_post_office_sock_addr addr;
-	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
-	addr.port = htons(AEMU_POSTOFFICE_PORT);
-
-	if (nonblock || timeout != 0){
-		// TODO actual notify based timeout
-		int timeout_return = nonblock ? SCE_NET_ADHOC_ERROR_WOULD_BLOCK : SCE_NET_ADHOC_ERROR_TIMEOUT;
-
-		if (internal->data.ptp.state == ADHOC_PTP_STATE_CLOSED){
-			while(internal->connect_threads->size() != 0){
-				internal->connect_threads->at(internal->connect_threads->size() - 1).join();
-				internal->connect_threads->pop_back();
-			}
-
-			internal->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
-
-			internal->connect_threads->push_back(std::thread([internal, addr, idx] {
-				int state;
-				void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
-				if (ptp_socket == NULL){
-					ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
-					internal->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
-					return;
-				}
-				internal->postoffice_handle = ptp_socket;
-				INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postoffice_handle);
-				internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
-				return;
-			}));
-
-			return timeout_return;
-		}
-		// ADHOC_PTP_STATE_SYN_SENT
-		return timeout_return;
-	}
-
-	int state;
-	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
-	if (ptp_socket == NULL){
-		ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
-		return SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
-	}
-
-	// we got a new socket
-	internal->postoffice_handle = ptp_socket;
-	internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
-
-	INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postoffice_handle);
-	return 0;
-}
-
 int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) {
 	// Library is initialized
 	if (netAdhocInited)
 	{
 		// Valid Socket
 		if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
-			if (g_Config.bServerHasRelay)
-				return ptp_connect_postoffice(id - 1, timeout, flag);
-
 			// Cast Socket
 			auto socket = adhocSockets[id - 1];
 			auto& ptpsocket = socket->data.ptp;
@@ -4360,10 +4369,18 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
-					int connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-
-					// Grab Error Code
-					int errorcode = socket_errno;
+					int connectresult = 0;
+					int errorcode = 0;
+					if (g_Config.bServerHasRelay){
+						connectresult = ptp_connect_postoffice(id - 1, __func__);
+						if (connectresult != 0){
+							connectresult = SOCKET_ERROR;
+							errorcode = EAGAIN;
+						}
+					}else{
+						connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
+						errorcode = socket_errno;
+					}
 
 					if (connectresult == SOCKET_ERROR) {
 						if (errorcode == EAGAIN || errorcode == EWOULDBLOCK || errorcode == EALREADY || errorcode == EISCONN)
@@ -4387,8 +4404,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					else if (connectresult == SOCKET_ERROR) {
 						// Connection in Progress, or
 						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
-							if (connectInProgress(errorcode))
+						if (g_Config.bServerHasRelay || connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
+							if (g_Config.bServerHasRelay || connectInProgress(errorcode))
 							{
 								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							}
@@ -4462,13 +4479,9 @@ static int ptp_close_postoffice(int idx){
 	AdhocSocket *internal = adhocSockets[idx];
 
 	// sync
-	if (internal->connect_threads != NULL){
-		while(internal->connect_threads->size() != 0){
-			internal->connect_threads->at(internal->connect_threads->size() - 1).join();
-			internal->connect_threads->pop_back();
-		}
-
-		delete internal->connect_threads;
+	if (internal->connect_thread != NULL){
+		internal->connect_thread->join();
+		delete internal->connect_thread;
 	}
 
 	void *socket = internal->postoffice_handle;
@@ -4557,9 +4570,8 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 	internal->data.ptp.state = ADHOC_PTP_STATE_LISTEN;
 	internal->data.ptp.rcv_sb_cc = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
-	internal->data.ptp.id = AEMU_POSTOFFICE_ID;
 	internal->flags = 0;
-	internal->connect_threads = NULL;
+	internal->connect_thread = NULL;
 
 	AdhocSocket **slot = NULL;
 	int i;
@@ -4575,6 +4587,8 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 		free(internal);
 		return ERROR_NET_NO_SPACE;
 	}
+
+	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + i;
 
 	*slot = internal;
 	ptp_listen_postoffice_recover(i);
