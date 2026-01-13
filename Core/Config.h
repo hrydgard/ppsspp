@@ -676,9 +676,9 @@ public:
 	Path mountRoot;  // Actually, mount as host0. keeping consistent with headless args.
 
 	// Data for upgrade prompt
-	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
-	std::string upgradeVersion;
-	std::string dismissedVersion;
+	std::string sUpgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
+	std::string sUpgradeVersion;
+	std::string sDismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
@@ -699,7 +699,9 @@ public:
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
-	static void DownloadCompletedCallback(http::Request &download);
+	bool SupportsUpgradeCheck() const;
+	void CheckForUpdate();
+	void VersionJsonDownloadCompleted(http::Request &download);
 	void DismissUpgrade();
 
 	void GetReportingInfo(UrlEncoder &data) const;

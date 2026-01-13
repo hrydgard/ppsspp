@@ -32,6 +32,7 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
@@ -1109,9 +1110,9 @@ static const ConfigSetting jitSettings[] = {
 };
 
 static const ConfigSetting upgradeSettings[] = {
-	ConfigSetting("UpgradeMessage", SETTING(g_Config, upgradeMessage), "", CfgFlag::DEFAULT),
-	ConfigSetting("UpgradeVersion", SETTING(g_Config, upgradeVersion), "", CfgFlag::DEFAULT),
-	ConfigSetting("DismissedVersion", SETTING(g_Config, dismissedVersion), "", CfgFlag::DEFAULT),
+	ConfigSetting("UpgradeMessage", SETTING(g_Config, sUpgradeMessage), "", CfgFlag::DEFAULT),
+	ConfigSetting("UpgradeVersion", SETTING(g_Config, sUpgradeVersion), "", CfgFlag::DEFAULT),
+	ConfigSetting("DismissedVersion", SETTING(g_Config, sDismissedVersion), "", CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting themeSettings[] = {
@@ -1387,27 +1388,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	const char *gitVer = PPSSPP_GIT_VERSION;
-	Version installed(gitVer);
-	Version upgrade(upgradeVersion);
-	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
-
-	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
-	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
-	// even if said newer version is >= the upgrade found online.
-	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
-		upgradeMessage.clear();
-	}
-
-	// Check for new version on every 10 runs.
-	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
-	// splash screen quickly), but then we'll just show the notification next time instead, we store the
-	// upgrade number in the ini.
-	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
-		const char *versionUrl = "http://www.ppsspp.org/version.json";
-		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::RequestFlags::Default, &DownloadCompletedCallback, "version", acceptMime);
-	}
+	CheckForUpdate();
 
 	INFO_LOG(Log::Loader, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -1630,12 +1611,53 @@ void Config::NotifyUpdatedCpuCore() {
 	}
 }
 
-// Use for debugging the version check without messing with the server
+bool Config::SupportsUpgradeCheck() const {
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MACOS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS_APP_STORE)
+	return true;
+#else
+	return false;
+#endif
+}
+
 #if 0
+// Use for debugging the version check without messing with the server
 #define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
+constexpr int UPDATE_CHECK_FREQ = 1;
+#else
+constexpr int UPDATE_CHECK_FREQ = 5;
 #endif
 
-void Config::DownloadCompletedCallback(http::Request &download) {
+void Config::CheckForUpdate() {
+	if (!bCheckForNewVersion || !SupportsUpgradeCheck()) {
+		return;
+	}
+
+	const char *gitVer = PPSSPP_GIT_VERSION;
+	Version installed(gitVer);
+	Version upgrade(sUpgradeVersion);
+	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
+
+	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
+	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
+	// even if said newer version is >= the upgrade found online.
+	if ((sDismissedVersion == sUpgradeVersion) || (versionsValid && (installed >= upgrade))) {
+		sUpgradeMessage.clear();
+	}
+
+	// Check for new version on every 10 runs.
+	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
+	// splash screen quickly), but then we'll just show the notification next time instead, we store the
+	// upgrade number in the ini.
+
+	const bool checkThisTime = iRunCount % UPDATE_CHECK_FREQ == 0;
+	if (checkThisTime) {
+		const char *versionUrl = "http://www.ppsspp.org/version.json";
+		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::RequestFlags::Default, [this](http::Request &download) { VersionJsonDownloadCompleted(download); }, "version", acceptMime);
+	}
+}
+
+void Config::VersionJsonDownloadCompleted(http::Request &download) {
 	if (download.ResultCode() != 200) {
 		ERROR_LOG(Log::Loader, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
 		return;
@@ -1660,7 +1682,7 @@ void Config::DownloadCompletedCallback(http::Request &download) {
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);
 	Version upgrade(version);
-	Version dismissed(g_Config.dismissedVersion);
+	Version dismissed(g_Config.sDismissedVersion);
 
 	if (!installed.IsValid()) {
 		ERROR_LOG(Log::Loader, "Version check: Local version string invalid. Build problems? %s", PPSSPP_GIT_VERSION);
@@ -1673,21 +1695,21 @@ void Config::DownloadCompletedCallback(http::Request &download) {
 
 	if (installed >= upgrade) {
 		INFO_LOG(Log::Loader, "Version check: Already up to date, erasing any upgrade message");
-		g_Config.upgradeMessage.clear();
-		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion.clear();
+		g_Config.sUpgradeMessage.clear();
+		g_Config.sUpgradeVersion = upgrade.ToString();
+		g_Config.sDismissedVersion.clear();
 		return;
 	}
 
 	if (installed < upgrade && dismissed != upgrade) {
-		g_Config.upgradeMessage = "New version of PPSSPP available!";
-		g_Config.upgradeVersion = upgrade.ToString();
-		g_Config.dismissedVersion.clear();
+		g_Config.sUpgradeMessage = "New version of PPSSPP available!";
+		g_Config.sUpgradeVersion = upgrade.ToString();
+		g_Config.sDismissedVersion.clear();
 	}
 }
 
 void Config::DismissUpgrade() {
-	g_Config.dismissedVersion = g_Config.upgradeVersion;
+	g_Config.sDismissedVersion = g_Config.sUpgradeVersion;
 }
 
 void Config::SetSearchPath(const Path &searchPath) {

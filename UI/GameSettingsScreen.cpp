@@ -1430,7 +1430,13 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
 	}
 
-	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
+	CheckBox *checkForUpdate = systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
+	checkForUpdate->OnClick.Add([](UI::EventParams &e) {
+		// Reset the dismissed version so it will check again.
+		if (g_Config.bCheckForNewVersion) {
+			g_Config.sDismissedVersion.clear();
+		}
+	});
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
 	static const char *screenshotModeChoices[] = { "Final processed image", "Raw game image" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenshotMode, sy->T("Screenshot mode"), screenshotModeChoices, 0, ARRAY_SIZE(screenshotModeChoices), I18NCat::SYSTEM, screenManager()));
