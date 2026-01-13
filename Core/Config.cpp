@@ -1366,27 +1366,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
-	const char *gitVer = PPSSPP_GIT_VERSION;
-	Version installed(gitVer);
-	Version upgrade(upgradeVersion);
-	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
-
-	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
-	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
-	// even if said newer version is >= the upgrade found online.
-	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
-		upgradeMessage.clear();
-	}
-
-	// Check for new version on every 10 runs.
-	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
-	// splash screen quickly), but then we'll just show the notification next time instead, we store the
-	// upgrade number in the ini.
-	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
-		const char *versionUrl = "http://www.ppsspp.org/version.json";
-		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::RequestFlags::Default, &DownloadCompletedCallback, "version", acceptMime);
-	}
+	CheckForUpdate();
 
 	INFO_LOG(Log::Loader, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
@@ -1598,7 +1578,38 @@ void Config::NotifyUpdatedCpuCore() {
 #define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
 #endif
 
-void Config::DownloadCompletedCallback(http::Request &download) {
+void Config::CheckForUpdate() {
+	if (!bCheckForNewVersion) {
+		return;
+	}
+
+	const char *gitVer = PPSSPP_GIT_VERSION;
+	Version installed(gitVer);
+	Version upgrade(upgradeVersion);
+	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
+
+	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
+	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
+	// even if said newer version is >= the upgrade found online.
+	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
+		upgradeMessage.clear();
+	}
+
+	// Check for new version on every 10 runs.
+	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
+	// splash screen quickly), but then we'll just show the notification next time instead, we store the
+	// upgrade number in the ini.
+
+	const bool checkThisTime = true; // iRunCount % 10 == 0;
+
+	if (checkThisTime) {
+		const char *versionUrl = "http://www.ppsspp.org/version.json";
+		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::RequestFlags::Default, [this](http::Request &download) { VersionJsonDownloadCompleted(download); }, "version", acceptMime);
+	}
+}
+
+void Config::VersionJsonDownloadCompleted(http::Request &download) {
 	if (download.ResultCode() != 200) {
 		ERROR_LOG(Log::Loader, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
 		return;

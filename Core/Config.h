@@ -689,7 +689,8 @@ public:
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
-	static void DownloadCompletedCallback(http::Request &download);
+	void CheckForUpdate();
+	void VersionJsonDownloadCompleted(http::Request &download);
 	void DismissUpgrade();
 
 	void GetReportingInfo(UrlEncoder &data) const;
