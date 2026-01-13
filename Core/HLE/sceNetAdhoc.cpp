@@ -1021,6 +1021,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
 	internal->data.ptp.id = AEMU_POSTOFFICE_ID;
 	internal->flags = 0;
+	internal->connect_threads = NULL;
 
 	AdhocSocket **slot = NULL;
 	int i;
@@ -3778,6 +3779,27 @@ int RecreatePtpSocket(int ptpId) {
 	return 0;
 }
 
+static uint16_t get_random_unused_ptp_port(){
+	uint16_t test_port = rand() % 65534 + 1;
+	auto port_in_use = [&test_port] {
+		for (int i = 0; i < MAX_SOCKET; i++){
+			if (adhocSockets[i] != NULL &&
+				adhocSockets[i]->type == SOCK_PTP &&
+				test_port == adhocSockets[i]->data.ptp.lport)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+
+	while(port_in_use()){
+		test_port = rand() % 65534 + 1;
+	}
+
+	return test_port;
+}
+
 static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize){
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL){
@@ -3789,13 +3811,14 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 	internal->postoffice_handle = NULL;
 	internal->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
 	internal->data.ptp.laddr = *saddr;
-	internal->data.ptp.lport = sport;
+	internal->data.ptp.lport = sport == 0 ? get_random_unused_ptp_port() : sport;
 	internal->data.ptp.paddr = *daddr;
 	internal->data.ptp.pport = dport;
 	internal->data.ptp.rcv_sb_cc = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
 	internal->data.ptp.id = AEMU_POSTOFFICE_ID;
 	internal->flags = 0;
+	internal->connect_threads = new std::vector<std::thread>();
 
 	AdhocSocket **slot = NULL;
 	int i;
@@ -3852,7 +3875,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			}
 
 			// Random Port required
-			if (sport == 0) {
+			if (sport == 0 && !g_Config.bServerHasRelay) {
 				isClient = true;
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 				sport = -static_cast<int>(portOffset);
@@ -4235,23 +4258,51 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 }
 
 static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
+	INFO_LOG(Log::sceNet, "%s: id %d timeout %u nonblock %d", __func__, idx + 1, timeout, nonblock);
 	AdhocSocket *internal = adhocSockets[idx];
+
 	// Phantasy Star Portable 2 will try to reconnect even when previous connect already success, so we should return success too if it's already connected
 	if (internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED)
 		return 0;
-
-	uint64_t begin = CoreTiming::GetGlobalTimeUsScaled();
-	uint64_t end = begin + timeout;
 
 	struct aemu_post_office_sock_addr addr;
 	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
-	void *ptp_socket = NULL;
+	if (nonblock || timeout != 0){
+		// TODO actual notify based timeout
+		int timeout_return = nonblock ? SCE_NET_ADHOC_ERROR_WOULD_BLOCK : SCE_NET_ADHOC_ERROR_TIMEOUT;
 
-	// note that postoffice connect was designed to be a blocked operation, if the other side don't accept, or listen session not found, the server will kick us out
+		if (internal->data.ptp.state == ADHOC_PTP_STATE_CLOSED){
+			while(internal->connect_threads->size() != 0){
+				internal->connect_threads->at(internal->connect_threads->size() - 1).join();
+				internal->connect_threads->pop_back();
+			}
+
+			internal->data.ptp.state = ADHOC_PTP_STATE_SYN_SENT;
+
+			internal->connect_threads->push_back(std::thread([internal, addr, idx] {
+				int state;
+				void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
+				if (ptp_socket == NULL){
+					ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
+					internal->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
+					return;
+				}
+				internal->postoffice_handle = ptp_socket;
+				INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postoffice_handle);
+				internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+				return;
+			}));
+
+			return timeout_return;
+		}
+		// ADHOC_PTP_STATE_SYN_SENT
+		return timeout_return;
+	}
+
 	int state;
-	ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
+	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
 	if (ptp_socket == NULL){
 		ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
 		return SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
@@ -4409,12 +4460,23 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 
 static int ptp_close_postoffice(int idx){
 	AdhocSocket *internal = adhocSockets[idx];
+
+	// sync
+	if (internal->connect_threads != NULL){
+		while(internal->connect_threads->size() != 0){
+			internal->connect_threads->at(internal->connect_threads->size() - 1).join();
+			internal->connect_threads->pop_back();
+		}
+
+		delete internal->connect_threads;
+	}
+
 	void *socket = internal->postoffice_handle;
 	if (socket != NULL){
-		if (internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED){
-			ptp_close(socket);
-		}else if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN){
+		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN){
 			ptp_listen_close(socket);
+		}else{
+			ptp_close(socket);
 		}
 	}
 	adhocSockets[idx] = NULL;
@@ -4497,6 +4559,7 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 	internal->data.ptp.snd_sb_cc = 0;
 	internal->data.ptp.id = AEMU_POSTOFFICE_ID;
 	internal->flags = 0;
+	internal->connect_threads = NULL;
 
 	AdhocSocket **slot = NULL;
 	int i;

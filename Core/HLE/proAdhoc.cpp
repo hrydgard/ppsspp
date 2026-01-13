@@ -57,6 +57,8 @@
 
 #include "Core/HLE/NetAdhocCommon.h"
 
+#include "ext/aemu_postoffice/client/postoffice_client.h"
+
 #ifdef _WIN32
 #undef errno
 #define errno WSAGetLastError()
@@ -418,17 +420,42 @@ void deleteAllAdhocSockets() {
 		// Active Socket
 		if (adhocSockets[i] != NULL) {
 			auto sock = adhocSockets[i];
-			int fd = -1;
 
-			if (sock->type == SOCK_PTP)
-				fd = sock->data.ptp.id;
-			else if (sock->type == SOCK_PDP)
-				fd = sock->data.pdp.id;
+			if (g_Config.bServerHasRelay){
+				if (sock->type == SOCK_PTP){
+					// sync
+					if (sock->connect_threads != NULL){
+						while(sock->connect_threads->size() != 0){
+							sock->connect_threads->at(sock->connect_threads->size() - 1).join();
+							sock->connect_threads->pop_back();
+						}
+						delete sock->connect_threads;
+					}
+					void *socket = sock->postoffice_handle;
+					if (socket != NULL){
+						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN){
+							ptp_listen_close(socket);
+						}else{
+							ptp_close(socket);
+						}
+					}
+				}else{
+					if (sock->postoffice_handle != NULL){
+						pdp_delete(sock->postoffice_handle);
+					}
+				}
+			}else{
+				int fd = -1;
+				if (sock->type == SOCK_PTP)
+					fd = sock->data.ptp.id;
+				else if (sock->type == SOCK_PDP)
+					fd = sock->data.pdp.id;
 
-			if (fd > 0) {
-				// Close Socket
-				shutdown(fd, SD_RECEIVE);
-				closesocket(fd);
+				if (fd > 0) {
+					// Close Socket
+					shutdown(fd, SD_RECEIVE);
+					closesocket(fd);
+				}
 			}
 			// Free Memory
 			free(adhocSockets[i]);

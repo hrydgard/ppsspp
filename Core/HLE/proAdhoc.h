@@ -329,6 +329,7 @@ typedef struct AdhocSocket {
 		SceNetAdhocPtpStat ptp;
 	} data;
 	void *postoffice_handle; // aemu_postoffice mode handle
+	std::vector<std::thread> *connect_threads;
 } PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
