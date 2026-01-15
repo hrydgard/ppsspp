@@ -421,27 +421,27 @@ void deleteAllAdhocSockets() {
 		if (adhocSockets[i] != NULL) {
 			auto sock = adhocSockets[i];
 
-			if (g_Config.bServerHasRelay){
-				if (sock->type == SOCK_PTP){
+			if (g_Config.bServerHasRelay) {
+				if (sock->type == SOCK_PTP) {
 					// sync
-					if (sock->connect_thread != NULL){
-						sock->connect_thread->join();
-						delete sock->connect_thread;
+					if (sock->connectThread != NULL) {
+						sock->connectThread->join();
+						delete sock->connectThread;
 					}
-					void *socket = sock->postoffice_handle;
-					if (socket != NULL){
-						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN){
+					void *socket = sock->postofficeHandle;
+					if (socket != NULL) {
+						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
 							ptp_listen_close(socket);
-						}else{
+						} else {
 							ptp_close(socket);
 						}
 					}
-				}else{
-					if (sock->postoffice_handle != NULL){
-						pdp_delete(sock->postoffice_handle);
+				} else {
+					if (sock->postofficeHandle != NULL) {
+						pdp_delete(sock->postofficeHandle);
 					}
 				}
-			}else{
+			} else {
 				int fd = -1;
 				if (sock->type == SOCK_PTP)
 					fd = sock->data.ptp.id;

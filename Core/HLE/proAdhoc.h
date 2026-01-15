@@ -328,10 +328,10 @@ typedef struct AdhocSocket {
 		SceNetAdhocPdpStat pdp;
 		SceNetAdhocPtpStat ptp;
 	} data;
-	void *postoffice_handle; // aemu_postoffice mode handle
-	std::thread *connect_thread;
-	bool connect_thread_done;
-	int connect_thread_result;
+	void *postofficeHandle; // aemu_postoffice mode handle
+	std::thread *connectThread;
+	bool connectThreadDone;
+	int connectThreadResult;
 } PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data

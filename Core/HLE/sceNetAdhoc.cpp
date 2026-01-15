@@ -441,10 +441,10 @@ int StartGameModeScheduler() {
 	return 0;
 }
 
-static void *pdp_postoffice_recover(int idx){
+static void *pdp_postoffice_recover(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
-	if (internal->postoffice_handle != NULL){
-		return internal->postoffice_handle;
+	if (internal->postofficeHandle != NULL) {
+		return internal->postofficeHandle;
 	}
 
 	INFO_LOG(Log::sceNet, "%s: recovering pdp socket id %d", __func__, idx + 1);
@@ -457,34 +457,34 @@ static void *pdp_postoffice_recover(int idx){
 	getLocalMac(&local_mac);
 
 	int state;
-	internal->postoffice_handle = pdp_create_v4(&addr, (const char *)&local_mac, internal->data.pdp.lport + portOffset, &state);
-	if (state != AEMU_POSTOFFICE_CLIENT_OK){
+	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, internal->data.pdp.lport + portOffset, &state);
+	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
 	}
 
-	INFO_LOG(Log::sceNet, "%s: pdp recovery for id %d: %p", __func__, idx + 1, internal->postoffice_handle);
-	return internal->postoffice_handle;
+	INFO_LOG(Log::sceNet, "%s: pdp recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
+	return internal->postofficeHandle;
 }
 
-static int pdp_peek_next_size_postoffice(int idx){
+static int pdp_peek_next_size_postoffice(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
-	if (pdp_sock == NULL){
+	if (pdp_sock == NULL) {
 		return 0;
 	}
 	int peek_status = pdp_peek_next_size(pdp_sock);
-	if (peek_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
-		pdp_delete(internal->postoffice_handle);
-		internal->postoffice_handle = NULL;
+	if (peek_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		pdp_delete(internal->postofficeHandle);
+		internal->postofficeHandle = NULL;
 		return 0;
 	}
 	return peek_status;
 }
 
-static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len){
-	AdhocSocket *internal = adhocSockets[idx];	
+static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len) {
+	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
-	if (pdp_sock == NULL){
+	if (pdp_sock == NULL) {
 		return SOCKET_ERROR;
 	}
 
@@ -492,27 +492,27 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	SceNetEtherAddr saddr_copy;
 	int len_copy = *len;
 
-	if (len_copy > 2048){
+	if (len_copy > 2048) {
 		// trim, library limites pdp packets
 		len_copy = 2048;
 	}
 
 	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
-	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
-		pdp_delete(internal->postoffice_handle);
-		internal->postoffice_handle = NULL;
+	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		pdp_delete(internal->postofficeHandle);
+		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
 	}
-	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
 		return SOCKET_ERROR;
 	}
-	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
 		// this is pretty critical
 		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, *len);
 	}
 
 	*len = len_copy;
-	if (saddr != NULL){
+	if (saddr != NULL) {
 		*saddr = saddr_copy;
 	}
 	*sport = sport_copy - portOffset;
@@ -541,23 +541,23 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	sinlen = sizeof(sin);
 	memset(&sin, 0, sinlen);
 
-	if (g_Config.bServerHasRelay){
-		while(1){
+	if (g_Config.bServerHasRelay) {
+		while(1) {
 			int next_size = pdp_peek_next_size_postoffice(req.id - 1);
-			if (next_size == 0){
+			if (next_size == 0) {
 				// no next packet
 				ret = SOCKET_ERROR;
 				sockerr = EAGAIN;
 				break;
 			}
-			if (next_size > *req.length){
+			if (next_size > *req.length) {
 				// next is larger than current buffer
 				result = SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
 				return 0;
 			}
 			uint16_t recv_port;
 			ret = pdp_recv_postoffice(req.id - 1, req.remoteMAC, req.remotePort, req.buffer, req.length);
-			if (ret == 0){
+			if (ret == 0) {
 				// we got data into the request
 				result = 0;
 				return 0;
@@ -566,7 +566,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 			sockerr = EAGAIN;
 			break;
 		}
-	}else{
+	} else {
 		// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
 		ret = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 		sockerr = socket_errno;
@@ -671,23 +671,23 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len){
-	AdhocSocket *internal = adhocSockets[idx];	
+static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len) {
+	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
-	if (pdp_sock == NULL){
+	if (pdp_sock == NULL) {
 		return SOCKET_ERROR;
 	}
 
 	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, dport + portOffset, (char *)data, len, true);
-	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
-		pdp_delete(internal->postoffice_handle);
-		internal->postoffice_handle = NULL;
+	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		pdp_delete(internal->postofficeHandle);
+		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
 	}
-	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
 		return SOCKET_ERROR;
 	}
-	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
 		// this is pretty critical
 		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, len);
 	}
@@ -718,14 +718,14 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 
 		int ret = 0;
 		int sockerr = 0;
-		if (g_Config.bServerHasRelay){
+		if (g_Config.bServerHasRelay) {
 			ret = pdp_send_postoffice(req.id - 1, &peer->mac, peer->port, req.buffer, targetPeers.length);
 			if (ret == 0){
 				ret == *req.length;
 			}else{
 				sockerr = EAGAIN;
 			}
-		}else{
+		} else {
 			ret = sendto(pdpsocket.id, (const char*)req.buffer, targetPeers.length, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
 			sockerr = socket_errno;
 		}
@@ -758,18 +758,18 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 	return 0;
 }
 
-static int ptp_send_postoffice(int idx, const void *data, int len){
+static int ptp_send_postoffice(int idx, const void *data, int len) {
 	AdhocSocket *internal = adhocSockets[idx];
 
-	int ptp_send_status = ptp_send(internal->postoffice_handle, (const char *)data, len, true);
-	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, len, true);
+	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		return SOCKET_ERROR;
 	}
-	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
-	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
 		// this is pretty critical
 		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, len);
 	}
@@ -793,14 +793,14 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	// Send Data
 	int ret = 0;
 	int sockerr = 0;
-	if (g_Config.bServerHasRelay){
+	if (g_Config.bServerHasRelay) {
 		ret = ptp_send_postoffice(req.id - 1, req.buffer, *req.length);
-		if (ret == 0){
+		if (ret == 0) {
 			// sent
 			result = 0;
 			return 0;
 		}
-		if (ret == SOCKET_ERROR){
+		if (ret == SOCKET_ERROR) {
 			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 			result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
 			return 0;
@@ -849,24 +849,24 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-static int ptp_recv_postoffice(int idx, void *data, int *len){
+static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 
 	int len_copy = *len;
-	if (len_copy > 50 * 1024){
+	if (len_copy > 50 * 1024) {
 		// trim, library limit
 		len_copy = 50 * 1024;
 	}
 
-	int ptp_recv_status = ptp_recv(internal->postoffice_handle, (char *)data, &len_copy, true);
-	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
+	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		return SOCKET_ERROR;
 	}
-	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
-	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
 		// this is pretty critical
 		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, *len);
 	}
@@ -892,14 +892,14 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 
 	int ret = 0;
 	int sockerr = 0;
-	if (g_Config.bServerHasRelay){
+	if (g_Config.bServerHasRelay) {
 		ret = ptp_recv_postoffice(req.id - 1, req.buffer, req.length);
 		if (ret == 0){
 			// we got data
 			result = 0;
 			return 0;
 		}
-		if (ret == SOCKET_ERROR){
+		if (ret == SOCKET_ERROR) {
 			// the socket died, let the game know
 			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 			result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
@@ -908,7 +908,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 		// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
 		ret = SOCKET_ERROR;
 		sockerr = EAGAIN;
-	}else{
+	} else {
 		ret = recv(ptpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
 		sockerr = socket_errno;
 	}
@@ -953,10 +953,10 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-static void *ptp_listen_postoffice_recover(int idx){
+static void *ptp_listen_postoffice_recover(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
-	if (internal->postoffice_handle != NULL){
-		return internal->postoffice_handle;
+	if (internal->postofficeHandle != NULL) {
+		return internal->postofficeHandle;
 	}
 
 	INFO_LOG(Log::sceNet, "%s: recovering ptp listen socket id %d", __func__, idx + 1);
@@ -966,21 +966,21 @@ static void *ptp_listen_postoffice_recover(int idx){
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
 	int state;
-	internal->postoffice_handle = ptp_listen_v4(&addr, (const char*)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, &state);
+	internal->postofficeHandle = ptp_listen_v4(&addr, (const char*)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, &state);
 
-	if (state != AEMU_POSTOFFICE_CLIENT_OK){
+	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed recovering ptp listen socket, %d", __func__, state);
 	}
 
-	INFO_LOG(Log::sceNet, "%s: ptp listen recovery for id %d: %p", __func__, idx + 1, internal->postoffice_handle);
+	INFO_LOG(Log::sceNet, "%s: ptp listen recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
 
-	return internal->postoffice_handle;
+	return internal->postofficeHandle;
 }
 
-static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport){
+static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport) {
 	void *ptp_listen_socket = ptp_listen_postoffice_recover(idx);
 
-	if (ptp_listen_socket == NULL){
+	if (ptp_listen_socket == NULL) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
@@ -988,13 +988,13 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	int port_cpy;
 	SceNetEtherAddr mac_cpy;
 	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
-	if (new_ptp_socket == NULL){
-		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
-			ptp_listen_close(adhocSockets[idx]->postoffice_handle);
-			adhocSockets[idx]->postoffice_handle = NULL;
+	if (new_ptp_socket == NULL) {
+		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
+			adhocSockets[idx]->postofficeHandle = NULL;
 			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 		}
-		if (state == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+		if (state == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
 			// pretty critical here
 			ERROR_LOG(Log::sceNet, "%s: aemu_postoffice ran out of memory to accept a new connection", __func__);
 		}
@@ -1004,14 +1004,14 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 
     // we have a new socket
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
-	if (internal == NULL){
+	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: critical: ran out of heap memory while accepting new connection", __func__);
 		ptp_close(new_ptp_socket);
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
 	internal->type = SOCK_PTP;
-	internal->postoffice_handle = new_ptp_socket;
+	internal->postofficeHandle = new_ptp_socket;
 	internal->data.ptp.laddr = adhocSockets[idx]->data.ptp.laddr;
 	internal->data.ptp.lport = adhocSockets[idx]->data.ptp.lport;
 	internal->data.ptp.paddr = mac_cpy;
@@ -1021,18 +1021,18 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
 	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + idx;
 	internal->flags = 0;
-	internal->connect_thread = NULL;
+	internal->connectThread = NULL;
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for(i = 0;i < MAX_SOCKET;i++){
-		if (adhocSockets[i] == NULL){
+	for (i = 0; i < MAX_SOCKET; i++) {
+		if (adhocSockets[i] == NULL) {
 			slot = &adhocSockets[i];
 			break;
 		}
 	}
 
-	if (slot == NULL){
+	if (slot == NULL) {
 		ptp_close(new_ptp_socket);
 		free(internal);
 		ERROR_LOG(Log::sceNet, "%s: critical: cannot find an empty mapper slot", __func__);
@@ -1041,14 +1041,14 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 
 	*slot = internal;
 
-	if (saddr != NULL){
+	if (saddr != NULL) {
 		*saddr = mac_cpy;
 	}
-	if (sport != NULL){
+	if (sport != NULL) {
 		*sport = port_cpy - portOffset;
 	}
 
-	INFO_LOG(Log::sceNet, "%s: accepted ptp socket with id %d %p", __func__, i + 1, internal->postoffice_handle);
+	INFO_LOG(Log::sceNet, "%s: accepted ptp socket with id %d %p", __func__, i + 1, internal->postofficeHandle);
 	return i + 1;
 }
 
@@ -1070,16 +1070,16 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 	socklen_t sinlen = sizeof(sin);
 	int ret, sockerr;
 
-	if (g_Config.bServerHasRelay){
+	if (g_Config.bServerHasRelay) {
 		ret = ptp_accept_postoffice(req.id - 1, req.remoteMAC, req.remotePort);
-		if (ret >= 0){
+		if (ret >= 0) {
 			result = ret;
 			return 0;
-		}else{
+		} else {
 			ret = SOCKET_ERROR;
 			sockerr = EAGAIN;
 		}
-	}else{
+	} else {
 		// Check if listening socket is ready to accept
 		ret = IsSocketReady(ptpsocket.id, true, false, &sockerr);
 		if (ret > 0) {
@@ -1113,40 +1113,40 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 	return 0;
 }
 
-static int ptp_connect_postoffice(int idx, const char *caller){
+static int ptp_connect_postoffice(int idx, const char *caller) {
 	AdhocSocket *internal = adhocSockets[idx];
 
 	struct aemu_post_office_sock_addr addr;
 	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
-	if (internal->postoffice_handle != NULL){
+	if (internal->postofficeHandle != NULL) {
 		return 0;
 	}
 
-	if (internal->connect_thread_done){
-		if (internal->connect_thread != NULL){
-			internal->connect_thread->join();
-			delete internal->connect_thread;
-			internal->connect_thread = NULL;
+	if (internal->connectThreadDone) {
+		if (internal->connectThread != NULL) {
+			internal->connectThread->join();
+			delete internal->connectThread;
+			internal->connectThread = NULL;
 		}
 
-		internal->connect_thread_done = false;
-		internal->connect_thread_result = 0;
+		internal->connectThreadDone = false;
+		internal->connectThreadResult = 0;
 
-		internal->connect_thread = new std::thread([internal, addr, idx] {
+		internal->connectThread = new std::thread([internal, addr, idx] {
 			int state;
 			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
-			if (ptp_socket == NULL){
-				internal->connect_thread_result = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
+			if (ptp_socket == NULL) {
+				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
-				internal->connect_thread_done = true;
+				internal->connectThreadDone = true;
 				return;
 			}
-			internal->postoffice_handle = ptp_socket;
-			internal->connect_thread_result = 0;
-			INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postoffice_handle);
-			internal->connect_thread_done = true;
+			internal->postofficeHandle = ptp_socket;
+			internal->connectThreadResult = 0;
+			INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postofficeHandle);
+			internal->connectThreadDone = true;
 			return;
 		});;
 
@@ -1180,13 +1180,13 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
-		if (g_Config.bServerHasRelay){
+		if (g_Config.bServerHasRelay) {
 			ret = ptp_connect_postoffice(req.id - 1, __func__);
-			if (ret != 0){
+			if (ret != 0) {
 				ret = SOCKET_ERROR;
 				sockerr = EAGAIN;
 			}
-		}else{
+		} else {
 			ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 			sockerr = socket_errno;
 		}
@@ -1198,20 +1198,20 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check the connection state (assuming "connect" has been called before and is in-progress)
 	// Note: On Linux "select" can return > 0 (with SO_ERROR = 0) even when the connection is not accepted yet, thus need "getpeername" to ensure
 	else {
-		if (g_Config.bServerHasRelay){
-			if (sock->postoffice_handle == NULL){
+		if (g_Config.bServerHasRelay) {
+			if (sock->postofficeHandle == NULL) {
 				ret = SOCKET_ERROR;
-				if (sock->connect_thread_done && sock->connect_thread_result == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED){
+				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED){
 					sockerr = ECONNREFUSED;
-				}else{
+				} else {
 					sockerr = EAGAIN;
 				}
-			}else{
+			} else {
 				// the handle is there, we're ready to go
 				ret = 1;
 				sockerr = 0;
 			}
-		}else{
+		} else {
 			ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
 		}
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Select(%i) = %i, error = %i", req.id, ptpsocket.lport, ptpsocket.id, ret, sockerr);
@@ -1699,28 +1699,30 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	return hleLogVerbose(Log::sceNet, 0, "state = %d", state);
 }
 
-static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize){	
+static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize) {
 	AdhocSocket *internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
-	if (internal == NULL){
+	if (internal == NULL) {
 		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "net no space");
 	}
 
 	internal->type = SOCK_PDP;
-	internal->postoffice_handle = NULL;
+	internal->postofficeHandle = NULL;
 	internal->data.pdp.laddr = *saddr;
 	internal->data.pdp.lport = sport;
 	internal->data.pdp.rcv_sb_cc = bufsize;
 	internal->flags = 0;
+	internal->lastAttempt = 0;
+	internal->internalLastAttempt = 0;
 
 	AdhocSocket **free_slot = NULL;
 	int i;
-	for(i = 0;i < MAX_SOCKET; i++){
-		if(adhocSockets[i] == NULL){
+	for (i = 0; i < MAX_SOCKET; i++) {
+		if (adhocSockets[i] == NULL) {
 			free_slot = &adhocSockets[i];
 			break;
 		}
 	}
-	if (free_slot == NULL){
+	if (free_slot == NULL) {
 		free(internal);
 		return ERROR_NET_NO_SPACE;
 	}
@@ -1729,7 +1731,7 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 
 	*free_slot = internal;
 	pdp_postoffice_recover(i);
-	INFO_LOG(Log::sceNet, "%s: created pdp socket with id %d %p", __func__, i + 1, internal->postoffice_handle);
+	INFO_LOG(Log::sceNet, "%s: created pdp socket with id %d %p", __func__, i + 1, internal->postofficeHandle);
 	return i + 1;
 }
 
@@ -2010,15 +2012,15 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									// Send Data. UDP are guaranteed to be sent as a whole or nothing(failed if len > SO_MAX_MSG_SIZE), and never be partially sent/recv
 									int sent = 0;
 									int error = 0;
-									if (g_Config.bServerHasRelay){
+									if (g_Config.bServerHasRelay) {
 										sent = pdp_send_postoffice(id - 1, daddr, dport, data, len);
-										if (sent == 0){
+										if (sent == 0) {
 											sent = len;
-										}else{
+										} else {
 											sent = SOCKET_ERROR;
 											error = EAGAIN;
 										}
-									}else{
+									} else {
 										sent = sendto(pdpsocket.id, (const char *)data, len, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
 										error = socket_errno;
 									}
@@ -2123,15 +2125,15 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 
 										int sent = 0;
 										int error = 0;
-										if (g_Config.bServerHasRelay){
+										if (g_Config.bServerHasRelay) {
 											sent = pdp_send_postoffice(id - 1, &peer.mac, dport, data, len);
 											if (sent == 0){
 												sent = len;
-											}else{
+											} else {
 												sent = SOCKET_ERROR;
 												error = EAGAIN;
 											}
-										}else{
+										} else {
 											sent = sendto(pdpsocket.id, (const char *)data, len, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
 											error = socket_errno;
 										}
@@ -2260,22 +2262,22 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 				int received = 0;
 				int error;
 
-				if (g_Config.bServerHasRelay){
-					while(1){
+				if (g_Config.bServerHasRelay) {
+					while(1) {
 						int next_size = pdp_peek_next_size_postoffice(id - 1);
-						if (next_size == 0){
+						if (next_size == 0) {
 							// no next packet
 							received = SOCKET_ERROR;
 							error = EAGAIN;
 							break;
 						}
-						if (next_size > *len){
+						if (next_size > *len) {
 							// next is larger than current buffer
 							return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
 						}
 						uint16_t recv_port;
 						received = pdp_recv_postoffice(id - 1, saddr, sport, buf, len);
-						if (received == 0){
+						if (received == 0) {
 							// we got data
 							hleEatMicro(50);
 							return 0;
@@ -2284,7 +2286,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 						error = EAGAIN;
 						break;
 					}
-				}else{
+				} else {
 					int disCnt = 16;
 					while (--disCnt > 0)
 					{
@@ -2344,7 +2346,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE, "not enough space");
 				}
 
-				if (!g_Config.bServerHasRelay){
+				if (!g_Config.bServerHasRelay) {
 					sinlen = sizeof(sin);
 					memset(&sin, 0, sinlen);
 					// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
@@ -2451,21 +2453,21 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
 	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "set socket alert delay", 1000);
 }
 
-static int get_postoffice_fd(int idx){
+static int get_postoffice_fd(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
-	if (internal->type == SOCK_PTP){
-		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN){
+	if (internal->type == SOCK_PTP) {
+		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
 			void *socket = ptp_listen_postoffice_recover(idx);
-			if (socket != NULL){
+			if (socket != NULL) {
 				return ptp_listen_get_native_sock(socket);
 			}
-		}else if (internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED){
-			void *socket = internal->postoffice_handle;
-			if (socket != NULL){
+		} else {
+			void *socket = internal->postofficeHandle;
+			if (socket != NULL) {
 				return ptp_get_native_sock(socket);
 			}
 		}
-	}else{
+	} else {
 		void *socket = pdp_postoffice_recover(idx);
 		if (socket != NULL){
 			return pdp_get_native_sock(socket);
@@ -2492,11 +2494,11 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 
 			if (g_Config.bServerHasRelay) {
 				int postoffice_fd = get_postoffice_fd(sds[i].id - 1);
-				if (postoffice_fd == -1){
+				if (postoffice_fd == -1) {
 					continue;
 				}
 				fd = postoffice_fd;
-			}else{
+			} else {
 				if (sock->type == SOCK_PTP) {
 					fd = sock->data.ptp.id;
 				}
@@ -2523,11 +2525,11 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 
 				if (g_Config.bServerHasRelay) {
 					int postoffice_fd = get_postoffice_fd(sds[i].id - 1);
-					if (postoffice_fd == -1){
+					if (postoffice_fd == -1) {
 						continue;
 					}
 					fd = postoffice_fd;
-				}else{
+				} else {
 					if (sock->type == SOCK_PTP) {
 						fd = sock->data.ptp.id;
 					}
@@ -2664,10 +2666,10 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 	return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_INITIALIZED, "adhoc not initialized");
 }
 
-static int pdp_delete_postoffice(int idx){
+static int pdp_delete_postoffice(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
-	if (internal->postoffice_handle != NULL){
-		pdp_delete(internal->postoffice_handle);
+	if (internal->postofficeHandle != NULL) {
+		pdp_delete(internal->postofficeHandle);
 	}
 	adhocSockets[idx] = NULL;
 	free(internal);
@@ -3585,11 +3587,11 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value up to the buffer size arg since we use larger buffer, for PDP/UDP the total size must not contains partial/truncated message to avoid data loss.
 					// TODO: We may need to manage PDP messages ourself by reading each msg 1-by-1 and moving it to our internal buffer(msg array) in order to calculate the correct messages size that can fit into buffer size when there are more than 1 messages in the recv buffer (simulate FIONREAD)
 					if (g_Config.bServerHasRelay) {
-						void *postoffice_handle = pdp_postoffice_recover(j);
-						if (postoffice_handle != NULL){
-							sock->data.pdp.rcv_sb_cc = pdp_peek_next_size(postoffice_handle);
+						void *postofficeHandle = pdp_postoffice_recover(j);
+						if (postofficeHandle != NULL) {
+							sock->data.pdp.rcv_sb_cc = pdp_peek_next_size(postofficeHandle);
 						}
-					}else{
+					} else {
 						sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
 						// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
 						if (sock->data.pdp.rcv_sb_cc == 0) {
@@ -3690,21 +3692,28 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
 					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
-						if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
-							struct sockaddr_in sin;
-							socklen_t sinlen = sizeof(sin);
-							memset(&sin, 0, sinlen);
-							// Ensure that the connection really established or not, since "select" alone can't accurately detects it
-							if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
+						if (g_Config.bServerHasRelay) {
+							if (sock->postofficeHandle != NULL){
+								// good to go
 								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+							}
+						} else {
+							if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
+								struct sockaddr_in sin;
+								socklen_t sinlen = sizeof(sin);
+								memset(&sin, 0, sinlen);
+								// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+								if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
+									sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+								}
 							}
 						}
 					}
 
 					if (g_Config.bServerHasRelay) {
-						if (sock->postoffice_handle != NULL){
-							sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postoffice_handle);
-						}else{
+						if (sock->postofficeHandle != NULL) {
+							sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postofficeHandle);
+						} else {
 							sock->data.ptp.rcv_sb_cc = 0;
 						}
 					}else{
@@ -3848,10 +3857,10 @@ int RecreatePtpSocket(int ptpId) {
 	return 0;
 }
 
-static uint16_t get_random_unused_ptp_port(){
+static uint16_t get_random_unused_ptp_port() {
 	uint16_t test_port = rand() % 65534 + 1;
 	auto port_in_use = [&test_port] {
-		for (int i = 0; i < MAX_SOCKET; i++){
+		for (int i = 0; i < MAX_SOCKET; i++) {
 			if (adhocSockets[i] != NULL &&
 				adhocSockets[i]->type == SOCK_PTP &&
 				test_port == adhocSockets[i]->data.ptp.lport)
@@ -3862,22 +3871,22 @@ static uint16_t get_random_unused_ptp_port(){
 		return false;
 	};
 
-	while(port_in_use()){
+	while(port_in_use()) {
 		test_port = rand() % 65534 + 1;
 	}
 
 	return test_port;
 }
 
-static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize){
+static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize) {
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
-	if (internal == NULL){
+	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: ran out of heap memory trying to open ptp socket", __func__);
 		return ERROR_NET_NO_SPACE;
 	}
 
 	internal->type = SOCK_PTP;
-	internal->postoffice_handle = NULL;
+	internal->postofficeHandle = NULL;
 	internal->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
 	internal->data.ptp.laddr = *saddr;
 	internal->data.ptp.lport = sport == 0 ? get_random_unused_ptp_port() : sport;
@@ -3886,19 +3895,21 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 	internal->data.ptp.rcv_sb_cc = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
 	internal->flags = 0;
-	internal->connect_thread = NULL;
-	internal->connect_thread_done = true;
+	internal->connectThread = NULL;
+	internal->connectThreadDone = true;
+	internal->lastAttempt = 0;
+	internal->internalLastAttempt = 0;
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for(i = 0;i < MAX_SOCKET;i++){
-		if(adhocSockets[i] == NULL){
+	for (i = 0; i < MAX_SOCKET; i++) {
+		if (adhocSockets[i] == NULL) {
 			slot = &adhocSockets[i];
 			break;
 		}
 	}
 
-	if (slot == NULL){
+	if (slot == NULL) {
 		free(internal);
 		ERROR_LOG(Log::sceNet, "%s: cannot find free socket mapper slot while opening ptp socket", __func__);
 		return ERROR_NET_NO_SPACE;
@@ -4267,15 +4278,15 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					int error;
 
 					int newsocket = 0;
-					if (g_Config.bServerHasRelay){
+					if (g_Config.bServerHasRelay) {
 						newsocket = ptp_accept_postoffice(id - 1, addr, port);
-						if (newsocket >= 0){
+						if (newsocket >= 0) {
 							return newsocket;
-						}else{
+						} else {
 							newsocket = SOCKET_ERROR;
 							error = EAGAIN;
 						}
-					}else{
+					} else {
 						// Check if listening socket is ready to accept
 						newsocket = IsSocketReady(ptpsocket.id, true, false, &error);
 						if (newsocket > 0) {
@@ -4371,13 +4382,13 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
 					int connectresult = 0;
 					int errorcode = 0;
-					if (g_Config.bServerHasRelay){
+					if (g_Config.bServerHasRelay) {
 						connectresult = ptp_connect_postoffice(id - 1, __func__);
-						if (connectresult != 0){
+						if (connectresult != 0) {
 							connectresult = SOCKET_ERROR;
 							errorcode = EAGAIN;
 						}
-					}else{
+					} else {
 						connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 						errorcode = socket_errno;
 					}
@@ -4479,16 +4490,16 @@ static int ptp_close_postoffice(int idx){
 	AdhocSocket *internal = adhocSockets[idx];
 
 	// sync
-	if (internal->connect_thread != NULL){
-		internal->connect_thread->join();
-		delete internal->connect_thread;
+	if (internal->connectThread != NULL) {
+		internal->connectThread->join();
+		delete internal->connectThread;
 	}
 
-	void *socket = internal->postoffice_handle;
-	if (socket != NULL){
-		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN){
+	void *socket = internal->postofficeHandle;
+	if (socket != NULL) {
+		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
 			ptp_listen_close(socket);
-		}else{
+		} else {
 			ptp_close(socket);
 		}
 	}
@@ -4555,15 +4566,15 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 	return NetAdhocPtp_Close(id, unknown);
 }
 
-static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize){
+static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize) {
 	// server connect delegated to accept
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
-	if (internal == NULL){
+	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: out of heap memory when creating ptp listen socket", __func__);
 		return ERROR_NET_NO_SPACE;
 	}
 
-	internal->postoffice_handle = NULL;
+	internal->postofficeHandle = NULL;
 	internal->type = SOCK_PTP;
 	internal->data.ptp.laddr = *saddr;
 	internal->data.ptp.lport = sport;
@@ -4571,18 +4582,20 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 	internal->data.ptp.rcv_sb_cc = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
 	internal->flags = 0;
-	internal->connect_thread = NULL;
+	internal->connectThread = NULL;
+	internal->lastAttempt = 0;
+	internal->internalLastAttempt = 0;
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for(i = 0;i < MAX_SOCKET;i++){
-		if (adhocSockets[i] == NULL){
+	for (i = 0; i < MAX_SOCKET; i++) {
+		if (adhocSockets[i] == NULL) {
 			slot = &adhocSockets[i];
 			break;
 		}
 	}
 
-	if (slot == NULL){
+	if (slot == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: out of socket slots when creating adhoc ptp listen socket", __func__);
 		free(internal);
 		return ERROR_NET_NO_SPACE;
@@ -4592,7 +4605,7 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 
 	*slot = internal;
 	ptp_listen_postoffice_recover(i);
-	INFO_LOG(Log::sceNet, "%s: created ptp listen socket with id %d %p", __func__, i + 1, internal->postoffice_handle);
+	INFO_LOG(Log::sceNet, "%s: created ptp listen socket with id %d %p", __func__, i + 1, internal->postofficeHandle);
 	return i + 1;
 }
 
@@ -4830,14 +4843,14 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Send Data
 					int sent = 0;
 					int error = 0;
-					if (g_Config.bServerHasRelay){
+					if (g_Config.bServerHasRelay) {
 						sent = ptp_send_postoffice(id - 1, data, *len);
-						if (sent == 0){
+						if (sent == 0) {
 							// sent
 							hleEatMicro(50);
 							return 0;
 						}
-						if (sent == SOCKET_ERROR){
+						if (sent == SOCKET_ERROR) {
 							ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 							return SCE_NET_ADHOC_ERROR_DISCONNECTED;
 						}
@@ -4950,14 +4963,14 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					int received = 0;
 					int error = 0;
 
-					if (g_Config.bServerHasRelay){
+					if (g_Config.bServerHasRelay) {
 						received = ptp_recv_postoffice(id - 1, buf, len);
-						if (received == 0){
+						if (received == 0) {
 							// we got data
 							hleEatMicro(50);
 							return 0;
 						}
-						if (received == SOCKET_ERROR){
+						if (received == SOCKET_ERROR) {
 							// the socket died, let the game know
 							ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 							return SCE_NET_ADHOC_ERROR_DISCONNECTED;
@@ -4965,7 +4978,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
 						received = SOCKET_ERROR;
 						error = EAGAIN;
-					}else{
+					} else {
 						// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 						received = recv(ptpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL);
 						error = socket_errno;
