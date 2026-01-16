@@ -441,6 +441,21 @@ int StartGameModeScheduler() {
 	return 0;
 }
 
+static uint16_t offset_port_simple(uint16_t port) {
+	if (port == 0) {
+		return 0;
+	}
+	port += portOffset;
+	if (port == 0) {
+		return 65535;
+	}
+	return port;
+}
+
+static uint16_t reverse_port_simple(uint16_t port) {
+	return port - portOffset;
+}
+
 static void *pdp_postoffice_recover(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
@@ -457,7 +472,7 @@ static void *pdp_postoffice_recover(int idx) {
 	getLocalMac(&local_mac);
 
 	int state;
-	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, internal->data.pdp.lport + portOffset, &state);
+	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
 	}
@@ -515,7 +530,7 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	if (saddr != NULL) {
 		*saddr = saddr_copy;
 	}
-	*sport = sport_copy - portOffset;
+	*sport = reverse_port_simple(sport_copy);
 	return 0;
 }
 
@@ -678,7 +693,7 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 		return SOCKET_ERROR;
 	}
 
-	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, dport + portOffset, (char *)data, len, true);
+	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, offset_port_simple(dport), (char *)data, len, true);
 	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
@@ -1045,7 +1060,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 		*saddr = mac_cpy;
 	}
 	if (sport != NULL) {
-		*sport = port_cpy - portOffset;
+		*sport = reverse_port_simple(port_cpy);
 	}
 
 	INFO_LOG(Log::sceNet, "%s: accepted ptp socket with id %d %p", __func__, i + 1, internal->postofficeHandle);
@@ -1136,7 +1151,7 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 
 		internal->connectThread = new std::thread([internal, addr, idx] {
 			int state;
-			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, (const char *)&internal->data.ptp.paddr, internal->data.ptp.pport + portOffset, &state);
+			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&internal->data.ptp.paddr, offset_port_simple(internal->data.ptp.pport), &state);
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
