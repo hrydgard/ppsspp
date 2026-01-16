@@ -54,6 +54,139 @@ void Shutdown()
 #endif
 }
 
+bool HostPortExists(const std::string& host, int port, int timeout_ms) {
+	if (host.empty() || (port <= 0 || port > 65535) || timeout_ms < 0) return false;
+
+	addrinfo hints;
+	addrinfo* res = nullptr;
+
+	std::memset(&hints, 0, sizeof(hints));
+	hints.ai_socktype = SOCK_STREAM; // TCP
+	hints.ai_family = AF_UNSPEC;     // IPv4 or IPv6
+
+	int gai = getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res);
+	if (gai != 0) {
+		// getaddrinfo failed (DNS resolve failed or bad port)
+		return false;
+	}
+
+	bool ok = false;
+
+	for (addrinfo* p = res; p != nullptr && !ok; p = p->ai_next) {
+		// create socket
+		int sockfd =
+#ifdef _WIN32
+		(int)socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+#else
+			socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+#endif
+		if (sockfd < 0) {
+			continue;
+		}
+
+		// make non-blocking
+#ifdef _WIN32
+		unsigned long mode = 1;
+		ioctlsocket((SOCKET)sockfd, FIONBIO, &mode);
+#else
+		int flags = fcntl(sockfd, F_GETFL, 0);
+		if (flags == -1) flags = 0;
+		fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+#endif
+
+		// try connect
+		int conn = connect(sockfd, p->ai_addr, (int)p->ai_addrlen);
+#ifdef _WIN32
+		if (conn == 0) {
+			ok = true; // immediate success
+		}
+		else {
+			int err = WSAGetLastError();
+			if (err == WSAEWOULDBLOCK || err == WSAEINPROGRESS) {
+				// fall through to select
+			}
+			else {
+				// immediate failure
+			}
+		}
+#else
+		if (conn == 0) {
+			ok = true; // immediate success
+		}
+		else {
+			if (errno == EINPROGRESS) {
+				// fall through to select
+			}
+			else {
+				// immediate failure
+			}
+		}
+#endif
+
+		if (!ok) {
+			// wait for writable with timeout
+			fd_set writefds;
+			FD_ZERO(&writefds);
+#ifdef _WIN32
+			FD_SET((SOCKET)sockfd, &writefds);
+#else
+			FD_SET(sockfd, &writefds);
+#endif
+
+			fd_set exceptfds;
+			FD_ZERO(&exceptfds);
+#ifdef _WIN32
+			FD_SET((SOCKET)sockfd, &exceptfds);
+#else
+			FD_SET(sockfd, &exceptfds);
+#endif
+
+			timeval tv;
+			tv.tv_sec = timeout_ms / 1000;
+			tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+			int sel = select(
+#ifdef _WIN32
+				0,
+#else
+				sockfd + 1,
+#endif
+				nullptr, &writefds, &exceptfds, &tv);
+
+			if (sel > 0) {
+				// check for error on socket
+				int sock_err = 0;
+				socklen_t len = sizeof(sock_err);
+#ifdef _WIN32
+				int ret = getsockopt((SOCKET)sockfd, SOL_SOCKET, SO_ERROR, (char*)&sock_err, &len);
+#else
+				int ret = getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &sock_err, &len);
+#endif
+#ifdef _WIN32
+				bool writable = FD_ISSET(static_cast<SOCKET>(sockfd), &writefds) != 0;
+#else
+				bool writable = FD_ISSET(sockfd, &writefds) != 0;
+#endif
+
+				if (ret == 0 && sock_err == 0 && writable) {
+					ok = true;
+				}
+			}
+			// else timeout or error -> try next addr
+		}
+
+		// close socket
+#ifdef _WIN32
+		closesocket((SOCKET)sockfd);
+#else
+		close(sockfd);
+#endif
+	}
+
+	freeaddrinfo(res);
+	return ok;
+}
+
 // NOTE: Due to the nature of getaddrinfo, this can block indefinitely. Not good.
 bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error, DNSType type) {
 #if PPSSPP_PLATFORM(SWITCH)
