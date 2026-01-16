@@ -530,7 +530,9 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	if (saddr != NULL) {
 		*saddr = saddr_copy;
 	}
-	*sport = reverse_port_simple(sport_copy);
+	if (sport != NULL) {
+		*sport = reverse_port_simple(sport_copy);
+	}
 	return 0;
 }
 
