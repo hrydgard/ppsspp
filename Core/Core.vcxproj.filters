@@ -529,6 +529,18 @@
     <ClCompile Include="HLE\sceNetAdhoc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\client\postoffice.c">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\client\delay_impl_windows.c">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\client\sock_impl_windows.c">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\client\mutex_impl_windows.c">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNetAdhocMatching.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
