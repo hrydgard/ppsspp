@@ -33,7 +33,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Format/IniFile.h"
-#include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/CPUDetect.h"
@@ -47,13 +46,11 @@
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
-#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
 #include "Core/KeyMap.h"
-#include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
 #include "Core/Util/RecentFiles.h"
@@ -75,7 +72,7 @@ static const std::string_view logSectionName = "Log";
 #endif
 
 static const std::vector<std::string_view> defaultProAdhocServerList = {
-	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
+	"socom.cc", "psp.gameplayer.club",  // TODO: Add some saved recent history too?
 };
 
 std::string GPUBackendToString(GPUBackend backend) {

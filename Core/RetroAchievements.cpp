@@ -328,6 +328,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 
 	case RC_CLIENT_EVENT_GAME_COMPLETED:
+	case RC_CLIENT_EVENT_SUBSET_COMPLETED:
 	{
 		// TODO: Do some zany fireworks!
 
@@ -336,15 +337,27 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
 
-		// TODO: Translation?
-		std::string title = ApplySafeSubstitutions(ac->T("Mastered %1"), gameInfo->title);
+		std::string setTitle = gameInfo->title;
+		std::string badgeUrl = gameInfo->badge_url;
+		if (event->type == RC_CLIENT_EVENT_SUBSET_COMPLETED) {
+			const rc_client_subset_t *subset = event->subset;
+			setTitle = subset->title;
+			badgeUrl = subset->badge_url;
+		}
+
+		DownloadImageIfMissing(badgeUrl);
+
+		std::string_view completedMessage = rc_client_get_hardcore_enabled(g_rcClient) ? "Mastered %1" : "Completed %1";
+		std::string title = ApplySafeSubstitutions(ac->T(completedMessage), setTitle);
 
 		rc_client_user_game_summary_t summary;
 		rc_client_get_user_game_summary(g_rcClient, &summary);
 
 		std::string message = ApplySafeSubstitutions(ac->T("%1 achievements, %2 points"), summary.num_unlocked_achievements, summary.points_unlocked);
 
-		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, DeNull(gameInfo->badge_name), 10.0f);
+		// TODO: Make a fancier message for hardcore completed, etc.
+		// Also, differentiate subset vs game completed?
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, badgeUrl, 10.0f);
 
 		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "achievement_unlocked");
 
