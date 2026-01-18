@@ -1666,7 +1666,7 @@ int proAdhocServerThread(int port) // (int argc, char * argv[])
 	int result = 0;
 
 	if (net::HostPortExists(g_Config.sProAdhocServer, SERVER_PORT, 200)) {
-		INFO_LOG(Log::sceNet, "AdhocServer: Skiped starting because the server is already available");
+		INFO_LOG(Log::sceNet, "AdhocServer: Skipped starting because the server is already available");
 		return 0;
 	}
 	else {
