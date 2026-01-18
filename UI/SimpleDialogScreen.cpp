@@ -50,9 +50,11 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	BeforeCreateViews();
 
-	auto createContentViews = [this](UI::ViewGroup *parent) {
+	auto createContentViews = [this, portrait](UI::ViewGroup *parent) {
 		if (flags_ & TwoPaneFlags::ContentsCanScroll) {
-			Margins margins(8, 8, 8, 0);
+			int scrollMargin = (!portrait && (flags_ & TwoPaneFlags::NoTopbarInLandscape)) ? 0 : 8;
+
+			Margins margins(8, scrollMargin, 8, 0);
 			if (flags_ & TwoPaneFlags::SettingsToTheRight) {
 				// If settings are in context menu, we want to avoid double margins on the sides.
 				margins.left = 0;
@@ -119,10 +121,13 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & TwoPaneFlags::CustomContextMenu) {
 			topBarFlags |= TopBarFlags::ContextMenuButton;
 		}
-		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, title));
+		TopBar *topBar = nullptr;
+		if (!(flags_ & TwoPaneFlags::NoTopbarInLandscape)) {
+			topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, title));
+		}
 		root->SetSpacing(0);
 
-		if (flags_ & TwoPaneFlags::CustomContextMenu) {
+		if ((flags_ & TwoPaneFlags::CustomContextMenu) && topBar) {
 			View *menuButton = topBar->GetContextMenuButton();
 			topBar->OnContextMenuClick.Add([this, menuButton](UI::EventParams &e) {
 				this->screenManager()->push(new PopupCallbackScreen([this](UI::ViewGroup *parent) {
@@ -137,9 +142,14 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(SettingsWidth(), FILL_PARENT, 0.0f, Margins(0, 8, 0, 0)));
 		LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, Margins(0, 8, 0, 0)));
 		settingsPane->SetSpacing(0.0f);
+
+		if (flags_ & TwoPaneFlags::NoTopbarInLandscape) {
+			// We still need a back button.
+			settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+			settingsPane->Add(new Spacer(8.0f));
+		}
 		CreateSettingsViews(settingsPane);
 		// settingsPane->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
-		// settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		settingsScroll->Add(settingsPane);
 
 		if (flags_ & TwoPaneFlags::SettingsToTheRight) {

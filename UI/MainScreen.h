@@ -140,7 +140,6 @@ protected:
 	void CreateViews() override;
 	void CreateRecentTab();
 	GameBrowser *CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos);
-	UI::ViewGroup *CreateLogoView(bool portrait, UI::LayoutParams *layoutParams);
 	void CreateMainButtons(UI::ViewGroup *parent, bool vertical);
 
 	void DrawBackground(UIContext &dc) override;
