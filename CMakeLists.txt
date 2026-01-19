@@ -256,6 +256,7 @@ if(LIBRETRO)
 	if(NOT MSVC)
 		add_compile_options(-fPIC)
 	endif()
+	add_compile_definitions(HAVE_LIBRETRO_VFS)
 endif()
 
 if(ANDROID)
@@ -943,6 +944,10 @@ add_library(Common STATIC
 	Common/TimeUtil.cpp
 	Common/TimeUtil.h
 )
+
+if(LIBRETRO)
+	target_include_directories(Common PRIVATE libretro/libretro-common/include)
+endif()
 
 include_directories(Common)
 setup_target_project(Common Common)
@@ -1671,7 +1676,7 @@ if(ANDROID)
 	endif()
 endif()
 
-if (IOS)
+if (IOS AND NOT LIBRETRO)
 	set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
@@ -1684,6 +1689,10 @@ add_library(native STATIC
 	ext/jpge/jpge.cpp
 	ext/jpge/jpge.h
 )
+
+if(LIBRETRO)
+	target_include_directories(native PRIVATE libretro/libretro-common/include)
+endif()
 
 if(LINUX AND NOT ANDROID)
 	set(RT_LIB rt)
@@ -2529,6 +2538,10 @@ add_library(${CoreLibName} ${CoreLinkType}
 	ext/loongarch-disasm.h
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
+
+if(LIBRETRO)
+	target_include_directories(${CoreLibName} PRIVATE libretro/libretro-common/include)
+endif()
 
 if(ANDROID)
 	set(CoreExtraLibs ${CoreExtraLibs} android)

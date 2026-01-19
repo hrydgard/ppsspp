@@ -1138,44 +1138,76 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	return gameBrowser;
 }
 
-UI::ViewGroup *MainScreen::CreateLogoView(bool portrait, UI::LayoutParams *layoutParams) {
-	using namespace UI;
-	AnchorLayout *logos = new AnchorLayout(layoutParams);
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(ImageID("I_ICON_GOLD"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE)));
-	} else {
-		logos->Add(new ImageView(ImageID("I_ICON"), "", IS_DEFAULT, new AnchorLayoutParams(64, 64, 0, 0, NONE, NONE)));
-	}
-	logos->Add(new ImageView(ImageID("I_LOGO"), "PPSSPP", IS_DEFAULT, new AnchorLayoutParams(180, 64, 68, 2, NONE, NONE)));
+class LogoView : public UI::AnchorLayout {
+public:
+	LogoView(bool portrait, UI::LayoutParams *layoutParams) : UI::AnchorLayout(layoutParams), portrait_(portrait) {}
+	void Draw(UIContext &dc) override {
+		using namespace UI;
+		UI::AnchorLayout::Draw(dc);
 
-	std::string versionString = PPSSPP_GIT_VERSION;
-	// Strip the 'v' from the displayed version, and shorten the commit hash.
-	if (versionString.size() > 2) {
-		if (versionString[0] == 'v' && isdigit(versionString[1])) {
-			versionString = versionString.substr(1);
+		const AtlasImage *iconImg = dc.Draw()->GetAtlas()->getImage(GetIconID());
+		const AtlasImage *logoImg = dc.Draw()->GetAtlas()->getImage(ImageID("I_LOGO"));
+		if (!iconImg) {
+			return;
 		}
-		if (CountChar(versionString, '-') == 2) {
-			// Shorten the commit hash.
-			size_t cutPos = versionString.find_last_of('-') + 8;
-			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
+
+		dc.Draw()->DrawImage(GetIconID(), bounds_.x, bounds_.y, 1.0f);
+
+		if (bounds_.w < iconImg->w + logoImg->w + 36) {
+			return;
 		}
+
+		dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds_.x + iconImg->w + 8, bounds_.y + 4, 1.0f);
+
+		std::string versionString = PPSSPP_GIT_VERSION;
+		// Strip the 'v' from the displayed version, and shorten the commit hash.
+		if (versionString.size() > 2) {
+			if (versionString[0] == 'v' && isdigit(versionString[1])) {
+				versionString = versionString.substr(1);
+			}
+			if (CountChar(versionString, '-') == 2) {
+				// Shorten the commit hash.
+				size_t cutPos = versionString.find_last_of('-') + 8;
+				versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
+			}
+		}
+		dc.Flush();
+
+		const bool tiny = versionString.size() > 10;
+
+		const FontStyle *style = GetTextStyle(dc, tiny ? TextSize::Tiny : TextSize::Small);
+		dc.SetFontStyle(*style);
+		dc.DrawText(versionString,
+			bounds_.x + iconImg->w + 8,
+			bounds_.y + logoImg->h + (tiny ? 8 : 6),
+			dc.GetTheme().itemStyle.fgColor);
+		dc.SetFontStyle(dc.GetTheme().uiFont);
 	}
 
-	ClickableTextView *ver = logos->Add(new ClickableTextView(versionString, new AnchorLayoutParams(68, NONE, NONE, 0)));
-	ver->SetSmall(true);
-	ver->SetClip(false);
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		const AtlasImage *iconImg = dc.Draw()->GetAtlas()->getImage(GetIconID());
+		w = iconImg->w;
+		h = iconImg->h;
+	}
 
-	// Only allow copying the version if it looks like a git version string. 1.19 for example is not really necessary to be able to copy/paste.
-	if (!portrait && strchr(PPSSPP_GIT_VERSION, '-')) {
-		ver->OnClick.Add([](UI::EventParams &e) {
+	bool Touch(const TouchInput &touch) override {
+		bool retval = UI::AnchorLayout::Touch(touch);
+		if (!portrait_ && (touch.flags & TouchInputFlags::DOWN) && bounds_.Contains(touch.x, touch.y) && touch.y >= bounds_.y2() - 20) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
-			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
-		});
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION), 1.0f, "copyToClip");
+			return true;
+		}
+		return retval;
 	}
 
-	return logos;
-}
+private:
+	ImageID GetIconID() const {
+		return System_GetPropertyBool(SYSPROP_APP_GOLD) ? ImageID("I_ICON_GOLD") : ImageID("I_ICON");
+	}
+
+	const bool portrait_;
+};
 
 void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	using namespace UI;
@@ -1318,7 +1350,7 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 16)));
 		header->SetSpacing(5.0f);
-		header->Add(CreateLogoView(true, new LinearLayoutParams(WRAP_CONTENT, 80.0f, false)));
+		header->Add(new LogoView(true, new LinearLayoutParams(1.0f)));
 
 		LinearLayout *buttonGroup = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, UI::Gravity::G_VCENTER));
 
@@ -1337,7 +1369,7 @@ void MainScreen::CreateViews() {
 		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		rightColumnItems->SetSpacing(0.0f);
-		ViewGroup *logo = CreateLogoView(false, new LinearLayoutParams(FILL_PARENT, 80.0f));
+		ViewGroup *logo = new LogoView(false, new LinearLayoutParams(FILL_PARENT, 80.0f));
 #if !defined(MOBILE_DEVICE)
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ImageID icon(g_Config.UseFullScreen() ? "I_RESTORE" : "I_FULLSCREEN");

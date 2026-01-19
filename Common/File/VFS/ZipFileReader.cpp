@@ -15,41 +15,149 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/StringUtils.h"
 
-ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath, bool logErrors) {
-	int error = 0;
-	zip *zip_file;
-	if (zipFile.Type() == PathType::CONTENT_URI) {
-		int fd = File::OpenFD(zipFile, File::OPEN_READ);
-		if (!fd) {
-			if (logErrors) {
-				ERROR_LOG(Log::IO, "Failed to open FD for '%s' as zip file", zipFile.c_str());
+ZipContainer::ZipContainer() noexcept : sourceData_(nullptr), zip_(nullptr) {}
+
+ZipContainer::ZipContainer(const Path &path) : sourceData_(new SourceData {path, nullptr}), zip_(nullptr) {
+	zip_source_t *source = zip_source_function_create(SourceCallback, sourceData_, nullptr);
+	if (source != nullptr && (zip_ = zip_open_from_source(source, ZIP_RDONLY, nullptr)) == nullptr) {
+		zip_source_free(source);
+	}
+}
+
+ZipContainer::ZipContainer(ZipContainer &&other) noexcept {
+	*this = std::move(other);
+}
+
+ZipContainer &ZipContainer::operator=(ZipContainer &&other) noexcept {
+	sourceData_ = other.sourceData_;
+	zip_ = other.zip_;
+	other.sourceData_ = nullptr;
+	other.zip_ = nullptr;
+	return *this;
+}
+
+ZipContainer::~ZipContainer() {
+	close();
+}
+
+void ZipContainer::close() noexcept {
+	if (zip_ != nullptr) {
+		zip_close(zip_);
+		zip_ = nullptr;
+	}
+	if (sourceData_ != nullptr) {
+		delete sourceData_;
+		sourceData_ = nullptr;
+	}
+}
+
+ZipContainer::operator zip_t *() const noexcept {
+	return zip_;
+}
+
+zip_int64_t ZipContainer::SourceCallback(void *userdata, void *data, zip_uint64_t len, zip_source_cmd_t cmd) {
+	SourceData &sourceData = *(SourceData *)userdata;
+
+	switch (cmd) {
+		case ZIP_SOURCE_SUPPORTS:
+			return zip_source_make_command_bitmap(
+				ZIP_SOURCE_SUPPORTS,
+				ZIP_SOURCE_OPEN,
+				ZIP_SOURCE_READ,
+				ZIP_SOURCE_CLOSE,
+				ZIP_SOURCE_STAT,
+				ZIP_SOURCE_ERROR,
+				ZIP_SOURCE_SEEK,
+				ZIP_SOURCE_TELL,
+				-1);
+
+		case ZIP_SOURCE_OPEN:
+			{
+				FILE *newFile = File::OpenCFile(sourceData.path, "rb");
+				if (newFile == nullptr) {
+					return -1;
+				}
+				sourceData.file = newFile;
+				return 0;
 			}
-			return nullptr;
-		}
-		zip_file = zip_fdopen(fd, 0, &error);
-	} else {
-		zip_file = zip_open(zipFile.c_str(), 0, &error);
-	}
 
-	if (!zip_file) {
-		if (logErrors) {
-			ERROR_LOG(Log::IO, "Failed to open %s as a zip file", zipFile.c_str());
-		}
-		return nullptr;
-	}
+		case ZIP_SOURCE_READ:
+			{
+				size_t n = fread(data, 1, len, sourceData.file);
+				return ferror(sourceData.file) ? -1 : n;
+			}
 
+		case ZIP_SOURCE_CLOSE:
+			fclose(sourceData.file);
+			sourceData.file = nullptr;
+			return 0;
+
+		case ZIP_SOURCE_STAT:
+			if (sourceData.file == nullptr) {
+				zip_stat_t *stat = (zip_stat_t *)data;
+				zip_stat_init(stat);
+				stat->valid = 0;
+			} else {
+				int64_t pos = File::Ftell(sourceData.file);
+				if (pos == -1) {
+					return -1;
+				}
+				if (File::Fseek(sourceData.file, 0, SEEK_END) != 0) {
+					return -1;
+				}
+				int64_t size = File::Ftell(sourceData.file);
+				if (size != pos && File::Fseek(sourceData.file, pos, SEEK_SET) != 0) {
+					return -1;
+				}
+				zip_stat_t *stat = (zip_stat_t *)data;
+				zip_stat_init(stat);
+				stat->valid = ZIP_STAT_SIZE;
+				stat->size = size;
+			}
+			return 0;
+
+		case ZIP_SOURCE_ERROR:
+			return ZIP_ER_INTERNAL;
+
+		case ZIP_SOURCE_SEEK:
+			{
+				zip_source_args_seek_t *args = (zip_source_args_seek_t *)data;
+				if (args == nullptr) {
+					return -1;
+				}
+				return File::Fseek(sourceData.file, args->offset, args->whence) ? -1 : 0;
+			}
+
+		case ZIP_SOURCE_TELL:
+			return File::Ftell(sourceData.file);
+
+		default:
+			return -1;
+	}
+}
+
+ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath, bool logErrors) {
 	// The inZipPath is supposed to be a folder, and internally in this class, we suffix
 	// folder paths with '/', matching how the zip library works.
 	std::string path = inZipPath;
 	if (!path.empty() && path.back() != '/') {
 		path.push_back('/');
 	}
-	return new ZipFileReader(zip_file, zipFile, path);
+
+	ZipContainer zip(zipFile);
+	if (zip == nullptr) {
+		if (logErrors) {
+			ERROR_LOG(Log::IO, "Failed to open %s as a zip file", zipFile.c_str());
+		}
+		return nullptr;
+	}
+
+	return new ZipFileReader(std::move(zip), zipFile, path);
 }
 
 ZipFileReader::~ZipFileReader() {
 	std::lock_guard<std::mutex> guard(lock_);
-	zip_close(zip_file_);
+	zip_file_.close();
 }
 
 uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
@@ -320,30 +428,17 @@ void ZipFileReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 }
 
 bool ReadSingleFileFromZip(Path zipFile, const char *path, std::string *data, std::mutex *mutex) {
-	zip *zip = nullptr;
-	int error = 0;
-	if (zipFile.Type() == PathType::CONTENT_URI) {
-		int fd = File::OpenFD(zipFile, File::OPEN_READ);
-		if (!fd) {
-			return false;
-		}
-		zip = zip_fdopen(fd, 0, &error);
-	} else {
-		zip = zip_open(zipFile.c_str(), 0, &error);
-	}
-
-	if (!zip) {
+	ZipContainer zip(zipFile);
+	if (zip == nullptr) {
 		return false;
 	}
 
 	struct zip_stat zstat;
 	if (zip_stat(zip, path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat) != 0) {
-		zip_close(zip);
 		return false;
 	}
 	zip_file *file = zip_fopen_index(zip, zstat.index, ZIP_FL_UNCHANGED);
 	if (!file) {
-		zip_close(zip);
 		return false;
 	}
 	if (mutex) {
@@ -356,13 +451,11 @@ bool ReadSingleFileFromZip(Path zipFile, const char *path, std::string *data, st
 		}
 		data->resize(0);
 		zip_fclose(file);
-		zip_close(zip);
 		return false;
 	}
 	if (mutex) {
 		mutex->unlock();
 	}
 	zip_fclose(file);
-	zip_close(zip);
 	return true;
 }

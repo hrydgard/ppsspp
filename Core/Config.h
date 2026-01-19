@@ -538,7 +538,7 @@ public:
 
 	// Networking
 	bool bEnableAdhocServer;
-	std::string proAdhocServer;
+	std::string sProAdhocServer;
 	bool bServerHasRelay;
 	std::vector<std::string> proAdhocServerList;
 	std::string sInfrastructureDNSServer;

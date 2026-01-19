@@ -38,6 +38,7 @@ enum class TwoPaneFlags {
 	SettingsCanScroll = 4,
 	ContentsCanScroll = 8,
 	CustomContextMenu = 16,
+	NoTopbarInLandscape = 32,
 };
 ENUM_CLASS_BITOPS(TwoPaneFlags);
 

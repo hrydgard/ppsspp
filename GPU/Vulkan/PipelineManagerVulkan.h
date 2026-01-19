@@ -30,6 +30,8 @@
 #include "GPU/Vulkan/VulkanQueueRunner.h"
 #include "GPU/Vulkan/VulkanRenderManager.h"
 
+#include "Common/File/FileUtil.h"
+
 struct VKRGraphicsPipeline;
 class VulkanRenderManager;
 class VulkanContext;

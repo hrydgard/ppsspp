@@ -155,7 +155,28 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	}
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
-#if PPSSPP_PLATFORM(WINDOWS)
+#ifdef HAVE_LIBRETRO_VFS
+	int flags = 0;
+	if (access & FILEACCESS_READ && access & FILEACCESS_WRITE)
+		flags = RETRO_VFS_FILE_ACCESS_READ_WRITE;
+	else if (access & FILEACCESS_WRITE)
+		flags = RETRO_VFS_FILE_ACCESS_WRITE;
+	else if (access & FILEACCESS_READ && access & FILEACCESS_CREATE)
+		flags = RETRO_VFS_FILE_ACCESS_READ_WRITE;
+	else
+		flags = RETRO_VFS_FILE_ACCESS_READ;
+	bool success = false;
+	if (!(access & FILEACCESS_CREATE)) {
+		hFile = filestream_open(fullName.c_str(), flags & RETRO_VFS_FILE_ACCESS_WRITE ? flags | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : flags, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		success = hFile != nullptr;
+	} else if (!(access & FILEACCESS_EXCL)) {
+		hFile = filestream_open(fullName.c_str(), flags & RETRO_VFS_FILE_ACCESS_WRITE && File::Exists(fullName) ? flags | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : flags, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		success = hFile != nullptr;
+	} else if (!File::Exists(fullName)) {
+		hFile = filestream_open(fullName.c_str(), flags & RETRO_VFS_FILE_ACCESS_WRITE ? flags | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : flags, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		success = hFile != nullptr;
+	}
+#elif PPSSPP_PLATFORM(WINDOWS)
 	// Convert parameters to Windows permissions and access
 	DWORD desired = 0;
 	DWORD sharemode = 0;
@@ -278,7 +299,19 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			DEBUG_LOG(Log::FileSystem, "Case may have been incorrect, second try opening %s (%s)", fullName.c_str(), fileName.c_str());
 
 			// And try again with the correct case this time
-#if PPSSPP_PLATFORM(UWP)
+#ifdef HAVE_LIBRETRO_VFS
+			success = false;
+			if (!(access & FILEACCESS_CREATE)) {
+				hFile = filestream_open(fullName.c_str(), flags & RETRO_VFS_FILE_ACCESS_WRITE ? flags | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : flags, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+				success = hFile != nullptr;
+			} else if (!(access & FILEACCESS_EXCL)) {
+				hFile = filestream_open(fullName.c_str(), flags & RETRO_VFS_FILE_ACCESS_WRITE && File::Exists(fullName) ? flags | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : flags, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+				success = hFile != nullptr;
+			} else if (!File::Exists(fullName)) {
+				hFile = filestream_open(fullName.c_str(), flags & RETRO_VFS_FILE_ACCESS_WRITE ? flags | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : flags, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+				success = hFile != nullptr;
+			}
+#elif PPSSPP_PLATFORM(UWP)
 			// Should never get here.
 #elif PPSSPP_PLATFORM(WINDOWS)
 			// Unlikely to get here, heh.
@@ -291,7 +324,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 		}
 	}
 
-#if !PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(WINDOWS) && !defined(HAVE_LIBRETRO_VFS)
 	if (success) {
 		// Reject directories, even if we succeed in opening them.
 		// TODO: Might want to do this stat first...
@@ -337,7 +370,9 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 		}
 	}
 	if (size > 0) {
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+		bytesRead = fread(pointer, 1, size, hFile);
+#elif defined(_WIN32)
 		::ReadFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
 #else
 		bytesRead = read(hFile, pointer, size);
@@ -351,7 +386,9 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	size_t bytesWritten = 0;
 	bool diskFull = false;
 
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	bytesWritten = fwrite(pointer, 1, size, hFile);
+#elif defined(_WIN32)
 	BOOL success = ::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
 	if (success == FALSE) {
 		DWORD err = GetLastError();
@@ -406,7 +443,15 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	}
 
 	size_t result;
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	int moveMethod = 0;
+	switch (type) {
+	case FILEMOVE_BEGIN:    moveMethod = SEEK_SET;  break;
+	case FILEMOVE_CURRENT:  moveMethod = SEEK_CUR;  break;
+	case FILEMOVE_END:      moveMethod = SEEK_END;  break;
+	}
+	result = File::Fseektell(hFile, position, moveMethod);
+#elif defined(_WIN32)
 	DWORD moveMethod = 0;
 	switch (type) {
 	case FILEMOVE_BEGIN:    moveMethod = FILE_BEGIN;    break;
@@ -434,7 +479,11 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 
 void DirectoryFileHandle::Close() {
 	if (needsTrunc_ != -1) {
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+		if (filestream_truncate(hFile, needsTrunc_) != 0) {
+			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
+		}
+#elif defined(_WIN32)
 		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
 		if (SetEndOfFile(hFile) == 0) {
 			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
@@ -447,7 +496,10 @@ void DirectoryFileHandle::Close() {
 #endif
 	}
 
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	if (hFile != nullptr)
+		fclose(hFile);
+#elif defined(_WIN32)
 	if (hFile != (HANDLE)-1)
 		CloseHandle(hFile);
 #else
@@ -598,7 +650,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 		}
 		return err;
 	} else {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(HAVE_LIBRETRO_VFS)
 		if (access & FILEACCESS_APPEND) {
 			entry.hFile.Seek(0, FILEMOVE_END);
 		}

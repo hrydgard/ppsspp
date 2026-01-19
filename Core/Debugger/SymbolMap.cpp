@@ -36,6 +36,8 @@
 
 #include "zlib.h"
 
+#include "ext/armips/Core/Assembler.h"
+
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
@@ -44,7 +46,6 @@
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "ext/armips/Core/Assembler.h"
 
 SymbolMap *g_symbolMap;
 
@@ -228,30 +229,80 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 
 	std::string data;
 	buf.TakeAll(&data);
+	FILE *file = File::OpenCFile(filename, "wb");
+	if (file == nullptr) {
+		return false;
+	}
 	if (g_Config.bCompressSymbols) {
-		// TODO: Wrap this in some nicer way.
-		gzFile f;
-		if (filename.Type() == PathType::CONTENT_URI) {
-			int fd = File::OpenFD(filename, File::OPEN_WRITE);
-			f = gzdopen(fd, "w9");
-			if (f == Z_NULL) {
-				File::CloseFD(fd);
-				return false;
-			}
-		} else {
-			f = gzopen(filename.c_str(), "w9");
-			if (f == Z_NULL) {
-				return false;
-			}
+		uInt out_size = 4096;
+		Bytef *out_data = (Bytef *)std::malloc(out_size);
+		if (out_data == nullptr) {
+			fclose(file);
+			return false;
 		}
-		gzwrite(f, data.data(), (unsigned int)data.size());
-		gzclose(f);
+		z_stream strm;
+		strm.zalloc = nullptr;
+		strm.zfree = nullptr;
+		strm.opaque = nullptr;
+		if (deflateInit2(&strm, Z_BEST_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+			std::free(out_data);
+			fclose(file);
+			return false;
+		}
+		strm.next_in = (Bytef *)data.data();
+		strm.avail_in = data.size();
+		strm.next_out = out_data;
+		strm.avail_out = out_size;
+		int flush = Z_NO_FLUSH;
+		for (;;) {
+			int status = deflate(&strm, flush);
+			switch (status) {
+				case Z_OK:
+				case Z_STREAM_END:
+					if (strm.avail_out != out_size) {
+						fwrite(out_data, 1, out_size - strm.avail_out, file);
+					}
+					break;
+				case Z_BUF_ERROR:
+					{
+						std::free(out_data);
+						uInt new_out_size = 2 * out_size;
+						if (new_out_size < out_size) {
+							deflateEnd(&strm);
+							fclose(file);
+							return false;
+						}
+						out_size = new_out_size;
+						out_data = (Bytef *)std::malloc(out_size);
+						if (out_data == nullptr) {
+							deflateEnd(&strm);
+							fclose(file);
+							return false;
+						}
+					}
+					break;
+				default:
+					deflateEnd(&strm);
+					std::free(out_data);
+					fclose(file);
+					return false;
+			}
+			if (status == Z_STREAM_END) {
+				break;
+			}
+			if (strm.avail_in == 0) {
+				flush = Z_FINISH;
+			}
+			strm.next_out = out_data;
+			strm.avail_out = out_size;
+		}
+		deflateEnd(&strm);
+		std::free(out_data);
 	} else {
 		// Just plain write it.
-		FILE *file = File::OpenCFile(filename, "wb");
 		fwrite(data.data(), 1, data.size(), file);
-		fclose(file);
 	}
+	fclose(file);
 	return true;
 }
 

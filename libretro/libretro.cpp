@@ -46,7 +46,7 @@
 
 #include "UI/AudioCommon.h"
 
-#include "libretro/libretro.h"
+#include <libretro.h>
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/libretro_core_options.h"
 
@@ -401,11 +401,11 @@ void retro_set_environment(retro_environment_t cb)
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
 
-   #ifdef HAVE_LIBRETRO_VFS
-      struct retro_vfs_interface_info vfs_iface_info { 1, nullptr };
-      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
-         filestream_vfs_init(&vfs_iface_info);
-   #endif
+#ifdef HAVE_LIBRETRO_VFS
+   struct retro_vfs_interface_info vfs_iface_info { 2, nullptr };
+   if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+      File::InitLibretroVFS(&vfs_iface_info);
+#endif
 }
 
 static int get_language_auto(void)
@@ -1026,7 +1026,7 @@ static void check_variables(CoreParameter &coreParam)
    char key[64] = {0};
    var.key = key;
    g_Config.sMACAddress = "";
-   g_Config.proAdhocServer = "";
+   g_Config.sProAdhocServer = "";
    for (int i = 0; i < 12; i++)
    {
       snprintf(key, sizeof(key), "ppsspp_change_mac_address%02d", i + 1);
@@ -1060,13 +1060,13 @@ static void check_variables(CoreParameter &coreParam)
 
    if (changeProAdhocServer == "IP address")
    {
-      g_Config.proAdhocServer = "";
+      g_Config.sProAdhocServer = "";
       bool leadingZero = true;
       for (int i = 0; i < 12; i++)
       {
          if (i && i % 3 == 0)
          {
-            g_Config.proAdhocServer += '.';
+            g_Config.sProAdhocServer += '.';
             leadingZero = true;
          }
 
@@ -1075,11 +1075,11 @@ static void check_variables(CoreParameter &coreParam)
             leadingZero = false; // We are either non-zero or the last digit of a byte
 
          if (! leadingZero)
-            g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+            g_Config.sProAdhocServer += static_cast<char>('0' + addressPt);
       }
    }
    else
-      g_Config.proAdhocServer = changeProAdhocServer;
+      g_Config.sProAdhocServer = changeProAdhocServer;
 
    g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
 
@@ -1473,7 +1473,7 @@ static void retro_check_backend(void)
       else if (!strcmp(var.value, "vulkan"))
          backend = RETRO_HW_CONTEXT_VULKAN;
       else if (!strcmp(var.value, "d3d11"))
-         backend = RETRO_HW_CONTEXT_DIRECT3D;
+         backend = RETRO_HW_CONTEXT_D3D11;
       else if (!strcmp(var.value, "none"))
          backend = RETRO_HW_CONTEXT_NONE;
    }
@@ -1857,10 +1857,11 @@ void retro_cheat_reset(void) {
    Path file=cheatEngine->CheatFilename();
 
    // Output cheats to cheat file
-   std::ofstream outFile;
-   outFile.open(file.c_str());
-   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
-   outFile.close();
+   FILE *outFile = File::OpenCFile(file, "wb");
+   if (outFile != nullptr) {
+      fprintf(outFile, "_S %s\n", g_paramSFO.GetDiscID().c_str());
+      fclose(outFile);
+   }
 
    g_Config.bReloadCheats = true;
 
@@ -1880,10 +1881,20 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
 
    // Read cheats file
    std::vector<std::string> cheats;
-   std::ifstream cheat_content(file.c_str());
-   std::stringstream buffer;
-   buffer << cheat_content.rdbuf();
-   std::string existing_cheats=ReplaceAll(buffer.str(), std::string("\n_C"), std::string("|"));
+   std::string cheat_content;
+   FILE *inFile = File::OpenCFile(file, "rb");
+   if (inFile != nullptr) {
+      std::array<uint8_t, 4096> buffer;
+      for (;;) {
+         size_t n = fread(buffer.data(), 1, buffer.size(), inFile);
+         cheat_content.append((const char *)buffer.data(), n);
+         if (n < buffer.size()) {
+            break;
+         }
+      }
+      fclose(inFile);
+   }
+   std::string existing_cheats=ReplaceAll(cheat_content, std::string("\n_C"), std::string("|"));
    SplitString(existing_cheats, '|', cheats);
 
    // Generate Cheat String
@@ -1915,13 +1926,14 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
    }
 
    // Output cheats to cheat file
-   std::ofstream outFile;
-   outFile.open(file.c_str());
-   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
-   for (int i=1; i < cheats.size(); i++) {
-      outFile << "_C" << cheats[i] << std::endl;
+   FILE *outFile = File::OpenCFile(file, "wb");
+   if (outFile != nullptr) {
+      fprintf(outFile, "_S %s\n", g_paramSFO.GetDiscID().c_str());
+      for (const std::string &cheat : cheats) {
+         fprintf(outFile, "_C%s\n", cheat.c_str());
+      }
+      fclose(outFile);
    }
-   outFile.close();
 
    g_Config.bReloadCheats = true;
 

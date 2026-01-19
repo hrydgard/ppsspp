@@ -244,7 +244,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 
 	int error = 0;
 
-	struct zip *z = ZipOpenPath(task.fileName);
+	ZipContainer z = ZipOpenPath(task.fileName);
 	if (!z) {
 		g_OSD.RemoveProgressBar("install", false, 1.5f);
 		SetInstallError(sy->T("Unable to open zip file"));
@@ -281,22 +281,18 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	}
 	case ZipFileContents::TEXTURE_PACK:
 	{
-		// InstallMemstickGame contains code to close z, and works for textures too.
 		Path dest;
 		if (DetectTexturePackDest(z, zipInfo.textureIniIndex, dest)) {
 			INFO_LOG(Log::HLE, "Installing texture pack '%s' into '%s'", task.fileName.c_str(), dest.c_str());
 			File::CreateFullPath(dest);
 			// Install as a zip file if textures.ini is in the root. Performs better on Android.
 			if (zipInfo.stripChars == 0) {
-				success = InstallMemstickZip(z, task.fileName, dest / "textures.zip", zipInfo);
+				success = InstallMemstickZip(task.fileName, dest / "textures.zip", zipInfo);
 			} else {
 				// TODO: Can probably remove this, as we now put .nomedia in /TEXTURES directly.
 				File::CreateEmptyFile(dest / ".nomedia");
 				success = ExtractZipContents(z, dest, zipInfo, true);
 			}
-		} else {
-			zip_close(z);
-			z = nullptr;
 		}
 		break;
 	}
@@ -309,8 +305,6 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	default:
 		ERROR_LOG(Log::HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
-		zip_close(z);
-		z = nullptr;
 		break;
 	}
 
@@ -593,13 +587,10 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	}
 
 	INFO_LOG(Log::HLE, "Unzipped %d files (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
-	zip_close(z);
-	z = nullptr;
 	return true;
 
 bail:
 	// We end up here if disk is full or couldn't write to storage for some other reason.
-	zip_close(z);
 	// We don't delete the original in this case. Try to delete the files we created so far.
 	for (size_t i = 0; i < createdFiles.size(); i++) {
 		File::Delete(createdFiles[i]);
@@ -611,15 +602,11 @@ bail:
 	return false;
 }
 
-bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const Path &dest, const ZipFileInfo &info) {
+bool GameManager::InstallMemstickZip(const Path &zipfile, const Path &dest, const ZipFileInfo &info) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-
-	// We don't need the zip anymore, as we're going to copy it as-is.
-	zip_close(z);
-	z = nullptr;
 
 	// Not using File::Copy() so we can report progress.
 	FILE *inf = File::OpenCFile(zipfile, "rb");
@@ -705,10 +692,8 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		INFO_LOG(Log::IO, "Successfully unzipped ISO file to '%s'", outputISOFilename.c_str());
 		success = true;
 	}
-	zip_close(z);
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
 
-	z = 0;
 	installProgress_ = 1.0f;
 	InstallDone();
 	ResetInstallError();

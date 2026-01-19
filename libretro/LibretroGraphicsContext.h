@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 
-#include "libretro/libretro.h"
+#include <libretro.h>
 #include "Common/GraphicsContext.h"
 #include "Common/GPU/thin3d_create.h"
 

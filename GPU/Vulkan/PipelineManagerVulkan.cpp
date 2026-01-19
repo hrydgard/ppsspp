@@ -659,7 +659,7 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 		NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline cache (%d bytes).", (int)size);
 	}
 
-	size_t seekPosOnFailure = ftell(file);
+	int64_t seekPosOnFailure = File::Ftell(file);
 
 	bool failed = false;
 	bool writeFailed = false;
@@ -711,7 +711,7 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, some shader was missing");
 		// Write a zero in the right place so it doesn't try to load the pipelines next time.
 		size = 0;
-		fseek(file, (long)seekPosOnFailure, SEEK_SET);
+		File::Fseek(file, seekPosOnFailure, SEEK_SET);
 		writeFailed = fwrite(&size, sizeof(size), 1, file) != 1;
 		if (writeFailed) {
 			ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");

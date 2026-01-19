@@ -35,7 +35,7 @@
 
 InstallZipScreen::InstallZipScreen(const Path &zipPath) : UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll), zipPath_(zipPath) {
 	g_GameManager.ResetInstallError();
-	struct zip *zipFile = ZipOpenPath(zipPath_);
+	ZipContainer zipFile = ZipOpenPath(zipPath_);
 	if (zipFile) {
 		DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
 		ZipClose(zipFile);
@@ -177,7 +177,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(zipFileInfo_.gameTitle + ": " + zipFileInfo_.savedataDir));
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
-		struct zip *zipFile = ZipOpenPath(zipPath_);
+		ZipContainer zipFile = ZipOpenPath(zipPath_);
 		bool overwrite = !CanExtractWithoutOverwrite(zipFile, savedataDir, 50);
 		ZipClose(zipFile);
 
