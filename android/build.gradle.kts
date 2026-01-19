@@ -1,19 +1,57 @@
 import com.google.protobuf.gradle.*
+import java.io.ByteArrayOutputStream
 
 plugins {
 	id("com.android.application")
-	id("com.gladed.androidgitversion")
 	id("org.jetbrains.kotlin.android")
 	id("com.google.protobuf")
 }
 
-// Kotlin DSL syntax for configuring the extension
-configure<com.gladed.androidgitversion.AndroidGitVersionExtension> {
-	codeFormat = "MNNPPBBBB"
-	format = "%tag%%-count%%-branch%%-dirty%"
-	prefix = "v"  // Only tags beginning with v are considered.
-	untrackedIsDirty = false
+// Utility function used to get the git version
+// All the below replaces the following "gladed.androidgitversion" config:
+// configure<com.gladed.androidgitversion.AndroidGitVersionExtension> {
+//   codeFormat = "MNNPPBBBB"
+//   format = "%tag%%-count%%-branch%%-dirty%"
+//   prefix = "v"  // Only tags beginning with v are considered.
+//   untrackedIsDirty = false
+// }
+
+fun git(cmd: String): String {
+	val out = ByteArrayOutputStream()
+	exec {
+		commandLine("git", *cmd.split(" ").toTypedArray())
+		standardOutput = out
+		errorOutput = ByteArrayOutputStream()
+		isIgnoreExitValue = true
+	}
+	return out.toString().trim()
 }
+
+val gitTag = git("describe --tags --match v* --abbrev=0")
+	.ifEmpty { "v0.0.0" }
+val commitsSinceTag = git("rev-list ${gitTag}..HEAD --count")
+	.toIntOrNull() ?: 0
+val branchName = git("rev-parse --abbrev-ref HEAD")
+	.replace("/", "-")
+val isDirty = git("status --porcelain").lines()
+	.any { it.isNotBlank() && !it.startsWith("??") } // untrackedIsDirty = false
+val (major, minor, patch) = gitTag
+	.removePrefix("v")
+	.split(".")
+	.map { it.toInt() }
+val gitVersionName = buildString {
+	append(gitTag)
+	append("-")
+	append(commitsSinceTag)
+	append("-")
+	append(branchName)
+	if (isDirty) append("-dirty")
+}
+val gitVersionCode =
+	major * 10_000_000 +
+		minor * 100_000 +
+		patch * 1_000 +
+		commitsSinceTag
 
 dependencies {
 	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
@@ -75,16 +113,15 @@ android {
 	defaultConfig {
 		applicationId = "org.ppsspp.ppsspp"
 		// Access the git version info via the extension
-		val gitVersion = extensions.getByType<com.gladed.androidgitversion.AndroidGitVersionExtension>()
-		if (gitVersion.name() != "unknown") {
-			println("Overriding Android Version Name, Code: " + gitVersion.name() + " " + gitVersion.code())
-			versionName = gitVersion.name()
-			versionCode = gitVersion.code()
+		if (gitVersionName != "unknown") {
+			println("Overriding Android Version Name, Code: $gitVersionName $gitVersionCode")
+			versionName = gitVersionName
+			versionCode = gitVersionCode
 		} else {
-			println("(not using these:) Android Version Name, Code: " + gitVersion.name() + " " + gitVersion.code())
+			println("(not using these:) Android Version Name, Code: $gitVersionName $gitVersionCode")
 		}
-		file("versionname.txt").writeText(gitVersion.name())
-		file("versioncode.txt").writeText(gitVersion.code().toString())
+		file("versionname.txt").writeText(gitVersionName)
+		file("versioncode.txt").writeText(gitVersionCode.toString())
 
 		minSdk = 21
 		targetSdk = 36
