@@ -216,6 +216,15 @@ struct Vec4F32 {
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 24)) };
 	}
 
+	// NOTE: Does not normalize to 0..255 range.
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes
+		__m128i value = _mm_loadl_epi64((const __m128i *)src);
+		__m128i zero = _mm_setzero_si128();
+		__m128i value16 = _mm_unpacklo_epi8(value, zero);
+		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
+		return Vec4F32{ _mm_cvtepi32_ps(_mm_unpacklo_epi16(value16, zero)) };
+	}
+
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
 		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
 		alignas(16) static const float onelane3[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -250,7 +259,8 @@ struct Vec4F32 {
 	void operator *=(Vec4F32 other) { v = _mm_mul_ps(v, other.v); }
 	void operator /=(Vec4F32 other) { v = _mm_div_ps(v, other.v); }
 	void operator &=(Vec4S32 other) { v = _mm_and_ps(v, _mm_castsi128_ps(other.v)); }
-	Vec4F32 operator *(float f) const { return Vec4F32{ _mm_mul_ps(v, _mm_set1_ps(f)) }; }
+	Vec4F32 operator *(float f) const { return Vec4F32{_mm_mul_ps(v, _mm_set1_ps(f))}; }
+	void operator *=(float f) { v = _mm_mul_ps(v, _mm_set1_ps(f)); }
 	// NOTE: May be slow.
 	float operator[](size_t index) const { return ((float *)&v)[index]; }
 
@@ -548,6 +558,12 @@ struct Vec4F32 {
 		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value16)) };
 	}
 
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
+		uint8x8_t value = vld1_u8(src);
+		uint16x4_t value16 = vget_low_u16(vmovl_u8(value));
+		return Vec4F32{ vcvtq_f32_u32(vmovl_u16(value16)) };
+	}
+
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
 		return Vec4F32{ vsetq_lane_f32(1.0f, vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8)), 3) };
 	}
@@ -595,6 +611,7 @@ struct Vec4F32 {
 #endif
 	void operator &=(Vec4S32 other) { v = vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
+	void operator *=(float f) { v = vmulq_f32(v, vdupq_n_f32(f)); }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 
