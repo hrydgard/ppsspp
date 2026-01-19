@@ -1364,7 +1364,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
-							Log.i(TAG, "Selected picture path: " + selectedImage);
+							Log.i(TAG, "Selected picture path: " + picturePath);
 							NativeApp.sendRequestResult(requestId, true, picturePath, 0);
 						}
 					}
@@ -1629,11 +1629,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			// No idea what the point of the ApplicationWindowToken is or if it
 			// matters where we get it from...
-			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
+			inputMethodManager.showSoftInput(surfView, InputMethodManager.SHOW_IMPLICIT);
 			return true;
 		} else if (command.equals("hideKeyboard") && surfView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
+			inputMethodManager.hideSoftInputFromWindow(surfView.getWindowToken(), 0);
 			return true;
 		} else if (command.equals("inputbox")) {
 			String title = "Input";
@@ -1845,6 +1845,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	public void onNewIntent(Intent intent) {
 		super.onNewIntent(intent);
+		setIntent(intent);
 		String value = parseIntent(intent);
 		if (value != null) {
 			// TODO: Actually send a command to the native code to launch the new game.

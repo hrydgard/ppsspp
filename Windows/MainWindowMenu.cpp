@@ -1000,8 +1000,10 @@ namespace MainWindow {
 			if (rc_client_raintegration_activate_menu_item(Achievements::GetClient(), LOWORD(wParam))) {
 				break;
 			}
+			MessageBox(hWnd, L"Unhandled menu item. Did you unload RAIntegration?", L"Sorry", 0);
+#else
+			MessageBox(hWnd, L"Unhandled menu item. Please report a bug.", L"Sorry", 0);
 #endif
-			MessageBox(hWnd, L"Unhandled menu item", L"Sorry", 0);
 			break;
 		}
 	}
