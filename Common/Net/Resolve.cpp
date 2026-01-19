@@ -26,13 +26,17 @@ extern JavaVM *gJvm;
 namespace net {
 
 static bool g_naettInitialized;
+static bool g_wsaInitialized;
 
-void Init()
-{
+void Init() {
 #ifdef _WIN32
 	// WSA does its own internal reference counting, no need to keep track of if we inited or not.
-	WSADATA wsaData = {0};
-	WSAStartup(MAKEWORD(2, 2), &wsaData);
+	WSADATA wsaData{};
+	if (FAILED(WSAStartup(MAKEWORD(2, 2), &wsaData))) {
+		ERROR_LOG(Log::sceNet, "WSAStartup failed");
+	} else {
+		g_wsaInitialized = true;
+	}
 #endif
 	if (!g_naettInitialized) {
 #ifndef HTTPS_NOT_AVAILABLE
@@ -47,14 +51,19 @@ void Init()
 	}
 }
 
-void Shutdown()
-{
+void Shutdown() {
 #ifdef _WIN32
-	WSACleanup();
+	if (g_wsaInitialized) {
+		WSACleanup();
+	}
 #endif
 }
 
-bool HostPortExists(const std::string& host, int port, int timeout_ms) {
+// This checks whether a TCP connection to host : port can be established within a given timeout.
+// It does this by attempting a new, non - blocking TCP connect() and waiting for it to succeed or time out.
+// The socket is closed immediately after the check.
+// It does not inspect or detect existing connections from other applications; it only tests reachability by making its own connection attempt.
+bool HostPortExists(const std::string &host, int port, int timeout_ms) {
 	if (host.empty() || (port <= 0 || port > 65535) || timeout_ms < 0) return false;
 
 	addrinfo hints;

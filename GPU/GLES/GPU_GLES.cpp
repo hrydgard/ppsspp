@@ -24,17 +24,14 @@
 #include "Common/GraphicsContext.h"
 #include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
-#include "Core/Debugger/Breakpoints.h"
-#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
@@ -114,7 +111,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	}
 
 	if (g_Config.bHardwareTessellation) {
-		// Disable hardware tessellation if device is unsupported.
+		// Log information that we disable hardware tessellation if device is unsupported.
 		if (!drawEngine_.SupportsHWTessellation()) {
 			ERROR_LOG(Log::G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 		}
@@ -211,10 +208,8 @@ void GPU_GLES::BuildReportingInfo() {
 		glExtensions = render->GetGLString(GL_EXTENSIONS);
 	}
 
-	char temp[16384];
-	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion.c_str(), glVendor.c_str(), glRenderer.c_str(), glSlVersion.c_str(), glExtensions.c_str());
 	reportingPrimaryInfo_ = glVendor;
-	reportingFullInfo_ = temp;
+	reportingFullInfo_ = StringFromFormat("%s (%s %s), %s (extensions: %s)", glVersion.c_str(), glVendor.c_str(), glRenderer.c_str(), glSlVersion.c_str(), glExtensions.c_str());
 
 	Reporting::UpdateConfig();
 }

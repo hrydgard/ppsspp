@@ -250,7 +250,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 			return false;
 		}
 		strm.next_in = (Bytef *)data.data();
-		strm.avail_in = data.size();
+		strm.avail_in = (u32)data.size();
 		strm.next_out = out_data;
 		strm.avail_out = out_size;
 		int flush = Z_NO_FLUSH;
