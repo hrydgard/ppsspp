@@ -468,7 +468,9 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), I18NCat::GRAPHICS, screenManager()));
 	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
-	frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
+	frameSkipAuto_->OnClick.Add([](UI::EventParams &e) {
+		g_Config.UpdateAfterSettingAutoFrameSkip();
+	});
 
 	PopupSliderChoice *altSpeed1 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent1_, 0, 1000, UI::NO_DEFAULT_INT, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
 	altSpeed1->SetFormat("%i%%");
@@ -564,7 +566,18 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("GPU texture upscaler (fast)"), &TextureTranslateName));
-		textureShaderChoice->OnClick.Handle(this, &GameSettingsScreen::OnTextureShader);
+		textureShaderChoice->OnClick.Add([this](UI::EventParams &e) {
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+			auto shaderScreen = new TextureShaderScreen(gr->T("GPU texture upscaler (fast)"));
+			shaderScreen->OnChoice.Add([this](UI::EventParams &e) {
+				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+				RecreateViews(); // Update setting name
+				g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
+			});
+			if (e.v)
+				shaderScreen->SetPopupOrigin(e.v);
+			screenManager()->push(shaderScreen);
+		});
 		textureShaderChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
 
@@ -1054,23 +1067,23 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 #endif
 
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KeyInputFlags::CHAR support is added
-	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
-	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat1, n->T("Quick Chat 2"), "", 32, screenManager()));
-	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat2, n->T("Quick Chat 3"), "", 32, screenManager()));
-	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat3, n->T("Quick Chat 4"), "", 32, screenManager()));
-	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat4, n->T("Quick Chat 5"), "", 32, screenManager()));
+	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat[0], n->T("Quick Chat 1"), "", 32, screenManager()));
+	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat[1], n->T("Quick Chat 2"), "", 32, screenManager()));
+	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat[2], n->T("Quick Chat 3"), "", 32, screenManager()));
+	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat[3], n->T("Quick Chat 4"), "", 32, screenManager()));
+	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat[4], n->T("Quick Chat 5"), "", 32, screenManager()));
 #elif defined(USING_QT_UI)
-	Choice *qc1 = networkingSettings->Add(new Choice(n->T("Quick Chat 1")));
+]	Choice *qc1 = networkingSettings->Add(new Choice(n->T("Quick Chat 1")));
 	Choice *qc2 = networkingSettings->Add(new Choice(n->T("Quick Chat 2")));
 	Choice *qc3 = networkingSettings->Add(new Choice(n->T("Quick Chat 3")));
 	Choice *qc4 = networkingSettings->Add(new Choice(n->T("Quick Chat 4")));
 	Choice *qc5 = networkingSettings->Add(new Choice(n->T("Quick Chat 5")));
 #elif PPSSPP_PLATFORM(ANDROID)
-	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, n->T("Quick Chat 1"), I18NCat::NONE));
-	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, n->T("Quick Chat 2"), I18NCat::NONE));
-	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, n->T("Quick Chat 3"), I18NCat::NONE));
-	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, n->T("Quick Chat 4"), I18NCat::NONE));
-	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, n->T("Quick Chat 5"), I18NCat::NONE));
+	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat[0], n->T("Quick Chat 1"), I18NCat::NONE));
+	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat[1], n->T("Quick Chat 2"), I18NCat::NONE));
+	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat[2], n->T("Quick Chat 3"), I18NCat::NONE));
+	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat[3], n->T("Quick Chat 4"), I18NCat::NONE));
+	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat[4], n->T("Quick Chat 5"), I18NCat::NONE));
 #endif
 
 #if (!defined(MOBILE_DEVICE) && !defined(USING_QT_UI)) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
@@ -1472,10 +1485,6 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	vrSettings->Add(new CheckBox(&g_Config.bManualForceVR, vr->T("Manual switching between flat screen and VR using SCREEN key")));
 }
 
-void GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
-	g_Config.UpdateAfterSettingAutoFrameSkip();
-}
-
 void GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
@@ -1752,52 +1761,37 @@ void GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 
 void GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, false, [](const std::string &value, int) {
-		g_Config.sQuickChat0 = value;
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 1"), g_Config.sQuickChat[0], false, [](const std::string &value, int) {
+		g_Config.sQuickChat[0] = value;
 	});
 }
 
 void GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, false, [](const std::string &value, int) {
-		g_Config.sQuickChat1 = value;
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 2"), g_Config.sQuickChat[1], false, [](const std::string &value, int) {
+		g_Config.sQuickChat[1] = value;
 	});
 }
 
 void GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, false, [](const std::string &value, int) {
-		g_Config.sQuickChat2 = value;
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 3"), g_Config.sQuickChat[2], false, [](const std::string &value, int) {
+		g_Config.sQuickChat[2] = value;
 	});
 }
 
 void GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, false, [](const std::string &value, int) {
-		g_Config.sQuickChat3 = value;
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 4"), g_Config.sQuickChat[3], false, [](const std::string &value, int) {
+		g_Config.sQuickChat[3] = value;
 	});
 }
 
 void GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, false, [](const std::string &value, int) {
-		g_Config.sQuickChat4 = value;
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 5"), g_Config.sQuickChat[4], false, [](const std::string &value, int) {
+		g_Config.sQuickChat[4] = value;
 	});
-}
-
-void GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto shaderScreen = new TextureShaderScreen(gr->T("GPU texture upscaler (fast)"));
-	shaderScreen->OnChoice.Handle(this, &GameSettingsScreen::OnTextureShaderChange);
-	if (e.v)
-		shaderScreen->SetPopupOrigin(e.v);
-	screenManager()->push(shaderScreen);
-}
-
-void GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
-	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-	RecreateViews(); // Update setting name
-	g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {

@@ -28,11 +28,6 @@ private:
 	void OnAskForChatMessage(UI::EventParams &e);
 
 	void OnSubmitMessage(UI::EventParams &e);
-	void OnQuickChat1(UI::EventParams &e);
-	void OnQuickChat2(UI::EventParams &e);
-	void OnQuickChat3(UI::EventParams &e);
-	void OnQuickChat4(UI::EventParams &e);
-	void OnQuickChat5(UI::EventParams &e);
 
 	UI::TextEdit *chatEdit_ = nullptr;
 	UI::ScrollView *scroll_ = nullptr;

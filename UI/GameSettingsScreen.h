@@ -76,9 +76,6 @@ private:
 	std::string memstickDisplay_;
 
 	// Global settings handlers
-	void OnAutoFrameskip(UI::EventParams &e);
-	void OnTextureShader(UI::EventParams &e);
-	void OnTextureShaderChange(UI::EventParams &e);
 	void OnChangeQuickChat0(UI::EventParams &e);
 	void OnChangeQuickChat1(UI::EventParams &e);
 	void OnChangeQuickChat2(UI::EventParams &e);

@@ -40,11 +40,12 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 
 	if (g_Config.bEnableQuickChat) {
 		LinearLayout *quickChat = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		quickChat->Add(new Button("1", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat1);
-		quickChat->Add(new Button("2", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat2);
-		quickChat->Add(new Button("3", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat3);
-		quickChat->Add(new Button("4", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat4);
-		quickChat->Add(new Button("5", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat5);
+		for (int i = 0; i < 5; i++) {
+			std::string name = std::to_string(i + 1);
+			quickChat->Add(new Button(name, new LinearLayoutParams(1.0)))->OnClick.Add([this, i](UI::EventParams &e) {
+				sendChat(g_Config.sQuickChat[i]);
+			});
+		}
 	}
 	chatVert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	chatVert_->SetSpacing(0);
@@ -125,26 +126,6 @@ void ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 		popupScreen->SetPopupOrigin(chatButton_);
 		screenManager_->push(popupScreen);
 	}
-}
-
-void ChatMenu::OnQuickChat1(UI::EventParams &e) {
-	sendChat(g_Config.sQuickChat0);
-}
-
-void ChatMenu::OnQuickChat2(UI::EventParams &e) {
-	sendChat(g_Config.sQuickChat1);
-}
-
-void ChatMenu::OnQuickChat3(UI::EventParams &e) {
-	sendChat(g_Config.sQuickChat2);
-}
-
-void ChatMenu::OnQuickChat4(UI::EventParams &e) {
-	sendChat(g_Config.sQuickChat3);
-}
-
-void ChatMenu::OnQuickChat5(UI::EventParams &e) {
-	sendChat(g_Config.sQuickChat4);
 }
 
 void ChatMenu::UpdateChat() {
