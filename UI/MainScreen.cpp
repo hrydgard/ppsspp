@@ -480,6 +480,7 @@ void DirButton::Draw(UIContext &dc) {
 	if (compact) {
 		// No folder icon, except "up"
 		dc.PushScissor(bounds_);
+		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
 		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
 			dc.DrawTextRect(text, bounds_.Inset(5, 2), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 			if (pinned_) {
@@ -490,6 +491,7 @@ void DirButton::Draw(UIContext &dc) {
 		} else {
 			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), gridStyle_ ? g_Config.fGameGridScale : 1.0, style.fgColor, ALIGN_CENTER);
 		}
+		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.PopScissor();
 	} else {
 		bool scissor = false;
