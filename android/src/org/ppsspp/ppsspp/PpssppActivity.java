@@ -301,13 +301,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (list == null) {
 			Log.i(TAG, "getSdCardPaths: Attempting fallback");
 			// Try another method.
-			list = new ArrayList<>();
 			File[] fileList = new File("/storage/").listFiles();
 			if (fileList != null) {
+				list = new ArrayList<>();
 				for (File file : fileList) {
 					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
 						list.add(file.getAbsolutePath());
 					}
+				}
+				if (list.isEmpty()) {
+					list = null;
 				}
 			}
 		}
@@ -316,7 +319,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			String[] varNames = { "EXTERNAL_SDCARD_STORAGE", "SECONDARY_STORAGE" };
 			for (String var : varNames) {
 				Log.i(TAG, "getSdCardPaths: Checking env " + var);
-				String secStore = System.getenv("SECONDARY_STORAGE");
+				String secStore = System.getenv(var);
 				if (secStore != null && !secStore.isEmpty()) {
 					list = new ArrayList<>();
 					list.add(secStore);
@@ -518,9 +521,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 		}
 
-		mLocationHelper = new LocationHelper(this);
+		if (mLocationHelper == null) {
+			mLocationHelper = new LocationHelper(this);
+		}
 		try {
-			mInfraredHelper = new InfraredHelper(this);
+			if (mInfraredHelper == null) {
+				mInfraredHelper = new InfraredHelper(this);
+			}
 		} catch (Exception e) {
 			mInfraredHelper = null;
 			Log.i(TAG, "InfraredHelper exception: " + e);
