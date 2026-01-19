@@ -1026,7 +1026,7 @@ static void check_variables(CoreParameter &coreParam)
    char key[64] = {0};
    var.key = key;
    g_Config.sMACAddress = "";
-   g_Config.proAdhocServer = "";
+   g_Config.sProAdhocServer = "";
    for (int i = 0; i < 12; i++)
    {
       snprintf(key, sizeof(key), "ppsspp_change_mac_address%02d", i + 1);
@@ -1060,13 +1060,13 @@ static void check_variables(CoreParameter &coreParam)
 
    if (changeProAdhocServer == "IP address")
    {
-      g_Config.proAdhocServer = "";
+      g_Config.sProAdhocServer = "";
       bool leadingZero = true;
       for (int i = 0; i < 12; i++)
       {
          if (i && i % 3 == 0)
          {
-            g_Config.proAdhocServer += '.';
+            g_Config.sProAdhocServer += '.';
             leadingZero = true;
          }
 
@@ -1075,11 +1075,11 @@ static void check_variables(CoreParameter &coreParam)
             leadingZero = false; // We are either non-zero or the last digit of a byte
 
          if (! leadingZero)
-            g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+            g_Config.sProAdhocServer += static_cast<char>('0' + addressPt);
       }
    }
    else
-      g_Config.proAdhocServer = changeProAdhocServer;
+      g_Config.sProAdhocServer = changeProAdhocServer;
 
    g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
 
