@@ -117,7 +117,7 @@ android {
 		applicationId = "org.ppsspp.ppsspp"
 		// Access the git version info via the extension
 		if (gitVersionName != "unknown") {
-			println("Overriding Android Version Name, Code: $gitVersionName $gitVersionCode")
+			println("INFO: Overriding Android Version Name, Code: $gitVersionName $gitVersionCode")
 			versionName = gitVersionName
 			versionCode = gitVersionCode
 		} else {
@@ -164,24 +164,24 @@ android {
 	sourceSets {
 		getByName("main") {
 			manifest.srcFile("AndroidManifest.xml")
-			res.setSrcDirs(listOf("res"))
-			java.setSrcDirs(listOf("src"))
-			aidl.setSrcDirs(listOf("src"))
-			resources.setSrcDirs(listOf("src"))
-			assets.setSrcDirs(listOf("../assets"))
+			res.directories.add("res")
+			java.directories.add("src")
+			aidl.directories.add("src")
+			resources.directories.add("src")
+			assets.directories.add("../assets")
 		}
 		create("normal") {
-			res.setSrcDirs(listOf("normal/res"))
+			res.directories.add("normal/res")
 		}
 		create("gold") {
-			res.setSrcDirs(listOf("gold/res"))
+			res.directories.add("gold/res")
 		}
 		create("vr") {
-			res.setSrcDirs(listOf("normal/res"))
+			res.directories.add("normal/res")
 			manifest.srcFile("VRManifest.xml")
 		}
 		create("legacy") {
-			res.setSrcDirs(listOf("legacy/res"))
+			res.directories.add("legacy/res")
 		}
 	}
 	productFlavors {
@@ -286,8 +286,9 @@ androidComponents {
 	}
 }
 
+/*
 afterEvaluate {
 	android.sourceSets.getByName("main").assets.srcDirs.forEach {
 		println(it)
 	}
-}
+}*/
