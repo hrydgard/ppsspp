@@ -748,6 +748,9 @@ public:
 	void SetText(std::string_view text) {
 		text_ = text;
 	}
+	void SetIconOnly(bool iconOnly) {
+		iconOnly_ = iconOnly;
+	}
 
 protected:
 	void ClickInternal() override;
@@ -770,6 +773,7 @@ protected:
 	u32 drawTextFlags_ = 0;
 	bool hideTitle_ = false;
 	float shine_ = false;
+	bool iconOnly_ = false;
 
 private:
 	bool selected_ = false;

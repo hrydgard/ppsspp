@@ -241,7 +241,10 @@ void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
 	PopupMultiChoice *rot = parent->Add(new PopupMultiChoice(&g_Config.iScreenRotation, text ? co->T("Screen Rotation") : "", screenRotation, 0, ARRAY_SIZE(screenRotation), I18NCat::CONTROLS, screenManager, text ? nullptr : new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+	rot->SetHideTitle(true);
+	rot->SetIconOnly(true);
 	rot->SetChoiceIcons(screenRotationIcons);
+
 	// Portrait Reversed is not recommended on iPhone (and we also ban it in the plist).
 	// However it's recommended to support it on iPad, so maybe we will in the future.
 	rot->HideChoice(4);
