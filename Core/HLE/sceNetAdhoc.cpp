@@ -85,6 +85,7 @@ int adhocSocketNotifyEvent = -1;
 std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
+bool serverHasRelay = false;
 
 int gameModeNotifyEvent = -1;
 
@@ -177,7 +178,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			if (masterGameModeArea.dataUpdated) {
 				int sentcount = 0;
 				for (auto& gma : replicaGameModeAreas) {
-					if (!gma.dataSent && (g_Config.bServerHasRelay || IsSocketReady(sock->data.pdp.id, false, true) > 0)) {
+					if (!gma.dataSent && (serverHasRelay || IsSocketReady(sock->data.pdp.id, false, true) > 0)) {
 						u16_le port = ADHOC_GAMEMODE_PORT;
 						auto it = gameModePeerPorts.find(gma.mac);
 						if (it != gameModePeerPorts.end())
@@ -241,7 +242,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			}
 
 			// Recv new Replica data when available
-			if (g_Config.bServerHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+			if (serverHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0) {
 				SceNetEtherAddr sendermac;
 				s32_le senderport = ADHOC_GAMEMODE_PORT;
 				s32_le bufsz = gameModeBuffSize;
@@ -558,7 +559,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	sinlen = sizeof(sin);
 	memset(&sin, 0, sinlen);
 
-	if (g_Config.bServerHasRelay) {
+	if (serverHasRelay) {
 		while(1) {
 			int next_size = pdp_peek_next_size_postoffice(req.id - 1);
 			if (next_size == 0) {
@@ -735,7 +736,7 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 
 		int ret = 0;
 		int sockerr = 0;
-		if (g_Config.bServerHasRelay) {
+		if (serverHasRelay) {
 			ret = pdp_send_postoffice(req.id - 1, &peer->mac, peer->port, req.buffer, targetPeers.length);
 			if (ret == 0){
 				ret == *req.length;
@@ -810,7 +811,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	// Send Data
 	int ret = 0;
 	int sockerr = 0;
-	if (g_Config.bServerHasRelay) {
+	if (serverHasRelay) {
 		ret = ptp_send_postoffice(req.id - 1, req.buffer, *req.length);
 		if (ret == 0) {
 			// sent
@@ -909,7 +910,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 
 	int ret = 0;
 	int sockerr = 0;
-	if (g_Config.bServerHasRelay) {
+	if (serverHasRelay) {
 		ret = ptp_recv_postoffice(req.id - 1, req.buffer, req.length);
 		if (ret == 0){
 			// we got data
@@ -1087,7 +1088,7 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 	socklen_t sinlen = sizeof(sin);
 	int ret, sockerr;
 
-	if (g_Config.bServerHasRelay) {
+	if (serverHasRelay) {
 		ret = ptp_accept_postoffice(req.id - 1, req.remoteMAC, req.remotePort);
 		if (ret >= 0) {
 			result = ret;
@@ -1197,7 +1198,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
-		if (g_Config.bServerHasRelay) {
+		if (serverHasRelay) {
 			ret = ptp_connect_postoffice(req.id - 1, __func__);
 			if (ret != 0) {
 				ret = SOCKET_ERROR;
@@ -1215,7 +1216,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check the connection state (assuming "connect" has been called before and is in-progress)
 	// Note: On Linux "select" can return > 0 (with SO_ERROR = 0) even when the connection is not accepted yet, thus need "getpeername" to ensure
 	else {
-		if (g_Config.bServerHasRelay) {
+		if (serverHasRelay) {
 			if (sock->postofficeHandle == NULL) {
 				ret = SOCKET_ERROR;
 				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED){
@@ -1245,7 +1246,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	// Check whether the connection has been established or not
-	if (!g_Config.bServerHasRelay && ret != SOCKET_ERROR) {
+	if (!serverHasRelay && ret != SOCKET_ERROR) {
 		socklen_t sinlen = sizeof(sin);
 		memset(&sin, 0, sinlen);
 		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
@@ -1641,7 +1642,11 @@ u32 sceNetAdhocInit() {
 		// Since we are deleting GameMode Master here, we should probably need to make sure GameMode resources all cleared too.
 		deleteAllGMB();
 
-		aemu_post_office_init();
+		serverHasRelay = g_Config.bServerHasRelay;
+
+		if (serverHasRelay) {
+			aemu_post_office_init();
+		}
 
 		// Return Success
 		return hleLogInfo(Log::sceNet, 0, "at %08x", currentMIPS->pc);
@@ -1793,7 +1798,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 			}
 			// Valid MAC supplied. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 			if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && isLocalMAC(saddr)) {
-				if (g_Config.bServerHasRelay)
+				if (serverHasRelay)
 					return pdp_create_postoffice(saddr, port, bufferSize);
 
 				// Create Internet UDP Socket
@@ -2029,7 +2034,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									// Send Data. UDP are guaranteed to be sent as a whole or nothing(failed if len > SO_MAX_MSG_SIZE), and never be partially sent/recv
 									int sent = 0;
 									int error = 0;
-									if (g_Config.bServerHasRelay) {
+									if (serverHasRelay) {
 										sent = pdp_send_postoffice(id - 1, daddr, dport, data, len);
 										if (sent == 0) {
 											sent = len;
@@ -2142,7 +2147,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 
 										int sent = 0;
 										int error = 0;
-										if (g_Config.bServerHasRelay) {
+										if (serverHasRelay) {
 											sent = pdp_send_postoffice(id - 1, &peer.mac, dport, data, len);
 											if (sent == 0){
 												sent = len;
@@ -2279,7 +2284,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 				int received = 0;
 				int error;
 
-				if (g_Config.bServerHasRelay) {
+				if (serverHasRelay) {
 					while(1) {
 						int next_size = pdp_peek_next_size_postoffice(id - 1);
 						if (next_size == 0) {
@@ -2363,7 +2368,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE, "not enough space");
 				}
 
-				if (!g_Config.bServerHasRelay) {
+				if (!serverHasRelay) {
 					sinlen = sizeof(sin);
 					memset(&sin, 0, sinlen);
 					// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
@@ -2509,7 +2514,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				return SCE_NET_ADHOC_ERROR_SOCKET_DELETED;
 			}
 
-			if (g_Config.bServerHasRelay) {
+			if (serverHasRelay) {
 				int postoffice_fd = get_postoffice_fd(sds[i].id - 1);
 				if (postoffice_fd == -1) {
 					continue;
@@ -2540,7 +2545,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
 				auto sock = adhocSockets[sds[i].id - 1];
 
-				if (g_Config.bServerHasRelay) {
+				if (serverHasRelay) {
 					int postoffice_fd = get_postoffice_fd(sds[i].id - 1);
 					if (postoffice_fd == -1) {
 						continue;
@@ -2704,7 +2709,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 
 			// Valid Socket
 			if (sock != NULL && sock->type == SOCK_PDP) {
-				if (g_Config.bServerHasRelay)
+				if (serverHasRelay)
 					return pdp_delete_postoffice(id - 1);
 
 				// Close Connection
@@ -3603,7 +3608,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					// Set available bytes to be received. With FIONREAD There might be ghosting 1 byte in recv buffer when remote peer's socket got closed (ie. Warriors Orochi 2) Attempting to recv this ghost 1 byte will result to socket error 10054 (may need to disable SIO_UDP_CONNRESET error)
 					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value up to the buffer size arg since we use larger buffer, for PDP/UDP the total size must not contains partial/truncated message to avoid data loss.
 					// TODO: We may need to manage PDP messages ourself by reading each msg 1-by-1 and moving it to our internal buffer(msg array) in order to calculate the correct messages size that can fit into buffer size when there are more than 1 messages in the recv buffer (simulate FIONREAD)
-					if (g_Config.bServerHasRelay) {
+					if (serverHasRelay) {
 						void *postofficeHandle = pdp_postoffice_recover(j);
 						if (postofficeHandle != NULL) {
 							sock->data.pdp.rcv_sb_cc = pdp_peek_next_size(postofficeHandle);
@@ -3709,7 +3714,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
 					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
-						if (g_Config.bServerHasRelay) {
+						if (serverHasRelay) {
 							if (sock->postofficeHandle != NULL){
 								// good to go
 								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
@@ -3727,7 +3732,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 						}
 					}
 
-					if (g_Config.bServerHasRelay) {
+					if (serverHasRelay) {
 						if (sock->postofficeHandle != NULL) {
 							sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postofficeHandle);
 						} else {
@@ -3974,7 +3979,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			}
 
 			// Random Port required
-			if (sport == 0 && !g_Config.bServerHasRelay) {
+			if (sport == 0 && !serverHasRelay) {
 				isClient = true;
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 				sport = -static_cast<int>(portOffset);
@@ -3982,7 +3987,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
-				if (g_Config.bServerHasRelay)
+				if (serverHasRelay)
 					return ptp_open_postoffice(saddr, sport, daddr, dport, bufsize);
 
 				// Create Infrastructure Socket (?)
@@ -4295,7 +4300,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					int error;
 
 					int newsocket = 0;
-					if (g_Config.bServerHasRelay) {
+					if (serverHasRelay) {
 						newsocket = ptp_accept_postoffice(id - 1, addr, port);
 						if (newsocket >= 0) {
 							return newsocket;
@@ -4399,7 +4404,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
 					int connectresult = 0;
 					int errorcode = 0;
-					if (g_Config.bServerHasRelay) {
+					if (serverHasRelay) {
 						connectresult = ptp_connect_postoffice(id - 1, __func__);
 						if (connectresult != 0) {
 							connectresult = SOCKET_ERROR;
@@ -4432,8 +4437,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					else if (connectresult == SOCKET_ERROR) {
 						// Connection in Progress, or
 						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (g_Config.bServerHasRelay || connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
-							if (g_Config.bServerHasRelay || connectInProgress(errorcode))
+						if (serverHasRelay || connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
+							if (serverHasRelay || connectInProgress(errorcode))
 							{
 								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							}
@@ -4536,7 +4541,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 
 			// Valid Socket
 			if (socket != NULL && socket->type == SOCK_PTP) {
-				if (g_Config.bServerHasRelay)
+				if (serverHasRelay)
 					return ptp_close_postoffice(id - 1);
 
 				// Close Connection
@@ -4668,7 +4673,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
 			{
-				if (g_Config.bServerHasRelay)
+				if (serverHasRelay)
 					return ptp_listen_postoffice(saddr, sport, bufsize);
 
 				// Create Infrastructure Socket (?)
@@ -4860,7 +4865,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Send Data
 					int sent = 0;
 					int error = 0;
-					if (g_Config.bServerHasRelay) {
+					if (serverHasRelay) {
 						sent = ptp_send_postoffice(id - 1, data, *len);
 						if (sent == 0) {
 							// sent
@@ -4980,7 +4985,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					int received = 0;
 					int error = 0;
 
-					if (g_Config.bServerHasRelay) {
+					if (serverHasRelay) {
 						received = ptp_recv_postoffice(id - 1, buf, len);
 						if (received == 0) {
 							// we got data
