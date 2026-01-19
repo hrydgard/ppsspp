@@ -948,7 +948,7 @@ enum class OperationType {
 				break;
 			}
 			default:
-				ERROR_LOG(Log::SaveState, "Savestate failure: unknown operation type %d", op.type);
+				ERROR_LOG(Log::SaveState, "Savestate failure: unknown operation type %d", (int)op.type);
 				callbackResult = Status::FAILURE;
 				break;
 			}
