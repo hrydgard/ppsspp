@@ -1,4 +1,5 @@
 import com.google.protobuf.gradle.*
+import org.gradle.process.ExecOperations
 import java.io.ByteArrayOutputStream
 
 plugins {
@@ -16,29 +17,31 @@ plugins {
 //   untrackedIsDirty = false
 // }
 
-fun git(cmd: String): String {
-	val out = ByteArrayOutputStream()
-	exec {
-		commandLine("git", *cmd.split(" ").toTypedArray())
-		standardOutput = out
-		errorOutput = ByteArrayOutputStream()
+fun ProviderFactory.git(vararg args: String): String {
+	val result = exec {
+		commandLine("git", *args)
 		isIgnoreExitValue = true
 	}
-	return out.toString().trim()
+	return result.standardOutput.asText.get().trim()
 }
 
-val gitTag = git("describe --tags --match v* --abbrev=0")
+val gitTag = providers.git("describe", "--tags", "--match", "v*", "--abbrev=0")
 	.ifEmpty { "v0.0.0" }
-val commitsSinceTag = git("rev-list ${gitTag}..HEAD --count")
-	.toIntOrNull() ?: 0
-val branchName = git("rev-parse --abbrev-ref HEAD")
-	.replace("/", "-")
-val isDirty = git("status --porcelain").lines()
+val commitsSinceTag = providers.git(
+	"rev-list", "$gitTag..HEAD", "--count"
+).toIntOrNull() ?: 0
+val branchName = providers.git(
+	"rev-parse", "--abbrev-ref", "HEAD"
+).replace("/", "-")
+val isDirty = providers.git("status", "--porcelain")
+	.lineSequence()
 	.any { it.isNotBlank() && !it.startsWith("??") } // untrackedIsDirty = false
+
 val (major, minor, patch) = gitTag
 	.removePrefix("v")
 	.split(".")
 	.map { it.toInt() }
+
 val gitVersionName = buildString {
 	append(gitTag)
 	append("-")
@@ -47,19 +50,20 @@ val gitVersionName = buildString {
 	append(branchName)
 	if (isDirty) append("-dirty")
 }
+
 val gitVersionCode =
-	major * 10_000_000 +
-		minor * 100_000 +
-		patch * 1_000 +
+	major * 100_000_000 +
+		minor * 1000_000 +
+		patch * 10_000 +
 		commitsSinceTag
 
 dependencies {
 	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
 	// and also doesn't collide kotlin versions with com.gladed.androidgitversion.
 	// Will replace with a different plugin soon.
-	implementation("androidx.appcompat:appcompat:1.6.1")
+	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
-	implementation("com.google.protobuf:protobuf-javalite:3.25.3")
+	implementation("com.google.protobuf:protobuf-javalite:4.33.4")
 }
 
 protobuf {
