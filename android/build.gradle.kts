@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream
 
 plugins {
 	id("com.android.application")
-	id("org.jetbrains.kotlin.android")
 	id("com.google.protobuf")
 }
 
@@ -149,6 +148,8 @@ android {
 			isMinifyEnabled = false
 			if (project.hasProperty("RELEASE_STORE_FILE")) {
 				signingConfig = signingConfigs.getByName("release")
+			} else {
+				println("WARNING: RELEASE_STORE_FILE is missing. Release builds will be unusable.")
 			}
 		}
 	}
