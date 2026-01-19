@@ -416,12 +416,15 @@ void VertexDecoder::Step_TcU8MorphToFloat(const VertexDecoder *dec, const u8 *pt
 	float uv[2]{};
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
+	const u8 *uvdata = (const u8 *)(ptr + dec->tcoff);
+
 	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u8 *uvdata = (const u8 *)(ptr + onesize * n + dec->tcoff);
+		const float w = gstate_c.morphWeights[n];
 
 		uv[0] += (float)uvdata[0] * w;
 		uv[1] += (float)uvdata[1] * w;
+
+		uvdata += onesize;
 	}
 
 	float *out = (float *)(decoded + dec->decFmt.uvoff);
@@ -429,16 +432,19 @@ void VertexDecoder::Step_TcU8MorphToFloat(const VertexDecoder *dec, const u8 *pt
 	out[1] = uv[1] * (1.f / 128.f);
 }
 
+// Just two channels, barely worth SIMD.
 void VertexDecoder::Step_TcU16MorphToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float uv[2]{};
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u16_le *uvdata = (const u16_le *)(ptr + onesize * n + dec->tcoff);
+	const u8 *b_uvdata = ptr + dec->tcoff;
 
+	for (int n = 0; n < morphcount; n++) {
+		const float w = gstate_c.morphWeights[n];
+		const u16 *uvdata = (const u16 *)(b_uvdata);
 		uv[0] += (float)uvdata[0] * w;
 		uv[1] += (float)uvdata[1] * w;
+		b_uvdata += onesize;
 	}
 
 	float *out = (float *)(decoded + dec->decFmt.uvoff);
@@ -451,7 +457,7 @@ void VertexDecoder::Step_TcU16DoubleMorphToFloat(const VertexDecoder *dec, const
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
 	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
+		const float w = gstate_c.morphWeights[n];
 		const u16_le *uvdata = (const u16_le *)(ptr + onesize * n + dec->tcoff);
 
 		uv[0] += (float)uvdata[0] * w;
@@ -468,7 +474,7 @@ void VertexDecoder::Step_TcFloatMorph(const VertexDecoder *dec, const u8 *ptr, u
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
 	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
+		const float w = gstate_c.morphWeights[n];
 		const float_le *uvdata = (const float_le *)(ptr + onesize*n + dec->tcoff);
 
 		uv[0] += (float)uvdata[0] * w;
@@ -484,12 +490,14 @@ void VertexDecoder::Step_TcU8PrescaleMorph(const VertexDecoder *dec, const u8 *p
 	float uv[2]{};
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
+	const u8 *uvdata = (const u8 *)(ptr + dec->tcoff);
 	for (int n = 0; n < morphcount; n++) {
 		const float w = gstate_c.morphWeights[n];
-		const u8 *uvdata = (const u8 *)(ptr + onesize * n + dec->tcoff);
 
 		uv[0] += (float)uvdata[0] * w;
 		uv[1] += (float)uvdata[1] * w;
+
+		uvdata += onesize;
 	}
 	float *out = (float *)(decoded + dec->decFmt.uvoff);
 	out[0] = uv[0] * dec->prescaleUV_->uScale * (1.f / 128.f) + dec->prescaleUV_->uOff;
@@ -500,12 +508,15 @@ void VertexDecoder::Step_TcU16PrescaleMorph(const VertexDecoder *dec, const u8 *
 	float uv[2]{};
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
+	const u8 *b_uvdata = ptr + dec->tcoff;
 	for (int n = 0; n < morphcount; n++) {
 		const float w = gstate_c.morphWeights[n] * (1.f / 32768.f);
-		const u16_le *uvdata = (const u16_le *)(ptr + onesize * n + dec->tcoff);
+		const u16_le *uvdata = (const u16_le *)(b_uvdata);
 
 		uv[0] += (float)uvdata[0] * w;
 		uv[1] += (float)uvdata[1] * w;
+
+		b_uvdata += onesize;
 	}
 
 	float *out = (float *)(decoded + dec->decFmt.uvoff);
@@ -535,7 +546,7 @@ void VertexDecoder::Step_TcFloatPrescaleMorph(const VertexDecoder *dec, const u8
 	const int morphcount = dec->morphcount;
 	const int onesize = dec->onesize_;
 	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
+		const float w = gstate_c.morphWeights[n];
 		const float_le *uvdata = (const float_le *)(ptr + onesize * n + dec->tcoff);
 
 		uv[0] += (float)uvdata[0] * w;
@@ -951,10 +962,11 @@ void VertexDecoder::Step_PosS16Morph(const VertexDecoder *dec, const u8 *ptr, u8
 	Vec4F32 sum = Vec4F32::Zero();
 	const float *weights = gstate_c.morphWeights;
 	const int morphcount = dec->morphcount;
+	const s8 *bv = (const s8 *)(ptr + dec->posoff);
 	for (int n = 0; n < morphcount; n++) {
 		Vec4F32 w = Vec4F32::Splat(weights[n]);
-		const s16_le *sv = (const s16_le *)(ptr + onesize * n + dec->posoff);
-		sum += Vec4F32::LoadConvertS16(sv) * w;  // ARM could bake the 1/32768 factor in here.
+		sum += Vec4F32::LoadConvertS16((s16_le *)bv) * w;  // ARM could bake the 1/32768 factor in here.
+		bv += onesize;
 	}
 	sum *= (1.0f / 32768.0f);  // Could bake this factor into the weights, but perf gain would probably be meaningless.
 	float *v = (float *)(decoded + dec->decFmt.posoff);
