@@ -2082,20 +2082,23 @@ set(GPU_SOURCES
 	GPU/Software/TransformUnit.h
 )
 
+set(aemu_postoffice
+	ext/aemu_postoffice/client/postoffice.c
+	ext/aemu_postoffice/client/mutex_impl_cpp.cpp
+	ext/aemu_postoffice/client/delay_impl_cpp.cpp
+	ext/aemu_postoffice/client/log_impl_ppsspp.cpp
+)
+
 if(WIN32)
 	set(aemu_postoffice
-		ext/aemu_postoffice/client/postoffice.c
-		ext/aemu_postoffice/client/delay_impl_windows.c
-		ext/aemu_postoffice/client/mutex_impl_windows.c
+		${aemu_postoffice}
 		ext/aemu_postoffice/client/sock_impl_windows.c
 	)
 endif()
 
 if(LINUX OR ANDROID OR MACOSX OR IOS)
 	set(aemu_postoffice
-		ext/aemu_postoffice/client/postoffice.c
-		ext/aemu_postoffice/client/delay_impl_linux.c
-		ext/aemu_postoffice/client/mutex_impl_linux.c
+		${aemu_postoffice}
 		ext/aemu_postoffice/client/sock_impl_linux.c
 	)
 endif()

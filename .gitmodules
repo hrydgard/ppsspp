@@ -65,3 +65,7 @@
 [submodule "ext/nanosvg"]
 	path = ext/nanosvg
 	url = https://github.com/hrydgard/nanosvg.git
+[submodule "ext/aemu_postoffice"]
+	path = ext/aemu_postoffice
+	url = https://github.com/Kethen/aemu_postoffice.git
+	branch = ppsspp

@@ -697,18 +697,18 @@ endif
 SOURCES_C += \
 	       $(EXTDIR)/aemu_postoffice/client/postoffice.c
 
+SOURCES_CXX += \
+	       $(EXTDIR)/aemu_postoffice/client/mutex_impl_cpp.cpp \
+	       $(EXTDIR)/aemu_postoffice/client/delay_impl_cpp.cpp \
+	       $(EXTDIR)/aemu_postoffice/client/log_impl_ppsspp.cpp \
+
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_C += \
-	       $(EXTDIR)/aemu_postoffice/client/delay_impl_windows.c \
-	       $(EXTDIR)/aemu_postoffice/client/sock_impl_windows.c \
-	       $(EXTDIR)/aemu_postoffice/client/mutex_impl_windows.c
+	       $(EXTDIR)/aemu_postoffice/client/sock_impl_windows.c
 else
 SOURCES_C += \
-	       $(EXTDIR)/aemu_postoffice/client/delay_impl_linux.c \
-	       $(EXTDIR)/aemu_postoffice/client/sock_impl_linux.c \
-	       $(EXTDIR)/aemu_postoffice/client/mutex_impl_linux.c
+	       $(EXTDIR)/aemu_postoffice/client/sock_impl_linux.c
 endif
-
 
 SOURCES_CXX += \
            $(COMMONDIR)/Render/Text/draw_text.cpp \
