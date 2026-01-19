@@ -59,12 +59,6 @@ private:
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
 
 	std::string gameID_;
-	UI::CheckBox *enableReportsCheckbox_ = nullptr;
-	UI::Choice *layoutEditorChoice_ = nullptr;
-	UI::Choice *displayEditor_ = nullptr;
-	UI::Choice *backgroundChoice_ = nullptr;
-	UI::PopupMultiChoice *resolutionChoice_ = nullptr;
-	UI::CheckBox *frameSkipAuto_ = nullptr;
 #ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice = nullptr;
 	UI::CheckBox *SavePathInOtherChoice = nullptr;
@@ -76,9 +70,6 @@ private:
 	std::string memstickDisplay_;
 
 	// Global settings handlers
-	void OnAutoFrameskip(UI::EventParams &e);
-	void OnTextureShader(UI::EventParams &e);
-	void OnTextureShaderChange(UI::EventParams &e);
 	void OnChangeQuickChat0(UI::EventParams &e);
 	void OnChangeQuickChat1(UI::EventParams &e);
 	void OnChangeQuickChat2(UI::EventParams &e);

@@ -1305,6 +1305,7 @@ void sendChat(const std::string &chatString) {
 		std::lock_guard<std::mutex> guard(chatLogLock);
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		chatLog.push_back(std::string(n->T("You're in Offline Mode, go to lobby or online hall")));
+		INFO_LOG(Log::sceNet, "Offline. Would have sent: %s", chatString.c_str());
 		chatMessageGeneration++;
 	}
 }

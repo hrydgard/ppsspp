@@ -882,7 +882,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	} else {
 		Choice::Draw(dc);
 
-		if (text_.empty() && valueText.empty() && !image_.isValid()) {
+		if (iconOnly_) {
 			// In this case we only display the image of the choice. Useful for small buttons spawning a popup.
 			dc.Draw()->DrawImageRotated(ValueImage(), bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
 			return;

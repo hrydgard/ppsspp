@@ -14,6 +14,7 @@ import android.os.Environment;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
 
@@ -29,6 +30,9 @@ public class ShortcutActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		// Ensure library is loaded before any native methods are called.
+		PpssppActivity.CheckABIAndLoadLibrary();
 
 		// Show file selector dialog here. If Android version is more than or equal to 11,
 		// use the native document file browser instead of our SimpleFileChooser.
@@ -85,39 +89,19 @@ public class ShortcutActivity extends Activity {
 		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		Log.i(TAG, "Shortcut URI: " + uri);
 		shortcutIntent.setData(uri);
-		String path = uri.toString();
-		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, path);
+		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, uri.toString());
 
-		// We can't call C++ functions here that use storage APIs since there's no
-		// NativeActivity and all the AndroidStorage methods are methods on that.
-		// Should probably change that. In the meantime, let's just process the URI to make
-		// up a name.
-
-		String pathStr = "PPSSPP Game";
-		if (path.startsWith("content://")) {
-			String [] segments = path.split("/");
-			try {
-				pathStr = java.net.URLDecoder.decode(segments[segments.length - 1], "UTF-8");
-			} catch (Exception e) {
-				Log.i(TAG, "Exception getting name: " + e);
-			}
-		} else if (path.startsWith("file:///")) {
-			try {
-				pathStr = java.net.URLDecoder.decode(path.substring(7), "UTF-8");
-			} catch (Exception e) {
-				Log.i(TAG, "Exception getting name: " + e);
-			}
-		} else {
-			pathStr = path;
+		String name = "PPSSPP Game";
+		DocumentFile docFile = DocumentFile.fromSingleUri(this, uri);
+		if (docFile != null && docFile.getName() != null) {
+			name = docFile.getName();
 		}
 
-		String[] pathSegments = pathStr.split("/");
-		String name = pathSegments[pathSegments.length - 1];
-
-		PpssppActivity.CheckABIAndLoadLibrary();
 		String gameName = name;
+		Log.i(TAG, "Fallback name from URI: " + name);
+
 		byte[] iconData;
-		Object[] result = queryGameInfo(this, path);
+		Object[] result = queryGameInfo(this, uri.toString());
 		if (result != null && result.length >= 2) {
 			if (result[0] != null) {
 				gameName = (String) result[0];     // index 0 = name
@@ -129,13 +113,13 @@ public class ShortcutActivity extends Activity {
 			Log.e(TAG, "Bad return value from queryGameInfo");
 		}
 
-		Log.i(TAG, "Game name: " + name + " : Creating shortcut to " + uri);
+		Log.i(TAG, "Game name: " + gameName + " : Creating shortcut to " + uri);
 
 		// This is Intent that will be returned by this method, as response to
 		// ACTION_CREATE_SHORTCUT. Wrap shortcut intent inside this intent.
 		Intent responseIntent = new Intent();
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
-		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name);
+		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, gameName);
 
 		if (iconData != null) {
 			try {
@@ -156,9 +140,11 @@ public class ShortcutActivity extends Activity {
 					canvas.drawBitmap(bmp, 0, y, new Paint(Paint.FILTER_BITMAP_FLAG));
 					// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
 					responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
+					bmp.recycle();
 				}
 			} catch (Exception e) {
 				NativeApp.reportException(e, "Error assigning generated icon");
+				Log.e(TAG, "Error assigning generated icon: " + e);
 			}
 		} else {
 			Log.i(TAG, "No icon available, falling back to PPSSPP icon");
@@ -168,6 +154,7 @@ public class ShortcutActivity extends Activity {
 				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
 			} catch (Exception e) {
 				NativeApp.reportException(e, "Error assigning default icon");
+				Log.e(TAG, "Error assigning default icon: " + e);
 			}
 		}
 
@@ -175,6 +162,7 @@ public class ShortcutActivity extends Activity {
 
 		// Must call finish for result to be returned immediately
 		finish();
+		Log.i(TAG, "End of respondToShortcutRequest");
 	}
 
 	// Event when a file is selected on file dialog.

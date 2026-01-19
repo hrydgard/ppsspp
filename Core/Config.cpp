@@ -1029,11 +1029,11 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("ChatButtonPosition", SETTING(g_Config, iChatButtonPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("ChatScreenPosition", SETTING(g_Config, iChatScreenPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("EnableQuickChat", SETTING(g_Config, bEnableQuickChat), true, CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat1", SETTING(g_Config, sQuickChat0), "Quick Chat 1", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat2", SETTING(g_Config, sQuickChat1), "Quick Chat 2", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat3", SETTING(g_Config, sQuickChat2), "Quick Chat 3", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat4", SETTING(g_Config, sQuickChat3), "Quick Chat 4", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat5", SETTING(g_Config, sQuickChat4), "Quick Chat 5", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat1", SETTING(g_Config, sQuickChat[0]), "Quick Chat 1", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat2", SETTING(g_Config, sQuickChat[1]), "Quick Chat 2", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat3", SETTING(g_Config, sQuickChat[2]), "Quick Chat 3", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat4", SETTING(g_Config, sQuickChat[3]), "Quick Chat 4", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat5", SETTING(g_Config, sQuickChat[4]), "Quick Chat 5", CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting systemParamSettings[] = {
@@ -1224,10 +1224,6 @@ bool Config::LoadAppendedConfig() {
 }
 
 void Config::UpdateAfterSettingAutoFrameSkip() {
-	if (bAutoFrameSkip && iFrameSkip == 0) {
-		iFrameSkip = 1;
-	}
-	
 	if (bAutoFrameSkip && bSkipBufferEffects) {
 		bSkipBufferEffects = false;
 	}

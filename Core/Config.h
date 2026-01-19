@@ -561,11 +561,7 @@ public:
 	int iChatScreenPosition;
 
 	bool bEnableQuickChat;
-	std::string sQuickChat0;
-	std::string sQuickChat1;
-	std::string sQuickChat2;
-	std::string sQuickChat3;
-	std::string sQuickChat4;
+	std::string sQuickChat[5];
 
 	int iPSPModel;
 	int iFirmwareVersion;

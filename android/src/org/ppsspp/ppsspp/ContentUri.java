@@ -128,8 +128,8 @@ public class ContentUri {
 					}
 				}
 				c.close();
+				c = null;
 			}
-			c = null;
 
 			for (Uri childUri : childDirs) {
 				long dirSize = directorySizeRecursion(activity, childUri);

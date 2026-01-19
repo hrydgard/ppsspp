@@ -156,8 +156,12 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayFlip(int cyclesLate);
 static void __DisplaySetFramerate(void);
 
+static bool UseAutoFrameSkip() {
+	return g_Config.bAutoFrameSkip && !g_Config.bSkipBufferEffects;
+}
+
 static bool UseLagSync() {
-	return g_Config.bForceLagSync && !g_Config.bAutoFrameSkip;
+	return g_Config.bForceLagSync && !UseAutoFrameSkip();
 }
 
 static void ScheduleLagSync(int over = 0) {
@@ -402,6 +406,8 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 	PROFILE_THIS_SCOPE("timing");
 	*skipFrame = false;
 
+	const bool autoFrameSkip = UseAutoFrameSkip();
+
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
@@ -424,8 +430,8 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	int frameSkipNum = g_Config.iFrameSkip;
-	if (g_Config.bAutoFrameSkip && !g_Config.bSkipBufferEffects) {
+	const int frameSkipNum = g_Config.iFrameSkip;
+	if (autoFrameSkip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
