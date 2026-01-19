@@ -1096,14 +1096,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	protected String getInputDeviceDebugString() {
-		String buffer = "";
+		StringBuilder buffer = new StringBuilder();
 		for (InputDeviceState input : inputPlayers) {
-			buffer += input.getDebugString();
+			buffer.append(input.getDebugString());
 		}
-		if (buffer.isEmpty()) {
+		if (buffer.length() == 0) {
 			return "(no devices)";
 		}
-		return buffer;
+		return buffer.toString();
 	}
 
 	// We grab the keys before onKeyDown/... even see them. This is also better because it lets us
