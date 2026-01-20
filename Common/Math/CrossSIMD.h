@@ -202,14 +202,6 @@ struct Vec4F32 {
 		bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(bits), _mm_set1_ps(1.0f / 32768.0f)) };
 	}
-	void Store(float *dst) { _mm_storeu_ps(dst, v); }
-	void Store2(float *dst) { _mm_storel_epi64((__m128i *)dst, _mm_castps_si128(v)); }
-	void StoreAligned (float *dst) { _mm_store_ps(dst, v); }
-	void Store3(float *dst) {
-		// TODO: There might be better ways.
-		_mm_store_pd((double *)dst, _mm_castps_pd(v));
-		_mm_store_ss(dst + 2, _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2)));
-	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes
 		__m128i value = _mm_loadl_epi64((const __m128i *)src);
@@ -230,6 +222,20 @@ struct Vec4F32 {
 
 		__m128 value = _mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8));
 		return Vec4F32{ _mm_or_ps(_mm_and_ps(value, _mm_load_ps((const float *)mask)), _mm_load_ps(onelane3)) };
+	}
+
+	void Store(float *dst) { _mm_storeu_ps(dst, v); }
+	void Store2(float *dst) { _mm_storel_epi64((__m128i *)dst, _mm_castps_si128(v)); }
+	void StoreAligned(float *dst) { _mm_store_ps(dst, v); }
+	void Store3(float *dst) {
+		// This seems to be the best way with SSE2.
+		_mm_storel_pd((double *)dst, _mm_castps_pd(v));
+		_mm_store_ss(dst + 2, _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2)));
+	}
+	void StoreConvertToU8(uint8_t *dst) {
+		__m128i zero = _mm_setzero_si128();
+		__m128i ivalue = _mm_packus_epi16(_mm_packs_epi32(_mm_cvttps_epi32(v), zero), zero);
+		_mm_storeu_si32(dst, ivalue);
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) { return Vec4F32{ _mm_cvtepi32_ps(other.v) }; }
@@ -530,14 +536,6 @@ struct Vec4F32 {
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vld1_s16(src)), 15) };
 	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
-	void Store(float *dst) { vst1q_f32(dst, v); }
-	void Store2(float *dst) { vst1_f32(dst, vget_low_f32(v)); }
-	void StoreAligned(float *dst) { vst1q_f32(dst, v); }
-	void Store3(float *dst) {
-		// TODO: There might be better ways. Try to avoid this when possible.
-		vst1_f32(dst, vget_low_f32(v));
-		dst[2] = vgetq_lane_f32(v, 2);
-	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		int16x4_t value = vld1_s16(src);
@@ -556,6 +554,26 @@ struct Vec4F32 {
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) {
 		return Vec4F32{ vcvtq_f32_s32(other.v) };
+	}
+
+	void Store(float *dst) { vst1q_f32(dst, v); }
+	void Store2(float *dst) { vst1_f32(dst, vget_low_f32(v)); }
+	void StoreAligned(float *dst) { vst1q_f32(dst, v); }
+	void Store3(float *dst) {
+		// TODO: There might be better ways. Try to avoid this when possible.
+		vst1_f32(dst, vget_low_f32(v));
+#if PPSSPP_ARCH(ARM64_NEON)
+		vst1q_lane_f32(dst + 2, v, 2);
+#else
+		dst[2] = vgetq_lane_f32(v, 2);
+#endif
+	}
+	void StoreConvertToU8(uint8_t *dest) {
+		uint32x4_t ivalue32 = vcvtq_u32_f32(v);
+		uint16x4_t ivalue16 = vqmovn_u32(ivalue32);
+		uint8x8_t ivalue8 = vqmovn_u16(vcombine_u16(ivalue16, ivalue16));  // Is there no way to avoid the combine here?
+		uint32_t value = vget_lane_u32(vreinterpret_u32_u8(ivalue8), 0);
+		memcpy(dest, &value, sizeof(uint32_t));
 	}
 
 	// NOTE: May be slow.
