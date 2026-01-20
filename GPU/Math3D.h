@@ -1199,14 +1199,6 @@ inline void ConvertMatrix4x3To3x4Transposed(float *m4x4, const float *m4x3) {
 #endif
 }
 
-inline void Transpose4x4(float out[16], const float in[16]) {
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			out[i * 4 + j] = in[j * 4 + i];
-		}
-	}
-}
-
 namespace Math3D {
 
 template<typename T>
