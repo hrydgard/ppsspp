@@ -2082,6 +2082,27 @@ set(GPU_SOURCES
 	GPU/Software/TransformUnit.h
 )
 
+set(aemu_postoffice
+	ext/aemu_postoffice/client/postoffice.c
+	ext/aemu_postoffice/client/mutex_impl_cpp.cpp
+	ext/aemu_postoffice/client/delay_impl_cpp.cpp
+	ext/aemu_postoffice/client/log_impl_ppsspp.cpp
+)
+
+if(WIN32)
+	set(aemu_postoffice
+		${aemu_postoffice}
+		ext/aemu_postoffice/client/sock_impl_windows.c
+	)
+endif()
+
+if(LINUX OR ANDROID OR MACOSX OR IOS)
+	set(aemu_postoffice
+		${aemu_postoffice}
+		ext/aemu_postoffice/client/sock_impl_linux.c
+	)
+endif()
+
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
@@ -2327,6 +2348,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/NetAdhocCommon.h
 	Core/HLE/sceNetAdhoc.cpp
 	Core/HLE/sceNetAdhoc.h
+	${aemu_postoffice}
 	Core/HLE/sceNetAdhocMatching.cpp
 	Core/HLE/sceNetAdhocMatching.h
 	Core/HLE/sceNetInet.cpp

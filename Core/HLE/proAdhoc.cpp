@@ -57,6 +57,8 @@
 
 #include "Core/HLE/NetAdhocCommon.h"
 
+#include "ext/aemu_postoffice/client/postoffice_client.h"
+
 #ifdef _WIN32
 #undef errno
 #define errno WSAGetLastError()
@@ -89,6 +91,7 @@ int adhocConnectionType               = ADHOC_CONNECT;
 int gameModeSocket                    = (int)INVALID_SOCKET; // UDP/PDP socket? on Master only?
 int gameModeBuffSize                  = 0;
 u8* gameModeBuffer                    = nullptr;
+extern bool serverHasRelay;
 GameModeArea masterGameModeArea;
 std::vector<GameModeArea> replicaGameModeAreas;
 std::vector<SceNetEtherAddr> requiredGameModeMacs;
@@ -418,17 +421,39 @@ void deleteAllAdhocSockets() {
 		// Active Socket
 		if (adhocSockets[i] != NULL) {
 			auto sock = adhocSockets[i];
-			int fd = -1;
 
-			if (sock->type == SOCK_PTP)
-				fd = sock->data.ptp.id;
-			else if (sock->type == SOCK_PDP)
-				fd = sock->data.pdp.id;
+			if (serverHasRelay) {
+				if (sock->type == SOCK_PTP) {
+					// sync
+					if (sock->connectThread != NULL) {
+						sock->connectThread->join();
+						delete sock->connectThread;
+					}
+					void *socket = sock->postofficeHandle;
+					if (socket != NULL) {
+						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
+							ptp_listen_close(socket);
+						} else {
+							ptp_close(socket);
+						}
+					}
+				} else {
+					if (sock->postofficeHandle != NULL) {
+						pdp_delete(sock->postofficeHandle);
+					}
+				}
+			} else {
+				int fd = -1;
+				if (sock->type == SOCK_PTP)
+					fd = sock->data.ptp.id;
+				else if (sock->type == SOCK_PDP)
+					fd = sock->data.pdp.id;
 
-			if (fd > 0) {
-				// Close Socket
-				shutdown(fd, SD_RECEIVE);
-				closesocket(fd);
+				if (fd > 0) {
+					// Close Socket
+					shutdown(fd, SD_RECEIVE);
+					closesocket(fd);
+				}
 			}
 			// Free Memory
 			free(adhocSockets[i]);
