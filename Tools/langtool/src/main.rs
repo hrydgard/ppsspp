@@ -548,8 +548,7 @@ fn generate_prompt(filenames: &[String], section: &str, value: &str, extra: &str
     let base_str = format!("Please translate '{value}' from US English to all of these languages: {languages}.
     Output in json format, a single dictionary, key=value. Include en_US first (the original string).
     For context, the string will be in the translation section '{section}', and these strings are UI strings for my PSP emulator application.
-    'frame' refers to a displayed image frame of the running game, not a photo frame. In Swedish, frame is best translated as bildruta, and similar
-    may apply in other Nordic languages. Keep the strings relatively short, don't let them become more than 40% longer than the original string.
+    Keep the strings relatively short, don't let them become more than 40% longer than the original string.
     Do not output any text before or after the list of translated strings, do not ask followups.
     {extra}");
 
