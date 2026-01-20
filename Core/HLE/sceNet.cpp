@@ -653,7 +653,10 @@ void __NetShutdown() {
 	__UPnPShutdown();
 #endif
 
-	free(dummyPeekBuf64k);
+	if (dummyPeekBuf64k) {
+		free(dummyPeekBuf64k);
+		dummyPeekBuf64k = NULL;
+	}
 }
 
 static void __UpdateApctlHandlers(u32 oldState, u32 newState, u32 flag, u32 error) {
