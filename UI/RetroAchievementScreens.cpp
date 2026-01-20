@@ -560,18 +560,13 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	}
 
 	// Download and display the image.
-	char cacheKey[256];
-	snprintf(cacheKey, sizeof(cacheKey), "ai:%s:%s", achievement->badge_name, iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? "unlocked" : "locked");
-	if (RC_OK == rc_client_achievement_get_image_url(achievement, iconState, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(cacheKey, temp);
-		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
-			dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
-		}
-		dc.Flush();
-		dc.RebindTexture();
+	const char *url = iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? achievement->badge_url : achievement->badge_locked_url;
+	Achievements::DownloadImageIfMissing(url);
+	if (g_iconCache.BindIconTexture(&dc, url)) {
+		dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
-
 	dc.Flush();
+	dc.RebindTexture();
 	dc.PopScissor();
 }
 
@@ -614,14 +609,9 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
-	char url[512];
-	char cacheKey[256];
-	snprintf(cacheKey, sizeof(cacheKey), "gi:%s", gameInfo->badge_name);
-	if (RC_OK == rc_client_game_get_image_url(gameInfo, url, sizeof(url))) {
-		Achievements::DownloadImageIfMissing(cacheKey, url);
-		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
-			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
-		}
+	Achievements::DownloadImageIfMissing(gameInfo->badge_url);
+	if (g_iconCache.BindIconTexture(&dc, gameInfo->badge_url)) {
+		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
 
 	dc.Flush();
@@ -714,12 +704,10 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.Flush();
 
 	// Come up with a unique name for the icon entry.
-	char cacheKey[256];
-	snprintf(cacheKey, sizeof(cacheKey), "lbe:%s", entry->user);
-	char temp[512];
-	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(cacheKey, temp);
-		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
+	char userImageUrl[512];
+	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, userImageUrl, sizeof(userImageUrl))) {
+		Achievements::DownloadImageIfMissing(userImageUrl);
+		if (g_iconCache.BindIconTexture(&dc, userImageUrl)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}
