@@ -196,7 +196,7 @@ void IconCache::Decimate(int64_t maxSize) {
 	}
 }
 
-bool IconCache::GetDimensions(const std::string &key, int *width, int *height) {
+bool IconCache::GetDimensions(std::string_view key, int *width, int *height) {
 	std::unique_lock<std::mutex> lock(lock_);
 	auto iter = cache_.find(key);
 	if (iter == cache_.end()) {
@@ -214,12 +214,12 @@ bool IconCache::GetDimensions(const std::string &key, int *width, int *height) {
 	}
 }
 
-bool IconCache::Contains(const std::string &key) {
+bool IconCache::Contains(std::string_view key) {
 	std::unique_lock<std::mutex> lock(lock_);
 	return cache_.find(key) != cache_.end();
 }
 
-bool IconCache::MarkPending(const std::string &key) {
+bool IconCache::MarkPending(std::string_view key) {
 	std::unique_lock<std::mutex> lock(lock_);
 	if (cache_.find(key) != cache_.end()) {
 		return false;
@@ -227,16 +227,21 @@ bool IconCache::MarkPending(const std::string &key) {
 	if (pending_.find(key) != pending_.end()) {
 		return false;
 	}
-	pending_.insert(key);
+	pending_.emplace(key);
 	return true;
 }
 
-void IconCache::CancelPending(const std::string &key) {
+void IconCache::CancelPending(std::string_view key) {
 	std::unique_lock<std::mutex> lock(lock_);
-	pending_.erase(key);
+	auto iter = pending_.find(key);
+	if (iter == pending_.end()) {
+		ERROR_LOG(Log::System, "IconCache: CancelPending called for non-pending key: %.*s", STR_VIEW(key));
+		return;
+	}
+	pending_.erase(iter);
 }
 
-bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::string &&data) {
+bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string &&data) {
 	if (key.empty()) {
 		return false;
 	}
@@ -248,23 +253,27 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 	}
 
 	std::unique_lock<std::mutex> lock(lock_);
+
 	if (cache_.find(key) != cache_.end()) {
 		// Already have this entry.
 		return false;
 	}
 
 	if (data.size() > 1024 * 512) {
-		WARN_LOG(Log::G3D, "Unusually large icon inserted in icon cache: %s (%d bytes)", key.c_str(), (int)data.size());
+		WARN_LOG(Log::G3D, "Unusually large icon inserted in icon cache: %.*s (%d bytes)", STR_VIEW(key), (int)data.size());
 	}
 
-	pending_.erase(key);
+	auto iter = pending_.find(key);
+	if (iter != pending_.end()) {
+		pending_.erase(iter);
+	}
 
 	double now = time_now_d();
 	cache_.emplace(key, Entry{ std::move(data), format, nullptr, now, now, false });
 	return true;
 }
 
-Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string &key) {
+Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view key) {
 	if (key.empty()) {
 		return nullptr;
 	}
@@ -300,7 +309,7 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string 
 			&height, &buffer);
 
 		if (result != 1) {
-			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %s", (int)iter->second.data.size(), key.c_str());
+			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %.*s", (int)iter->second.data.size(), STR_VIEW(key));
 			iter->second.badData = true;
 			return nullptr;
 		}
@@ -319,7 +328,7 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string 
 	iconDesc.mipLevels = 1;
 	iconDesc.swizzle = Draw::TextureSwizzle::DEFAULT;
 	iconDesc.generateMips = false;
-	iconDesc.tag = key.c_str();
+	iconDesc.tag = "icon";
 	iconDesc.format = dataFormat;
 	iconDesc.type = Draw::TextureType::LINEAR2D;
 

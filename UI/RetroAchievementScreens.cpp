@@ -36,11 +36,11 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
 	}
-	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([this](UI::EventParams &) {
 		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
 		g_BackgroundAudio.SFX().Play(sound_, achievementVolume);
 	});
-	Add(new FileChooserChoice(token, value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
+	Add(new FileChooserChoice(token, value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([this, sound, value](UI::EventParams &e) {
 		std::string path = e.s;
 		Sample *sample = Sample::Load(path);
 		if (sample) {
@@ -52,12 +52,12 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 		}
 	});
 	Choice *trash = new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT));
-	trash->OnClick.Add([=](UI::EventParams &) {
+	trash->OnClick.Add([sound, value](UI::EventParams &) {
 		g_BackgroundAudio.SFX().UpdateSample(sound, nullptr);
 		value->clear();
 	});
 	Add(trash);
-	trash->SetEnabledFunc([=]() {
+	trash->SetEnabledFunc([value]() {
 		return !value->empty();
 	});
 }
@@ -161,7 +161,7 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 
 	for (auto &leaderboard : leaderboards) {
 		int leaderboardID = leaderboard->id;
-		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([=](UI::EventParams &e) -> void {
+		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([this, leaderboardID](UI::EventParams &e) -> void {
 			screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));
 		});
 	}
@@ -231,7 +231,7 @@ void RetroAchievementsLeaderboardScreen::CreateLeaderboardTab(UI::LinearLayout *
 	auto strip = layout->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 	strip->AddChoice(ac->T("Top players"));
 	strip->AddChoice(ac->T("Around me"));
-	strip->OnChoice.Add([=](UI::EventParams &e) {
+	strip->OnChoice.Add([this, strip](UI::EventParams &e) {
 		strip->SetSelection(e.a, false);
 		nearMe_ = e.a != 0;
 		FetchEntries();
@@ -317,18 +317,19 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		}
 		viewGroup->Add(new InfoItem(di->T("Username"), info->username));
 		// viewGroup->Add(new InfoItem(ac->T("Unread messages"), info.numUnreadMessages));
-		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> void {
+		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
 			Achievements::Logout();
 		});
 	} else {
 		std::string errorMessage;
 		if (Achievements::LoginProblems(&errorMessage)) {
 			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
-			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> void {
+			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
 				Achievements::Logout();
 			});
 		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
-			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> void {
+			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([this](UI::EventParams &) -> void {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
 				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](const std::string &value, int) {
 					std::vector<std::string> parts;
@@ -343,25 +344,25 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
 			Choice *loginButton = viewGroup->Add(new Choice(di->T("Log in")));
-			loginButton->OnClick.Add([=](UI::EventParams &) -> void {
+			loginButton->OnClick.Add([this](UI::EventParams &) -> void {
 				if (!g_Config.sAchievementsUserName.empty() && !password_.empty()) {
 					Achievements::LoginAsync(g_Config.sAchievementsUserName.c_str(), password_.c_str());
 					memset(&password_[0], 0, password_.size());
 					password_.clear();
 				}
 			});
-			loginButton->SetEnabledFunc([&]() {
+			loginButton->SetEnabledFunc([this]() {
 				return !g_Config.sAchievementsUserName.empty() && !password_.empty();
 			});
 		}
-		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> void {
+		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([](UI::EventParams &) -> void {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 		});
 	}
 
 	using namespace UI;
 	viewGroup->Add(new ItemHeader(di->T("Settings")));
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([&](UI::EventParams &e) -> void {
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([this](UI::EventParams &e) -> void {
 		Achievements::UpdateSettings();
 		RecreateViews();
 	});
@@ -369,10 +370,10 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
 	viewGroup->Add(new ItemHeader(di->T("Links")));
-	viewGroup->Add(new Choice(ac->T("RetroAchievements website"), ImageID("I_LINK_OUT")))->OnClick.Add([&](UI::EventParams &) -> void {
+	viewGroup->Add(new Choice(ac->T("RetroAchievements website"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
 	});
-	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements"), ImageID("I_LINK_OUT")))->OnClick.Add([&](UI::EventParams &) -> void {
+	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
 	});
 }
@@ -560,18 +561,13 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	}
 
 	// Download and display the image.
-	char cacheKey[256];
-	snprintf(cacheKey, sizeof(cacheKey), "ai:%s:%s", achievement->badge_name, iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? "unlocked" : "locked");
-	if (RC_OK == rc_client_achievement_get_image_url(achievement, iconState, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(cacheKey, temp);
-		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
-			dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
-		}
-		dc.Flush();
-		dc.RebindTexture();
+	const char *url = iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? achievement->badge_url : achievement->badge_locked_url;
+	Achievements::DownloadImageIfMissing(url);
+	if (g_iconCache.BindIconTexture(&dc, url)) {
+		dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
-
 	dc.Flush();
+	dc.RebindTexture();
 	dc.PopScissor();
 }
 
@@ -614,14 +610,9 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
-	char url[512];
-	char cacheKey[256];
-	snprintf(cacheKey, sizeof(cacheKey), "gi:%s", gameInfo->badge_name);
-	if (RC_OK == rc_client_game_get_image_url(gameInfo, url, sizeof(url))) {
-		Achievements::DownloadImageIfMissing(cacheKey, url);
-		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
-			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
-		}
+	Achievements::DownloadImageIfMissing(gameInfo->badge_url);
+	if (g_iconCache.BindIconTexture(&dc, gameInfo->badge_url)) {
+		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
 
 	dc.Flush();
@@ -714,12 +705,10 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.Flush();
 
 	// Come up with a unique name for the icon entry.
-	char cacheKey[256];
-	snprintf(cacheKey, sizeof(cacheKey), "lbe:%s", entry->user);
-	char temp[512];
-	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(cacheKey, temp);
-		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
+	char userImageUrl[512];
+	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, userImageUrl, sizeof(userImageUrl))) {
+		Achievements::DownloadImageIfMissing(userImageUrl);
+		if (g_iconCache.BindIconTexture(&dc, userImageUrl)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}
