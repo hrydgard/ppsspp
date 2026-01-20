@@ -680,10 +680,7 @@ void VertexDecoder::Step_Color8888Morph(const VertexDecoder *dec, const u8 *ptr,
 	u8 *c = decoded + dec->decFmt.c0off;
 	sum.StoreConvertToU8(c);
 
-	// Just for alpha. Maybe there's a better way.
-	float temp[4];
-	sum.Store(temp);
-	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && temp[3] >= 255.0f;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && sum.GetLane<3>() >= 255.0f;
 #endif
 }
 

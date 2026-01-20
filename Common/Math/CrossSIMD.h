@@ -314,6 +314,10 @@ struct Vec4F32 {
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpeq_ps(v, other.v)) }; }
 	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmplt_ps(v, other.v)) }; }
 	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpgt_ps(v, other.v)) }; }
+
+	template<int i> float GetLane() const {
+		return _mm_cvtss_f32(_mm_shuffle_ps(v, v, _MM_SHUFFLE(i, i, i, i)));
+	}
 };
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
@@ -693,6 +697,10 @@ struct Vec4F32 {
 			vaddq_f32(vmulq_lane_f32(m.col2, vget_high_f32(v), 0), m.col3));
 #endif
 		return Vec4F32{ sum };
+	}
+
+	template<int i> float GetLane() const {
+		return vgetq_lane_f32(v, i);
 	}
 };
 
@@ -1143,6 +1151,10 @@ struct Vec4F32 {
 		float z = m.m[2] * v[0] + m.m[6] * v[1] + m.m[10] * v[2] + m.m[14];
 
 		return Vec4F32{ { x, y, z, 1.0f } };
+	}
+
+	template<int i> float GetLane() const {
+		return v[i];
 	}
 };
 
