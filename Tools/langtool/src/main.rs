@@ -46,6 +46,12 @@ enum Command {
         key: String,
         extra: Option<String>,
     },
+    AddNewKeyValueAI {
+        section: String,
+        key: String,
+        value: String,
+        extra: Option<String>,
+    },
     AddNewKeyValue {
         section: String,
         key: String,
@@ -663,45 +669,26 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         return;
     }
 
+    // This is a bit ugly, but we need to generate the AI response before processing files.
     let ai_response = if let Command::AddNewKeyAI {
         section,
         key,
         extra,
     } = &cmd
     {
-        let prompt = generate_prompt(
-            &filenames,
-            section,
-            key,
-            &extra.clone().unwrap_or("".to_string()),
-        );
-        println!("generated prompt:\n{prompt}");
-        if let Some(ai) = &ai {
-            println!("Using AI for translation...");
-            let response = ai
-                .chat(&prompt)
-                .map_err(|e| anyhow::anyhow!("chat failed: {e}"))
-                .unwrap();
-            println!("AI response: {response}");
-            if let Some(parsed) = parse_response(&response) {
-                println!("Parsed: {:?}", parsed);
-
-                if parsed.len() < filenames.len() {
-                    println!(
-                        "Not enough languages generated! {} vs {}",
-                        parsed.len(),
-                        filenames.len()
-                    );
-                }
-
-                Some(parsed)
-            } else {
-                println!("Failed to parse AI response, not doing anything.");
-                return;
-            }
-        } else {
-            println!("AI key not set, skipping AI command.");
-            return;
+        match generate_ai_response(ai, &filenames, section, key, extra) {
+            Some(value) => value,
+            None => return,
+        }
+    } else if let Command::AddNewKeyValueAI {
+        section,
+        key: _,  // We don't need the key here, it's used later when writing to the ini file.
+        value,
+        extra,
+    } = &cmd {
+        match generate_ai_response(ai, &filenames, section, value, extra) {
+            Some(value) => value,
+            None => return,
         }
     } else {
         None
@@ -762,6 +749,19 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                 ref key,
                 extra: _,
             } => {
+                let lang = filename.split_once('.').unwrap().0;
+                if let Some(ai_response) = &ai_response {
+                    // Process it.
+                    if let Some(translated_string) = ai_response.get(lang) {
+                        println!("{lang}:");
+                        add_new_key(&mut target_ini, section, key, translated_string).unwrap();
+                    } else {
+                        println!("Language {lang} not found in response. Bailing.");
+                        return;
+                    }
+                }
+            }
+            Command::AddNewKeyValueAI { ref section, ref key, value: _,  extra: _ } => {
                 let lang = filename.split_once('.').unwrap().0;
                 if let Some(ai_response) = &ai_response {
                     // Process it.
@@ -935,4 +935,41 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
     if !dry_run {
         reference_ini.write().unwrap();
     }
+}
+
+fn generate_ai_response(ai: Option<&ChatGPT>, filenames: &Vec<String>, section: &String, key: &String, extra: &Option<String>) -> Option<Option<BTreeMap<String, String>>> {
+    let prompt = generate_prompt(
+        filenames,
+        section,
+        key,
+        &extra.clone().unwrap_or("".to_string()),
+    );
+    println!("generated prompt:\n{prompt}");
+    Some(if let Some(ai) = &ai {
+        println!("Using AI for translation...");
+        let response = ai
+            .chat(&prompt)
+            .map_err(|e| anyhow::anyhow!("chat failed: {e}"))
+            .unwrap();
+        println!("AI response: {response}");
+        if let Some(parsed) = parse_response(&response) {
+            println!("Parsed: {:?}", parsed);
+
+            if parsed.len() < filenames.len() {
+                println!(
+                    "Not enough languages generated! {} vs {}",
+                    parsed.len(),
+                    filenames.len()
+                );
+            }
+
+            Some(parsed)
+        } else {
+            println!("Failed to parse AI response, not doing anything.");
+            return None;
+        }
+    } else {
+        println!("AI key not set, skipping AI command.");
+        return None;
+    })
 }
