@@ -137,16 +137,8 @@ void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, floa
 		return;
 	}
 
-#if 0 && defined(_DEBUG)
-	if (str.find('\r') != std::string_view::npos) {
-		_dbg_assert_msg_(false, "carriage return found in string to measure");
-	}
-#endif
-
-	std::string toMeasure(str);
-
 	std::vector<std::string_view> lines;
-	SplitString(toMeasure, '\n', lines);
+	SplitString(str, '\n', lines);
 
 	int extW = 0, extH = 0;
 	for (auto &line : lines) {

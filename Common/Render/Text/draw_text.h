@@ -77,6 +77,7 @@ public:
 protected:
 	TextDrawer(Draw::DrawContext *draw);
 
+	// Implementations of this must handle multi-line strings.
 	virtual void MeasureStringInternal(std::string_view str, float *w, float *h) = 0;
 
 	void ClearCache();
