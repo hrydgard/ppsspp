@@ -301,15 +301,30 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 		}
 	}
 
-	int width = 0;
-	int height = 0;
+	std::vector<std::string_view> lines;
+	SplitString(str, '\n', lines);
 
-	// Unfortunately we need to zero-terminate here.
-	std::string text(str);
-	TTF_SizeUTF8(font, text.c_str(), &width, &height);
+	INFO_LOG(Log::G3D, "Measuring string %.*s", STR_VIEW(str));
 
-	*w = (float)width;
-	*h = (float)height;
+	int extW = 0, extH = 0;
+	std::string temp;
+	for (auto line : lines) {
+		int width = 0;
+		int height = 0;
+		if (line.empty()) {
+			// Measure empty lines as if it was a space.
+			line = " ";
+		}
+		temp = line;  // zero-terminate, ugh.
+		TTF_SizeUTF8(font, temp.c_str(), &width, &height);
+
+		if (width > extW)
+			extW = width;
+		extH += height;
+	}
+
+	*w = (float)extW;
+	*h = (float)extH;
 }
 
 bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
