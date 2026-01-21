@@ -51,7 +51,7 @@ class LocationHelper implements LocationListener {
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 					mGnssStatusCallback = new GnssStatus.Callback() {
 						@Override
-						public void onSatelliteStatusChanged(GnssStatus status) {
+						public void onSatelliteStatusChanged(@NonNull GnssStatus status) {
 							onSatelliteStatus(status);
 						}
 					};
@@ -64,12 +64,7 @@ class LocationHelper implements LocationListener {
 					};
 					mLocationManager.addNmeaListener(mNmeaMessageListener);
 				} else {
-					mGpsStatusListener = new GpsStatus.Listener() {
-						@Override
-						public void onGpsStatusChanged(int event) {
-							onGpsStatus(event);
-						}
-					};
+					mGpsStatusListener = this::onGpsStatus;
 					mLocationManager.addGpsStatusListener(mGpsStatusListener);
 					mNmeaListener = new GpsStatus.NmeaListener() {
 						@Override

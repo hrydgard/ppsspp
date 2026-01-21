@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-@TargetApi(23)
 @SuppressWarnings("deprecation")
 class CameraHelper {
 	private static final String TAG = CameraHelper.class.getSimpleName();

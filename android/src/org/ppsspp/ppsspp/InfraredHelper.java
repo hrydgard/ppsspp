@@ -15,7 +15,7 @@ import java.util.List;
 class InfraredHelper {
 	private static final String TAG = InfraredHelper.class.getSimpleName();
 	private static final int SIRC_FREQ = 40000;
-	private ConsumerIrManager mConsumerIrManager;
+	private final ConsumerIrManager mConsumerIrManager;
 
 	InfraredHelper(Context context) throws Exception {
 		mConsumerIrManager = (ConsumerIrManager) context.getSystemService(Context.CONSUMER_IR_SERVICE);
@@ -41,8 +41,7 @@ class InfraredHelper {
 		final List<Integer> one   = Arrays.asList(1200, 600);
 		final List<Integer> zero  = Arrays.asList( 600, 600);
 
-		List<Integer> iterList = new ArrayList<>();
-		iterList.addAll(start);
+		List<Integer> iterList = new ArrayList<>(start);
 
 		for (int i = 0; i < version; i++) {
 			List<Integer> val = i < 7
@@ -55,7 +54,7 @@ class InfraredHelper {
 		for (int i = 0; i < iterList.size() - 1; i++) {
 			iterSum += iterList.get(i);
 		}
-		int lastVal = 52000 - iterSum; // SIRC cicle = 52ms
+		int lastVal = 52000 - iterSum; // SIRC cycle = 52ms
 		iterList.set(iterList.size() - 1, lastVal);
 
 		List<Integer> patternList = new ArrayList<>();

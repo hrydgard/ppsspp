@@ -19,6 +19,8 @@
 #include <android/native_window_jni.h>
 #include <android/log.h>
 
+#include "Common/Render/Text/draw_text_android.h"
+
 #elif !defined(JNIEXPORT)
 // Just for better highlighting in MSVC if opening this file.
 // Not having types makes it get confused and say everything is wrong.
@@ -584,6 +586,7 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 
 extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *env, jobject obj) {
 	ppssppActivity = env->NewGlobalRef(obj);
+	TextDrawerAndroid::SetActivity(ppssppActivity);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
 	getNativeCrashHistory = env->GetMethodID(env->GetObjectClass(obj), "getNativeCrashHistory", "(I)Ljava/util/ArrayList;");
@@ -1306,10 +1309,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	env->ReleaseFloatArrayElements(values, valueBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
 }
 
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouse(
 	JNIEnv *env, jclass, jfloat x, jfloat y, int button, int action) {
 	if (!renderer_inited)
-		return false;
+		return;
 	TouchInput input{};
 
 	static float last_x = 0.0f;
@@ -1354,20 +1357,19 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 
 	// Also send mouse button key events, for binding.
 	if (button) {
-		KeyInput input{};
-		input.deviceId = DEVICE_ID_MOUSE;
+		KeyInput keyInput{};
+		keyInput.deviceId = DEVICE_ID_MOUSE;
 		switch (button) {
-		case 1: input.keyCode = NKCODE_EXT_MOUSEBUTTON_1; break;
-		case 2: input.keyCode = NKCODE_EXT_MOUSEBUTTON_2; break;
-		case 3: input.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
+		case 1: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_1; break;
+		case 2: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_2; break;
+		case 3: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
 		default: WARN_LOG(Log::System, "Unexpected mouse button %d", button);
 		}
-		input.flags = action == 1 ? KeyInputFlags::DOWN : KeyInputFlags::UP;
-		if (input.keyCode != 0) {
-			NativeKey(input);
+		keyInput.flags = action == 1 ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+		if (keyInput.keyCode != 0) {
+			NativeKey(keyInput);
 		}
 	}
-	return true;
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(

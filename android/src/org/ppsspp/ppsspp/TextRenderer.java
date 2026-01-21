@@ -26,15 +26,13 @@ public class TextRenderer {
 
 	private static boolean highContrastFontsEnabled = false;
 
-	private static Context ctx;
-
 	static {
 		bg = new Paint();
 		bg.setColor(0);
 	}
 
 	@Keep
-	public static int allocFont(String ttfFile) {
+	public static int allocFont(Context ctx, String ttfFile) {
 		try {
 			Typeface typeFace = Typeface.createFromAsset(ctx.getAssets(), ttfFile);
 			if (typeFace != null) {
@@ -47,7 +45,6 @@ public class TextRenderer {
 			return id;
 		} catch (Exception e) {
 			Log.e(TAG, "Exception when loading typeface. shouldn't happen but is reported. We just fall back." + e);
-			e.printStackTrace();
 			return -1337;
 		}
 	}
@@ -62,7 +59,6 @@ public class TextRenderer {
 		textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
 		textPaint.setColor(Color.WHITE);
 		highContrastFontsEnabled = Settings.Secure.getInt(ctx.getContentResolver(), "high_text_contrast_enabled", 0) == 1;
-		TextRenderer.ctx = ctx;
 	}
 
 	private static Point measureLine(String string, int font, double textSize) {

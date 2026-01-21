@@ -9,7 +9,7 @@ import android.view.MotionEvent;
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 
-	private int deviceId = NativeApp.DEVICE_ID_DEFAULT;
+	private int deviceId;
 
 	private final InputDevice mDevice;
 	private final int[] mAxes;
