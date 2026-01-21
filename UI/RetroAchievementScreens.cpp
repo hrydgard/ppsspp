@@ -505,26 +505,32 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 	char temp[512];
 
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
 	switch (style) {
 	case AchievementRenderStyle::LISTED:
 	case AchievementRenderStyle::UNLOCKED:
 	{
 		dc.SetFontScale(1.0f, 1.0f);
 		std::string title = achievement->title;
+		title.push_back(' ');
 
 		// Add simple display of the achievement types.
 		// Needs refinement, but works.
 		// See issue #19632
 		switch (achievement->type) {
 		case RC_CLIENT_ACHIEVEMENT_TYPE_MISSABLE:
-			title += " [m]";
+			title += ApplySafeSubstitutions("[%1] ", ac->T("Missable"));
 			break;
 		case RC_CLIENT_ACHIEVEMENT_TYPE_PROGRESSION:
-			title += " [p]";
+			title += ApplySafeSubstitutions("[%1] ", ac->T("Progression"));
 			break;
 		case RC_CLIENT_ACHIEVEMENT_TYPE_WIN:
-			title += " [win]";
+			title += ApplySafeSubstitutions("[%1] ", ac->T("Win"));
 			break;
+		}
+		if (!title.empty() && title.back() == ' ') {
+			title.pop_back();
 		}
 
 		dc.DrawTextRect(title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
