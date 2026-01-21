@@ -1037,9 +1037,8 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		screenManager()->push(new HostnameSelectScreen(&g_Config.sProAdhocServer, &g_Config.proAdhocServerList, n->T("proAdhocServer Address:")));
 	});
 	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
-	networkingSettings->Add(new CheckBox(&g_Config.bServerHasRelay, n->T("PRO Adhoc packet relay available", "PRO Adhoc packet relay available")))->SetEnabled(!PSP_IsInited());
-	networkingSettings->Add(new SettingHint(n->T("Available when PRO Adhoc server provides aemu_postoffice packet relay, such as socom.cc.")));
-	networkingSettings->Add(new SettingHint(n->T("Disable this if playing on LAN/VPN, see wiki for how you can setup your own packet relay.")));
+	networkingSettings->Add(new CheckBox(&g_Config.bUseServerRelay, n->T("Try to use server-provided packet relay")))->SetEnabled(!PSP_IsInited());
+	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide aemu_postoffice packet relay, like socom.cc.\nDisable this for LAN or VPN play.Can be more reliable, but sometimes slower.")));
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
 	auto useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
