@@ -539,7 +539,7 @@ public:
 	// Networking
 	bool bEnableAdhocServer;
 	std::string sProAdhocServer;
-	bool bServerHasRelay;
+	bool bUseServerRelay;
 	std::vector<std::string> proAdhocServerList;
 	std::string sInfrastructureDNSServer;
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.

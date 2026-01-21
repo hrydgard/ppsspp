@@ -1642,7 +1642,7 @@ u32 sceNetAdhocInit() {
 		// Since we are deleting GameMode Master here, we should probably need to make sure GameMode resources all cleared too.
 		deleteAllGMB();
 
-		serverHasRelay = g_Config.bServerHasRelay;
+		serverHasRelay = g_Config.bUseServerRelay;
 
 		if (serverHasRelay) {
 			aemu_post_office_init();
