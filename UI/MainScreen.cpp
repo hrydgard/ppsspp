@@ -320,10 +320,12 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	if (gridStyle_ && ginfo->fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
-		// Super simple drawing for GE dumps.
+		// Super simple drawing for GE dumps (no icon, just the filename).
 		dc.PushScissor(bounds_);
 		const std::string currentTitle = ginfo->GetTitle();
+		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
 		dc.DrawText(title_, bounds_.x + 4.0f, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_LEFT);
+		dc.SetFontStyle(dc.GetTheme().uiFont);
 		title_ = currentTitle;
 		dc.Draw()->Flush();
 		dc.PopScissor();
@@ -470,6 +472,7 @@ void DirButton::Draw(UIContext &dc) {
 	ImageID image = ImageID(pinned_ ? "I_FOLDER_PINNED" : "I_FOLDER");
 	if (text == "..") {
 		image = ImageID("I_UP_DIRECTORY");
+		text = "";
 	}
 
 	float tw, th;
@@ -480,16 +483,27 @@ void DirButton::Draw(UIContext &dc) {
 	if (compact) {
 		// No folder icon, except "up"
 		dc.PushScissor(bounds_);
+		const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
 		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
+
+		int iconSize = image == ImageID("I_UP_DIRECTORY") ? (float)dc.Draw()->GetAtlas()->getImage(image)->h : bounds_.h * 0.3f;
+		float textWidth = 0.0f;
+		float textHeight = 0;
+		dc.MeasureTextRect(*fontStyle, 1.0f, 1.0f, text, bounds_.w - 10, &textWidth, &textHeight, ALIGN_HCENTER | FLAG_WRAP_TEXT);
+
+		int totalHeight = iconSize + (int)textHeight;
+
+		float y = bounds_.h / 2.0f - totalHeight / 2.0f;
+
+		dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.y + y + 2, iconSize / (float)dc.Draw()->GetAtlas()->getImage(image)->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
+
 		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
-			dc.DrawTextRect(text, bounds_.Inset(5, 2), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+			dc.DrawTextRect(text, bounds_.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
 			if (pinned_) {
 				ImageID pinID = ImageID("I_PIN");
 				const AtlasImage *pinImg = dc.Draw()->GetAtlas()->getImage(pinID);
 				dc.Draw()->DrawImage(pinID, bounds_.x + bounds_.w - pinImg->w * g_Config.fGameGridScale, bounds_.y, g_Config.fGameGridScale);
 			}
-		} else {
-			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), gridStyle_ ? g_Config.fGameGridScale : 1.0, style.fgColor, ALIGN_CENTER);
 		}
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.PopScissor();

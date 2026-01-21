@@ -501,9 +501,11 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.Flush();
 	dc.Begin();
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
 
 	char temp[512];
+
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	switch (style) {
 	case AchievementRenderStyle::LISTED:
@@ -511,45 +513,47 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	{
 		dc.SetFontScale(1.0f, 1.0f);
 		std::string title = achievement->title;
+		std::string_view badge = "";
 
 		// Add simple display of the achievement types.
 		// Needs refinement, but works.
 		// See issue #19632
 		switch (achievement->type) {
 		case RC_CLIENT_ACHIEVEMENT_TYPE_MISSABLE:
-			title += " [m]";
+			badge = ac->T("Missable");
 			break;
 		case RC_CLIENT_ACHIEVEMENT_TYPE_PROGRESSION:
-			title += " [p]";
+			badge = ac->T("Progression");
 			break;
 		case RC_CLIENT_ACHIEVEMENT_TYPE_WIN:
-			title += " [win]";
+			badge = ac->T("Win");
 			break;
 		}
 
 		dc.DrawTextRect(title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
-		dc.SetFontScale(0.66f, 0.66f);
+		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
 		dc.DrawTextRectSqueeze(DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
+		dc.DrawTextRect(badge, bounds, fgColor, ALIGN_TOPRIGHT);
+
 		if (style == AchievementRenderStyle::LISTED && strlen(achievement->measured_progress) > 0) {
-			dc.SetFontScale(1.0f, 1.0f);
+			dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
 			dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + 12.0f, padding, padding + 100.0f, padding), fgColor, ALIGN_VCENTER | ALIGN_RIGHT);
 		}
 
 		// TODO: Draw measured_progress / measured_percent in a cute way
 		snprintf(temp, sizeof(temp), "%d", achievement->points);
 
-		dc.SetFontScale(1.5f, 1.5f);
-		dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+		// The points number to the right.
+		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Big));
+		dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | (badge.empty() ? ALIGN_VCENTER : ALIGN_BOTTOMRIGHT));
 
-		dc.SetFontScale(1.0f, 1.0f);
 		dc.Flush();
 		break;
 	}
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
 		// TODO: Also render a progress bar.
-		dc.SetFontScale(1.0f, 1.0f);
 		dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + padding * 2.0f, padding, padding, padding), fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 		// Show the unlocked icon.
 		iconState = RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED;
@@ -566,6 +570,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	if (g_iconCache.BindIconTexture(&dc, url)) {
 		dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
+	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
 	dc.Flush();
 	dc.RebindTexture();
 	dc.PopScissor();
