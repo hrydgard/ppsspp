@@ -91,8 +91,8 @@ std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
 				missedKeyLog_[missedKey] = def;
 			else
 				missedKeyLog_[missedKey] = missedKey;
-			return !def.empty() ? def : key;
 		}
+		return !def.empty() ? def : key;
 	}
 }
 
@@ -114,8 +114,8 @@ const char *I18NCategory::T_cstr(const char *key, const char *def) {
 				missedKeyLog_[missedKey] = def;
 			else
 				missedKeyLog_[missedKey] = std::string(key);
-			return def ? def : key;
 		}
+		return def ? def : key;
 	}
 }
 
