@@ -290,6 +290,10 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\aemu_postoffice\client\delay_impl.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\client\log_impl.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\client\mutex_impl.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_client.h" />
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
@@ -557,6 +561,11 @@
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\aemu_postoffice\client\delay_impl_cpp.cpp" />
+    <ClCompile Include="..\ext\aemu_postoffice\client\log_impl_ppsspp.cpp" />
+    <ClCompile Include="..\ext\aemu_postoffice\client\mutex_impl_cpp.cpp" />
+    <ClCompile Include="..\ext\aemu_postoffice\client\postoffice.c" />
+    <ClCompile Include="..\ext\aemu_postoffice\client\sock_impl_windows.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac.cpp" />
     <ClCompile Include="..\ext\at3_standalone\atrac3.cpp" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plus.cpp" />

@@ -166,12 +166,9 @@ public class ShortcutActivity extends Activity {
 	}
 
 	// Event when a file is selected on file dialog.
-	private final SimpleFileChooser.FileSelectedListener onFileSelectedListener = new SimpleFileChooser.FileSelectedListener() {
-		@Override
-		public void onFileSelected(File file) {
-			// create shortcut using file path
-			Uri uri = Uri.fromFile(new File(file.getAbsolutePath()));
-			respondToShortcutRequest(uri);
-		}
+	private final SimpleFileChooser.FileSelectedListener onFileSelectedListener = file -> {
+		// create shortcut using file path
+		Uri uri = Uri.fromFile(new File(file.getAbsolutePath()));
+		respondToShortcutRequest(uri);
 	};
 }

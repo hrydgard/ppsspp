@@ -106,6 +106,9 @@
     <Filter Include="ext\imgui">
       <UniqueIdentifier>{06799036-06fd-4b7b-8c1d-5bdad62c2a24}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\aemu_postoffice">
+      <UniqueIdentifier>{e3871672-2a90-49d9-abb1-43fe75d73f8b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -525,6 +528,21 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\UI\TabHolder.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\delay_impl_cpp.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\log_impl_ppsspp.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\mutex_impl_cpp.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c">
+      <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1010,6 +1028,18 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\TabHolder.h">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\log_impl.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\sock_impl.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\postoffice_client.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\delay_impl.h">
+      <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

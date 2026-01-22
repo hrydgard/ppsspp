@@ -79,7 +79,7 @@ public class LifeCycle {
 			Log.e(TAG, "Lifecycle: onDestroy, but state is " + state + ". Expected CREATED");
 			return false;
 		}
-		state = State.CREATED;
+		state = State.LAUNCHED;
 		Log.i(TAG, "onDestroy begin");
 		return true;
 	}

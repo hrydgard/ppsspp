@@ -16,13 +16,15 @@
 
 #include <jni.h>
 
+jobject TextDrawerAndroid::activity_;
+
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
 	auto env = getEnv();
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
 	jclass localClass = findClass(textRendererClassName);
 	cls_textRenderer = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
 	if (cls_textRenderer) {
-		method_allocFont = env->GetStaticMethodID(cls_textRenderer, "allocFont", "(Ljava/lang/String;)I");
+		method_allocFont = env->GetStaticMethodID(cls_textRenderer, "allocFont", "(Landroid/content/Context;Ljava/lang/String;)I");
 		method_freeAllFonts = env->GetStaticMethodID(cls_textRenderer, "freeAllFonts", "()V");
 		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;ID)I");
 		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;IDII)[I");
@@ -60,7 +62,7 @@ void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 	if (fontIter == allocatedFonts_.end()) {
 		auto env = getEnv();
 		jstring jstr = env->NewStringUTF(filename.c_str());
-		int fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, jstr);
+		int fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, activity_, jstr);
 		env->DeleteLocalRef(jstr);
 
 		if (fontId >= 0) {

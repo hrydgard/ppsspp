@@ -21,6 +21,7 @@ public:
 
 	bool IsReady() const override;
 	void SetOrCreateFont(const FontStyle &style) override;
+	static void SetActivity(jobject activity) { activity_ = activity; }
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
@@ -31,6 +32,7 @@ protected:
 
 private:
 	// JNI functions
+	static jobject activity_;
 	jclass cls_textRenderer;
 	jmethodID method_allocFont;
 	jmethodID method_freeAllFonts;

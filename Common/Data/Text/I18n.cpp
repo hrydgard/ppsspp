@@ -85,14 +85,13 @@ std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
 		if (key != "Font") {
 			// Font is allowed to be missing.
 			INFO_LOG(Log::UI, "Missing translation [%s] %.*s (%.*s)", name_.c_str(), STR_VIEW(key), STR_VIEW(def));
+			std::lock_guard<std::mutex> guard(missedKeyLock_);
+			std::string missedKey(key);
+			if (!def.empty())
+				missedKeyLog_[missedKey] = def;
+			else
+				missedKeyLog_[missedKey] = missedKey;
 		}
-
-		std::lock_guard<std::mutex> guard(missedKeyLock_);
-		std::string missedKey(key);
-		if (!def.empty())
-			missedKeyLog_[missedKey] = def;
-		else
-			missedKeyLog_[missedKey] = missedKey;
 		return !def.empty() ? def : key;
 	}
 }
@@ -106,16 +105,16 @@ const char *I18NCategory::T_cstr(const char *key, const char *def) {
 			// Too early. This is probably in desktop-ui translation.
 			return def ? def : key;
 		}
-		if (key != "Font") {
-			INFO_LOG(Log::UI, "Missing translation %s (%s)", key, def);
-		}
-
-		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		std::string missedKey(key);
-		if (def)
-			missedKeyLog_[missedKey] = def;
-		else
-			missedKeyLog_[missedKey] = std::string(key);
+		if (missedKey != "Font") {
+			INFO_LOG(Log::UI, "Missing translation %s (%s)", key, def);
+
+			std::lock_guard<std::mutex> guard(missedKeyLock_);
+			if (def)
+				missedKeyLog_[missedKey] = def;
+			else
+				missedKeyLog_[missedKey] = std::string(key);
+		}
 		return def ? def : key;
 	}
 }
@@ -130,7 +129,7 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	}
 }
 
-std::map<std::string, std::string> I18NCategory::Missed() const {
+std::map<std::string, std::string, std::less<>> I18NCategory::Missed() const {
 	std::lock_guard<std::mutex> guard(missedKeyLock_);
 	return missedKeyLog_;
 }

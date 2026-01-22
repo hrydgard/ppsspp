@@ -536,9 +536,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		mCameraHelper = new CameraHelper(this);
 	}
 
-	@TargetApi(Build.VERSION_CODES.N)
 	private void updateSustainedPerformanceMode() {
-		if (sustainedPerfSupported) {
+		if (sustainedPerfSupported && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			// Query the native application on the desired rotation.
 			String str = NativeApp.queryConfig("sustainedPerformanceMode");
 			try {
@@ -550,6 +549,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
+	@SuppressLint("SourceLockedOrientationActivity")
 	private void updateScreenRotation(String cause) {
 		// Query the native application on the desired rotation.
 		int rot;
@@ -743,7 +743,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "Got shortcutParam in onCreate on secondary run: " + shortcutParam);
 			// Make sure we only send it once.
 			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
-			shortcutParam = null;
 		}
 
 		// Set up the back key handling to be future-compatible
@@ -784,7 +783,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Log.i(TAG, "applyFramerate");
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
 			return;
-		if (surface != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+		if (surface != null) {
 			try {
 				int method = NativeApp.getDisplayFramerateMode();
 				if (method > 0) {
@@ -839,10 +838,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// Hack to make things symmetrical in landscape. Needed on Poco F1, for example.
 		if (orientation == Configuration.ORIENTATION_LANDSCAPE && useImmersive()) {
 			if (left > 0 && right > 0) {
-				int smallestNonZero = left;
-				if (right < left) {
-					smallestNonZero = right;
-				}
+				int smallestNonZero = Math.min(right, left);
 				// Log.i(TAG, "Both left and right insets but not equal: " + left + " != " + right + " : Equalizing to " + smallest);
 				left = smallestNonZero;
 				right = smallestNonZero;
@@ -1053,7 +1049,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	@Override
-	public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
+	public void onMultiWindowModeChanged(boolean isInMultiWindowMode, @NonNull Configuration newConfig) {
 		// onConfigurationChanged not called on multi-window change
 		Log.i(TAG, "onMultiWindowModeChanged: isInMultiWindowMode = " + isInMultiWindowMode);
 		super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
@@ -1407,8 +1403,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 						// doesn't need it. If we can't access it, we'll fail in some other way later.
 					}
 					DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
-					Log.i(TAG, "Chosen document name: " + documentFile.getUri());
-					NativeApp.sendRequestResult(requestId, true, documentFile.getUri().toString(), 0);
+					if (documentFile != null) {
+						Log.i(TAG, "Chosen document name: " + documentFile.getUri());
+						NativeApp.sendRequestResult(requestId, true, documentFile.getUri().toString(), 0);
+					} else {
+						NativeApp.sendRequestResult(requestId, false, "", 0);
+					}
 				}
 			} else {
 				Toast.makeText(getApplicationContext(), "Bad request code: " + requestCode, Toast.LENGTH_LONG).show();
@@ -1761,7 +1761,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				if (!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
 					mCameraHelper.startCamera();
 				}
-			} else if (mCameraHelper != null && params.equals("stopVideo")) {
+			} else if (params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
 			}
 			return true;
