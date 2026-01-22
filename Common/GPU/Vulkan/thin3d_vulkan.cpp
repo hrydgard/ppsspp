@@ -1057,6 +1057,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
 
+		if (deviceProps.driverVersion == 0xaa9c4b29) {
+			bugs_.Infest(Bugs::EMPTY_RENDERPASS_BROKEN_MALI);
+		}
+
 		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
 		// Also seen to cause weird issues on 18, so let's lump it in.
 		if (majorVersion <= 18 || isOldVersion) {

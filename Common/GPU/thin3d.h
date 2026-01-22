@@ -354,6 +354,7 @@ public:
 		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
 		PVR_BAD_16BIT_TEXFORMATS = 14,
 		NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI = 15,
+		EMPTY_RENDERPASS_BROKEN_MALI = 16,
 		MAX_BUG,
 	};
 
