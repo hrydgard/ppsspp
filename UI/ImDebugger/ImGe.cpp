@@ -1028,19 +1028,21 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN;
 
+	constexpr float fastRepeatRate = 0.025f;
+
 	if (disableStepButtons) {
 		ImGui::BeginDisabled();
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Tex")) {
+	if (ImGui::RepeatButtonShift("Tex", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::TEX);
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Prim")) {
+	if (ImGui::RepeatButtonShift("Prim", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::PRIM);
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Draw")) {
+	if (ImGui::RepeatButtonShift("Draw", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 	}
 	ImGui::SameLine();
@@ -1052,7 +1054,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Single step")) {
+	if (ImGui::RepeatButtonShift("Single step", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
 	if (disableStepButtons) {
