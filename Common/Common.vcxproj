@@ -294,6 +294,7 @@
     <ClInclude Include="..\ext\aemu_postoffice\client\log_impl.h" />
     <ClInclude Include="..\ext\aemu_postoffice\client\mutex_impl.h" />
     <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_client.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\client\sock_impl.h" />
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />

@@ -43,7 +43,7 @@ public:
 
 private:
 #ifdef HAVE_LIBRETRO_VFS
-	FILE *file_;
+	FILE *file_ = nullptr;
 #elif !defined(_WIN32)
 	void DetectSizeFd();
 	int fd_ = -1;

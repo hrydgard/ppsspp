@@ -56,7 +56,7 @@ void LocalFileLoader::DetectSizeFd() {
 #endif
 
 LocalFileLoader::LocalFileLoader(const Path &filename)
-	: filesize_(0), filename_(filename) {
+	: filename_(filename) {
 	if (filename.empty()) {
 		ERROR_LOG(Log::FileSystem, "LocalFileLoader can't load empty filenames");
 		return;
@@ -79,7 +79,7 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 
 #if defined(HAVE_LIBRETRO_VFS)
 	file_ = File::OpenCFile(filename, "rb");
-	if (file_ == nullptr) {
+	if (!file_) {
 		return;
 	}
 	filesize_ = File::GetFileSize(file_);

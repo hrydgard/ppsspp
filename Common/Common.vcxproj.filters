@@ -719,6 +719,9 @@
     <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_client.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\aemu_postoffice\client\sock_impl.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
