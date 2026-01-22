@@ -464,7 +464,9 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::OPENGL;
 	}
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(UWP)
+	return (int)GPUBackend::DIRECT3D11;
+#elif PPSSPP_PLATFORM(WINDOWS)
 	// On Win10, there's a good chance Vulkan will work by default.
 	if (IsWin10OrHigher()) {
 		return (int)GPUBackend::VULKAN;
@@ -1494,12 +1496,19 @@ void Config::PostLoadCleanup() {
 		g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 
-	// This caps the exponent 4 (so 16x.). No hardware supports more anyway.
+	// This caps the aniso level exponent to 4 (so 16x.). No hardware supports more anyway.
 	iAnisotropyLevel = std::clamp(iAnisotropyLevel, 0, 4);
 
-	if (iGPUBackend == 1) {  // d3d9, no longer supported
-		iGPUBackend = 2;  // d3d11
+	if (iGPUBackend == 1) {  // d3d9, no longer supported. Fall back to D3D11.
+		iGPUBackend = (int)GPUBackend::DIRECT3D11;
+	} else if (iGPUBackend < 0 || iGPUBackend > 3) {
+		iGPUBackend = (int)DefaultGPUBackend();
 	}
+
+#if PPSSPP_PLATFORM(UWP)
+	// Enforce D3D11.
+	iGPUBackend = (int)GPUBackend::DIRECT3D11;
+#endif
 
 	// Set a default MAC, and correct if it's an old format.
 	if (sMACAddress.length() != 17)
