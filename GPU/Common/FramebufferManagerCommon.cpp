@@ -3452,7 +3452,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	bool useBlit = channel == RASTER_COLOR ? draw_->GetDeviceCaps().framebufferBlitSupported : false;
 	bool useCopy = channel == RASTER_COLOR ? draw_->GetDeviceCaps().framebufferCopySupported : false;
-	if (dst == currentRenderVfb_ || dst->fbo->MultiSampleLevel() != 0 || src->fbo->MultiSampleLevel() != 0) {
+	if (src != dst && (dst == currentRenderVfb_ || dst->fbo->MultiSampleLevel() != 0 || src->fbo->MultiSampleLevel() != 0)) {
 		// If already bound, using either a blit or a copy is unlikely to be an optimization.
 		// So we're gonna use a raster draw instead. Also multisampling has problems with copies currently.
 		useBlit = false;
