@@ -210,18 +210,19 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 
 #ifdef HAVE_LIBRETRO_VFS
 	if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
-		INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for read.", path.c_str());
-		return filestream_open(path.c_str(), RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		FILE *f = filestream_open(path.c_str(), RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for read (libretro vfs): %s", path.c_str(), f ? "ok" : "null");
+		return f;
 	} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt") || !strcmp(mode, "at") || !strcmp(mode, "a")) {
-		INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for write.", path.c_str());
 		bool append = !strcmp(mode, "at") || !strcmp(mode, "a");
 		FILE *f = filestream_open(path.c_str(), append && Exists(path) ? RETRO_VFS_FILE_ACCESS_WRITE | RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING : RETRO_VFS_FILE_ACCESS_WRITE, RETRO_VFS_FILE_ACCESS_HINT_NONE);
+		INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for write (libretro vfs): %s", path.c_str(), f ? "ok" : "null");
 		if (f != nullptr && append) {
 			Fseek(f, 0, SEEK_END);
 		}
 		return f;
 	} else {
-		ERROR_LOG(Log::IO, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
+		ERROR_LOG(Log::IO, "OpenCFile(%s): Mode not yet supported (libretro vfs): %s", path.c_str(), mode);
 		return nullptr;
 	}
 #elif defined(_WIN32) && defined(UNICODE)
@@ -1069,7 +1070,7 @@ bool DeleteDir(const Path &path) {
 #ifdef HAVE_LIBRETRO_VFS
 	if (filestream_delete(path.c_str()) == 0)
 		return true;
-	ERROR_LOG(Log::IO, "DeleteDir: %s", path.c_str());
+	ERROR_LOG(Log::IO, "DeleteDir (libretro vfs): %s", path.c_str());
 	return false;
 #else
 #ifdef _WIN32
