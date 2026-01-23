@@ -118,6 +118,7 @@ struct CompatFlags {
 	bool IgnoreEnqueue;
 	bool MsgDialogAutoStatus;
 	bool NullPageValid;
+	bool DetectDestBlendSquared;
 };
 
 struct VRCompat {

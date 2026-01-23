@@ -1273,6 +1273,21 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			return true;
 		}
 
+		// There's a special case we can handle here, where the game is texturing from the same pixels being read, in order to
+		// implement a DST*DST blending function, which the PSP can't do. However on the PC we can absolutely do this!
+		// TODO: Add more checks here.
+		if (PSP_CoreParameter().compat.flags().DetectDestBlendSquared &&
+			gstate.isAlphaBlendEnabled() && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendFuncA() == GE_SRCBLEND_DSTCOLOR && gstate.getBlendFuncB() == GE_DSTBLEND_FIXB && gstate.getFixB() == 0x0 &&
+			gstate.getMaterialAmbientRGBA() == 0xFFFFFFFF) {
+			// This is the pure DST*DST case, the SRC color is ignored.
+			// Used by Brave Story - New Traveller. This assumes that texture coordinates are set to match the framebuffer pixels - and to
+			// be able to make that assumption reasonably safely we use a compat flag to restrict it to that game.
+			// We can just override the blend mode. Let's set a state variable.
+			// We also just leave the last texture bound, ideally we should bind a placeholder here.
+			gstate_c.dstSquared = true;
+			return true;
+		}
+
 		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;

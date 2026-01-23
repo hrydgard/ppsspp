@@ -149,7 +149,7 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 		}
 	}
 
-	int i;  // the final values is used in the next loop
+	int i;  // the final value of i is used in the next loop
 	for (i = 0; i < ARRAY_SIZE(views); i++) {
 		const MemoryView &view = views[i];
 		if (view.size == 0)
