@@ -97,6 +97,7 @@ private:
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;
 	bool bootPending_ = true;
+	bool bootIsReset_ = false;
 	Path gamePath_;
 
 	bool quit_ = false;
