@@ -148,6 +148,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	OutputDebugStringA(msg.c_str());
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		if (options->breakOnError && System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
+			// If you hit this, you have a vulkan validation error.
+			// Check the console or the Output window in Visual Studio, if you're using that.
 			DebugBreak();
 		}
 		if (options->msgBoxOnError) {

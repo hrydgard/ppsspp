@@ -1469,7 +1469,7 @@ void EmuScreen::update() {
 		UpdateUIState(coreState != CORE_RUNTIME_ERROR ? UISTATE_INGAME : UISTATE_EXCEPTION);
 	}
 
-	if (errorMessage_.size()) {
+	if (!errorMessage_.empty()) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::string errLoadingFile = GetFriendlyPath(gamePath_) + "\n\n";
