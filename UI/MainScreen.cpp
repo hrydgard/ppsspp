@@ -499,11 +499,6 @@ void DirButton::Draw(UIContext &dc) {
 
 		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
 			dc.DrawTextRect(text, bounds_.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
-			if (pinned_) {
-				ImageID pinID = ImageID("I_PIN");
-				const AtlasImage *pinImg = dc.Draw()->GetAtlas()->getImage(pinID);
-				dc.Draw()->DrawImage(pinID, bounds_.x + bounds_.w - pinImg->w * g_Config.fGameGridScale, bounds_.y, g_Config.fGameGridScale);
-			}
 		}
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.PopScissor();
