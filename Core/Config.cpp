@@ -1820,13 +1820,13 @@ void Config::GetReportingInfo(UrlEncoder &data) const {
 	}
 }
 
-void PlayTimeTracker::Start(const std::string &gameId) {
+void PlayTimeTracker::Start(std::string_view gameId) {
 	if (gameId.empty()) {
 		return;
 	}
-	VERBOSE_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Start(%.*s)", STR_VIEW(gameId));
 
-	auto iter = tracker_.find(std::string(gameId));
+	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime == 0.0) {
 			iter->second.lastTimePlayed = time_now_unix_utc();
@@ -1839,17 +1839,17 @@ void PlayTimeTracker::Start(const std::string &gameId) {
 	playTime.lastTimePlayed = time_now_unix_utc();
 	playTime.totalTimePlayed = 0.0;
 	playTime.startTime = time_now_d();
-	tracker_[gameId] = playTime;
+	tracker_[std::string(gameId)] = playTime;
 }
 
-void PlayTimeTracker::Stop(const std::string &gameId) {
+void PlayTimeTracker::Stop(std::string_view gameId) {
 	if (gameId.empty()) {
 		return;
 	}
 
-	VERBOSE_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Stop(%.*s)", STR_VIEW(gameId));
 
-	auto iter = tracker_.find(std::string(gameId));
+	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime != 0.0) {
 			iter->second.totalTimePlayed += time_now_d() - iter->second.startTime;
@@ -1861,6 +1861,15 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 
 	// Shouldn't happen, ignore this case.
 	WARN_LOG(Log::System, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
+}
+
+void PlayTimeTracker::Reset(std::string_view gameId) {
+	auto iter = tracker_.find(gameId);
+	if (iter != tracker_.end()) {
+		iter->second.lastTimePlayed = 0;
+		iter->second.totalTimePlayed = 0;
+		iter->second.startTime = 0.0;
+	}
 }
 
 void PlayTimeTracker::Load(const Section *section) {
@@ -1885,7 +1894,7 @@ void PlayTimeTracker::Save(Section *section) {
 	}
 }
 
-bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string *str) const {
+bool PlayTimeTracker::GetPlayedTimeString(std::string_view gameId, std::string *str) const {
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
 	auto iter = tracker_.find(gameId);

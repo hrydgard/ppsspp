@@ -50,16 +50,17 @@ public:
 	};
 
 	// It's OK to call these redundantly.
-	void Start(const std::string &gameId);
-	void Stop(const std::string &gameId);
+	void Start(std::string_view gameId);
+	void Stop(std::string_view gameId);
+	void Reset(std::string_view gameId);
 
 	void Load(const Section *section);
 	void Save(Section *section);
 
-	bool GetPlayedTimeString(const std::string &gameId, std::string *str) const;
+	bool GetPlayedTimeString(std::string_view, std::string *str) const;
 
 private:
-	std::map<std::string, PlayTime> tracker_;
+	std::map<std::string, PlayTime, std::less<>> tracker_;
 };
 
 struct ConfigSetting;
