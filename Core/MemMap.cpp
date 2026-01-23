@@ -111,8 +111,6 @@ static MemoryView views[] =
 	// implement those.
 };
 
-static const int num_views = sizeof(views) / sizeof(MemoryView);
-
 inline static bool CanIgnoreView(const MemoryView &view) {
 #ifdef MASKED_PSP_MEMORY
 	// Basically, 32-bit platforms can ignore views that are masked out anyway.
@@ -122,14 +120,15 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 #endif
 }
 
+static bool SkipView(u32 flags, u32 viewFlags) {
 #if PPSSPP_PLATFORM(IOS) && PPSSPP_ARCH(64BIT)
-#define SKIP(a_flags, b_flags) \
-	if ((b_flags) & MV_KERNEL) \
-		continue;
-#else
-#define SKIP(a_flags, b_flags) \
-	;
+	// We use a limited memory map on iOS with masking, we don't need to allocate the kernel space views.
+	if (viewFlags & MV_KERNEL) {
+		return true;
+	}
 #endif
+	return false;
+}
 
 static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
@@ -139,17 +138,19 @@ static bool Memory_TryBase(u32 flags) {
 	size_t last_position = 0;
 
 	// Zero all the pointers to be sure.
-	for (int i = 0; i < num_views; i++) {
-		if (views[i].out_ptr)
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].out_ptr) {
 			*views[i].out_ptr = 0;
+		}
 	}
 
-	int i;
-	for (i = 0; i < num_views; i++) {
+	int i;  // the final values is used in the next loop
+	for (i = 0; i < ARRAY_SIZE(views); i++) {
 		const MemoryView &view = views[i];
 		if (view.size == 0)
 			continue;
-		SKIP(flags, view.flags);
+		if (SkipView(flags, view.flags))
+			continue;
 		
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -184,7 +185,9 @@ bail:
 	for (int j = 0; j <= i; j++) {
 		if (views[i].size == 0)
 			continue;
-		SKIP(flags, views[i].flags);
+		if (SkipView(flags, views[i].flags))
+			continue;
+
 		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(0, *views[j].out_ptr, views[j].size);
@@ -203,10 +206,11 @@ bool MemoryMap_Setup(u32 flags) {
 
 	// Figure out how much memory we need to allocate in total.
 	size_t total_mem = 0;
-	for (int i = 0; i < num_views; i++) {
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].size == 0)
 			continue;
-		SKIP(flags, views[i].flags);
+		if (SkipView(flags, views[i].flags))
+			continue;
 		if (!CanIgnoreView(views[i]))
 			total_mem += g_arena.roundup(views[i].size);
 	}
@@ -268,11 +272,12 @@ void MemoryMap_Shutdown(u32 flags) {
 	size_t position = 0;
 	size_t last_position = 0;
 
-	for (int i = 0; i < num_views; i++) {
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].size == 0)
 			continue;
-		SKIP(flags, views[i].flags);
-        
+		if (SkipView(flags, views[i].flags))
+			continue;
+
 		if (views[i].flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		}
