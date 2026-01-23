@@ -656,6 +656,9 @@ public:
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
 
+	// DST squared, used in Brave Story
+	bool dstSquared;
+
 	// U/V is 1:1 to pixels. Can influence texture sampling.
 	bool pixelMapped;
 
