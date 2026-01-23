@@ -213,11 +213,31 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 
-	std::string str;
-	if (g_Config.TimeTracker().GetPlayedTimeString(info_->id, &str)) {
-		TextView *tvPlayTime = infoLayout->Add(new TextView(str, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	std::string timeStr;
+	if (g_Config.TimeTracker().GetPlayedTimeString(info_->id, &timeStr)) {
+		LinearLayout *timeHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));
+
+		TextView *tvPlayTime = timeHoriz->Add(new TextView(timeStr, ALIGN_LEFT, true, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
 		tvPlayTime->SetShadow(true);
-		tvPlayTime->SetText(str);
+		tvPlayTime->SetText(timeStr);
+
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		Choice *btnResetTime = timeHoriz->Add(new Choice(di->T("Reset"), new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
+		btnResetTime->OnClick.Add([this, ga, timeStr](UI::EventParams &) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			auto gta = GetI18NCategory(I18NCat::GAME);
+			std::string id = info_->id;
+			std::string questionText(ga->T("Are you sure you want to reset the played time counter?"));
+			questionText += "\n";
+			questionText += timeStr;
+			screenManager()->push(
+				new PromptScreen(gamePath_, questionText, di->T("Reset"), di->T("Cancel"), [id](bool yes) {
+				if (yes) {
+					g_Config.TimeTracker().Reset(id);
+				}
+			}));
+			RecreateViews();
+		});
 	}
 
 	LinearLayout *crcHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));

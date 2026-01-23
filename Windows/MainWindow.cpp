@@ -188,14 +188,22 @@ namespace MainWindow
 
 		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
-		if (placement.showCmd == SW_SHOWNORMAL) {
-			RECT rc;
-			GetWindowRect(hwndMain, &rc);
-			g_Config.iWindowX = rc.left;
-			g_Config.iWindowY = rc.top;
-			g_Config.iWindowWidth = rc.right - rc.left;
-			g_Config.iWindowHeight = rc.bottom - rc.top;
+		switch (placement.showCmd) {
+		case SW_SHOWMAXIMIZED:
+			g_Config.iWindowSizeState = (int)WindowSizeState::Maximized;
+			break;
+		case SW_SHOWMINIMIZED:
+			g_Config.iWindowSizeState = (int)WindowSizeState::Minimized;
+			break;
+		case SW_SHOWNORMAL:
+			g_Config.iWindowSizeState = (int)WindowSizeState::Normal;
+			break;
 		}
+
+		g_Config.iWindowX = placement.rcNormalPosition.left;
+		g_Config.iWindowY = placement.rcNormalPosition.top;
+		g_Config.iWindowWidth = placement.rcNormalPosition.right - placement.rcNormalPosition.left;
+		g_Config.iWindowHeight = placement.rcNormalPosition.bottom - placement.rcNormalPosition.top;
 	}
 
 	static void GetWindowSizeAtResolution(int xres, int yres, int *windowWidth, int *windowHeight) {
@@ -475,6 +483,25 @@ namespace MainWindow
 
 		hwndMain = CreateWindowEx(0, szWindowClass, L"", style,
 			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
+
+		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+		placement.showCmd = SW_SHOWNORMAL;
+		switch ((WindowSizeState)g_Config.iWindowSizeState) {
+		case WindowSizeState::Maximized:
+			placement.showCmd = SW_SHOWMAXIMIZED;
+			break;
+		case WindowSizeState::Minimized:
+			placement.showCmd = SW_SHOWMINIMIZED;
+			break;
+		default:
+			break;
+		}
+		placement.rcNormalPosition.left = g_Config.iWindowX;
+		placement.rcNormalPosition.top = g_Config.iWindowY;
+		placement.rcNormalPosition.right = g_Config.iWindowX + g_Config.iWindowWidth;
+		placement.rcNormalPosition.bottom = g_Config.iWindowY + g_Config.iWindowHeight;
+		SetWindowPlacement(hwndMain, &placement);
+
 		if (!hwndMain)
 			return FALSE;
 
@@ -874,6 +901,7 @@ namespace MainWindow
 			default:
 				break;
 			}
+			SavePosition();
 			break;
 
 		// Wheel events have to stay in WndProc for compatibility with older Windows(7). See #12156

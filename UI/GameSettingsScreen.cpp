@@ -1808,8 +1808,8 @@ void GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(
-			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
+			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"),
+				di->T("OK"), di->T("Cancel"), [this](bool yes) { CallbackRestoreDefaults(yes); }));
 	} else {
 		std::string_view title = sy->T("Restore Default Settings");
 		screenManager()->push(new RestoreSettingsScreen(title));

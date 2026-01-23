@@ -97,6 +97,13 @@ enum TextureFiltering {
 	TEX_FILTER_AUTO_MAX_QUALITY = 4,
 };
 
+// Can't be named WindowState due to collision with SDL.
+enum class WindowSizeState {
+	Normal = 0,
+	Minimized = 1,
+	Maximized = 2,
+};
+
 enum ReplacementTextureLoadSpeed {
 	SLOW = 0,
 	MEDIUM = 1,
