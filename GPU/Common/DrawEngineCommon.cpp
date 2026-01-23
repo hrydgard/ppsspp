@@ -711,6 +711,12 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 			// Unfortunately we need to do this check somewhere since GetIndexBounds doesn't handle zero-length arrays.
 			return false;
 		}
+	} else if (prim == GE_PRIM_TRIANGLES) {
+		// Make sure the vertex count is divisible by 3, round down. See issue #7503
+		const int rem = vertexCount % 3;
+		if (rem != 0) {
+			vertexCount -= rem;
+		}
 	}
 
 	bool applySkin = dec_->skinInDecode;
