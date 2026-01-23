@@ -117,6 +117,7 @@ struct CompatFlags {
 	bool SaveStatesNotRecommended;
 	bool IgnoreEnqueue;
 	bool MsgDialogAutoStatus;
+	bool NullPageValid;
 };
 
 struct VRCompat {
