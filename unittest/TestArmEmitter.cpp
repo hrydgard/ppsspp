@@ -193,10 +193,25 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f2042156 VAND q1, q2, q3"));
 	emitter.VDUP(F_32, Q14, D30, 1);
 	RET(CheckLast(emitter, "f3fccc6e VDUP.32 q14, d30[1]"));
-	
+
 	// TODO: This is broken.
 	// emitter.VDUP(F_32, D14, D30, 1);
 	// RET(CheckLast(emitter, "f3bcec2e VDUP.32 d14, d30[1]"));
+
+	// VDUP from GPR to NEON register
+	// TODO: Fix the disassembler
+	emitter.VDUP(I_32, Q0, R0);
+	RET(CheckLast(emitter, "eea00b10 [undefined instr]")); //  VDUP.32 q0, r0"));
+	emitter.VDUP(I_32, Q5, R3);
+	RET(CheckLast(emitter, "eeaa3b10 [undefined instr]")); //  VDUP.32 q5, r3"));
+	emitter.VDUP(I_16, Q2, R7);
+	RET(CheckLast(emitter, "eea47b30 [undefined instr]")); //  VDUP.16 q2, r7"));
+	emitter.VDUP(I_8, Q1, R2);
+	RET(CheckLast(emitter, "eec22b90 [undefined instr]"));  //  VDUP.8 q1, r2"));
+	emitter.VDUP(I_32, D0, R0);
+	RET(CheckLast(emitter, "ee800b10 [undefined instr]")); //  VDUP.32 d0, r0"));
+	emitter.VDUP(I_16, D3, R5);
+	RET(CheckLast(emitter, "ee835b30 [undefined instr]")); //  VDUP.16 d3, r5"));
 
 	//emitter.VNEG(S1, S2);
 	//RET(CheckLast(emitter, "eef10a60 VNEG.f32 s1, s1"));
