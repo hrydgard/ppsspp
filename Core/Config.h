@@ -293,6 +293,8 @@ public:
 	int iWindowY;
 	int iWindowWidth;  // Windows and other windowed environments
 	int iWindowHeight;
+	int iWindowSizeState;  // WindowSizeState enum
+
 	bool bShowMenuBar;  // Windows-only
 
 	float fUITint;
