@@ -136,15 +136,15 @@ static void SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float 
 		break;
 	case ROTATION_LOCKED_VERTICAL:
 	{
-		float new_y = -x;
-		x = y;
+		float new_y = y;
+		x = -y;
 		y = new_y;
 		break;
 	}
 	case ROTATION_LOCKED_VERTICAL180:
 	{
-		float new_y = y = x;
-		x = -y;
+		float new_y = -x;
+		x = y;
 		y = new_y;
 		break;
 	}

@@ -81,6 +81,7 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	bool bDisplayIntegerScale = false;  // Snaps scaling to integer scale factors in raw pixels.
 	float fDisplayAspectRatio = 1.0f;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
 	int iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
+	bool bRotateControlsWithScreen = true;  // Rotate gamepad controls along with the internal screen rotation.
 	bool bIgnoreScreenInsets = true;  // Android: Center screen disregarding insets if this is enabled.
 
 	// Deprecated

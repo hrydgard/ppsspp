@@ -502,7 +502,7 @@ fn finish_language_with_ai(
                             } else {
                                 println!();
                             }
-                            if !target_section.set_value(&original_key, value) {
+                            if !target_section.set_value(&original_key, value, Some("AI translated")) {
                                 println!("Failed to update '{}'", original_key);
                             }
                         }
@@ -754,7 +754,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                     // Process it.
                     if let Some(translated_string) = ai_response.get(lang) {
                         println!("{lang}:");
-                        add_new_key(&mut target_ini, section, key, translated_string).unwrap();
+                        add_new_key(&mut target_ini, section, key, &format!("{translated_string} # AI translated")).unwrap();
                     } else {
                         println!("Language {lang} not found in response. Bailing.");
                         return;
@@ -767,7 +767,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                     // Process it.
                     if let Some(translated_string) = ai_response.get(lang) {
                         println!("{lang}:");
-                        add_new_key(&mut target_ini, section, key, translated_string).unwrap();
+                        add_new_key(&mut target_ini, section, key, &format!("{translated_string} # AI translated")).unwrap();
                     } else {
                         println!("Language {lang} not found in response. Bailing.");
                         return;
@@ -827,10 +827,10 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                                     "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
                                 );
                                 if !target_section
-                                    .insert_line_if_missing(&format!("{key} = {value}"))
+                                    .insert_line_if_missing(&format!("{key} = {value} # AI translated"))
                                 {
                                     // Didn't insert it, so it exists. We need to replace it.
-                                    target_section.set_value(key, value);
+                                    target_section.set_value(key, value, Some("AI translated"));
                                 }
                             }
                         } else {
