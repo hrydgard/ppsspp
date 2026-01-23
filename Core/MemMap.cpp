@@ -50,6 +50,7 @@ u8* base = nullptr;
 MemArena g_arena;
 // ==============
 
+u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
 // 64-bit: Pointers to high-mem mirrors
@@ -67,8 +68,8 @@ u8 *m_pUncachedKernelRAM[3];
 // since when we write to the depth buffer (like with the depth rasterizer or the software renderer)
 // we write unswizzled data anyway. There are some exceptions, Silent Hill abuses the swizzling in ways that break
 // our software renderer.
-u8 *m_pPhysicalVRAM[4];
-u8 *m_pUncachedVRAM[4];
+static u8 *m_pPhysicalVRAM[4];
+static u8 *m_pUncachedVRAM[4];
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
@@ -77,11 +78,13 @@ u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 
+static MemMapSetupFlags g_setupFlags;
+
 std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
-static MemoryView views[] =
-{
+static MemoryView views[] = {
+	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
@@ -120,17 +123,19 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 #endif
 }
 
-static bool SkipView(u32 flags, u32 viewFlags) {
+static bool SkipView(MemMapSetupFlags flags, u32 viewFlags) {
 #if PPSSPP_PLATFORM(IOS) && PPSSPP_ARCH(64BIT)
 	// We use a limited memory map on iOS with masking, we don't need to allocate the kernel space views.
 	if (viewFlags & MV_KERNEL) {
 		return true;
 	}
 #endif
+	if ((viewFlags & MV_NULL_PAGE) && !(flags & MemMapSetupFlags::AllocNullPage))
+		return true;
 	return false;
 }
 
-static bool Memory_TryBase(u32 flags) {
+static bool Memory_TryBase(MemMapSetupFlags flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
 
@@ -187,7 +192,6 @@ bail:
 			continue;
 		if (SkipView(flags, views[i].flags))
 			continue;
-
 		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(0, *views[j].out_ptr, views[j].size);
@@ -198,7 +202,8 @@ bail:
 	return false;
 }
 
-bool MemoryMap_Setup(u32 flags) {
+bool MemoryMap_Setup(MemMapSetupFlags flags) {
+	g_setupFlags = flags;
 #if PPSSPP_PLATFORM(UWP)
 	// We reserve the memory, then simply commit in TryBase.
 	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
@@ -268,9 +273,11 @@ bool MemoryMap_Setup(u32 flags) {
 	return Memory_TryBase(flags);
 }
 
-void MemoryMap_Shutdown(u32 flags) {
+void MemoryMap_Shutdown() {
 	size_t position = 0;
 	size_t last_position = 0;
+	const MemMapSetupFlags flags = g_setupFlags;
+	g_setupFlags = MemMapSetupFlags::Default;
 
 	for (int i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].size == 0)
@@ -296,7 +303,7 @@ void MemoryMap_Shutdown(u32 flags) {
 #endif
 }
 
-bool Init() {
+bool Init(MemMapSetupFlags flags) {
 	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
@@ -309,7 +316,6 @@ bool Init() {
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
 
-	int flags = 0;
 	if (!MemoryMap_Setup(flags)) {
 		return false;
 	}
@@ -324,8 +330,9 @@ bool Init() {
 void Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
-	Init();
+	Init(flags);
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
 }
 
@@ -403,7 +410,7 @@ void DoState(PointerWrap &p) {
 void Shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
 	u32 flags = 0;
-	MemoryMap_Shutdown(flags);
+	MemoryMap_Shutdown();
 	base = nullptr;
 	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }

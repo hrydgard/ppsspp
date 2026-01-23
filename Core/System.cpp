@@ -365,8 +365,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		HLEPlugins::Init();
 	}
 
+	Memory::MemMapSetupFlags memMapFlags = Memory::MemMapSetupFlags::Default;
+	if (g_CoreParameter.compat.flags().NullPageValid) {
+		memMapFlags = Memory::MemMapSetupFlags::AllocNullPage;
+	}
+
 	// Initialize the memory map as early as possible (now that we've read the PARAM.SFO).
-	if (!Memory::Init()) {
+	if (!Memory::Init(memMapFlags)) {
 		// We're screwed.
 		*errorString = "Memory init failed";
 		return false;
