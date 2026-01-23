@@ -651,7 +651,7 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 }
 
 void ControlMapper::Update(const DisplayLayoutConfig &config, double now) {
-	iInternalScreenRotationCached_ = config.iInternalScreenRotation;
+	iInternalScreenRotationCached_ = config.bRotateControlsWithScreen ? config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	if (autoRotatingAnalogCW_) {
 		// Clamp to a square
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * -g_Config.fAnalogAutoRotSpeed)));

@@ -263,7 +263,7 @@ impl Section {
     }
 
     // Returns true if the key was found and updated.
-    pub fn set_value(&mut self, key: &str, value: &str) -> bool {
+    pub fn set_value(&mut self, key: &str, value: &str, comment: Option<&str>) -> bool {
         let mut found_index = None;
         for (index, line) in self.lines.iter().enumerate() {
             let prefix = if let Some(pos) = line.find(" =") {
@@ -279,7 +279,10 @@ impl Section {
         }
 
         if let Some(found_index) = found_index {
-            self.lines[found_index] = format!("{key} = {value}");
+            self.lines[found_index] = match comment {
+                Some(c) => format!("{} = {}  # {}", key, value, c),
+                None => format!("{} = {}", key, value),
+            };
             true
         } else {
             false
