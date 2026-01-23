@@ -179,7 +179,7 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 
 	// TODO: Also show the screenshot on the confirmation screen?
 
-	screenManager()->push(new UI::MessagePopupScreen(title, message, di->T("Delete"), di->T("Cancel"), [=](bool result) {
+	screenManager()->push(new UI::MessagePopupScreen(title, message, di->T("Delete"), di->T("Cancel"), [this](bool result) {
 		if (result) {
 			SaveState::DeleteSlot(saveStatePrefix_, slot_);
 			TriggerFinish(DR_CANCEL);
@@ -588,7 +588,7 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->SetSpacing(0.0f);
 	if (getUMDReplacePermit()) {
-		rightColumnItems->Add(new Choice(pa->T("Switch UMD"), ImageID("I_UMD")))->OnClick.Add([=](UI::EventParams &) {
+		rightColumnItems->Add(new Choice(pa->T("Switch UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
 			screenManager()->push(new UmdReplaceScreen());
 		});
 	}
@@ -616,22 +616,22 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
-		rightColumnItems->Add(new Choice(ac->T("Achievements"), ImageID("I_ACHIEVEMENT")))->OnClick.Add([&](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(ac->T("Achievements"), ImageID("I_ACHIEVEMENT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
 		});
 	}
 
-	rightColumnItems->Add(new Choice(gr->T("Display layout & effects"), ImageID("I_DISPLAY")))->OnClick.Add([&](UI::EventParams &) -> void {
+	rightColumnItems->Add(new Choice(gr->T("Display layout & effects"), ImageID("I_DISPLAY")))->OnClick.Add([this](UI::EventParams &) -> void {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	});
 	if (g_Config.bShowTouchControls) {
-		rightColumnItems->Add(new Choice(co->T("Edit touch control layout..."), ImageID("I_CONTROLLER")))->OnClick.Add([&](UI::EventParams &) -> void {
+		rightColumnItems->Add(new Choice(co->T("Edit touch control layout..."), ImageID("I_CONTROLLER")))->OnClick.Add([this](UI::EventParams &) -> void {
 			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 		});
 	}
 
 	if (g_Config.bEnableCheats && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([&](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
 	}
@@ -668,9 +668,9 @@ void GamePauseScreen::CreateViews() {
 	exit->SetEnabled(!bootPending_);
 
 	if (middleColumn) {
-		middleColumn->SetSpacing(portrait ? 8.0f : 20.0f);
+		middleColumn->SetSpacing(portrait ? 8.0f : 0.0f);
 		playButton_ = middleColumn->Add(new Choice(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
-		playButton_->OnClick.Add([=](UI::EventParams &e) {
+		playButton_->OnClick.Add([this](UI::EventParams &e) {
 			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
 			playButton_->SetIconLeft(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
 		});
@@ -678,12 +678,16 @@ void GamePauseScreen::CreateViews() {
 		bool mustRunBehind = MustRunBehind();
 		playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
 
+		if (!portrait) {
+			middleColumn->Add(new Spacer(20.0f));
+		}
+
 		Choice *infoButton = middleColumn->Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
-		infoButton->OnClick.Add([=](UI::EventParams &e) {
+		infoButton->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new GameScreen(gamePath_, true));
 		});
 
-		if (true || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 			AddRotationPicker(screenManager(), middleColumn, false);
 		}
 
@@ -706,7 +710,7 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 			std::string confirmMessage = GetConfirmExitMessage();
 			if (!confirmMessage.empty()) {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
-				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [=](bool result) {
+				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [this](bool result) {
 					if (result) {
 						System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 					}
@@ -802,7 +806,7 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 	if (!confirmExitMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::string_view title = di->T("Are you sure you want to exit?");
-		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, di->T("Exit"), di->T("Cancel"), [=](bool result) {
+		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, di->T("Exit"), di->T("Cancel"), [this](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
