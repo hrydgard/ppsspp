@@ -738,7 +738,7 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		if (serverHasRelay) {
 			ret = pdp_send_postoffice(req.id - 1, &peer->mac, peer->port, req.buffer, targetPeers.length);
 			if (ret == 0) {
-				ret = *req.length;
+				ret = targetPeers.length;
 			} else {
 				sockerr = EAGAIN;
 			}
