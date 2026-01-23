@@ -573,7 +573,6 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 				result = SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
 				return 0;
 			}
-			uint16_t recv_port;
 			ret = pdp_recv_postoffice(req.id - 1, req.remoteMAC, req.remotePort, req.buffer, req.length);
 			if (ret == 0) {
 				// we got data into the request
@@ -738,9 +737,9 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		int sockerr = 0;
 		if (serverHasRelay) {
 			ret = pdp_send_postoffice(req.id - 1, &peer->mac, peer->port, req.buffer, targetPeers.length);
-			if (ret == 0){
-				ret == *req.length;
-			}else{
+			if (ret == 0) {
+				ret = *req.length;
+			} else {
 				sockerr = EAGAIN;
 			}
 		} else {
@@ -2282,7 +2281,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 
 				SceNetEtherAddr mac;
 				int received = 0;
-				int error;
+				int error = 0;
 
 				if (serverHasRelay) {
 					while(1) {
@@ -2297,7 +2296,6 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 							// next is larger than current buffer
 							return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
 						}
-						uint16_t recv_port;
 						received = pdp_recv_postoffice(id - 1, saddr, sport, buf, len);
 						if (received == 0) {
 							// we got data
@@ -4297,7 +4295,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					struct sockaddr_in peeraddr;
 					memset(&peeraddr, 0, sizeof(peeraddr));
 					socklen_t peeraddrlen = sizeof(peeraddr);
-					int error;
+					int error = 0;
 
 					int newsocket = 0;
 					if (serverHasRelay) {
