@@ -1527,6 +1527,10 @@ void NativeResized() {
 	resized = true;
 }
 
+void NativeVSync(int64_t vsyncId, double frameTime, double expectedPresentationTime) {
+	// TODO: Make use of this.
+}
+
 void NativeSetRestarting() {
 	restarting = true;
 }
