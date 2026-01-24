@@ -863,8 +863,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			if (mSurface != null) {
 				// applyFramerate is called in here.
 				startRenderLoopThread();
+			} else {
+				Log.i(TAG, "Notified surface is null, not starting thread.");
 			}
 		} else if (mSurface != null) {
+			// JavaGL path.
 			applyFrameRate(mSurface, 60.0f);
 		}
 		updateSustainedPerformanceMode();

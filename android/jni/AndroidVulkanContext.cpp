@@ -29,8 +29,6 @@ bool AndroidVulkanContext::InitAPI() {
 	g_LogOptions.breakOnWarning = true;
 	g_LogOptions.msgBoxOnError = false;
 
-	INFO_LOG(Log::G3D, "Creating Vulkan context");
-
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
 		ERROR_LOG(Log::G3D, "Failed to load Vulkan driver library: %s", errorStr.c_str());
@@ -39,8 +37,11 @@ bool AndroidVulkanContext::InitAPI() {
 	}
 
 	if (!g_Vulkan) {
-		// TODO: Assert if g_Vulkan already exists here?
+		// TODO: Assert if g_Vulkan already exists here ?
+		INFO_LOG(Log::G3D, "Creating Vulkan context.");
 		g_Vulkan = new VulkanContext();
+	} else {
+		INFO_LOG(Log::G3D, "Reusing existing Vulkan context.");
 	}
 
 	VulkanContext::CreateInfo info{};
@@ -77,26 +78,29 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, useMultiThreading);
 
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-	bool success = false;
-	if (g_Vulkan->InitSwapchain(presentMode)) {
-		SetGPUBackend(GPUBackend::VULKAN);
-		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-		_assert_msg_(success, "Failed to compile preset shaders");
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-
-		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->SetInflightFrames(g_Config.iInflightFrames);
-		success = renderManager->HasBackbuffers();
+	if (!g_Vulkan->InitSwapchain(presentMode)) {
+		g_Vulkan->DestroySurface();
+		return false;
 	}
 
-	INFO_LOG(Log::G3D, "AndroidVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
-	if (!success) {
+	SetGPUBackend(GPUBackend::VULKAN);
+	bool success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
+	_assert_msg_(success, "Failed to compile preset shaders");
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager->SetInflightFrames(g_Config.iInflightFrames);
+	if (!renderManager->HasBackbuffers()) {
+		ERROR_LOG(Log::G3D, "VulkanRenderManager has no backbuffers after InitFromRenderThread");
 		g_Vulkan->DestroySwapchain();
 		g_Vulkan->DestroySurface();
-		g_Vulkan->DestroyDevice();
-		g_Vulkan->DestroyInstance();
+		delete draw_;
+		draw_ = nullptr;
+		return false;
 	}
-	return success;
+
+	INFO_LOG(Log::G3D, "AndroidVulkanContext::Init completed successfully");
+	return true;
 }
 
 void AndroidVulkanContext::ShutdownFromRenderThread() {
