@@ -76,7 +76,6 @@ BootState PSP_InitUpdate(std::string *error_string);
 BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 
 void PSP_Shutdown(bool success);
-BootState PSP_Reboot(std::string *error_string);
 
 FileLoader *PSP_LoadedFile();
 
