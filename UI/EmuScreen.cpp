@@ -376,7 +376,7 @@ void EmuScreen::bootComplete() {
 	System_Notify(SystemNotification::DISASSEMBLY);
 
 	NOTICE_LOG(Log::Boot, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
-	if (!Achievements::HardcoreModeActive()) {
+	if (!Achievements::HardcoreModeActive() && !bootIsReset_) {
 		// Don't auto-load savestates in hardcore mode.
 		AutoLoadSaveState();
 	}
@@ -428,6 +428,8 @@ void EmuScreen::bootComplete() {
 
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Start(gameID);
+
+	bootIsReset_ = false;
 }
 
 EmuScreen::~EmuScreen() {
@@ -548,6 +550,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 
 		// Restart the boot process
 		bootPending_ = true;
+		bootIsReset_ = true;
 		RecreateViews();
 		_dbg_assert_(coreState == CORE_POWERDOWN);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
@@ -588,6 +591,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			screenManager()->cancelScreensAbove(this);
 
 			bootPending_ = true;
+			bootIsReset_ = false;
 			gamePath_ = newGamePath;
 		}
 	} else if (message == UIMessage::CONFIG_LOADED) {
@@ -1776,6 +1780,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 			// Restart the boot process
 			bootPending_ = true;
+			bootIsReset_ = true;
 			RecreateViews();
 			_dbg_assert_(coreState == CORE_POWERDOWN);
 			if (!PSP_InitStart(PSP_CoreParameter())) {
