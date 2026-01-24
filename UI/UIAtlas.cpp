@@ -409,7 +409,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	int imageWidth = RoundToNextPowerOf2((int)sqrtf(area));
 
 	Instant bucketStart = Instant::Now();
-	bucket.Pack(imageWidth);
+	bucket.Pack2(imageWidth);
 	INFO_LOG(Log::G3D, " - Packed in %.2f ms (image size: %dx%d)", bucketStart.ElapsedMs(), bucket.w, bucket.h);
 
 	Instant resolveStart = Instant::Now();
