@@ -398,7 +398,11 @@ void DrawEngineGLES::Flush() {
 
 		if (textureNeedsApply) {
 			gstate_c.pixelMapped = result.pixelMapped;
+			gstate_c.dstSquared = false;
 			textureCache_->ApplyTexture();
+			if (gstate_c.dstSquared) {
+				gstate_c.Dirty(DIRTY_BLEND_STATE);
+			}
 			gstate_c.pixelMapped = false;
 		}
 
