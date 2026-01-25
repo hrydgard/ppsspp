@@ -173,20 +173,18 @@ int XinputDevice::UpdateState() {
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
-			padData_[i].connected = true;
-			if (!padData_[i].notified) {
-				padData_[i].notified = true;
+			if (!padData_[i].connected) {
+				padData_[i].connected = true;
+				padData_[i].vendorId = 0;
+				padData_[i].productId = 0;
 #if !PPSSPP_PLATFORM(UWP)
 				XINPUT_CAPABILITIES_EX caps{};
 				if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, i, 0, &caps) == ERROR_SUCCESS) {
-
-					KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + i, StringFromFormat("Xbox pad %d: %d/%d", (i + 1), caps.VendorId, caps.ProductId));
-				} else {
-#else
-				{
-#endif
-					KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + i, StringFromFormat("Xbox pad %d", (i + 1)));
+					padData_[i].vendorId = caps.VendorId;
+					padData_[i].productId = caps.ProductId;
 				}
+#endif
+				KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + i, StringFromFormat("Xbox pad %d: %d/%d", (i + 1), padData_[i].vendorId, padData_[i].productId));
 			}
 			XINPUT_VIBRATION vibration{};
 			UpdatePad(i, state, vibration);
@@ -194,6 +192,7 @@ int XinputDevice::UpdateState() {
 		} else if (dwResult == ERROR_DEVICE_NOT_CONNECTED) {
 			if (padData_[i].connected) {
 				ReleaseAllKeys(i);
+				KeyMap::NotifyPadDisconnected(DEVICE_ID_XINPUT_0 + i);
 				padData_[i].connected = false;
 			}
 			padData_[i].checkDelayUpdates = 30;

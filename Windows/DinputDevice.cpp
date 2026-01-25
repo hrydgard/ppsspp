@@ -173,6 +173,8 @@ DinputDevice::DinputDevice(int devnum) {
 }
 
 DinputDevice::~DinputDevice() {
+	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0 + pDevNum);
+
 	if (pJoystick) {
 		pJoystick = nullptr;
 	}

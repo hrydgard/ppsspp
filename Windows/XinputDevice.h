@@ -17,7 +17,6 @@ private:
 	void ApplyVibration(int pad, XINPUT_VIBRATION &vibration);
 
 	struct PadData {
-		bool notified = false;
 		bool connected = false;
 		int checkDelayUpdates = 0;
 		XINPUT_STATE prevState{};

@@ -812,43 +812,52 @@ void ClearAllMappings() {
 	g_controllerMapGeneration++;
 }
 
-bool IsNvidiaShield(const std::string &name) {
+bool IsNvidiaShield(std::string_view name) {
 	return name == "NVIDIA:SHIELD";
 }
 
-bool IsRetroid(const std::string &name) {
+bool IsRetroid(std::string_view name) {
 	// TODO: Not sure if there are differences between different Retroid devices.
 	// The one I have is a "Retroid Pocket 2+".
 	return startsWith(name, "Retroid:");
 }
 
-bool IsNvidiaShieldTV(const std::string &name) {
+bool IsNvidiaShieldTV(std::string_view name) {
 	return name == "NVIDIA:SHIELD Android TV";
 }
 
-bool IsXperiaPlay(const std::string &name) {
+bool IsXperiaPlay(std::string_view name) {
 	return name == "Sony Ericsson:R800a" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:R800x" || name == "Sony Ericsson:R800at" || name == "Sony Ericsson:SO-01D" || name == "Sony Ericsson:zeus";
 }
 
-bool IsMOQII7S(const std::string &name) {
+bool IsMOQII7S(std::string_view name) {
 	return name == "MOQI:I7S";
 }
 
-bool HasBuiltinController(const std::string &name) {
+bool HasBuiltinController(std::string_view name) {
 	return IsXperiaPlay(name) || IsNvidiaShield(name) || IsMOQII7S(name) || IsRetroid(name);
 }
 
-void NotifyPadConnected(InputDeviceID deviceId, const std::string &name) {
+void NotifyPadConnected(InputDeviceID deviceId, std::string_view name) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
-	g_seenPads.insert(name);
+	g_seenPads.insert(std::string(name));
 	g_padNames[deviceId] = name;
 }
 
-void AutoConfForPad(const std::string &name) {
+void NotifyPadDisconnected(InputDeviceID deviceId) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+	auto iter = g_padNames.find(deviceId);
+	if (iter != g_padNames.end()) {
+		g_seenPads.erase(iter->second);
+	}
+	g_padNames.erase(deviceId);
+}
+
+void AutoConfForPad(std::string_view name) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_controllerMap.clear();
 
-	INFO_LOG(Log::System, "Autoconfiguring pad for '%s'", name.c_str());
+	INFO_LOG(Log::System, "Autoconfiguring pad for '%.*s'", STR_VIEW(name));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (name.find("Xbox") != std::string::npos) {
