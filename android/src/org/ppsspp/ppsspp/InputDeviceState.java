@@ -25,6 +25,10 @@ public class InputDeviceState {
 		return mDevice;
 	}
 
+	final int getDeviceId() {
+		return deviceId;
+	}
+
 	static void logAdvanced(InputDevice device) {
 		Log.i(TAG, "Vendor ID:" + device.getVendorId() + " productId: " + device.getProductId() + " sources: " + String.format("%08x", device.getSources()));
 	}
@@ -101,6 +105,7 @@ public class InputDeviceState {
 	public InputDeviceState(InputDevice device) {
 		sources = device.getSources();
 		// First, anything that's a gamepad is a gamepad, even if it has a keyboard or pointer.
+		// We also don't bother supporting multiple gamepads, we send them all to PAD0.
 		if ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
 			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
 		} else if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
@@ -131,6 +136,10 @@ public class InputDeviceState {
 		logAdvanced(device);
 		NativeApp.sendMessageFromJava("inputDeviceConnectedID", String.valueOf(this.deviceId));
 		NativeApp.sendMessageFromJava("inputDeviceConnected", device.getName());
+	}
+
+	public void Disconnect() {
+		NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(this.deviceId));
 	}
 
 	// This is called from dispatchKeyEvent.

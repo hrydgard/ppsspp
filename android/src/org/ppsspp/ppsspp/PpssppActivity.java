@@ -35,6 +35,7 @@ import android.os.Environment;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
+import android.renderscript.ScriptGroup;
 import android.text.InputType;
 import android.util.Log;
 import android.database.Cursor;
@@ -770,21 +771,49 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			new InputManager.InputDeviceListener() {
 				@Override
 				public void onInputDeviceAdded(int deviceId) {
-					Log.i(TAG, "InputDeviceAdded");
-					// handleDeviceAdded(deviceId);
+					Log.i(TAG, "onInputDeviceAdded");
+					InputDevice device = InputDevice.getDevice(deviceId);
+					if (device == null) {
+						Log.i(TAG, "BAD: Invalid device id");
+						return;
+					}
+
+					for (InputDeviceState input : inputPlayers) {
+						if (input.getDevice() == device) {
+							Log.i(TAG, "Unexpected: Device already registered");
+							return;
+						}
+					}
+
+					// None was found, just add and return it.
+					InputDeviceState state = new InputDeviceState(device);
+					inputPlayers.add(state);
+					Log.i(TAG, "Input player registered on connect: desc = " + device.getDescriptor());
 				}
 
 				@Override
 				public void onInputDeviceRemoved(int deviceId) {
-					Log.i(TAG, "InputDeviceRemoved");
-					// handleDeviceRemoved(deviceId);
-				}
+					Log.i(TAG, "onInputDeviceRemoved");
 
+					// Find and remove the device.
+					for (int i = 0; i < inputPlayers.size(); i++) {
+						InputDeviceState state = inputPlayers.get(i);
+						if (state.getDevice().getId() == deviceId) {
+							Log.i(TAG, "Input device removed: " + state.getDevice().getName());
+
+							// Notify Native layer that this specific device is gone
+							// This is important so the C++ side can clear button states
+							NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(state.getDeviceId()));
+							inputPlayers.remove(i);
+							break;
+						}
+					}
+				}
 
 				@Override
 				public void onInputDeviceChanged(int deviceId) {
-					// handleDeviceChanged(deviceId);
-					Log.i(TAG, "InputDeviceChanged");
+					// Should rescan device capabilities. We ignore this for now, I don't see any scenario
+					// where this is relevant.
 				}
 			};
 
@@ -1117,7 +1146,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// None was found, just add and return it.
 		InputDeviceState state = new InputDeviceState(device);
 		inputPlayers.add(state);
-		Log.i(TAG, "Input player registered: desc = " + device.getDescriptor());
+		Log.i(TAG, "Input player post-registered: desc = " + device.getDescriptor());
 		return state;
 	}
 

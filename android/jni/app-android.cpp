@@ -1449,6 +1449,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		nextInputDeviceID = (InputDeviceID)parseLong(prm);
 	} else if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, prm);
+	} else if (msg == "inputDeviceDisconnectedID") {
+		InputDeviceID disconnectedID = (InputDeviceID)parseLong(prm);
+		KeyMap::NotifyPadDisconnected(disconnectedID);
 	} else if (msg == "core_powerSaving") {
 		// Forward.
 		System_PostUIMessage(UIMessage::POWER_SAVING, prm);
