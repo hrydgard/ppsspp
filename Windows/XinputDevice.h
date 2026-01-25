@@ -16,13 +16,18 @@ private:
 	void ApplyButtons(int pad, const XINPUT_STATE &state);
 	void ApplyVibration(int pad, XINPUT_VIBRATION &vibration);
 
-	bool connected_[4]{};
-	int checkDelayUpdates_[4]{};
-	XINPUT_STATE prevState_[4]{};
-	XINPUT_VIBRATION prevVibration_[4]{};
+	struct PadData {
+		bool notified = false;
+		bool connected = false;
+		int checkDelayUpdates = 0;
+		XINPUT_STATE prevState{};
+		XINPUT_VIBRATION prevVibration{};
+		u16 vendorId = 0;
+		u16 productId = 0;
+		float prevAxisValue[6]{};
+		u32 prevButtons = 0;
+	};
+	PadData padData_[XUSER_MAX_COUNT];
 	double prevVibrationTime_ = 0.0;
-	float prevAxisValue_[4][6]{};
-	bool notified_[XUSER_MAX_COUNT]{};
-	u32 prevButtons_[4]{};
 	double newVibrationTime_ = 0.0;
 };
