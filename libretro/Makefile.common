@@ -525,6 +525,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/UI.cpp \
 	$(COMMONDIR)/UI/Context.cpp \
 	$(COMMONDIR)/UI/UIScreen.cpp \
+	$(COMMONDIR)/UI/Notice.cpp \
 	$(COMMONDIR)/UI/Tween.cpp \
 	$(COMMONDIR)/UI/IconCache.cpp \
 	$(COMMONDIR)/UI/View.cpp \

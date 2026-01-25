@@ -893,6 +893,8 @@ add_library(Common STATIC
 	Common/UI/IconCache.h
 	Common/UI/UIScreen.cpp
 	Common/UI/UIScreen.h
+	Common/UI/Notice.cpp
+	Common/UI/Notice.h
 	Common/UI/Tween.cpp
 	Common/UI/Tween.h
 	Common/UI/View.cpp

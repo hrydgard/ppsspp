@@ -40,6 +40,7 @@
 
 #include "Common/Thread/ThreadManager.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/Notice.h"
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"

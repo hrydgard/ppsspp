@@ -18,6 +18,7 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/Notice.h"
 
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"

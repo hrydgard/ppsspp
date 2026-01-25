@@ -29,6 +29,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
+#include "Common/UI/Notice.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/BitSet.h"
@@ -37,7 +38,6 @@
 #include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Color/RGBAUtil.h"
-#include "Common/Math/curves.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/UI/PopupScreens.h"
@@ -66,8 +66,6 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
-#include "Common/OSVersion.h"
-#include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -79,11 +77,7 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/sceUtility.h"
-#include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
-
-#include "Core/Core.h" // for Core_IsStepping
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
