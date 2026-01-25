@@ -45,6 +45,7 @@ public:
 	}
 
 private:
+	void ReleaseAllKeys();
 	void ApplyButtons(DIJOYSTATE2 &state);
 	//unfortunate and unclean way to keep only one DirectInput instance around
 	static LPDIRECTINPUT8 getPDI();
