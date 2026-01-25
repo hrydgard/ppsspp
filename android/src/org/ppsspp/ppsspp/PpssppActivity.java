@@ -29,6 +29,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -116,6 +117,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
+	private InputManager.InputDeviceListener inputDeviceListener;
 
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
@@ -768,6 +770,28 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// Add the callback to the dispatcher
 		getOnBackPressedDispatcher().addCallback(this, callback);
 
+		inputDeviceListener =
+			new InputManager.InputDeviceListener() {
+				@Override
+				public void onInputDeviceAdded(int deviceId) {
+					Log.i(TAG, "InputDeviceAdded");
+					// handleDeviceAdded(deviceId);
+				}
+
+				@Override
+				public void onInputDeviceRemoved(int deviceId) {
+					Log.i(TAG, "InputDeviceRemoved");
+					// handleDeviceRemoved(deviceId);
+				}
+
+
+				@Override
+				public void onInputDeviceChanged(int deviceId) {
+					// handleDeviceChanged(deviceId);
+					Log.i(TAG, "InputDeviceChanged");
+				}
+			};
+
 		Log.i(TAG, "onCreate end");
 	}
 
@@ -975,6 +999,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onPause();
 		lifeCycle.onPause();
 
+		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
+		inputManager.unregisterInputDeviceListener(inputDeviceListener);
+
 		if (!javaGL) {
 			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
@@ -1013,6 +1040,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+
+		InputManager inputManager =
+			(InputManager)getSystemService(Context.INPUT_SERVICE);
+		inputManager.registerInputDeviceListener(inputDeviceListener, null);
 
 		if (!javaGL) {
 			// Restart the render loop.

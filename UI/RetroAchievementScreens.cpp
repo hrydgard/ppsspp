@@ -41,7 +41,7 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
 		g_BackgroundAudio.SFX().Play(sound_, achievementVolume);
 	});
-	Add(new FileChooserChoice(token, value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([this, sound, value](UI::EventParams &e) {
+	Add(new FileChooserChoice(token, value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([sound, value](UI::EventParams &e) {
 		std::string path = e.s;
 		Sample *sample = Sample::Load(path);
 		if (sample) {
