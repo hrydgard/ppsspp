@@ -1,14 +1,11 @@
 package org.ppsspp.ppsspp;
 
-import static java.nio.file.Files.readAllBytes;
-
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Keep;
 
 import org.ppsspp.proto.TombstoneProtos;
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
@@ -67,7 +64,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.documentfile.provider.DocumentFile;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -1457,24 +1453,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
-			@Override
-			public void onDismiss(DialogInterface dialog) {
-				updateSystemUiVisibility();
-			}
-		});
+		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
 		return bld;
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
-		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
-			@Override
-			public void onDismiss(DialogInterface dialog) {
-				updateSystemUiVisibility();
-			}
-		});
+		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
 		return bld;
 	}
 
@@ -1508,29 +1494,20 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		AlertDialog.Builder builder = bld
 			.setView(fl)
 			.setTitle(title)
-			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface d, int which) {
-					Log.i(TAG, "input box successful");
-					NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
-					d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
-				}
+			.setPositiveButton(defaultAction, (d, which) -> {
+				Log.i(TAG, "input box successful");
+				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
+				d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
 			})
-			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface d, int which) {
-					Log.i(TAG, "input box cancelled");
-					NativeApp.sendRequestResult(requestId, false, "", 0);
-					d.cancel();
-				}
-			});
-		builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-			@Override
-			public void onDismiss(DialogInterface d) {
-				Log.i(TAG, "input box dismissed");
+			.setNegativeButton("Cancel", (d, which) -> {
+				Log.i(TAG, "input box cancelled");
 				NativeApp.sendRequestResult(requestId, false, "", 0);
-				updateSystemUiVisibility();
-			}
+				d.cancel();
+			});
+		builder.setOnDismissListener(d -> {
+			Log.i(TAG, "input box dismissed");
+			NativeApp.sendRequestResult(requestId, false, "", 0);
+			updateSystemUiVisibility();
 		});
 		AlertDialog dlg = builder.create();
 
