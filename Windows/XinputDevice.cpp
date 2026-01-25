@@ -70,12 +70,12 @@ static int LoadXInputDLL() {
 	PPSSPP_XInputVersion = version;
 	s_XInputDLLRefCount = 1;
 
-	/* 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think...
-	   Let's try the name first, though - then fall back to ordinal, then to a non-Ex version (xinput9_1_0.dll doesn't have Ex) */
+	// 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think...
+	// Let's try the name first, though - then fall back to ordinal, then to a non-Ex version (xinput9_1_0.dll doesn't have Ex)
 	PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetStateEx" );
-	if ( !PPSSPP_XInputGetState ) {
+	if (!PPSSPP_XInputGetState) {
 		PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, (LPCSTR)100 );
-		if ( !PPSSPP_XInputGetState ) {
+		if (!PPSSPP_XInputGetState) {
 			PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetState" );
 		}
 	}
@@ -151,8 +151,8 @@ XinputDevice::XinputDevice() {
 		WARN_LOG(Log::sceCtrl, "Failed to load XInput! DLL missing");
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {
-		check_delay[i] = (int)i;
+	for (size_t i = 0; i < ARRAY_SIZE(checkDelayUpdates_); ++i) {
+		checkDelayUpdates_[i] = (int)i;
 	}
 }
 
@@ -169,21 +169,54 @@ int XinputDevice::UpdateState() {
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 		XINPUT_STATE state{};
-		if (check_delay[i]-- > 0)
+		if (checkDelayUpdates_[i]-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
+			connected_[i] = true;
 			XINPUT_VIBRATION vibration{};
 			UpdatePad(i, state, vibration);
 			anySuccess = true;
+		} else if (dwResult == ERROR_DEVICE_NOT_CONNECTED) {
+			if (connected_[i]) {
+				ReleaseAllKeys(i);
+				connected_[i] = false;
+			}
+			checkDelayUpdates_[i] = 30;
 		} else {
-			check_delay[i] = 30;
+			checkDelayUpdates_[i] = 30;
 		}
 	}
 
 	// If we get XInput, skip the others. This might not actually be a good idea,
 	// and was done to avoid conflicts between DirectInput and XInput.
 	return 0; // anySuccess ? UPDATESTATE_SKIP_PAD : 0;
+}
+
+void XinputDevice::ReleaseAllKeys(int pad) {
+	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
+		const auto &mapping = xinput_ctrl_map[i];
+		KeyInput key;
+		key.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+		key.flags = KeyInputFlags::UP;
+		key.keyCode = mapping.to;
+		NativeKey(key);
+	}
+	static const InputAxis allAxes[6] = {
+		JOYSTICK_AXIS_X,
+		JOYSTICK_AXIS_Y,
+		JOYSTICK_AXIS_Z,
+		JOYSTICK_AXIS_RZ,
+		JOYSTICK_AXIS_LTRIGGER,
+		JOYSTICK_AXIS_RTRIGGER,
+	};
+	for (const auto axisId : allAxes) {
+		AxisInput axis;
+		axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+		axis.axisId = axisId;
+		axis.value = 0;
+		NativeAxis(&axis, 1);
+	}
 }
 
 void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
@@ -228,8 +261,8 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 		NativeAxis(axis, axisCount);
 	}
 
-	prevState[pad] = state;
-	check_delay[pad] = 0;
+	prevState_[pad] = state;
+	checkDelayUpdates_[pad] = 0;
 }
 
 void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
@@ -263,7 +296,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 		// We have to run PPSSPP_XInputSetState at time intervals
 		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
-		if (newVibrationTime_ - prevVibrationTime >= 1.0 / 64.0) {
+		if (newVibrationTime_ - prevVibrationTime_ >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {
 				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
 				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
@@ -272,16 +305,16 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				vibration.wRightMotorSpeed = 0;
 			}
 
-			if (prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
+			if (prevVibration_[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration_[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
 				PPSSPP_XInputSetState(pad, &vibration);
-				prevVibration[pad] = vibration;
+				prevVibration_[pad] = vibration;
 			}
-			prevVibrationTime = newVibrationTime_;
+			prevVibrationTime_ = newVibrationTime_;
 		}
 	} else {
 		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
 		if (dwResult != ERROR_SUCCESS) {
-			check_delay[pad] = 30;
+			checkDelayUpdates_[pad] = 30;
 		}
 	}
 }

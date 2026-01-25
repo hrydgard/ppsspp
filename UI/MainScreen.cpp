@@ -152,9 +152,13 @@ public:
 		bool showInfo = false;
 
 		if (HasFocus() && UI::IsInfoKey(key)) {
-			// If the button mapped to triangle, then show the info.
-			if (key.flags & KeyInputFlags::UP) {
+			// If it's the button that's mapped to triangle, then show the info.
+			if (key.flags & KeyInputFlags::DOWN) {
+				infoKeyPressed_ = true;
+			}
+			if ((key.flags & KeyInputFlags::UP) && infoKeyPressed_) {
 				showInfo = true;
+				infoKeyPressed_ = false;
 			}
 		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
 			// If it's the right mouse button, and it's not otherwise mapped, show the info also.
@@ -214,6 +218,7 @@ private:
 	double holdStart_ = 0.0;
 	bool holdEnabled_ = true;
 	bool showInfoPressed_ = false;
+	bool infoKeyPressed_ = false;
 	bool hovering_ = false;
 };
 

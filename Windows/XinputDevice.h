@@ -12,12 +12,15 @@ public:
 
 private:
 	void UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration);
+	void ReleaseAllKeys(int pad);
 	void ApplyButtons(int pad, const XINPUT_STATE &state);
 	void ApplyVibration(int pad, XINPUT_VIBRATION &vibration);
-	int check_delay[4]{};
-	XINPUT_STATE prevState[4]{};
-	XINPUT_VIBRATION prevVibration[4]{};
-	double prevVibrationTime = 0.0;
+
+	bool connected_[4]{};
+	int checkDelayUpdates_[4]{};
+	XINPUT_STATE prevState_[4]{};
+	XINPUT_VIBRATION prevVibration_[4]{};
+	double prevVibrationTime_ = 0.0;
 	float prevAxisValue_[4][6]{};
 	bool notified_[XUSER_MAX_COUNT]{};
 	u32 prevButtons_[4]{};
