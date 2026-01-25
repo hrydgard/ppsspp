@@ -173,6 +173,9 @@ DinputDevice::DinputDevice(int devnum) {
 }
 
 DinputDevice::~DinputDevice() {
+	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0 + pDevNum);
+	ReleaseAllKeys();
+
 	if (pJoystick) {
 		pJoystick = nullptr;
 	}
@@ -185,6 +188,48 @@ DinputDevice::~DinputDevice() {
 	//unsafe as well anyway
 	if (pInstances == 0 && pDI) {
 		pDI = nullptr;
+	}
+}
+
+void DinputDevice::ReleaseAllKeys() {
+	KeyInput key;
+	key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
+	key.flags = KeyInputFlags::UP;
+	for (int i = 0; i < ARRAY_SIZE(dinput_buttons); ++i) {
+		if (lastButtons_[i] != 0) {
+			key.keyCode = dinput_buttons[i];
+			NativeKey(key);
+			lastButtons_[i] = 0;
+		}
+	}
+
+	// Release DPad
+	static const InputKeyCode dpadCodes[] = {
+		NKCODE_DPAD_UP,
+		NKCODE_DPAD_DOWN,
+		NKCODE_DPAD_LEFT,
+		NKCODE_DPAD_RIGHT
+	};
+	for (int i = 0; i < ARRAY_SIZE(dpadCodes); ++i) {
+		key.keyCode = dpadCodes[i];
+		NativeKey(key);
+	}
+
+	// Release axes
+	static const InputAxis axes[] = {
+		JOYSTICK_AXIS_X,
+		JOYSTICK_AXIS_Y,
+		JOYSTICK_AXIS_Z,
+		JOYSTICK_AXIS_RX,
+		JOYSTICK_AXIS_RY,
+		JOYSTICK_AXIS_RZ
+	};
+	for (int i = 0; i < ARRAY_SIZE(axes); ++i) {
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
+		axis.axisId = axes[i];
+		axis.value = 0.0f;
+		NativeAxis(&axis, 1);
 	}
 }
 

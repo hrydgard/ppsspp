@@ -22,32 +22,26 @@
 #include <unordered_map>
 
 #include "Common/Render/TextureAtlas.h"
-#include "Common/UI/Root.h"
-#include "Common/UI/UI.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/Notice.h"
 #include "Common/VR/PPSSPPVR.h"
-
 #include "Common/Log.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Input/InputState.h"
 #include "Common/StringUtils.h"
-#include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/TimeUtil.h"
 #include "Core/KeyMap.h"
 #include "Core/HLE/sceCtrl.h"
-#include "Core/System.h"
 #include "Core/Config.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/PopupScreens.h"
-#include "UI/GameSettingsScreen.h"
 #include "UI/JoystickHistoryView.h"
-#include "UI/OnScreenDisplay.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
@@ -57,7 +51,10 @@ using KeyMap::MultiInputMapping;
 
 class SingleControlMapper : public UI::LinearLayout {
 public:
-	SingleControlMapper(int pspKey, std::string keyName, bool portrait, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr);
+	SingleControlMapper(int pspKey, std::string_view keyName, bool portrait, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = nullptr)
+		: UI::LinearLayout(ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), portrait_(portrait) {
+		Refresh();
+	}
 	~SingleControlMapper() {
 		g_IsMappingMouseInput = false;
 	}
@@ -81,11 +78,6 @@ private:
 	ScreenManager *scrm_;
 	bool portrait_;
 };
-
-SingleControlMapper::SingleControlMapper(int pspKey, std::string keyName, bool portrait, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
-	: UI::LinearLayout(ORIENT_VERTICAL, layoutParams), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), portrait_(portrait) {
-	Refresh();
-}
 
 void SingleControlMapper::Refresh() {
 	Clear();
@@ -310,7 +302,9 @@ void ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 		items.push_back(*s);
 	}
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	autoConfList->SetNotification(NoticeLevel::WARN, di->T("This will overwrite the existing configuration"));
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);

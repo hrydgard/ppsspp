@@ -7,9 +7,11 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/Notice.h"
 
 // from StringUtils
 enum class StringRestriction;
+enum class OSDType;  // From OSD
 
 namespace UI {
 
@@ -37,6 +39,10 @@ public:
 
 	// For the postproc param sliders on DisplayLayoutScreen
 	bool wantBrightBackground() const override { return !hasDropShadow_; }
+	void SetNotification(NoticeLevel noticeLevel, std::string_view str) {
+		notificationLevel_ = noticeLevel;
+		notificationString_ = str;
+	}
 
 protected:
 	virtual bool FillVertical() const { return false; }
@@ -70,6 +76,8 @@ private:
 	bool alignTop_ = false;
 
 	bool hasDropShadow_ = true;
+	NoticeLevel notificationLevel_{};
+	std::string notificationString_;
 };
 
 class ListPopupScreen : public PopupScreen {
@@ -81,6 +89,7 @@ public:
 	ListPopupScreen(std::string_view title, const std::vector<std::string> &items, int selected, bool showButtons = false)
 		: PopupScreen(title, "OK", "Cancel"), adaptor_(items, selected), showButtons_(showButtons) {
 	}
+	~ListPopupScreen() override;
 
 	int GetChoice() const {
 		return listView_->GetSelected();

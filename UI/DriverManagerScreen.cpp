@@ -6,6 +6,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/Notice.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"

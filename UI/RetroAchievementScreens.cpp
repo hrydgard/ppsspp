@@ -7,6 +7,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/IconCache.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/Notice.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"

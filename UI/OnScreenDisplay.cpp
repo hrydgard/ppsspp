@@ -14,6 +14,7 @@
 #include "UI/DebugOverlay.h"
 
 #include "Common/UI/Context.h"
+#include "Common/UI/Notice.h"
 #include "Common/System/OSD.h"
 
 #include "Common/TimeUtil.h"
@@ -26,91 +27,6 @@ static inline const char *DeNull(const char *ptr) {
 extern bool g_TakeScreenshot;
 
 static const float g_atlasIconSize = 36.0f;
-static const float extraTextScale = 0.7f;
-
-static uint32_t GetNoticeBackgroundColor(NoticeLevel type) {
-	// Colors from Infima
-	switch (type) {
-	case NoticeLevel::ERROR: return 0x3530d5;  // danger-darker
-	case NoticeLevel::WARN: return 0x009ed9;  // warning-darker
-	case NoticeLevel::INFO: return 0x706760;  // gray-700
-	case NoticeLevel::SUCCESS: return 0x008b00;  // nice green
-	default: return 0x606770;
-	}
-}
-
-static ImageID GetOSDIcon(NoticeLevel level) {
-	switch (level) {
-	case NoticeLevel::INFO: return ImageID("I_INFO");
-	case NoticeLevel::ERROR: return ImageID("I_CROSS");
-	case NoticeLevel::WARN: return ImageID("I_WARNING");
-	case NoticeLevel::SUCCESS: return ImageID("I_CHECKMARK");
-	default: return ImageID::invalid();
-	}
-}
-
-static NoticeLevel GetNoticeLevel(OSDType type) {
-	switch (type) {
-	case OSDType::MESSAGE_INFO:
-		return NoticeLevel::INFO;
-	case OSDType::MESSAGE_ERROR:
-	case OSDType::MESSAGE_ERROR_DUMP:
-	case OSDType::MESSAGE_CENTERED_ERROR:
-		return NoticeLevel::ERROR;
-	case OSDType::MESSAGE_WARNING:
-	case OSDType::MESSAGE_CENTERED_WARNING:
-		return NoticeLevel::WARN;
-	case OSDType::MESSAGE_SUCCESS:
-		return NoticeLevel::SUCCESS;
-	default:
-		return NoticeLevel::SUCCESS;
-	}
-}
-
-// Align only matters here for the ASCII-only flag.
-static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float maxWidth, float *width, float *height, float *height1) {
-	float iconW = 0.0f;
-	float iconH = 0.0f;
-	if (!iconName.empty() && !startsWith(iconName, "I_")) {  // Check for atlas image. Bit hacky, but we choose prefixes for icon IDs anyway in a way that this is safe.
-		// Normal entry but with a cached icon.
-		int iconWidth, iconHeight;
-		if (g_iconCache.GetDimensions(iconName, &iconWidth, &iconHeight)) {
-			*width += 5.0f + iconWidth;
-			iconW = iconWidth;
-			iconH = iconHeight;
-		}
-	} else {
-		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName.c_str());
-		if (iconID.isValid()) {
-			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
-		}
-	}
-
-	float chromeWidth = iconW + 5.0f + 12.0f;
-	float availableWidth = maxWidth - chromeWidth;
-
-	// OK, now that we have figured out how much space we have for the text, we can measure it (with wrapping if needed).
-	// We currently don't wrap the title.
-
-	float titleWidth, titleHeight;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text, &titleWidth, &titleHeight, align);
-
-	*width = std::min(titleWidth, availableWidth);
-	*height1 = titleHeight;
-
-	float width2 = 0.0f, height2 = 0.0f;
-	if (!details.empty()) {
-		dc.MeasureTextRect(dc.GetTheme().uiFont, extraTextScale, extraTextScale, details, availableWidth, &width2, &height2, align | FLAG_WRAP_TEXT);
-		*width = std::max(*width, width2);
-	}
-
-	*width += chromeWidth;
-	if (height2 == 0.0f && iconH < 2.0f * *height1) {
-		// Center vertically using the icon.
-		*height1 = std::max(*height1, iconH + 2.0f);
-	}
-	*height = std::max(*height1 + height2 + 8.0f, iconH + 5.0f);
-}
 
 // Align only matters here for the ASCII-only flag.
 static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float maxWidth, float *width, float *height, float *height1) {
@@ -122,74 +38,6 @@ static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &e
 	} else {
 		MeasureNotice(dc, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, maxWidth, width, height, height1);
 	}
-}
-
-static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
-	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
-
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-
-	uint32_t foreGround = whiteAlpha(alpha);
-
-	if (!(flags & OSDMessageFlags::Transparent)) {
-		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-		dc.FillRect(background, bounds);
-	}
-
-	float iconW = 0.0f;
-	float iconH = 0.0f;
-	if (!iconName.empty() && !startsWith(iconName, "I_")) {
-		dc.Flush();
-		// Normal entry but with a cached icon.
-		Draw::Texture *texture = g_iconCache.BindIconTexture(&dc, iconName);
-		if (texture) {
-			iconW = texture->Width();
-			iconH = texture->Height();
-			dc.Draw()->DrawTexRect(Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
-			dc.Flush();
-			dc.RebindTexture();
-		}
-		dc.Begin();
-	} else {
-		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName.c_str());
-		if (iconID.isValid()) {
-			// Atlas icon.
-			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
-			if (!iconName.empty()) {
-				Bounds iconBounds = Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH);
-				// If it's not a preset OSD icon, give it some background to blend in. The RA icon for example
-				// easily melts into the orange of warnings otherwise.
-				dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
-			}
-
-			if (flags & (OSDMessageFlags::SpinLeft | OSDMessageFlags::SpinRight)) {
-				const float direction = (flags & OSDMessageFlags::SpinLeft) ? -1.5f : 1.5f;
-				dc.DrawImageRotated(iconID, bounds.x + 2.5f + iconW * 0.5f, bounds.y + 2.5f + iconW * 0.5f, 1.0f, direction * timeVal, foreGround, false);
-			} else {
-				dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH));
-			}
-		}
-	}
-
-	// Make room
-	bounds.x += iconW + 5.0f;
-	bounds.w -= iconW + 5.0f;
-
-	Bounds primaryBounds = bounds;
-	primaryBounds.h = height1;
-
-	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_VCENTER | FLAG_ELLIPSIZE_TEXT);
-
-	if (!details.empty()) {
-		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
-		if (!(flags & OSDMessageFlags::Transparent)) {
-			UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
-			dc.FillRect(backgroundDark, bottomTextBounds);
-		}
-		dc.SetFontScale(extraTextScale, extraTextScale);
-		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT | FLAG_WRAP_TEXT);
-	}
-	dc.SetFontScale(1.0f, 1.0f);
 }
 
 static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha, float now) {
@@ -585,7 +433,8 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 		layoutWidth = horiz.size;
 	}
 	ApplyBoundBySpec(layoutWidth, horiz);
-	MeasureNotice(dc, level_, text_, detailsText_, iconName_, 0, layoutWidth, &w, &h, &height1_);
+	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
+	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_);
 	// Layout hack! Some weird problems with the layout that I can't figure out right now..
 	if (squishy_) {
 		w = 50.0;
@@ -594,6 +443,7 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f, OSDMessageFlags::None, 0.0f);
+	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f);
 	dc.PopScissor();
 }

@@ -753,19 +753,6 @@ void PSP_Shutdown(bool success) {
 	IncrementDebugCounter(DebugCounter::GAME_SHUTDOWN);
 }
 
-// Do not use. Currently only used from the websocket debugger
-BootState PSP_Reboot(std::string *error_string) {
-	if (g_bootState != BootState::Complete) {
-		return g_bootState;
-	}
-
-	Core_Stop();
-	Core_WaitInactive();
-	PSP_Shutdown(true);
-	std::string resetError;
-	return PSP_Init(PSP_CoreParameter(), error_string);
-}
-
 void PSP_RunLoopWhileState() {
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...

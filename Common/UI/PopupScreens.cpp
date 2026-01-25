@@ -6,6 +6,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Root.h"
+#include "Common/UI/Notice.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
@@ -163,6 +164,10 @@ void PopupScreen::CreateViews() {
 		box_->Add(title);
 	}
 
+	if (!notificationString_.empty()) {
+		box_->Add(new NoticeView(notificationLevel_, notificationString_, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))))->SetWrapText(true);
+	}
+
 	CreatePopupContents(box_);
 	root_->Recurse([](View *view) {
 		view->SetPopupStyle(true);
@@ -215,6 +220,8 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 			callback_(false);
 	}
 }
+
+ListPopupScreen::~ListPopupScreen() {}
 
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

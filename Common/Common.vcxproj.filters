@@ -722,6 +722,9 @@
     <ClInclude Include="..\ext\aemu_postoffice\client\sock_impl.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
+    <ClInclude Include="UI\Notice.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1343,6 +1346,9 @@
     </ClCompile>
     <ClCompile Include="..\ext\aemu_postoffice\client\sock_impl_windows.c">
       <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Notice.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -24,6 +24,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/Notice.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"

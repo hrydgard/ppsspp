@@ -70,12 +70,12 @@ static int LoadXInputDLL() {
 	PPSSPP_XInputVersion = version;
 	s_XInputDLLRefCount = 1;
 
-	/* 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think...
-	   Let's try the name first, though - then fall back to ordinal, then to a non-Ex version (xinput9_1_0.dll doesn't have Ex) */
+	// 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think...
+	// Let's try the name first, though - then fall back to ordinal, then to a non-Ex version (xinput9_1_0.dll doesn't have Ex)
 	PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetStateEx" );
-	if ( !PPSSPP_XInputGetState ) {
+	if (!PPSSPP_XInputGetState) {
 		PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, (LPCSTR)100 );
-		if ( !PPSSPP_XInputGetState ) {
+		if (!PPSSPP_XInputGetState) {
 			PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetState" );
 		}
 	}
@@ -151,8 +151,8 @@ XinputDevice::XinputDevice() {
 		WARN_LOG(Log::sceCtrl, "Failed to load XInput! DLL missing");
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {
-		check_delay[i] = (int)i;
+	for (size_t i = 0; i < ARRAY_SIZE(padData_); ++i) {
+		padData_[i].checkDelayUpdates = (int)i;
 	}
 }
 
@@ -169,15 +169,35 @@ int XinputDevice::UpdateState() {
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 		XINPUT_STATE state{};
-		if (check_delay[i]-- > 0)
+		if (padData_[i].checkDelayUpdates-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
+			if (!padData_[i].connected) {
+				padData_[i].connected = true;
+				padData_[i].vendorId = 0;
+				padData_[i].productId = 0;
+#if !PPSSPP_PLATFORM(UWP)
+				XINPUT_CAPABILITIES_EX caps{};
+				if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, i, 0, &caps) == ERROR_SUCCESS) {
+					padData_[i].vendorId = caps.VendorId;
+					padData_[i].productId = caps.ProductId;
+				}
+#endif
+				KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + i, StringFromFormat("Xbox pad %d: %d/%d", (i + 1), padData_[i].vendorId, padData_[i].productId));
+			}
 			XINPUT_VIBRATION vibration{};
 			UpdatePad(i, state, vibration);
 			anySuccess = true;
+		} else if (dwResult == ERROR_DEVICE_NOT_CONNECTED) {
+			if (padData_[i].connected) {
+				ReleaseAllKeys(i);
+				KeyMap::NotifyPadDisconnected(DEVICE_ID_XINPUT_0 + i);
+				padData_[i].connected = false;
+			}
+			padData_[i].checkDelayUpdates = 30;
 		} else {
-			check_delay[i] = 30;
+			padData_[i].checkDelayUpdates = 30;
 		}
 	}
 
@@ -186,20 +206,33 @@ int XinputDevice::UpdateState() {
 	return 0; // anySuccess ? UPDATESTATE_SKIP_PAD : 0;
 }
 
-void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
-	if (!notified_[pad]) {
-		notified_[pad] = true;
-#if !PPSSPP_PLATFORM(UWP)
-		XINPUT_CAPABILITIES_EX caps{};
-		if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, pad, 0, &caps) == ERROR_SUCCESS) {
-			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, StringFromFormat("Xbox 360 Pad: %d/%d", caps.VendorId, caps.ProductId));
-		} else {
-#else
-		{
-#endif
-			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, "Xbox 360 Pad");
-		}
+void XinputDevice::ReleaseAllKeys(int pad) {
+	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
+		const auto &mapping = xinput_ctrl_map[i];
+		KeyInput key;
+		key.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+		key.flags = KeyInputFlags::UP;
+		key.keyCode = mapping.to;
+		NativeKey(key);
 	}
+	static const InputAxis allAxes[6] = {
+		JOYSTICK_AXIS_X,
+		JOYSTICK_AXIS_Y,
+		JOYSTICK_AXIS_Z,
+		JOYSTICK_AXIS_RZ,
+		JOYSTICK_AXIS_LTRIGGER,
+		JOYSTICK_AXIS_RTRIGGER,
+	};
+	for (const auto axisId : allAxes) {
+		AxisInput axis;
+		axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+		axis.axisId = axisId;
+		axis.value = 0;
+		NativeAxis(&axis, 1);
+	}
+}
+
+void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
 	ApplyButtons(pad, state);
 	ApplyVibration(pad, vibration);
 
@@ -209,8 +242,8 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 		axis[i].deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
 	}
 	auto sendAxis = [&](InputAxis axisId, float value, int axisIndex) {
-		if (value != prevAxisValue_[pad][axisIndex]) {
-			prevAxisValue_[pad][axisIndex] = value;
+		if (value != padData_[pad].prevAxisValue[axisIndex]) {
+			padData_[pad].prevAxisValue[axisIndex] = value;
 			axis[axisCount].axisId = axisId;
 			axis[axisCount].value = value;
 			axisCount++;
@@ -228,17 +261,17 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 		NativeAxis(axis, axisCount);
 	}
 
-	prevState[pad] = state;
-	check_delay[pad] = 0;
+	padData_[pad].prevState = state;
+	padData_[pad].checkDelayUpdates = 0;
 }
 
 void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	const u32 buttons = state.Gamepad.wButtons;
 
-	const u32 downMask = buttons & (~prevButtons_[pad]);
-	const u32 upMask = (~buttons) & prevButtons_[pad];
-	prevButtons_[pad] = buttons;
-	
+	const u32 downMask = buttons & (~padData_[pad].prevButtons);
+	const u32 upMask = (~buttons) & padData_[pad].prevButtons;
+	padData_[pad].prevButtons = buttons;
+
 	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
@@ -263,7 +296,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 		// We have to run PPSSPP_XInputSetState at time intervals
 		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
-		if (newVibrationTime_ - prevVibrationTime >= 1.0 / 64.0) {
+		if (newVibrationTime_ - prevVibrationTime_ >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {
 				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
 				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
@@ -272,16 +305,16 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				vibration.wRightMotorSpeed = 0;
 			}
 
-			if (prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
+			if (padData_[pad].prevVibration.wLeftMotorSpeed != vibration.wLeftMotorSpeed || padData_[pad].prevVibration.wRightMotorSpeed != vibration.wRightMotorSpeed) {
 				PPSSPP_XInputSetState(pad, &vibration);
-				prevVibration[pad] = vibration;
+				padData_[pad].prevVibration = vibration;
 			}
-			prevVibrationTime = newVibrationTime_;
+			prevVibrationTime_ = newVibrationTime_;
 		}
 	} else {
 		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
 		if (dwResult != ERROR_SUCCESS) {
-			check_delay[pad] = 30;
+			padData_[pad].checkDelayUpdates = 30;
 		}
 	}
 }

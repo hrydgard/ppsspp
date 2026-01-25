@@ -544,6 +544,9 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\UI\Notice.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -1040,6 +1043,9 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\aemu_postoffice\client\delay_impl.h">
       <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\Notice.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -175,7 +175,7 @@ void Bucket::Pack2(int image_width) {
 	// These are just temporary storage (the API is allocation-free otherwise).
 	// About one node is needed for each horizontal unit of width.
 	std::vector<stbrp_node> nodes(image_width * 2);
-	stbrp_init_target(&context, image_width, image_width * 2, nodes.data(), nodes.size());
+	stbrp_init_target(&context, image_width, image_width * 2, nodes.data(), (int)nodes.size());
 	// Transfer the rectangles to the rect_pack structs from Data.
 	std::vector<stbrp_rect> rects(data.size());
 	for (int i = 0; i < data.size(); i++) {
@@ -184,7 +184,7 @@ void Bucket::Pack2(int image_width) {
 		rects[i].id = i;
 	}
 	{
-		stbrp_pack_rects(&context, rects.data(), rects.size());
+		stbrp_pack_rects(&context, rects.data(), (int)rects.size());
 	}
 	for (int i = 0; i < (int)data.size(); i++) {
 		int index = rects[i].id;
