@@ -433,7 +433,8 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 		layoutWidth = horiz.size;
 	}
 	ApplyBoundBySpec(layoutWidth, horiz);
-	MeasureNotice(dc, level_, text_, detailsText_, iconName_, 0, layoutWidth, &w, &h, &height1_);
+	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
+	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_);
 	// Layout hack! Some weird problems with the layout that I can't figure out right now..
 	if (squishy_) {
 		w = 50.0;
@@ -442,6 +443,7 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f, OSDMessageFlags::None, 0.0f);
+	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f);
 	dc.PopScissor();
 }

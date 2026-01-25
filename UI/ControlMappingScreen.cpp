@@ -302,7 +302,9 @@ void ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 		items.push_back(*s);
 	}
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	autoConfList->SetNotification(NoticeLevel::WARN, di->T("This will overwrite the existing configuration"));
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);

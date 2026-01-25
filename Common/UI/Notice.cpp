@@ -72,7 +72,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &te
 	// We currently don't wrap the title.
 
 	float titleWidth, titleHeight;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text, &titleWidth, &titleHeight, align);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text, availableWidth, &titleWidth, &titleHeight, align);
 
 	*width = std::min(titleWidth, availableWidth);
 	*height1 = titleHeight;
@@ -145,7 +145,12 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 	Bounds primaryBounds = bounds;
 	primaryBounds.h = height1;
 
-	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_VCENTER | FLAG_ELLIPSIZE_TEXT);
+	int titleAlign = (align & (FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT)) | ALIGN_VCENTER | FLAG_ELLIPSIZE_TEXT;
+	if (!(titleAlign & FLAG_WRAP_TEXT)) {
+		titleAlign |= FLAG_ELLIPSIZE_TEXT;
+	}
+
+	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, titleAlign);
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
