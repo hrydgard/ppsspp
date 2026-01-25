@@ -47,6 +47,7 @@ private:
 
 	HIDControllerType subType_{};
 	HANDLE controller_;
+	std::string name_;
 	int pad_ = 0;
 	int pollCount_ = 0;
 	int reportSize_ = 0;

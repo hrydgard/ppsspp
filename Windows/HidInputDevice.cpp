@@ -15,6 +15,7 @@
 #include "Common/Common.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/OSD.h"
+#include "Core/KeyMap.h"
 
 constexpr u8 LED_R = 0x05;
 constexpr u8 LED_G = 0x10;
@@ -184,16 +185,14 @@ static const HIDControllerInfo g_psInfos[] = {
 	// {PSSubType::DS5, DUALSENSE_EDGE_WIRELESS},
 };
 
-static bool IsSupportedGamepad(HANDLE handle, USHORT *pidOut, HIDControllerType *subType) {
+static const HIDControllerInfo *GetGamepadInfo(HANDLE handle) {
 	HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
 	if (!HidD_GetAttributes(handle, &attr)) {
 		return false;
 	}
 	for (const auto &info : g_psInfos) {
 		if (attr.VendorID == info.vendorId && attr.ProductID == info.productId) {
-			*pidOut = attr.ProductID;
-			*subType = info.type;
-			return true;
+			return &info;
 		}
 	}
 	return false;
@@ -279,6 +278,10 @@ static bool ShutdownDualsense(HANDLE handle, int outReportSize) {
 	return WriteReport(handle, report);
 }
 
+static bool InitializeSwitchPro(HANDLE handle) {
+	return true;
+}
+
 enum class DS4FeatureBits : u8 {
 	VOL_L = 0x10,
 	VOL_R = 0x20,
@@ -350,7 +353,7 @@ static bool ShutdownDualShock(HANDLE handle, int outReportSize) {
 	return WriteReport(handle, report);
 }
 
-HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize, int *outReportSize) {
+static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize, int *outReportSize, const HIDControllerInfo **outInfo) {
 	GUID hidGuid;
 	HidD_GetHidGuid(&hidGuid);
 
@@ -373,9 +376,11 @@ HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize, int *
 			HANDLE handle = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE,
 				FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 			if (handle != INVALID_HANDLE_VALUE) {
-				USHORT pid;
-				if (IsSupportedGamepad(handle, &pid, subType)) {
-					INFO_LOG(Log::UI, "Found supported gamepad. PID: %04x", pid);
+				const HIDControllerInfo *info = GetGamepadInfo(handle);
+				*outInfo = info;
+				if (info) {
+					*subType = info->type;
+					INFO_LOG(Log::UI, "Found supported gamepad. PID: %04x", info->productId);
 					HIDP_CAPS caps;
 					PHIDP_PREPARSED_DATA preparsedData;
 
@@ -396,7 +401,7 @@ HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize, int *
 						result = InitializeDualShock(handle, *outReportSize);
 						break;
 					case HIDControllerType::SwitchPro:
-						result = true; // InitializeSwitchPro(handle, *outReportSize);
+						result = InitializeSwitchPro(handle);
 						break;
 					}
 
@@ -677,13 +682,20 @@ InputDeviceID HidInputDevice::DeviceID(int pad) {
 }
 
 int HidInputDevice::UpdateState() {
+	const InputDeviceID deviceID = DeviceID(pad_);
+
 	if (!controller_) {
 		// Poll for controllers from time to time.
 		if (pollCount_ == 0) {
 			pollCount_ = POLL_FREQ;
-			HANDLE newController = OpenFirstHIDController(&subType_, &reportSize_, &outReportSize_);
+			const HIDControllerInfo *info{};
+			HANDLE newController = OpenFirstHIDController(&subType_, &reportSize_, &outReportSize_, &info);
 			if (newController) {
 				controller_ = newController;
+				if (info) {
+					name_ = info->name;
+				}
+				KeyMap::NotifyPadConnected(deviceID, name_);
 			}
 		} else {
 			pollCount_--;
@@ -706,7 +718,6 @@ int HidInputDevice::UpdateState() {
 		}
 
 		if (result) {
-			const InputDeviceID deviceID = DeviceID(pad_);
 			// Process the input and generate input events.
 			const u32 downMask = state.buttons & (~prevState_.buttons);
 			const u32 upMask = (~state.buttons) & prevState_.buttons;
@@ -757,6 +768,7 @@ int HidInputDevice::UpdateState() {
 			return UPDATESTATE_NO_SLEEP;  // The ReadFile sleeps for us, effectively.
 		} else {
 			// might have been disconnected. retry later.
+			KeyMap::NotifyPadDisconnected(deviceID);
 			ReleaseAllKeys(buttonMappings, buttonMappingsSize);
 			CloseHandle(controller_);
 			controller_ = NULL;

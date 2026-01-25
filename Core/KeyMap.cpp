@@ -839,25 +839,64 @@ bool HasBuiltinController(std::string_view name) {
 }
 
 void NotifyPadConnected(InputDeviceID deviceId, std::string_view name) {
-	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
-	g_seenPads.insert(std::string(name));
-	g_padNames[deviceId] = name;
+	{
+		std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+		g_seenPads.insert(std::string(name));
+		g_padNames[deviceId] = name;
+	}
+	System_Notify(SystemNotification::PAD_STATE_CHANGED);
 }
 
 void NotifyPadDisconnected(InputDeviceID deviceId) {
-	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
-	auto iter = g_padNames.find(deviceId);
-	if (iter != g_padNames.end()) {
-		g_seenPads.erase(iter->second);
+	{
+		std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+		auto iter = g_padNames.find(deviceId);
+		if (iter != g_padNames.end()) {
+			g_seenPads.erase(iter->second);
+		}
+		g_padNames.erase(deviceId);
 	}
-	g_padNames.erase(deviceId);
+	System_Notify(SystemNotification::PAD_STATE_CHANGED);
+}
+
+void ClearControlsWithDeviceId(InputDeviceID deviceId) {
+	bool modified = false;
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
+		auto &mappings = iter->second;
+		for (auto mapIter = mappings.begin(); mapIter != mappings.end(); ) {
+			bool found = false;
+			for (auto &mapping : mapIter->mappings) {
+				if (mapping.deviceId == deviceId) {
+					found = true;
+					break;
+				}
+			}
+			if (found) {
+				mapIter = mappings.erase(mapIter);
+				modified = true;
+			} else {
+				++mapIter;
+			}
+		}
+	}
+
+	if (modified) {
+		g_controllerMapGeneration++;
+	}
 }
 
 void AutoConfForPad(std::string_view name) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
-	g_controllerMap.clear();
 
-	INFO_LOG(Log::System, "Autoconfiguring pad for '%.*s'", STR_VIEW(name));
+	InputDeviceID deviceId = DEVICE_ID_PAD_0;
+	for (auto [padDeviceId, padName] : g_padNames) {
+		if (padName == name) {
+			// Already configured.
+			deviceId = padDeviceId;
+		}
+	}
+	ClearControlsWithDeviceId(deviceId);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (name.find("Xbox") != std::string::npos) {
@@ -881,8 +920,10 @@ void AutoConfForPad(std::string_view name) {
 #endif
 
 	// Add a couple of convenient keyboard mappings by default, too.
+#if !defined(MOBILE_DEVICE)
 	g_controllerMap[VIRTKEY_PAUSE].push_back(MultiInputMapping(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE)));
 	g_controllerMap[VIRTKEY_FASTFORWARD].push_back(MultiInputMapping(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_TAB)));
+#endif
 	g_controllerMapGeneration++;
 }
 
