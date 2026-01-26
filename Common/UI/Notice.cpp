@@ -47,7 +47,7 @@ NoticeLevel GetNoticeLevel(OSDType type) {
 }
 
 // Align only matters here for the ASCII-only flag.
-void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float maxWidth, float *width, float *height, float *height1) {
+void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float maxWidth, float *width, float *height, float *height1) {
 	float iconW = 0.0f;
 	float iconH = 0.0f;
 	if (!iconName.empty() && !startsWith(iconName, "I_")) {  // Check for atlas image. Bit hacky, but we choose prefixes for icon IDs anyway in a way that this is safe.
@@ -59,7 +59,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &te
 			iconH = iconHeight;
 		}
 	} else {
-		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName.c_str());
+		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName);
 		if (iconID.isValid()) {
 			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
 		}
@@ -91,7 +91,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &te
 	*height = std::max(*height1 + height2 + 8.0f, iconH + 5.0f);
 }
 
-void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
+void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -118,15 +118,16 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 		}
 		dc.Begin();
 	} else {
-		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName.c_str());
+		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName);
 		if (iconID.isValid()) {
 			// Atlas icon.
 			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
 			if (!iconName.empty()) {
 				Bounds iconBounds = Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH);
-				// If it's not a preset OSD icon, give it some background to blend in. The RA icon for example
-				// easily melts into the orange of warnings otherwise.
-				dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
+				// HACK: The RA icon needs some background.
+				if (equals(iconName, "I_RETROACHIEVEMENTS_LOGO")) {
+					dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
+				}
 			}
 
 			if (flags & (OSDMessageFlags::SpinLeft | OSDMessageFlags::SpinRight)) {

@@ -53,5 +53,5 @@ private:
 ImageID GetOSDIcon(NoticeLevel level);
 NoticeLevel GetNoticeLevel(OSDType type);
 uint32_t GetNoticeBackgroundColor(NoticeLevel type);
-void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float maxWidth, float *width, float *height, float *height1);
-void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, OSDMessageFlags flags, float timeVal);
+void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float maxWidth, float *width, float *height, float *height1);
+void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal);
