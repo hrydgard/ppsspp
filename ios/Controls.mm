@@ -36,6 +36,9 @@ bool InitController(GCController *controller) {
 		}
 	}
 
+	const std::string controllerName = [controller.vendorName ?: @"Gamepad" UTF8String];
+	KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, controllerName);
+
 	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_2); // Cross
 	};
@@ -159,6 +162,47 @@ void ShutdownController(GCController *controller) {
 			element.preferredSystemGestureState = GCSystemGestureStateEnabled;
 		}
 	}
+	static const InputKeyCode keycodes[] = {
+		NKCODE_BUTTON_1,
+		NKCODE_BUTTON_2,
+		NKCODE_BUTTON_3,
+		NKCODE_BUTTON_4,
+		NKCODE_BUTTON_L1,
+		NKCODE_BUTTON_R1,
+		NKCODE_DPAD_UP,
+		NKCODE_DPAD_DOWN,
+		NKCODE_DPAD_LEFT,
+		NKCODE_DPAD_RIGHT,
+		NKCODE_BUTTON_THUMBL,
+		NKCODE_BUTTON_THUMBR,
+		NKCODE_BUTTON_SELECT,
+		NKCODE_BUTTON_START,
+		NKCODE_HOME
+	};
+	for (InputKeyCode keyCode : keycodes) {
+		KeyInput key;
+		key.deviceId = DEVICE_ID_PAD_0;
+		key.flags = KeyInputFlags::UP;
+		key.keyCode = keyCode;
+		NativeKey(key);
+	}
+
+	static const InputAxis axes[] = {
+		JOYSTICK_AXIS_X,
+		JOYSTICK_AXIS_Y,
+		JOYSTICK_AXIS_Z,
+		JOYSTICK_AXIS_RZ,
+		JOYSTICK_AXIS_LTRIGGER,
+		JOYSTICK_AXIS_RTRIGGER
+	};
+	AxisInput axisInput;
+	axisInput.deviceId = DEVICE_ID_PAD_0;
+	for (InputAxis axis : axes) {
+		axisInput.axisId = axis;
+		axisInput.value = 0.0f;
+		NativeAxis(&axisInput, 1);
+	}
+	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 }
 
 void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
