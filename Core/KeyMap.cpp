@@ -847,8 +847,8 @@ void NotifyPadConnected(InputDeviceID deviceId, std::string_view name) {
 		g_seenPads.insert(std::string(name));
 		g_padNames[deviceId] = name;
 
-		// Don't notify within the first 8 seconds, to avoid notification spam on startup.
-		if (time_now_d() >= 8.0) {
+		// Don't notify within the first 5 seconds, to avoid notification spam on startup.
+		if (time_now_d() >= 5.0) {
 			auto co = GetI18NCategory(I18NCat::CONTROLS);
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions("%1: %2", co->T("Game controller connected"), name), "", "I_CONTROLLER", 2.0f, "controller_connected");
 		}

@@ -5,11 +5,14 @@ import android.view.InputDevice;
 import android.view.InputDevice.MotionRange;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import java.util.Set;
+import java.util.HashSet;
+
 
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 
-	private int deviceId;
+	private final int deviceId;
 
 	private final InputDevice mDevice;
 	private final int[] mAxes;
@@ -20,6 +23,9 @@ public class InputDeviceState {
 	private final float[] mValues;
 
 	private final int sources;
+
+	private final Set<Integer> pressedKeys = new HashSet<>();
+
 
 	InputDevice getDevice() {
 		return mDevice;
@@ -140,6 +146,15 @@ public class InputDeviceState {
 
 	public void Disconnect() {
 		NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(this.deviceId));
+		// Also reset all the buttons and axes.
+		for (int value : pressedKeys) {
+			NativeApp.keyUp(deviceId, value);
+		}
+		pressedKeys.clear();
+		for (int i = 0; i < mAxes.length; i++) {
+			mValues[i] = 0.0f;
+		}
+		NativeApp.joystickAxis(deviceId, mAxes, mValues, mAxes.length);
 	}
 
 	// This is called from dispatchKeyEvent.
@@ -150,11 +165,13 @@ public class InputDeviceState {
 		if (isInvalidKeyCode(keyCode) && isEventSentByNintendoSwitchLeftJoyCon(event)) {
 			int remappedKeyCode = remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(event.getScanCode());
 			if (remappedKeyCode != 0) {
+				pressedKeys.add(remappedKeyCode);
 				// need to pass false for the repeat flag, otherwise pressing two adjacent dpad buttons simultaneously to move diagonally does not work.
 				return NativeApp.keyDown(deviceId, remappedKeyCode, false);
 			}
 		}
 
+		pressedKeys.add(keyCode);
 		return NativeApp.keyDown(deviceId, keyCode, repeat);
 	}
 
@@ -172,10 +189,10 @@ public class InputDeviceState {
 		return NativeApp.keyUp(deviceId, keyCode);
 	}
 
-	public boolean onJoystickMotion(MotionEvent event) {
+	public void onJoystickMotion(MotionEvent event) {
 		if (!inputSourceIsJoystick(event.getSource())) {
 			Log.i(TAG, "Not a joystick event: source = " + event.getSource());
-			return false;
+			return;
 		}
 		int count = 0;
 		for (int i = 0; i < mAxes.length; i++) {
@@ -189,7 +206,6 @@ public class InputDeviceState {
 			}
 		}
 		NativeApp.joystickAxis(deviceId, mAxisIds, mValues, count);
-		return true;
 	}
 
 	private boolean isInvalidKeyCode(int keyCode) {
