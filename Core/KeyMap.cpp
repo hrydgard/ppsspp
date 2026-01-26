@@ -24,10 +24,13 @@
 
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Input/InputState.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceCtrl.h"   // psp keys
@@ -843,7 +846,14 @@ void NotifyPadConnected(InputDeviceID deviceId, std::string_view name) {
 		std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 		g_seenPads.insert(std::string(name));
 		g_padNames[deviceId] = name;
+
+		// Don't notify within the first 5 seconds, to avoid notification spam on startup.
+		if (time_now_d() >= 5.0) {
+			auto co = GetI18NCategory(I18NCat::CONTROLS);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions("%1: %2", co->T("Game controller connected"), name), "", "I_CONTROLLER", 2.0f, "controller_connected");
+		}
 	}
+
 	System_Notify(SystemNotification::PAD_STATE_CHANGED);
 }
 
@@ -852,6 +862,8 @@ void NotifyPadDisconnected(InputDeviceID deviceId) {
 		std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 		auto iter = g_padNames.find(deviceId);
 		if (iter != g_padNames.end()) {
+			auto co = GetI18NCategory(I18NCat::CONTROLS);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions("%1: %2", co->T("Game controller disconnected"), iter->second), "", "I_CONTROLLER", 2.0f, "controller_connected");
 			g_seenPads.erase(iter->second);
 		}
 		g_padNames.erase(deviceId);

@@ -42,7 +42,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 		LinearLayout *quickChat = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		for (int i = 0; i < 5; i++) {
 			std::string name = std::to_string(i + 1);
-			quickChat->Add(new Button(name, new LinearLayoutParams(1.0)))->OnClick.Add([this, i](UI::EventParams &e) {
+			quickChat->Add(new Button(name, new LinearLayoutParams(1.0)))->OnClick.Add([i](UI::EventParams &e) {
 				sendChat(g_Config.sQuickChat[i]);
 			});
 		}

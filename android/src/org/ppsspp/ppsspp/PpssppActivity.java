@@ -1,14 +1,11 @@
 package org.ppsspp.ppsspp;
 
-import static java.nio.file.Files.readAllBytes;
-
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Keep;
 
 import org.ppsspp.proto.TombstoneProtos;
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
@@ -29,6 +26,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -37,6 +35,7 @@ import android.os.Environment;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
+import android.renderscript.ScriptGroup;
 import android.text.InputType;
 import android.util.Log;
 import android.database.Cursor;
@@ -66,7 +65,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.documentfile.provider.DocumentFile;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -116,6 +114,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
+	private InputManager.InputDeviceListener inputDeviceListener;
 
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
@@ -768,6 +767,56 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// Add the callback to the dispatcher
 		getOnBackPressedDispatcher().addCallback(this, callback);
 
+		inputDeviceListener =
+			new InputManager.InputDeviceListener() {
+				@Override
+				public void onInputDeviceAdded(int deviceId) {
+					Log.i(TAG, "onInputDeviceAdded");
+					InputDevice device = InputDevice.getDevice(deviceId);
+					if (device == null) {
+						Log.i(TAG, "BAD: Invalid device id");
+						return;
+					}
+
+					for (InputDeviceState input : inputPlayers) {
+						if (input.getDevice() == device) {
+							Log.i(TAG, "Unexpected: Device already registered");
+							return;
+						}
+					}
+
+					// None was found, just add and return it.
+					InputDeviceState state = new InputDeviceState(device);
+					inputPlayers.add(state);
+					Log.i(TAG, "Input player registered on connect: desc = " + device.getDescriptor());
+				}
+
+				@Override
+				public void onInputDeviceRemoved(int deviceId) {
+					Log.i(TAG, "onInputDeviceRemoved");
+
+					// Find and remove the device.
+					for (int i = 0; i < inputPlayers.size(); i++) {
+						InputDeviceState state = inputPlayers.get(i);
+						if (state.getDevice().getId() == deviceId) {
+							Log.i(TAG, "Input device removed: " + state.getDevice().getName());
+
+							// Notify Native layer that this specific device is gone
+							// This is important so the C++ side can clear button states
+							NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(state.getDeviceId()));
+							inputPlayers.remove(i);
+							break;
+						}
+					}
+				}
+
+				@Override
+				public void onInputDeviceChanged(int deviceId) {
+					// Should rescan device capabilities. We ignore this for now, I don't see any scenario
+					// where this is relevant.
+				}
+			};
+
 		Log.i(TAG, "onCreate end");
 	}
 
@@ -975,6 +1024,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onPause();
 		lifeCycle.onPause();
 
+		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
+		inputManager.unregisterInputDeviceListener(inputDeviceListener);
+
 		if (!javaGL) {
 			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
@@ -1013,6 +1065,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+
+		InputManager inputManager =
+			(InputManager)getSystemService(Context.INPUT_SERVICE);
+		inputManager.registerInputDeviceListener(inputDeviceListener, null);
 
 		if (!javaGL) {
 			// Restart the render loop.
@@ -1090,7 +1146,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// None was found, just add and return it.
 		InputDeviceState state = new InputDeviceState(device);
 		inputPlayers.add(state);
-		Log.i(TAG, "Input player registered: desc = " + device.getDescriptor());
+		Log.i(TAG, "Input player post-registered: desc = " + device.getDescriptor());
 		return state;
 	}
 
@@ -1426,24 +1482,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
-			@Override
-			public void onDismiss(DialogInterface dialog) {
-				updateSystemUiVisibility();
-			}
-		});
+		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
 		return bld;
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
-		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
-			@Override
-			public void onDismiss(DialogInterface dialog) {
-				updateSystemUiVisibility();
-			}
-		});
+		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
 		return bld;
 	}
 
@@ -1477,29 +1523,20 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		AlertDialog.Builder builder = bld
 			.setView(fl)
 			.setTitle(title)
-			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface d, int which) {
-					Log.i(TAG, "input box successful");
-					NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
-					d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
-				}
+			.setPositiveButton(defaultAction, (d, which) -> {
+				Log.i(TAG, "input box successful");
+				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
+				d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
 			})
-			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface d, int which) {
-					Log.i(TAG, "input box cancelled");
-					NativeApp.sendRequestResult(requestId, false, "", 0);
-					d.cancel();
-				}
-			});
-		builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-			@Override
-			public void onDismiss(DialogInterface d) {
-				Log.i(TAG, "input box dismissed");
+			.setNegativeButton("Cancel", (d, which) -> {
+				Log.i(TAG, "input box cancelled");
 				NativeApp.sendRequestResult(requestId, false, "", 0);
-				updateSystemUiVisibility();
-			}
+				d.cancel();
+			});
+		builder.setOnDismissListener(d -> {
+			Log.i(TAG, "input box dismissed");
+			NativeApp.sendRequestResult(requestId, false, "", 0);
+			updateSystemUiVisibility();
 		});
 		AlertDialog dlg = builder.create();
 

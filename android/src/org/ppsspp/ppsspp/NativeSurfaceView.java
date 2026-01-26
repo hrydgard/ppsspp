@@ -17,6 +17,9 @@ public class NativeSurfaceView extends SurfaceView {
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
+		if (ev.getAction() == MotionEvent.ACTION_UP) {
+			super.performClick();
+		}
 		NativeApp.processTouchEvent(ev);
 		return true;
 	}

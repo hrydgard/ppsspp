@@ -144,6 +144,7 @@
 - (void)controllerDidDisconnect:(NSNotification *)note
 {
 	if (self.gameController == note.object) {
+		ShutdownController(self.gameController);
 		self.gameController = nil;
 
 		if ([[GCController controllers] count] > 0) {
