@@ -213,7 +213,6 @@ uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
 // If this returns >= 0, the nth font in fallbackFonts_ can be used as a fallback.
 int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	auto iter = glyphFallbackFontIndex_.find(missingGlyph);
-
 	if (iter != glyphFallbackFontIndex_.end()) {
 		return iter->second;
 	}
@@ -257,25 +256,21 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 
 	TTF_Font *font = nullptr;
 	uint8_t *fileData = nullptr;
-	if (fontMap_.find(style) == fontMap_.end()) {
-		std::string useFont = GetFilenameForFontStyle(style) + ".ttf";
-		const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
-		INFO_LOG(Log::G3D, "Loading SDL font '%s' from VFS at size %d pts", useFont.c_str(), ptSize);
+	std::string useFont = GetFilenameForFontStyle(style) + ".ttf";
+	const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
+	INFO_LOG(Log::G3D, "Loading SDL font '%s' from VFS at size %d pts", useFont.c_str(), ptSize);
 
-		size_t fileSz;
-		uint8_t *fileData = g_VFS.ReadFile(useFont.c_str(), &fileSz);
-		if (fileData) {
-			SDL_RWops *rw = SDL_RWFromMem(fileData, static_cast<int>(fileSz));
-			INFO_LOG(Log::G3D, "Opened font from RW: '%p' '%d'", fileData, (int)fileSz);
-			font = TTF_OpenFontRW(rw, 1, ptSize);
-			if (!font) {
-				ERROR_LOG(Log::G3D, "Failed to load font from asset file: '%s'", useFont.c_str());
-			}
-		} else {
-			ERROR_LOG(Log::G3D, "Failed to load font file %s from VFS", useFont.c_str());
+	size_t fileSz;
+	fileData = g_VFS.ReadFile(useFont.c_str(), &fileSz);
+	if (fileData) {
+		SDL_RWops *rw = SDL_RWFromMem(fileData, static_cast<int>(fileSz));
+		INFO_LOG(Log::G3D, "Opened font from RW: '%p' '%d'", fileData, (int)fileSz);
+		font = TTF_OpenFontRW(rw, 1, ptSize);
+		if (!font) {
+			ERROR_LOG(Log::G3D, "Failed to load font from asset file: '%s'", useFont.c_str());
 		}
-
-		// Still, even if it failed and font is nullptr, mark it in the map to avoid retrying.
+	} else {
+		ERROR_LOG(Log::G3D, "Failed to load font file %s from VFS", useFont.c_str());
 	}
 
 	fontMap_[style] = std::make_pair(font, fileData);
@@ -283,11 +278,14 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 }
 
 void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	TTF_Font *font = fontMap_.find(fontStyle_)->second.first;
-
+	*w = 1.0f;
+	*h = 1.0f;
+	auto iter = fontMap_.find(fontStyle_);
+	if (iter == fontMap_.end()) {
+		return;
+	}
+	TTF_Font *font = iter->second.first;
 	if (!font) {
-		*w = 1.0f;
-		*h = 1.0f;
 		return;
 	}
 
@@ -335,16 +333,6 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	std::string processedStr(str);
-
-	// If a string includes only newlines, SDL2_ttf will refuse to render it
-	// thinking it is empty. Add a space to avoid that.
-	bool isAllNewline = processedStr.find_first_not_of('\n') == std::string::npos;
-
-	if (isAllNewline) {
-		processedStr.push_back(' ');
-	}
-
 	auto fontIter = fontMap_.find(fontStyle_);
 	if (fontIter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Font style not in map");
@@ -354,6 +342,16 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	TTF_Font *font = fontIter->second.first;
 	if (!font) {
 		return false;
+	}
+
+	std::string processedStr(str);
+
+	// If a string includes only newlines, SDL2_ttf will refuse to render it
+	// thinking it is empty. Add a space to avoid that.
+	bool isAllNewline = processedStr.find_first_not_of('\n') == std::string::npos;
+
+	if (isAllNewline) {
+		processedStr.push_back(' ');
 	}
 
 	uint32_t missingGlyph = CheckMissingGlyph(processedStr);
@@ -421,8 +419,8 @@ void TextDrawerSDL::ClearFonts() {
 	for (auto iter : fontMap_) {
 		if (iter.second.first) {
 			TTF_CloseFont(iter.second.first);
-			delete[] iter.second.second;
 		}
+		delete[] iter.second.second;
 	}
 	for (auto iter : fallbackFonts_) {
 		if (iter) {
