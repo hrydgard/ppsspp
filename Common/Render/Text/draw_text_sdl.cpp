@@ -263,7 +263,7 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 		INFO_LOG(Log::G3D, "Loading SDL font '%s' from VFS at size %d pts", useFont.c_str(), ptSize);
 
 		size_t fileSz;
-		uint8_t *fileData = g_VFS.ReadFile(useFont.c_str(), &fileSz);
+		fileData = g_VFS.ReadFile(useFont.c_str(), &fileSz);
 		if (fileData) {
 			SDL_RWops *rw = SDL_RWFromMem(fileData, static_cast<int>(fileSz));
 			INFO_LOG(Log::G3D, "Opened font from RW: '%p' '%d'", fileData, (int)fileSz);
