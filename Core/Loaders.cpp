@@ -144,6 +144,16 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					// Yes, a proper PSP game, let's get it going.
 					return IdentifiedFileType::PSP_ISO;
 				} else if (!memcmp(pvd->systemId, "UMD VIDEO", 9) || !memcmp(pvd->systemId, "UMD AUDIO", 9)) {
+					// This is rare so being slightly slow here shouldn't be a problem. Let's go check for the presence of
+					// actual game data.
+					SequentialHandleAllocator hAlloc;
+					ISOFileSystem umd(&hAlloc, bd.release());
+					if (umd.GetFileInfo("/PSP_GAME").exists) {
+						INFO_LOG(Log::Loader, "Found an UMD VIDEO disc with game data. Treating as game.");
+						*errorString = "UMD Video with PSP GAME data";
+						return IdentifiedFileType::PSP_ISO;
+					}
+
 					// UMD AUDIO exists technically, but in reality, not really? Let's map it to VIDEO since we support neither.
 					return IdentifiedFileType::PSP_UMD_VIDEO_ISO;
 				} else if (!memcmp(pvd->systemId, "PS3", 3)) {
@@ -156,6 +166,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					}
 					return IdentifiedFileType::PSX_ISO;
 				} else {
+					WARN_LOG(Log::Loader, "ISO with unknown system ID: %.32s", pvd->systemId);
 					*errorString = "ISO missing PSP GAME or PSP NPU identifier";
 					return IdentifiedFileType::UNKNOWN_ISO;
 				}
