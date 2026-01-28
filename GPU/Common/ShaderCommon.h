@@ -70,6 +70,9 @@ enum : uint64_t {
 	DIRTY_UVSCALEOFFSET = 1ULL << 18,
 	DIRTY_DEPTHRANGE = 1ULL << 19,
 
+	DIRTY_VIEWPORT_UNIFORMS = 1ULL << 20,
+	// Free bit 20!
+
 	DIRTY_WORLDMATRIX = 1ULL << 21,
 	DIRTY_VIEWMATRIX = 1ULL << 22,
 	DIRTY_TEXMATRIX = 1ULL << 23,
@@ -93,12 +96,14 @@ enum : uint64_t {
 	DIRTY_LIGHT_CONTROL = 1ULL << 38,
 	DIRTY_TEX_ALPHA_MUL = 1ULL << 39,
 
-	// Bits 40-42 are free for new uniforms. Then we're really out and need to start merging.
+	DIRTY_RASTER_OFFSET = 1ULL << 40,
+
+	// Bits 41-42 are free for new uniforms (although the mask below needs updating). Then we're really out and need to start merging.
 	// Don't forget to update DIRTY_ALL_UNIFORMS when you start using them.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x0FFFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFFULL,
 
 	// Other dirty elements that aren't uniforms
 	DIRTY_CULL_PLANES = 1ULL << 43,
