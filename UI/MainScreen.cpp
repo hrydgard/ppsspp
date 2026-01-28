@@ -114,6 +114,55 @@ static bool IsTempPath(const Path &str) {
 	return false;
 }
 
+static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, bool gridStyle, const UI::Style &style) {
+	// This function is not used in the current code.
+
+	float tw, th;
+	dc.MeasureText(dc.GetFontStyle(), gridStyle ? g_Config.fGameGridScale : 1.0, gridStyle ? g_Config.fGameGridScale : 1.0, text, &tw, &th, 0);
+
+	bool compact = bounds.w < 180 * (gridStyle ? g_Config.fGameGridScale : 1.0);
+	if (compact) {
+		// No folder icon, except "up"
+		dc.PushScissor(bounds);
+		const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
+		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
+
+		int iconSize = image == ImageID("I_UP_DIRECTORY") ? (float)dc.Draw()->GetAtlas()->getImage(image)->h : bounds.h * 0.3f;
+		float textWidth = 0.0f;
+		float textHeight = 0;
+		dc.MeasureTextRect(*fontStyle, 1.0f, 1.0f, text, bounds.w - 10, &textWidth, &textHeight, ALIGN_HCENTER | FLAG_WRAP_TEXT);
+
+		int totalHeight = iconSize + (int)textHeight;
+
+		float y = bounds.h / 2.0f - totalHeight / 2.0f;
+
+		if (image.isValid()) {
+			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(image);
+			if (img && img->h > 0) {
+				dc.Draw()->DrawImage(image, bounds.centerX(), bounds.y + y + 2, iconSize / (float)img->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
+			}
+		}
+
+		if (image != ImageID("I_UP_DIRECTORY") && image != ImageID("I_PIN") && image != ImageID("I_UNPIN")) {
+			dc.DrawTextRect(text, bounds.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
+		}
+		dc.SetFontStyle(dc.GetTheme().uiFont);
+		dc.PopScissor();
+	} else {
+		bool scissor = false;
+		if (tw + 150 > bounds.w) {
+			dc.PushScissor(bounds);
+			scissor = true;
+		}
+		dc.Draw()->DrawImage(image, bounds.x + 72, bounds.centerY(), 0.88f * (gridStyle ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
+		dc.DrawText(text, bounds.x + 150, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+
+		if (scissor) {
+			dc.PopScissor();
+		}
+	}
+}
+
 class GameButton : public UI::Clickable {
 public:
 	GameButton(const Path &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = nullptr)
@@ -228,6 +277,38 @@ void GameButton::Draw(UIContext &dc) {
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
+	UI::Style style = dc.GetTheme().itemStyle;
+	if (down_) {
+		style = dc.GetTheme().itemDownStyle;
+	}
+
+	// Some types we just draw a default icon for.
+	ImageID imageIcon = ImageID::invalid();
+	switch (ginfo->fileType) {
+	case IdentifiedFileType::UNKNOWN_ELF: imageIcon = ImageID("I_DEBUGGER"); break;
+	case IdentifiedFileType::PPSSPP_GE_DUMP: imageIcon = ImageID("I_DISPLAY"); break;
+	case IdentifiedFileType::PSX_ISO: imageIcon = ImageID("I_PSX_ISO"); break;
+	case IdentifiedFileType::PSP_PS1_PBP: imageIcon = ImageID("I_PSX_ISO"); break;
+	case IdentifiedFileType::PS2_ISO: imageIcon = ImageID("I_PS2_ISO"); break;
+	case IdentifiedFileType::PS3_ISO: imageIcon = ImageID("I_PS3_ISO"); break;
+	case IdentifiedFileType::UNKNOWN_ISO: imageIcon = ImageID("I_UNKNOWN_ISO"); break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
+	case IdentifiedFileType::ERROR_IDENTIFYING:
+	case IdentifiedFileType::UNKNOWN_BIN: imageIcon = ImageID("I_FILE"); break;
+	}
+
+	if (imageIcon.isValid()) {
+		Style style = dc.GetTheme().itemStyle;
+
+		if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
+		if (down_) style = dc.GetTheme().itemDownStyle;
+		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+
+		dc.FillRect(style.background, bounds_);
+		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, gridStyle_, style);
+		return;
+	}
+
 	if (ginfo->Ready(GameInfoFlags::ICON) && ginfo->icon.texture) {
 		texture = ginfo->icon.texture;
 	}
@@ -236,10 +317,6 @@ void GameButton::Draw(UIContext &dc) {
 	int y = bounds_.y;
 	int w = gridStyle_ ? bounds_.w : 144;
 	int h = bounds_.h;
-
-	UI::Style style = dc.GetTheme().itemStyle;
-	if (down_)
-		style = dc.GetTheme().itemDownStyle;
 
 	if (!gridStyle_ || !texture) {
 		if (HasFocus())
@@ -464,6 +541,14 @@ private:
 
 void DirButton::Draw(UIContext &dc) {
 	using namespace UI;
+
+	std::string_view text(GetText());
+	ImageID image = ImageID(pinned_ ? "I_FOLDER_PINNED" : "I_FOLDER");
+	if (text == "..") {
+		image = ImageID("I_UP_DIRECTORY");
+		text = "";
+	}
+
 	Style style = dc.GetTheme().itemStyle;
 
 	if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
@@ -471,55 +556,7 @@ void DirButton::Draw(UIContext &dc) {
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 	dc.FillRect(style.background, bounds_);
-
-	std::string_view text(GetText());
-
-	ImageID image = ImageID(pinned_ ? "I_FOLDER_PINNED" : "I_FOLDER");
-	if (text == "..") {
-		image = ImageID("I_UP_DIRECTORY");
-		text = "";
-	}
-
-	float tw, th;
-	dc.MeasureText(dc.GetFontStyle(), gridStyle_ ? g_Config.fGameGridScale : 1.0, gridStyle_ ? g_Config.fGameGridScale : 1.0, text, &tw, &th, 0);
-
-	bool compact = bounds_.w < 180 * (gridStyle_ ? g_Config.fGameGridScale : 1.0);
-
-	if (compact) {
-		// No folder icon, except "up"
-		dc.PushScissor(bounds_);
-		const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
-		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
-
-		int iconSize = image == ImageID("I_UP_DIRECTORY") ? (float)dc.Draw()->GetAtlas()->getImage(image)->h : bounds_.h * 0.3f;
-		float textWidth = 0.0f;
-		float textHeight = 0;
-		dc.MeasureTextRect(*fontStyle, 1.0f, 1.0f, text, bounds_.w - 10, &textWidth, &textHeight, ALIGN_HCENTER | FLAG_WRAP_TEXT);
-
-		int totalHeight = iconSize + (int)textHeight;
-
-		float y = bounds_.h / 2.0f - totalHeight / 2.0f;
-
-		dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.y + y + 2, iconSize / (float)dc.Draw()->GetAtlas()->getImage(image)->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
-
-		if (image == ImageID("I_FOLDER") || image == ImageID("I_FOLDER_PINNED")) {
-			dc.DrawTextRect(text, bounds_.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
-		}
-		dc.SetFontStyle(dc.GetTheme().uiFont);
-		dc.PopScissor();
-	} else {
-		bool scissor = false;
-		if (tw + 150 > bounds_.w) {
-			dc.PushScissor(bounds_);
-			scissor = true;
-		}
-		dc.Draw()->DrawImage(image, bounds_.x + 72, bounds_.centerY(), 0.88f*(gridStyle_ ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
-		dc.DrawText(text, bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER| FLAG_WRAP_TEXT);
-
-		if (scissor) {
-			dc.PopScissor();
-		}
-	}
+	DrawIconWithText(dc, image, text, bounds_, gridStyle_, style);
 }
 
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
@@ -978,7 +1015,7 @@ void GameBrowser::Refresh() {
 		if (!*gridStyle_) {
 			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
 		}
-		UI::Button *pinButton = gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+		UI::Button *pinButton = gameList_->Add(new Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 		pinButton->OnClick.Handle(this, &GameBrowser::PinToggleClick);
 		pinButton->SetImageID(ImageID(IsCurrentPathPinned() ? "I_UNPIN" : "I_PIN"));
 	}
