@@ -36,16 +36,18 @@ enum class IdentifiedFileType {
 
 	PSP_DISC_DIRECTORY,
 
-	UNKNOWN_BIN,
-	UNKNOWN_ELF,
-	UNKNOWN_ISO,
-
 	// Try to reduce support emails...
 	ARCHIVE_RAR,
 	ARCHIVE_ZIP,
 	ARCHIVE_7Z,
 	PSP_PS1_PBP,
-	ISO_MODE2,
+	PSX_ISO,
+	PS2_ISO,
+	PS3_ISO,
+
+	UNKNOWN_BIN,
+	UNKNOWN_ELF,
+	UNKNOWN_ISO,
 
 	NORMAL_DIRECTORY,
 

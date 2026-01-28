@@ -228,7 +228,9 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 		break;
 
 	case IdentifiedFileType::ARCHIVE_7Z: *errorString = "7z file detected (Require 7-Zip)"; break;
-	case IdentifiedFileType::ISO_MODE2:  *errorString = "PSX game image detected."; break;
+	case IdentifiedFileType::PSX_ISO:  *errorString = "PSX game image detected."; break;
+	case IdentifiedFileType::PS2_ISO:  *errorString = "PS2 game image detected."; break;
+	case IdentifiedFileType::PS3_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::NORMAL_DIRECTORY: *errorString = "Just a directory."; break;
 	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;

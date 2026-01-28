@@ -119,6 +119,37 @@ static bool FileTypeSupportsCRC(IdentifiedFileType fileType) {
 	}
 }
 
+static bool FileTypeHasIcon(IdentifiedFileType fileType) {
+	switch (fileType) {
+	case IdentifiedFileType::PSP_PBP:
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_ISO:
+		return true;
+	default:
+		return false;
+	}
+}
+
+// Reverse logic.
+static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
+	switch (fileType) {
+	case IdentifiedFileType::ERROR_IDENTIFYING:
+	case IdentifiedFileType::UNKNOWN:
+	case IdentifiedFileType::PSX_ISO:
+	case IdentifiedFileType::PS2_ISO:
+	case IdentifiedFileType::PS3_ISO:
+	case IdentifiedFileType::UNKNOWN_BIN:
+	case IdentifiedFileType::UNKNOWN_ELF:
+	case IdentifiedFileType::UNKNOWN_ISO:
+	case IdentifiedFileType::NORMAL_DIRECTORY:
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
+		return false;
+	default:
+		return true;
+	}
+}
+
 void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (!info_) {
 		// Shouldn't happen
@@ -146,18 +177,23 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	parent->Add(leftScroll);
 
 	const bool fileTypeSupportCRC = FileTypeSupportsCRC(info_->fileType);
+	const bool fileTypeHasIcon = FileTypeHasIcon(info_->fileType);
 
 	// Need an explicit size here because homebrew uses screenshots as icons.
 	LinearLayout *mainGameInfo;
 	if (portrait) {
 		mainGameInfo = new LinearLayout(ORIENT_VERTICAL);
 		leftColumn->Add(new Spacer(8.0f));
-		leftColumn->Add(new GameImageView(gamePath_, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(UI::Margins(0))));
+		if (fileTypeHasIcon) {
+			leftColumn->Add(new GameImageView(gamePath_, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(UI::Margins(0))));
+		}
 		leftColumn->Add(mainGameInfo);
 	} else {
 		mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 		ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL);
-		badgeHolder->Add(new GameImageView(gamePath_, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
+		if (fileTypeHasIcon) {
+			badgeHolder->Add(new GameImageView(gamePath_, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
+		}
 		badgeHolder->Add(mainGameInfo);
 		leftColumn->Add(badgeHolder);
 	}
@@ -168,14 +204,16 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	const bool inGameDB = g_gameDB.GetGameInfos(info_->id_version, &dbInfos);
 
 	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
-		// Show the game ID title below the icon. The top title will be from the DB.
-		std::string title = info_->GetTitle();
-
-		TextView *tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvTitle->SetShadow(true);
-
 		std::string regionID = ReplaceAll(info_->id_version, "_", " v");
-		regionID += ": ";
+		if (!regionID.empty()) {
+			regionID += ": ";
+
+			// Show the game ID title below the icon. The top title will be from the DB.
+			std::string title = info_->GetTitle();
+
+			TextView *tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			tvTitle->SetShadow(true);
+		}
 
 		if (info_->region != GameRegion::UNKNOWN) {
 			regionID += GameRegionToString(info_->region);
@@ -336,7 +374,7 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	if (!inGame_) {
+	if (!inGame_ && FileTypeIsPlayable(info_->fileType)) {
 		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Handle(this, &GameScreen::OnPlay);
 	}
 

@@ -28,6 +28,7 @@
 #include "Core/FileLoaders/RetryingFileLoader.h"
 #include "Core/FileLoaders/ZipFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/BlockDevices.h"
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
 #include "Core/Loaders.h"
@@ -36,6 +37,15 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
+
+struct PVD {
+	u8 type;
+	char identifier[5];
+	char version;
+	char pad0;
+	char systemId[32];  // PSP GAME normally
+	char volumeId[32];  // In PSP games, this sometimes has the name of the game but far from always.
+};
 
 FileLoader *ConstructFileLoader(const Path &filename) {
 	if (filename.Type() == PathType::HTTP) {
@@ -68,23 +78,11 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	}
 
 	std::string extension = fileLoader->GetFileExtension();
-	if (extension == ".iso") {
-		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
-		if ((fileLoader->FileSize() % 2352) == 0) {
-			unsigned char sync[12];
-			fileLoader->ReadAt(0, 12, sync);
 
-			// each sector in a mode2 image starts with these 12 bytes
-			if (memcmp(sync,"\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00", 12) == 0) {
-				*errorString = "ISO in Mode 2: Not a PSP game";
-				return IdentifiedFileType::ISO_MODE2;
-			}
+	bool isDiscImage = false;
 
-			// maybe it also just happened to have that size, let's assume it's a PSP ISO and error out later if it's not.
-		}
-		return IdentifiedFileType::PSP_ISO;
-	} else if (extension == ".cso" || extension == ".chd") {
-		return IdentifiedFileType::PSP_ISO;
+	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
+		isDiscImage = true;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
 	} else if (extension == ".ppdmp") {
@@ -96,7 +94,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	}
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
-	if (fileLoader->IsDirectory()) {
+	if (!isDiscImage && fileLoader->IsDirectory()) {
 		Path filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
@@ -130,6 +128,54 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
+	if (isDiscImage || fileLoader->FileSize() >= 0x8800) {
+		// All zeroes. ISO files start like this but their 16th 2048-byte sector contains metadata.
+		// Do the quick check for PSP ISOs here.
+		std::string error;
+		std::unique_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &error));
+		if (bd) {
+			u8 block16[2048]{};
+			bd->ReadBlock(16, (u8 *)block16);
+			PVD *pvd = (PVD *)(block16);
+			if (!memcmp(pvd->identifier, "CD001", 5)) {
+				// It's a PSP ISO file.
+				if (!memcmp(pvd->systemId, "PSP GAME", 8)) {
+					return IdentifiedFileType::PSP_ISO;
+				} else if (!memcmp(pvd->systemId, "PS3", 3)) {
+					return IdentifiedFileType::PS3_ISO;
+				} else if (!memcmp(pvd->systemId, "PLAYSTATION", 11)) {
+					*errorString = "PSX or PS2 ISO";
+					// Just do a size heuristic here.
+					if (bd->GetUncompressedSize() > 800LL * 1024LL * 1024LL) {
+						return IdentifiedFileType::PS2_ISO;
+					}
+					return IdentifiedFileType::PSX_ISO;
+				} else {
+					*errorString = "ISO missing PSP GAME or PSP NPU identifier";
+					return IdentifiedFileType::UNKNOWN_ISO;
+				}
+			}
+
+			// Do extra check for PSX ISO
+			// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
+			if ((fileLoader->FileSize() % 2352) == 0) {
+				unsigned char sync[12];
+				fileLoader->ReadAt(0, 12, sync);
+
+				// each sector in a mode2 image starts with these 12 bytes
+				if (memcmp(sync, "\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00", 12) == 0) {
+					*errorString = "ISO in Mode 2: Not a PSP game";
+					return IdentifiedFileType::PSX_ISO;
+				}
+			}
+		}
+
+		if (isDiscImage) {
+			*errorString = "Not a valid PSP ISO image";
+			return IdentifiedFileType::UNKNOWN_ISO;
+		}
+	}
+
 	u32_le psar_offset = 0, psar_id = 0;
 	u32 _id = id;
 	if (!memcmp(&_id, "PK\x03\x04", 4) || !memcmp(&_id, "PK\x05\x06", 4) || !memcmp(&_id, "PK\x07\x08", 4)) {
@@ -142,28 +188,6 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ARCHIVE_RAR;
 	} else if (!memcmp(&_id, "\x37\x7A\xBC\xAF", 4)) {
 		return IdentifiedFileType::ARCHIVE_7Z;
-	} else if (!memcmp(&_id, "\0\0\0\0", 4)) {
-		// All zeroes. ISO files start like this but their 16th 2048-byte sector contains metadata.
-		if (fileLoader->FileSize() > 0x8100) {
-			char buffer[16];
-			fileLoader->ReadAt(0x8000, sizeof(buffer), buffer);
-			if (!memcmp(buffer + 1, "CD001", 5)) {
-				// It's an ISO file.
-				if (!memcmp(buffer + 8, "PSP GAME", 8)) {
-					return IdentifiedFileType::PSP_ISO;
-				}
-				return IdentifiedFileType::UNKNOWN_ISO;
-			}
-		}
-	} else if (!memcmp(&_id, "CISO", 4)) {
-		// CISO are not used for many other kinds of ISO so let's just guess it's a PSP one and let it
-		// fail later...
-		return IdentifiedFileType::PSP_ISO;
-	} else if (!memcmp(&_id, "MCom", 4)) {
-		size_t readSize = fileLoader->ReadAt(4, 4, 1, &_id);
-		if (!memcmp(&_id, "prHD", 4)) {
-			return IdentifiedFileType::PSP_ISO;  // CHD file
-		}
 	}
 
 	if (id == 'FLE\x7F') {
@@ -537,7 +561,9 @@ const char *IdentifiedFileTypeToString(IdentifiedFileType type) {
 	case IdentifiedFileType::ARCHIVE_ZIP: return "ARCHIVE_ZIP";
 	case IdentifiedFileType::ARCHIVE_7Z: return "ARCHIVE_7Z";
 	case IdentifiedFileType::PSP_PS1_PBP: return "PSP_PS1_PBP";
-	case IdentifiedFileType::ISO_MODE2: return "ISO_MODE2";
+	case IdentifiedFileType::PSX_ISO: return "PSX_ISO";
+	case IdentifiedFileType::PS2_ISO: return "PS2_ISO";
+	case IdentifiedFileType::PS3_ISO: return "PS3_ISO";
 	case IdentifiedFileType::NORMAL_DIRECTORY: return "NORMAL_DIRECTORY";
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: return "PSP_SAVEDATA_DIRECTORY";
 	case IdentifiedFileType::PPSSPP_SAVESTATE: return "PPSSPP_SAVESTATE";
