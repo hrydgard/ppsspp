@@ -656,6 +656,7 @@ public:
 
 		case IdentifiedFileType::PSP_ELF:
 handleELF:
+			info_->title = info_->GetFilePath().GetFilename();
 			// An elf on its own has no usable information, no icons, no nothing.
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
 				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
@@ -728,6 +729,7 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
+			info_->title = info_->GetFilePath().GetFilename();
 			if (flags_ & GameInfoFlags::ICON) {
 				Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
 				// Let's use the comparison screenshot as an icon, if it exists.
@@ -808,6 +810,8 @@ handleELF:
 							// quick-update the info while we have the lock, so we don't need to wait for the image load to display the title.
 							info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 						}
+					} else {
+						info_->title = info_->GetFilePath().GetFilename();
 					}
 				}
 
@@ -848,6 +852,7 @@ handleELF:
 			}
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
+				info_->title = info_->GetFilePath().GetFilename();
 				if (flags_ & GameInfoFlags::ICON) {
 					ReadVFSToString("zip.png", &info_->icon.data, &info_->lock);
 					info_->icon.dataLoaded = true;
@@ -855,6 +860,7 @@ handleELF:
 				break;
 
 			case IdentifiedFileType::ARCHIVE_RAR:
+				info_->title = info_->GetFilePath().GetFilename();
 				if (flags_ & GameInfoFlags::ICON) {
 					ReadVFSToString("rargray.png", &info_->icon.data, &info_->lock);
 					info_->icon.dataLoaded = true;
@@ -862,6 +868,7 @@ handleELF:
 				break;
 
 			case IdentifiedFileType::ARCHIVE_7Z:
+				info_->title = info_->GetFilePath().GetFilename();
 				if (flags_ & GameInfoFlags::ICON) {
 					ReadVFSToString("7z.png", &info_->icon.data, &info_->lock);
 					info_->icon.dataLoaded = true;
@@ -870,6 +877,7 @@ handleELF:
 
 			case IdentifiedFileType::NORMAL_DIRECTORY:
 			default:
+				info_->title = info_->GetFilePath().GetFilename();
 				break;
 		}
 
