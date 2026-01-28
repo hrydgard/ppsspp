@@ -79,10 +79,12 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 	}
 
 	if (cfg.selectedFramebuffer != -1) {
+		ImGui::SliderFloat("Scale", &cfg.fbViewerZoom, 0.5f, 16.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+
 		// Now, draw the image of the selected framebuffer.
 		Draw::Framebuffer *fb = vfbs[cfg.selectedFramebuffer]->fbo;
 		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
+		ImGui::Image(texId, ImVec2(fb->Width() * cfg.fbViewerZoom, fb->Height() * cfg.fbViewerZoom));
 	}
 
 	ImGui::End();
