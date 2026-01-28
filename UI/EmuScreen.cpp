@@ -1457,7 +1457,7 @@ void EmuScreen::update() {
 		std::string errLoadingFile = gamePath_.ToVisualString() + "\n\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append("\n");
-		errLoadingFile.append(err->T(errorMessage_.c_str()));
+		errLoadingFile.append(errorMessage_);
 
 		screenManager()->push(new PromptScreen(gamePath_, errLoadingFile, di->T("OK"), ""));
 		errorMessage_.clear();
