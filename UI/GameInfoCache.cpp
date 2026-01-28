@@ -114,6 +114,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PSP_ISO_NP:
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
+			// Also remove from recent files.
 			Path fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
 			MoveFileToTrashOrDelete(fileToRemove);
@@ -152,6 +153,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::ARCHIVE_ZIP:
 	case IdentifiedFileType::ARCHIVE_7Z:
 	case IdentifiedFileType::UNKNOWN:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
 			const Path &fileToRemove = filePath_;
@@ -559,6 +561,7 @@ public:
 		switch (info_->fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 			{
 				auto pbpLoader = info_->GetFileLoader();
 				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {

@@ -44,6 +44,7 @@ enum class IdentifiedFileType {
 	PSX_ISO,
 	PS2_ISO,
 	PS3_ISO,
+	PSP_UMD_VIDEO_ISO,
 
 	UNKNOWN_BIN,
 	UNKNOWN_ELF,
