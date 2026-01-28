@@ -127,13 +127,14 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		if (bd) {
 			u8 block16[2048]{};
 			bd->ReadBlock(16, (u8 *)block16);
-			PVD *pvd = (PVD *)(block16);
-			if (!memcmp(pvd->identifier, "CD001", 5)) {
+			PVD pvd;
+			memcpy(&pvd, block16, sizeof(PVD));
+			if (!memcmp(pvd.identifier, "CD001", 5)) {
 				// It's a valid DVD-style ISO file. Let's see which type.
-				if (!memcmp(pvd->systemId, "PSP GAME", 8) || !memcmp(pvd->systemId, "\"PSP GAME\"", 10)) {
+				if (!memcmp(pvd.systemId, "PSP GAME", 8) || !memcmp(pvd.systemId, "\"PSP GAME\"", 10)) {
 					// Yes, a known proper PSP game, let's get it going.
 					return IdentifiedFileType::PSP_ISO;
-				} else if (!memcmp(pvd->systemId, "UMD VIDEO", 9) || !memcmp(pvd->systemId, "UMD AUDIO", 9)) {
+				} else if (!memcmp(pvd.systemId, "UMD VIDEO", 9) || !memcmp(pvd.systemId, "UMD AUDIO", 9)) {
 					// This is rare so being slightly slow here shouldn't be a problem. Let's go check for the presence of
 					// actual game data.
 					SequentialHandleAllocator hAlloc;
@@ -146,10 +147,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 					// UMD AUDIO exists technically, but in reality, not really? Let's map it to VIDEO since we support neither.
 					return IdentifiedFileType::PSP_UMD_VIDEO_ISO;
-				} else if (!memcmp(pvd->systemId, "PS3", 3)) {
+				} else if (!memcmp(pvd.systemId, "PS3", 3)) {
 					*errorString = "PS3 ISO";
 					return IdentifiedFileType::PS3_ISO;
-				} else if (!memcmp(pvd->systemId, "PLAYSTATION", 11)) {
+				} else if (!memcmp(pvd.systemId, "PLAYSTATION", 11)) {
 					// Just do a size heuristic here to differentiate. There are better ways but slower.
 					if (bd->GetUncompressedSize() > 800LL * 1024LL * 1024LL) {
 						*errorString = "PS2 ISO";
@@ -162,12 +163,12 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					SequentialHandleAllocator hAlloc;
 					ISOFileSystem umd(&hAlloc, bd.release());
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
-						INFO_LOG(Log::Loader, "PSP ISO with unknown system ID: %.32s: %s", pvd->systemId, fileLoader->GetPath().c_str());
+						INFO_LOG(Log::Loader, "PSP ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
 						return IdentifiedFileType::PSP_ISO;
 					}
 
-					INFO_LOG(Log::Loader, "Unknown ISO with unknown system ID: %.32s: %s", pvd->systemId, fileLoader->GetPath().c_str());
-					*errorString = StringFromFormat("ISO with unknown system ID: %.32s", pvd->systemId);
+					INFO_LOG(Log::Loader, "Unknown ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
+					*errorString = StringFromFormat("ISO with unknown system ID: %.32s", pvd.systemId);
 					return IdentifiedFileType::UNKNOWN_ISO;
 				}
 			}
