@@ -235,6 +235,7 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;
 	case IdentifiedFileType::PSP_PS1_PBP: *errorString = "PS1 EBOOTs are not supported by PPSSPP."; break;
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: *errorString = "UMD Video ISOs are not supported by PPSSPP."; break;
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
 	case IdentifiedFileType::UNKNOWN_ISO:
@@ -327,6 +328,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			gameTitle = g_CoreParameter.fileToStart.GetFilename();
 		}
 		break;
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+	{
+		ERROR_LOG(Log::Loader, "PPSSPP doesn't support UMD Video.");
+		auto er = GetI18NCategory(I18NCat::ERRORS);
+		*errorString = er->T("PPSSPP doesn't support UMD Video.");
+		return false;
+	}
 	default:
 	{
 		// Trying to boot other things lands us here. We need to return a sensible error string.

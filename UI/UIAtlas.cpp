@@ -176,6 +176,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_PS2_ISO", false},
 	{"I_PS3_ISO", false},
 	{"I_UNKNOWN_ISO", false},
+	{"I_UMD_VIDEO_ISO", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

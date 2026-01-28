@@ -29,6 +29,7 @@
 #include "Core/FileLoaders/ZipFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
 #include "Core/Loaders.h"
@@ -138,14 +139,18 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 			bd->ReadBlock(16, (u8 *)block16);
 			PVD *pvd = (PVD *)(block16);
 			if (!memcmp(pvd->identifier, "CD001", 5)) {
-				// It's a PSP ISO file.
+				// It's a valid DVD-style ISO file. Let's see which type.
 				if (!memcmp(pvd->systemId, "PSP GAME", 8)) {
+					// Yes, a proper PSP game, let's get it going.
 					return IdentifiedFileType::PSP_ISO;
+				} else if (!memcmp(pvd->systemId, "UMD VIDEO", 9) || !memcmp(pvd->systemId, "UMD AUDIO", 9)) {
+					// UMD AUDIO exists technically, but in reality, not really? Let's map it to VIDEO since we support neither.
+					return IdentifiedFileType::PSP_UMD_VIDEO_ISO;
 				} else if (!memcmp(pvd->systemId, "PS3", 3)) {
 					return IdentifiedFileType::PS3_ISO;
 				} else if (!memcmp(pvd->systemId, "PLAYSTATION", 11)) {
 					*errorString = "PSX or PS2 ISO";
-					// Just do a size heuristic here.
+					// Just do a size heuristic here to differentiate. There are better ways but slower.
 					if (bd->GetUncompressedSize() > 800LL * 1024LL * 1024LL) {
 						return IdentifiedFileType::PS2_ISO;
 					}
