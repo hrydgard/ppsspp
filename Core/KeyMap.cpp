@@ -960,55 +960,6 @@ bool HasChanged(int &prevGeneration) {
 	return false;
 }
 
-static const char * const g_vKeyNames[] = {
-	"AXIS_X_MIN",
-	"AXIS_Y_MIN",
-	"AXIS_X_MAX",
-	"AXIS_Y_MAX",
-	"RAPID_FIRE",
-	"FASTFORWARD",
-	"PAUSE",
-	"SPEED_TOGGLE",
-	"AXIS_RIGHT_X_MIN",
-	"AXIS_RIGHT_Y_MIN",
-	"AXIS_RIGHT_X_MAX",
-	"AXIS_RIGHT_Y_MAX",
-	"REWIND",
-	"SAVE_STATE",
-	"LOAD_STATE",
-	"NEXT_SLOT",
-	"TOGGLE_FULLSCREEN",
-	"ANALOG_LIGHTLY",
-	"AXIS_SWAP",
-	"DEVMENU",
-	"FRAME_ADVANCE",
-	"RECORD",
-	"SPEED_CUSTOM1",
-	"SPEED_CUSTOM2",
-	"TEXTURE_DUMP",
-	"TEXTURE_REPLACE",
-	"SCREENSHOT",
-	"MUTE_TOGGLE",
-	"OPENCHAT",
-	"ANALOG_ROTATE_CW",
-	"ANALOG_ROTATE_CCW",
-	"SCREEN_ROTATION_VERTICAL",
-	"SCREEN_ROTATION_VERTICAL180",
-	"SCREEN_ROTATION_HORIZONTAL",
-	"SCREEN_ROTATION_HORIZONTAL180",
-	"SPEED_ANALOG",
-	"VR_CAMERA_ADJUST",
-	"VR_CAMERA_RESET",
-};
-
-const char *GetVirtKeyName(int vkey) {
-	int index = vkey - VIRTKEY_FIRST;
-	if (index < 0 || index >= ARRAY_SIZE(g_vKeyNames)) {
-		return "N/A";
-	}
-	return g_vKeyNames[index];
-}
-
 MultiInputMapping MultiInputMapping::FromConfigString(std::string_view str) {
 	MultiInputMapping out;
 	std::vector<std::string_view> parts;

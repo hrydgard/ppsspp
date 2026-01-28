@@ -171,7 +171,6 @@ namespace KeyMap {
 	std::string GetKeyOrAxisName(const InputMapping &mapping);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
-	const char *GetVirtKeyName(int vkey);
 	const char *GetPspButtonNameCharPointer(int btn);
 
 	const KeyMap_IntStrPair *GetMappableKeys(size_t *count);
