@@ -157,17 +157,19 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					// UMD AUDIO exists technically, but in reality, not really? Let's map it to VIDEO since we support neither.
 					return IdentifiedFileType::PSP_UMD_VIDEO_ISO;
 				} else if (!memcmp(pvd->systemId, "PS3", 3)) {
+					*errorString = "PS3 ISO";
 					return IdentifiedFileType::PS3_ISO;
 				} else if (!memcmp(pvd->systemId, "PLAYSTATION", 11)) {
-					*errorString = "PSX or PS2 ISO";
 					// Just do a size heuristic here to differentiate. There are better ways but slower.
 					if (bd->GetUncompressedSize() > 800LL * 1024LL * 1024LL) {
+						*errorString = "PS2 ISO";
 						return IdentifiedFileType::PS2_ISO;
 					}
+					*errorString = "PSX ISO?";
 					return IdentifiedFileType::PSX_ISO;
 				} else {
 					WARN_LOG(Log::Loader, "ISO with unknown system ID: %.32s", pvd->systemId);
-					*errorString = "ISO missing PSP GAME or PSP NPU identifier";
+					*errorString = StringFromFormat("ISO with unknown system ID: %.32s", pvd->systemId);
 					return IdentifiedFileType::UNKNOWN_ISO;
 				}
 			}
@@ -180,7 +182,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 				// each sector in a mode2 image starts with these 12 bytes
 				if (memcmp(sync, "\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00", 12) == 0) {
-					*errorString = "ISO in Mode 2: Not a PSP game";
+					*errorString = "ISO is a CD - likely PSX";  // Mode 2 CDs are used for PSX games
 					return IdentifiedFileType::PSX_ISO;
 				}
 			}
@@ -264,17 +266,18 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	return IdentifiedFileType::UNKNOWN;
 }
 
-FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
-	std::string errorString;
-	IdentifiedFileType type = Identify_File(fileLoader, &errorString);
-	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader, IdentifiedFileType *fileType, std::string *errorString) {
+	*fileType = Identify_File(fileLoader, errorString);
+	if (*fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 		const Path ebootFilename = ResolvePBPFile(fileLoader->GetPath());
 		if (ebootFilename != fileLoader->GetPath()) {
 			// Switch fileLoader to the actual EBOOT.
 			delete fileLoader;
 			fileLoader = ConstructFileLoader(ebootFilename);
+			// Re-identify the file.
+			*fileType = Identify_File(fileLoader, errorString);
 		}
-	} else if (type == IdentifiedFileType::ARCHIVE_ZIP) {
+	} else if (*fileType == IdentifiedFileType::ARCHIVE_ZIP) {
 		// Handle zip files, take automatic action depending on contents.
 		// Can also return nullptr.
 		ZipFileLoader *zipLoader = new ZipFileLoader(fileLoader);
@@ -287,6 +290,8 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 		case ZipFileContents::FRAME_DUMP:
 		{
 			zipLoader->Initialize(zipFileInfo.isoFileIndex);
+			// Re-identify the file.
+			*fileType = Identify_File(zipLoader, errorString);
 			return zipLoader;
 		}
 		default:
@@ -334,14 +339,13 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 	}
 	UpdateLoadedFile(loadedFile);
 
-	loadedFile = ResolveFileLoaderTarget(loadedFile);
+	std::string errorString;
+	IdentifiedFileType fileType;
+	loadedFile = ResolveFileLoaderTarget(loadedFile, &fileType, &errorString);
 
 	*fileLoader = loadedFile;
 
-	std::string errorString;
-	IdentifiedFileType type = Identify_File(loadedFile, &errorString);
-
-	switch (type) {
+	switch (fileType) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
@@ -351,7 +355,7 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 		}
 		break;
 	default:
-		error = "Unsupported file type: " + std::to_string((int)type) + " " + errorString;
+		error = "Unsupported file type: " + std::string(IdentifiedFileTypeToString(fileType)) + " " + errorString;
 		return false;
 		break;
 	}
