@@ -1797,8 +1797,12 @@ int main(int argc, char *argv[]) {
 		while (true) {
 			SDL_Event event;
 			while (SDL_WaitEventTimeout(&event, 100)) {
+				if (g_QuitRequested || g_RestartRequested)
+					break;
+
 				ProcessSDLEvent(window, event, &inputTracker);
 			}
+
 			if (g_QuitRequested || g_RestartRequested)
 				break;
 
