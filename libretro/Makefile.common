@@ -531,7 +531,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/View.cpp \
 	$(COMMONDIR)/UI/ViewGroup.cpp \
 	$(COMMONDIR)/UI/ScrollView.cpp \
-	$(COMMONDIR)/UI/PopupScreens.cpp \
 	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/System/Request.cpp \
 	$(COMMONDIR)/System/OSD.cpp \
