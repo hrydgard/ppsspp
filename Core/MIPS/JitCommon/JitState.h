@@ -239,7 +239,6 @@ namespace MIPSComp {
 		// Common
 		bool enableBlocklink;
 		bool immBranches;
-		bool continueBranches;
 		bool continueJumps;
 		int continueMaxInstructions;
 	};

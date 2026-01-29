@@ -48,7 +48,6 @@ namespace MIPSComp {
 		enableBlocklink = !Disabled(JitDisable::BLOCKLINK);
 #endif
 		immBranches = false;
-		continueBranches = false;
 		continueJumps = false;
 		continueMaxInstructions = 300;
 
