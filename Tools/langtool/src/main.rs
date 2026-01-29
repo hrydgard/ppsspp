@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, mem::replace};
 
 use std::collections::BTreeMap;
 
@@ -104,7 +104,7 @@ enum Command {
 		section: String,
 		key: String,
 		pattern: String,
-		replacement: String,
+		replacement: Option<String>,
 	},
 }
 
@@ -724,7 +724,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
 
         match cmd {
 			Command::ApplyRegex { ref section, ref key, ref pattern, ref replacement } => {
-				apply_regex(&mut target_ini, &section, &key, &pattern, &replacement).unwrap();
+				apply_regex(&mut target_ini, &section, &key, &pattern, &replacement.as_ref().unwrap_or(&"".to_string())).unwrap();
 			}
             Command::FinishLanguageWithAI {
                 language: _,
@@ -873,7 +873,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
     // Some commands also apply to the reference ini.
     match cmd {
 		Command::ApplyRegex { ref section, ref key, ref pattern, ref replacement } => {
-			apply_regex(&mut reference_ini, &section, &key, &pattern, &replacement).unwrap();
+			apply_regex(&mut reference_ini, &section, &key, &pattern, &replacement.as_ref().unwrap_or(&"".to_string())).unwrap();
 		}
         Command::FinishLanguageWithAI {
             language: _,
