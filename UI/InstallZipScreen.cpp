@@ -84,9 +84,9 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		break;
 	case ZipFileContents::TEXTURE_PACK:
 	case ZipFileContents::SAVE_DATA:
+	case ZipFileContents::SAVE_STATES:
 		installChoice_ = parent->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-
 		showDeleteCheckbox = true;
 		break;
 	case ZipFileContents::FRAME_DUMP:
@@ -108,7 +108,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	LinearLayout *leftColumn = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	LinearLayout *leftColumn = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8))));
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
@@ -168,6 +168,29 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		doneView_ = leftColumn->Add(new TextView(""));
 
+		showDeleteCheckbox = true;
+		break;
+	}
+	case ZipFileContents::SAVE_STATES:
+	{
+		std::string_view question = iz->T("Import savestates from ZIP file");
+		leftColumn->Add(new TextView(question))->SetBig(true);
+		leftColumn->Add(new TextView(zipPath_.ToVisualString()));
+		leftColumn->Add(new TextView(zipFileInfo_.gameTitle));
+
+		Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
+		ZipContainer zipFile = ZipOpenPath(zipPath_);
+		bool overwrite = !CanExtractWithoutOverwrite(zipFile, savestateDir, 50);
+		ZipClose(zipFile);
+
+		destFolders_.push_back(savestateDir);
+
+		if (overwrite) {
+			leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+		}
+
+		// TODO: Use the GameInfoCache to display data about the game if available.
+		doneView_ = leftColumn->Add(new TextView(""));
 		showDeleteCheckbox = true;
 		break;
 	}
@@ -236,7 +259,8 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 			leftColumn->Add(new RadioButton(&destFolderChoice_, i, destFolders_[i].ToVisualString()));
 		}
 	} else if (destFolders_.size() == 1 && zipFileInfo_.contents != ZipFileContents::SAVE_DATA) {
-		leftColumn->Add(new TextView(StringFromFormat("%s %s", iz->T_cstr("Install into folder:"), destFolders_[0].ToVisualString().c_str())));
+		leftColumn->Add(new TextView(iz->T("Install into folder")));
+		leftColumn->Add(new TextView(destFolders_[0].ToVisualString()))->SetAlign(FLAG_WRAP_TEXT);
 	}
 }
 

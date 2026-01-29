@@ -171,6 +171,7 @@ enum class ZipFileContents {
 	TEXTURE_PACK,
 	SAVE_DATA,
 	FRAME_DUMP,
+	SAVE_STATES,
 };
 
 struct ZipFileInfo {

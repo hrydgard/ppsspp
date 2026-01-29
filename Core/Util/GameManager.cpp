@@ -302,6 +302,12 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		success = ExtractZipContents(z, pspSaveData, zipInfo, false);
 		break;
 	}
+	case ZipFileContents::SAVE_STATES:
+	{
+		Path pspSaveData = GetSysDirectory(DIRECTORY_SAVESTATE);
+		success = ExtractZipContents(z, pspSaveData, zipInfo, true);
+		break;
+	}
 	default:
 		ERROR_LOG(Log::HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
@@ -512,8 +518,10 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	auto fileAllowed = [&](const char *fn) {
-		if (!allowRoot && strchr(fn, '/') == 0)
+		if (!allowRoot && strchr(fn, '/') == 0) {
+			INFO_LOG(Log::HLE, "Skipping file %s in root of zip (allowRoot == false)", fn);
 			return false;
+		}
 
 		const char *basefn = strrchr(fn, '/');
 		basefn = basefn ? basefn + 1 : fn;

@@ -459,6 +459,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	bool isPSPMemstickGame = false;
 	bool isZippedISO = false;
 	bool isTexturePack = false;
+	bool isSaveStates = false;
 	bool isFrameDump = false;
 	int stripChars = 0;
 	int isoFileIndex = -1;
@@ -524,6 +525,13 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			isFrameDump = true;
 			isoFileIndex = i;
 			info->contentName = zippedName;
+		} else if (endsWith(zippedName, ".ppst")) {
+			int slashLocation = (int)zippedName.find_last_of('/');
+			if (stripChars == 0 || slashLocation < stripChars + 1) {
+				stripChars = slashLocation + 1;
+			}
+			isSaveStates = true;
+			info->gameTitle = fn;
 		} else if (endsWith(zippedName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
@@ -571,6 +579,8 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		info->contents = ZipFileContents::SAVE_DATA;
 	} else if (isFrameDump) {
 		info->contents = ZipFileContents::FRAME_DUMP;
+	} else if (isSaveStates) {
+		info->contents = ZipFileContents::SAVE_STATES;
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}
