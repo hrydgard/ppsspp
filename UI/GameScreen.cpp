@@ -38,9 +38,10 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Loaders.h"
-#include "Core/Util/GameDB.h"
 #include "Core/HLE/Plugins.h"
+#include "Core/Util/GameDB.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PathUtil.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/Background.h"
 #include "UI/CwCheatScreen.h"
@@ -250,7 +251,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 	}
 
-	infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
+	infoLayout->Add(new TextView(GetFriendlyPath(gamePath_), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 
 	std::string timeStr;
 	if (g_Config.TimeTracker().GetPlayedTimeString(info_->id, &timeStr)) {

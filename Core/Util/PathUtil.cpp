@@ -189,21 +189,21 @@ std::string GetFriendlyPath(Path path, const Path &rootMatch, std::string_view r
 	const Path &root = rootMatch.empty() ? g_Config.memStickDirectory : rootMatch;
 
 	// Show relative to memstick root if there.
-	if (path.StartsWith(rootMatch)) {
+	if (path.StartsWith(root)) {
 		std::string p;
-		if (rootMatch.ComputePathTo(path, p)) {
+		if (root.ComputePathTo(path, p)) {
 			return join(rootDisplay, p);
 		}
 		std::string str = path.ToString();
-		if (rootMatch.size() < str.length()) {
-			return join(rootDisplay, str.substr(rootMatch.size()));
+		if (root.size() < str.length()) {
+			return join(rootDisplay, str.substr(root.size()));
 		} else {
 			return std::string(rootDisplay);
 		}
 	}
 
-	std::string str = path.ToString();
 #if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
+	std::string str = path.ToString();
 	char *home = getenv("HOME");
 	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
 		return "~" + str.substr(strlen(home));

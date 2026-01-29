@@ -84,6 +84,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -1249,6 +1250,14 @@ bool TestSplitSearch() {
 	return true;
 }
 
+bool TestFriendlyPath() {
+	Path path("/home/user/PPSSPP/games/My Game (USA)/EBOOT.PBP");
+	Path baseDir("/home/user/PPSSPP/games/");
+	std::string friendlyPath = GetFriendlyPath(path, baseDir, "ms:/");
+	EXPECT_EQ_STR(friendlyPath, std::string("ms:/My Game (USA)/EBOOT.PBP"));
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1319,6 +1328,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(CrossSIMD),
 	TEST_ITEM(VolumeFunc),
 	TEST_ITEM(SplitSearch),
+	TEST_ITEM(FriendlyPath),
 };
 
 int main(int argc, const char *argv[]) {

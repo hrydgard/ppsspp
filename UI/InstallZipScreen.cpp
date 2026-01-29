@@ -249,11 +249,11 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (destFolders_.size() > 1) {
 		leftColumn->Add(new TextView(iz->T("Install into folder")));
 		for (int i = 0; i < (int)destFolders_.size(); i++) {
-			leftColumn->Add(new RadioButton(&destFolderChoice_, i, destFolders_[i].ToVisualString()));
+			leftColumn->Add(new RadioButton(&destFolderChoice_, i, GetFriendlyPath(destFolders_[i])));
 		}
 	} else if (destFolders_.size() == 1 && zipFileInfo_.contents != ZipFileContents::SAVE_DATA) {
 		leftColumn->Add(new TextView(iz->T("Install into folder")));
-		leftColumn->Add(new TextView(destFolders_[0].ToVisualString()))->SetAlign(FLAG_WRAP_TEXT);
+		leftColumn->Add(new TextView(GetFriendlyPath(destFolders_[0])))->SetAlign(FLAG_WRAP_TEXT);
 	}
 
 	if (overwrite) {
