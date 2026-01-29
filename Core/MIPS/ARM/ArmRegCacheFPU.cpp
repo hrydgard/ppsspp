@@ -88,24 +88,8 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 		// Q8-Q15 free for NEON tricks
 	};
 
-	static const ARMReg allocationOrderNEONVFPU[] = {
-		// Reserve four temp registers. Useful when building quads until we really figure out
-		// how to do that best.
-		S4,  S5,  S6,  S7,   // Q1
-		S8,  S9,  S10, S11,  // Q2
-		S12, S13, S14, S15,  // Q3
-		// Q4-Q15 free for VFPU
-	};
-
-	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
-	// They are used by a few instructions, like vh2f.
-	if (jo_->useNEONVFPU) {
-		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARMReg);
-		return allocationOrderNEONVFPU;
-	} else {
-		count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
-		return allocationOrderNEON;
-	}
+	count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
+	return allocationOrderNEON;
 }
 
 bool ArmRegCacheFPU::IsMapped(MIPSReg r) {
@@ -113,12 +97,6 @@ bool ArmRegCacheFPU::IsMapped(MIPSReg r) {
 }
 
 ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
-	// INFO_LOG(Log::JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
-	if (jo_->useNEONVFPU && mipsReg >= 32) {
-		ERROR_LOG(Log::JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
-		return S0;
-	}
-
 	pendingFlush = true;
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
@@ -523,10 +501,6 @@ bool ArmRegCacheFPU::IsTempX(ARMReg r) const {
 }
 
 int ArmRegCacheFPU::GetTempR() {
-	if (jo_->useNEONVFPU) {
-		ERROR_LOG(Log::JIT, "VFP temps not allowed in NEON mode");
-		return 0;
-	}
 	pendingFlush = true;
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {

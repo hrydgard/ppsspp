@@ -81,24 +81,8 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 		S28, S29, S30, S31,
 	};
 
-	static const ARM64Reg allocationOrderNEONVFPU[] = {
-		// Reserve four full 128-bit temp registers, should be plenty.
-
-		// Then let's use 12 register as singles
-		S4, S5, S6, S7,
-		S8,  S9,  S10, S11,
-		S12, S13, S14, S15,
-
-		// And do quads in the rest? Or use a strategy more similar to what we do on x86?
-	};
-
-	if (jo_->useASIMDVFPU) {
-		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARM64Reg);
-		return allocationOrderNEONVFPU;
-	} else {
-		count = sizeof(allocationOrder) / sizeof(const ARM64Reg);
-		return allocationOrder;
-	}
+	count = sizeof(allocationOrder) / sizeof(const ARM64Reg);
+	return allocationOrder;
 }
 
 bool Arm64RegCacheFPU::IsMapped(MIPSReg r) {
@@ -110,12 +94,6 @@ bool Arm64RegCacheFPU::IsInRAM(MIPSReg r) {
 }
 
 ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
-	// INFO_LOG(Log::JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
-	if (jo_->useASIMDVFPU && mipsReg >= 32) {
-		ERROR_LOG(Log::JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
-		return S0;
-	}
-
 	pendingFlush = true;
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
@@ -465,10 +443,6 @@ bool Arm64RegCacheFPU::IsTempX(ARM64Reg r) const {
 }
 
 int Arm64RegCacheFPU::GetTempR() {
-	if (jo_->useASIMDVFPU) {
-		ERROR_LOG(Log::JIT, "VFP temps not allowed in NEON mode");
-		return 0;
-	}
 	pendingFlush = true;
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {
