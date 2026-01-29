@@ -1065,6 +1065,7 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 				result.undefined = 0;
 				return &result;
 			}
+			break;
     case 3:
 			if (instr >> 24 == 0xF3) {
 				if (!DisasmNeon(instr, result.text)) {
@@ -1184,6 +1185,7 @@ lMaybeLDRHetc:
 				result.undefined = 0;
 				return &result;
 			}
+			[[fallthrough]];
 		case 5:
     case 6:
     case 7:

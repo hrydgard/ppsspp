@@ -595,6 +595,8 @@ bool Jit::ReplaceJalTo(u32 dest) {
 	return true;
 }
 
+
+
 void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 	// We get here if we execute the first instruction of a replaced function. This means
 	// that we do need to return to RA.

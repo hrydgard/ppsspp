@@ -18,7 +18,6 @@ public:
 	void resized() override { RecreateViews(); }
 
 protected:
-	void CopySummaryToClipboard(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
 
 private:

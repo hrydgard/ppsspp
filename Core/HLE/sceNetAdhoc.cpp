@@ -1189,10 +1189,9 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	int sockerr = 0, ret;
-	struct sockaddr_in sin;
+	struct sockaddr_in sin{};
 	// Try to connect again if the first attempt failed due to remote side was not listening yet (ie. ECONNREFUSED or ETIMEDOUT)
 	if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED) {
-		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
@@ -1247,7 +1246,6 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check whether the connection has been established or not
 	if (!serverHasRelay && ret != SOCKET_ERROR) {
 		socklen_t sinlen = sizeof(sin);
-		memset(&sin, 0, sinlen);
 		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
 		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		if (ret == SOCKET_ERROR) {

@@ -35,7 +35,7 @@ void SystemInfoScreen::update() {
 }
 
 // TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?
-void SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
+static void CopySummaryToClipboard(Draw::DrawContext *draw) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::DIALOG);
 
@@ -56,7 +56,6 @@ void SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
 	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
 	if (!board.empty())
 		w.C("Board: ").W(board).endl();
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	w.C("3D API: ").W(draw->GetInfoString(Draw::InfoField::APINAME)).endl();
 	w.C("API version: ").W(draw->GetInfoString(Draw::InfoField::APIVERSION)).endl();
 	w.C("Device API version: ").W(draw->GetInfoString(Draw::InfoField::DEVICE_API_VERSION)).endl();
@@ -117,7 +116,9 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 
 	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
 
-	systemInfo->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Handle(this, &SystemInfoScreen::CopySummaryToClipboard);
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	systemInfo->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([draw](UI::EventParams &e) { CopySummaryToClipboard(draw); });
 	systemInfo->Add(new InfoItem(si->T("System Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
 	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
@@ -139,7 +140,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	UI::CollapsibleSection *cpuInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
-	if (strcmp(cpu_info.brand_string, "Unknown") != 0) {
+	if (equals(cpu_info.brand_string, "Unknown")) {
 		cpuInfo->Add(new InfoItem(si->T("CPU Name"), cpu_info.brand_string));
 	}
 
@@ -151,8 +152,6 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 #endif
 
 	CollapsibleSection *gpuInfo = deviceSpecs->Add(new CollapsibleSection(si->T("GPU Information")));
-
-	DrawContext *draw = screenManager()->getDrawContext();
 
 	const std::string apiNameKey = draw->GetInfoString(InfoField::APINAME);
 	std::string_view apiName = gr->T(apiNameKey);
@@ -177,10 +176,10 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gpuInfo->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
-		int highp_int_min = gl_extensions.range[1][5][0];
-		int highp_int_max = gl_extensions.range[1][5][1];
-		int highp_float_min = gl_extensions.range[1][2][0];
-		int highp_float_max = gl_extensions.range[1][2][1];
+		const int highp_int_min = gl_extensions.range[1][5][0];
+		const int highp_int_max = gl_extensions.range[1][5][1];
+		const int highp_float_min = gl_extensions.range[1][2][0];
+		const int highp_float_max = gl_extensions.range[1][2][1];
 		if (highp_int_max != 0) {
 			char temp[128];
 			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
@@ -188,7 +187,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		}
 		if (highp_float_max != 0) {
 			char temp[128];
-			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
+			snprintf(temp, sizeof(temp), "%d-%d", highp_float_min, highp_float_max);
 			gpuInfo->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
@@ -282,7 +281,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) presentModes += "FIFO, ";
 	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) presentModes += "IMMEDIATE, ";
 	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) presentModes += "MAILBOX, ";
-	if (!presentModes.empty()) {
+	if (presentModes.size() > 2) {
 		presentModes.pop_back();
 		presentModes.pop_back();
 	}
