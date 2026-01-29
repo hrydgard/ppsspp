@@ -268,20 +268,6 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
-	bool CanContinueBranch(u32 targetAddr) {
-		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		// Need at least 2 exits left over.
-		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 2) {
-			return false;
-		}
-		// Sometimes we predict wrong and get into impossible conditions where games have jumps to 0.
-		if (!targetAddr) {
-			return false;
-		}
-		return true;
-	}
 	bool CanContinueJump(u32 targetAddr) {
 		if (!jo.continueJumps || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
