@@ -314,6 +314,7 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
 				primaryWindow->Redraw();
+				break;
 			default:
 				break;
 			}
@@ -362,6 +363,7 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
 				secondWindow->Redraw();
+				break;
 			default:
 				break;
 			}
@@ -576,9 +578,11 @@ void CGEDebugger::UpdatePreviews() {
 		UpdatePrimPreview(primOp, 3);
 	}
 
-	wchar_t primCounter[1024]{};
-	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
-	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
+	if (gpuDebug) {
+		wchar_t primCounter[1024]{};
+		swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
+		SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
+	}
 
 	for (GEDebuggerTab &tabState : tabStates_) {
 		UpdateTab(&tabState);

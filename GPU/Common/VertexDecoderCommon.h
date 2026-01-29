@@ -87,7 +87,7 @@ struct DecVtxFormat {
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
-inline int RoundUp4(int x) {
+inline int constexpr RoundUp4(int x) {
 	return (x + 3) & ~3;
 }
 

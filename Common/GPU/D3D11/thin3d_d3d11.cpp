@@ -1771,6 +1771,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 		case Aspect::STENCIL_BIT:
 			if (!fb)
 				return false;
+			break;
 		default:
 			break;
 		}
