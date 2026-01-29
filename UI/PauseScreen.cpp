@@ -626,7 +626,7 @@ void GamePauseScreen::CreateViews() {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	});
 	if (g_Config.bShowTouchControls) {
-		rightColumnItems->Add(new Choice(co->T("Edit touch control layout..."), ImageID("I_CONTROLLER")))->OnClick.Add([this](UI::EventParams &) -> void {
+		rightColumnItems->Add(new Choice(co->T("Edit touch control layout"), ImageID("I_CONTROLLER")))->OnClick.Add([this](UI::EventParams &) -> void {
 			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 		});
 	}
