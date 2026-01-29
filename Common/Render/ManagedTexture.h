@@ -69,7 +69,7 @@ private:
 	Draw::Texture *texture_ = nullptr;
 	Draw::DrawContext *draw_;
 	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
-	bool generateMips_ = false;
+	bool generateMips = false;
 	ImageFileType type_ = ImageFileType::DETECT;
 	LimitedWaitable *taskWaitable_ = nullptr;
 	TempImage pendingImage_;

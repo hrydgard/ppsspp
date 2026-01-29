@@ -23,8 +23,8 @@
 // TODO: It really feels like we should be able to simplify this.
 class TextureLoadTask : public Task {
 public:
-	TextureLoadTask(std::string_view filename, ImageFileType type, bool generateMips, TempImage *tempImage, ManagedTexture::LoadState *state, LimitedWaitable *waitable)
-		: filename_(filename), type_(type), generateMips_(generateMips), tempImage_(tempImage), state_(state), waitable_(waitable) {}
+	TextureLoadTask(std::string_view filename, ImageFileType type, TempImage *tempImage, ManagedTexture::LoadState *state, LimitedWaitable *waitable)
+		: filename_(filename), type_(type), tempImage_(tempImage), state_(state), waitable_(waitable) {}
 
 	TaskType Type() const override { return TaskType::IO_BLOCKING; }
 	TaskPriority Priority() const override { return TaskPriority::NORMAL; }
@@ -55,7 +55,6 @@ private:
 	std::string filename_;
 	TempImage *tempImage_;
 	ImageFileType type_;
-	bool generateMips_;  // not yet used
 	ManagedTexture::LoadState *state_;
 };
 
@@ -201,7 +200,7 @@ Draw::Texture *ManagedTexture::GetTexture() {
 			taskWaitable_ = nullptr;
 		}
 		// Image load is done, texture creation is not.
-		texture_ = CreateTextureFromTempImage(draw_, pendingImage_, generateMips_, filename_.c_str());
+		texture_ = CreateTextureFromTempImage(draw_, pendingImage_, generateMips, filename_.c_str());
 		if (!texture_) {
 			// Failed to create the texture for whatever reason, like dimensions. Don't retry next time.
 			state_ = LoadState::FAILED;
@@ -212,7 +211,7 @@ Draw::Texture *ManagedTexture::GetTexture() {
 }
 
 ManagedTexture::ManagedTexture(Draw::DrawContext *draw, std::string_view filename, ImageFileType type, bool generateMips) 
-	: draw_(draw), filename_(filename), type_(type), generateMips_(generateMips)
+	: draw_(draw), filename_(filename), type_(type), generateMips(generateMips)
 {
 	StartLoadTask();
 }
@@ -230,7 +229,7 @@ ManagedTexture::~ManagedTexture() {
 void ManagedTexture::StartLoadTask() {
 	_dbg_assert_(!taskWaitable_);
 	taskWaitable_ = new LimitedWaitable();
-	g_threadManager.EnqueueTask(new TextureLoadTask(filename_, type_, generateMips_, &pendingImage_, &state_, taskWaitable_));
+	g_threadManager.EnqueueTask(new TextureLoadTask(filename_, type_, &pendingImage_, &state_, taskWaitable_));
 }
 
 void ManagedTexture::DeviceLost() {

@@ -18,11 +18,9 @@ private:
 	// Uses the current ListType
 	void FillBlockList();
 
-	UI::LinearLayout *comparisonView_ = nullptr;
 	UI::LinearLayout *leftDisasm_ = nullptr;
 	UI::LinearLayout *rightDisasm_ = nullptr;
 
-	UI::LinearLayout *blockListView_ = nullptr;
 	UI::LinearLayout *blockListContainer_ = nullptr;
 
 	void OnSelectBlock(UI::EventParams &e);
