@@ -384,7 +384,7 @@ static std::set<u32> DetectXInputVIDPIDs() {
 
 	while (SUCCEEDED(pEnumDevices->Next(10000, 32, pDevices, &uReturned)) && uReturned > 0) {
 		for (ULONG i = 0; i < uReturned; i++) {
-			VARIANT var;
+			VARIANT var{};
 			if (SUCCEEDED(pDevices[i]->Get(L"DeviceID", 0, &var, nullptr, nullptr)))
 			{
 				if (wcsstr(var.bstrVal, L"IG_"))

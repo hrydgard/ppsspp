@@ -1285,6 +1285,9 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 	int us;
 	bool complete = __IoWrite(result, id, data_addr, size, us);
 	if (!complete) {
+		if (!f) {
+			return hleLogError(Log::sceIo, error, "bad file descriptor");
+		}
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());

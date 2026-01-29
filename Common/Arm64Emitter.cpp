@@ -896,7 +896,10 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 	switch (branch.type)
 	{
 		case 1: // CBNZ
+		{
 			Not = true;
+			[[fallthrough]];
+		}
 		case 0: // CBZ
 		{
 			_assert_msg_(IsInRangeImm19(distance), "%s(%d): Received too large distance: %llx", __FUNCTION__, branch.type, distance);
@@ -910,7 +913,10 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 			inst = (0x2A << 25) | (MaskImm19(distance) << 5) | branch.cond;
 		break;
 		case 4: // TBNZ
+		{
 			Not = true;
+			[[fallthrough]];
+		}
 		case 3: // TBZ
 		{
 			_assert_msg_(IsInRangeImm14(distance), "%s(%d): Received too large distance: %llx", __FUNCTION__, branch.type, distance);

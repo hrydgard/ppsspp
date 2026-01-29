@@ -276,7 +276,7 @@ void WebSocketCPUGetReg(DebuggerRequest &req) {
 		return;
 
 	int cat, reg;
-	uint32_t val;
+	uint32_t val = 0;
 	switch (ValidateCatReg(req, &cat, &reg)) {
 	case DebuggerRegType::NORMAL:
 		val = cpuDebug->GetRegValue(cat, reg);

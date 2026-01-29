@@ -2627,7 +2627,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
 			GetSkipGPUReadbackMode() == SkipGPUReadbackMode::COPY_TO_TEXTURE ||
 			(PSP_CoreParameter().compat.flags().IntraVRAMBlockTransferAllowCreateFB &&
-				Memory::IsVRAMAddress(srcRect.vfb->fb_address) && Memory::IsVRAMAddress(dstBasePtr))) {
+				(srcRect.vfb && Memory::IsVRAMAddress(srcRect.vfb->fb_address)) && Memory::IsVRAMAddress(dstBasePtr))) {
 			GEBufferFormat ramFormat;
 			// Try to guess the appropriate format. We only know the bpp from the block transfer command (16 or 32 bit).
 			if (srcRect.channel == RASTER_COLOR) {
@@ -2719,9 +2719,11 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		}
 
 		// Getting to the more complex cases. Have not actually seen much of these yet.
-		WARN_LOG_N_TIMES(blockformat, 5, Log::G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
-			GeBufferFormatToString(srcRect.vfb->Format(srcRect.channel)), GeBufferFormatToString(dstRect.vfb->Format(dstRect.channel)),
-			width, height);
+		if (srcRect.vfb && dstRect.vfb) {
+			WARN_LOG_N_TIMES(blockformat, 5, Log::G3D, "Mismatched buffer formats in block transfer: %s->%s (%dx%d)",
+				GeBufferFormatToString(srcRect.vfb->Format(srcRect.channel)), GeBufferFormatToString(dstRect.vfb->Format(dstRect.channel)),
+				width, height);
+		}
 
 		// TODO
 
@@ -2753,7 +2755,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride,
 			dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
 		FlushBeforeCopy();
-		if (GetSkipGPUReadbackMode() == SkipGPUReadbackMode::NO_SKIP && !srcRect.vfb->memoryUpdated) {
+		if (GetSkipGPUReadbackMode() == SkipGPUReadbackMode::NO_SKIP && srcRect.vfb && !srcRect.vfb->memoryUpdated) {
 			const int srcBpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
 			const float srcXFactor = (float)bpp / srcBpp;
 			const bool tooTall = srcY + srcRect.h > srcRect.vfb->bufferHeight;

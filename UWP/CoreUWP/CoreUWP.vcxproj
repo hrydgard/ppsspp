@@ -267,7 +267,6 @@
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64IRRegCache.h" />
-    <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCache.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.h" />
@@ -556,8 +555,6 @@
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompLoadStore.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompReplace.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompVFPU.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEON.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmJit.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCache.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.cpp" />

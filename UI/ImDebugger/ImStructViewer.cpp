@@ -168,6 +168,7 @@ static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
 			break;
 		case BuiltInType::Void:
 			ImGui::Text("<void type>");
+			break;
 		default:
 			return;
 	}

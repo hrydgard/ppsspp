@@ -287,7 +287,7 @@ void GameButton::Draw(UIContext &dc) {
 	switch (ginfo->fileType) {
 	case IdentifiedFileType::UNKNOWN_ELF: imageIcon = ImageID("I_DEBUGGER"); break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP: imageIcon = ImageID("I_DISPLAY"); break;
-	case IdentifiedFileType::PSX_ISO: imageIcon = ImageID("I_PSX_ISO"); break;
+	case IdentifiedFileType::PSX_ISO:
 	case IdentifiedFileType::PSP_PS1_PBP: imageIcon = ImageID("I_PSX_ISO"); break;
 	case IdentifiedFileType::PS2_ISO: imageIcon = ImageID("I_PS2_ISO"); break;
 	case IdentifiedFileType::PS3_ISO: imageIcon = ImageID("I_PS3_ISO"); break;
@@ -296,6 +296,7 @@ void GameButton::Draw(UIContext &dc) {
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN_BIN: imageIcon = ImageID("I_FILE"); break;
+	default: break;
 	}
 
 	if (imageIcon.isValid()) {

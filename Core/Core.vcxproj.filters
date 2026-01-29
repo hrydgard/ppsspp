@@ -447,12 +447,6 @@
     <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompVFPUNEON.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompVFPUNEONUtil.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\disarm.cpp">
       <Filter>Ext</Filter>
     </ClCompile>
@@ -1823,9 +1817,6 @@
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitState.h">
       <Filter>MIPS\JitCommon</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmCompVFPUNEONUtil.h">
-      <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\DisassemblyManager.h">
       <Filter>Debugger</Filter>

@@ -243,8 +243,10 @@ void MemSlabMap::DoState(PointerWrap &p) {
 
 		Slab *slab = first_;
 		for (int i = 0; i < count; ++i) {
-			slab->next->DoState(p);
-			slab = slab->next;
+			if (slab->next) {
+				slab->next->DoState(p);
+				slab = slab->next;
+			}
 		}
 	}
 }

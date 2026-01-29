@@ -129,7 +129,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 			EndDialog(hwnd,false);
 			break;
 		}
-
+		break;
 	case WM_KEYDOWN:
 
 		break;

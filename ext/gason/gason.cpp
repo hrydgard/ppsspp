@@ -155,15 +155,16 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
                 *endptr = s;
                 return JSON_BAD_NUMBER;
             }
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
+			[[fallthrough]];
+        case '0': [[fallthrough]];
+        case '1': [[fallthrough]];
+        case '2': [[fallthrough]];
+        case '3': [[fallthrough]];
+        case '4': [[fallthrough]];
+        case '5': [[fallthrough]];
+        case '6': [[fallthrough]];
+        case '7': [[fallthrough]];
+        case '8': [[fallthrough]];
         case '9':
             o = JsonValue(string2double(*endptr, &s));
             if (!isdelim(*s)) {
