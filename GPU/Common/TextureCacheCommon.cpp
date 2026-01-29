@@ -626,7 +626,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.bufw = bufw;
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, 0, &bestCandidate)) {
+	if (GetBestFramebufferCandidate(def, 0, &bestCandidate, "texture")) {
 		// If we had a texture entry here, let's get rid of it.
 		if (entryIter != cache_.end()) {
 			DeleteTexture(entryIter);
@@ -709,7 +709,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	return entry;
 }
 
-bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const {
+bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) const {
 	gpuStats.numFramebufferEvaluations++;
 
 	TinySet<AttachCandidate, 6> candidates;
@@ -743,6 +743,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 	bool kzCompat = PSP_CoreParameter().compat.flags().SplitFramebufferMargin;
 
 	// We simply use the sequence counter as relevancy nowadays.
+
 	for (size_t i = 0; i < candidates.size(); i++) {
 		AttachCandidate &candidate = candidates[i];
 		int relevancy = candidate.channel == RASTER_COLOR ? candidate.fb->colorBindSeq : candidate.fb->depthBindSeq;
@@ -753,6 +754,11 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
 			candidate.fb->fb_address == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 			relevancy -= 2;
+		}
+
+		if (candidate.fb->fb_address == entry.addr && PSP_CoreParameter().compat.flags().BoostExactFramebufferMatch) {
+			// Perfect match, prefer this one heavily. Works around an overlapping framebuffer problem in Tales of Phantasia X: #21162
+			relevancy += 3;
 		}
 
 		if (candidate.match.xOffset != 0 && PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset) {
@@ -785,7 +791,8 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		}
 		cands += "\n";
 
-		WARN_LOG(Log::G3D, "GetFramebufferCandidates(tex): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+		WARN_LOG(Log::G3D, "GetBestFramebufferCandidate(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			context,
 			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
 			cands.c_str()
@@ -795,7 +802,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	if (bestIndex != -1) {
 		if (logging) {
-			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s\n", (int)bestIndex, candidates[bestIndex].ToString().c_str());
+			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s (%dx%d)\n", (int)bestIndex, candidates[bestIndex].ToString().c_str());
 		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
@@ -1249,7 +1256,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	def.dim = gstate.getTextureDimension(0);
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate)) {
+	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate, "offsetTexture")) {
 		SetTextureFramebuffer(bestCandidate);
 		return true;
 	} else {

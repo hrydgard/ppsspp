@@ -156,6 +156,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "MsgDialogAutoStatus", &flags_.MsgDialogAutoStatus);
 	CheckSetting(iniFile, gameID, "NullPageValid", &flags_.NullPageValid);
 	CheckSetting(iniFile, gameID, "DetectDestBlendSquared", &flags_.DetectDestBlendSquared);
+	CheckSetting(iniFile, gameID, "BoostExactFramebufferMatch", &flags_.BoostExactFramebufferMatch);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
