@@ -625,13 +625,10 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 		// Peer not found
 		if (peer == NULL) {
 			// Allocate Memory
-			peer = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+			peer = new SceNetAdhocMatchingMemberInternal{};
 
 			// Allocated Memory
 			if (peer != NULL) {
-				// Clear Memory
-				memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
-
 				// Copy Sender MAC
 				peer->mac = *sendermac;
 
@@ -702,13 +699,10 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 				// New Peer
 				if (peer == NULL) {
 					// Allocate Memory
-					peer = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+					peer = new SceNetAdhocMatchingMemberInternal{};
 
 					// Allocated Memory
 					if (peer != NULL) {
-						// Clear Memory
-						memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
-
 						// Copy Sender MAC
 						peer->mac = *sendermac;
 
@@ -1025,15 +1019,12 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 	memcpy(&mac, context->rxbuf + 1, sizeof(SceNetEtherAddr));
 
 	// Allocate Memory
-	SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+	SceNetAdhocMatchingMemberInternal * sibling = new SceNetAdhocMatchingMemberInternal{};
 
 	if (sibling == NULL) {
 		// Failed to allocate memory
 		return;
 	}
-
-	// Clear Memory
-	memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
 
 	// Save MAC Address
 	sibling->mac = mac;
@@ -1775,16 +1766,13 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	}
 
 	// Allocate Context Memory
-	SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
+	SceNetAdhocMatchingContext * context = new SceNetAdhocMatchingContext{};
 
 	// Allocated Memory
 	if (context != NULL) {
 		// Create PDP Socket
 		SceNetEtherAddr localmac;
 		getLocalMac(&localmac);
-
-		// Clear Memory
-		memset(context, 0, sizeof(SceNetAdhocMatchingContext));
 
 		// Allocate Receive Buffer
 		context->rxbuf = (uint8_t*)malloc(rxbuflen);
@@ -2659,7 +2647,7 @@ const HLEFunction sceNetAdhocMatching[] = {
 	{0X7945ECDA, &WrapI_V<sceNetAdhocMatchingTerm>,                    "sceNetAdhocMatchingTerm",                'i', ""         },
 	{0XCA5EDA6F, &WrapI_IIIIIIIIU<sceNetAdhocMatchingCreate>,          "sceNetAdhocMatchingCreate",              'i', "iiiiiiiix"},
 	{0X93EF3843, &WrapI_IIIIIIU<sceNetAdhocMatchingStart>,             "sceNetAdhocMatchingStart",               'i', "iiiiiix"  },
-	{0xE8454C65, &WrapI_IIIIIIIIU<sceNetAdhocMatchingStart2>,          "sceNetAdhocMatchingStart2",              'i', "iiiiiiiix"},
+	{0XE8454C65, &WrapI_IIIIIIIIU<sceNetAdhocMatchingStart2>,          "sceNetAdhocMatchingStart2",              'i', "iiiiiiiix"},
 	{0X32B156B3, &WrapI_I<sceNetAdhocMatchingStop>,                    "sceNetAdhocMatchingStop",                'i', "i"        },
 	{0XF16EAF4F, &WrapI_I<sceNetAdhocMatchingDelete>,                  "sceNetAdhocMatchingDelete",              'i', "i"        },
 	{0X5E3D4B79, &WrapI_ICIU<sceNetAdhocMatchingSelectTarget>,         "sceNetAdhocMatchingSelectTarget",        'i', "isix"     },

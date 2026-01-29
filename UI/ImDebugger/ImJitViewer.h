@@ -33,7 +33,6 @@ private:
 	int curBlockNum_ = -1;
 
 	int lastCpuStepCount_ = -1;
-	int blockSortColumn_ = 0;
 
 	bool refresh_ = false;
 	int core_ = -1;
