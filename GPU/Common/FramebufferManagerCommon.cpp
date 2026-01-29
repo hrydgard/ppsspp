@@ -2193,8 +2193,10 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	} else if (dstBuffer) {
 		if (flags & GPUCopyFlag::MEMSET) {
 			gpuStats.numClears++;
+			WARN_LOG_N_TIMES(btucpy, 5, Log::FrameBuf, "Memcpy fbo memset-clear %08x (size: %x)", dst, size);
+		} else {
+			WARN_LOG_N_TIMES(btucpy, 5, Log::FrameBuf, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
 		}
-		WARN_LOG_N_TIMES(btucpy, 5, Log::FrameBuf, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
 		FlushBeforeCopy();
 
 		// TODO: Hot Shots Golf makes a lot of these during the "meter", to copy back the image to the screen, it copies line by line.
