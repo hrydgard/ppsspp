@@ -43,7 +43,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), flags_(flags) {
+TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {

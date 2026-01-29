@@ -197,8 +197,6 @@ private:
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
 	bool symsDirty_ = true;
-	int selectedSymbol_ = -1;
-	char selectedSymbolName_[128];
 
 	bool drawZeroDark_ = false;
 	bool editableMemory_ = false;
@@ -209,7 +207,6 @@ private:
 	char searchStr_[512];
 	// store the state of the search form
 	ImMemView memView_;
-	char searchTerm_[64]{};
 
 	u32 gotoAddr_ = 0x08800000;
 };

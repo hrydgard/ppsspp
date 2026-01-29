@@ -36,7 +36,6 @@ public:
 private:
 	UI::Choice *backButton_ = nullptr;
 	UI::Choice *contextMenuButton_ = nullptr;
-	TopBarFlags flags_ = TopBarFlags::Default;
 };
 
 class ShinyIcon : public UI::ImageView {

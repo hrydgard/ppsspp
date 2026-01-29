@@ -296,6 +296,19 @@ void GameButton::Draw(UIContext &dc) {
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN_BIN: imageIcon = ImageID("I_FILE"); break;
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_PBP:
+	case IdentifiedFileType::PSP_ELF:
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::ARCHIVE_RAR:
+	case IdentifiedFileType::ARCHIVE_ZIP:
+	case IdentifiedFileType::ARCHIVE_7Z:
+	case IdentifiedFileType::NORMAL_DIRECTORY:
+	case IdentifiedFileType::UNKNOWN:
+		break;
 	}
 
 	if (imageIcon.isValid()) {
