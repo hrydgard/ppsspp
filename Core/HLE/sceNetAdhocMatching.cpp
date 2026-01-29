@@ -1830,7 +1830,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 		}
 
 		// Free Memory
-		free(context);
+		delete context;
 	}
 
 	// Out of Memory
