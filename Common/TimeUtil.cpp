@@ -152,7 +152,7 @@ double from_time_raw_relative(uint64_t raw_time) {
 double time_now_unix_utc() {
 	struct timespec tp;
 	clock_gettime(CLOCK_REALTIME, &tp);
-	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+	return (double)tp.tv_sec + (double)tp.tv_nsec / 1000000000.0;
 }
 
 void yield() {
@@ -351,26 +351,17 @@ void sleep_precise(double seconds, const char *reason) {
 // Return the current time formatted as Minutes:Seconds:Milliseconds
 // in the form 00:00:000.
 void GetCurrentTimeFormatted(char formattedTime[13]) {
-	time_t sysTime;
-	time(&sysTime);
-
-	uint32_t milliseconds;
 #ifdef _WIN32
-	struct timeb tp;
-	(void)::ftime(&tp);
-	milliseconds = tp.millitm;
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+	snprintf(formattedTime, 13, "%02d:%02d:%03d", st.wMinute, st.wSecond, st.wMilliseconds);
 #else
-	struct timeval t;
-	(void)gettimeofday(&t, NULL);
-	milliseconds = (int)(t.tv_usec / 1000);
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	struct tm tm;
+	localtime_r(&ts.tv_sec, &tm);
+	snprintf(formattedTime, 13, "%02d:%02d:%03d", tm.tm_min, tm.tm_sec, (int)(ts.tv_nsec / 1000000));
 #endif
-
-	struct tm *gmTime = localtime(&sysTime);
-	char tmp[6];
-	strftime(tmp, sizeof(tmp), "%M:%S", gmTime);
-
-	// Now tack on the milliseconds
-	snprintf(formattedTime, 11, "%s:%03u", tmp, milliseconds % 1000);
 }
 
 // We don't even bother synchronizing this, it's fine if threads stomp a bit.
