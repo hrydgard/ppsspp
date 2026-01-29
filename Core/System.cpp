@@ -340,7 +340,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		// Trying to boot other things lands us here. We need to return a sensible error string.
 		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		*errorString = sy->T("Not a PSP game");  // best string we have.
 		return false;
 	}
 	}
@@ -600,7 +599,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 	}
 	g_CoreParameter.errorString.clear();
 
-	std::string *error_string = &g_CoreParameter.errorString;
+	std::string *errorString = &g_CoreParameter.errorString;
 
 	INFO_LOG(Log::Loader, "Starting loader thread...");
 
@@ -608,7 +607,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 
-	g_loadingThread = std::thread([error_string]() {
+	g_loadingThread = std::thread([errorString]() {
 		SetCurrentThreadName("ExecLoader");
 
 		AndroidJNIThreadContext jniContext;
@@ -616,14 +615,13 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
 
 		Path filename = g_CoreParameter.fileToStart;
-		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 
-		IdentifiedFileType type = Identify_File(loadedFile, &g_CoreParameter.errorString);
-		g_CoreParameter.fileType = type;
+		IdentifiedFileType fileType;
+		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
 
 		if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
 			if (g_Config.bCacheFullIsoInRam) {
-				switch (g_CoreParameter.fileType) {
+				switch (fileType) {
 				case IdentifiedFileType::PSP_ISO:
 				case IdentifiedFileType::PSP_ISO_NP:
 					loadedFile = new RamCachingFileLoader(loadedFile);
@@ -635,14 +633,16 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			}
 		}
 
+		g_CoreParameter.fileType = fileType;
+
 		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
 		// it gets written to from the loader thread that gets spawned.
-		if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
+		if (!CPU_Init(loadedFile, fileType, &g_CoreParameter.errorString)) {
 			CPU_Shutdown(false);
 			g_CoreParameter.fileToStart.clear();
-			*error_string = g_CoreParameter.errorString;
-			if (error_string->empty()) {
-				*error_string = "Failed initializing CPU/Memory";
+			*errorString = g_CoreParameter.errorString;
+			if (errorString->empty()) {
+				*errorString = "Failed initializing CPU/Memory";
 			}
 			g_bootState = BootState::Failed;
 			return;
@@ -651,7 +651,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		// Initialize the GPU as far as we can here (do things like load cache files).
 		_dbg_assert_(!gpu);
 #ifndef __LIBRETRO__
-		InitGPU(error_string);
+		InitGPU(errorString);
 #endif
 		g_bootState = BootState::Complete;
 	});

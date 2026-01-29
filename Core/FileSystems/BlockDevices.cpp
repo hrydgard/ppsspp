@@ -22,6 +22,7 @@
 #include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/StringUtils.h"
@@ -223,7 +224,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
 	u64 expectedFileSize = lastIndexPos << indexShift;
 	if (expectedFileSize > fileSize) {
-		errorString_ = StringFromFormat("Expected CSO to at least be %lld bytes, but file is %lld bytes", expectedFileSize, fileSize);
+		errorString_ = StringFromFormat("CSO file incomplete: expected %s, but is %s", NiceSizeFormat(expectedFileSize).c_str(), NiceSizeFormat(fileSize).c_str());
 		return;
 	}
 

@@ -121,6 +121,8 @@ struct ImConfig {
 
 	bool sasShowAllVoices = false;
 
+	float fbViewerZoom = 1.0f;
+
 
 	// We use a separate ini file from the main PPSSPP config.
 	void LoadConfig(const Path &iniFile);
