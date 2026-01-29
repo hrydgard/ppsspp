@@ -5,12 +5,25 @@
 //  Created by Serena on 20/01/2023.
 //
 
-#include "ppsspp_config.h"
-#include "Core/Config.h"
-#include "Common/Log.h"
-#include "DarwinFileSystemServices.h"
+// NOTES:
+// Files inside the app folder opened in iOS via the document picker end up with this path:
+// /private/var/mobile/Containers/Data/Application/<UUID>/Documents
+// However, when we query the home directory we get:
+// /var/mobile/Containers/Data/Application/<UUID>/Documents
+// The /private prefix seems to be optional, so we strip it off before returning it.
+
+
 #include <dispatch/dispatch.h>
 #include <CoreServices/CoreServices.h>
+
+#include "ppsspp_config.h"
+
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+
+#include "Core/Config.h"
+
+#include "DarwinFileSystemServices.h"
 
 #if !__has_feature(objc_arc)
 #error Must be built with ARC, please revise the flags for DarwinFileSystemServices.mm to include -fobjc-arc.
@@ -41,8 +54,14 @@ void DarwinFileSystemServices::ClearDelegate() {
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+	std::string pathStr = urls[0].path.UTF8String;
+	// Strip /private prefix if present.
+	if (startsWith(pathStr, "/private/var/mobile/Containers/Data/Application/")) {
+		pathStr = pathStr.substr(8);
+	}
+
 	if (urls.count >= 1)
-		self.panelCallback(true, Path(urls[0].path.UTF8String));
+		self.panelCallback(true, Path(pathStr));
 	else
 		self.panelCallback(false, Path());
 
@@ -131,7 +150,9 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 			[types addObject: (__bridge NSString *)kUTTypeFolder];
 		if (allowFiles) {
 			[types addObject: (__bridge NSString *)kUTTypeItem];
-			pickerMode = UIDocumentPickerModeImport;
+			// NOTE: We do not want to copy files here - we handle it ourselves if needed.
+			// Previously this was Import mode.
+			pickerMode = UIDocumentPickerModeOpen;
 		}
 
 		UIDocumentPickerViewController *pickerVC = [[UIDocumentPickerViewController alloc] initWithDocumentTypes: types inMode: pickerMode];
