@@ -19,15 +19,17 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Notice.h"
-
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
+
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Loaders.h"
+
 #include "UI/InstallZipScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/OnScreenDisplay.h"
@@ -126,7 +128,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	destFolders_.clear();
 
 	std::vector<Path> destOptions;
-
+	bool overwrite = false;
 	switch (zipFileInfo_.contents) {
 	case ZipFileContents::ISO_FILE:
 	case ZipFileContents::PSP_GAME_DIR:
@@ -175,19 +177,15 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	{
 		std::string_view question = iz->T("Import savestates from ZIP file");
 		leftColumn->Add(new TextView(question))->SetBig(true);
-		leftColumn->Add(new TextView(zipPath_.ToVisualString()));
+		leftColumn->Add(new TextView(GetFriendlyPath(zipPath_)));
 		leftColumn->Add(new TextView(zipFileInfo_.gameTitle));
 
 		Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		bool overwrite = !CanExtractWithoutOverwrite(zipFile, savestateDir, 50);
+		overwrite = !CanExtractWithoutOverwrite(zipFile, savestateDir, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savestateDir);
-
-		if (overwrite) {
-			leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
-		}
 
 		// TODO: Use the GameInfoCache to display data about the game if available.
 		doneView_ = leftColumn->Add(new TextView(""));
@@ -202,15 +200,10 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		bool overwrite = !CanExtractWithoutOverwrite(zipFile, savedataDir, 50);
+		overwrite = !CanExtractWithoutOverwrite(zipFile, savedataDir, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savedataDir);
-
-		if (overwrite) {
-			leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
-		}
-
 		int columnWidth = 300;
 
 		LinearLayout *compareColumns = leftColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -261,6 +254,10 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	} else if (destFolders_.size() == 1 && zipFileInfo_.contents != ZipFileContents::SAVE_DATA) {
 		leftColumn->Add(new TextView(iz->T("Install into folder")));
 		leftColumn->Add(new TextView(destFolders_[0].ToVisualString()))->SetAlign(FLAG_WRAP_TEXT);
+	}
+
+	if (overwrite) {
+		leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
 	}
 }
 
