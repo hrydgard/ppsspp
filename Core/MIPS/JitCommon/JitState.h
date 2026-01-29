@@ -229,10 +229,7 @@ namespace MIPSComp {
 		bool useForwardJump;
 		bool cachePointers;
 		// ARM only
-		bool useNEONVFPU;
 		bool downcountInRegister;
-		// ARM64 only
-		bool useASIMDVFPU;
 		// ARM64 and RV64
 		bool useStaticAlloc;
 		bool enablePointerify;
