@@ -198,7 +198,7 @@ struct Vec4F32 {
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f)) };
 	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
-		__m128i bits = _mm_castpd_si128(_mm_load_sd((const double *)src));
+		__m128i bits = _mm_loadl_epi64((const __m128i*)src);
 		// Sign extension. A bit ugly without SSE4.
 		bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(bits), _mm_set1_ps(1.0f / 32768.0f)) };

@@ -330,7 +330,6 @@
     <ClCompile Include="..\..\Common\Input\InputState.cpp" />
     <ClCompile Include="..\..\Common\Math\curves.cpp" />
     <ClCompile Include="..\..\Common\Math\expression_parser.cpp" />
-    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c" />
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
     <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
     <ClCompile Include="..\..\Common\Math\math_util.cpp" />
@@ -460,10 +459,6 @@
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc" />
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc" />
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />
-    <None Include="..\..\Common\Math\lin\matrix_neon.s" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cpu_features_UWP\cpu_features_UWP.vcxproj">
