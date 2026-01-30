@@ -209,7 +209,7 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::ProcessGameBoot(const Path &filename) {
-	if (!bootPending_) {
+	if (!bootPending_ && !readyToFinishBoot_) {
 		// Nothing to do.
 		return;
 	}
@@ -227,6 +227,13 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
+		return;
+	}
+
+	if (readyToFinishBoot_) {
+		// Finish booting.
+		bootComplete();
+		readyToFinishBoot_ = false;
 		return;
 	}
 
@@ -263,10 +270,9 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 			coreState = CORE_RUNNING_CPU;
 		}
 
-		bootComplete();
+		Achievements::Initialize();
 
-		// Reset views in case controls are in a different place.
-		RecreateViews();
+		readyToFinishBoot_ = true;
 		return;
 	case BootState::Off:
 		// Gotta start the boot process! Continue below.
@@ -430,6 +436,9 @@ void EmuScreen::bootComplete() {
 	g_Config.TimeTracker().Start(gameID);
 
 	bootIsReset_ = false;
+
+	// Reset views in case controls are in a different place.
+	RecreateViews();
 }
 
 EmuScreen::~EmuScreen() {
@@ -446,6 +455,11 @@ EmuScreen::~EmuScreen() {
 	if (!bootPending_) {
 		Achievements::UnloadGame();
 		PSP_Shutdown(true);
+	}
+
+	// If achievements are disabled in the global config, let's shut it down here.
+	if (!g_Config.bAchievementsEnable) {
+		Achievements::Shutdown();
 	}
 
 	_dbg_assert_(coreState == CORE_POWERDOWN);

@@ -502,6 +502,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);
+
 	return true;
 }
 

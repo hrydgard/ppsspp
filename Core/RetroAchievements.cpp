@@ -627,7 +627,10 @@ void Initialize() {
 		INFO_LOG(Log::Achievements, "Achievements are disabled, not initializing.");
 		return;
 	}
-	_assert_msg_(!g_rcClient, "Achievements already initialized");
+	if (g_rcClient) {
+		INFO_LOG(Log::Achievements, "Achievements already initialized");
+		return;
+	}
 
 	g_rcClient = rc_client_create(read_memory_callback, server_call_callback);
 	if (!g_rcClient) {
