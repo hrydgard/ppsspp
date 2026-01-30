@@ -394,14 +394,11 @@ GameRegion DetectGameRegionFromID(std::string_view id_full) {
 			 *   'X' -> first-party Minis
 			 *   'Z' -> third-party Minis
 			 */
-		} // Misc patterns
-		else if (id_letters == "UTST") {
+		// Misc patterns
+		} else if (id_letters == "UTST") {
 			return GameRegion::TEST;
 		} else if (id_letters == "UMDT") {
 			return GameRegion::DIAGNOSTIC;
-		} else if (id_letters == "STEA") {
-			// The bizarre Stealth + Wipeout Pure combo.
-			return GameRegion::INTERNAL;
 		}
 	}
 	return GameRegion::HOMEBREW;

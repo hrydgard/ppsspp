@@ -865,7 +865,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		controlsSettings->Add(new ItemHeader(co->T("On-screen touch controls")));
 		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("On-screen touch controls")));
-		Choice *layoutEditorChoice = controlsSettings->Add(new Choice(co->T("Edit touch control layout...")));
+		Choice *layoutEditorChoice = controlsSettings->Add(new Choice(co->T("Edit touch control layout")));
 		layoutEditorChoice->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 		});

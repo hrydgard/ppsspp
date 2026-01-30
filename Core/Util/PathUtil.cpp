@@ -185,26 +185,28 @@ Path GetFailedBackendsDir() {
 	return failedBackendsDir;
 }
 
-std::string GetFriendlyPath(Path path, Path aliasMatch, std::string_view aliasDisplay) {
+std::string GetFriendlyPath(Path path, const Path &rootMatch, std::string_view rootDisplay) {
+	const Path &root = rootMatch.empty() ? g_Config.memStickDirectory : rootMatch;
+
 	// Show relative to memstick root if there.
-	if (path.StartsWith(aliasMatch)) {
+	if (path.StartsWith(root)) {
 		std::string p;
-		if (aliasMatch.ComputePathTo(path, p)) {
-			return join(aliasDisplay, p);
+		if (root.ComputePathTo(path, p)) {
+			return join(rootDisplay, p);
 		}
 		std::string str = path.ToString();
-		if (aliasMatch.size() < str.length()) {
-			return join(aliasDisplay, str.substr(aliasMatch.size()));
+		if (root.size() < str.length()) {
+			return join(rootDisplay, str.substr(root.size()));
 		} else {
-			return std::string(aliasDisplay);
+			return std::string(rootDisplay);
 		}
 	}
 
-	std::string str = path.ToString();
 #if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
+	std::string str = path.ToString();
 	char *home = getenv("HOME");
 	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
-		return std::string("~") + str.substr(strlen(home));
+		return "~" + str.substr(strlen(home));
 	}
 #endif
 	return path.ToVisualString();

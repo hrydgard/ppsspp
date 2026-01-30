@@ -35,4 +35,4 @@ bool CreateSysDirectories();
 Path GetGameConfigFilePath(const Path &searchPath, std::string_view gameId, bool *exists);
 bool TryUpdateSavedPath(Path *path);
 Path GetFailedBackendsDir();
-std::string GetFriendlyPath(Path path, Path aliasMatch, std::string_view aliasDisplay);
+std::string GetFriendlyPath(Path path, const Path &rootMatch = Path(), std::string_view rootDisplay = "ms:/");

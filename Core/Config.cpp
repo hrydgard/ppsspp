@@ -198,6 +198,14 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
+static float DefaultGameGridScale() {
+#if PPSSPP_PLATFORM(IOS)
+	return 1.25f;
+#else
+	return 1.0f;
+#endif
+}
+
 static float DefaultUISaturation() {
 	return IsVREnabled() ? 1.5f : 1.0f;
 }
@@ -269,7 +277,7 @@ static const ConfigSetting generalSettings[] = {
 
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
-	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), 1.0, CfgFlag::DEFAULT),
+	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
 	ConfigSetting("GridView1", SETTING(g_Config, bGridView1), true, CfgFlag::DEFAULT),
 	ConfigSetting("GridView2", SETTING(g_Config, bGridView2), true, CfgFlag::DEFAULT),
 	ConfigSetting("GridView3", SETTING(g_Config, bGridView3), false, CfgFlag::DEFAULT),

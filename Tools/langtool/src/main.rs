@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, mem::replace};
 
 use std::collections::BTreeMap;
 
@@ -100,6 +100,12 @@ enum Command {
         section: String,
         key: String,
     },
+	ApplyRegex {
+		section: String,
+		key: String,
+		pattern: String,
+		replacement: Option<String>,
+	},
 }
 
 fn copy_missing_lines(
@@ -526,6 +532,15 @@ fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> 
     Ok(())
 }
 
+fn apply_regex(target_ini: &mut IniFile, section: &str, key: &str, pattern: &str, replacement: &str) -> io::Result<()> {
+	if let Some(section) = target_ini.get_section_mut(section) {
+		section.apply_regex(key, pattern, replacement);
+	} else {
+		println!("No section {section}");
+	}
+	Ok(())
+}
+
 fn dupe_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.dupe_key(old, new);
@@ -708,6 +723,9 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
 
         match cmd {
+			Command::ApplyRegex { ref section, ref key, ref pattern, ref replacement } => {
+				apply_regex(&mut target_ini, &section, &key, &pattern, &replacement.as_ref().unwrap_or(&"".to_string())).unwrap();
+			}
             Command::FinishLanguageWithAI {
                 language: _,
                 section: _,
@@ -854,6 +872,9 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
 
     // Some commands also apply to the reference ini.
     match cmd {
+		Command::ApplyRegex { ref section, ref key, ref pattern, ref replacement } => {
+			apply_regex(&mut reference_ini, &section, &key, &pattern, &replacement.as_ref().unwrap_or(&"".to_string())).unwrap();
+		}
         Command::FinishLanguageWithAI {
             language: _,
             section: _,

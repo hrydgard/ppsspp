@@ -115,14 +115,11 @@ static bool IsTempPath(const Path &str) {
 }
 
 static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, bool gridStyle, const UI::Style &style) {
-	// This function is not used in the current code.
-
 	float tw, th;
 	dc.MeasureText(dc.GetFontStyle(), gridStyle ? g_Config.fGameGridScale : 1.0, gridStyle ? g_Config.fGameGridScale : 1.0, text, &tw, &th, 0);
 
-	bool compact = bounds.w < 180 * (gridStyle ? g_Config.fGameGridScale : 1.0);
+	const bool compact = bounds.w < 180 * (gridStyle ? g_Config.fGameGridScale : 1.0);
 	if (compact) {
-		// No folder icon, except "up"
 		dc.PushScissor(bounds);
 		const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
 		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
@@ -134,7 +131,7 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 
 		int totalHeight = iconSize + (int)textHeight;
 
-		float y = bounds.h / 2.0f - totalHeight / 2.0f;
+		const float y = std::max(0.0f, bounds.h / 2.0f - totalHeight / 2.0f);
 
 		if (image.isValid()) {
 			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(image);
@@ -186,7 +183,7 @@ public:
 		holdEnabled_ = hold;
 	}
 	bool Touch(const TouchInput &input) override {
-		bool retval = UI::Clickable::Touch(input);
+		const bool retval = UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
 		if (hovering_ && (input.flags & TouchInputFlags::DOWN)) {
 			holdStart_ = time_now_d();
