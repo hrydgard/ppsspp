@@ -762,9 +762,10 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [=](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [this](const std::string &enteredValue, int) {
 			*value_ = SanitizeString(StripSpaces(enteredValue), restriction_, minLen_, maxLen_);
 			EventParams params{};
+			params.v = this;
 			OnChange.Trigger(params);
 		});
 		return;
@@ -775,7 +776,15 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);
 	}
-	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
+	popupScreen->OnChange.Add([this](EventParams &e) {
+		*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
+		EventParams params{};
+		params.v = this;
+		OnChange.Trigger(params);
+		if (restoreFocus_) {
+			SetFocusedView(this);
+		}
+	});
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
@@ -783,16 +792,6 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 
 std::string PopupTextInputChoice::ValueText() const {
 	return *value_;
-}
-
-void PopupTextInputChoice::HandleChange(EventParams &e) {
-	*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
-	e.v = this;
-	OnChange.Trigger(e);
-
-	if (restoreFocus_) {
-		SetFocusedView(this);
-	}
 }
 
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
