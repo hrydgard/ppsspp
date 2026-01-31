@@ -757,6 +757,8 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	const float scale = globalScale;
 	const int halfW = xres / 2;
 
+	const float screenBottom = orientation == DeviceOrientation::Portrait ? (yres - yres * 0.13f) : yres;
+
 	auto initTouchPos = [=](ConfigTouchPos *touch, float x, float y, float extraScale = 1.0f) {
 		if (touch->x == -1.0f || touch->y == -1.0f) {
 			touch->x = x / xres;
@@ -791,7 +793,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	// Position of the circle button (the PSP circle button). It is the farthest to the left
 	float Action_button_spacing = config->fActionButtonSpacing * baseActionButtonSpacing;
 	int Action_button_center_X = xres - Action_button_spacing * 2;
-	int Action_button_center_Y = yres - Action_button_spacing * 2;
+	int Action_button_center_Y = screenBottom - Action_button_spacing * 2;
 	if (config->touchRightAnalogStick.show) {
 		Action_button_center_Y -= 150 * scale;
 	}
@@ -802,7 +804,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	// TODO: Make configurable
 
 	int D_pad_X = 2.5 * D_pad_Radius * scale;
-	int D_pad_Y = yres - D_pad_Radius * scale;
+	int D_pad_Y = screenBottom - D_pad_Radius * scale;
 	if (config->touchAnalogStick.show) {
 		D_pad_Y -= 200 * scale;
 	}
@@ -811,13 +813,13 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	//analog stick-------------------------------------------------------
 	//keep the analog stick right below the D pad
 	int analog_stick_X = D_pad_X;
-	int analog_stick_Y = yres - 80 * scale;
+	int analog_stick_Y = screenBottom - 80 * scale;
 	initTouchPos(&config->touchAnalogStick, analog_stick_X, analog_stick_Y);
 
 	//right analog stick-------------------------------------------------
 	//keep the right analog stick right below the face buttons
 	int right_analog_stick_X = Action_button_center_X;
-	int right_analog_stick_Y = yres - 80 * scale;
+	int right_analog_stick_Y = screenBottom - 80 * scale;
 	initTouchPos(&config->touchRightAnalogStick, right_analog_stick_X, right_analog_stick_Y);
 
 	//select, start, throttle--------------------------------------------
@@ -827,36 +829,37 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 		bottom_key_spacing *= 0.8f;
 	}
 
-// On IOS, nudge the bottom button up a little to avoid the task switcher.
+	// On IOS, nudge the bottom button up a little to avoid the task switcher.
+	// Additionally, in portrait mode on any platform, move the defaults up by quite a bit - much
+	// more comfortable to reach.
 #if PPSSPP_PLATFORM(IOS)
-	const float bottom_button_Y = 80.0f;
+	constexpr float bottom_button_Y = 80.0f;
 #else
-	const float bottom_button_Y = 60.0f;
+	constexpr float bottom_button_Y = 60.0f;
 #endif
-
 	if (orientation == DeviceOrientation::Portrait) {
 		int start_key_X = halfW;
-		int start_key_Y = yres - bottom_button_Y * scale;
+		int start_key_Y = screenBottom - bottom_button_Y * scale;
 		initTouchPos(&config->touchStartKey, start_key_X, start_key_Y);
 
 		int select_key_X = halfW;
-		int select_key_Y = yres - bottom_button_Y * scale - 50;
+		int select_key_Y = screenBottom - bottom_button_Y * scale - 50;
 		initTouchPos(&config->touchSelectKey, select_key_X, select_key_Y);
 
 		int fast_forward_key_X = halfW;
-		int fast_forward_key_Y = yres - bottom_button_Y * scale - 100;
+		int fast_forward_key_Y = screenBottom - bottom_button_Y * scale - 100;
 		initTouchPos(&config->touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
 	} else {
 		int start_key_X = halfW + bottom_key_spacing * scale;
-		int start_key_Y = yres - bottom_button_Y * scale;
+		int start_key_Y = screenBottom - bottom_button_Y * scale;
 		initTouchPos(&config->touchStartKey, start_key_X, start_key_Y);
 
 		int select_key_X = halfW;
-		int select_key_Y = yres - bottom_button_Y * scale;
+		int select_key_Y = screenBottom - bottom_button_Y * scale;
 		initTouchPos(&config->touchSelectKey, select_key_X, select_key_Y);
 
 		int fast_forward_key_X = halfW - bottom_key_spacing * scale;
-		int fast_forward_key_Y = yres - bottom_button_Y * scale;
+		int fast_forward_key_Y = screenBottom - bottom_button_Y * scale;
 		initTouchPos(&config->touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
 	}
 
@@ -865,7 +868,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	// The corners were very hard to reach..
 
 	int l_key_X = 60 * scale;
-	int l_key_Y = yres - 380 * scale;
+	int l_key_Y = screenBottom - 380 * scale;
 	initTouchPos(&config->touchLKey, l_key_X, l_key_Y);
 
 	int r_key_X = xres - 60 * scale;
@@ -889,7 +892,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 		const float y_offset = (float)(i / 10) * 0.08333f;
 
 		int combo_key_X = halfW + bottom_key_spacing * scale * customButtonPositions[i % 10].x;
-		int combo_key_Y = yres * (y_offset + customButtonPositions[i % 10].y);
+		int combo_key_Y = screenBottom * (y_offset + customButtonPositions[i % 10].y);
 
 		initTouchPos(&config->touchCustom[i], combo_key_X, combo_key_Y);
 	}
