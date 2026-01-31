@@ -188,14 +188,14 @@ static const HIDControllerInfo g_psInfos[] = {
 static const HIDControllerInfo *GetGamepadInfo(HANDLE handle) {
 	HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
 	if (!HidD_GetAttributes(handle, &attr)) {
-		return false;
+		return nullptr;
 	}
 	for (const auto &info : g_psInfos) {
 		if (attr.VendorID == info.vendorId && attr.ProductID == info.productId) {
 			return &info;
 		}
 	}
-	return false;
+	return nullptr;
 }
 
 template<class T>
