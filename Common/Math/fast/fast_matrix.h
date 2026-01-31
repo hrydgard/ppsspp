@@ -2,7 +2,6 @@
 
 #include "ppsspp_config.h"
 
-
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Common.h"
 
