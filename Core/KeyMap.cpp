@@ -848,7 +848,8 @@ void NotifyPadConnected(InputDeviceID deviceId, std::string_view name) {
 		g_padNames[deviceId] = name;
 
 		// Don't notify within the first 5 seconds, to avoid notification spam on startup.
-		if (time_now_d() >= 5.0) {
+		// Also for some reason we get some strange things on Android... "Virtual"?
+		if (time_now_d() >= 5.0 && name != "Virtual") {
 			auto co = GetI18NCategory(I18NCat::CONTROLS);
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions("%1: %2", co->T("Game controller connected"), name), "", "I_CONTROLLER", 2.0f, "controller_connected");
 		}

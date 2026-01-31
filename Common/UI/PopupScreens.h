@@ -506,7 +506,6 @@ protected:
 
 private:
 	void HandleClick(EventParams &e);
-	void HandleChange(EventParams &e);
 	RequesterToken token_;
 	ScreenManager *screenManager_;
 	std::string *value_;

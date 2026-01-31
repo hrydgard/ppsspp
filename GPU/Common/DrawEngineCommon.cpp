@@ -81,7 +81,10 @@ std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 	return ids;
 }
 
-std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType) {
+std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string_view id, DebugShaderStringType stringType) {
+	if (id.size() < sizeof(u32)) {
+		return "N/A";
+	}
 	u32 mapId;
 	memcpy(&mapId, &id[0], sizeof(mapId));
 	VertexDecoder *dec;
@@ -196,7 +199,8 @@ void DrawEngineCommon::UpdatePlanes() {
 
 	float mtx[16];
 	Matrix4ByMatrix4(mtx, viewproj, applyViewport.m);
-	// I'm sure there's some fairly optimized way to set these.
+	// I'm sure there's some fairly optimized way to set these. If we make a version of Matrix4ByMatrix4
+	// that returns a transpose, it looks like these will be more straightforward.
 	planes_.Set(0, mtx[3] - mtx[0], mtx[7] - mtx[4], mtx[11] - mtx[8],  mtx[15] - mtx[12]);  // Right
 	planes_.Set(1, mtx[3] + mtx[0], mtx[7] + mtx[4], mtx[11] + mtx[8],  mtx[15] + mtx[12]);  // Left
 	planes_.Set(2, mtx[3] + mtx[1], mtx[7] + mtx[5], mtx[11] + mtx[9],  mtx[15] + mtx[13]);  // Bottom
@@ -398,7 +402,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		__m128 scaleFactor = _mm_set1_ps(1.0f / 32768.0f);
 		for (int i = 0; i < vertexCount; i++) {
 			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			__m128i bits = _mm_castpd_si128(_mm_load_sd((const double *)data));
+			__m128i bits = _mm_loadl_epi64((const __m128i*)data);
 			// Sign extension. Hacky without SSE4.
 			bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
 			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits), scaleFactor);
@@ -619,6 +623,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		anyCCWOrIndexed_ = true;
 	}
 	int seenPrims = 0;
+	int numDrawInds = numDrawInds_;
 	while (cmd != stall) {
 		uint32_t data = *cmd;
 		if ((data & 0xFFF80000) != 0x04000000) {
@@ -628,10 +633,10 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		if (IsTrianglePrim(newPrim) != isTriangle)
 			break;
 		int vertexCount = data & 0xFFFF;
-		if (numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX) {
+		if (numDrawInds >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX) {
 			break;
 		}
-		DeferredInds &di = drawInds_[numDrawInds_++];
+		DeferredInds &di = drawInds_[numDrawInds++];
 		di.indexType = 0;
 		di.prim = newPrim;
 		seenPrims |= (1 << newPrim);
@@ -642,7 +647,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		offset += vertexCount;
 		cmd++;
 	}
-
+	numDrawInds_ = numDrawInds;
 	seenPrims_ |= seenPrims;
 
 	int totalCount = offset - dv.vertexCount;
@@ -722,6 +727,8 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	bool applySkin = dec_->skinInDecode;
 
 	DeferredInds &di = drawInds_[numDrawInds_++];
+	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);
+
 	di.inds = inds;
 	int indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	if (indexType) {
@@ -734,26 +741,27 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		anyCCWOrIndexed_ = true;
 	}
 	di.vertexCount = vertexCount;
-	di.vertDecodeIndex = numDrawVerts_;
+	const int numDrawVerts = numDrawVerts_;
+	di.vertDecodeIndex = numDrawVerts;
 	di.offset = 0;
 
-	_dbg_assert_(numDrawVerts_ <= MAX_DEFERRED_DRAW_VERTS);
-	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);
+	_dbg_assert_(numDrawVerts <= MAX_DEFERRED_DRAW_VERTS);
 
-	if (inds && numDrawVerts_ > decodeVertsCounter_ && drawVerts_[numDrawVerts_ - 1].verts == verts && !applySkin) {
+	if (inds && numDrawVerts > decodeVertsCounter_ && drawVerts_[numDrawVerts - 1].verts == verts && !applySkin) {
 		// Same vertex pointer as a previous un-decoded draw call - let's just extend the decode!
-		di.vertDecodeIndex = numDrawVerts_ - 1;
+		di.vertDecodeIndex = numDrawVerts - 1;
 		u16 lb;
 		u16 ub;
 		GetIndexBounds(inds, vertexCount, vertTypeID, &lb, &ub);
-		DeferredVerts &dv = drawVerts_[numDrawVerts_ - 1];
+		DeferredVerts &dv = drawVerts_[numDrawVerts - 1];
 		if (lb < dv.indexLowerBound)
 			dv.indexLowerBound = lb;
 		if (ub > dv.indexUpperBound)
 			dv.indexUpperBound = ub;
 	} else {
 		// Record a new draw, and a new index gen.
-		DeferredVerts &dv = drawVerts_[numDrawVerts_++];
+		DeferredVerts &dv = drawVerts_[numDrawVerts];
+		numDrawVerts_ = numDrawVerts + 1;  // Increment the uncached variable
 		dv.verts = verts;
 		dv.vertexCount = vertexCount;
 		dv.uvScale = gstate_c.uv;
@@ -777,29 +785,30 @@ void DrawEngineCommon::BeginFrame() {
 }
 
 void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
-	if (!numDrawVerts_) {
+	const int numDrawVerts = numDrawVerts_;
+	if (!numDrawVerts) {
 		return;
 	}
 	// Note that this should be able to continue a partial decode - we don't necessarily start from zero here (although we do most of the time).
 	int i = decodeVertsCounter_;
-	int stride = (int)dec->GetDecVtxFmt().stride;
-	for (; i < numDrawVerts_; i++) {
+	const int stride = (int)dec->GetDecVtxFmt().stride;
+	int numDecodedVerts = numDecodedVerts_;  // Move to a local for better codegen.
+	for (; i < numDrawVerts; i++) {
 		const DeferredVerts &dv = drawVerts_[i];
 
-		int indexLowerBound = dv.indexLowerBound;
-		drawVertexOffsets_[i] = numDecodedVerts_ - indexLowerBound;
-
-		int indexUpperBound = dv.indexUpperBound;
-
-		if (indexUpperBound + 1 - indexLowerBound + numDecodedVerts_ >= VERTEX_BUFFER_MAX) {
+		const int indexLowerBound = dv.indexLowerBound;
+		drawVertexOffsets_[i] = numDecodedVerts - indexLowerBound;
+		const int indexUpperBound = dv.indexUpperBound;
+		if (indexUpperBound + 1 - indexLowerBound + numDecodedVerts >= VERTEX_BUFFER_MAX) {
 			// Hit our limit! Stop decoding in this draw.
 			break;
 		}
 
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		dec->DecodeVerts(dest + numDecodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
-		numDecodedVerts_ += indexUpperBound - indexLowerBound + 1;
+		dec->DecodeVerts(dest + numDecodedVerts * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
+		numDecodedVerts += indexUpperBound - indexLowerBound + 1;
 	}
+	numDecodedVerts_ = numDecodedVerts;
 	decodeVertsCounter_ = i;
 }
 
@@ -810,8 +819,8 @@ int DrawEngineCommon::DecodeInds() {
 	for (; i < numDrawInds_; i++) {
 		const DeferredInds &di = drawInds_[i];
 
-		int indexOffset = drawVertexOffsets_[di.vertDecodeIndex] + di.offset;
-		bool clockwise = di.clockwise;
+		const int indexOffset = drawVertexOffsets_[di.vertDecodeIndex] + di.offset;
+		const bool clockwise = di.clockwise;
 		// We've already collapsed subsequent draws with the same vertex pointer, so no tricky logic here anymore.
 		// 2. Loop through the drawcalls, translating indices as we go.
 		switch (di.indexType) {

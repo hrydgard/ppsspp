@@ -250,9 +250,6 @@
     <ClCompile Include="..\..\Common\Math\math_util.cpp">
       <Filter>Math</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp">
       <Filter>Math\lin</Filter>
     </ClCompile>
@@ -702,9 +699,6 @@
     <ClInclude Include="..\..\Common\Math\math_util.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h">
-      <Filter>Math\fast</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\Math\lin\matrix4x4.h">
       <Filter>Math\lin</Filter>
     </ClInclude>
@@ -1049,12 +1043,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
-      <Filter>Math\fast</Filter>
-    </None>
-    <None Include="..\..\Common\Math\lin\matrix_neon.s">
-      <Filter>Math\lin</Filter>
-    </None>
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc">
       <Filter>ext\basis_universal</Filter>

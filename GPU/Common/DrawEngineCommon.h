@@ -129,7 +129,7 @@ public:
 	bool CanUseHardwareTessellation(GEPatchPrimType prim) const;
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
-	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
+	std::string DebugGetVertexLoaderString(std::string_view id, DebugShaderStringType stringType);
 
 	virtual void NotifyConfigChanged();
 

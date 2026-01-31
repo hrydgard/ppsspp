@@ -330,7 +330,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Render/Text/draw_text_android.cpp \
   $(SRC)/Common/Input/GestureDetector.cpp \
   $(SRC)/Common/Input/InputState.cpp \
-  $(SRC)/Common/Math/fast/fast_matrix.c \
   $(SRC)/Common/Math/math_util.cpp \
   $(SRC)/Common/Math/Statistics.cpp \
   $(SRC)/Common/Math/curves.cpp \

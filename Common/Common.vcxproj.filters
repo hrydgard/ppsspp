@@ -861,9 +861,6 @@
     <ClCompile Include="Math\lin\vec3.cpp">
       <Filter>Math\lin</Filter>
     </ClCompile>
-    <ClCompile Include="Math\fast\fast_matrix.c">
-      <Filter>Math\fast</Filter>
-    </ClCompile>
     <ClCompile Include="Data\Format\RIFF.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>

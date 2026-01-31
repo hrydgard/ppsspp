@@ -918,7 +918,6 @@
     <ClCompile Include="LoongArch64Emitter.cpp" />
     <ClCompile Include="Math\curves.cpp" />
     <ClCompile Include="Math\expression_parser.cpp" />
-    <ClCompile Include="Math\fast\fast_matrix.c" />
     <ClCompile Include="Math\lin\matrix4x4.cpp" />
     <ClCompile Include="Math\lin\vec3.cpp" />
     <ClCompile Include="Math\math_util.cpp" />

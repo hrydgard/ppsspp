@@ -802,7 +802,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	if (bestIndex != -1) {
 		if (logging) {
-			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s (%dx%d)\n", (int)bestIndex, candidates[bestIndex].ToString().c_str());
+			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s", (int)bestIndex, candidates[bestIndex].ToString().c_str());
 		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
