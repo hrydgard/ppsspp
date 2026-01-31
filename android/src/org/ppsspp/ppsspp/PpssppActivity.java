@@ -14,7 +14,6 @@ import android.app.UiModeManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -35,7 +34,6 @@ import android.os.Environment;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
-import android.renderscript.ScriptGroup;
 import android.text.InputType;
 import android.util.Log;
 import android.database.Cursor;
@@ -786,7 +784,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 					}
 
 					// None was found, just add and return it.
-					InputDeviceState state = new InputDeviceState(device);
+					InputDeviceState state = new InputDeviceState(device, true);
 					inputPlayers.add(state);
 					Log.i(TAG, "Input player registered on connect: desc = " + device.getDescriptor());
 				}
@@ -1144,7 +1142,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 
 		// None was found, just add and return it.
-		InputDeviceState state = new InputDeviceState(device);
+		InputDeviceState state = new InputDeviceState(device, false);
 		inputPlayers.add(state);
 		Log.i(TAG, "Input player post-registered: desc = " + device.getDescriptor());
 		return state;

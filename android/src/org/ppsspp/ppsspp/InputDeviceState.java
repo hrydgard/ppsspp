@@ -5,6 +5,7 @@ import android.view.InputDevice;
 import android.view.InputDevice.MotionRange;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+
 import java.util.Set;
 import java.util.HashSet;
 
@@ -108,7 +109,7 @@ public class InputDeviceState {
 				(source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
 	}
 
-	public InputDeviceState(InputDevice device) {
+	public InputDeviceState(InputDevice device, boolean fromConnectedNotification) {
 		sources = device.getSources();
 		// First, anything that's a gamepad is a gamepad, even if it has a keyboard or pointer.
 		// We also don't bother supporting multiple gamepads, we send them all to PAD0.
@@ -140,12 +141,16 @@ public class InputDeviceState {
 
 		Log.i(TAG, "Registering input device with " + numAxes + " axes: " + device.getName());
 		logAdvanced(device);
-		NativeApp.sendMessageFromJava("inputDeviceConnectedID", String.valueOf(this.deviceId));
-		NativeApp.sendMessageFromJava("inputDeviceConnected", device.getName());
+		if (deviceId == NativeApp.DEVICE_ID_PAD_0 && fromConnectedNotification) {
+			NativeApp.sendMessageFromJava("inputDeviceConnectedID", String.valueOf(this.deviceId));
+			NativeApp.sendMessageFromJava("inputDeviceConnected", device.getName());
+		}
 	}
 
 	public void Disconnect() {
-		NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(this.deviceId));
+		if (deviceId == NativeApp.DEVICE_ID_PAD_0) {
+			NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(this.deviceId));
+		}
 		// Also reset all the buttons and axes.
 		for (int value : pressedKeys) {
 			NativeApp.keyUp(deviceId, value);
