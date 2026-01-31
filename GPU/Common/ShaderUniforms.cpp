@@ -14,18 +14,6 @@
 
 using namespace Lin;
 
-static void ConvertProjMatrixToVulkan(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
-	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
-	in.translateAndScale(trans, scale);
-}
-
-static void ConvertProjMatrixToD3D11(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, -gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
-	const Vec3 scale(gstate_c.vpWidthScale, -gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
-	in.translateAndScale(trans, scale);
-}
-
 void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ) {
 	// Account for the projection viewport adjustment when viewport is too large.
 	auto reverseViewportX = [](float x) {
@@ -115,28 +103,12 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-		const bool invertedY = gstate_c.vpHeight < 0;
-		if (invertedY) {
-			flippedMatrix[1] = -flippedMatrix[1];
-			flippedMatrix[5] = -flippedMatrix[5];
-			flippedMatrix[9] = -flippedMatrix[9];
-			flippedMatrix[13] = -flippedMatrix[13];
-		}
-		const bool invertedX = gstate_c.vpWidth < 0;
-		if (invertedX) {
-			flippedMatrix[0] = -flippedMatrix[0];
-			flippedMatrix[4] = -flippedMatrix[4];
-			flippedMatrix[8] = -flippedMatrix[8];
-			flippedMatrix[12] = -flippedMatrix[12];
-		}
-		if (flipViewport) {
-			ConvertProjMatrixToD3D11(flippedMatrix);
-		} else {
-			ConvertProjMatrixToVulkan(flippedMatrix);
-		}
+		// TODO: Flip something for D3D11.
 
 		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
-			flippedMatrix = flippedMatrix * g_display.rot_matrix;
+			// TODO: We have to apply the rotation some other way now that we've moved the viewport
+			// into the vertex shader.
+			// flippedMatrix = flippedMatrix * g_display.rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
 
@@ -144,23 +116,28 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
-		Matrix4x4 proj_through;
-		if (flipViewport) {
-			proj_through.setOrthoD3D(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
-		} else {
-			proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
-		}
-		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
-			proj_through = proj_through * g_display.rot_matrix;
-		}
+		const float xywh[4] = {
+			(float)gstate_c.curRTOffsetX,
+			(float)gstate_c.curRTOffsetY,
+			(float)gstate_c.curRTWidth,
+			(float)gstate_c.curRTHeight,
+		};
+		CopyFloat4(ub->xywh, xywh);
+	}
 
-		// Negative RT offsets come from split framebuffers (Killzone)
-		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
-			proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
-			proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
-		}
+	if (dirtyUniforms & DIRTY_RASTER_OFFSET) {
+		ub->rasterOffset[0] = gstate.getOffsetX();
+		ub->rasterOffset[1] = gstate.getOffsetY();
+	}
 
-		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
+	if (dirtyUniforms & DIRTY_VIEWPORT_UNIFORMS) {
+		// TODO: This should be a couple of SIMD instructions.
+		ub->vpScale[0] = gstate.getViewportXScale();
+		ub->vpScale[1] = gstate.getViewportYScale();
+		ub->vpScale[2] = gstate.getViewportZScale();
+		ub->vpOffset[0] = gstate.getViewportXCenter();
+		ub->vpOffset[1] = gstate.getViewportYCenter();
+		ub->vpOffset[2] = gstate.getViewportZCenter();
 	}
 
 	// Transform

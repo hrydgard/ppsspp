@@ -65,20 +65,7 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], bool flippedY) {
-	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
-	float ySign = flippedY ? -1.0 : 1.0;
-
-	const float x1 = v[2].x;
-	const float x2 = v[0].x;
-	const float y1 = v[2].y * ySign;
-	const float y2 = v[0].y * ySign;
-
-	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
-		SwapUVs(v[1], v[3]);
-}
-
-static void RotateUVThrough(TransformedVertex v[4]) {
+static void RotateUV(TransformedVertex v[4]) {
 	float x1 = v[2].x;
 	float x2 = v[0].x;
 	float y1 = v[2].y;
@@ -126,26 +113,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 	return true;
 }
 
-void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
-	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
-
-	if (invertedY) {
-		projMatrix_.xy = -projMatrix_.xy;
-		projMatrix_.yy = -projMatrix_.yy;
-		projMatrix_.zy = -projMatrix_.zy;
-		projMatrix_.wy = -projMatrix_.wy;
-	}
-	if (invertedX) {
-		projMatrix_.xx = -projMatrix_.xx;
-		projMatrix_.yx = -projMatrix_.yx;
-		projMatrix_.zx = -projMatrix_.zx;
-		projMatrix_.wx = -projMatrix_.wx;
-	}
-
-	projMatrix_.translateAndScale(trans, scale);
-}
-
-void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result) {
+void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -353,7 +321,16 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
-			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
+			float xyzw[4];
+			Vec3ByMatrix44(xyzw, v, projMtx);
+
+			// Here we also need to apply the viewport.
+			Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(xyzw[0] / xyzw[3], xyzw[1] / xyzw[3], xyzw[2] / xyzw[3]));
+			transformed[index].x = xyz.x;
+			transformed[index].y = xyz.y;
+			transformed[index].z = xyz.z;
+			transformed[index].pos[3] = xyzw[3];
+
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
@@ -565,17 +542,19 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 }
 
 void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const {
+	// TODO: The below is probably completely bogus now.
+
 	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
 	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
-	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
+	maxZValue = 1.000030517578125f * gstate.getViewportZScale();
 	minZValue = -maxZValue;
 	// Scale and offset the Z appropriately, since we baked that into a projection transform.
-	if (params_.usesHalfZ) {
-		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
-		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
+	if (true) {  // params_.usesHalfZ) {
+		maxZValue = maxZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
+		minZValue = minZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
 	} else {
-		maxZValue += gstate_c.vpZOffset;
-		minZValue += gstate_c.vpZOffset;
+		maxZValue += gstate.getViewportZCenter();
+		minZValue += gstate.getViewportZCenter();
 	}
 	// In case scale was negative, flip.
 	if (minZValue > maxZValue)
@@ -658,11 +637,7 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 		trans[3].v = transVtxBR.v * vscale;
 
 		// That's the four corners. Now process UV rotation.
-		if (throughmode) {
-			RotateUVThrough(trans);
-		} else {
-			RotateUV(trans, params_.flippedY);
-		}
+		RotateUV(trans);
 
 		// Triangle: BR-TR-TL
 		indsOut[0] = i * 2 + 0;
@@ -734,10 +709,10 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / fabsf(gstate.getViewportXScale()));
-	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / fabsf(gstate.getViewportYScale()));
-	float du = 1.0f / gstate_c.curTextureWidth;
-	float dv = 1.0f / gstate_c.curTextureHeight;
+	float dx = 1.0f;
+	float dy = 1.0f;
+	float du = 1.0f;
+	float dv = 1.0f;
 
 	if (throughmode) {
 		dx = 1.0f;
@@ -758,8 +733,8 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 			const TransformedVertex &transVtx2 = transformed[indsIn[i + 1]];
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtx2.x * transVtx2.pos_w - transVtx1.x * transVtx1.pos_w;
-			float vertical = transVtx2.y * transVtx2.pos_w - transVtx1.y * transVtx1.pos_w;
+			float horizontal = transVtx2.x - transVtx1.x;
+			float vertical = transVtx2.y - transVtx1.y;
 
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
@@ -767,13 +742,13 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 			float yoff = addWidth.y * dy;
 
 			// bottom right
-			trans[0].CopyFromWithOffset(transVtx2, xoff * transVtx2.pos_w, yoff * transVtx2.pos_w);
+			trans[0].CopyFromWithOffset(transVtx2, xoff, yoff);
 			// top right
-			trans[1].CopyFromWithOffset(transVtx1, xoff * transVtx1.pos_w, yoff * transVtx1.pos_w);
+			trans[1].CopyFromWithOffset(transVtx1, xoff, yoff);
 			// top left
-			trans[2].CopyFromWithOffset(transVtx1, -xoff * transVtx1.pos_w, -yoff * transVtx1.pos_w);
+			trans[2].CopyFromWithOffset(transVtx1, -xoff, -yoff);
 			// bottom left
-			trans[3].CopyFromWithOffset(transVtx2, -xoff * transVtx2.pos_w, -yoff * transVtx2.pos_w);
+			trans[3].CopyFromWithOffset(transVtx2, -xoff, -yoff);
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
@@ -806,21 +781,21 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 			const TransformedVertex &transVtxBL = (transVtxT.y != transVtxB.y || transVtxT.x > transVtxB.x) ? transVtxB : transVtxT;
 
 			// Okay, let's calculate the perpendicular.
-			float horizontal = transVtxTL.x * transVtxTL.pos_w - transVtxBL.x * transVtxBL.pos_w;
-			float vertical = transVtxTL.y * transVtxTL.pos_w - transVtxBL.y * transVtxBL.pos_w;
+			float horizontal = transVtxTL.x - transVtxBL.x;
+			float vertical = transVtxTL.y - transVtxBL.y;
 			Vec2f addWidth = Vec2f(-vertical, horizontal).Normalized();
 
 			// bottom right
 			trans[0] = transVtxBL;
-			trans[0].x += addWidth.x * dx * trans[0].pos_w;
-			trans[0].y += addWidth.y * dy * trans[0].pos_w;
+			trans[0].x += addWidth.x * dx;
+			trans[0].y += addWidth.y * dy;
 			trans[0].u += addWidth.x * du * trans[0].uv_w;
 			trans[0].v += addWidth.y * dv * trans[0].uv_w;
 
 			// top right
 			trans[1] = transVtxTL;
-			trans[1].x += addWidth.x * dx * trans[1].pos_w;
-			trans[1].y += addWidth.y * dy * trans[1].pos_w;
+			trans[1].x += addWidth.x * dx;
+			trans[1].y += addWidth.y * dy;
 			trans[1].u += addWidth.x * du * trans[1].uv_w;
 			trans[1].v += addWidth.y * dv * trans[1].uv_w;
 
@@ -883,8 +858,8 @@ bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, int vertsSi
 
 		// Create the bottom right version.
 		TransformedVertex transVtxBR = transVtxTL;
-		transVtxBR.x += dx * transVtxTL.pos_w;
-		transVtxBR.y += dy * transVtxTL.pos_w;
+		transVtxBR.x += dx;
+		transVtxBR.y += dy;
 		transVtxBR.u += du * transVtxTL.uv_w;
 		transVtxBR.v += dv * transVtxTL.uv_w;
 
