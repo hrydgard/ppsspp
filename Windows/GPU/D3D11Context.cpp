@@ -265,7 +265,7 @@ void D3D11Context::Shutdown() {
 		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
 	}
 	if (d3dDebug_) {
-		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_FLAGS(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL));
+		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
 	}
 #endif
 
