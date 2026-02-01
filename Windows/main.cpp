@@ -132,6 +132,7 @@ static double g_lastKeepAwake = 0.0;
 static constexpr double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
+	// We don't even check urlType.
 	std::string u(url);
 	std::thread t = std::thread([u]() {
 		ShellExecute(NULL, L"open", ConvertUTF8ToWString(u).c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -141,7 +142,8 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 }
 
 void System_Vibrate(int length_ms) {
-	// Ignore on PC
+	// Ignore on PC. TODO: Actually, we could vibrate a controller if we wanted to, but we should only do that
+	// if it was used within the last few seconds.
 }
 
 static void AddDebugRestartArgs() {

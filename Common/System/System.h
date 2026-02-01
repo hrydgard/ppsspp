@@ -47,6 +47,7 @@ enum class LaunchUrlType {
 	BROWSER_URL,
 	MARKET_URL,
 	EMAIL_ADDRESS,
+	LOCAL_FILE,
 };
 
 void System_Vibrate(int length_ms);

@@ -26,8 +26,7 @@
 #include "Common/OSVersion.h"
 
 #include <Windowsx.h>
-#include <shellapi.h>
-#include <commctrl.h>
+#include <shellapi.h>  // For drag/drop functionality
 #include <string>
 #include <dwmapi.h>
 
@@ -37,7 +36,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Data/Text/Parsers.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -51,12 +49,9 @@
 #include "Core/Instance.h"
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/Reporting.h"
-#include "Windows/InputBox.h"
 #include "Windows/InputDevice.h"
 #if PPSSPP_API(ANY_GL)
-#include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
 #include "Windows/W32Util/DarkMode.h"
@@ -77,17 +72,13 @@
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
-#include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
 #include "Windows/CaptureDevice.h"
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
 #include "GPU/GPUCommon.h"
-#include "UI/OnScreenDisplay.h"
-#include "UI/GameSettingsScreen.h"
 #include "UI/PauseScreen.h"
-#include "Core/SaveState.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
