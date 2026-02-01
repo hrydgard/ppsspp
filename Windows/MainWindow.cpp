@@ -137,8 +137,7 @@ inline int WindowSizeStateToShowCmd(const WindowSizeState windowSizeState) {
 	}
 }
 
-namespace MainWindow
-{
+namespace MainWindow {
 	static HWND hwndMain;
 	static TouchInputHandler touchHandler;
 
@@ -478,12 +477,14 @@ namespace MainWindow
 
 	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
-		RECT rc = DetermineWindowRectangle();
 
-		u32 style = WS_OVERLAPPEDWINDOW;
+		hwndMain = CreateWindowEx(0, szWindowClass, L"", WS_OVERLAPPEDWINDOW,
+			CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
 
-		hwndMain = CreateWindowEx(0, szWindowClass, L"", style,
-			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
+		if (!hwndMain)
+			return FALSE;
+
+		g_hMenu = GetMenu(hwndMain);
 
 		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
 		placement.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
@@ -493,15 +494,10 @@ namespace MainWindow
 		placement.rcNormalPosition.bottom = g_Config.iWindowY + g_Config.iWindowHeight;
 		SetWindowPlacement(hwndMain, &placement);
 
-		if (!hwndMain)
-			return FALSE;
-
-		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
+		// SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
-
-		g_hMenu = GetMenu(hwndMain);
 
 		MainMenuInit(hwndMain, g_hMenu);
 
