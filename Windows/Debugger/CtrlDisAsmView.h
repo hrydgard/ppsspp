@@ -25,8 +25,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
 
-class CtrlDisAsmView
-{
+class CtrlDisAsmView {
 	HWND wnd;
 	HFONT font;
 	HFONT boldfont;
@@ -41,7 +40,6 @@ class CtrlDisAsmView
 	bool hasFocus;
 	bool showHex;
 	MIPSDebugInterface *debugger;
-	static TCHAR szClassName[];
 
 	u32 windowStart;
 	int visibleRows;
