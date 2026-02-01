@@ -6,11 +6,9 @@
 
 #include "Common/CommonWindows.h"
 
-namespace W32Util
-{
+namespace W32Util {
 	void CenterWindow(HWND hwnd);
-	BOOL CopyTextToClipboard(HWND hwnd, const char *text);
-	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext);
+	bool CopyTextToClipboard(HWND hwnd, std::string_view text);
 	void MakeTopMost(HWND hwnd, bool topMost);
 	void ExitAndRestart(bool overrideArgs = false, const std::string &args = "");
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
@@ -18,7 +16,8 @@ namespace W32Util
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
 
 	void GetWindowRes(HWND hWnd, int *xres, int *yres);
-	void ShowFileInFolder(const std::string &path);
+	void ShowFileInFolder(std::string_view path);
+	RECT GetNonclientMenuBorderRect(HWND hwnd);
 
 	struct ClipboardData {
 		ClipboardData(const char *format, size_t sz);

@@ -125,9 +125,8 @@ static std::wstring g_windowTitle;
 
 namespace MainWindow
 {
-	HWND hwndMain;
-	HWND hwndGameList;
-	TouchInputHandler touchHandler;
+	static HWND hwndMain;
+	static TouchInputHandler touchHandler;
 
 	static HMENU g_hMenu;
 
@@ -151,15 +150,14 @@ namespace MainWindow
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
-	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
+	static bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
 	static constexpr wchar_t *szWindowClass = L"PPSSPPWnd";
 
 	static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-	HWND GetHWND() {
-		return hwndMain;
-	}
+	HWND GetHWND() { return hwndMain; }
+	HINSTANCE GetHInstance() { return hInst; }
 
 	void SetKeepScreenBright(bool keepBright) {
 		g_keepScreenBright = keepBright;
@@ -167,8 +165,7 @@ namespace MainWindow
 
 	void Init(HINSTANCE hInstance) {
 		// Register classes - Main Window
-		WNDCLASSEX wcex;
-		memset(&wcex, 0, sizeof(wcex));
+		WNDCLASSEX wcex{};
 		wcex.cbSize = sizeof(WNDCLASSEX);
 		wcex.style = 0;  // Show in taskbar
 		wcex.lpfnWndProc = (WNDPROC)WndProc;
@@ -599,37 +596,6 @@ namespace MainWindow
 		vfpudlg = nullptr;
 	}
 
-	RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT & r)
-	{
-		RECT wnd_coords = r;
-
-		// map to screen
-		MapWindowPoints(hwnd, NULL, reinterpret_cast<POINT *>(&wnd_coords), 2);
-
-		RECT scr_coords;
-		GetWindowRect(hwnd, &scr_coords);
-
-		// map to window coords by substracting the window coord origin in
-		// screen coords.
-		OffsetRect(&wnd_coords, -scr_coords.left, -scr_coords.top);
-
-		return wnd_coords;
-	}
-
-	RECT GetNonclientMenuBorderRect(HWND hwnd)
-	{
-		RECT r;
-		GetClientRect(hwnd, &r);
-		r = MapRectFromClientToWndCoords(hwnd, r);
-		int y = r.top - 1;
-		return {
-			r.left,
-			y,
-			r.right,
-			y + 1
-		};
-	}
-
 	bool ConfirmAction(HWND hWnd, bool actionIsReset) {
 		const GlobalUIState state = GetUIState();
 		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
@@ -780,7 +746,7 @@ namespace MainWindow
 			auto result = DefWindowProc(hWnd, message, wParam, lParam);
 			// Paint over the line with pure black. Could also try to figure out the dark theme color.
 			HDC hdc = GetWindowDC(hWnd);
-			RECT r = GetNonclientMenuBorderRect(hWnd);
+			RECT r = W32Util::GetNonclientMenuBorderRect(hWnd);
 			HBRUSH red = CreateSolidBrush(RGB(0, 0, 0));
 			FillRect(hdc, &r, red);
 			DeleteObject(red);
@@ -999,9 +965,9 @@ namespace MainWindow
 
 		case WM_DROPFILES:
 			{
-				if (!MainThread_Ready())
+				if (!MainThread_Ready()) {
 					return DefWindowProc(hWnd, message, wParam, lParam);
-
+				}
 				const HDROP hdrop = (HDROP)wParam;
 				const int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
@@ -1114,16 +1080,14 @@ namespace MainWindow
 			}
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		case WM_SETTINGCHANGE:
-			{
-				if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam))
-					SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam)) {
+				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
 			}
 			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_THEMECHANGED:
 		{
-			if (g_darkModeSupported)
-			{
+			if (g_darkModeSupported) {
 				_AllowDarkModeForWindow(hWnd, g_darkModeEnabled);
 				RefreshTitleBarThemeColor(hWnd);
 			}
@@ -1144,13 +1108,10 @@ namespace MainWindow
 					case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
 					case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
 					case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
+					default: break;
 					}
 				}
-				if (win32_cursor) {
-					SetCursor(::LoadCursor(nullptr, win32_cursor));
-				} else {
-					SetCursor(nullptr);
-				}
+				SetCursor(win32_cursor ? ::LoadCursor(nullptr, win32_cursor) : nullptr);
 				return TRUE;
 			} else {
 				return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1165,8 +1126,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
 
-				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				const float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				const float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
@@ -1206,6 +1167,7 @@ namespace MainWindow
 				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
 				int cursorX = GET_X_LPARAM(lParam);
 				int cursorY = GET_Y_LPARAM(lParam);
+				// Require at least 2 pixels of movement to reset the hide timer.
 				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
 					hideCursor = false;
 					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
@@ -1213,8 +1175,8 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				float x = (float)cursorX * g_display.dpi_scale_x;
-				float y = (float)cursorY * g_display.dpi_scale_y;
+				const float x = (float)cursorX * g_display.dpi_scale_x;
+				const float y = (float)cursorY * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				// Mouse moves now happen also when no button is pressed.
@@ -1239,8 +1201,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
 
-				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				const float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				const float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
@@ -1259,28 +1221,22 @@ namespace MainWindow
 
 		case WM_RBUTTONDOWN:
 		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-
 			TouchInput touch{};
 			touch.buttons = 2;
 			touch.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
-			touch.x = x;
-			touch.y = y;
+			touch.x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			touch.y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 			NativeTouch(touch);
 			break;
 		}
 
 		case WM_RBUTTONUP:
 		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-
 			TouchInput touch{};
 			touch.buttons = 2;
 			touch.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
-			touch.x = x;
-			touch.y = y;
+			touch.x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			touch.y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 			NativeTouch(touch);
 			break;
 		}
@@ -1289,10 +1245,6 @@ namespace MainWindow
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		return 0;
-	}
-
-	HINSTANCE GetHInstance() {
-		return hInst;
 	}
 
 	void ToggleDebugConsoleVisibility() {

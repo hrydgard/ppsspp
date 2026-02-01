@@ -62,7 +62,6 @@
 extern bool g_TakeScreenshot;
 
 namespace MainWindow {
-	extern HINSTANCE hInst;
 	extern bool noFocusPause;
 	std::vector<HMENU> g_topLevelMenus;
 	HMENU g_hMenuBackend;
@@ -842,7 +841,7 @@ namespace MainWindow {
 		case ID_DEBUG_EXTRACTFILE:
 		{
 			std::string filename;
-			if (!InputBox_GetString(hInst, hWnd, L"Disc filename", filename, filename)) {
+			if (!InputBox_GetString(MainWindow::GetHInstance(), hWnd, L"Disc filename", filename, filename)) {
 				break;
 			}
 			const char *lastSlash = strrchr(filename.c_str(), '/');
@@ -960,7 +959,7 @@ namespace MainWindow {
 
 		case ID_HELP_ABOUT:
 			DialogManager::EnableAll(FALSE);
-			DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
+			DialogBox(MainWindow::GetHInstance(), (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
 			DialogManager::EnableAll(TRUE);
 			break;
 

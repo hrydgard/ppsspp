@@ -618,8 +618,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 	{
-		std::wstring data = ConvertUTF8ToWString(param1);
-		W32Util::CopyTextToClipboard(MainWindow::GetHWND(), data);
+		W32Util::CopyTextToClipboard(MainWindow::GetHWND(), param1);
 		return true;
 	}
 	case SystemRequestType::SET_WINDOW_TITLE:
