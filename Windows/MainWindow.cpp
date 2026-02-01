@@ -114,6 +114,29 @@ static std::wstring g_windowTitle;
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
+inline WindowSizeState ShowCmdToWindowSizeState(const int showCmd) {
+	switch (showCmd) {
+	case SW_SHOWMAXIMIZED:
+		return WindowSizeState::Maximized;
+	case SW_SHOWMINIMIZED:
+		return WindowSizeState::Minimized;
+	case SW_SHOWNORMAL:
+	default:
+		return WindowSizeState::Normal;
+	}
+}
+
+inline int WindowSizeStateToShowCmd(const WindowSizeState windowSizeState) {
+	switch (windowSizeState) {
+	case WindowSizeState::Maximized:
+		return SW_SHOWMAXIMIZED;
+	case WindowSizeState::Minimized:
+		return SW_SHOWMINIMIZED;
+	default:
+		return SW_SHOWNORMAL;
+	}
+}
+
 namespace MainWindow
 {
 	static HWND hwndMain;
@@ -138,6 +161,7 @@ namespace MainWindow
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
+	static bool wasMinimized = false;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
@@ -176,18 +200,7 @@ namespace MainWindow
 
 		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
-		switch (placement.showCmd) {
-		case SW_SHOWMAXIMIZED:
-			g_Config.iWindowSizeState = (int)WindowSizeState::Maximized;
-			break;
-		case SW_SHOWMINIMIZED:
-			g_Config.iWindowSizeState = (int)WindowSizeState::Minimized;
-			break;
-		case SW_SHOWNORMAL:
-			g_Config.iWindowSizeState = (int)WindowSizeState::Normal;
-			break;
-		}
-
+		g_Config.iWindowSizeState = (int)ShowCmdToWindowSizeState(placement.showCmd);
 		g_Config.iWindowX = placement.rcNormalPosition.left;
 		g_Config.iWindowY = placement.rcNormalPosition.top;
 		g_Config.iWindowWidth = placement.rcNormalPosition.right - placement.rcNormalPosition.left;
@@ -473,17 +486,7 @@ namespace MainWindow
 			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 
 		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
-		placement.showCmd = SW_SHOWNORMAL;
-		switch ((WindowSizeState)g_Config.iWindowSizeState) {
-		case WindowSizeState::Maximized:
-			placement.showCmd = SW_SHOWMAXIMIZED;
-			break;
-		case WindowSizeState::Minimized:
-			placement.showCmd = SW_SHOWMINIMIZED;
-			break;
-		default:
-			break;
-		}
+		placement.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
 		placement.rcNormalPosition.left = g_Config.iWindowX;
 		placement.rcNormalPosition.top = g_Config.iWindowY;
 		placement.rcNormalPosition.right = g_Config.iWindowX + g_Config.iWindowWidth;
@@ -527,9 +530,10 @@ namespace MainWindow
 			disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow);
 		}
-		if (disasmMapLoadPending)
+		if (disasmMapLoadPending) {
 			disasmWindow->NotifyMapLoaded();
-		disasmMapLoadPending = false;
+			disasmMapLoadPending = false;
+		}
 	}
 
 	void CreateGeDebuggerWindow() {
@@ -546,9 +550,10 @@ namespace MainWindow
 			memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow);
 		}
-		if (memoryMapLoadPending)
+		if (memoryMapLoadPending) {
 			memoryWindow->NotifyMapLoaded();
-		memoryMapLoadPending = false;
+			memoryMapLoadPending = false;
+		}
 	}
 
 	void CreateVFPUWindow() {
@@ -616,8 +621,6 @@ namespace MainWindow
 		}
 
 		static bool first = true;
-		static bool wasMinimized = false;
-
 		switch (message) {
 		case WM_CREATE:
 			first = true;
