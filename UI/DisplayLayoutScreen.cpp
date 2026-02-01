@@ -304,7 +304,9 @@ void DisplayLayoutScreen::CreateViews() {
 
 		rightColumn->Add(new ItemHeader(gr->T("Display rotation")));
 		rightColumn->Add(rotation);
-		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")));
+		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
+			return (!g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering) && config.iInternalScreenRotation != 1;
+		});
 
 		rightColumn->Add(new Spacer(12.0f));
 

@@ -43,6 +43,18 @@ uint32_t colorBlend(uint32_t rgb1, uint32_t rgb2, float alpha) {
 	return c;
 }
 
+uint32_t colorAdd(uint32_t color, uint32_t color2) {
+	const int r = (int)((color >> 0) & 0xFF) + (int)((color2 >> 0) & 0xFF);
+	const int g = (int)((color >> 8) & 0xFF) + (int)((color2 >> 8) & 0xFF);
+	const int b = (int)((color >> 16) & 0xFF) + (int)((color2 >> 16) & 0xFF);
+	const int a = (int)((color >> 24) & 0xFF) + (int)((color2 >> 24) & 0xFF);
+	uint32_t c = clamp(a, 0, 255) << 24;
+	c |= clamp(b, 0, 255) << 16;
+	c |= clamp(g, 0, 255) << 8;
+	c |= clamp(r, 0, 255);
+	return c;
+}
+
 uint32_t alphaMul(uint32_t color, float alphaMul) {
 	const uint32_t rgb = color & 0xFFFFFF;
 	int32_t alpha = color >> 24;

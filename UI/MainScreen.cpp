@@ -296,6 +296,22 @@ void GameButton::Draw(UIContext &dc) {
 	default: break;
 	}
 
+	Bounds overlayBounds = bounds_;
+	u32 overlayColor = 0;
+	if (holdEnabled_ && holdStart_ != 0.0) {
+		double time_held = time_now_d() - holdStart_;
+		overlayColor = whiteAlpha(time_held / 2.5f);
+		if (holdStart_ != 0.0) {
+			double time_held = time_now_d() - holdStart_;
+			int holdFrameCount = (int)(time_held * 60.0f);
+			if (holdFrameCount > 60) {
+				// Blink before launching by holding
+				if (((holdFrameCount >> 3) & 1) == 0)
+					overlayColor = 0x0;
+			}
+		}
+	}
+
 	if (imageIcon.isValid()) {
 		Style style = dc.GetTheme().itemStyle;
 
@@ -305,6 +321,10 @@ void GameButton::Draw(UIContext &dc) {
 
 		dc.FillRect(style.background, bounds_);
 		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, gridStyle_, style);
+
+		if (overlayColor) {
+			dc.FillRect(Drawable(overlayColor), overlayBounds);
+		}
 		return;
 	}
 
@@ -345,13 +365,6 @@ void GameButton::Draw(UIContext &dc) {
 	int txOffset = down_ ? 4 : 0;
 	if (!gridStyle_) txOffset = 0;
 
-	Bounds overlayBounds = bounds_;
-	u32 overlayColor = 0;
-	if (holdEnabled_ && holdStart_ != 0.0) {
-		double time_held = time_now_d() - holdStart_;
-		overlayColor = whiteAlpha(time_held / 2.5f);
-	}
-
 	// Render button
 	int dropsize = 10;
 	if (texture) {
@@ -378,15 +391,6 @@ void GameButton::Draw(UIContext &dc) {
 
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
-		if (holdStart_ != 0.0) {
-			double time_held = time_now_d() - holdStart_;
-			int holdFrameCount = (int)(time_held * 60.0f);
-			if (holdFrameCount > 60) {
-				// Blink before launching by holding
-				if (((holdFrameCount >> 3) & 1) == 0)
-					color = darkenColor(color);
-			}
-		}
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 	}
