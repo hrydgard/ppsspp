@@ -1431,7 +1431,15 @@ void MainScreen::CreateViews() {
 		ImageID icon(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN");
 		fullscreenButton_ = logo->Add(new Button(gr->T("FullScreen", "Full Screen"), icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
 		fullscreenButton_->SetIgnoreText(true);
-		fullscreenButton_->OnClick.Handle(this, &MainScreen::OnFullScreenToggle);
+		fullscreenButton_->OnClick.Add([this](UI::EventParams &e) {
+			if (fullscreenButton_) {
+				fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
+			}
+#if !defined(MOBILE_DEVICE)
+			g_Config.bFullScreen = !g_Config.bFullScreen;
+			System_ApplyFullscreenState();
+#endif
+		});
 #endif
 		rightColumnItems->Add(logo);
 
@@ -1508,16 +1516,6 @@ void MainScreen::OnLoadFile(UI::EventParams &e) {
 			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, value);
 		});
 	}
-}
-
-void MainScreen::OnFullScreenToggle(UI::EventParams &e) {
-	if (fullscreenButton_) {
-		fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
-	}
-#if !defined(MOBILE_DEVICE)
-	g_Config.bFullScreen = !g_Config.bFullScreen;
-	System_ToggleFullscreenState("");
-#endif
 }
 
 void MainScreen::DrawBackground(UIContext &dc) {

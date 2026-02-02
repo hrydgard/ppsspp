@@ -113,8 +113,7 @@ double g_audioStartTime = 0.0;
 static std::mutex g_mutexWindow;
 struct WindowState {
 	std::string title;
-	bool toggleFullScreenNextFrame;
-	int toggleFullScreenType;
+	bool applyFullScreenNextFrame;
 	bool clipboardDataAvailable;
 	std::string clipboardString;
 	bool update;
@@ -429,19 +428,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #endif
-	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{
+		g_Config.bFullScreen = (param3 != 0);
 		std::lock_guard<std::mutex> guard(g_mutexWindow);
 		g_windowState.update = true;
-		g_windowState.toggleFullScreenNextFrame = true;
-		if (param1 == "1") {
-			g_windowState.toggleFullScreenType = 1;
-		} else if (param1 == "0") {
-			g_windowState.toggleFullScreenType = 0;
-		} else {
-			// Just toggle.
-			g_windowState.toggleFullScreenType = -1;
-		}
+		g_windowState.applyFullScreenNextFrame = true;
 		return true;
 	}
 	case SystemRequestType::SET_WINDOW_TITLE:
@@ -820,13 +812,11 @@ static float parseFloat(const char *str) {
 
 void UpdateWindowState(SDL_Window *window) {
 	SDL_SetWindowTitle(window, g_windowState.title.c_str());
-	if (g_windowState.toggleFullScreenNextFrame) {
-		g_windowState.toggleFullScreenNextFrame = false;
+	if (g_windowState.applyFullScreenNextFrame) {
+		g_windowState.applyFullScreenNextFrame = false;
 
 		Uint32 window_flags = SDL_GetWindowFlags(window);
-		if (g_windowState.toggleFullScreenType == -1) {
-			window_flags ^= SDL_WINDOW_FULLSCREEN_DESKTOP;
-		} else if (g_windowState.toggleFullScreenType == 1) {
+		if (g_Config.bFullScreen) {
 			window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		} else {
 			window_flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -1052,7 +1042,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				if (k == SDLK_F11) {
 #if !defined(MOBILE_DEVICE)
 					g_Config.bFullScreen = !g_Config.bFullScreen;
-					System_ToggleFullscreenState("");
+					System_applyFullscreenState("");
 #endif
 				}
 				*/

@@ -971,7 +971,9 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		break;
 
 	case VIRTKEY_TOGGLE_FULLSCREEN:
-		System_ToggleFullscreenState("");
+		// TODO: Limit to platforms that can support fullscreen.
+		g_Config.bFullScreen = !g_Config.bFullScreen;
+		System_ApplyFullscreenState();
 		break;
 
 	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:

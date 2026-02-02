@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <list>
 #include <memory>
 #include <atomic>
+#include <vector>
 #include <thread>
 
 #include "Common/CommonTypes.h"

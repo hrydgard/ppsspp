@@ -137,6 +137,19 @@ inline int WindowSizeStateToShowCmd(const WindowSizeState windowSizeState) {
 	}
 }
 
+static const char *WindowSizeStateToString(const WindowSizeState state) {
+	switch (state) {
+	case WindowSizeState::Normal:
+		return "Normal";
+	case WindowSizeState::Minimized:
+		return "Minimized";
+	case WindowSizeState::Maximized:
+		return "Maximized";
+	default:
+		return "Unknown";
+	}
+}
+
 namespace MainWindow {
 	static HWND hwndMain;
 	static TouchInputHandler touchHandler;
@@ -161,6 +174,7 @@ namespace MainWindow {
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
+
 	static bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
 	static constexpr wchar_t *szWindowClass = L"PPSSPPWnd";
@@ -267,7 +281,7 @@ namespace MainWindow {
 		}
 	}
 
-	static void HandleSizeChange(int newSizingType) {
+	static void HandleSizeChange() {
 		Native_NotifyWindowHidden(false);
 		if (!g_Config.bPauseWhenMinimized) {
 			System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "false");
@@ -303,6 +317,11 @@ namespace MainWindow {
 		const bool isCurrentlyFullscreen = !(prevStyle & WS_OVERLAPPEDWINDOW);
 
 		if (goFullscreen && !isCurrentlyFullscreen) {
+			INFO_LOG(Log::System, "ApplyFullscreenState: Entering fullscreen from %s mode at %dx%d+%d+%d",
+				WindowSizeStateToString((WindowSizeState)g_Config.iWindowSizeState),
+				g_Config.iWindowWidth,  g_Config.iWindowHeight,
+				g_Config.iWindowX, g_Config.iWindowY);
+
 			// Transitioning to Fullscreen
 			WINDOWPLACEMENT wp = {sizeof(WINDOWPLACEMENT)};
 			if (GetWindowPlacement(hWnd, &wp)) {
@@ -327,7 +346,6 @@ namespace MainWindow {
 					totalX, totalY,
 					totalWidth, totalHeight,
 					SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-				g_Config.bFullScreen = true;
 			} else {
 				MONITORINFO mi = {sizeof(mi)};
 				if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
@@ -340,11 +358,14 @@ namespace MainWindow {
 						mi.rcMonitor.right - mi.rcMonitor.left,
 						mi.rcMonitor.bottom - mi.rcMonitor.top,
 						SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-
-					g_Config.bFullScreen = true;
 				}
 			}
 		} else if (!goFullscreen && isCurrentlyFullscreen) {
+			INFO_LOG(Log::System, "ApplyFullscreenState: Exiting fullscreen to %s mode at %dx%d+%d+%d",
+				WindowSizeStateToString((WindowSizeState)g_Config.iWindowSizeState),
+				g_Config.iWindowWidth,  g_Config.iWindowHeight,
+				g_Config.iWindowX, g_Config.iWindowY);
+
 			// Transitioning to Windowed
 			SetWindowLong(hWnd, GWL_STYLE, prevStyle | WS_OVERLAPPEDWINDOW);
 			SetMenu(hWnd, g_hMenu);
@@ -358,8 +379,6 @@ namespace MainWindow {
 			SetWindowPlacement(hWnd, &wp);
 			SetWindowPos(hWnd, NULL, 0, 0, 0, 0,
 				SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-
-			g_Config.bFullScreen = false;
 		}
 
 		inFullscreenResize = false;
@@ -799,8 +818,8 @@ namespace MainWindow {
 			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
 
-		case WM_USER_TOGGLE_FULLSCREEN:
-			ApplyFullscreenState(hwndMain, wParam ? true : false);
+		case WM_USER_APPLY_FULLSCREEN:
+			ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 			break;
 
 		case WM_DISPLAYCHANGE:
@@ -819,12 +838,21 @@ namespace MainWindow {
 
 		case WM_WINDOWPOSCHANGED:
 		{
+			// Handling this means that WM_SIZE and WM_MOVE won't be sent, except once during
+			// window creation for some reason.
 			const WINDOWPOS *pos = reinterpret_cast<WINDOWPOS*>(lParam);
 			if (!pos) {
 				// Uh?
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
 			const bool sizeChanged = !(pos->flags & SWP_NOSIZE);
+
+			WINDOWPLACEMENT wp{sizeof(wp)};
+			GetWindowPlacement(hWnd, &wp);
+			if (!g_Config.bFullScreen) {
+				g_Config.iWindowSizeState = (int)ShowCmdToWindowSizeState(wp.showCmd);
+			}
+
 			if (sizeChanged) {
 				if (g_Config.bFullScreen) {
 					MONITORINFO mi = {sizeof(mi)};
@@ -848,8 +876,9 @@ namespace MainWindow {
 						}
 					}
 				}
-				// This means that WM_SIZE and WM_MOVE won't be sent.
-				HandleSizeChange(SIZE_RESTORED);
+				if (!inResizeMove) {
+					HandleSizeChange();
+				}
 			}
 			return 0;
 		}
@@ -860,32 +889,7 @@ namespace MainWindow {
 
 		case WM_EXITSIZEMOVE:
 			inResizeMove = false;
-			HandleSizeChange(SIZE_RESTORED);
-			break;
-
-		case WM_SIZE:
-			switch (wParam) {
-			case SIZE_RESTORED:
-			case SIZE_MAXIMIZED:
-				if (!inResizeMove) {
-					HandleSizeChange(wParam);
-				}
-				if (g_wasMinimized) {
-					System_PostUIMessage(UIMessage::WINDOW_RESTORED, "true");
-					g_wasMinimized = false;
-				}
-				break;
-
-			case SIZE_MINIMIZED:
-				Native_NotifyWindowHidden(true);
-				if (!g_Config.bPauseWhenMinimized) {
-					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
-				}
-				g_wasMinimized = true;
-				break;
-			default:
-				break;
-			}
+			HandleSizeChange();
 			break;
 
 		// Wheel events have to stay in WndProc for compatibility with older Windows(7). See #12156
@@ -1166,7 +1170,8 @@ namespace MainWindow {
 					const float dy = lastMouseDownY - y;
 					const float distSq = dx * dx + dy * dy;
 					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
-						SendToggleFullscreen(!g_Config.bFullScreen);
+						g_Config.bFullScreen = !g_Config.bFullScreen;
+						SendApplyFullscreenState();
 					}
 					lastMouseDownTime = 0.0;
 				} else {
@@ -1276,12 +1281,12 @@ namespace MainWindow {
 		}
 	}
 
-	void SendToggleFullscreen(bool fullscreen) {
-		PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, fullscreen, 0);
+	void SendApplyFullscreenState() {
+		PostMessage(hwndMain, WM_USER_APPLY_FULLSCREEN, 0, 0);
 	}
 
 	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
 		PostMessage(hwndMain, WM_USER_RUN_CALLBACK, reinterpret_cast<WPARAM>(callback), reinterpret_cast<LPARAM>(userdata));
 	}
 
-}  // namespace
+}  // namespace MainWindow

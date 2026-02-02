@@ -160,7 +160,6 @@ protected:
 	void OnForums(UI::EventParams &e);
 	void OnExit(UI::EventParams &e);
 	void OnAllowStorage(UI::EventParams &e);
-	void OnFullScreenToggle(UI::EventParams &e);
 
 	UI::TabHolder *tabHolder_ = nullptr;
 	UI::Button *fullscreenButton_ = nullptr;

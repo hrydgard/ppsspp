@@ -16,7 +16,7 @@ namespace MainWindow
 		WM_USER_SAVESTATE_FINISH = WM_USER + 100,
 		WM_USER_UPDATE_UI = WM_USER + 101,
 		WM_USER_WINDOW_TITLE_CHANGED = WM_USER + 103,
-		WM_USER_TOGGLE_FULLSCREEN = WM_USER + 105,
+		WM_USER_APPLY_FULLSCREEN = WM_USER + 105,
 		WM_USER_RESTART_EMUTHREAD = WM_USER + 106,
 		WM_USER_SWITCHUMD_UPDATED = WM_USER + 107,
 		WM_USER_RUN_CALLBACK = WM_USER + 108,
@@ -74,7 +74,7 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	void ApplyFullscreenState(HWND hWnd, bool goingFullscreen);
 	void Minimize();
-	void SendToggleFullscreen(bool fullscreen);  // To be used off-thread
+	void SendApplyFullscreenState();  // To be used off-thread
 	void ToggleDebugConsoleVisibility();
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);
