@@ -65,6 +65,9 @@
     <Filter Include="Other Platforms\Mac">
       <UniqueIdentifier>{e2dd8951-ccb6-4575-996a-69c6832fafbf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Windows\Input\Hid">
+      <UniqueIdentifier>{55d277d0-1afa-464d-9bde-672334ad73fe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -271,8 +274,20 @@
     <ClCompile Include="Debugger\EditSymbolsWindow.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="HidInputDevice.cpp">
-      <Filter>Windows\Input</Filter>
+    <ClCompile Include="HID\DualShock.cpp">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClCompile>
+    <ClCompile Include="HID\SwitchPro.cpp">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClCompile>
+    <ClCompile Include="HID\DualSense.cpp">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClCompile>
+    <ClCompile Include="Hid\HidInputDevice.cpp">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClCompile>
+    <ClCompile Include="Hid\HidCommon.cpp">
+      <Filter>Windows\Input\Hid</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -565,8 +580,20 @@
     <ClInclude Include="..\ios\ViewControllerMetal.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
-    <ClInclude Include="HidInputDevice.h">
-      <Filter>Windows\Input</Filter>
+    <ClInclude Include="HID\DualShock.h">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClInclude>
+    <ClInclude Include="HID\SwitchPro.h">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClInclude>
+    <ClInclude Include="HID\DualSense.h">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClInclude>
+    <ClInclude Include="Hid\HidInputDevice.h">
+      <Filter>Windows\Input\Hid</Filter>
+    </ClInclude>
+    <ClInclude Include="Hid\HidCommon.h">
+      <Filter>Windows\Input\Hid</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

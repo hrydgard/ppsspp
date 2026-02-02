@@ -2775,8 +2775,14 @@ set(WindowsFiles
 	Windows/CaptureDevice.h
 	Windows/DinputDevice.cpp
 	Windows/DinputDevice.h
-	Windows/HidInputDevice.h
-	Windows/HidInputDevice.cpp
+	Windows/Hid/HidInputDevice.h
+	Windows/Hid/HidInputDevice.cpp
+	Windows/Hid/DualSense.h
+	Windows/Hid/DualSense.cpp
+	Windows/Hid/DualShock.h
+	Windows/Hid/DualShock.cpp
+	Windows/Hid/SwitchPro.h
+	Windows/Hid/SwitchPro.cpp
 	Windows/EmuThread.cpp
 	Windows/EmuThread.h
 	Windows/GPU/D3D11Context.cpp

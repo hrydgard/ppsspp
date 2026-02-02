@@ -27,7 +27,7 @@
 
 #if !PPSSPP_PLATFORM(UWP)
 #include "Windows/DinputDevice.h"
-#include "Windows/HidInputDevice.h"
+#include "Windows/Hid/HidInputDevice.h"
 #include "Windows/XinputDevice.h"
 #endif
 
