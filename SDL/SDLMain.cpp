@@ -430,7 +430,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 #endif
 	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{
-		g_Config.bFullScreen = (param3 != 0);
 		std::lock_guard<std::mutex> guard(g_mutexWindow);
 		g_windowState.update = true;
 		g_windowState.applyFullScreenNextFrame = true;
@@ -549,6 +548,13 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 #endif
 		break;
 	}
+	case LaunchUrlType::LOCAL_FILE:
+#if defined(__APPLE__)
+		// If it's a folder and we're on a mac, open it in finder.
+		OSXShowInFinder(std::string(url).c_str());
+#endif
+		// INFO_LOG(Log::System, "LaunchUrlType::LOCAL_FILE not implemented on this platform");
+		break;
 	}
 }
 
