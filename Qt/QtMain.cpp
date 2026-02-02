@@ -873,7 +873,7 @@ int main(int argc, char *argv[])
 
 	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
 
-	g_mainWindow = new MainWindow(nullptr, g_Config.UseFullScreen());
+	g_mainWindow = new MainWindow(nullptr, g_Config.bFullScreen);
 	g_mainWindow->show();
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.

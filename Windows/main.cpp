@@ -132,6 +132,7 @@ static double g_lastKeepAwake = 0.0;
 static constexpr double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
+	// We don't even check urlType.
 	std::string u(url);
 	std::thread t = std::thread([u]() {
 		ShellExecute(NULL, L"open", ConvertUTF8ToWString(u).c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -141,7 +142,8 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 }
 
 void System_Vibrate(int length_ms) {
-	// Ignore on PC
+	// Ignore on PC. TODO: Actually, we could vibrate a controller if we wanted to, but we should only do that
+	// if it was used within the last few seconds.
 }
 
 static void AddDebugRestartArgs() {
@@ -618,8 +620,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 	{
-		std::wstring data = ConvertUTF8ToWString(param1);
-		W32Util::CopyTextToClipboard(MainWindow::GetHWND(), data);
+		W32Util::CopyTextToClipboard(MainWindow::GetHWND(), param1);
 		return true;
 	}
 	case SystemRequestType::SET_WINDOW_TITLE:
@@ -725,7 +726,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
 	{
-		bool flag = !MainWindow::IsFullscreen();
+		bool flag = !g_Config.bFullScreen;
 		if (param1 == "0") {
 			flag = false;
 		} else if (param1 == "1") {
@@ -1121,7 +1122,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	if (iCmdShow == SW_MAXIMIZE) {
 		// Consider this to mean --fullscreen.
-		g_Config.iForceFullScreen = 1;
+		g_Config.bFullScreen = true;
+		g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
 	}
 
 	// Consider at least the following cases before changing this code:

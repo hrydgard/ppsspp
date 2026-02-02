@@ -26,8 +26,7 @@
 #include "Common/OSVersion.h"
 
 #include <Windowsx.h>
-#include <shellapi.h>
-#include <commctrl.h>
+#include <shellapi.h>  // For drag/drop functionality
 #include <string>
 #include <dwmapi.h>
 
@@ -37,7 +36,6 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Data/Text/Parsers.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -51,12 +49,9 @@
 #include "Core/Instance.h"
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/Reporting.h"
-#include "Windows/InputBox.h"
 #include "Windows/InputDevice.h"
 #if PPSSPP_API(ANY_GL)
-#include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
 #include "Windows/W32Util/DarkMode.h"
@@ -77,17 +72,13 @@
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
-#include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
 #include "Windows/CaptureDevice.h"
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
 #include "GPU/GPUCommon.h"
-#include "UI/OnScreenDisplay.h"
-#include "UI/GameSettingsScreen.h"
 #include "UI/PauseScreen.h"
-#include "Core/SaveState.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
@@ -123,11 +114,32 @@ static std::wstring g_windowTitle;
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
-namespace MainWindow
-{
-	HWND hwndMain;
-	HWND hwndGameList;
-	TouchInputHandler touchHandler;
+inline WindowSizeState ShowCmdToWindowSizeState(const int showCmd) {
+	switch (showCmd) {
+	case SW_SHOWMAXIMIZED:
+		return WindowSizeState::Maximized;
+	case SW_SHOWMINIMIZED:
+		return WindowSizeState::Minimized;
+	case SW_SHOWNORMAL:
+	default:
+		return WindowSizeState::Normal;
+	}
+}
+
+inline int WindowSizeStateToShowCmd(const WindowSizeState windowSizeState) {
+	switch (windowSizeState) {
+	case WindowSizeState::Maximized:
+		return SW_SHOWMAXIMIZED;
+	case WindowSizeState::Minimized:
+		return SW_SHOWMINIMIZED;
+	default:
+		return SW_SHOWNORMAL;
+	}
+}
+
+namespace MainWindow {
+	static HWND hwndMain;
+	static TouchInputHandler touchHandler;
 
 	static HMENU g_hMenu;
 
@@ -143,23 +155,22 @@ namespace MainWindow
 	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
-	static bool g_isFullscreen = false;
 	static bool g_keepScreenBright = false;
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
+	static bool wasMinimized = false;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
-	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
+	static bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
-	static const TCHAR szWindowClass[] = L"PPSSPPWnd";
+	static constexpr wchar_t *szWindowClass = L"PPSSPPWnd";
 
 	static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-	HWND GetHWND() {
-		return hwndMain;
-	}
+	HWND GetHWND() { return hwndMain; }
+	HINSTANCE GetHInstance() { return hInst; }
 
 	void SetKeepScreenBright(bool keepBright) {
 		g_keepScreenBright = keepBright;
@@ -167,14 +178,13 @@ namespace MainWindow
 
 	void Init(HINSTANCE hInstance) {
 		// Register classes - Main Window
-		WNDCLASSEX wcex;
-		memset(&wcex, 0, sizeof(wcex));
+		WNDCLASSEX wcex{};
 		wcex.cbSize = sizeof(WNDCLASSEX);
 		wcex.style = 0;  // Show in taskbar
 		wcex.lpfnWndProc = (WNDPROC)WndProc;
 		wcex.hInstance = hInstance;
 		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);  // or NULL?
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName = szWindowClass;
 		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
@@ -183,23 +193,12 @@ namespace MainWindow
 	}
 
 	void SavePosition() {
-		if (g_Config.UseFullScreen() || inFullscreenResize)
+		if (g_Config.bFullScreen || inFullscreenResize)
 			return;
 
 		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
-		switch (placement.showCmd) {
-		case SW_SHOWMAXIMIZED:
-			g_Config.iWindowSizeState = (int)WindowSizeState::Maximized;
-			break;
-		case SW_SHOWMINIMIZED:
-			g_Config.iWindowSizeState = (int)WindowSizeState::Minimized;
-			break;
-		case SW_SHOWNORMAL:
-			g_Config.iWindowSizeState = (int)WindowSizeState::Normal;
-			break;
-		}
-
+		g_Config.iWindowSizeState = (int)ShowCmdToWindowSizeState(placement.showCmd);
 		g_Config.iWindowX = placement.rcNormalPosition.left;
 		g_Config.iWindowY = placement.rcNormalPosition.top;
 		g_Config.iWindowWidth = placement.rcNormalPosition.right - placement.rcNormalPosition.left;
@@ -242,7 +241,7 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		bool autoHide = ((g_Config.UseFullScreen() && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
+		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
 		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -290,7 +289,7 @@ namespace MainWindow
 		}
 
 		// Don't save the window state if fullscreen.
-		if (!g_Config.UseFullScreen()) {
+		if (!g_Config.bFullScreen) {
 			g_WindowState = newSizingType;
 		}
 	}
@@ -337,11 +336,7 @@ namespace MainWindow
 		// Remove the menu bar if going fullscreen. This can trigger WM_SIZE because the contents change size.
 		::SetMenu(hWnd, goingFullscreen || !g_Config.bShowMenuBar ? NULL : g_hMenu);
 
-		if (g_Config.UseFullScreen() != goingFullscreen) {
-			g_Config.bFullScreen = goingFullscreen;
-			g_Config.iForceFullScreen = -1;
-		}
-		g_isFullscreen = goingFullscreen;
+		g_Config.bFullScreen = goingFullscreen;
 
 		g_IgnoreWM_SIZE = false;
 
@@ -402,7 +397,7 @@ namespace MainWindow
 		bool resetPositionX = true;
 		bool resetPositionY = true;
 
-		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.UseFullScreen()) {
+		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.bFullScreen) {
 			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= virtualScreenX) &&
 				((g_Config.iWindowX + g_Config.iWindowWidth) < (virtualScreenWidth + g_Config.iWindowWidth));
 
@@ -477,40 +472,27 @@ namespace MainWindow
 
 	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
-		RECT rc = DetermineWindowRectangle();
 
-		u32 style = WS_OVERLAPPEDWINDOW;
+		hwndMain = CreateWindowEx(0, szWindowClass, L"", WS_OVERLAPPEDWINDOW,
+			CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
 
-		hwndMain = CreateWindowEx(0, szWindowClass, L"", style,
-			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
+		if (!hwndMain)
+			return FALSE;
+
+		g_hMenu = GetMenu(hwndMain);
 
 		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
-		placement.showCmd = SW_SHOWNORMAL;
-		switch ((WindowSizeState)g_Config.iWindowSizeState) {
-		case WindowSizeState::Maximized:
-			placement.showCmd = SW_SHOWMAXIMIZED;
-			break;
-		case WindowSizeState::Minimized:
-			placement.showCmd = SW_SHOWMINIMIZED;
-			break;
-		default:
-			break;
-		}
+		placement.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
 		placement.rcNormalPosition.left = g_Config.iWindowX;
 		placement.rcNormalPosition.top = g_Config.iWindowY;
 		placement.rcNormalPosition.right = g_Config.iWindowX + g_Config.iWindowWidth;
 		placement.rcNormalPosition.bottom = g_Config.iWindowY + g_Config.iWindowHeight;
 		SetWindowPlacement(hwndMain, &placement);
 
-		if (!hwndMain)
-			return FALSE;
-
-		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
+		// SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
-
-		g_hMenu = GetMenu(hwndMain);
 
 		MainMenuInit(hwndMain, g_hMenu);
 
@@ -520,7 +502,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 
-		ToggleFullscreen(hwndMain, g_Config.UseFullScreen());
+		ToggleFullscreen(hwndMain, g_Config.bFullScreen);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -539,9 +521,10 @@ namespace MainWindow
 			disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow);
 		}
-		if (disasmMapLoadPending)
+		if (disasmMapLoadPending) {
 			disasmWindow->NotifyMapLoaded();
-		disasmMapLoadPending = false;
+			disasmMapLoadPending = false;
+		}
 	}
 
 	void CreateGeDebuggerWindow() {
@@ -558,9 +541,10 @@ namespace MainWindow
 			memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow);
 		}
-		if (memoryMapLoadPending)
+		if (memoryMapLoadPending) {
 			memoryWindow->NotifyMapLoaded();
-		memoryMapLoadPending = false;
+			memoryMapLoadPending = false;
+		}
 	}
 
 	void CreateVFPUWindow() {
@@ -599,37 +583,6 @@ namespace MainWindow
 		vfpudlg = nullptr;
 	}
 
-	RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT & r)
-	{
-		RECT wnd_coords = r;
-
-		// map to screen
-		MapWindowPoints(hwnd, NULL, reinterpret_cast<POINT *>(&wnd_coords), 2);
-
-		RECT scr_coords;
-		GetWindowRect(hwnd, &scr_coords);
-
-		// map to window coords by substracting the window coord origin in
-		// screen coords.
-		OffsetRect(&wnd_coords, -scr_coords.left, -scr_coords.top);
-
-		return wnd_coords;
-	}
-
-	RECT GetNonclientMenuBorderRect(HWND hwnd)
-	{
-		RECT r;
-		GetClientRect(hwnd, &r);
-		r = MapRectFromClientToWndCoords(hwnd, r);
-		int y = r.top - 1;
-		return {
-			r.left,
-			y,
-			r.right,
-			y + 1
-		};
-	}
-
 	bool ConfirmAction(HWND hWnd, bool actionIsReset) {
 		const GlobalUIState state = GetUIState();
 		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
@@ -659,8 +612,6 @@ namespace MainWindow
 		}
 
 		static bool first = true;
-		static bool wasMinimized = false;
-
 		switch (message) {
 		case WM_CREATE:
 			first = true;
@@ -701,28 +652,23 @@ namespace MainWindow
 			// Return game ID as four u32 values
 			// wParam: 0-3 = which u32 to return (chars 0-3, 4-7, 8-11, 12-15)
 			// Returns: packed u32 with 4 bytes of game ID
-			if (!PSP_IsInited())
-			{
+			if (!PSP_IsInited()) {
 				return 0;
 			}
 			const std::string gameID = Reporting::CurrentGameID();
-			if (gameID.empty())
-			{
+			if (gameID.empty()) {
 				return 0;
 			}
 			const size_t offset = (wParam & 0x3) * 4;  // 0, 4, 8, 12
 			u32 packed = 0;
-			for (size_t i = 0; i < 4; ++i)
-			{
-				if (offset + i < gameID.length())
-				{
+			for (size_t i = 0; i < 4; ++i) {
+				if (offset + i < gameID.length()) {
 					const u8 c = static_cast<u8>(gameID[offset + i]);
 					packed |= ((u32)c << (i * 8));
 				}
 			}
 			return packed;
 		}
-		break;
 		case WM_USER_GET_MODULE_INFO:
 		{
 			// Get module information by name
@@ -766,7 +712,6 @@ namespace MainWindow
 			// Module not found
 			return 0;
 		}
-		break;
 
 		// Hack to kill the white line underneath the menubar.
 		// From https://stackoverflow.com/questions/57177310/how-to-paint-over-white-line-between-menu-bar-and-client-area-of-window
@@ -780,7 +725,7 @@ namespace MainWindow
 			auto result = DefWindowProc(hWnd, message, wParam, lParam);
 			// Paint over the line with pure black. Could also try to figure out the dark theme color.
 			HDC hdc = GetWindowDC(hWnd);
-			RECT r = GetNonclientMenuBorderRect(hWnd);
+			RECT r = W32Util::GetNonclientMenuBorderRect(hWnd);
 			HBRUSH red = CreateSolidBrush(RGB(0, 0, 0));
 			FillRect(hdc, &r, red);
 			DeleteObject(red);
@@ -799,8 +744,8 @@ namespace MainWindow
 				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
 				minmax->ptMinTrackSize.x = rc.right - rc.left;
 				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
+				return 0;
 			}
-			return 0;
 
 		case WM_ACTIVATE:
 			{
@@ -999,9 +944,9 @@ namespace MainWindow
 
 		case WM_DROPFILES:
 			{
-				if (!MainThread_Ready())
+				if (!MainThread_Ready()) {
 					return DefWindowProc(hWnd, message, wParam, lParam);
-
+				}
 				const HDROP hdrop = (HDROP)wParam;
 				const int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
@@ -1114,16 +1059,14 @@ namespace MainWindow
 			}
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		case WM_SETTINGCHANGE:
-			{
-				if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam))
-					SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam)) {
+				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
 			}
 			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_THEMECHANGED:
 		{
-			if (g_darkModeSupported)
-			{
+			if (g_darkModeSupported) {
 				_AllowDarkModeForWindow(hWnd, g_darkModeEnabled);
 				RefreshTitleBarThemeColor(hWnd);
 			}
@@ -1144,13 +1087,10 @@ namespace MainWindow
 					case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
 					case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
 					case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
+					default: break;
 					}
 				}
-				if (win32_cursor) {
-					SetCursor(::LoadCursor(nullptr, win32_cursor));
-				} else {
-					SetCursor(nullptr);
-				}
+				SetCursor(win32_cursor ? ::LoadCursor(nullptr, win32_cursor) : nullptr);
 				return TRUE;
 			} else {
 				return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1165,8 +1105,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
 
-				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				const float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				const float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
@@ -1187,7 +1127,7 @@ namespace MainWindow
 					const float dy = lastMouseDownY - y;
 					const float distSq = dx * dx + dy * dy;
 					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
-						SendToggleFullscreen(!g_Config.UseFullScreen());
+						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDownTime = 0.0;
 				} else {
@@ -1206,6 +1146,7 @@ namespace MainWindow
 				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
 				int cursorX = GET_X_LPARAM(lParam);
 				int cursorY = GET_Y_LPARAM(lParam);
+				// Require at least 2 pixels of movement to reset the hide timer.
 				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
 					hideCursor = false;
 					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
@@ -1213,8 +1154,8 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				float x = (float)cursorX * g_display.dpi_scale_x;
-				float y = (float)cursorY * g_display.dpi_scale_y;
+				const float x = (float)cursorX * g_display.dpi_scale_x;
+				const float y = (float)cursorY * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				// Mouse moves now happen also when no button is pressed.
@@ -1239,8 +1180,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
 
-				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				const float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				const float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
@@ -1259,28 +1200,22 @@ namespace MainWindow
 
 		case WM_RBUTTONDOWN:
 		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-
 			TouchInput touch{};
 			touch.buttons = 2;
 			touch.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
-			touch.x = x;
-			touch.y = y;
+			touch.x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			touch.y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 			NativeTouch(touch);
 			break;
 		}
 
 		case WM_RBUTTONUP:
 		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
-
 			TouchInput touch{};
 			touch.buttons = 2;
 			touch.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
-			touch.x = x;
-			touch.y = y;
+			touch.x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+			touch.y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 			NativeTouch(touch);
 			break;
 		}
@@ -1289,10 +1224,6 @@ namespace MainWindow
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		return 0;
-	}
-
-	HINSTANCE GetHInstance() {
-		return hInst;
 	}
 
 	void ToggleDebugConsoleVisibility() {
@@ -1308,10 +1239,6 @@ namespace MainWindow
 
 	void SendToggleFullscreen(bool fullscreen) {
 		PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, fullscreen, 0);
-	}
-
-	bool IsFullscreen() {
-		return g_isFullscreen;
 	}
 
 	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {

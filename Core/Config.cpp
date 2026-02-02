@@ -1381,6 +1381,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
 
+bool Config::ShouldSaveSetting(const void *ptr) const {
+	return std::find(settingsNotToSave_.begin(), settingsNotToSave_.end(), ptr) == settingsNotToSave_.end();
+}
+
 // If we're in game specific mode, we need to:
 // * Save the game-specific settings to the game-specific ini file.
 // * Then, save the NON-game-specific settings ONLY to the regular ini file!
@@ -1418,6 +1422,11 @@ bool Config::Save(const char *saveReason) {
 			for (size_t j = 0; j < meta.settingsCount; j++) {
 				if (IsGameSpecific() && (meta.settings[j].Flags() & CfgFlag::PER_GAME)) {
 					// Skip per-game settings in non-game-specific ini.
+					continue;
+				}
+				if (!ShouldSaveSetting(meta.settings[j].GetVoidPtr(configBlock))) {
+					// Skip settings marked as "don't save".
+					INFO_LOG(Log::System, "Not saving setting '%.*s' as marked as don't save.", STR_VIEW(meta.settings[j].IniKey()));
 					continue;
 				}
 				meta.settings[j].WriteToIniSection(configBlock, section);

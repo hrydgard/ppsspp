@@ -417,7 +417,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 			CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
 			fullscreenMulti->SetEnabledFunc([] {
-				return g_Config.UseFullScreen();
+				return g_Config.bFullScreen;
 			});
 			graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
 		}
@@ -1622,12 +1622,11 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 }
 
 void GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
-	g_Config.iForceFullScreen = -1;
-	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
+	System_ToggleFullscreenState(g_Config.bFullScreen ? "1" : "0");
 }
 
 void GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
-	System_ToggleFullscreenState(g_Config.UseFullScreen() ? "1" : "0");
+	System_ToggleFullscreenState(g_Config.bFullScreen ? "1" : "0");
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {

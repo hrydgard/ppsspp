@@ -264,9 +264,9 @@ void App::OnActivated(const CoreApplicationView& applicationView, const IActivat
 	CoreWindow::GetForCurrentThread().Activate();
 	// On mobile, we force-enter fullscreen mode.
 	if (m_isPhone)
-		g_Config.iForceFullScreen = 1;
+		g_Config.bFullScreen = true;
 
-	if (g_Config.UseFullScreen())
+	if (g_Config.bFullScreen)
 		winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().TryEnterFullScreenMode();
 
 	//Detect if app started or activated by launch item (file, uri)
@@ -300,7 +300,6 @@ void App::OnResuming(const IInspectable& sender, const IInspectable& args) {
 void App::OnWindowSizeChanged(const CoreWindow& sender, const WindowSizeChangedEventArgs& args) {
 	auto view = winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 	g_Config.bFullScreen = view.IsFullScreenMode();
-	g_Config.iForceFullScreen = -1;
 
 	float width = sender.Bounds().Width;
 	float height = sender.Bounds().Height;

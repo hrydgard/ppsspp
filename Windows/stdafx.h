@@ -41,12 +41,11 @@
 
 #include <windowsx.h>
 #include <process.h>
-#include <tchar.h>
-#include <stdio.h>
+#include <cstdio>
 
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <time.h>
+#include <cmath>
+#include <ctime>
 #include <vector>
 #include <map>
 #include <string>

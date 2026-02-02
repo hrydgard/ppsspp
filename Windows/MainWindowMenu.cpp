@@ -4,9 +4,6 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "CommonWindows.h"
-#include <shellapi.h>
-
 #include "resource.h"
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -15,31 +12,24 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
-#include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
-#include "Common/OSVersion.h"
-#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/StringUtils.h"
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #endif
-#include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/KeyMap.h"
-#include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
 #include "Windows/MainWindow.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -62,7 +52,6 @@
 extern bool g_TakeScreenshot;
 
 namespace MainWindow {
-	extern HINSTANCE hInst;
 	extern bool noFocusPause;
 	std::vector<HMENU> g_topLevelMenus;
 	HMENU g_hMenuBackend;
@@ -470,7 +459,7 @@ namespace MainWindow {
 
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-		int wmId = LOWORD(wParam);
+		const int wmId = LOWORD(wParam);
 		// Parse the menu selections:
 		switch (wmId) {
 		case ID_FILE_LOAD:
@@ -490,7 +479,7 @@ namespace MainWindow {
 			break;
 
 		case ID_FILE_MEMSTICK:
-			ShellExecute(NULL, L"open", g_Config.memStickDirectory.ToWString().c_str(), 0, 0, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::LOCAL_FILE, g_Config.memStickDirectory.ToString());
 			break;
 
 		case ID_TOGGLE_BREAK:
@@ -842,7 +831,7 @@ namespace MainWindow {
 		case ID_DEBUG_EXTRACTFILE:
 		{
 			std::string filename;
-			if (!InputBox_GetString(hInst, hWnd, L"Disc filename", filename, filename)) {
+			if (!InputBox_GetString(MainWindow::GetHInstance(), hWnd, L"Disc filename", filename, filename)) {
 				break;
 			}
 			const char *lastSlash = strrchr(filename.c_str(), '/');
@@ -858,10 +847,10 @@ namespace MainWindow {
 			} else if (info.type == FILETYPE_DIRECTORY) {
 				MessageBox(hWnd, L"Cannot extract directories.", L"Sorry", 0);
 			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
-				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
+				const u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				// Note: len may be in blocks.
 				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
-				bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
+				const bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
 
 				FILE *fp = File::OpenCFile(Path(fn), "wb");
 				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
@@ -869,11 +858,11 @@ namespace MainWindow {
 				size_t bufferSize = isBlockMode ? sizeof(buffer) / 2048 : sizeof(buffer);
 				while (len > 0) {
 					// This is all in blocks, not bytes, if isBlockMode.
-					size_t remain = std::min(len, bufferSize);
-					size_t readSize = pspFileSystem.ReadFile(handle, buffer, remain);
+					const size_t remain = std::min(len, bufferSize);
+					const size_t readSize = pspFileSystem.ReadFile(handle, buffer, remain);
 					if (readSize == 0)
 						break;
-					size_t bytes = isBlockMode ? readSize * 2048 : readSize;
+					const size_t bytes = isBlockMode ? readSize * 2048 : readSize;
 					fwrite(buffer, 1, bytes, fp);
 					len -= readSize;
 				}
@@ -893,7 +882,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_FULLSCREEN:
 			if (!g_Config.bShowImDebugger) {
-				SendToggleFullscreen(!g_Config.UseFullScreen());
+				SendToggleFullscreen(!g_Config.bFullScreen);
 			}
 			break;
 
@@ -939,28 +928,28 @@ namespace MainWindow {
 			break;
 
 		case ID_HELP_OPENWEBSITE:
-			ShellExecute(NULL, L"open", L"https://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
 			break;
 
 		case ID_HELP_BUYGOLD:
-			ShellExecute(NULL, L"open", L"https://www.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 			break;
 
 		case ID_HELP_OPENFORUM:
-			ShellExecute(NULL, L"open", L"https://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org/");
 			break;
 
 		case ID_HELP_GITHUB:
-			ShellExecute(NULL, L"open", L"https://github.com/hrydgard/ppsspp/", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://github.com/hrydgard/ppsspp/");
 			break;
 
 		case ID_HELP_DISCORD:
-			ShellExecute(NULL, L"open", L"https://discord.gg/5NJB6dD", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 			break;
 
 		case ID_HELP_ABOUT:
 			DialogManager::EnableAll(FALSE);
-			DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
+			DialogBox(MainWindow::GetHInstance(), (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
 			DialogManager::EnableAll(TRUE);
 			break;
 
