@@ -111,10 +111,13 @@ struct DualShockInputReport {
 	// Then there's motion and all kinds of stuff.
 };
 
-bool ReadDualShockInput(HANDLE handle, HIDControllerState *state) {
-	BYTE inputReport[64]{}; // 64-byte input report for DS4
+bool ReadDualShockInput(HANDLE handle, HIDControllerState *state, int inReportSize) {
+	if (inReportSize > 1024) {
+		return false;
+	}
+	BYTE inputReport[1024]{};
 	DWORD bytesRead = 0;
-	if (!ReadFile(handle, inputReport, sizeof(inputReport), &bytesRead, nullptr)) {
+	if (!ReadFile(handle, inputReport, inReportSize, &bytesRead, nullptr)) {
 		u32 error = GetLastError();
 		return false;
 	}
@@ -162,4 +165,16 @@ bool ReadDualShockInput(HANDLE handle, HIDControllerState *state) {
 
 	state->buttons = buttons;
 	return true;
+}
+
+// Standard CRC32 used by PlayStation controllers
+uint32_t ComputePSControllerCRC(uint8_t* data, size_t len) {
+	uint32_t crc = 0xFFFFFFFF;
+	for (size_t i = 0; i < len; i++) {
+		crc ^= data[i];
+		for (int j = 0; j < 8; j++) {
+			crc = (crc >> 1) ^ (0xEDB88320 & (-(int32_t)(crc & 1)));
+		}
+	}
+	return ~crc;
 }

@@ -214,7 +214,7 @@ int HidInputDevice::UpdateState() {
 		if (pollCount_ == 0) {
 			pollCount_ = POLL_FREQ;
 			const HIDControllerInfo *info{};
-			HANDLE newController = OpenFirstHIDController(&subType_, &reportSize_, &outReportSize_, &info);
+			HANDLE newController = OpenFirstHIDController(&subType_, &inReportSize_, &outReportSize_, &info);
 			if (newController) {
 				controller_ = newController;
 				if (info) {
@@ -233,10 +233,10 @@ int HidInputDevice::UpdateState() {
 		const ButtonInputMapping *buttonMappings = nullptr;
 		size_t buttonMappingsSize = 0;
 		if (subType_ == HIDControllerType::DS4) {
-			result = ReadDualShockInput(controller_, &state);
+			result = ReadDualShockInput(controller_, &state, inReportSize_);
 			GetPSInputMappings(&buttonMappings, &buttonMappingsSize);
 		} else if (subType_ == HIDControllerType::DS5) {
-			result = ReadDualSenseInput(controller_, &state);
+			result = ReadDualSenseInput(controller_, &state, inReportSize_);
 			GetPSInputMappings(&buttonMappings, &buttonMappingsSize);
 		} else if (subType_ == HIDControllerType::SwitchPro) {
 			result = ReadSwitchProInput(controller_, &state);
