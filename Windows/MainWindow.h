@@ -72,7 +72,7 @@ namespace MainWindow
 	void SetWindowTitle(const wchar_t *title);
 	HWND GetHWND();
 	HINSTANCE GetHInstance();
-	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
+	void ApplyFullscreenState(HWND hWnd, bool goingFullscreen);
 	void Minimize();
 	void SendToggleFullscreen(bool fullscreen);  // To be used off-thread
 	void ToggleDebugConsoleVisibility();
