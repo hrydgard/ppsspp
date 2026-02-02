@@ -1435,10 +1435,8 @@ void MainScreen::CreateViews() {
 			if (fullscreenButton_) {
 				fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
 			}
-#if !defined(MOBILE_DEVICE)
 			g_Config.bFullScreen = !g_Config.bFullScreen;
 			System_ApplyFullscreenState();
-#endif
 		});
 #endif
 		rightColumnItems->Add(logo);
