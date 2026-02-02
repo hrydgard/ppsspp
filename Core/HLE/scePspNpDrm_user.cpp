@@ -84,9 +84,12 @@ static int sceNpDrmRenameCheck(const char *filename) {
 static int sceNpDrmEdataSetupKey(u32 edataFd) {
 	// Return an error if the key has not been set.
 	// Note: An empty key is valid, as long as it was set with sceNpDrmSetLicenseeKey.
+#ifndef __LIBRETRO__
+	// FIXME: sceNpDrmSetLicenseeKey is never called (?), therefore skip this check.
 	if (!isLicenseeKeySet) {
 		return hleLogError(Log::sceIo, ERROR_NPDRM_NO_K_LICENSEE_SET, "Licensee key not set");
 	}
+#endif
 
 	// Get file info to validate the file descriptor
 	u32 error;
