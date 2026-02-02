@@ -882,7 +882,8 @@ namespace MainWindow {
 
 		case ID_OPTIONS_FULLSCREEN:
 			if (!g_Config.bShowImDebugger) {
-				SendToggleFullscreen(!g_Config.bFullScreen);
+				g_Config.bFullScreen = !g_Config.bFullScreen;
+				SendApplyFullscreenState();
 			}
 			break;
 

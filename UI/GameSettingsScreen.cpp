@@ -413,13 +413,18 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)
-		graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+		CheckBox *fullscreenCheckbox = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")));
+		fullscreenCheckbox->OnClick.Add([](UI::EventParams &e) {
+			System_ApplyFullscreenState();
+		});
 		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
-			CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
+			CheckBox *fullscreenMulti = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays")));
 			fullscreenMulti->SetEnabledFunc([] {
 				return g_Config.bFullScreen;
 			});
-			graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenMultiChange);
+			fullscreenMulti->OnClick.Add([](UI::EventParams &e) {
+				System_ApplyFullscreenState();
+			});
 		}
 #endif
 
@@ -1619,14 +1624,6 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	});
 
 	// Change to a browse or clear button.
-}
-
-void GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
-	System_ToggleFullscreenState(g_Config.bFullScreen ? "1" : "0");
-}
-
-void GameSettingsScreen::OnFullscreenMultiChange(UI::EventParams &e) {
-	System_ToggleFullscreenState(g_Config.bFullScreen ? "1" : "0");
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {

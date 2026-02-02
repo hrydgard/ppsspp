@@ -35,7 +35,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	case SystemRequestType::COPY_TO_CLIPBOARD: return "COPY_TO_CLIPBOARD";
 	case SystemRequestType::SHARE_TEXT: return "SHARE_TEXT";
 	case SystemRequestType::SET_WINDOW_TITLE: return "SET_WINDOW_TITLE";
-	case SystemRequestType::TOGGLE_FULLSCREEN_STATE: return "TOGGLE_FULLSCREEN_STATE";
+	case SystemRequestType::APPLY_FULLSCREEN_STATE: return "SET_FULLSCREEN_STATE";
 	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT: return "GRAPHICS_BACKEND_FAILED_ALERT";
 	case SystemRequestType::CREATE_GAME_SHORTCUT: return "CREATE_GAME_SHORTCUT";
 	case SystemRequestType::SHOW_FILE_IN_FOLDER: return "SHOW_FILE_IN_FOLDER";

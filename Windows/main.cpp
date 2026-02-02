@@ -724,15 +724,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}).detach();
 		return true;
 
-	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{
-		bool flag = !g_Config.bFullScreen;
-		if (param1 == "0") {
-			flag = false;
-		} else if (param1 == "1") {
-			flag = true;
-		}
-		MainWindow::SendToggleFullscreen(flag);
+		MainWindow::SendApplyFullscreenState();
 		return true;
 	}
 	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT:

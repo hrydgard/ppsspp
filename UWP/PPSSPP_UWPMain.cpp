@@ -581,7 +581,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		winrt::Windows::ApplicationModel::DataTransfer::Clipboard::SetContent(dataPackage);
 		return true;
 	}
-	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{
 		auto view = winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 		bool flag = !view.IsFullScreenMode();
@@ -590,9 +590,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		} else if (param1 == "1"){
 			flag = true;
 		}
-		if (flag) {
+		if (flag && g_Config.bFullScreen) {
 			view.TryEnterFullScreenMode();
-		} else {
+		} else if (!g_Config.bFullScreen){
 			view.ExitFullScreenMode();
 		}
 		return true;
