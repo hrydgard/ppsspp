@@ -22,7 +22,7 @@ static const ButtonInputMapping g_psInputMappings[] = {
 	{PS_BTN_R3, NKCODE_BUTTON_THUMBR},
 };
 
-void GetPSInputMappings(const ButtonInputMapping **mappings, size_t *size) {
+void GetPSButtonInputMappings(const ButtonInputMapping **mappings, size_t *size) {
 	*mappings = g_psInputMappings;
 	*size = ARRAY_SIZE(g_psInputMappings);
 }
@@ -165,16 +165,4 @@ bool ReadDualShockInput(HANDLE handle, HIDControllerState *state, int inReportSi
 
 	state->buttons = buttons;
 	return true;
-}
-
-// Standard CRC32 used by PlayStation controllers
-uint32_t ComputePSControllerCRC(uint8_t* data, size_t len) {
-	uint32_t crc = 0xFFFFFFFF;
-	for (size_t i = 0; i < len; i++) {
-		crc ^= data[i];
-		for (int j = 0; j < 8; j++) {
-			crc = (crc >> 1) ^ (0xEDB88320 & (-(int32_t)(crc & 1)));
-		}
-	}
-	return ~crc;
 }

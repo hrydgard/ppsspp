@@ -60,10 +60,10 @@ constexpr u16 PS_CLASSIC = 0x0CDA;
 // We pick a few ones from here to support, let's add more later.
 // https://github.com/ds4windowsapp/DS4Windows/blob/65609b470f53a4f832fb07ac24085d3e28ec15bd/DS4Windows/DS4Library/DS4Devices.cs#L126
 static const HIDControllerInfo g_psInfos[] = {
-	{SONY_VID, 0x05C4, HIDControllerType::DS4, "DS4 v.1"},
-	{SONY_VID, 0x09CC, HIDControllerType::DS4, "DS4 v.2"},
-	{SONY_VID, 0x0CE6, HIDControllerType::DS5, "DualSense"},
-	{SONY_VID, PS_CLASSIC, HIDControllerType::DS4, "PS Classic"},
+	{SONY_VID, 0x05C4, HIDControllerType::DualShock, "DS4 v.1"},
+	{SONY_VID, 0x09CC, HIDControllerType::DualShock, "DS4 v.2"},
+	{SONY_VID, 0x0CE6, HIDControllerType::DualSense, "DualSense"},
+	{SONY_VID, PS_CLASSIC, HIDControllerType::DualShock, "PS Classic"},
 	{NINTENDO_VID, SWITCH_PRO_PID, HIDControllerType::SwitchPro, "Switch Pro"},
 	// {PSSubType::DS4, DS4_WIRELESS},
 	// {PSSubType::DS5, DUALSENSE_WIRELESS},
@@ -124,10 +124,10 @@ static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize
 					INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", *outReportSize);
 					bool result;
 					switch (*subType) {
-					case HIDControllerType::DS5:
+					case HIDControllerType::DualSense:
 						result = InitializeDualSense(handle, *outReportSize);
 						break;
-					case HIDControllerType::DS4:
+					case HIDControllerType::DualShock:
 						result = InitializeDualShock(handle, *outReportSize);
 						break;
 					case HIDControllerType::SwitchPro:
@@ -162,10 +162,10 @@ void HidInputDevice::Init() {}
 void HidInputDevice::Shutdown() {
 	if (controller_) {
 		switch (subType_) {
-		case HIDControllerType::DS4:
+		case HIDControllerType::DualShock:
 			ShutdownDualShock(controller_, outReportSize_);
 			break;
-		case HIDControllerType::DS5:
+		case HIDControllerType::DualSense:
 			ShutdownDualsense(controller_, outReportSize_);
 			break;
 		}
@@ -232,15 +232,15 @@ int HidInputDevice::UpdateState() {
 		bool result = false;
 		const ButtonInputMapping *buttonMappings = nullptr;
 		size_t buttonMappingsSize = 0;
-		if (subType_ == HIDControllerType::DS4) {
+		if (subType_ == HIDControllerType::DualShock) {
 			result = ReadDualShockInput(controller_, &state, inReportSize_);
-			GetPSInputMappings(&buttonMappings, &buttonMappingsSize);
-		} else if (subType_ == HIDControllerType::DS5) {
+			GetPSButtonInputMappings(&buttonMappings, &buttonMappingsSize);
+		} else if (subType_ == HIDControllerType::DualSense) {
 			result = ReadDualSenseInput(controller_, &state, inReportSize_);
-			GetPSInputMappings(&buttonMappings, &buttonMappingsSize);
+			GetPSButtonInputMappings(&buttonMappings, &buttonMappingsSize);
 		} else if (subType_ == HIDControllerType::SwitchPro) {
 			result = ReadSwitchProInput(controller_, &state);
-			GetSwitchInputMappings(&buttonMappings, &buttonMappingsSize);
+			GetSwitchButtonInputMappings(&buttonMappings, &buttonMappingsSize);
 		}
 
 		if (result) {
@@ -293,6 +293,7 @@ int HidInputDevice::UpdateState() {
 			prevState_ = state;
 			return UPDATESTATE_NO_SLEEP;  // The ReadFile sleeps for us, effectively.
 		} else {
+			WARN_LOG(Log::System, "Failed to read controller - assuming disconnected.");
 			// might have been disconnected. retry later.
 			KeyMap::NotifyPadDisconnected(deviceID);
 			ReleaseAllKeys(buttonMappings, (int)buttonMappingsSize);

@@ -44,7 +44,7 @@ static const ButtonInputMapping g_switchProInputMappings[] = {
 	{SWITCH_PRO_BTN_R3, NKCODE_BUTTON_THUMBR},
 };
 
-void GetSwitchInputMappings(const ButtonInputMapping **mappings, size_t *size) {
+void GetSwitchButtonInputMappings(const ButtonInputMapping **mappings, size_t *size) {
 	*mappings = g_switchProInputMappings;
 	*size = ARRAY_SIZE(g_switchProInputMappings);
 }

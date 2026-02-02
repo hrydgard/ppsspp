@@ -12,8 +12,8 @@
 #include "Common/CommonWindows.h"
 
 enum class HIDControllerType {
-	DS4,
-	DS5,
+	DualShock,
+	DualSense,
 	SwitchPro,
 };
 
@@ -45,7 +45,7 @@ public:
 
 	static void AddSupportedDevices(std::set<u32> *deviceVIDPIDs);
 	bool HasAccelerometer() const override {
-		return subType_ == HIDControllerType::DS5;
+		return subType_ == HIDControllerType::DualSense;
 	}
 private:
 	void ReleaseAllKeys(const ButtonInputMapping *buttonMappings, int count);
