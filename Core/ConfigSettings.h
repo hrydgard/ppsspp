@@ -212,7 +212,10 @@ struct ConfigSetting {
 		return defaultCallback_.i ? defaultCallback_.i() : default_.i;
 	}
 
-	std::string_view iniKey_;
+	std::string_view IniKey() const {
+		return iniKey_;
+	}
+
 	const char *ini2_ = nullptr;
 	const char *ini3_ = nullptr;
 	const char *ini4_ = nullptr;
@@ -229,6 +232,7 @@ struct ConfigSetting {
 	}
 
 private:
+	std::string_view iniKey_;
 	CfgFlag flags_;
 	DefaultValue default_{};
 	DefaultCallback defaultCallback_{};

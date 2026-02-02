@@ -965,9 +965,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			Native_UpdateScreenScale(new_width_px, new_height_px, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 			// Set variable here in case fullscreen was toggled by hotkey
-			if (g_Config.UseFullScreen() != fullscreen) {
+			if (g_Config.bFullScreen != fullscreen) {
 				g_Config.bFullScreen = fullscreen;
-				g_Config.iForceFullScreen = -1;
 			} else {
 				// It is possible for the monitor to change DPI, so recalculate
 				// DPI on each resize event.
@@ -1341,9 +1340,9 @@ void UpdateSDLCursor() {
 #if !defined(MOBILE_DEVICE)
 	if (lastUIState != GetUIState()) {
 		lastUIState = GetUIState();
-		if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !g_Config.bShowTouchControls)
+		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
 			SDL_ShowCursor(SDL_DISABLE);
-		if (lastUIState != UISTATE_INGAME || !g_Config.UseFullScreen())
+		if (lastUIState != UISTATE_INGAME || !g_Config.bFullScreen)
 			SDL_ShowCursor(SDL_ENABLE);
 	}
 #endif
@@ -1471,7 +1470,7 @@ int main(int argc, char *argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--fullscreen")) {
 			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-			g_Config.iForceFullScreen = 1;
+			g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
 		} else if (set_xres == -2)
 			set_xres = parseInt(argv[i]);
 		else if (set_yres == -2)
@@ -1578,8 +1577,7 @@ int main(int argc, char *argv[]) {
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
 		g_display.pixel_xres = g_DesktopWidth;
 		g_display.pixel_yres = g_DesktopHeight;
-		if (g_Config.iForceFullScreen == -1)
-			g_Config.bFullScreen = true;
+		g_Config.bFullScreen = true;
 	} else {
 		// set a sensible default resolution (2x)
 		g_display.pixel_xres = 480 * 2 * set_scale;
@@ -1587,8 +1585,7 @@ int main(int argc, char *argv[]) {
 		if (portrait) {
 			std::swap(g_display.pixel_xres, g_display.pixel_yres);
 		}
-		if (g_Config.iForceFullScreen == -1)
-			g_Config.bFullScreen = false;
+		g_Config.bFullScreen = false;
 	}
 
 	if (set_ipad) {
@@ -1639,7 +1636,7 @@ int main(int argc, char *argv[]) {
 	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
-	if (g_Config.UseFullScreen())
+	if (g_Config.bFullScreen)
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());

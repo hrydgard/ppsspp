@@ -75,7 +75,6 @@ namespace MainWindow
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
 	void Minimize();
 	void SendToggleFullscreen(bool fullscreen);  // To be used off-thread
-	bool IsFullscreen();
 	void ToggleDebugConsoleVisibility();
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);

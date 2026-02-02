@@ -726,7 +726,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
 	{
-		bool flag = !MainWindow::IsFullscreen();
+		bool flag = !g_Config.bFullScreen;
 		if (param1 == "0") {
 			flag = false;
 		} else if (param1 == "1") {
@@ -1122,7 +1122,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	if (iCmdShow == SW_MAXIMIZE) {
 		// Consider this to mean --fullscreen.
-		g_Config.iForceFullScreen = 1;
+		g_Config.bFullScreen = true;
+		g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
 	}
 
 	// Consider at least the following cases before changing this code:

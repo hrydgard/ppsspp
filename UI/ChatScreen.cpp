@@ -178,7 +178,7 @@ void ChatMenu::Update() {
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
+	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
 		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), false, [](const std::string &value, int) {
 			sendChat(value);
 		});

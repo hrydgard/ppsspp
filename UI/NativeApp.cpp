@@ -580,14 +580,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.iForceFullScreen = 1;
+					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+					g_Config.bFullScreen = true;
 					System_ToggleFullscreenState("1");
 				}
 				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
 					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
 				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.iForceFullScreen = 0;
+					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+					g_Config.bFullScreen = false;
 					System_ToggleFullscreenState("0");
 				}
 				if (!strcmp(argv[i], "--touchscreentest"))

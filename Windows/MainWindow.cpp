@@ -155,7 +155,6 @@ namespace MainWindow {
 	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
-	static bool g_isFullscreen = false;
 	static bool g_keepScreenBright = false;
 
 	static bool disasmMapLoadPending = false;
@@ -194,7 +193,7 @@ namespace MainWindow {
 	}
 
 	void SavePosition() {
-		if (g_Config.UseFullScreen() || inFullscreenResize)
+		if (g_Config.bFullScreen || inFullscreenResize)
 			return;
 
 		WINDOWPLACEMENT placement{};
@@ -242,7 +241,7 @@ namespace MainWindow {
 	}
 
 	void CorrectCursor() {
-		bool autoHide = ((g_Config.UseFullScreen() && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
+		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
 		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -290,7 +289,7 @@ namespace MainWindow {
 		}
 
 		// Don't save the window state if fullscreen.
-		if (!g_Config.UseFullScreen()) {
+		if (!g_Config.bFullScreen) {
 			g_WindowState = newSizingType;
 		}
 	}
@@ -337,11 +336,7 @@ namespace MainWindow {
 		// Remove the menu bar if going fullscreen. This can trigger WM_SIZE because the contents change size.
 		::SetMenu(hWnd, goingFullscreen || !g_Config.bShowMenuBar ? NULL : g_hMenu);
 
-		if (g_Config.UseFullScreen() != goingFullscreen) {
-			g_Config.bFullScreen = goingFullscreen;
-			g_Config.iForceFullScreen = -1;
-		}
-		g_isFullscreen = goingFullscreen;
+		g_Config.bFullScreen = goingFullscreen;
 
 		g_IgnoreWM_SIZE = false;
 
@@ -402,7 +397,7 @@ namespace MainWindow {
 		bool resetPositionX = true;
 		bool resetPositionY = true;
 
-		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.UseFullScreen()) {
+		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.bFullScreen) {
 			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= virtualScreenX) &&
 				((g_Config.iWindowX + g_Config.iWindowWidth) < (virtualScreenWidth + g_Config.iWindowWidth));
 
@@ -507,7 +502,7 @@ namespace MainWindow {
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 
-		ToggleFullscreen(hwndMain, g_Config.UseFullScreen());
+		ToggleFullscreen(hwndMain, g_Config.bFullScreen);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -657,28 +652,23 @@ namespace MainWindow {
 			// Return game ID as four u32 values
 			// wParam: 0-3 = which u32 to return (chars 0-3, 4-7, 8-11, 12-15)
 			// Returns: packed u32 with 4 bytes of game ID
-			if (!PSP_IsInited())
-			{
+			if (!PSP_IsInited()) {
 				return 0;
 			}
 			const std::string gameID = Reporting::CurrentGameID();
-			if (gameID.empty())
-			{
+			if (gameID.empty()) {
 				return 0;
 			}
 			const size_t offset = (wParam & 0x3) * 4;  // 0, 4, 8, 12
 			u32 packed = 0;
-			for (size_t i = 0; i < 4; ++i)
-			{
-				if (offset + i < gameID.length())
-				{
+			for (size_t i = 0; i < 4; ++i) {
+				if (offset + i < gameID.length()) {
 					const u8 c = static_cast<u8>(gameID[offset + i]);
 					packed |= ((u32)c << (i * 8));
 				}
 			}
 			return packed;
 		}
-		break;
 		case WM_USER_GET_MODULE_INFO:
 		{
 			// Get module information by name
@@ -722,7 +712,6 @@ namespace MainWindow {
 			// Module not found
 			return 0;
 		}
-		break;
 
 		// Hack to kill the white line underneath the menubar.
 		// From https://stackoverflow.com/questions/57177310/how-to-paint-over-white-line-between-menu-bar-and-client-area-of-window
@@ -755,8 +744,8 @@ namespace MainWindow {
 				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
 				minmax->ptMinTrackSize.x = rc.right - rc.left;
 				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
+				return 0;
 			}
-			return 0;
 
 		case WM_ACTIVATE:
 			{
@@ -1138,7 +1127,7 @@ namespace MainWindow {
 					const float dy = lastMouseDownY - y;
 					const float distSq = dx * dx + dy * dy;
 					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
-						SendToggleFullscreen(!g_Config.UseFullScreen());
+						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDownTime = 0.0;
 				} else {
@@ -1250,10 +1239,6 @@ namespace MainWindow {
 
 	void SendToggleFullscreen(bool fullscreen) {
 		PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, fullscreen, 0);
-	}
-
-	bool IsFullscreen() {
-		return g_isFullscreen;
 	}
 
 	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {

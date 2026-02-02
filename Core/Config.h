@@ -306,7 +306,6 @@ public:
 	int iAppSwitchMode;
 	bool bFullScreen;
 	bool bFullScreenMulti;
-	int iForceFullScreen = -1; // -1 = nope, 0 = force off, 1 = force on (not saved.)
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	int iMultiSampleLevel;
@@ -690,12 +689,6 @@ public:
 	int NextValidBackend();
 	bool IsBackendEnabled(GPUBackend backend);
 
-	bool UseFullScreen() const {
-		if (iForceFullScreen != -1)
-			return iForceFullScreen == 1;
-		return bFullScreen;
-	}
-
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path) { appendedConfigFileName_ = path; }
 	void UpdateAfterSettingAutoFrameSkip();
@@ -717,6 +710,10 @@ public:
 	}
 
 	static int GetDefaultValueInt(int *configSetting);
+
+	void DoNotSaveSetting(void *configSetting) {
+		settingsNotToSave_.push_back(configSetting);
+	}
 
 private:
 	void LoadStandardControllerIni();
@@ -747,6 +744,9 @@ private:
 	Path appendedConfigFileName_;
 	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here
 	std::vector<std::string> appendedConfigUpdatedGames_;
+	std::vector<void *> settingsNotToSave_;
+
+	bool ShouldSaveSetting(const void *configSetting) const;
 };
 
 std::string CreateRandMAC();
