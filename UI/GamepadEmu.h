@@ -26,6 +26,15 @@
 #include "Core/HLE/sceCtrl.h"
 #include "UI/EmuScreen.h"
 
+struct TouchControlConfig;
+class ControlMapper;
+
+class GamepadEmuView : public UI::AnchorLayout {
+public:
+	GamepadEmuView(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper, UI::LayoutParams *layoutParams);
+	void Update() override;
+};
+
 class GamepadComponent : public UI::View {
 public:
 	GamepadComponent(const char *key, UI::LayoutParams *layoutParams);
@@ -34,6 +43,7 @@ public:
 		return false;
 	}
 	std::string DescribeText() const override;
+	virtual bool IsDown() const = 0;
 
 protected:
 	std::string key_;
@@ -48,7 +58,7 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	virtual bool IsDown() { return pointerDownMask_ != 0; }
+	bool IsDown() const override { return pointerDownMask_ != 0; }
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
 	MultiTouchButton *SetAngle(float angle) { angle_ = angle; bgAngle_ = angle; return this; }
@@ -77,7 +87,7 @@ public:
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), value_(value) {
 	}
 	bool Touch(const TouchInput &input) override;
-	bool IsDown() override { return *value_; }
+	bool IsDown() const override { return *value_; }
 
 	UI::Event OnChange;
 
@@ -91,7 +101,7 @@ public:
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
 	}
 	bool Touch(const TouchInput &input) override;
-	bool IsDown() override;
+	bool IsDown() const override;
 
 private:
 	int pspButtonBit_;
@@ -104,6 +114,7 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	bool IsDown() const override { return down_ != 0; }
 
 private:
 	void ProcessTouch(float x, float y, bool down);
@@ -125,9 +136,10 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	bool IsDown() const override { return dragPointerId_ != -1; }
 
 protected:
-	int dragPointerId_;
+	int dragPointerId_ = -1;
 	ImageID bgImg_;
 	ImageID stickImageIndex_;
 	ImageID stickDownImg_;
@@ -136,8 +148,8 @@ protected:
 	float stick_size_;
 	float scale_;
 
-	float centerX_;
-	float centerY_;
+	float centerX_ = -1.0f;
+	float centerY_ = -1.0f;
 
 private:
 	void ProcessTouch(float x, float y, bool down);
@@ -173,7 +185,7 @@ public:
 	}
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
-	bool IsDown() override;
+	bool IsDown() const override;
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
