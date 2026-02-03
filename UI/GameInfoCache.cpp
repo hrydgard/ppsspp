@@ -881,6 +881,9 @@ handleELF:
 			case IdentifiedFileType::NORMAL_DIRECTORY:
 			default:
 				info_->title = info_->GetFilePath().GetFilename();
+				if (info_->errorString.empty()) {
+					info_->errorString = errorString;
+				}
 				break;
 		}
 

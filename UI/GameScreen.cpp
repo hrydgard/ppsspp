@@ -224,6 +224,10 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		TextView *tvID = mainGameInfo->Add(new TextView(regionID, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvID->SetShadow(true);
+
+		if (!info_->errorString.empty()) {
+			mainGameInfo->Add(new NoticeView(NoticeLevel::WARN, info_->errorString, ""));
+		}
 	}
 
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));

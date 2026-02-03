@@ -340,7 +340,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		// Trying to boot other things lands us here. We need to return a sensible error string.
 		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		*errorString = sy->T("Not a PSP game");
+		if (errorString->empty()) {
+			*errorString = sy->T("Not a PSP game");
+		}
 		return false;
 	}
 	}

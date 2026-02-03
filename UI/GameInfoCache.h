@@ -167,6 +167,8 @@ public:
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
 
+	std::string errorString;
+
 protected:
 	ParamSFOData paramSFO;
 	// Note: this can change while loading, use GetTitle().
