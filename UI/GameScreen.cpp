@@ -126,13 +126,13 @@ static bool FileTypeHasIcon(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 		return true;
 	default:
 		return false;
 	}
 }
 
-// Reverse logic.
 static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	switch (fileType) {
 	case IdentifiedFileType::ERROR_IDENTIFYING:
@@ -145,6 +145,8 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	case IdentifiedFileType::UNKNOWN_ISO:
 	case IdentifiedFileType::NORMAL_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+		// Reverse logic.
 		return false;
 	default:
 		return true;
@@ -224,14 +226,27 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		TextView *tvID = mainGameInfo->Add(new TextView(regionID, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvID->SetShadow(true);
+
+		if (!info_->errorString.empty()) {
+			mainGameInfo->Add(new NoticeView(NoticeLevel::WARN, info_->errorString, ""));
+		}
 	}
 
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 	leftColumn->Add(infoLayout);
 
+	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+		auto er = GetI18NCategory(I18NCat::ERRORS);
+		leftColumn->Add(new NoticeView(NoticeLevel::INFO, er->T("PPSSPP doesn't support UMD Video."), ""));
+		leftColumn->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/umd-video/");
+		});
+	}
+
 	if ((knownFlags_ & GameInfoFlags::UNCOMPRESSED_SIZE) && (knownFlags_ & GameInfoFlags::SIZE)) {
+		auto st = GetI18NCategory(I18NCat::STORE);  // Borrow the size string from here
 		char temp[256];
-		snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("Game"), NiceSizeFormat(info_->gameSizeOnDisk).c_str());
+		snprintf(temp, sizeof(temp), "%s: %s", st->T_cstr("Size"), NiceSizeFormat(info_->gameSizeOnDisk).c_str());
 		if (info_->gameSizeUncompressed != info_->gameSizeOnDisk) {
 			size_t len = strlen(temp);
 			snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info_->gameSizeUncompressed).c_str());

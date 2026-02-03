@@ -95,7 +95,7 @@ public:
 	// NOTE: This one actually performs I/O directly, not cached.
 	std::string GetMTime() const;
 
-	void ParseParamSFO();
+	void ParseParamSFO(IdentifiedFileType type);
 	const ParamSFOData &GetParamSFO() const {
 		_dbg_assert_(hasFlags & GameInfoFlags::PARAM_SFO);
 		return paramSFO;
@@ -166,6 +166,8 @@ public:
 	u64 gameSizeOnDisk = 0;  // compressed size, in case of CSO
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
+
+	std::string errorString;
 
 protected:
 	ParamSFOData paramSFO;

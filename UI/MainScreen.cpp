@@ -81,6 +81,15 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		// If is a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
 	} else {
+		// Check if we already know that this game isn't playable.
+		auto info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE);
+
+		if (info->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+			// We show info about it.
+			screenManager->push(new GameScreen(path, false));
+			return;
+		}
+
 		if (currentScreen) {
 			screenManager->cancelScreensAbove(currentScreen);
 		}
@@ -136,6 +145,7 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 		if (image.isValid()) {
 			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(image);
 			if (img && img->h > 0) {
+				dc.RebindTexture();
 				dc.Draw()->DrawImage(image, bounds.centerX(), bounds.y + y + 2, iconSize / (float)img->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
 			}
 		}
@@ -312,22 +322,6 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	if (imageIcon.isValid()) {
-		Style style = dc.GetTheme().itemStyle;
-
-		if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
-		if (down_) style = dc.GetTheme().itemDownStyle;
-		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
-
-		dc.FillRect(style.background, bounds_);
-		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, gridStyle_, style);
-
-		if (overlayColor) {
-			dc.FillRect(Drawable(overlayColor), overlayBounds);
-		}
-		return;
-	}
-
 	if (ginfo->Ready(GameInfoFlags::ICON) && ginfo->icon.texture) {
 		texture = ginfo->icon.texture;
 	}
@@ -393,6 +387,21 @@ void GameButton::Draw(UIContext &dc) {
 		dc.GetDrawContext()->BindTexture(0, texture);
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
+	}
+
+	if (imageIcon.isValid()) {
+		Style style = dc.GetTheme().itemStyle;
+
+		if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
+		if (down_) style = dc.GetTheme().itemDownStyle;
+		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+
+		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, gridStyle_, style);
+
+		if (overlayColor) {
+			dc.FillRect(Drawable(overlayColor), overlayBounds);
+		}
+		return;
 	}
 
 	char discNumInfo[8];
@@ -1078,7 +1087,6 @@ void GameBrowser::GameButtonClick(UI::EventParams &e) {
 	GameButton *button = static_cast<GameButton *>(e.v);
 	UI::EventParams e2{};
 	e2.s = button->GamePath().ToString();
-	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
 }
 
@@ -1086,12 +1094,10 @@ void GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
 	GameButton *button = static_cast<GameButton *>(e.v);
 	UI::EventParams e2{};
 	e2.s = button->GamePath().ToString();
-	// Insta-update - here we know we are already on the right thread.
 	OnHoldChoice.Trigger(e2);
 }
 
 void GameBrowser::GameButtonHighlight(UI::EventParams &e) {
-	// Insta-update - here we know we are already on the right thread.
 	OnHighlight.Trigger(e);
 }
 
