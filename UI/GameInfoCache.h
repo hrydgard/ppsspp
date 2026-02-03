@@ -95,7 +95,7 @@ public:
 	// NOTE: This one actually performs I/O directly, not cached.
 	std::string GetMTime() const;
 
-	void ParseParamSFO();
+	void ParseParamSFO(IdentifiedFileType type);
 	const ParamSFOData &GetParamSFO() const {
 		_dbg_assert_(hasFlags & GameInfoFlags::PARAM_SFO);
 		return paramSFO;

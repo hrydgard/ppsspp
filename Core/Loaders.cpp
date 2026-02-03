@@ -605,6 +605,7 @@ const char *IdentifiedFileTypeToString(IdentifiedFileType type) {
 	case IdentifiedFileType::PSX_ISO: return "PSX_ISO";
 	case IdentifiedFileType::PS2_ISO: return "PS2_ISO";
 	case IdentifiedFileType::PS3_ISO: return "PS3_ISO";
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: return "UMD_VIDEO";
 	case IdentifiedFileType::NORMAL_DIRECTORY: return "NORMAL_DIRECTORY";
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: return "PSP_SAVEDATA_DIRECTORY";
 	case IdentifiedFileType::PPSSPP_SAVESTATE: return "PPSSPP_SAVESTATE";
