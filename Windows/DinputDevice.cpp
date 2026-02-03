@@ -33,7 +33,7 @@
 #include "Common/System/NativeApp.h"
 #include "Core/KeyMap.h"
 #include "Windows/DinputDevice.h"
-#include "Windows/HidInputDevice.h"
+#include "Windows/Hid/HidInputDevice.h"
 
 #pragma comment(lib,"dinput8.lib")
 

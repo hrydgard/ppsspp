@@ -691,7 +691,11 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="HidInputDevice.cpp" />
+    <ClCompile Include="HID\DualSense.cpp" />
+    <ClCompile Include="HID\DualShock.cpp" />
+    <ClCompile Include="Hid\HidCommon.cpp" />
+    <ClCompile Include="Hid\HidInputDevice.cpp" />
+    <ClCompile Include="HID\SwitchPro.cpp" />
     <ClCompile Include="InputDevice.cpp" />
     <ClCompile Include="MainWindowMenu.cpp" />
     <ClCompile Include="RawInput.cpp" />
@@ -1148,7 +1152,11 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="GPU\WindowsGraphicsContext.h" />
-    <ClInclude Include="HidInputDevice.h" />
+    <ClInclude Include="HID\DualSense.h" />
+    <ClInclude Include="HID\DualShock.h" />
+    <ClInclude Include="Hid\HidCommon.h" />
+    <ClInclude Include="Hid\HidInputDevice.h" />
+    <ClInclude Include="HID\SwitchPro.h" />
     <ClInclude Include="InputDevice.h" />
     <ClInclude Include="MainWindowMenu.h" />
     <ClInclude Include="RawInput.h" />

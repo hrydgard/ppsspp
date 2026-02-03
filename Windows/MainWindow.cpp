@@ -851,28 +851,29 @@ namespace MainWindow {
 			GetWindowPlacement(hWnd, &wp);
 			if (!g_Config.bFullScreen) {
 				g_Config.iWindowSizeState = (int)ShowCmdToWindowSizeState(wp.showCmd);
-				switch (wp.showCmd) {
-				case SW_SHOWNORMAL:
-				case SW_SHOWMAXIMIZED:
-					if (hasFocus) {
-						g_InputManager.GainFocus();
-					}
-					if (g_wasMinimized) {
-						System_PostUIMessage(UIMessage::WINDOW_RESTORED, "true");
-						g_wasMinimized = false;
-					}
-					break;
-				case SW_SHOWMINIMIZED:
-					Native_NotifyWindowHidden(true);
-					if (!g_Config.bPauseWhenMinimized) {
-						System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
-					}
-					g_InputManager.LoseFocus();
-					g_wasMinimized = true;
-					break;
-				default:
-					break;
+			}
+
+			switch (wp.showCmd) {
+			case SW_SHOWNORMAL:
+			case SW_SHOWMAXIMIZED:
+				if (hasFocus) {
+					g_InputManager.GainFocus();
 				}
+				if (g_wasMinimized) {
+					System_PostUIMessage(UIMessage::WINDOW_RESTORED, "true");
+					g_wasMinimized = false;
+				}
+				break;
+			case SW_SHOWMINIMIZED:
+				Native_NotifyWindowHidden(true);
+				if (!g_Config.bPauseWhenMinimized) {
+					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
+				}
+				g_InputManager.LoseFocus();
+				g_wasMinimized = true;
+				break;
+			default:
+				break;
 			}
 
 			if (sizeChanged) {
