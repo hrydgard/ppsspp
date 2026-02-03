@@ -26,9 +26,9 @@
 #include "Core/HLE/sceCtrl.h"
 #include "UI/EmuScreen.h"
 
-class GamepadView : public UI::View {
+class GamepadComponent : public UI::View {
 public:
-	GamepadView(const char *key, UI::LayoutParams *layoutParams);
+	GamepadComponent(const char *key, UI::LayoutParams *layoutParams);
 
 	bool Key(const KeyInput &input) override {
 		return false;
@@ -39,10 +39,10 @@ protected:
 	std::string key_;
 };
 
-class MultiTouchButton : public GamepadView {
+class MultiTouchButton : public GamepadComponent {
 public:
 	MultiTouchButton(const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
-		: GamepadView(key, layoutParams), scale_(scale), bgImg_(bgImg), bgDownImg_(bgDownImg), img_(img) {
+		: GamepadComponent(key, layoutParams), scale_(scale), bgImg_(bgImg), bgDownImg_(bgDownImg), img_(img) {
 	}
 
 	bool Touch(const TouchInput &input) override;
@@ -97,7 +97,7 @@ private:
 	int pspButtonBit_;
 };
 
-class PSPDpad : public GamepadView {
+class PSPDpad : public GamepadComponent {
 public:
 	PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams);
 
@@ -118,7 +118,7 @@ private:
 	int down_;
 };
 
-class PSPStick : public GamepadView {
+class PSPStick : public GamepadComponent {
 public:
 	PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams);
 

@@ -85,9 +85,9 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
+GamepadComponent::GamepadComponent(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
-std::string GamepadView::DescribeText() const {
+std::string GamepadComponent::DescribeText() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	return std::string(co->T(key_));
 }
@@ -110,7 +110,7 @@ bool MultiTouchButton::CanGlide() const {
 bool MultiTouchButton::Touch(const TouchInput &input) {
 	_dbg_assert_(input.id >= 0 && input.id < TOUCH_MAX_POINTERS);
 
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 	if ((input.flags & TouchInputFlags::DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
@@ -286,7 +286,7 @@ bool PSPButton::IsDown() {
 }
 
 PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
-	: GamepadView(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
+	: GamepadComponent(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
 		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
 }
 
@@ -302,7 +302,7 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 bool PSPDpad::Touch(const TouchInput &input) {
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
@@ -430,7 +430,7 @@ void PSPDpad::Draw(UIContext &dc) {
 }
 
 PSPStick::PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
-	: GamepadView(key, layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
+	: GamepadComponent(key, layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
 	stick_size_ = 50;
 }
 
@@ -474,7 +474,7 @@ void PSPStick::Draw(UIContext &dc) {
 }
 
 bool PSPStick::Touch(const TouchInput &input) {
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
@@ -585,7 +585,7 @@ void PSPCustomStick::Draw(UIContext &dc) {
 }
 
 bool PSPCustomStick::Touch(const TouchInput &input) {
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();

@@ -22,7 +22,7 @@
 #include "SimpleDialogScreen.h"
 
 class JoystickHistoryView;
-class GamepadView;
+class GamepadComponent;
 
 class TiltAnalogSettingsScreen : public UITwoPaneBaseDialogScreen {
 public:
