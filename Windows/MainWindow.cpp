@@ -163,7 +163,6 @@ namespace MainWindow {
 
 	static bool mouseButtonDown = false;
 	static bool hideCursor = false;
-	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
 	static bool g_keepScreenBright = false;
@@ -171,6 +170,8 @@ namespace MainWindow {
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
 	static bool g_wasMinimized = false;
+	static bool g_inForcedResize = false;
+
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
@@ -205,6 +206,10 @@ namespace MainWindow {
 	}
 
 	void SavePosition() {
+		if (g_Config.bFullScreen) {
+			// Don't save the position of the full screen window. We keep the old saved position around.
+			return;
+		}
 		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
 		WindowSizeState sizeState = ShowCmdToWindowSizeState(placement.showCmd);
@@ -231,8 +236,9 @@ namespace MainWindow {
 	void SetWindowSize(int zoom) {
 		AssertCurrentThreadName("Main");
 
-		if (g_Config.bFullScreen || inFullscreenResize)
+		if (g_Config.bFullScreen) {
 			return;
+		}
 
 		// Actually, auto mode should be more granular...
 		int width, height;
@@ -381,7 +387,6 @@ namespace MainWindow {
 				SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 		}
 
-		inFullscreenResize = false;
 		CorrectCursor();
 
 		ShowOwnedPopups(hwndMain, goFullscreen ? FALSE : TRUE);
@@ -493,6 +498,8 @@ namespace MainWindow {
 		if (!hwndMain)
 			return FALSE;
 
+		g_inForcedResize = true;
+
 		g_hMenu = GetMenu(hwndMain);
 
 		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
@@ -527,6 +534,9 @@ namespace MainWindow {
 		UpdateWindow(hwndMain);
 
 		SetFocus(hwndMain);
+
+		g_inForcedResize = false;
+
 		return TRUE;
 	}
 
@@ -877,7 +887,8 @@ namespace MainWindow {
 			}
 
 			if (sizeChanged) {
-				if (g_Config.bFullScreen) {
+				// Check that we're not in a resize that we ourselves are performing.
+				if (g_Config.bFullScreen && !g_inForcedResize) {
 					MONITORINFO mi = {sizeof(mi)};
 					if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
 						int monWidth = mi.rcMonitor.right - mi.rcMonitor.left;
@@ -902,7 +913,6 @@ namespace MainWindow {
 				if (!inResizeMove) {
 					HandleSizeChange();
 				}
-
 			}
 			return 0;
 		}
