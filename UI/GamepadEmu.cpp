@@ -85,7 +85,7 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadComponent::GamepadComponent(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
+GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
 std::string GamepadComponent::DescribeText() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
@@ -213,7 +213,7 @@ bool CustomButton::IsDown() const {
 
 void CustomButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	MultiTouchButton::GetContentDimensions(dc, w, h);
-	if (invertedContextDimension_) {
+	if (invertedContentDimension_) {
 		float tmp = w;
 		w = h;
 		h = tmp;
@@ -285,7 +285,7 @@ bool PSPButton::IsDown() const {
 	return (__CtrlPeekButtonsVisual() & pspButtonBit_) != 0;
 }
 
-PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
+PSPDpad::PSPDpad(ImageID arrowIndex, std::string_view key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
 	: GamepadComponent(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
 		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
 }
@@ -429,7 +429,7 @@ void PSPDpad::Draw(UIContext &dc) {
 	}
 }
 
-PSPStick::PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
+PSPStick::PSPStick(ImageID bgImg, std::string_view key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
 	: GamepadComponent(key, layoutParams), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale) {
 	stick_size_ = 50;
 }
@@ -920,7 +920,7 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 		return new AnchorLayoutParams(touch.x * xres + off.x, touch.y * yres + off.y, NONE, NONE, Centering::Both);
 	};
 
-	// Space between the PSP buttons (traingle, circle, square and cross)
+	// Space between the PSP buttons (triangle, circle, square and cross)
 	const float actionButtonSpacing = config.fActionButtonSpacing * baseActionButtonSpacing;
 	// Position of the circle button (the PSP circle button).  It is the farthest to the right.
 	ButtonOffset circleOffset{ actionButtonSpacing, 0.0f };
