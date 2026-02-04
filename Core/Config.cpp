@@ -289,14 +289,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RightAnalogPress", SETTING(g_Config, iRightAnalogPress), 0, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogCustom", SETTING(g_Config, bRightAnalogCustom), false, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogDisableDiagonal", SETTING(g_Config, bRightAnalogDisableDiagonal), false, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeUp", SETTING(g_Config, iSwipeUp), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeDown", SETTING(g_Config, iSwipeDown), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeLeft", SETTING(g_Config, iSwipeLeft), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeRight", SETTING(g_Config, iSwipeRight), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeSensitivity", SETTING(g_Config, fSwipeSensitivity), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeSmoothing", SETTING(g_Config, fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
-	ConfigSetting("DoubleTapGesture", SETTING(g_Config, iDoubleTapGesture), 0, CfgFlag::PER_GAME),
-	ConfigSetting("GestureControlEnabled", SETTING(g_Config, bGestureControlEnabled), false, CfgFlag::PER_GAME),
+
 	ConfigSetting("TouchGliding", SETTING(g_Config, bTouchGliding), false, CfgFlag::PER_GAME),
 
 	// "default" means let emulator decide, "" means disable.
@@ -680,6 +673,27 @@ static const ConfigSetting displayLayoutSettings[] = {
 	ConfigSetting("ImmersiveMode", SETTING(g_Config.displayLayoutLandscape, bImmersiveMode), CfgFlag::PER_GAME),
 };
 
+bool GestureControlConfig::ResetToDefault(std::string_view blockName) {
+	static const GestureControlConfig defaultLayout;
+	*this = defaultLayout;
+	// TODO: Check blockname to set defaults differently for secondary zone(s).
+	return true;
+}
+
+// These were previously mostly part of General (which was wrong).
+static const ConfigSetting gestureControlSettings[] = {
+	ConfigSetting("SwipeUp", SETTING(g_Config.gestureControlsZone1, iSwipeUp), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeDown", SETTING(g_Config.gestureControlsZone1, iSwipeDown), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeLeft", SETTING(g_Config.gestureControlsZone1, iSwipeLeft), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeRight", SETTING(g_Config.gestureControlsZone1, iSwipeRight), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSensitivity", SETTING(g_Config.gestureControlsZone1, fSwipeSensitivity), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSmoothing", SETTING(g_Config.gestureControlsZone1, fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
+	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControlsZone1, iDoubleTapGesture), 0, CfgFlag::PER_GAME),
+	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControlsZone1, bGestureControlEnabled), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControlsZone1, bAnalogGesture), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControlsZone1, fAnalogGestureSensibility), 1.0f, CfgFlag::PER_GAME),
+};
+
 static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
@@ -1012,9 +1026,6 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("SystemControls", SETTING(g_Config, bSystemControls), true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
-
-	ConfigSetting("AnalogGesture", SETTING(g_Config, bAnalogGesture), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config, fAnalogGestureSensibility), 1.0f, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting networkSettings[] = {
@@ -1139,6 +1150,7 @@ static const ConfigSectionMeta g_sectionMeta[] = {
 	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 	{ &g_Config.touchControlsLandscape, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Landscape", "Control" },  // We read the old settings from [Control], since most people played in landscape before.
 	{ &g_Config.touchControlsPortrait, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config.gestureControlsZone1, gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Zone1", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
 };
 
 ConfigBlock *GetConfigBlockForSection(std::string_view sectionName) {
@@ -1257,7 +1269,8 @@ void Config::ReadAllSettings(const IniFile &iniFile) {
 			applyDefaultPerSetting = false;
 		}
 		for (size_t j = 0; j < meta.settingsCount; j++) {
-			meta.settings[j].ReadFromIniSection(configBlock, section, applyDefaultPerSetting);
+			const ConfigSetting &setting = meta.settings[j];
+			setting.ReadFromIniSection(configBlock, section, applyDefaultPerSetting);
 		}
 	}
 }

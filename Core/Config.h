@@ -145,6 +145,24 @@ struct TouchControlConfig : public ConfigBlock {
 	size_t Size() const override { return sizeof(TouchControlConfig); }  // For sanity checks
 };
 
+struct GestureControlConfig : public ConfigBlock {
+	// Motion gesture controller
+	bool bGestureControlEnabled = false;
+	int iSwipeUp = 0;
+	int iSwipeDown = 0;
+	int iSwipeLeft = 0;
+	int iSwipeRight = 0;
+	float fSwipeSensitivity = 1.0f;
+	float fSwipeSmoothing = 0.5f;
+	int iDoubleTapGesture = 0;
+	bool bAnalogGesture = false;
+	float fAnalogGestureSensibility = 1.0f;
+
+	bool CanResetToDefault() const override { return true; }
+	bool ResetToDefault(std::string_view blockName) override;
+	size_t Size() const override { return sizeof(GestureControlConfig); }  // For sanity checks
+};
+
 struct Config : public ConfigBlock {
 public:
 	~Config();
@@ -444,17 +462,8 @@ public:
 	bool bRightAnalogCustom;
 	bool bRightAnalogDisableDiagonal;
 
-	// Motion gesture controller
-	bool bGestureControlEnabled;
-	int iSwipeUp;
-	int iSwipeDown;
-	int iSwipeLeft;
-	int iSwipeRight;
-	float fSwipeSensitivity;
-	float fSwipeSmoothing;
-	int iDoubleTapGesture;
-	bool bAnalogGesture;
-	float fAnalogGestureSensibility;
+	// Currently only one zone, but we will split this into left/right probably.
+	GestureControlConfig gestureControlsZone1;
 
 	// Controls Visibility
 	bool bShowTouchControls = false;

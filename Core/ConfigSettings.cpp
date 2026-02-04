@@ -14,7 +14,7 @@ bool ConfigSetting::PerGame(void *ptr) {
 
 bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {
 	char *owner = (char *)configBlock;
-	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
+	_dbg_assert_msg_(offset_ >= 0 && offset_ < configBlock->Size(), "offset: %d size: %d", (int)offset_, (int)configBlock->Size());
 
 	switch (type_) {
 	case Type::TYPE_BOOL:

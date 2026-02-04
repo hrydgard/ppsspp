@@ -206,6 +206,8 @@ private:
 	bool invertedContentDimension_; // Swap width and height
 };
 
+struct GestureControlConfig;
+
 class GestureGamepad : public UI::View {
 public:
 	explicit GestureGamepad(ControlMapper* controlMapper) : controlMapper_(controlMapper) {}
@@ -214,7 +216,8 @@ public:
 	void Update() override;
 	void Draw(UIContext &dc) override;
 
-protected:
+private:
+	const GestureControlConfig &GetZone();
 
 	float lastX_ = 0.0f;
 	float lastY_ = 0.0f;
