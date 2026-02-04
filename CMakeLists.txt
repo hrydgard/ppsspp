@@ -410,7 +410,7 @@ if(NOT MSVC)
 	# NEON optimizations in libpng17 seem to cause PNG load errors, see #14485.
 	add_compile_definitions(PNG_ARM_NEON_OPT=0)
 
-	add_compile_options(-Wall -Werror=return-type -Wno-unused-function -Wno-sign-compare -Wno-unused-but-set-variable "$<$<COMPILE_LANGUAGE:CXX>:-Wno-reorder>" -Wno-unknown-pragmas -Wno-unused-value -Wno-unused-variable)
+	add_compile_options(-Wall -Werror=return-type -Wno-unused-function -Wno-sign-compare -Wno-unused-but-set-variable "$<$<COMPILE_LANGUAGE:CXX>:-Wno-reorder>" -Wno-unknown-pragmas -Wno-unused-value -Wno-unused-variable -Wno-error=incompatible-pointer-types)
 	if(NOT CLANG)
 		# This one is very useful but has many false positives.
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Wno-class-memaccess>")
