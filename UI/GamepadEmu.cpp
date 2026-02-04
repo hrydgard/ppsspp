@@ -1029,8 +1029,11 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 		addCustomButton(g_Config.CustomButton[i], temp, config.touchCustom[i]);
 	}
 
-	if (g_Config.gestureControlsZone1.bGestureControlEnabled) {
-		Add(new GestureGamepad(controlMapper));
+	// Add the two gesture zones.
+	for (int i = 0; i < 2; i++) {
+		if (g_Config.gestureControls[i].bGestureControlEnabled) {
+			Add(new GestureGamepad(controlMapper, i));
+		}
 	}
 }
 
@@ -1055,7 +1058,7 @@ void GamepadEmuView::Update() {
 
 const GestureControlConfig &GestureGamepad::GetZone() {
 	// TODO: Add support for multiple zones.
-	return g_Config.gestureControlsZone1;
+	return g_Config.gestureControls[zoneIndex_];
 }
 
 bool GestureGamepad::Touch(const TouchInput &input) {

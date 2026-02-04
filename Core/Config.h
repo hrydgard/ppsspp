@@ -462,8 +462,8 @@ public:
 	bool bRightAnalogCustom;
 	bool bRightAnalogDisableDiagonal;
 
-	// Currently only one zone, but we will split this into left/right probably.
-	GestureControlConfig gestureControlsZone1;
+	// 0 for left, 1 for right
+	GestureControlConfig gestureControls[2];
 
 	// Controls Visibility
 	bool bShowTouchControls = false;

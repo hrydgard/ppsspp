@@ -2010,13 +2010,13 @@ void HostnameSelectScreen::OnCompleted(DialogResult result) {
 }
 
 void GestureMappingScreen::CreateTabs() {
-	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	AddTab("Gesture", co->T("Gesture"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent); });
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	AddTab("Gesture", di->T("Left side"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent, 0, GetDeviceOrientation() == DeviceOrientation::Portrait); });
+	AddTab("Gesture", di->T("Right side"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent, 1, GetDeviceOrientation() == DeviceOrientation::Portrait); });
 }
 
-void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert) {
+void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneIndex, bool portrait) {
 	using namespace UI;
-
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
@@ -2027,8 +2027,13 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert) {
 		gestureButton[i] = KeyMap::GetPspButtonNameCharPointer(GestureKey::keyList[i - 1]);
 	}
 
-	GestureControlConfig &zone = g_Config.gestureControlsZone1;
+	GestureControlConfig &zone = g_Config.gestureControls[zoneIndex];
 
+	TopBarFlags flags = TopBarFlags::NoBackButton;
+	if (portrait) {
+		flags |= TopBarFlags::Portrait;
+	}
+	vert->Add(new TopBar(*screenManager()->getUIContext(), flags, ApplySafeSubstitutions("%1: %2", co->T("Gesture"), di->T(zoneIndex == 0 ? "Left side" : "Right side"))));
 	vert->Add(new CheckBox(&zone.bGestureControlEnabled, co->T("Enable gesture control")));
 
 	vert->Add(new ItemHeader(co->T("Swipe")));

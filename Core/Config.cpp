@@ -682,16 +682,16 @@ bool GestureControlConfig::ResetToDefault(std::string_view blockName) {
 
 // These were previously mostly part of General (which was wrong).
 static const ConfigSetting gestureControlSettings[] = {
-	ConfigSetting("SwipeUp", SETTING(g_Config.gestureControlsZone1, iSwipeUp), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeDown", SETTING(g_Config.gestureControlsZone1, iSwipeDown), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeLeft", SETTING(g_Config.gestureControlsZone1, iSwipeLeft), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeRight", SETTING(g_Config.gestureControlsZone1, iSwipeRight), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeSensitivity", SETTING(g_Config.gestureControlsZone1, fSwipeSensitivity), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeSmoothing", SETTING(g_Config.gestureControlsZone1, fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
-	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControlsZone1, iDoubleTapGesture), 0, CfgFlag::PER_GAME),
-	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControlsZone1, bGestureControlEnabled), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControlsZone1, bAnalogGesture), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControlsZone1, fAnalogGestureSensibility), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeUp", SETTING(g_Config.gestureControls[0], iSwipeUp), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeDown", SETTING(g_Config.gestureControls[0], iSwipeDown), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeLeft", SETTING(g_Config.gestureControls[0], iSwipeLeft), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeRight", SETTING(g_Config.gestureControls[0], iSwipeRight), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSensitivity", SETTING(g_Config.gestureControls[0], fSwipeSensitivity), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSmoothing", SETTING(g_Config.gestureControls[0], fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
+	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControls[0], iDoubleTapGesture), 0, CfgFlag::PER_GAME),
+	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControls[0], bGestureControlEnabled), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], bAnalogGesture), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensibility), 1.0f, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting graphicsSettings[] = {
@@ -1150,7 +1150,8 @@ static const ConfigSectionMeta g_sectionMeta[] = {
 	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 	{ &g_Config.touchControlsLandscape, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Landscape", "Control" },  // We read the old settings from [Control], since most people played in landscape before.
 	{ &g_Config.touchControlsPortrait, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
-	{ &g_Config.gestureControlsZone1, gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Zone1", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
+	{ &g_Config.gestureControls[0], gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Left", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
+	{ &g_Config.gestureControls[1], gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Right", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
 };
 
 ConfigBlock *GetConfigBlockForSection(std::string_view sectionName) {
