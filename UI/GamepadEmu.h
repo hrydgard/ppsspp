@@ -191,7 +191,7 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
 	bool IsDown() const override;  // For visual purpose
-	bool IsDownForFadeoutCheck() const {
+	bool IsDownForFadeoutCheck() const override {
 		return !(pspButtonBit_ & (1ULL << 38));  // VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
 	}
 

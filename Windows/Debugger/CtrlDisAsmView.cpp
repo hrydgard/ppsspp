@@ -26,7 +26,7 @@
 
 #include <set>
 
-constexpr wchar_t *szClassName = L"CtrlDisAsmView";
+constexpr const wchar_t *szClassName = L"CtrlDisAsmView";
 
 static constexpr UINT_PTR IDT_REDRAW = 0xC0DE0001;
 static constexpr UINT REDRAW_DELAY = 1000 / 60;

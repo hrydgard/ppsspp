@@ -12,7 +12,7 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
-constexpr wchar_t *szWindowClass = L"CtrlDisplayListView";
+constexpr const wchar_t *szWindowClass = L"CtrlDisplayListView";
 
 void CtrlDisplayListView::registerClass()
 {
