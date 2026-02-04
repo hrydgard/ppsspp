@@ -2775,6 +2775,8 @@ set(WindowsFiles
 	Windows/CaptureDevice.h
 	Windows/DinputDevice.cpp
 	Windows/DinputDevice.h
+	Windows/Hid/HidCommon.h
+	Windows/Hid/HidCommon.cpp
 	Windows/Hid/HidInputDevice.h
 	Windows/Hid/HidInputDevice.cpp
 	Windows/Hid/DualSense.h
