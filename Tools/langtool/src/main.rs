@@ -45,12 +45,14 @@ enum Command {
         section: String,
         key: String,
         extra: Option<String>,
+        overwrite_translated: bool,
     },
     AddNewKeyValueAI {
         section: String,
         key: String,
         value: String,
         extra: Option<String>,
+        overwrite_translated: bool,
     },
     AddNewKeyValue {
         section: String,
@@ -100,12 +102,12 @@ enum Command {
         section: String,
         key: String,
     },
-	ApplyRegex {
-		section: String,
-		key: String,
-		pattern: String,
-		replacement: Option<String>,
-	},
+    ApplyRegex {
+        section: String,
+        key: String,
+        pattern: String,
+        replacement: Option<String>,
+    },
 }
 
 fn copy_missing_lines(
@@ -240,8 +242,25 @@ fn remove_linebreaks(target_ini: &mut IniFile, section: &str, key: &str) -> io::
     }
     Ok(())
 }
-fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str, value: &str) -> io::Result<()> {
+
+fn add_new_key(
+    target_ini: &mut IniFile,
+    section: &str,
+    key: &str,
+    value: &str,
+    overwrite_translated: bool,
+) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
+        if !overwrite_translated {
+            if let Some(existing_value) = section.get_value(key)  && existing_value != key{
+                // This one was already translated. Skip it.
+                println!(
+                    "Key '{key}' already has a translated value '{existing_value}', skipping."
+                );
+                return Ok(());
+            }
+            return Ok(());
+        }
         section.insert_line_if_missing(&format!("{key} = {value}"));
     } else {
         println!("No section {section}");
@@ -269,7 +288,7 @@ fn check_keys(target_ini: &IniFile) -> io::Result<()> {
         if !mismatches.is_empty() {
             println!("[{}]", section.name);
             for (key, value) in mismatches {
-                print!("  {key} != {value}\n");
+                println!("  {key} != {value}");
             }
         }
     }
@@ -289,10 +308,8 @@ fn fixup_keys(target_ini: IniFile, dry_run: bool) -> io::Result<()> {
         }
 
         for line in &section.lines {
-            if let Some((key, value)) = split_line(line) {
-                if key != value {
-                    mismatches.push((key, value));
-                }
+            if let Some((key, value)) = split_line(line) && key != value {
+                mismatches.push((key, value));
             }
         }
 
@@ -376,7 +393,7 @@ fn finish_language_with_ai(
     let sections: Vec<Section> = if let Some(section_name) = section {
         vec![target_ini.get_section(section_name).unwrap().clone()]
     } else {
-        target_ini.sections.iter().cloned().collect()
+        target_ini.sections.to_vec()
     };
 
     let base_prompt = format!(
@@ -403,7 +420,7 @@ fn finish_language_with_ai(
     ";
 
     for section in sections {
-        let Some(ref_section) = ref_ini.get_section(&section.name).clone() else {
+        let Some(ref_section) = ref_ini.get_section(&section.name) else {
             println!("Section '{}' not found in reference file", section.name);
             continue;
         };
@@ -508,7 +525,11 @@ fn finish_language_with_ai(
                             } else {
                                 println!();
                             }
-                            if !target_section.set_value(&original_key, value, Some("AI translated")) {
+                            if !target_section.set_value(
+                                original_key,
+                                value,
+                                Some("AI translated"),
+                            ) {
                                 println!("Failed to update '{}'", original_key);
                             }
                         }
@@ -532,13 +553,19 @@ fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> 
     Ok(())
 }
 
-fn apply_regex(target_ini: &mut IniFile, section: &str, key: &str, pattern: &str, replacement: &str) -> io::Result<()> {
-	if let Some(section) = target_ini.get_section_mut(section) {
-		section.apply_regex(key, pattern, replacement);
-	} else {
-		println!("No section {section}");
-	}
-	Ok(())
+fn apply_regex(
+    target_ini: &mut IniFile,
+    section: &str,
+    key: &str,
+    pattern: &str,
+    replacement: &str,
+) -> io::Result<()> {
+    if let Some(section) = target_ini.get_section_mut(section) {
+        section.apply_regex(key, pattern, replacement);
+    } else {
+        println!("No section {section}");
+    }
+    Ok(())
 }
 
 fn dupe_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
@@ -689,6 +716,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         section,
         key,
         extra,
+        overwrite_translated: _,
     } = &cmd
     {
         match generate_ai_response(ai, &filenames, section, key, extra) {
@@ -697,10 +725,12 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         }
     } else if let Command::AddNewKeyValueAI {
         section,
-        key: _,  // We don't need the key here, it's used later when writing to the ini file.
+        key: _, // We don't need the key here, it's used later when writing to the ini file.
         value,
         extra,
-    } = &cmd {
+        overwrite_translated: _,
+    } = &cmd
+    {
         match generate_ai_response(ai, &filenames, section, value, extra) {
             Some(value) => value,
             None => return,
@@ -723,9 +753,21 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
 
         match cmd {
-			Command::ApplyRegex { ref section, ref key, ref pattern, ref replacement } => {
-				apply_regex(&mut target_ini, &section, &key, &pattern, &replacement.as_ref().unwrap_or(&"".to_string())).unwrap();
-			}
+            Command::ApplyRegex {
+                ref section,
+                ref key,
+                ref pattern,
+                ref replacement,
+            } => {
+                apply_regex(
+                    &mut target_ini,
+                    section,
+                    key,
+                    pattern,
+                    replacement.as_ref().unwrap_or(&"".to_string()),
+                )
+                .unwrap();
+            }
             Command::FinishLanguageWithAI {
                 language: _,
                 section: _,
@@ -761,31 +803,52 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             Command::AddNewKey {
                 ref section,
                 ref key,
-            } => add_new_key(&mut target_ini, section, key, key).unwrap(),
+            } => add_new_key(&mut target_ini, section, key, key, false).unwrap(),
             Command::AddNewKeyAI {
                 ref section,
                 ref key,
                 extra: _,
+                overwrite_translated,
             } => {
                 let lang = filename.split_once('.').unwrap().0;
                 if let Some(ai_response) = &ai_response {
                     // Process it.
                     if let Some(translated_string) = ai_response.get(lang) {
                         println!("{lang}:");
-                        add_new_key(&mut target_ini, section, key, &format!("{translated_string} # AI translated")).unwrap();
+                        add_new_key(
+                            &mut target_ini,
+                            section,
+                            key,
+                            &format!("{translated_string} # AI translated"),
+                            overwrite_translated,
+                        )
+                        .unwrap();
                     } else {
                         println!("Language {lang} not found in response. Bailing.");
                         return;
                     }
                 }
             }
-            Command::AddNewKeyValueAI { ref section, ref key, value: _,  extra: _ } => {
+            Command::AddNewKeyValueAI {
+                ref section,
+                ref key,
+                value: _,  // was translated above
+                extra: _,
+                overwrite_translated,
+            } => {
                 let lang = filename.split_once('.').unwrap().0;
                 if let Some(ai_response) = &ai_response {
                     // Process it.
                     if let Some(translated_string) = ai_response.get(lang) {
                         println!("{lang}:");
-                        add_new_key(&mut target_ini, section, key, &format!("{translated_string} # AI translated")).unwrap();
+                        add_new_key(
+                            &mut target_ini,
+                            section,
+                            key,
+                            &format!("{translated_string} # AI translated"),
+                            overwrite_translated,
+                        )
+                        .unwrap();
                     } else {
                         println!("Language {lang} not found in response. Bailing.");
                         return;
@@ -796,7 +859,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                 ref section,
                 ref key,
                 ref value,
-            } => add_new_key(&mut target_ini, section, key, value).unwrap(),
+            } => add_new_key(&mut target_ini, section, key, value, false).unwrap(),
             Command::MoveKey {
                 ref old,
                 ref new,
@@ -844,9 +907,9 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                                 println!(
                                     "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
                                 );
-                                if !target_section
-                                    .insert_line_if_missing(&format!("{key} = {value} # AI translated"))
-                                {
+                                if !target_section.insert_line_if_missing(&format!(
+                                    "{key} = {value} # AI translated"
+                                )) {
                                     // Didn't insert it, so it exists. We need to replace it.
                                     target_section.set_value(key, value, Some("AI translated"));
                                 }
@@ -872,9 +935,21 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
 
     // Some commands also apply to the reference ini.
     match cmd {
-		Command::ApplyRegex { ref section, ref key, ref pattern, ref replacement } => {
-			apply_regex(&mut reference_ini, &section, &key, &pattern, &replacement.as_ref().unwrap_or(&"".to_string())).unwrap();
-		}
+        Command::ApplyRegex {
+            ref section,
+            ref key,
+            ref pattern,
+            ref replacement,
+        } => {
+            apply_regex(
+                &mut reference_ini,
+                section,
+                key,
+                pattern,
+                replacement.as_ref().unwrap_or(&"".to_string()),
+            )
+            .unwrap();
+        }
         Command::FinishLanguageWithAI {
             language: _,
             section: _,
@@ -885,16 +960,36 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             ref section,
             ref key,
         } => {
-            add_new_key(&mut reference_ini, section, key, key).unwrap();
+            add_new_key(&mut reference_ini, section, key, key, false).unwrap();
         }
         Command::AddNewKeyAI {
             ref section,
             ref key,
             ref extra,
+            overwrite_translated,
         } => {
             if ai_response.is_some() {
                 let _ = extra;
-                add_new_key(&mut reference_ini, section, key, key).unwrap();
+                add_new_key(&mut reference_ini, section, key, key, overwrite_translated).unwrap();
+            }
+        }
+        Command::AddNewKeyValueAI {
+            ref section,
+            ref key,
+            ref value,
+            extra,
+            overwrite_translated,
+        } => {
+            if ai_response.is_some() {
+                let _ = extra;
+                add_new_key(
+                    &mut reference_ini,
+                    section,
+                    key,
+                    value,
+                    overwrite_translated,
+                )
+                .unwrap();
             }
         }
         Command::AddNewKeyValue {
@@ -902,7 +997,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             ref key,
             ref value,
         } => {
-            add_new_key(&mut reference_ini, section, key, value).unwrap();
+            add_new_key(&mut reference_ini, section, key, value, false).unwrap();
         }
         Command::SortSection { ref section } => sort_section(&mut reference_ini, section).unwrap(),
         Command::RenameKey {
@@ -950,7 +1045,18 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         } => {
             remove_linebreaks(&mut reference_ini, section, key).unwrap();
         }
-        _ => {}
+        Command::CopyMissingLines {
+            dont_comment_missing: _,
+        } => {}
+        Command::ListUnknownLines {} => {}
+        Command::CommentUnknownLines {} => {}
+        Command::RemoveUnknownLines {} => {}
+        Command::GetNewKeys => {}
+        Command::ImportSingle {
+            filename: _,
+            section: _,
+            key: _,
+        } => {}
     }
 
     if !dry_run {
@@ -958,7 +1064,13 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
     }
 }
 
-fn generate_ai_response(ai: Option<&ChatGPT>, filenames: &Vec<String>, section: &String, key: &String, extra: &Option<String>) -> Option<Option<BTreeMap<String, String>>> {
+fn generate_ai_response(
+    ai: Option<&ChatGPT>,
+    filenames: &[String],
+    section: &str,
+    key: &str,
+    extra: &Option<String>,
+) -> Option<Option<BTreeMap<String, String>>> {
     let prompt = generate_prompt(
         filenames,
         section,

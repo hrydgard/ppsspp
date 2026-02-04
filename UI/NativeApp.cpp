@@ -1384,7 +1384,7 @@ bool NativeKey(const KeyInput &key) {
 
 #ifdef _DEBUG
 	// Debug hack: Randomize the language with F9!
-	if (false && (key.keyCode == NKCODE_F9 && (key.flags & KeyInputFlags::DOWN))) {
+	if ((key.keyCode == NKCODE_F9 && (key.flags & KeyInputFlags::DOWN))) {
 		std::vector<File::FileInfo> tempLangs;
 		g_VFS.GetFileListing("lang", &tempLangs, "ini");
 		int x = rand() % tempLangs.size();

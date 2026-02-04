@@ -39,64 +39,18 @@ enum class DS4FeatureBits : u8 {
 ENUM_CLASS_BITOPS(DS4FeatureBits);
 
 struct DualshockOutputReport {
-	u8 reportID;
+	u8 reportId;
 	u8 featureBits;
 	u8 two;
 	u8 pad;
 	u8 rumbleRight;
 	u8 rumbleLeft;
-	u8 ledR;
-	u8 ledG;
-	u8 ledB;
+	u8 lightbarRed;
+	u8 lightbarGreen;
+	u8 lightbarBlue;
 	u8 padding[23];
 };
 static_assert(sizeof(DualshockOutputReport) == 32);
-
-bool InitializeDualShock(HANDLE handle, int outReportSize) {
-	if (outReportSize != sizeof(DualshockOutputReport)) {
-		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
-		return false;
-	}
-
-	DualshockOutputReport report{};
-	report.reportID = 0x05; // Report ID (DS4 output)
-	report.featureBits = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
-	report.two = 2;
-
-	// Rumble
-	report.rumbleRight = 0x00; // Right (weak)
-	report.rumbleLeft = 0x00; // Left (strong)
-
-	// Lightbar (RGB)
-	report.ledR = LED_R;
-	report.ledG = LED_G;
-	report.ledB = LED_B;
-
-	return WriteReport(handle, report);
-}
-
-bool ShutdownDualShock(HANDLE handle, int outReportSize) {
-	if (outReportSize != sizeof(DualshockOutputReport)) {
-		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
-		return false;
-	}
-
-	DualshockOutputReport report{};
-	report.reportID = 0x05; // Report ID (DS4 output)
-	report.featureBits = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
-	report.two = 2;
-
-	// Rumble
-	report.rumbleRight = 0x00; // Right (weak)
-	report.rumbleLeft = 0x00; // Left (strong)
-
-	// Lightbar (RGB)
-	report.ledR = 0;
-	report.ledG = 0;
-	report.ledB = 0;
-
-	return WriteReport(handle, report);
-}
 
 struct DualShockInputReport {
 	u8 lx;
@@ -110,6 +64,41 @@ struct DualShockInputReport {
 	u8 battery;
 	// Then there's motion and all kinds of stuff.
 };
+
+static void FillDualShockOutputReport(DualshockOutputReport *report, bool lightsOn) {
+	report->reportId = 0x05;  // USB default
+	report->featureBits = (u8)(DS4FeatureBits::RUMBLE | DS4FeatureBits::LIGHTBAR | DS4FeatureBits::FLASH); // Flags: enable lightbar, rumble, etc.
+	report->two = 2;
+	report->rumbleRight = 0;
+	report->rumbleLeft = 0;
+
+	// Turn on or off the lights.
+	report->lightbarRed = lightsOn ? LED_R : 0;
+	report->lightbarGreen = lightsOn ? LED_G : 0;
+	report->lightbarBlue = lightsOn ? LED_B : 0;
+}
+
+bool InitializeDualShock(HANDLE handle, int outReportSize) {
+	if (outReportSize != sizeof(DualshockOutputReport)) {
+		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
+		return false;
+	}
+
+	DualshockOutputReport report{};
+	FillDualShockOutputReport(&report, true);
+	return WriteReport(handle, report);
+}
+
+bool ShutdownDualShock(HANDLE handle, int outReportSize) {
+	if (outReportSize != sizeof(DualshockOutputReport)) {
+		WARN_LOG(Log::UI, "DS4 unexpected report size %d", outReportSize);
+		return false;
+	}
+
+	DualshockOutputReport report{};
+	FillDualShockOutputReport(&report, false);
+	return WriteReport(handle, report);
+}
 
 bool ReadDualShockInput(HANDLE handle, HIDControllerState *state, int inReportSize) {
 	if (inReportSize > 1024) {

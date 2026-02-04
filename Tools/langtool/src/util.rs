@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+#[allow(dead_code)]
 pub fn ask_yes_no(question: &str) -> bool {
     loop {
         println!("{} (y/n): ", question);
@@ -32,7 +33,6 @@ pub fn ask_letter(question: &str, allowed_chars: &str) -> char {
             .to_lowercase()
             .as_str()
             .chars()
-            .into_iter()
             .next()
         {
             Some(c) => {

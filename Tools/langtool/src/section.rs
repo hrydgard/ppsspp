@@ -19,7 +19,7 @@ pub fn split_line(line: &str) -> Option<(&str, &str)> {
         if value.is_empty() {
             return None;
         }
-        return Some((&line[0..pos].trim(), value.trim()));
+        return Some((line[0..pos].trim(), value.trim()));
     }
     None
 }
@@ -312,6 +312,9 @@ impl Section {
         for line in &self.lines {
             if let Some((ref_key, value)) = split_line(line) {
                 if key.eq(ref_key) {
+                    // Found it!
+                    // The value might have a comment starting with #, strip that before returning.
+                    let value = value.split('#').next().unwrap().trim();
                     return Some(value.to_string());
                 }
             }
