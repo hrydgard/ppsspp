@@ -1032,7 +1032,10 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 	// Add the two gesture zones.
 	for (int i = 0; i < 2; i++) {
 		if (g_Config.gestureControls[i].bGestureControlEnabled) {
-			Add(new GestureGamepad(controlMapper, i));
+			// We have them both cover the whole surface, then limit in the touch handler.
+			// This is because there's no easy way to do "half the screen" in AnchorLayout.
+			// We can do more complex layout combinations, but meh.
+			Add(new GestureGamepad(controlMapper, i, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
 		}
 	}
 }
@@ -1076,7 +1079,11 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 	}
 
 	if (input.flags & TouchInputFlags::DOWN) {
-		if (dragPointerId_ == -1) {
+		// Handle the zones here, easier than with AnchorLayout.
+		const float minX = zoneIndex_ == 0 ? 0.0f : bounds_.w * 0.5f;
+		const float maxX = zoneIndex_ == 0 ? bounds_.w * 0.5f : bounds_.w;
+
+		if (dragPointerId_ == -1 && input.x >= minX && input.x < maxX) {
 			dragPointerId_ = input.id;
 			lastX_ = input.x;
 			lastY_ = input.y;

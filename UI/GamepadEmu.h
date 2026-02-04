@@ -210,7 +210,7 @@ struct GestureControlConfig;
 
 class GestureGamepad : public UI::View {
 public:
-	explicit GestureGamepad(ControlMapper* controlMapper, int zoneIndex) : controlMapper_(controlMapper), zoneIndex_(zoneIndex) {}
+	explicit GestureGamepad(ControlMapper* controlMapper, int zoneIndex, UI::LayoutParams *layoutParams) : UI::View(layoutParams), controlMapper_(controlMapper), zoneIndex_(zoneIndex) {}
 
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
