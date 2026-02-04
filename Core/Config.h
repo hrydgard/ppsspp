@@ -446,6 +446,7 @@ public:
 	// Type of tilt input currently selected: Defined in TiltEventProcessor.h
 	// 0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
+	bool bTiltInputEnabled;
 
 	// The four tabs (including Remote last)
 	bool bGridView1;

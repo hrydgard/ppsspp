@@ -853,11 +853,13 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	if (System_GetPropertyBool(SYSPROP_HAS_ACCELEROMETER)) {
 		// Show the tilt type on the item.
 		Choice *customizeTilt = controlsSettings->Add(new ChoiceWithCallbackValueDisplay(co->T("Tilt control setup"), []() -> std::string {
-			auto co = GetI18NCategory(I18NCat::CONTROLS);
-			if ((u32)g_Config.iTiltInputType < (u32)g_numTiltTypes) {
+			if (g_Config.bTiltInputEnabled && (u32)g_Config.iTiltInputType < (u32)g_numTiltTypes) {
+				auto co = GetI18NCategory(I18NCat::CONTROLS);
 				return std::string(co->T(g_tiltTypes[g_Config.iTiltInputType]));
+			} else {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				return std::string(di->T("Disabled"));
 			}
-			return "";
 		}));
 		customizeTilt->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));

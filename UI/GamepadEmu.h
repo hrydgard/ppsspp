@@ -357,6 +357,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_TOUCH_CONTROLS },  // See IsDownForFadeoutCheck
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_DEBUGGER },
 		{ ImageID::invalid(), VIRTKEY_PAUSE_NO_MENU },
+		{ ImageID::invalid(), VIRTKEY_TOGGLE_TILT },
 		// IMPORTANT: Only add at the end!
 	};
 	static_assert(ARRAY_SIZE(g_customKeyList) <= 64, "Too many key for a uint64_t bit mask");
@@ -402,6 +403,7 @@ namespace GestureKey {
 		VIRTKEY_AXIS_RIGHT_X_MAX,
 		VIRTKEY_AXIS_RIGHT_Y_MAX,
 		VIRTKEY_TOGGLE_DEBUGGER,
+		VIRTKEY_TOGGLE_TILT,
 	};
 }
 

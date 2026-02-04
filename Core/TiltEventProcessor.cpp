@@ -111,7 +111,7 @@ inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, flo
 }
 
 void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
-	if (g_Config.iTiltInputType == TILT_NULL) {
+	if (g_Config.iTiltInputType == TILT_NULL || !g_Config.bTiltInputEnabled) {
 		// Turned off - nothing to do.
 		return;
 	}
