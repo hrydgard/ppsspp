@@ -51,11 +51,15 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 		layoutParams_->height = 64.0f;
 	}
 
-	auto dlg = GetI18NCategory(I18NCat::DIALOG);
-	backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
-	backButton_->OnClick.Add([](UI::EventParams &e) {
-		e.bubbleResult = DR_BACK;
-	});
+	if (!(flags & TopBarFlags::NoBackButton)) {
+		auto dlg = GetI18NCategory(I18NCat::DIALOG);
+		backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		backButton_->OnClick.Add([](UI::EventParams &e) {
+			e.bubbleResult = DR_BACK;
+		});
+	} else {
+		Add(new Spacer(4.0f));
+	}
 
 	if (!title.empty()) {
 		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));

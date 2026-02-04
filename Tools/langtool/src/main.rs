@@ -45,6 +45,7 @@ enum Command {
         section: String,
         key: String,
         extra: Option<String>,
+        #[arg(short, long)]
         overwrite_translated: bool,
     },
     AddNewKeyValueAI {
@@ -52,6 +53,7 @@ enum Command {
         key: String,
         value: String,
         extra: Option<String>,
+        #[arg(short, long)]
         overwrite_translated: bool,
     },
     AddNewKeyValue {
@@ -252,14 +254,13 @@ fn add_new_key(
 ) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         if !overwrite_translated {
-            if let Some(existing_value) = section.get_value(key)  && existing_value != key{
+            if let Some(existing_value) = section.get_value(key) && existing_value != key {
                 // This one was already translated. Skip it.
                 println!(
                     "Key '{key}' already has a translated value '{existing_value}', skipping."
                 );
                 return Ok(());
             }
-            return Ok(());
         }
         section.insert_line_if_missing(&format!("{key} = {value}"));
     } else {

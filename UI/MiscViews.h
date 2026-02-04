@@ -21,6 +21,7 @@ enum class TopBarFlags {
 	Default = 0,
 	Portrait = 1,
 	ContextMenuButton = 2,
+	NoBackButton = 4,
 };
 ENUM_CLASS_BITOPS(TopBarFlags);
 

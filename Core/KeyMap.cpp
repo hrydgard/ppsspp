@@ -395,8 +395,6 @@ static const KeyMap_IntStrPair axis_names[] = {
 	{JOYSTICK_AXIS_ACCELEROMETER_Z, "AccelZ"},
 };
 
-static std::string unknown_key_name = "??";
-
 const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_UP, "Up"},
 	{CTRL_DOWN, "Down"},

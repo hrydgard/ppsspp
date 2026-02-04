@@ -181,7 +181,7 @@ public:
 	const char *tag() const override { return "GestureMapping"; }
 	bool ShowSearchControls() const override { return false; }
 protected:
-	void CreateGestureTab(UI::LinearLayout *parent);
+	void CreateGestureTab(UI::LinearLayout *parent, int zoneIndex, bool portrait);
 };
 
 class RestoreSettingsScreen : public UI::PopupScreen {

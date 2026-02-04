@@ -4,6 +4,10 @@
 // It calls a set of methods defined in NativeApp.h. These should be implemented
 // by your game or app.
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+
 #include <cstdlib>
 #include <cstdint>
 
@@ -1839,3 +1843,5 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	}
 	return result;
 }
+
+#endif

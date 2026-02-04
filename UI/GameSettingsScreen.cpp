@@ -2010,39 +2010,46 @@ void HostnameSelectScreen::OnCompleted(DialogResult result) {
 }
 
 void GestureMappingScreen::CreateTabs() {
-	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	AddTab("Gesture", co->T("Gesture"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent); });
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	AddTab("Gesture", di->T("Left side"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent, 0, GetDeviceOrientation() == DeviceOrientation::Portrait); });
+	AddTab("Gesture", di->T("Right side"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent, 1, GetDeviceOrientation() == DeviceOrientation::Portrait); });
 }
 
-void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert) {
+void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneIndex, bool portrait) {
 	using namespace UI;
-
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList)+1];
+	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList) + 1];
 	gestureButton[0] = "None";
 	for (int i = 1; i < ARRAY_SIZE(gestureButton); ++i) {
-		gestureButton[i] = KeyMap::GetPspButtonNameCharPointer(GestureKey::keyList[i-1]);
+		gestureButton[i] = KeyMap::GetPspButtonNameCharPointer(GestureKey::keyList[i - 1]);
 	}
 
-	vert->Add(new CheckBox(&g_Config.bGestureControlEnabled, co->T("Enable gesture control")));
+	GestureControlConfig &zone = g_Config.gestureControls[zoneIndex];
+
+	TopBarFlags flags = TopBarFlags::NoBackButton;
+	if (portrait) {
+		flags |= TopBarFlags::Portrait;
+	}
+	vert->Add(new TopBar(*screenManager()->getUIContext(), flags, ApplySafeSubstitutions("%1: %2", co->T("Gesture"), di->T(zoneIndex == 0 ? "Left side" : "Right side"))));
+	vert->Add(new CheckBox(&zone.bGestureControlEnabled, co->T("Enable gesture control")));
 
 	vert->Add(new ItemHeader(co->T("Swipe")));
-	vert->Add(new PopupMultiChoice(&g_Config.iSwipeUp, mc->T("Swipe Up"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupMultiChoice(&g_Config.iSwipeDown, mc->T("Swipe Down"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupMultiChoice(&g_Config.iSwipeLeft, mc->T("Swipe Left"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupMultiChoice(&g_Config.iSwipeRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivity, 0.01f, 1.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
-	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothing, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
+	vert->Add(new PopupMultiChoice(&zone.iSwipeUp, mc->T("Swipe Up"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupMultiChoice(&zone.iSwipeDown, mc->T("Swipe Down"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupMultiChoice(&zone.iSwipeLeft, mc->T("Swipe Left"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupMultiChoice(&zone.iSwipeRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupSliderChoiceFloat(&zone.fSwipeSensitivity, 0.01f, 1.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupSliderChoiceFloat(&zone.fSwipeSmoothing, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&zone.bGestureControlEnabled);
 
 	vert->Add(new ItemHeader(co->T("Double tap")));
-	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabled);
+	vert->Add(new PopupMultiChoice(&zone.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
 
 	vert->Add(new ItemHeader(co->T("Analog Stick")));
-	vert->Add(new CheckBox(&g_Config.bAnalogGesture, co->T("Enable analog stick gesture")));
-	vert->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogGestureSensibility, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bAnalogGesture);
+	vert->Add(new CheckBox(&zone.bAnalogGesture, co->T("Enable analog stick gesture")));
+	vert->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensibility, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bAnalogGesture);
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)

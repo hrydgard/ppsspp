@@ -1029,8 +1029,14 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 		addCustomButton(g_Config.CustomButton[i], temp, config.touchCustom[i]);
 	}
 
-	if (g_Config.bGestureControlEnabled) {
-		Add(new GestureGamepad(controlMapper));
+	// Add the two gesture zones.
+	for (int i = 0; i < 2; i++) {
+		if (g_Config.gestureControls[i].bGestureControlEnabled) {
+			// We have them both cover the whole surface, then limit in the touch handler.
+			// This is because there's no easy way to do "half the screen" in AnchorLayout.
+			// We can do more complex layout combinations, but meh.
+			Add(new GestureGamepad(controlMapper, i, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
+		}
 	}
 }
 
@@ -1053,7 +1059,14 @@ void GamepadEmuView::Update() {
 	}
 }
 
+const GestureControlConfig &GestureGamepad::GetZone() {
+	// TODO: Add support for multiple zones.
+	return g_Config.gestureControls[zoneIndex_];
+}
+
 bool GestureGamepad::Touch(const TouchInput &input) {
+	const GestureControlConfig &zone = GetZone();
+
 	if (usedPointerMask & (1 << input.id)) {
 		if (input.id == dragPointerId_)
 			dragPointerId_ = -1;
@@ -1066,7 +1079,11 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 	}
 
 	if (input.flags & TouchInputFlags::DOWN) {
-		if (dragPointerId_ == -1) {
+		// Handle the zones here, easier than with AnchorLayout.
+		const float minX = zoneIndex_ == 0 ? 0.0f : bounds_.w * 0.5f;
+		const float maxX = zoneIndex_ == 0 ? bounds_.w * 0.5f : bounds_.w;
+
+		if (dragPointerId_ == -1 && input.x >= minX && input.x < maxX) {
 			dragPointerId_ = input.id;
 			lastX_ = input.x;
 			lastY_ = input.y;
@@ -1074,8 +1091,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			downY_ = input.y;
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
-				if (g_Config.iDoubleTapGesture != 0 )
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KeyInputFlags::DOWN);
+				if (zone.iDoubleTapGesture != 0 )
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[zone.iDoubleTapGesture - 1], KeyInputFlags::DOWN);
 				haveDoubleTapped_ = true;
 			}
 
@@ -1089,8 +1106,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			lastX_ = input.x;
 			lastY_ = input.y;
 
-			if (g_Config.bAnalogGesture) {
-				const float k = g_Config.fAnalogGestureSensibility * 0.02;
+			if (zone.bAnalogGesture) {
+				const float k = zone.fAnalogGestureSensibility * 0.02;
 				float dx = (input.x - downX_)*g_display.dpi_scale_x * k;
 				float dy = (input.y - downY_)*g_display.dpi_scale_y * k;
 				dx = std::min(1.0f, std::max(-1.0f, dx));
@@ -1106,12 +1123,12 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 				lastTapRelease_ = time_now_d();
 
 			if (haveDoubleTapped_) {
-				if (g_Config.iDoubleTapGesture != 0)
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KeyInputFlags::UP);
+				if (zone.iDoubleTapGesture != 0)
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[zone.iDoubleTapGesture - 1], KeyInputFlags::UP);
 				haveDoubleTapped_ = false;
 			}
 
-			if (g_Config.bAnalogGesture)
+			if (zone.bAnalogGesture)
 				__CtrlSetAnalogXY(0, 0, 0);
 		}
 	}
@@ -1125,51 +1142,52 @@ void GestureGamepad::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 
-	if (g_Config.bAnalogGesture && dragPointerId_ != -1) {
+	if (GetZone().bAnalogGesture && dragPointerId_ != -1) {
 		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
 	}
 }
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
-	float dx = deltaX_ * g_display.dpi_scale_x * g_Config.fSwipeSensitivity;
-	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
-	if (g_Config.iSwipeRight != 0) {
+	float dx = deltaX_ * g_display.dpi_scale_x * GetZone().fSwipeSensitivity;
+	float dy = deltaY_ * g_display.dpi_scale_y * GetZone().fSwipeSensitivity;
+	if (GetZone().iSwipeRight != 0) {
 		if (dx > th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KeyInputFlags::DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight - 1], KeyInputFlags::DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KeyInputFlags::UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight -1], KeyInputFlags::UP);
 			swipeRightReleased_ = true;
 		}
 	}
-	if (g_Config.iSwipeLeft != 0) {
+	if (GetZone().iSwipeLeft != 0) {
 		if (dx < -th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KeyInputFlags::DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeLeft - 1], KeyInputFlags::DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KeyInputFlags::UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeLeft - 1], KeyInputFlags::UP);
 			swipeLeftReleased_ = true;
 		}
 	}
-	if (g_Config.iSwipeUp != 0) {
+	if (GetZone().iSwipeUp != 0) {
 		if (dy < -th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KeyInputFlags::DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeUp - 1], KeyInputFlags::DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KeyInputFlags::UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeUp - 1], KeyInputFlags::UP);
 			swipeUpReleased_ = true;
 		}
 	}
-	if (g_Config.iSwipeDown != 0) {
+	if (GetZone().iSwipeDown != 0) {
 		if (dy > th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KeyInputFlags::DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeDown - 1], KeyInputFlags::DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KeyInputFlags::UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeDown - 1], KeyInputFlags::UP);
 			swipeDownReleased_ = true;
 		}
 	}
-	deltaX_ *= g_Config.fSwipeSmoothing;
-	deltaY_ *= g_Config.fSwipeSmoothing;
+	const float smoothing = GetZone().fSwipeSmoothing;
+	deltaX_ *= smoothing;
+	deltaY_ *= smoothing;
 }
