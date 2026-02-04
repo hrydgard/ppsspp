@@ -316,23 +316,24 @@ void ChoiceStrip::EnableChoice(int choice, bool enabled) {
 }
 
 bool ChoiceStrip::Key(const KeyInput &input) {
-	bool ret = false;
 	if (topTabs_ && (input.flags & KeyInputFlags::DOWN)) {
+		// These keyboard shortcuts ignore focus - the assumption is that there's only
+		// one choice strip with topTabs_ enabled visible at a time.
 		if (IsTabLeftKey(input)) {
 			if (selected_ > 0) {
 				SetSelection(selected_ - 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_OFF);  // Maybe make specific sounds for this at some point?
 			}
-			ret = true;
+			return true;
 		} else if (IsTabRightKey(input)) {
 			if (selected_ < (int)choices_.size() - 1) {
 				SetSelection(selected_ + 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_ON);
 			}
-			ret = true;
+			return true;
 		}
 	}
-	return ret || ViewGroup::Key(input);
+	return ViewGroup::Key(input);
 }
 
 std::string ChoiceStrip::DescribeText() const {

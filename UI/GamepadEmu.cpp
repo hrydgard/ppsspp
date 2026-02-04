@@ -85,9 +85,9 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
+GamepadComponent::GamepadComponent(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
-std::string GamepadView::DescribeText() const {
+std::string GamepadComponent::DescribeText() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	return std::string(co->T(key_));
 }
@@ -110,7 +110,7 @@ bool MultiTouchButton::CanGlide() const {
 bool MultiTouchButton::Touch(const TouchInput &input) {
 	_dbg_assert_(input.id >= 0 && input.id < TOUCH_MAX_POINTERS);
 
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 	if ((input.flags & TouchInputFlags::DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
@@ -207,7 +207,7 @@ bool PSPButton::Touch(const TouchInput &input) {
 	return retval;
 }
 
-bool CustomButton::IsDown() {
+bool CustomButton::IsDown() const {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
 }
 
@@ -281,12 +281,12 @@ void CustomButton::Update() {
 	}
 }
 
-bool PSPButton::IsDown() {
+bool PSPButton::IsDown() const {
 	return (__CtrlPeekButtonsVisual() & pspButtonBit_) != 0;
 }
 
 PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
-	: GamepadView(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
+	: GamepadComponent(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
 		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
 }
 
@@ -302,7 +302,7 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 bool PSPDpad::Touch(const TouchInput &input) {
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
@@ -430,7 +430,7 @@ void PSPDpad::Draw(UIContext &dc) {
 }
 
 PSPStick::PSPStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
-	: GamepadView(key, layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
+	: GamepadComponent(key, layoutParams), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale) {
 	stick_size_ = 50;
 }
 
@@ -474,7 +474,7 @@ void PSPStick::Draw(UIContext &dc) {
 }
 
 bool PSPStick::Touch(const TouchInput &input) {
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
@@ -585,7 +585,7 @@ void PSPCustomStick::Draw(UIContext &dc) {
 }
 
 bool PSPCustomStick::Touch(const TouchInput &input) {
-	bool retval = GamepadView::Touch(input);
+	bool retval = GamepadComponent::Touch(input);
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
@@ -900,11 +900,17 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 
 UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper) {
 	using namespace UI;
+	return new GamepadEmuView(config, xres, yres, pause, controlMapper, new UI::LayoutParams(UI::FILL_PARENT, UI::FILL_PARENT));
+}
 
-	AnchorLayout *root = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper, UI::LayoutParams *layoutParams)
+	: UI::AnchorLayout(layoutParams)
+{
 	if (!g_Config.bShowTouchControls) {
-		return root;
+		return;
 	}
+
+	using namespace UI;
 
 	struct ButtonOffset {
 		float x;
@@ -930,26 +936,26 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 	const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
 
-	auto addPSPButton = [=](int buttonBit, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) -> PSPButton * {
+	auto addPSPButton = [this, buttonLayoutParams](int buttonBit, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) -> PSPButton * {
 		if (touch.show) {
-			return root->Add(new PSPButton(buttonBit, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch, off)));
+			return Add(new PSPButton(buttonBit, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch, off)));
 		}
 		return nullptr;
 	};
-	auto addBoolButton = [=](bool *value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> BoolButton * {
+	auto addBoolButton = [this, buttonLayoutParams](bool *value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> BoolButton * {
 		if (touch.show) {
-			return root->Add(new BoolButton(value, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
+			return Add(new BoolButton(value, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
 		}
 		return nullptr;
 	};
-	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
+	auto addCustomButton = [this, buttonLayoutParams, controlMapper](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
 		using namespace CustomKeyData;
 		if (touch.show) {
 			_dbg_assert_(cfg.shape < ARRAY_SIZE(customKeyShapes));
 			_dbg_assert_(cfg.image < ARRAY_SIZE(customKeyImages));
 
 			// Note: cfg.shape and cfg.image are bounds-checked elsewhere.
-			auto aux = root->Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controlMapper,
+			auto aux = Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controlMapper,
 					g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyShapes[cfg.shape].i,
 					customKeyImages[cfg.image].i, touch.scale, customKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
 			aux->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
@@ -996,17 +1002,17 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 
 	if (config.touchDpad.show) {
 		const ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
-		root->Add(new PSPDpad(dirImage, "D-pad", ImageID("I_DIR"), ImageID("I_ARROW"), config.touchDpad.scale, config.fDpadSpacing, buttonLayoutParams(config.touchDpad)));
+		Add(new PSPDpad(dirImage, "D-pad", ImageID("I_DIR"), ImageID("I_ARROW"), config.touchDpad.scale, config.fDpadSpacing, buttonLayoutParams(config.touchDpad)));
 	}
 
 	if (config.touchAnalogStick.show)
-		root->Add(new PSPStick(stickBg, "Left analog stick", stickImage, ImageID("I_STICK"), 0, config.touchAnalogStick.scale, buttonLayoutParams(config.touchAnalogStick)));
+		Add(new PSPStick(stickBg, "Left analog stick", stickImage, ImageID("I_STICK"), 0, config.touchAnalogStick.scale, buttonLayoutParams(config.touchAnalogStick)));
 
 	if (config.touchRightAnalogStick.show) {
 		if (g_Config.bRightAnalogCustom)
-			root->Add(new PSPCustomStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, config.touchRightAnalogStick.scale, buttonLayoutParams(config.touchRightAnalogStick)));
+			Add(new PSPCustomStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, config.touchRightAnalogStick.scale, buttonLayoutParams(config.touchRightAnalogStick)));
 		else
-			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, config.touchRightAnalogStick.scale, buttonLayoutParams(config.touchRightAnalogStick)));
+			Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, config.touchRightAnalogStick.scale, buttonLayoutParams(config.touchRightAnalogStick)));
 	}
 
 	// Sanitize custom button images, while adding them.
@@ -1024,10 +1030,27 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 	}
 
 	if (g_Config.bGestureControlEnabled) {
-		root->Add(new GestureGamepad(controlMapper));
+		Add(new GestureGamepad(controlMapper));
+	}
+}
+
+void GamepadEmuView::Update() {
+	AnchorLayout::Update();
+	GamepadUpdateOpacity();
+
+	bool anyDown = false;
+	for (auto view : views_) {
+		GamepadComponent *component = dynamic_cast<GamepadComponent *>(view);
+		if (component) {
+			if (component->IsDown()) {
+				anyDown = true;
+			}
+		}
 	}
 
-	return root;
+	if (anyDown) {
+		g_lastTouch = time_now_d();
+	}
 }
 
 bool GestureGamepad::Touch(const TouchInput &input) {

@@ -1616,8 +1616,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
 	}
 
-	GamepadUpdateOpacity();
-
 	ProcessQueuedVKeys();
 
 	const bool skipBufferEffects = g_Config.bSkipBufferEffects;
