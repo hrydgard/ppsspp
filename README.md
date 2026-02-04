@@ -28,11 +28,13 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 What's new in 1.20
 ------------------
 - User interface
-  - New feature: Proper support for Portrait Mode UI - yes you can now rotate your phone to vertical mode, and things will actually work okay!
+  - New feature: Proper support for Portrait Mode UI - yes you can now rotate your phone to vertical mode, and things will actually work okay! ([#21185], [#21044]...)
   - New feature: Separate touch controls and display layout configs, new default touch control layout for portrait mode
   - New feature: Upload files via HTTP from devices on the same network
+  - Savestate count limit can now be configured ([#21112])
   - UI icons are now SVG-based, making them look sharper on high-DPI screens ([#20824], [#20870])
-  - Misc: Improved text rendering, chat box improvements ([#20653]), PIC0 is now visibile on the game screen ([#20686]), ([#20611])
+  - Better handling of unsupported ISOs ([#21169], [#21166])
+  - Misc: Improved text rendering, chat box improvements ([#20653]), PIC0 is now visible on the game screen ([#20686]), ([#20611]), rotation fixes ([#21145])
 
 - Regression fixes
   - In 7th Dragon, voice-related crashes are fixed ([#20837])
@@ -41,13 +43,16 @@ What's new in 1.20
   - Built-in songs in Beats work again ([#20662])
   - Fix adhoc in Syphon Filter games ([#20642])
 
-- Controller input
+- Controller and touch screen input
   - Native support for DualSense ([#20580], [#20620]), DualShock and Switch Pro ([#20647]) controllers on Windows - including tilt controls for DualSense
+  - Misc touch screen improvements ([#21195])
 
 - Graphics
   - Reworked the VSync setting to be more intuitive. It's now pretty much never a bad idea to turn it on.
+  - Fixes for various glitches in Tales of Phantasia X ([#21173], [#21141])
   - Some more framebuffer readback workarounds ([#20640], [#20631], [#20632])
   - MMPX upscaling enhancements by crashGG ([#20622], [#20541])
+  - Huge rendering speedup in Brave Story ([#21151])
 
 - Audio
   - Added "Smooth" playback mode, which evens out glitches (while adding a very small amount of latency)
@@ -56,6 +61,7 @@ What's new in 1.20
 - Platform support
   - Windows
 	- ARM64 is now officially supported, and works great ([#20863])
+	- Correct fullscreen mode in Xbox Fullscreen Experience ([#21189])
 	- Assorted improvements ([#20778], [#20774])
   - Android
 	- Shortcut widgets can now be created even if the app isn't running ([#20798])
@@ -64,14 +70,19 @@ What's new in 1.20
   - iOS
 	- Supprt for screen rotation is added (wasn't available previously).
   - Linux
-	- Loongarch improvements by KatyushaScarlet ([#20683], [#20644], [#20599], [#20594])
+	- Loongarch improvements by KatyushaScarlet ([#20683], [#20644], [#20599], [#20594]), text rendering improvements ([#21163])
 
 - Debugger
   - ImDebugger improvements ([#20861], [#20779], [#20657], [#20637], [#20550], [#20523])
   - Websocket debugger fixes ([#20749])
 
 - Multiplayer
+  - Support aemu relay servers for AdHoc multiplayer ([#21116])
   - Allow customizing the proAdhoc server list ([#20718])
+
+- Other
+  - RetroAchievements: Upgrade the support library with perf fixes ([#21081]), various fixes and improvements
+  - Add workaround for infamous God of War crash ([#21148])
 
 What's new in 1.19.3
 --------------------
