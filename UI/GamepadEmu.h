@@ -44,6 +44,9 @@ public:
 	}
 	std::string DescribeText() const override;
 	virtual bool IsDown() const = 0;
+	virtual bool IsDownForFadeoutCheck() const {
+		return IsDown();
+	}
 
 protected:
 	std::string key_;
@@ -59,6 +62,7 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	bool IsDown() const override { return pointerDownMask_ != 0; }
+
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
 	MultiTouchButton *SetAngle(float angle) { angle_ = angle; bgAngle_ = angle; return this; }
@@ -178,7 +182,7 @@ UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, flo
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
 
-// D-PAD (up down left right) (aka PSP cross)----------------------------
+// Customizable buttons, press a combination of buttons specified by pspButtonBit.
 class CustomButton : public MultiTouchButton {
 public:
 	CustomButton(uint64_t pspButtonBit, std::string_view key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContentDimension, UI::LayoutParams *layoutParams)
@@ -186,7 +190,10 @@ public:
 	}
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
-	bool IsDown() const override;
+	bool IsDown() const override;  // For visual purpose
+	bool IsDownForFadeoutCheck() const {
+		return !(pspButtonBit_ & (1ULL << 38));  // VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
+	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
@@ -299,7 +306,7 @@ namespace CustomKeyData {
 		ImageID i; // UI ImageID
 		uint32_t c; // Key code
 	};
-	// NOTE: This list can NOT be freely reordered! We store a bitmask of the indices.
+	// For CustomButton. NOTE: This list can NOT be freely reordered! We store a bitmask of the indices.
 	static const keyList g_customKeyList[] = {
 		{ ImageID("I_SQUARE"), CTRL_SQUARE },
 		{ ImageID("I_TRIANGLE"), CTRL_TRIANGLE },
@@ -343,7 +350,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_AXIS_X_MAX },
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
 		{ ImageID::invalid(), VIRTKEY_PREVIOUS_SLOT },
-		{ ImageID::invalid(), VIRTKEY_TOGGLE_TOUCH_CONTROLS },
+		{ ImageID::invalid(), VIRTKEY_TOGGLE_TOUCH_CONTROLS },  // See IsDownForFadeoutCheck
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_DEBUGGER },
 		{ ImageID::invalid(), VIRTKEY_PAUSE_NO_MENU },
 		// IMPORTANT: Only add at the end!

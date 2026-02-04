@@ -1042,7 +1042,7 @@ void GamepadEmuView::Update() {
 	for (auto view : views_) {
 		GamepadComponent *component = dynamic_cast<GamepadComponent *>(view);
 		if (component) {
-			if (component->IsDown()) {
+			if (component->IsDownForFadeoutCheck()) {
 				anyDown = true;
 			}
 		}
