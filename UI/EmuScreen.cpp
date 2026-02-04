@@ -1004,8 +1004,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			if (GamepadGetOpacity() < 0.01f) {
 				GamepadTouch();
 			} else {
-				// Reset.
-				GamepadTouch(true);
+				GamepadResetTouch();
 			}
 		} else {
 			// If touch controls are disabled though, they'll get enabled.

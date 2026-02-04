@@ -203,7 +203,8 @@ std::string ViewGroup::DescribeText() const {
 		ss << s;
 		needNewline = s[s.length() - 1] != '\n';
 	}
-	return ss.str();
+	const std::string desc = ss.str();
+	return desc.empty() ? "empty viewgroup" : desc;
 }
 
 std::string ViewGroup::DescribeListUnordered(std::string_view heading) const {

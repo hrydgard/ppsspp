@@ -190,10 +190,9 @@ public:
 	}
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
+
 	bool IsDown() const override;  // For visual purpose
-	bool IsDownForFadeoutCheck() const override {
-		return !(pspButtonBit_ & (1ULL << 38));  // VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
-	}
+	bool IsDownForFadeoutCheck() const override;
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
@@ -215,6 +214,9 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
 	void Draw(UIContext &dc) override;
+
+protected:
+	virtual std::string DescribeText() const override { return zoneIndex_ == 0 ? "gesture-left" : "gesture-right"; }
 
 private:
 	const GestureControlConfig &GetZone();
@@ -311,6 +313,7 @@ namespace CustomKeyData {
 		uint32_t c; // Key code
 	};
 	// For CustomButton. NOTE: This list can NOT be freely reordered! We store a bitmask of the indices.
+	// NOTE 2: Unfortunately we messed up here, we should NOT have used ifdefs! This breaks the order.
 	static const keyList g_customKeyList[] = {
 		{ ImageID("I_SQUARE"), CTRL_SQUARE },
 		{ ImageID("I_TRIANGLE"), CTRL_TRIANGLE },
@@ -331,7 +334,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_SAVE_STATE },
 		{ ImageID::invalid(), VIRTKEY_LOAD_STATE },
 		{ ImageID::invalid(), VIRTKEY_NEXT_SLOT },
-#if !defined(MOBILE_DEVICE)
+#if !defined(MOBILE_DEVICE)  // BAD!!
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_FULLSCREEN },
 #endif
 		{ ImageID::invalid(), VIRTKEY_SPEED_CUSTOM1 },
@@ -346,7 +349,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_PAUSE },
 		{ ImageID::invalid(), VIRTKEY_RESET_EMULATION },
 		{ ImageID::invalid(), VIRTKEY_DEVMENU },
-#ifndef MOBILE_DEVICE
+#ifndef MOBILE_DEVICE  // BAD!!!
 		{ ImageID::invalid(), VIRTKEY_RECORD },
 #endif
 		{ ImageID::invalid(), VIRTKEY_AXIS_X_MIN },
@@ -354,7 +357,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_AXIS_X_MAX },
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
 		{ ImageID::invalid(), VIRTKEY_PREVIOUS_SLOT },
-		{ ImageID::invalid(), VIRTKEY_TOGGLE_TOUCH_CONTROLS },  // See IsDownForFadeoutCheck
+		{ ImageID::invalid(), VIRTKEY_TOGGLE_TOUCH_CONTROLS },  // 38 if !MOBILE_DEVICE, 36 if MOBILE_DEVICE. See IsDownForFadeoutCheck
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_DEBUGGER },
 		{ ImageID::invalid(), VIRTKEY_PAUSE_NO_MENU },
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_TILT },
@@ -407,6 +410,7 @@ namespace GestureKey {
 	};
 }
 
-void GamepadTouch(bool reset = false);
+void GamepadTouch();
+void GamepadResetTouch();
 void GamepadUpdateOpacity(float force = -1.0f);
 float GamepadGetOpacity();

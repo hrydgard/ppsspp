@@ -34,6 +34,8 @@
 
 #include "ppsspp_config.h"
 
+#include <typeinfo>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -1333,6 +1335,17 @@ bool TestFriendlyPath() {
 	return true;
 }
 
+// Check that RTTI is working.
+bool TestLang() {
+	struct Base { virtual ~Base() = default; };
+	struct Derived : Base {};
+
+	Base* b = new Derived;
+	bool equals = typeid(*b) == typeid(Derived);
+	EXPECT_TRUE(equals);
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1405,6 +1418,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SplitSearch),
 	TEST_ITEM(FriendlyPath),
 	TEST_ITEM(LinAlg),
+	TEST_ITEM(Lang),
 };
 
 int main(int argc, const char *argv[]) {
