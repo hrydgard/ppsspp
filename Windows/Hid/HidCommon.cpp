@@ -1,5 +1,8 @@
-#include <hidsdi.h>
 #include "Common/CommonWindows.h"
+
+#include <hidsdi.h>
+
+#include "HidCommon.h"
 
 bool WriteReport(HANDLE handle, const u8 *data, size_t size) {
 	DWORD written;
