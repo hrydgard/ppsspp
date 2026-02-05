@@ -180,7 +180,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		// While blocksMutex_ was unlocked, another thread may have read.
 		// If so, free the one we just read.
 		if (blocks_.find(cacheStartPos) == blocks_.end()) {
-			blocks_[cacheStartPos] = BlockInfo(buf);
+			blocks_[cacheStartPos] = BlockInfo{buf};
 		} else {
 			delete [] buf;
 		}
@@ -198,7 +198,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 			}
 			u8 *buf = new u8[BLOCK_SIZE];
 			memcpy(buf, wholeRead + (i << BLOCK_SHIFT), BLOCK_SIZE);
-			blocks_[cacheStartPos + i] = BlockInfo(buf);
+			blocks_[cacheStartPos + i] = BlockInfo{buf};
 		}
 		delete[] wholeRead;
 	}

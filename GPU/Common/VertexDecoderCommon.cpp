@@ -1442,15 +1442,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	}
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale *uvScaleOffset, int indexLowerBound, int indexUpperBound) const {
-	// A single 0 is acceptable for point lists.
-	_dbg_assert_(indexLowerBound <= indexUpperBound);
-
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const u8 *startPtr, const UVScale *uvScaleOffset, int count) const {
 	// Decode the vertices within the found bounds, once each
 	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
-	const u8 *startPtr = (const u8*)verts + indexLowerBound * size;
-
-	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
 
 #ifdef _DEBUG
@@ -1458,7 +1452,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 #endif
 
 	// Check alignment before running the decoder, as we may crash if it's bad (as should the real PSP but doesn't always)
-	if (((uintptr_t)verts & (biggest - 1)) != 0) {
+	if (((uintptr_t)startPtr & (biggest - 1)) != 0) {
 		// Bad alignment. Not really sure what to do here... zero the verts to be safe?
 		memset(decodedptr, 0, count * stride);
 		return;
@@ -1481,7 +1475,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 			decoded += stride;
 		}
 		if (jitted_ && validateJit) {
-			CompareToJit(startPtr, decodedptr, indexUpperBound - indexLowerBound + 1, uvScaleOffset);
+			CompareToJit(startPtr, decodedptr, count, uvScaleOffset);
 		}
 	}
 }

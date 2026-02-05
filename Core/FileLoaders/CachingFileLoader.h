@@ -60,18 +60,13 @@ private:
 	s64 filesize_ = 0;
 	int exists_ = -1;
 	int isDirectory_ = -1;
-	u64 generation_;
-	u64 oldestGeneration_;
-	size_t cacheSize_;
+	u64 generation_ = 0;
+	u64 oldestGeneration_ = 0;
+	size_t cacheSize_ = 0;
 
 	struct BlockInfo {
 		u8 *ptr;
 		u64 generation;
-
-		BlockInfo() : ptr(nullptr), generation(0) {
-		}
-		BlockInfo(u8 *p) : ptr(p), generation(0) {
-		}
 	};
 
 	std::map<s64, BlockInfo> blocks_;

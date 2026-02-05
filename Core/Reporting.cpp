@@ -390,7 +390,11 @@ namespace Reporting
 			return;
 		}
 
+		bool reportingWasUnsupported = everUnsupported;
 		Do(p, everUnsupported);
+		if (!reportingWasUnsupported && everUnsupported) {
+			INFO_LOG(Log::System, "Reporting became unsupported due to loading an old savestate.");
+		}
 	}
 
 	void UpdateConfig() {
