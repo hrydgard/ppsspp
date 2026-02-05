@@ -953,11 +953,6 @@ static const ConfigSetting touchControlSettings[] = {
 	ConfigSetting("HideStickBackground", SETTING(g_Config.touchControlsLandscape, bHideStickBackground), CfgFlag::PER_GAME),
 };
 
-bool DefaultTiltInputEnabled() {
-	// When reading old settings, if type is not set to 0, enable it.
-	return g_Config.iTiltInputType != 0;
-}
-
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
 	
@@ -998,7 +993,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TiltInverseDeadzone", SETTING(g_Config, fTiltInverseDeadzone), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("TiltCircularDeadzone", SETTING(g_Config, bTiltCircularDeadzone), true, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInputType", SETTING(g_Config, iTiltInputType), 1, CfgFlag::PER_GAME),
-	ConfigSetting("TiltInputEnabled", SETTING(g_Config, bTiltInputEnabled), &DefaultTiltInputEnabled, CfgFlag::PER_GAME),
+	ConfigSetting("TiltInputEnabled", SETTING(g_Config, bTiltInputEnabled), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("DisableDpadDiagonals", SETTING(g_Config, bDisableDpadDiagonals), false, CfgFlag::PER_GAME),
 	ConfigSetting("GamepadOnlyFocused", SETTING(g_Config, bGamepadOnlyFocused), false, CfgFlag::PER_GAME),
