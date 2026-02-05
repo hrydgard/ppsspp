@@ -2636,7 +2636,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				if (bpp == 4) {
 					// Only one possibility unless it's doing split pixel tricks (which we could detect through stride maybe).
 					ramFormat = GE_FORMAT_8888;
-				} else if (srcRect.vfb->fb_format != GE_FORMAT_8888) {
+				} else if (srcRect.vfb && srcRect.vfb->fb_format != GE_FORMAT_8888) {
 					// We guess that the game will interpret the data the same as it was in the source of the copy.
 					// Seems like a likely good guess, and works in Test Drive Unlimited.
 					ramFormat = srcRect.vfb->fb_format;
@@ -2645,10 +2645,15 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					ramFormat = GE_FORMAT_5551;
 				}
 				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
+				dstRect.x_bytes = bpp * dstX;
+				dstRect.y = dstY;
+				dstRect.w_bytes = bpp * width;
+				dstRect.h = height;
+				dstRect.channel = RASTER_COLOR;
 			} else {
 				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, GE_FORMAT_DEPTH16);
 				dstRect.x_bytes = 0;
-				dstRect.w_bytes = 2 * width;
+				dstRect.w_bytes = 2 * width;  // 2 = depth bpp
 				dstRect.y = 0;
 				dstRect.h = height;
 				dstRect.channel = RASTER_DEPTH;

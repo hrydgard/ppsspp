@@ -6,11 +6,11 @@
 
 bool WriteReport(HANDLE handle, const u8 *data, size_t size) {
 	DWORD written;
-	bool result = WriteFile(handle, data, size, &written, NULL);
+	bool result = WriteFile(handle, data, (DWORD)size, &written, NULL);
 	if (!result) {
 		u32 errorCode = GetLastError();
 		if (errorCode == ERROR_INVALID_PARAMETER) {
-			if (!HidD_SetOutputReport(handle, (PVOID)data, size)) {
+			if (!HidD_SetOutputReport(handle, (PVOID)data, (DWORD)size)) {
 				errorCode = GetLastError();
 			}
 		}
