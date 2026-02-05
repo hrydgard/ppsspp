@@ -158,7 +158,8 @@ private:
 		T *oldData = data_;
 		data_ = (T *)malloc(sizeof(T) * newCapacity);
 		_assert_msg_(data_ != nullptr, "%d", (int)newCapacity);
-		if (capacity_ != 0) {
+		_dbg_assert_(oldData != nullptr);
+		if (capacity_ != 0 && oldData != nullptr) {
 			memcpy(data_, oldData, sizeof(T) * size_);
 			free(oldData);
 		}

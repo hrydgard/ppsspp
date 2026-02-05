@@ -101,6 +101,7 @@ void GPU_Vulkan::FinishInitOnMainThread() {
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
+	_dbg_assert_(draw_);
 	if (!g_Config.bShaderCache) {
 		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		return;

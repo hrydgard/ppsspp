@@ -529,6 +529,8 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		const int firstBlockSize = firstBlockOffset == 0 ? 0 : (int)std::min(size, 2048LL - firstBlockOffset);
 		const int lastBlockSize = (size - firstBlockSize) & 2047;
 		const s64 middleSize = size - firstBlockSize - lastBlockSize;
+		_dbg_assert_((middleSize & 2047) == 0);
+
 		u32 secNum = (u32)(positionOnIso / 2048);
 		u8 theSector[2048];
 
@@ -543,9 +545,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			pointer += firstBlockSize;
 		}
 		if (middleSize > 0) {
-			const u32 sectors = (u32)(middleSize / 2048);
-			blockDevice->ReadBlocks(secNum, sectors, pointer);
-			secNum += sectors;
+			const u32 middleSectors = (u32)(middleSize / 2048);
+			blockDevice->ReadBlocks(secNum, middleSectors, pointer);
+			secNum += middleSectors;
 			pointer += middleSize;
 		}
 		if (lastBlockSize > 0) {
