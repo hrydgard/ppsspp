@@ -1428,7 +1428,7 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 			}
 		}
 		if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-			recordBarrier_.TransitionDepthStencilImageAuto(&src->msaaColor, srcTransferLayout);
+			recordBarrier_.TransitionDepthStencilImageAuto(&src->msaaDepth, srcTransferLayout);
 			if (src != dst) {
 				// Kingdom Hearts: Subsequent copies to the same depth buffer without any other use.
 				// Not super sure how that happens, but we need a barrier to pass sync validation.
