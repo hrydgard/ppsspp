@@ -451,7 +451,7 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 
 enum class BackgroundFillMode {
 	Stretch = 0,
-	CropToScreen = 1,
+	AdaptiveCropToScreen = 1,
 	FitToScreen = 2,
 };
 
@@ -471,17 +471,25 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, Lin::Vec3 focus, fl
 		uint32_t color = whiteAlpha(std::clamp(ease((time_now_d() - pic->timeLoaded) * 3.0f) * alpha, 0.0f, 1.0f)) & 0xFFc0c0c0;
 
 		// TODO: Make this configurable?
-		const BackgroundFillMode mode = BackgroundFillMode::CropToScreen;
+		const BackgroundFillMode mode = BackgroundFillMode::AdaptiveCropToScreen;
 
 		const Bounds screenBounds = dc.GetBounds();
 		float imageW = screenBounds.w;
 		float imageH = screenBounds.h;
 		float imageAspect = (float)pic->texture->Width() / (float)pic->texture->Height();
 
+		float squash = imageAspect / screenBounds.AspectRatio();
+
+		// Allow a lot of leeway for the image aspect - let it stretch a bit, and only then start cropping.
+		const float aspectLeeway = 0.5f;
+		if (mode == BackgroundFillMode::AdaptiveCropToScreen && squash >= 0.6f && squash < 1.7f) {
+			imageAspect = screenBounds.AspectRatio();
+		}
+
 		// Fit the image into the screen bounds according to the fill mode.
 		if (imageAspect > screenBounds.AspectRatio()) {
 			// Image is wider than screen.
-			if (mode == BackgroundFillMode::CropToScreen) {
+			if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
 				// Crop width.
 				imageW = screenBounds.h * imageAspect;
 			} else if (mode == BackgroundFillMode::FitToScreen) {
@@ -490,7 +498,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, Lin::Vec3 focus, fl
 			}
 		} else {
 			// Image is taller than screen.
-			if (mode == BackgroundFillMode::CropToScreen) {
+			if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
 				// Crop height.
 				imageH = screenBounds.w / imageAspect;
 			} else if (mode == BackgroundFillMode::FitToScreen) {
