@@ -27,7 +27,9 @@ struct HIDControllerState {
 	u32 buttons;  // Bitmask, PSButton enum
 
 	bool accValid = false;
+	bool gyroValid = false;
 	float accelerometer[3];  // X, Y, Z
+	float gyro[3];
 };
 
 struct ButtonInputMapping {
@@ -45,7 +47,14 @@ public:
 
 	static void AddSupportedDevices(std::set<u32> *deviceVIDPIDs);
 	bool HasAccelerometer() const override {
-		return subType_ == HIDControllerType::DualSense;
+		switch (subType_) {
+		case HIDControllerType::DualSense:
+		case HIDControllerType::SwitchPro:
+			return true;
+		default:
+			break;
+		}
+		return false;
 	}
 private:
 	void ReleaseAllKeys(const ButtonInputMapping *buttonMappings, int count);

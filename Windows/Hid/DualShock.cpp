@@ -16,6 +16,7 @@ static const ButtonInputMapping g_psInputMappings[] = {
 	{PS_BTN_OPTIONS, NKCODE_BUTTON_10},
 	{PS_BTN_L1, NKCODE_BUTTON_7},
 	{PS_BTN_R1, NKCODE_BUTTON_8},
+	{PS_BTN_TOUCHPAD, NKCODE_BUTTON_11},
 	// {PS_BTN_L2, NKCODE_BUTTON_L2},  // These are done by the analog triggers.
 	// {PS_BTN_R2, NKCODE_BUTTON_R2},
 	{PS_BTN_L3, NKCODE_BUTTON_THUMBL},
