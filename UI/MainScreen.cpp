@@ -64,6 +64,7 @@
 #include "UI/Store.h"
 #include "UI/UploadScreen.h"
 #include "UI/InstallZipScreen.h"
+#include "UI/Background.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Common/Data/Text/I18n.h"
@@ -1542,32 +1543,7 @@ void MainScreen::DrawBackground(UIContext &dc) {
 }
 
 bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress) {
-	dc.Flush();
-
-	std::shared_ptr<GameInfo> ginfo;
-	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::PIC1);
-		// Loading texture data may bind a texture.
-		dc.RebindTexture();
-
-		// Let's not bother if there's no picture.
-		if (!ginfo->Ready(GameInfoFlags::PIC1) || !ginfo->pic1.texture) {
-			return false;
-		}
-	} else {
-		return false;
-	}
-
-	auto pic = ginfo->GetPIC1();
-	Draw::Texture *texture = pic ? pic->texture : nullptr;
-
-	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
-	if (texture) {
-		dc.GetDrawContext()->BindTexture(0, texture);
-		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
-		dc.Flush();
-		dc.RebindTexture();
-	}
+	::DrawGameBackground(dc, gamePath, Lin::Vec3(0.f, 0.f, 0.f), progress);
 	return true;
 }
 
