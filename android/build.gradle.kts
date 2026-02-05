@@ -202,7 +202,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
-				debugSymbolLevel = "FULL"
+				// debugSymbolLevel = "FULL"  // These don't actually help much in the Google Play crash report. We do still have symbols locally.
 			}
 		}
 		create("gold") {
@@ -222,7 +222,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
-				debugSymbolLevel = "FULL"
+				// debugSymbolLevel = "FULL"
 			}
 		}
 		create("legacy") {
@@ -243,7 +243,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
-				debugSymbolLevel = "FULL"
+				// debugSymbolLevel = "FULL"
 			}
 		}
 		create("vr") {

@@ -5,7 +5,12 @@ VulkanDescSetPool::~VulkanDescSetPool() {
 }
 
 void VulkanDescSetPool::Create(VulkanContext *vulkan, const BindingType *bindingTypes, uint32_t bindingTypesCount, uint32_t descriptorCount) {
-	_assert_msg_(descPool_ == VK_NULL_HANDLE, "VulkanDescSetPool::Create when already exists");
+	// Seeing confusing crash reports of this, so reduced to a debug asserts and trying to limp along.
+	_dbg_assert_msg_(descPool_ == VK_NULL_HANDLE, "VulkanDescSetPool::Create when already exists");
+	if (descPool_) {
+		ERROR_LOG(Log::G3D, "VulkanDescSetPool::Create when already exists - unexpected");
+		descPool_ = VK_NULL_HANDLE;
+	}
 
 	vulkan_ = vulkan;
 	info_ = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };

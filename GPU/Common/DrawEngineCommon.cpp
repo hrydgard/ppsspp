@@ -799,14 +799,16 @@ void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
 		const int indexLowerBound = dv.indexLowerBound;
 		drawVertexOffsets_[i] = numDecodedVerts - indexLowerBound;
 		const int indexUpperBound = dv.indexUpperBound;
-		if (indexUpperBound + 1 - indexLowerBound + numDecodedVerts >= VERTEX_BUFFER_MAX) {
+		const int count = indexUpperBound - indexLowerBound + 1;
+		if (count + numDecodedVerts >= VERTEX_BUFFER_MAX) {
 			// Hit our limit! Stop decoding in this draw.
 			break;
 		}
 
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		dec->DecodeVerts(dest + numDecodedVerts * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
-		numDecodedVerts += indexUpperBound - indexLowerBound + 1;
+		const u8 *startPos = (const u8 *)dv.verts + indexLowerBound * dec->VertexSize();
+		dec->DecodeVerts(dest + numDecodedVerts * stride, startPos, &dv.uvScale, count);
+		numDecodedVerts += count;
 	}
 	numDecodedVerts_ = numDecodedVerts;
 	decodeVertsCounter_ = i;

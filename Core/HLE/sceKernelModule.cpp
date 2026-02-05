@@ -1076,8 +1076,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// In this case it's definitely not compressed. Added assert below.
 		}
 
-		// Don't accept ELFs over 32MB.
-		if (decryptedSize > 32 * 1024 * 1024) {
+		// Don't accept ELFs over 24MB.
+		if (decryptedSize > 24 * 1024 * 1024) {
 			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
 			// TODO: Might be the wrong error code.
 			error = SCE_KERNEL_ERROR_FILEERR;
@@ -1088,13 +1088,15 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		if (isGzip) {
 			_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
 
-			auto temp = new u8[decryptedSize];
+			// Can't decompress in place so we need a temporary buffer.
+			u8 *temp = (u8 *)malloc(decryptedSize);
+			_assert_msg_(temp != nullptr, "Failed to allocate gzip decompression buffer");
 			memcpy(temp, ptr, decryptedSize);
 			int outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
 			if (outBytes < 0) {
 				ERROR_LOG(Log::sceModule, "Module gzip decompression failed!");
 			}
-			delete[] temp;
+			free(temp);
 			INFO_LOG(Log::sceModule, "gzip is enabled in '%s', decompressing (%d -> %d bytes, bufmax=%d).", head->modname, decryptedSize, outBytes, maxElfSize);
 		}
 

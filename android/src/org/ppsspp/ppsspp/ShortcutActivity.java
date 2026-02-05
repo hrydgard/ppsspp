@@ -161,7 +161,11 @@ public class ShortcutActivity extends Activity {
 		setResult(RESULT_OK, responseIntent);
 
 		// Must call finish for result to be returned immediately
-		finish();
+		try {
+			finish();
+		} catch (Exception e) {
+			NativeApp.reportException(e, "Error finishing respondToShortcutRequest");
+		}
 		Log.i(TAG, "End of respondToShortcutRequest");
 	}
 

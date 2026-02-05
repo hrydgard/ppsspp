@@ -330,7 +330,7 @@ protected:
 	bool flushOnParams_ = true;
 
 	GraphicsContext *gfxCtx_;
-	Draw::DrawContext *draw_;
+	Draw::DrawContext *draw_ = nullptr;
 
 	typedef std::list<int> DisplayListQueue;
 

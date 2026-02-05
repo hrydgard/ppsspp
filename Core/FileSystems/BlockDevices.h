@@ -46,7 +46,7 @@ public:
 		}
 		return true;
 	}
-	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses. If a subclass uses bigger blocks internally, it must cache and virtualize.
+	int constexpr GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses. If a subclass uses bigger blocks internally, it must cache and virtualize.
 	virtual u32 GetNumBlocks() const = 0;
 	virtual u64 GetUncompressedSize() const {
 		return (u64)GetNumBlocks() * (u64)GetBlockSize();

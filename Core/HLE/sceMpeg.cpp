@@ -1400,6 +1400,12 @@ void PostPutAction::run(MipsCall &call) {
 		ringbufferPutPacketsAdded += packetsAddedThisRound;
 	}
 
+	if (!ctx) {
+		_dbg_assert_(false);
+		ERROR_LOG(Log::Mpeg, "sceMpegRingbufferPut: bad mpeg handle %08x", ringbuffer->mpeg);
+		return;
+	}
+
 	// It seems validation is done only by older mpeg libs.
 	if (mpegLibVersion < 0x0105 && packetsAddedThisRound > 0) {
 		// TODO: Faster / less wasteful validation.
