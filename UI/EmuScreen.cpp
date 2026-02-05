@@ -742,6 +742,28 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 		}
 		break;
+	case VIRTKEY_TOGGLE_TILT:
+		if (down) {
+			g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
+			if (!g_Config.bTiltInputEnabled) {
+				// Reset whatever got tilted.
+				switch (g_Config.iTiltInputType) {
+				case TILT_ANALOG:
+					__CtrlSetAnalogXY(0, 0, 0);
+					break;
+				case TILT_ACTION_BUTTON:
+					__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
+					break;
+				case TILT_DPAD:
+					__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
+					break;
+				case TILT_TRIGGER_BUTTONS:
+					__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
+					break;
+				}
+			}
+		}
+		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed() && !bootPending_) {
 			/*
@@ -982,8 +1004,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			if (GamepadGetOpacity() < 0.01f) {
 				GamepadTouch();
 			} else {
-				// Reset.
-				GamepadTouch(true);
+				GamepadResetTouch();
 			}
 		} else {
 			// If touch controls are disabled though, they'll get enabled.

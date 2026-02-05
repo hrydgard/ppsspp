@@ -853,11 +853,13 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	if (System_GetPropertyBool(SYSPROP_HAS_ACCELEROMETER)) {
 		// Show the tilt type on the item.
 		Choice *customizeTilt = controlsSettings->Add(new ChoiceWithCallbackValueDisplay(co->T("Tilt control setup"), []() -> std::string {
-			auto co = GetI18NCategory(I18NCat::CONTROLS);
-			if ((u32)g_Config.iTiltInputType < (u32)g_numTiltTypes) {
+			if (g_Config.bTiltInputEnabled && (u32)g_Config.iTiltInputType < (u32)g_numTiltTypes) {
+				auto co = GetI18NCategory(I18NCat::CONTROLS);
 				return std::string(co->T(g_tiltTypes[g_Config.iTiltInputType]));
+			} else {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				return std::string(di->T("Disabled"));
 			}
-			return "";
 		}));
 		customizeTilt->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));
@@ -2041,7 +2043,7 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 	vert->Add(new PopupMultiChoice(&zone.iSwipeDown, mc->T("Swipe Down"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
 	vert->Add(new PopupMultiChoice(&zone.iSwipeLeft, mc->T("Swipe Left"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
 	vert->Add(new PopupMultiChoice(&zone.iSwipeRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
-	vert->Add(new PopupSliderChoiceFloat(&zone.fSwipeSensitivity, 0.01f, 1.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupSliderChoiceFloat(&zone.fSwipeSensitivity, 0.01f, 2.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bGestureControlEnabled);
 	vert->Add(new PopupSliderChoiceFloat(&zone.fSwipeSmoothing, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&zone.bGestureControlEnabled);
 
 	vert->Add(new ItemHeader(co->T("Double tap")));

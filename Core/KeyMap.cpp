@@ -442,6 +442,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif
 	{VIRTKEY_TOGGLE_DEBUGGER, "Toggle Debugger"},
+	{VIRTKEY_TOGGLE_TILT, "Toggle tilt control"},
 
 	{VIRTKEY_OPENCHAT, "OpenChat" },
 

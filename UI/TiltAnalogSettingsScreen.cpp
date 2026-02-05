@@ -99,13 +99,19 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	};
 
 	settings->Add(new ItemHeader(co->T("Tilt control setup")));
-	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
+	CheckBox *enabled = settings->Add(new CheckBox(&g_Config.bTiltInputEnabled, co->T("Enabled")));
+	PopupMultiChoice *typeChoice = settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()));
+	if (g_Config.iTiltInputType != 0) {
+		typeChoice->HideChoice(0);   // The null choice is no longer relevant since we added an enabled toggle
+	}
+	typeChoice->OnChoice.Add(
 		[this](UI::EventParams &p) {
 			//when the tilt event type is modified, we need to reset all tilt settings.
 			//refer to the ResetTiltEvents() function for a detailed explanation.
 			TiltEventProcessor::ResetTiltEvents();
 			RecreateViews();
 		});
+	typeChoice->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	settings->Add(new ItemHeader(co->T("Calibration")));
 	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
 	calibrationInfo->SetSmall(true);
@@ -113,21 +119,21 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	settings->Add(calibrationInfo);
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
-	calibrate->SetEnabledFunc(enabledFunc);
+	calibrate->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	settings->Add(calibrate);
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
 	if (g_Config.iTiltInputType == 1) {
-		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, 0.0f, co->T("Deadzone radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
-		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltInverseDeadzone, 0.0f, 0.8f, 0.0f, co->T("Low end radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledFunc(enabledFunc);
-		settings->Add(new CheckBox(&g_Config.bTiltCircularDeadzone, co->T("Circular deadzone")))->SetEnabledFunc(enabledFunc);
+		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, 0.0f, co->T("Deadzone radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltInverseDeadzone, 0.0f, 0.8f, 0.0f, co->T("Low end radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+		settings->Add(new CheckBox(&g_Config.bTiltCircularDeadzone, co->T("Circular deadzone")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	}
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, 60, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, 60, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledFunc(enabledFunc);
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, 60, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, 60, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 
 	settings->Add(new ItemHeader(co->T("Invert Axes")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledFunc(enabledFunc);
-	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledFunc(enabledFunc);
+	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 }
 
 void TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {

@@ -73,8 +73,12 @@ void GamepadUpdateOpacity(float force) {
 	g_gamepadOpacity = opacity * multiplier;
 }
 
-void GamepadTouch(bool reset) {
-	g_lastTouch = reset ? 0.0f : time_now_d();
+void GamepadResetTouch() {
+	g_lastTouch = 0.0f;
+}
+
+void GamepadTouch() {
+	g_lastTouch = time_now_d();
 }
 
 float GamepadGetOpacity() {
@@ -88,8 +92,7 @@ static u32 GetButtonColor() {
 GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
 std::string GamepadComponent::DescribeText() const {
-	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	return std::string(co->T(key_));
+	return key_;
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -209,6 +212,17 @@ bool PSPButton::Touch(const TouchInput &input) {
 
 bool CustomButton::IsDown() const {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
+}
+
+bool CustomButton::IsDownForFadeoutCheck() const {
+	// This check is due to a stupid mistake, see the header.
+#ifdef MOBILE_DEVICE
+	constexpr int bitNumber = 36;
+#else
+	constexpr int bitNumber = 38;
+#endif
+	const bool down = IsDown() && !(pspButtonBit_ & (1ULL << bitNumber));  // VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
+	return down;
 }
 
 void CustomButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -1047,14 +1061,14 @@ void GamepadEmuView::Update() {
 	bool anyDown = false;
 	for (auto view : views_) {
 		GamepadComponent *component = dynamic_cast<GamepadComponent *>(view);
-		if (component) {
-			if (component->IsDownForFadeoutCheck()) {
-				anyDown = true;
-			}
+		if (component && component->IsDownForFadeoutCheck()) {
+			// INFO_LOG(Log::System, "GamepadEmuView::Update: component is down for fadeout check: %s", component->DescribeText().c_str());
+			anyDown = true;
 		}
 	}
 
 	if (anyDown) {
+		// INFO_LOG(Log::System, "last touch in update");
 		g_lastTouch = time_now_d();
 	}
 }
