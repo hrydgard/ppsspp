@@ -84,10 +84,10 @@ struct SwitchProInputReport {
 
 static void ProcessIMU(const u8 *data, HIDControllerState *state) {
 	// Data contains 3 samples to account for Bluetooth jitter.
-	// We usually just take the latest one (index 2).
+	// We just take the latest one (index 2).
 	const u8* s = &data[24];
 
-	// Raw values are Little Endian int16
+	// Raw values are little endian int16
 	short ax = (short)(s[0] | (s[1] << 8));
 	short ay = (short)(s[2] | (s[3] << 8));
 	short az = (short)(s[4] | (s[5] << 8));
@@ -101,9 +101,27 @@ static void ProcessIMU(const u8 *data, HIDControllerState *state) {
 	state->accelerometer[1] = ay * ACCEL_SCALE;
 	state->accelerometer[2] = az * ACCEL_SCALE;
 
+	// TODO: Consider if these should be radians or degrees. Check what it is...
 	state->gyro[0] = gx * GYRO_SCALE;
 	state->gyro[1] = gy * GYRO_SCALE;
 	state->gyro[2] = gz * GYRO_SCALE;
+}
+
+struct StickCal {
+	u16 x_center, y_center;
+	u16 x_min, y_min;
+	u16 x_max, y_max;
+};
+
+// Assuming 'data' is the 9-byte payload starting from byte 20 of the input report
+void DecodeCalibration(const u8* data, StickCal* cal) {
+	// These are 12-bit values packed into 9 bytes
+	cal->x_max = ((data[1] << 8) & 0xF00) | data[0];
+	cal->y_max = (data[2] << 4) | (data[1] >> 4);
+	cal->x_center = ((data[4] << 8) & 0xF00) | data[3];
+	cal->y_center = (data[5] << 4) | (data[4] >> 4);
+	cal->x_min = ((data[7] << 8) & 0xF00) | data[6];
+	cal->y_min = (data[8] << 4) | (data[7] >> 4);
 }
 
 static void DecodeSwitchProStick(const u8 *stickData, s8 *outX, s8 *outY) {
@@ -117,7 +135,6 @@ static void DecodeSwitchProStick(const u8 *stickData, s8 *outX, s8 *outY) {
 
 	*outX = (s8)clamp_value(x, -128, 127);
 	*outY = (s8)clamp_value(y, -128, 127);
-	// INFO_LOG(Log::sceCtrl, "Switch Pro input: x=%d, y=%d, cx=%d, cy=%d", x, y, *outX, *outY);
 }
 
 // Subcommand helper
