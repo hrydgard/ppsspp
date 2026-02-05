@@ -437,7 +437,7 @@ void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) 
 }
 
 void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
-	constexpr wchar_t *filter = L"PNG Image (*.png)\0*.png\0JPEG Image (*.jpg)\0*.jpg\0All files\0*.*\0\0";
+	constexpr const wchar_t *filter = L"PNG Image (*.png)\0*.png\0JPEG Image (*.jpg)\0*.jpg\0All files\0*.*\0\0";
 	std::string fn;
 	if (W32Util::BrowseForFileName(false, GetDlgHandle(), L"Save Preview Image...", nullptr, filter, L"png", fn)) {
 		ScreenshotFormat fmt = fn.find(".jpg") != fn.npos ? ScreenshotFormat::JPG : ScreenshotFormat::PNG;

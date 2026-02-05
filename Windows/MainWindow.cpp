@@ -178,7 +178,7 @@ namespace MainWindow {
 
 	static bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
-	static constexpr wchar_t *szWindowClass = L"PPSSPPWnd";
+	static constexpr const wchar_t *szWindowClass = L"PPSSPPWnd";
 
 	static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 

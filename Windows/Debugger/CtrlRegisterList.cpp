@@ -20,7 +20,7 @@
 
 enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
 
-constexpr wchar_t *szClassName = L"CtrlRegisterList";
+constexpr const wchar_t *szClassName = L"CtrlRegisterList";
 
 static constexpr UINT_PTR IDT_REDRAW = 0xC0DE0001;
 static constexpr UINT REDRAW_DELAY = 1000 / 60;

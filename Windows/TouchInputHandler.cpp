@@ -99,7 +99,7 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 // disable the press and hold gesture for the given window
 void TouchInputHandler::disablePressAndHold(HWND hWnd) {
 	// The atom identifier and Tablet PC atom
-	wchar_t *tabletAtom = L"MicrosoftTabletPenServiceProperty";
+	const wchar_t *tabletAtom = L"MicrosoftTabletPenServiceProperty";
 	ATOM atomID = GlobalAddAtom(tabletAtom);
 	
 	// If getting the ID failed, return false
