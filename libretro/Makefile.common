@@ -1,8 +1,4 @@
-ifeq ($(PLATFORM_EXT), android)
 HAVE_LIBRETRO_VFS ?= 1
-else
-HAVE_LIBRETRO_VFS ?= 0
-endif
 
 FFMPEGDIR		= $(CORE_DIR)/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
