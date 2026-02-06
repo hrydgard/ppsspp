@@ -238,6 +238,11 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(zipFileInfo_.contentName));
 		// It's a frame dump, add a play button!
 		break;
+	case ZipFileContents::EXTRACTED_GAME:
+		// We can do something smarter here later.
+		leftColumn->Add(new TextView(GetFriendlyPath(zipPath_)));
+		leftColumn->Add(new TextView(er->T("File format not supported")));
+		break;
 	case ZipFileContents::UNKNOWN:
 		leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		break;
