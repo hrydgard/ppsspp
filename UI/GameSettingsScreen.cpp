@@ -737,9 +737,16 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	uiVolume->SetZeroLabel(a->T("Mute"));
 	uiVolume->SetLiveUpdate(true);
 	uiVolume->OnChange.Add([](UI::EventParams &e) {
+		static double lastTimePlayed = 0.0;
+		double now = time_now_d();
+		if (now - lastTimePlayed < 0.1) {
+			return; // Don't play if we just played one, to avoid spamming when dragging.
+		}
+		lastTimePlayed = now;
 		// Audio preview
 		PlayUISound(UI::UISound::CONFIRM);
 	});
+	uiVolume->SetEnabledPtr(&g_Config.iUIVolume);
 
 	PopupSliderChoice *gamePreviewVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGamePreviewVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iGamePreviewVolume), a->T("Game preview volume"), screenManager()));
 	gamePreviewVolume->SetFormat("%d%%");

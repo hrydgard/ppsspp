@@ -150,7 +150,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 	case PathType::CONTENT_URI:
 		// We're gonna need some error codes..
 		if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
-			INFO_LOG(Log::IO, "Opening content file for read: '%s'", path.c_str());
+			DEBUG_LOG(Log::IO, "Opening content file for read: '%s'", path.c_str());
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
 			if (descriptor < 0) {
@@ -163,7 +163,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			// This is also a terrible possible data race, ugh. Anyway...
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
-				INFO_LOG(Log::IO, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
+				DEBUG_LOG(Log::IO, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
 				std::string name = path.GetFilename();
 				if (path.CanNavigateUp()) {
 					Path parent = path.NavigateUp();
@@ -176,7 +176,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 					return nullptr;
 				}
 			} else {
-				INFO_LOG(Log::IO, "OpenCFile(%s): Opening existing content file for write (truncating). Requested mode: '%s'", path.c_str(), mode);
+				DEBUG_LOG(Log::IO, "OpenCFile(%s): Opening existing content file for write (truncating). Requested mode: '%s'", path.c_str(), mode);
 			}
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
