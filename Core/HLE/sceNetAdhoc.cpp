@@ -780,7 +780,7 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 
-	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX){
+	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
 		// force fragmentation for giant sends
 		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
 	}
