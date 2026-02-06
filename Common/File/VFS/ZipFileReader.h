@@ -39,7 +39,7 @@ private:
 
 class ZipFileReader : public VFSBackend {
 public:
-	static ZipFileReader *Create(const Path &zipFile, const char *inZipPath, bool logErrors = true);
+	static ZipFileReader *Create(const Path &zipFile, std::string_view inZipPath, bool logErrors = true);
 	~ZipFileReader();
 
 	bool IsValid() const { return zip_file_ != nullptr; }

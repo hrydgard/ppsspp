@@ -5,8 +5,6 @@
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
 
-static const float extraTextScale = 0.7f;
-
 uint32_t GetNoticeBackgroundColor(NoticeLevel type) {
 	// Colors from Infima
 	switch (type) {
@@ -79,7 +77,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 
 	float width2 = 0.0f, height2 = 0.0f;
 	if (!details.empty()) {
-		dc.MeasureTextRect(dc.GetTheme().uiFont, extraTextScale, extraTextScale, details, availableWidth, &width2, &height2, align | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, details, availableWidth, &width2, &height2, align | FLAG_WRAP_TEXT);
 		*width = std::max(*width, width2);
 	}
 
@@ -159,8 +157,8 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 			UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
 			dc.FillRect(backgroundDark, bottomTextBounds);
 		}
-		dc.SetFontScale(extraTextScale, extraTextScale);
+		dc.SetFontStyle(dc.GetTheme().uiFontSmall);
 		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT | FLAG_WRAP_TEXT);
 	}
-	dc.SetFontScale(1.0f, 1.0f);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 }

@@ -136,10 +136,10 @@ zip_int64_t ZipContainer::SourceCallback(void *userdata, void *data, zip_uint64_
 	}
 }
 
-ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath, bool logErrors) {
+ZipFileReader *ZipFileReader::Create(const Path &zipFile, std::string_view inZipPath, bool logErrors) {
 	// The inZipPath is supposed to be a folder, and internally in this class, we suffix
 	// folder paths with '/', matching how the zip library works.
-	std::string path = inZipPath;
+	std::string path(inZipPath);
 	if (!path.empty() && path.back() != '/') {
 		path.push_back('/');
 	}
