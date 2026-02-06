@@ -171,6 +171,13 @@ public class NativeApp {
 					if (ev.getActionIndex() == i)
 						code = 4;
 					break;
+				case MotionEvent.ACTION_CANCEL:
+					Log.i(TAG, "ACTION_CANCEL");
+					if (ev.getActionIndex() == i) {
+						// Handle like ACTION_UP for now.
+						code = 4;
+					}
+					break;
 				case MotionEvent.ACTION_MOVE: {
 					code = 1;
 					if (Build.VERSION.SDK_INT >= 24) {
