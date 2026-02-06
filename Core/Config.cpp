@@ -691,7 +691,7 @@ static const ConfigSetting gestureControlSettings[] = {
 	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControls[0], iDoubleTapGesture), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControls[0], bGestureControlEnabled), false, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], bAnalogGesture), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensibility), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensitivity), 1.0f, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting graphicsSettings[] = {

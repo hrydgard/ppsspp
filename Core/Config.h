@@ -156,7 +156,7 @@ struct GestureControlConfig : public ConfigBlock {
 	float fSwipeSmoothing = 0.5f;
 	int iDoubleTapGesture = 0;
 	bool bAnalogGesture = false;
-	float fAnalogGestureSensibility = 1.0f;
+	float fAnalogGestureSensitivity = 1.0f;
 
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;

@@ -43,6 +43,7 @@ static float g_gamepadOpacity;
 static double g_lastTouch;
 
 MultiTouchButton *primaryButton[TOUCH_MAX_POINTERS]{};
+std::set<int> g_activeGesturePointers;
 
 void GamepadUpdateOpacity(float force) {
 	if (force >= 0.0f) {
@@ -122,11 +123,18 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 	}
 	if (input.flags & TouchInputFlags::MOVE) {
 		if (!(input.flags & TouchInputFlags::MOUSE) || input.buttons) {
+			bool ignorePress = false;
+			if (g_activeGesturePointers.count(input.id)) {
+				// Don't start a button touch if dragging and this pointer is already being used for a gesture.
+				ignorePress = true;
+			}
 			if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
-				if (CanGlide() && !primaryButton[input.id]) {
-					primaryButton[input.id] = this;
+				if (!ignorePress) {
+					if (CanGlide() && !primaryButton[input.id]) {
+						primaryButton[input.id] = this;
+					}
+					pointerDownMask_ |= 1 << input.id;
 				}
-				pointerDownMask_ |= 1 << input.id;
 			} else if (primaryButton[input.id] != this) {
 				pointerDownMask_ &= ~(1 << input.id);
 			}
@@ -322,16 +330,23 @@ bool PSPDpad::Touch(const TouchInput &input) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
 			dragPointerId_ = input.id;
 			usedPointerMask |= 1 << input.id;
-			ProcessTouch(input.x, input.y, true);
+			ProcessTouch(input.x, input.y, true, false);
 		}
 	}
 	if (input.flags & TouchInputFlags::MOVE) {
 		if (!(input.flags & TouchInputFlags::MOUSE) || input.buttons) {
+			bool ignorePress = false;
+			if (g_activeGesturePointers.count(input.id)) {
+				// Don't start a dpad touch if dragging and this pointer is already being used for a gesture.
+				ignorePress = true;
+			}
+
 			if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
 				dragPointerId_ = input.id;
 			}
+
 			if (input.id == dragPointerId_) {
-				ProcessTouch(input.x, input.y, true);
+				ProcessTouch(input.x, input.y, true, ignorePress);
 			}
 		}
 	}
@@ -339,13 +354,13 @@ bool PSPDpad::Touch(const TouchInput &input) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			usedPointerMask &= ~(1 << input.id);
-			ProcessTouch(input.x, input.y, false);
+			ProcessTouch(input.x, input.y, false, false);
 		}
 	}
 	return retval;
 }
 
-void PSPDpad::ProcessTouch(float x, float y, bool down) {
+void PSPDpad::ProcessTouch(float x, float y, bool down, bool ignorePress) {
 	float stick_size = bounds_.w;
 	float inv_stick_size = 1.0f / stick_size;
 	const float deadzone = 0.05f;
@@ -391,7 +406,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	bool vibrate = false;
 	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
 	for (int i = 0; i < 4; i++) {
-		if (pressed & dir[i]) {
+		if (!ignorePress && (pressed & dir[i])) {
 			vibrate = true;
 			__CtrlUpdateButtons(dir[i], 0);
 		}
@@ -1078,6 +1093,12 @@ const GestureControlConfig &GestureGamepad::GetZone() {
 	return g_Config.gestureControls[zoneIndex_];
 }
 
+GestureGamepad::~GestureGamepad() {
+	if (dragPointerId_ != -1) {
+		g_activeGesturePointers.erase(dragPointerId_);
+	}
+}
+
 bool GestureGamepad::Touch(const TouchInput &input) {
 	const GestureControlConfig &zone = GetZone();
 
@@ -1089,6 +1110,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
+		g_activeGesturePointers.clear();
 		return false;
 	}
 
@@ -1103,6 +1125,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			lastY_ = input.y;
 			downX_ = input.x;
 			downY_ = input.y;
+
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (zone.iDoubleTapGesture != 0 )
@@ -1120,17 +1143,27 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			lastX_ = input.x;
 			lastY_ = input.y;
 
+			const float distance = sqrtf((input.x - downX_) * (input.x - downX_) + (input.y - downY_) * (input.y - downY_));
+			// TODO: Configurable distance?
+			if (distance > 50.0f * g_display.dpi_scale_x) {
+				// The user has dragged some distance from the initial touch. Start ignoring button presses.
+				g_activeGesturePointers.insert(input.id);
+			} else {
+				g_activeGesturePointers.erase(input.id);
+			}
+
 			if (zone.bAnalogGesture) {
-				const float k = zone.fAnalogGestureSensibility * 0.02;
-				float dx = (input.x - downX_)*g_display.dpi_scale_x * k;
-				float dy = (input.y - downY_)*g_display.dpi_scale_y * k;
-				dx = std::min(1.0f, std::max(-1.0f, dx));
-				dy = std::min(1.0f, std::max(-1.0f, dy));
+				const float k = zone.fAnalogGestureSensitivity * 0.02;
+				float dx = (input.x - downX_) * g_display.dpi_scale_x * k;
+				float dy = (input.y - downY_) * g_display.dpi_scale_y * k;
+				dx = std::clamp(dx, -1.0f, 1.0f);
+				dy = std::clamp(dy, -1.0f, 1.0f);
 				__CtrlSetAnalogXY(0, dx, -dy);
 			}
 		}
 	}
 	if (input.flags & TouchInputFlags::UP) {
+		g_activeGesturePointers.erase(input.id);
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
 			if (time_now_d() - lastTouchDown_ < 0.3f)

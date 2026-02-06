@@ -2054,7 +2054,7 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 
 	vert->Add(new ItemHeader(co->T("Analog Stick")));
 	vert->Add(new CheckBox(&zone.bAnalogGesture, co->T("Enable analog stick gesture")));
-	vert->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensibility, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bAnalogGesture);
+	vert->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensitivity, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bAnalogGesture);
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)
