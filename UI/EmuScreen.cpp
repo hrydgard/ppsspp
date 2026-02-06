@@ -1720,7 +1720,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		return flags;
 	}
 
-	if (!PSP_IsInited()) {
+	if (!PSP_IsInited() || readyToFinishBoot_) {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		if (mode & ScreenRenderMode::TOP) {

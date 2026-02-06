@@ -746,7 +746,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		// Audio preview
 		PlayUISound(UI::UISound::CONFIRM);
 	});
-	uiVolume->SetEnabledPtr(&g_Config.iUIVolume);
+	uiVolume->SetEnabledPtr(&g_Config.bUISound);
 
 	PopupSliderChoice *gamePreviewVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGamePreviewVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iGamePreviewVolume), a->T("Game preview volume"), screenManager()));
 	gamePreviewVolume->SetFormat("%d%%");
