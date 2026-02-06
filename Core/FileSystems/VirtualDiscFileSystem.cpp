@@ -236,19 +236,12 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 	// We don't savestate handlers (loaded on fs load), but if they change, it may not load properly.
 }
 
-Path VirtualDiscFileSystem::GetLocalPath(std::string localpath) const {
+Path VirtualDiscFileSystem::GetLocalPath(std::string_view localpath) const {
 	if (localpath.empty())
 		return basePath;
 
 	if (localpath[0] == '/')
-		localpath.erase(0,1);
-	//Convert slashes
-#ifdef _WIN32
-	for (size_t i = 0; i < localpath.size(); i++) {
-		if (localpath[i] == '/')
-			localpath[i] = '\\';
-	}
-#endif
+		localpath.remove_prefix(1);
 	return basePath / localpath;
 }
 

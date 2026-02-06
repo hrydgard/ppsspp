@@ -255,7 +255,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 	root->valid = true;
 }
 
-const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError) {
+const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string_view path, bool catchError) {
 	const size_t pathLength = path.length();
 
 	if (pathLength == 0) {
@@ -288,9 +288,9 @@ const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &pa
 			if (nextSlashIndex == std::string::npos)
 				nextSlashIndex = pathLength;
 
-			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
+			const std::string_view firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
 			for (size_t i = 0; i < entry->children.size(); i++) {
-				const std::string &n = entry->children[i]->name;
+				const std::string_view n = entry->children[i]->name;
 				if (firstPathComponent == n) {
 					//yay we got it
 					nextEntry = entry->children[i];
@@ -302,8 +302,9 @@ const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &pa
 		
 		if (nextEntry) {
 			entry = nextEntry;
-			if (!entry->valid)
+			if (!entry->valid) {
 				ReadDirectory(entry);
+			}
 			pathIndex += name.length();
 			if (pathIndex < pathLength && path[pathIndex] == '/')
 				++pathIndex;
@@ -311,9 +312,9 @@ const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &pa
 			if (pathLength <= pathIndex)
 				return entry;
 		} else {
-			if (catchError)
-				ERROR_LOG(Log::FileSystem, "File '%s' not found", path.c_str());
-
+			if (catchError) {
+				ERROR_LOG(Log::FileSystem, "File '%.*s' not found", STR_VIEW(path));
+			}
 			return 0;
 		}
 	}

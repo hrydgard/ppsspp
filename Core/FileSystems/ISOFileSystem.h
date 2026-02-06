@@ -98,7 +98,7 @@ private:
 	TreeEntry entireISO;
 
 	void ReadDirectory(TreeEntry *root) const;
-	const TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
+	const TreeEntry *GetFromPath(std::string_view path, bool catchError = true);
 	std::string EntryFullPath(const TreeEntry *e);
 };
 
