@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <mutex>
 #include <memory>
@@ -59,10 +60,10 @@ public:
 	}
 
 	// Will replace the existing mount if already exists.
-	void Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system);
+	void Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system);
 
 	void UnmountAll();
-	void Unmount(const std::string &prefix);
+	void Unmount(std::string_view prefix);
 
 	// Would like to make this const, but...
 	std::vector<MountPoint> &GetMounts() {
@@ -70,10 +71,10 @@ public:
 	}
 
 	// The pointer returned from these are for temporary usage only. Do not store.
-	IFileSystem *GetSystem(const std::string &prefix);
-	IFileSystem *GetSystemFromFilename(const std::string &filename);
+	IFileSystem *GetSystem(std::string_view prefix);
+	IFileSystem *GetSystemFromFilename(std::string_view filename);
 	IFileSystem *GetHandleOwner(u32 handle) const;
-	FileSystemFlags FlagsFromFilename(const std::string &filename) {
+	FileSystemFlags FlagsFromFilename(std::string_view filename) {
 		IFileSystem *sys = GetSystemFromFilename(filename);
 		return sys ? sys->Flags() : FileSystemFlags::NONE;
 	}
@@ -93,11 +94,11 @@ public:
 
 	void DoState(PointerWrap &p) override;
 
-	int MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
+	int MapFilePath(std::string_view inpath, std::string *outpath, MountPoint **system);
 
-	inline int MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
+	inline int MapFilePath(std::string_view inpath, std::string *outpath, IFileSystem **system) {
 		MountPoint *mountPoint = nullptr;
-		int error = MapFilePath(_inpath, outpath, &mountPoint);
+		int error = MapFilePath(inpath, outpath, &mountPoint);
 		if (error == 0) {
 			*system = mountPoint->system.get();
 			return error;
@@ -106,7 +107,7 @@ public:
 		return error;
 	}
 
-	std::string NormalizePrefix(std::string prefix) const;
+	std::string NormalizePrefix(std::string_view prefix) const;
 
 	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
@@ -137,17 +138,17 @@ public:
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false);
 
-	void SetStartingDirectory(const std::string &dir) {
+	void SetStartingDirectory(std::string_view dir) {
 		std::lock_guard<std::recursive_mutex> guard(lock);
 		startingDirectory = dir;
 	}
 
-	int64_t ComputeRecursiveDirectorySize(const std::string &dirPath);
+	int64_t ComputeRecursiveDirectorySize(std::string_view dirPath);
 
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override;
 
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "Meta"); }
 
 private:
-	int64_t RecursiveSize(const std::string &dirPath);
+	int64_t RecursiveSize(std::string_view dirPath);
 };
