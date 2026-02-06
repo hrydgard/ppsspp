@@ -80,7 +80,7 @@ private:
 	};
 
 	struct OpenFileEntry {
-		TreeEntry *file;
+		const TreeEntry *file;
 		unsigned int seekPos;  // TODO: Make 64-bit?
 		bool isRawSector;   // "/sce_lbn" mode
 		bool isBlockSectorMode;  // "umd:" mode: all sizes and offsets are in 2048 byte chunks
@@ -93,13 +93,13 @@ private:
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
 	BlockDevice *blockDevice;
-	u32 lastReadBlock_;
+	mutable u32 lastReadBlock_;
 
 	TreeEntry entireISO;
 
-	void ReadDirectory(TreeEntry *root);
-	TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
-	std::string EntryFullPath(TreeEntry *e);
+	void ReadDirectory(TreeEntry *root) const;
+	const TreeEntry *GetFromPath(std::string_view path, bool catchError = true);
+	std::string EntryFullPath(const TreeEntry *e);
 };
 
 // On the "umd0:" device, any file you open is the entire ISO.

@@ -171,6 +171,7 @@ enum class ZipFileContents {
 	TEXTURE_PACK,
 	SAVE_DATA,
 	FRAME_DUMP,
+	EXTRACTED_GAME,
 	SAVE_STATES,
 };
 

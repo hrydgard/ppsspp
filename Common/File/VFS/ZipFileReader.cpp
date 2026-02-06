@@ -136,10 +136,10 @@ zip_int64_t ZipContainer::SourceCallback(void *userdata, void *data, zip_uint64_
 	}
 }
 
-ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath, bool logErrors) {
+ZipFileReader *ZipFileReader::Create(const Path &zipFile, std::string_view inZipPath, bool logErrors) {
 	// The inZipPath is supposed to be a folder, and internally in this class, we suffix
 	// folder paths with '/', matching how the zip library works.
-	std::string path = inZipPath;
+	std::string path(inZipPath);
 	if (!path.empty() && path.back() != '/') {
 		path.push_back('/');
 	}
@@ -160,8 +160,8 @@ ZipFileReader::~ZipFileReader() {
 	zip_file_.close();
 }
 
-uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
-	std::string temp_path = inZipPath_ + path;
+uint8_t *ZipFileReader::ReadFile(std::string_view path, size_t *size) {
+	std::string temp_path = join(inZipPath_, path);
 
 	std::lock_guard<std::mutex> guard(lock_);
 	// Figure out the file size first. TODO: Can this part be done without locking the mutex?
@@ -185,8 +185,8 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 	return contents;
 }
 
-bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
-	std::string path = std::string(inZipPath_) + orig_path;
+bool ZipFileReader::GetFileListing(std::string_view orig_path, std::vector<File::FileInfo> *listing, const char *filter = 0) {
+	std::string path = join(inZipPath_, orig_path);
 	if (!path.empty() && path.back() != '/') {
 		path.push_back('/');
 	}
@@ -293,9 +293,9 @@ bool ZipFileReader::GetZipListings(const std::string &path, std::set<std::string
 	return anyPrefixMatched;
 }
 
-bool ZipFileReader::GetFileInfo(const char *path, File::FileInfo *info) {
+bool ZipFileReader::GetFileInfo(std::string_view path, File::FileInfo *info) {
 	struct zip_stat zstat;
-	std::string temp_path = inZipPath_ + path;
+	std::string temp_path = join(inZipPath_, path);
 
 	// Clear some things to start.
 	info->isDirectory = false;
@@ -340,8 +340,9 @@ public:
 	zip_file_t *zf = nullptr;
 };
 
-VFSFileReference *ZipFileReader::GetFile(const char *path) {
-	int zi = zip_name_locate(zip_file_, path, ZIP_FL_NOCASE);  // this is EXPENSIVE
+VFSFileReference *ZipFileReader::GetFile(std::string_view path) {
+	std::string p(path);
+	int zi = zip_name_locate(zip_file_, p.c_str(), ZIP_FL_NOCASE);  // this is EXPENSIVE
 	if (zi < 0) {
 		// Not found.
 		return nullptr;

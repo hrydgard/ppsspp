@@ -8,12 +8,12 @@ DirectoryReader::DirectoryReader(const Path &path) {
 	path_ = path;
 }
 
-uint8_t *DirectoryReader::ReadFile(const char *path, size_t *size) {
+uint8_t *DirectoryReader::ReadFile(std::string_view path, size_t *size) {
 	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
 	return File::ReadLocalFile(new_path, size);
 }
 
-bool DirectoryReader::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) {
+bool DirectoryReader::GetFileListing(std::string_view path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) {
 	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
 
 	File::FileInfo info;
@@ -27,12 +27,12 @@ bool DirectoryReader::GetFileListing(const char *path, std::vector<File::FileInf
 	return false;
 }
 
-bool DirectoryReader::GetFileInfo(const char *path, File::FileInfo *info) {
+bool DirectoryReader::GetFileInfo(std::string_view path, File::FileInfo *info) {
 	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
 	return File::GetFileInfo(new_path, info);
 }
 
-bool DirectoryReader::Exists(const char *path) {
+bool DirectoryReader::Exists(std::string_view path) {
 	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
 	return File::Exists(new_path);
 }
@@ -50,7 +50,7 @@ public:
 	FILE *file = nullptr;
 };
 
-VFSFileReference *DirectoryReader::GetFile(const char *path) {
+VFSFileReference *DirectoryReader::GetFile(std::string_view path) {
 	Path filePath = path_ / path;
 	if (!File::Exists(filePath)) {
 		return nullptr;

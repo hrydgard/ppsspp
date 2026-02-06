@@ -51,7 +51,7 @@ struct DirectoryFileHandle {
 	DirectoryFileHandle(Flags flags, FileSystemFlags fileSystemFlags)
 		: replay_(flags != SKIP_REPLAY), fileSystemFlags_(fileSystemFlags) {}
 
-	Path GetLocalPath(const Path &basePath, std::string localpath) const;
+	Path GetLocalPath(const Path &basePath, std::string_view localPath) const;
 	bool Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
@@ -104,7 +104,7 @@ private:
 	IHandleAllocator *hAlloc;
 	FileSystemFlags flags;
 
-	Path GetLocalPath(std::string internalPath) const;
+	Path GetLocalPath(std::string_view internalPath) const;
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.
@@ -151,5 +151,5 @@ private:
 	std::string basePath;
 	IHandleAllocator *hAlloc;
 
-	std::string GetLocalPath(const std::string &localpath) const;
+	std::string GetLocalPath(std::string_view localpath) const;
 };

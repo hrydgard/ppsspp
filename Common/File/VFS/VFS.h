@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <string_view>
 
 #include "Common/File/DirListing.h"
 
@@ -36,14 +37,14 @@ public:
 class VFSInterface {
 public:
 	virtual ~VFSInterface() {}
-	virtual uint8_t *ReadFile(const char *path, size_t *size) = 0;
+	virtual uint8_t *ReadFile(std::string_view path, size_t *size) = 0;
 	// If listing already contains files, it'll be cleared.
-	virtual bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) = 0;
+	virtual bool GetFileListing(std::string_view path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) = 0;
 };
 
 class VFSBackend : public VFSInterface {
 public:
-	virtual VFSFileReference *GetFile(const char *path) = 0;
+	virtual VFSFileReference *GetFile(std::string_view path) = 0;
 	virtual bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) = 0;
 	virtual void ReleaseFile(VFSFileReference *vfsReference) = 0;
 
@@ -55,8 +56,8 @@ public:
 	virtual void CloseFile(VFSOpenFile *vfsOpenFile) = 0;
 
 	// Filter support is optional but nice to have
-	virtual bool GetFileInfo(const char *path, File::FileInfo *info) = 0;
-	virtual bool Exists(const char *path) {
+	virtual bool GetFileInfo(std::string_view path, File::FileInfo *info) = 0;
+	virtual bool Exists(std::string_view path) {
 		File::FileInfo info{};
 		return GetFileInfo(path, &info) && info.exists;
 	}
@@ -67,21 +68,21 @@ public:
 class VFS : public VFSInterface {
 public:
 	~VFS() { Clear(); }
-	void Register(const char *prefix, VFSBackend *reader);
+	void Register(std::string_view prefix, VFSBackend *reader);
 	void Clear();
 
 	// Use delete [] to release the returned memory.
 	// Always allocates an extra zero byte at the end, so that it
 	// can be used for text like shader sources.
-	uint8_t *ReadFile(const char *filename, size_t *size) override;
-	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) override;
+	uint8_t *ReadFile(std::string_view filename, size_t *size) override;
+	bool GetFileListing(std::string_view path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) override;
 
-	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
-	bool Exists(const char *path);
+	bool GetFileInfo(std::string_view filename, File::FileInfo *fileInfo);
+	bool Exists(std::string_view path);
 
 private:
 	struct VFSEntry {
-		const char *prefix;
+		std::string_view prefix;
 		VFSBackend *reader;
 	};
 	std::vector<VFSEntry> entries_;

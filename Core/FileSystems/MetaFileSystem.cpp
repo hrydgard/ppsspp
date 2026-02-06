@@ -175,13 +175,12 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle) const
 	return nullptr;
 }
 
-int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
-{
+int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, MountPoint **system) {
 	int error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string realpath;
 
-	std::string inpath = _inpath;
+	std::string inpath(_inpath);
 
 	// "ms0:/file.txt" is equivalent to "   ms0:/file.txt".  Yes, really.
 	if (inpath.find(':') != inpath.npos) {
@@ -237,10 +236,10 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 			size_t prefLen = fileSystems[i].prefix.size();
 			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
 			{
-				outpath = realpath.substr(prefixPos + 1);
+				*outpath = realpath.substr(prefixPos + 1);
 				*system = &(fileSystems[i]);
 
-				VERBOSE_LOG(Log::FileSystem, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
+				VERBOSE_LOG(Log::FileSystem, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath->c_str());
 
 				return error == SCE_KERNEL_ERROR_NOCWD ? error : 0;
 			}
@@ -253,7 +252,7 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 	return error;
 }
 
-std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
+std::string MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
 	// Let's apply some mapping here since it won't break savestates.
 	if (prefix == "memstick:")
 		prefix = "ms0:";
@@ -268,10 +267,10 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	if (prefix == "DISC0:")
 		prefix = "disc0:";
 
-	return prefix;
+	return std::string(prefix);
 }
 
-void MetaFileSystem::Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system) {
+void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
@@ -295,7 +294,7 @@ void MetaFileSystem::UnmountAll() {
 	currentDir.clear();
 }
 
-void MetaFileSystem::Unmount(const std::string &prefix) {
+void MetaFileSystem::Unmount(std::string_view prefix) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
@@ -305,14 +304,14 @@ void MetaFileSystem::Unmount(const std::string &prefix) {
 	}
 }
 
-IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
+IFileSystem *MetaFileSystem::GetSystemFromFilename(std::string_view filename) {
 	size_t prefixPos = filename.find(':');
 	if (prefixPos == filename.npos)
 		return 0;
 	return GetSystem(filename.substr(0, prefixPos + 1));
 }
 
-IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
+IFileSystem *MetaFileSystem::GetSystem(std::string_view prefix) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
 		if (it->prefix == NormalizePrefix(prefix))
@@ -333,7 +332,7 @@ int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	MountPoint *mount;
-	int error = MapFilePath(filename, of, &mount);
+	int error = MapFilePath(filename, &of, &mount);
 	if (error == 0)
 		return mount->system->OpenFile(of, access, mount->prefix.c_str());
 	else
@@ -345,7 +344,7 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(filename, of, &system);
+	int error = MapFilePath(filename, &of, &system);
 	if (error == 0)
 	{
 		return system->GetFileInfo(of);
@@ -369,7 +368,7 @@ std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(const std::string &path, 
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(path, of, &system);
+	int error = MapFilePath(path, &of, &system);
 	if (error == 0) {
 		return system->GetDirListing(of, exists);
 	} else {
@@ -397,7 +396,7 @@ int MetaFileSystem::ChDir(const std::string &dir)
 	
 	std::string of;
 	MountPoint *mountPoint;
-	int error = MapFilePath(dir, of, &mountPoint);
+	int error = MapFilePath(dir, &of, &mountPoint);
 	if (error == 0)
 	{
 		currentDir[curThread] = mountPoint->prefix + of;
@@ -427,7 +426,7 @@ bool MetaFileSystem::MkDir(const std::string &dirname)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(dirname, of, &system);
+	int error = MapFilePath(dirname, &of, &system);
 	if (error == 0)
 	{
 		return system->MkDir(of);
@@ -443,7 +442,7 @@ bool MetaFileSystem::RmDir(const std::string &dirname)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(dirname, of, &system);
+	int error = MapFilePath(dirname, &of, &system);
 	if (error == 0)
 	{
 		return system->RmDir(of);
@@ -461,13 +460,13 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	std::string rf;
 	IFileSystem *osystem;
 	IFileSystem *rsystem = NULL;
-	int error = MapFilePath(from, of, &osystem);
+	int error = MapFilePath(from, &of, &osystem);
 	if (error == 0)
 	{
 		// If it's a relative path, it seems to always use from's filesystem.
 		if (to.find(":/") != to.npos)
 		{
-			error = MapFilePath(to, rf, &rsystem);
+			error = MapFilePath(to, &rf, &rsystem);
 			if (error < 0)
 				return -1;
 		}
@@ -493,7 +492,7 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(filename, of, &system);
+	int error = MapFilePath(filename, &of, &system);
 	if (error == 0) {
 		return system->RemoveFile(of);
 	} else {
@@ -604,7 +603,7 @@ u64 MetaFileSystem::FreeDiskSpace(const std::string &path) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(path, of, &system);
+	int error = MapFilePath(path, &of, &system);
 	if (error == 0)
 		return system->FreeDiskSpace(of);
 	else
@@ -643,14 +642,14 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 	}
 }
 
-int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
+int64_t MetaFileSystem::RecursiveSize(std::string_view dirPath) {
 	u64 result = 0;
-	auto allFiles = GetDirListing(dirPath);
+	auto allFiles = GetDirListing(std::string(dirPath));
 	for (const auto &file : allFiles) {
 		if (file.name == "." || file.name == "..")
 			continue;
 		if (file.type == FILETYPE_DIRECTORY) {
-			result += RecursiveSize(dirPath + file.name);
+			result += RecursiveSize(join(dirPath, file.name));
 		} else {
 			result += file.size;
 		}
@@ -658,11 +657,11 @@ int64_t MetaFileSystem::RecursiveSize(const std::string &dirPath) {
 	return result;
 }
 
-int64_t MetaFileSystem::ComputeRecursiveDirectorySize(const std::string &filename) {
+int64_t MetaFileSystem::ComputeRecursiveDirectorySize(std::string_view filename) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	int error = MapFilePath(filename, of, &system);
+	int error = MapFilePath(filename, &of, &system);
 	if (error == 0) {
 		int64_t size;
 		if (system->ComputeRecursiveDirSizeIfFast(of, &size)) {

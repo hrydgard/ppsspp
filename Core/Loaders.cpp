@@ -468,6 +468,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	int filesInRoot = 0;
 	int directoriesInRoot = 0;
 	bool hasParamSFO = false;
+	bool isExtractedISO = false;
 	bool hasIcon0PNG = false;
 	s64 totalFileSize = 0;
 
@@ -532,6 +533,8 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			}
 			isSaveStates = true;
 			info->gameTitle = fn;
+		} else if (endsWith(zippedName, "psp_game/sysdir/eboot.bin") || endsWith(zippedName, "psp_game/sysdir/boot.bin")) {
+			isExtractedISO = true;
 		} else if (endsWith(zippedName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
@@ -574,13 +577,15 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
 		info->contents = ZipFileContents::TEXTURE_PACK;
-	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG) {
+	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG && !isExtractedISO) {
 		// As downloaded from GameFAQs, for example.
 		info->contents = ZipFileContents::SAVE_DATA;
 	} else if (isFrameDump) {
 		info->contents = ZipFileContents::FRAME_DUMP;
 	} else if (isSaveStates) {
 		info->contents = ZipFileContents::SAVE_STATES;
+	} else if (isExtractedISO && hasParamSFO) {
+		info->contents = ZipFileContents::EXTRACTED_GAME;
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}

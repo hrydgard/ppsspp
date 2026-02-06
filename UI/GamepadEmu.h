@@ -121,7 +121,7 @@ public:
 	bool IsDown() const override { return down_ != 0; }
 
 private:
-	void ProcessTouch(float x, float y, bool down);
+	void ProcessTouch(float x, float y, bool down, bool ignorePress);
 	ImageID arrowIndex_;
 	ImageID arrowDownIndex_;
 	ImageID overlayIndex_;
@@ -210,6 +210,7 @@ struct GestureControlConfig;
 class GestureGamepad : public UI::View {
 public:
 	explicit GestureGamepad(ControlMapper* controlMapper, int zoneIndex, UI::LayoutParams *layoutParams) : UI::View(layoutParams), controlMapper_(controlMapper), zoneIndex_(zoneIndex) {}
+	~GestureGamepad();
 
 	bool Touch(const TouchInput &input) override;
 	void Update() override;

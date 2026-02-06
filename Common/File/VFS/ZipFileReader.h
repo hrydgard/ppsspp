@@ -39,15 +39,15 @@ private:
 
 class ZipFileReader : public VFSBackend {
 public:
-	static ZipFileReader *Create(const Path &zipFile, const char *inZipPath, bool logErrors = true);
+	static ZipFileReader *Create(const Path &zipFile, std::string_view inZipPath, bool logErrors = true);
 	~ZipFileReader();
 
 	bool IsValid() const { return zip_file_ != nullptr; }
 
 	// use delete[] on the returned value.
-	uint8_t *ReadFile(const char *path, size_t *size) override;
+	uint8_t *ReadFile(std::string_view path, size_t *size) override;
 
-	VFSFileReference *GetFile(const char *path) override;
+	VFSFileReference *GetFile(std::string_view path) override;
 	bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) override;
 	void ReleaseFile(VFSFileReference *vfsReference) override;
 
@@ -56,8 +56,8 @@ public:
 	size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) override;
 	void CloseFile(VFSOpenFile *vfsOpenFile) override;
 
-	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
-	bool GetFileInfo(const char *path, File::FileInfo *info) override;
+	bool GetFileListing(std::string_view path, std::vector<File::FileInfo> *listing, const char *filter) override;
+	bool GetFileInfo(std::string_view path, File::FileInfo *info) override;
 	std::string toString() const override {
 		std::string retval = zipPath_.ToVisualString();
 		if (!inZipPath_.empty()) {

@@ -90,12 +90,12 @@ DirectoryFileSystem::~DirectoryFileSystem() {
 
 // TODO(scoped): Merge the two below functions somehow.
 
-Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localPath) const {
+Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string_view localPath) const {
 	if (localPath.empty())
 		return basePath;
 
 	if (localPath[0] == '/')
-		localPath.erase(0, 1);
+		localPath = localPath.substr(1);
 
 	if (fileSystemFlags_ & FileSystemFlags::STRIP_PSP) {
 		if (localPath == "PSP") {
@@ -108,12 +108,12 @@ Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localPa
 	return basePath / localPath;
 }
 
-Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
+Path DirectoryFileSystem::GetLocalPath(std::string_view internalPath) const {
 	if (internalPath.empty())
 		return basePath;
 
 	if (internalPath[0] == '/')
-		internalPath.erase(0, 1);
+		internalPath = internalPath.substr(1);
 
 	if (flags & FileSystemFlags::STRIP_PSP) {
 		if (internalPath == "PSP") {
@@ -1053,8 +1053,8 @@ VFSFileSystem::~VFSFileSystem() {
 	entries.clear();
 }
 
-std::string VFSFileSystem::GetLocalPath(const std::string &localPath) const {
-	return basePath + localPath;
+std::string VFSFileSystem::GetLocalPath(std::string_view localPath) const {
+	return join(basePath, localPath);
 }
 
 bool VFSFileSystem::MkDir(const std::string &dirname) {

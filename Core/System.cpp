@@ -58,6 +58,7 @@
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
@@ -300,7 +301,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			// TODO: Better would be to check that it was loaded successfully.
 			if (!File::Exists(g_CoreParameter.fileToStart / INDEX_FILENAME)) {
 				auto sc = GetI18NCategory(I18NCat::SCREEN);
-				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), g_CoreParameter.fileToStart.ToVisualString(), 7.0f);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), GetFriendlyPath(g_CoreParameter.fileToStart), 7.0f);
 			} else {
 				INFO_LOG(Log::Loader, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
 			}
