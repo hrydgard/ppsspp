@@ -308,6 +308,12 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	// Log the list of devices.
+	INFO_LOG(Log::G3D, "%d Vulkan devices found:", (int)physicalDeviceProperties_.size());
+	for (const auto &props : physicalDeviceProperties_) {
+		INFO_LOG(Log::G3D, "%s (vendor: %08x)", props.properties.deviceName, props.properties.vendorID);
+	}
+
 	if (extensionsLookup_.EXT_debug_utils) {
 		_assert_(vkCreateDebugUtilsMessengerEXT != nullptr);
 		InitDebugUtilsCallback();

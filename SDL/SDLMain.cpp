@@ -549,6 +549,7 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 		break;
 	}
 	case LaunchUrlType::LOCAL_FILE:
+	case LaunchUrlType::LOCAL_FOLDER:
 #if defined(__APPLE__)
 		// If it's a folder and we're on a mac, open it in finder.
 		OSXShowInFinder(std::string(url).c_str());

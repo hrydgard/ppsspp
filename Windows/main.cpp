@@ -132,13 +132,26 @@ static double g_lastKeepAwake = 0.0;
 static constexpr double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
-	// We don't even check urlType.
-	std::string u(url);
-	std::thread t = std::thread([u]() {
-		ShellExecute(NULL, L"open", ConvertUTF8ToWString(u).c_str(), NULL, NULL, SW_SHOWNORMAL);
-	});
-	// Detach is bad (given exit behavior), but in this case all the thread does is a ShellExecute to avoid freezing the caller while it runs, so it's safe.
-	t.detach();
+	switch (urlType) {
+	case LaunchUrlType::BROWSER_URL:
+	case LaunchUrlType::LOCAL_FILE:
+	case LaunchUrlType::LOCAL_FOLDER:
+	case LaunchUrlType::MARKET_URL:
+	case LaunchUrlType::EMAIL_ADDRESS:
+		// ShellExecute handles everything.
+	{
+		std::string u(url);
+		std::thread t = std::thread([u]() {
+			ShellExecute(NULL, L"open", ConvertUTF8ToWString(u).c_str(), NULL, NULL, SW_SHOWNORMAL);
+		});
+		// Detach is bad (given exit behavior), but in this case all the thread does is a ShellExecute to avoid freezing the caller while it runs, so it's safe.
+		t.detach();
+		break;
+	}
+	default:
+		ERROR_LOG(Log::System, "Unhandled urlType %d", (int)urlType);
+		break;
+	}
 }
 
 void System_Vibrate(int length_ms) {
