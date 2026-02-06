@@ -109,13 +109,13 @@ ScreenRenderFlags BackgroundScreen::render(ScreenRenderMode mode) {
 	uiContext->PushTransform({ translation_, scale_, alpha_ });
 
 	uiContext->Begin();
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
+	Lin::Vec3 focus;
+	screenManager()->getFocusPosition(focus.x, focus.y, focus.z);
 
 	if (!gamePath_.empty()) {
-		::DrawGameBackground(*uiContext, gamePath_, x, y, z);
+		::DrawGameBackground(*uiContext, gamePath_, focus, 1.0f);
 	} else {
-		::DrawBackground(*uiContext, 1.0f, x, y, z);
+		::DrawBackground(*uiContext, 1.0f, focus);
 	}
 
 	uiContext->Flush();

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Text/I18n.h"
@@ -31,12 +32,12 @@ static Draw::Texture *bgTexture;
 class Animation {
 public:
 	virtual ~Animation() = default;
-	virtual void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) = 0;
+	virtual void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) = 0;
 };
 
 class MovingBackground : public Animation {
 public:
-	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+	void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) override {
 		if (!bgTexture)
 			return;
 
@@ -44,9 +45,9 @@ public:
 		dc.GetDrawContext()->BindTexture(0, bgTexture);
 		Bounds bounds = dc.GetBounds();
 
-		x = std::min(std::max(x / bounds.w, 0.0f), 1.0f) * XFAC;
-		y = std::min(std::max(y / bounds.h, 0.0f), 1.0f) * YFAC;
-		z = 1.0f + std::max(XFAC, YFAC) + (z - 1.0f) * ZFAC;
+		const float x = std::min(std::max(focus.x / bounds.w, 0.0f), 1.0f) * XFAC;
+		const float y = std::min(std::max(focus.y / bounds.h, 0.0f), 1.0f) * YFAC;
+		const float z = 1.0f + std::max(XFAC, YFAC) + (focus.z - 1.0f) * ZFAC;
 
 		lastX_ = abs(x - lastX_) > 0.001f ? x * XSPEED + lastX_ * (1.0f - XSPEED) : x;
 		lastY_ = abs(y - lastY_) > 0.001f ? y * YSPEED + lastY_ * (1.0f - YSPEED) : y;
@@ -78,7 +79,7 @@ private:
 
 class WaveAnimation : public Animation {
 public:
-	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+	void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) override {
 		const uint32_t color = colorAlpha(0xFFFFFFFF, alpha * 0.2f);
 		const float speed = 1.0;
 
@@ -117,7 +118,7 @@ public:
 		this->is_colored = is_colored;
 	}
 
-	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+	void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) override {
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
 
@@ -172,7 +173,7 @@ const ImageID FloatingSymbolsAnimation::SYMBOLS[4] = {
 
 class RecentGamesAnimation : public Animation {
 public:
-	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+	void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) override {
 		if (lastIndex_ == nextIndex_) {
 			CheckNext(dc, t);
 		} else if (t > nextT_) {
@@ -257,7 +258,7 @@ private:
 
 class BouncingIconAnimation : public Animation {
 public:
-	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+	void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) override {
 		dc.Flush();
 		dc.Begin();
 
@@ -379,7 +380,7 @@ void UIBackgroundShutdown() {
 	g_CurBackgroundAnimation = BackgroundAnimation::OFF;
 }
 
-void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
+void DrawBackground(UIContext &dc, float alpha, Lin::Vec3 focus) {
 	if (!bgTextureInited) {
 		UIBackgroundInit(dc);
 		bgTextureInited = true;
@@ -440,7 +441,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 #endif
 
 	if (g_Animation) {
-		g_Animation->Draw(dc, t, alpha, x, y, z);
+		g_Animation->Draw(dc, t, alpha, focus);
 	}
 }
 
@@ -450,11 +451,11 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 
 enum class BackgroundFillMode {
 	Stretch = 0,
-	CropToScreen = 1,
+	AdaptiveCropToScreen = 1,
 	FitToScreen = 2,
 };
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, Lin::Vec3 focus, float alpha) {
 	using namespace Draw;
 	using namespace UI;
 	dc.Flush();
@@ -467,20 +468,28 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::PIC1)) ? ginfo->GetPIC1() : nullptr;
 	if (pic && pic->texture) {
 		dc.GetDrawContext()->BindTexture(0, pic->texture);
-		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
+		uint32_t color = whiteAlpha(std::clamp(ease((time_now_d() - pic->timeLoaded) * 3.0f) * alpha, 0.0f, 1.0f)) & 0xFFc0c0c0;
 
 		// TODO: Make this configurable?
-		const BackgroundFillMode mode = BackgroundFillMode::CropToScreen;
+		const BackgroundFillMode mode = BackgroundFillMode::AdaptiveCropToScreen;
 
 		const Bounds screenBounds = dc.GetBounds();
 		float imageW = screenBounds.w;
 		float imageH = screenBounds.h;
 		float imageAspect = (float)pic->texture->Width() / (float)pic->texture->Height();
 
+		float squash = imageAspect / screenBounds.AspectRatio();
+
+		// Allow a lot of leeway for the image aspect - let it stretch a bit, and only then start cropping.
+		const float aspectLeeway = 0.5f;
+		if (mode == BackgroundFillMode::AdaptiveCropToScreen && squash >= 0.6f && squash < 1.7f) {
+			imageAspect = screenBounds.AspectRatio();
+		}
+
 		// Fit the image into the screen bounds according to the fill mode.
 		if (imageAspect > screenBounds.AspectRatio()) {
 			// Image is wider than screen.
-			if (mode == BackgroundFillMode::CropToScreen) {
+			if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
 				// Crop width.
 				imageW = screenBounds.h * imageAspect;
 			} else if (mode == BackgroundFillMode::FitToScreen) {
@@ -489,7 +498,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 			}
 		} else {
 			// Image is taller than screen.
-			if (mode == BackgroundFillMode::CropToScreen) {
+			if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
 				// Crop height.
 				imageH = screenBounds.w / imageAspect;
 			} else if (mode == BackgroundFillMode::FitToScreen) {
@@ -504,7 +513,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
-		::DrawBackground(dc, 1.0f, x, y, z);
+		::DrawBackground(dc, 1.0f, focus);
 		dc.RebindTexture();
 		dc.Flush();
 	}
