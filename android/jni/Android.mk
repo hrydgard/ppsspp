@@ -713,6 +713,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/NetAdhocCommon.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/ext/aemu_postoffice/client/postoffice.c \
+  $(SRC)/ext/aemu_postoffice/client/postoffice_mem_stdc.c \
   $(SRC)/ext/aemu_postoffice/client/sock_impl_linux.c \
   $(SRC)/ext/aemu_postoffice/client/mutex_impl_cpp.cpp \
   $(SRC)/ext/aemu_postoffice/client/delay_impl_cpp.cpp \

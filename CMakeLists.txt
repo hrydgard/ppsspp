@@ -2086,6 +2086,7 @@ set(GPU_SOURCES
 
 set(aemu_postoffice
 	ext/aemu_postoffice/client/postoffice.c
+	ext/aemu_postoffice/client/postoffice_mem_stdc.c
 	ext/aemu_postoffice/client/mutex_impl_cpp.cpp
 	ext/aemu_postoffice/client/delay_impl_cpp.cpp
 	ext/aemu_postoffice/client/log_impl_ppsspp.cpp

@@ -719,6 +719,9 @@
     <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_client.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_mem.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\aemu_postoffice\client\sock_impl.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
@@ -1339,6 +1342,9 @@
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\aemu_postoffice\client\postoffice.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\client\postoffice_mem_stdc.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\aemu_postoffice\client\sock_impl_windows.c">

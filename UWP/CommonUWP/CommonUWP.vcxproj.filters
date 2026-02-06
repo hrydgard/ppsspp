@@ -538,6 +538,9 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_psp.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
@@ -1033,6 +1036,9 @@
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\aemu_postoffice\client\postoffice_client.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\postoffice_mem.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\aemu_postoffice\client\delay_impl.h">

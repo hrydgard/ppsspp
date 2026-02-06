@@ -508,9 +508,11 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	SceNetEtherAddr saddr_copy;
 	int len_copy = *len;
 
-	if (len_copy > 2048) {
+	if (len_copy > AEMU_POSTOFFICE_PDP_BLOCK_MAX) {
 		// trim, library limites pdp packets
-		len_copy = 2048;
+		// some games just provide amazingly huge buffer sizes during recv
+		// if a huge packet cannot be sent, it is logged on the sender side
+		len_copy = AEMU_POSTOFFICE_PDP_BLOCK_MAX;
 	}
 
 	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
@@ -775,10 +777,15 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 	return 0;
 }
 
-static int ptp_send_postoffice(int idx, const void *data, int len) {
+static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 
-	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, len, true);
+	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
+		// force fragmentation for giant sends
+		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
+	}
+
+	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		return SOCKET_ERROR;
@@ -811,7 +818,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	int ret = 0;
 	int sockerr = 0;
 	if (serverHasRelay) {
-		ret = ptp_send_postoffice(req.id - 1, req.buffer, *req.length);
+		ret = ptp_send_postoffice(req.id - 1, req.buffer, req.length);
 		if (ret == 0) {
 			// sent
 			result = 0;
@@ -870,9 +877,11 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 
 	int len_copy = *len;
-	if (len_copy > 50 * 1024) {
+	if (len_copy > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
 		// trim, library limit
-		len_copy = 50 * 1024;
+		// some games just provide amazingly huge buffer sizes during recv
+		// if a huge burst cannot be sent, it is logged on the sender side
+		len_copy = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
 	}
 
 	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
@@ -4862,7 +4871,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					int sent = 0;
 					int error = 0;
 					if (serverHasRelay) {
-						sent = ptp_send_postoffice(id - 1, data, *len);
+						sent = ptp_send_postoffice(id - 1, data, len);
 						if (sent == 0) {
 							// sent
 							hleEatMicro(50);
