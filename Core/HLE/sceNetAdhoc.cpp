@@ -777,10 +777,15 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 	return 0;
 }
 
-static int ptp_send_postoffice(int idx, const void *data, int len) {
+static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 
-	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, len, true);
+	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX){
+		// force fragmentation for giant sends
+		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
+	}
+
+	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		return SOCKET_ERROR;
@@ -813,7 +818,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	int ret = 0;
 	int sockerr = 0;
 	if (serverHasRelay) {
-		ret = ptp_send_postoffice(req.id - 1, req.buffer, *req.length);
+		ret = ptp_send_postoffice(req.id - 1, req.buffer, req.length);
 		if (ret == 0) {
 			// sent
 			result = 0;
@@ -4866,7 +4871,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					int sent = 0;
 					int error = 0;
 					if (serverHasRelay) {
-						sent = ptp_send_postoffice(id - 1, data, *len);
+						sent = ptp_send_postoffice(id - 1, data, len);
 						if (sent == 0) {
 							// sent
 							hleEatMicro(50);
