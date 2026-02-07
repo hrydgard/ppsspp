@@ -81,9 +81,11 @@ public:
 	bool Exists(std::string_view path);
 
 private:
+	bool MapPath(std::string_view filename, VFSBackend **backend, std::string_view *relativePath);
+
 	struct VFSEntry {
 		std::string_view prefix;
-		VFSBackend *reader;
+		VFSBackend *backend;
 	};
 	std::vector<VFSEntry> entries_;
 };
