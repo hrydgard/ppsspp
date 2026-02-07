@@ -1405,6 +1405,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		auto co = GetI18NCategory(I18NCat::CONTROLS);
 
+		// Display rotation 
 		AddRotationPicker(screenManager(), systemSettings, true);
 
 		if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
