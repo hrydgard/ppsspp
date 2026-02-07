@@ -73,6 +73,7 @@ protected:
 
 private:
 	void CreateViews() override;
+	ScreenRenderFlags RunEmulation(ScreenRenderMode mode, bool framebufferBound, bool skipBufferEffects);
 	void OnDevTools(UI::EventParams &params);
 	void OnChat(UI::EventParams &params);
 
