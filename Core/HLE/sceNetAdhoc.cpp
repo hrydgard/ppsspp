@@ -795,7 +795,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
 		// this is pretty critical
-		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, len);
+		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, len ? *len : 0);
 	}
 
 	return 0;

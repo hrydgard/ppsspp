@@ -1690,7 +1690,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (PSP_IsInited() && !skipBufferEffects) {
 			_dbg_assert_(gpu);
 			gpu->BeginHostFrame(displayLayoutConfig);
-			gpu->CopyDisplayToOutput(displayLayoutConfig, true);
+			gpu->SetCurFramebufferDirty(true);
+			gpu->CopyDisplayToOutput(displayLayoutConfig);
 			gpu->EndHostFrame();
 		}
 		if (gpu && gpu->PresentedThisFrame()) {
@@ -1803,7 +1804,8 @@ ScreenRenderFlags EmuScreen::RunEmulation(ScreenRenderMode mode, bool framebuffe
 				// This won't work in non-buffered, but that's fine.
 				if (!framebufferBound && PSP_IsInited()) {
 					// draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
-					gpu->CopyDisplayToOutput(displayLayoutConfig, true);
+					gpu->SetCurFramebufferDirty(true);
+					gpu->CopyDisplayToOutput(displayLayoutConfig);
 					framebufferBound = true;
 				}
 			}
