@@ -41,7 +41,7 @@ static bool IsLocalAbsolutePath(std::string_view path) {
 uint8_t *VFS::ReadFile(std::string_view filename, size_t *size) {
 	if (IsLocalAbsolutePath(filename)) {
 		// Local path, not VFS.
-		// INFO_LOG(Log::IO, "Not a VFS path: %s . Reading local file.", filename);
+		// INFO_LOG(Log::IO, "Not a VFS path: %.*s . Reading local file.", STR_VIEW(filename));
 		return File::ReadLocalFile(Path(filename), size);
 	}
 
@@ -62,7 +62,7 @@ uint8_t *VFS::ReadFile(std::string_view filename, size_t *size) {
 		}
 	}
 	if (!fileSystemFound) {
-		ERROR_LOG(Log::IO, "Missing filesystem for '%s'", filename);
+		ERROR_LOG(Log::IO, "Missing filesystem for '%.*s'", STR_VIEW(filename));
 	}  // Otherwise, the file was just missing. No need to log.
 	return nullptr;
 }
@@ -89,7 +89,7 @@ bool VFS::GetFileListing(std::string_view path, std::vector<File::FileInfo> *lis
 	}
 
 	if (!fileSystemFound) {
-		ERROR_LOG(Log::IO, "Missing filesystem for %s", path);
+		ERROR_LOG(Log::IO, "Missing filesystem for %.*s", STR_VIEW(path));
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
@@ -115,7 +115,7 @@ bool VFS::GetFileInfo(std::string_view path, File::FileInfo *info) {
 		}
 	}
 	if (!fileSystemFound) {
-		ERROR_LOG(Log::IO, "Missing filesystem for '%s'", path);
+		ERROR_LOG(Log::IO, "Missing filesystem for '%.*s'", STR_VIEW(path));
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
@@ -141,7 +141,7 @@ bool VFS::Exists(std::string_view path) {
 		}
 	}
 	if (!fileSystemFound) {
-		ERROR_LOG(Log::IO, "Missing filesystem for '%s'", path);
+		ERROR_LOG(Log::IO, "Missing filesystem for '%.*s'", STR_VIEW(path));
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
