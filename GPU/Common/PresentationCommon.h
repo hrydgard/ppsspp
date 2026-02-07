@@ -125,7 +125,9 @@ public:
 	void UpdateUniforms(bool hasVideo);
 	void SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight);
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
-	void CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
+
+	void RunPostshaderPasses(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
+	void CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags);
 
 	void CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
@@ -189,4 +191,8 @@ protected:
 		int h;
 	};
 	std::vector<PrevFBO> postShaderFBOUsage_;
+
+	// Carry over info between RunPostShaderPasses and CopyToOutput.
+	Draw::Framebuffer *postShaderOutput_ = nullptr;
+	FRect rc_;
 };

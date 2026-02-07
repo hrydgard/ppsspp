@@ -1536,12 +1536,11 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	return tex;
 }
 
+// This is called from CopyFramebufferToOutput.
 bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig &config, const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 
-	float u0 = 0.0f, u1 = 480.0f / 512.0f;
-	float v0 = 0.0f, v1 = 1.0f;
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	if (!pixelsTex)
 		return false;
@@ -1556,16 +1555,19 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 		flags |= OutputFlags::POSITION_FLIPPED;
 	}
 
+	constexpr float u0 = 0.0f, u1 = 480.0f / 512.0f;
+	constexpr float v0 = 0.0f, v1 = 1.0f;
+
 	presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 	presentation_->SourceTexture(pixelsTex, 512, 272);
-	presentation_->CopyToOutput(config, flags, uvRotation, u0, v0, u1, v1);
+	presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	presentation_->CopyToOutput(config, flags);
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
 
 	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
-
 	return true;
 }
 
@@ -1727,7 +1729,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
 		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
-		presentation_->CopyToOutput(config, flags, uvRotation, u0, v0, u1, v1);
+		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+		presentation_->CopyToOutput(config, flags);
 	} else if (useBufferedRendering_) {
 		WARN_LOG(Log::FrameBuf, "Using buffered rendering, and current VFB lacks an FBO: %08x", vfb->fb_address);
 	} else {
