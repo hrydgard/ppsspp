@@ -196,9 +196,14 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		_mm_storeu_ps(&dst[1].x, pos1_ext);
 		_mm_storel_pd((double *)&dst[0].u, uvf);
 		_mm_storeh_pd((double *)&dst[1].u, uvf);
+#if PPSSPP_ARCH(AMD64)
 		u64 colors = _mm_cvtsi128_si64(col);
 		dst[0].col = colors;
 		dst[1].col = colors >> 32;
+#else
+		dst[0].col = _mm_cvtsi128_si32(col);
+		dst[1].col = _mm_cvtsi128_si32(_mm_shuffle_epi32(col, _MM_SHUFFLE(1, 1, 1, 1)));
+#endif
 		src += 2;
 		dst += 2;
 		count -= 2;

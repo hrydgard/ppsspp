@@ -585,7 +585,7 @@ static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view 
 
 	float titleWidth, titleHeight;
 	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, title, availableWidth, &titleWidth, &titleHeight, FLAG_ELLIPSIZE_TEXT);
-	dc.MeasureTextRect(dc.GetTheme().uiFont, 0.66f, 0.66f, description, availableWidth, w, h, FLAG_WRAP_TEXT);
+	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, description, availableWidth, w, h, FLAG_WRAP_TEXT);
 	*h += 8.0f + titleHeight;
 	*w += 8.0f;
 }
@@ -603,17 +603,17 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
+	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_ELLIPSIZE_TEXT);
 
 	std::string description = Achievements::GetGameAchievementSummary();
 
-	dc.SetFontScale(0.66f, 0.66f);
+	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
 	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 
-	dc.SetFontScale(1.0f, 1.0f);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.Flush();
 
 	Achievements::DownloadImageIfMissing(gameInfo->badge_url);
@@ -645,12 +645,12 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
+	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontScale(0.66f, 0.66f);
+	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
 	dc.DrawTextRectSqueeze(DeNull(leaderboard->description), bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	/*
@@ -662,7 +662,7 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 
 	dc.Flush();
 	*/
-	dc.SetFontScale(1.0f, 1.0f);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.Flush();
 	dc.RebindTexture();
@@ -696,18 +696,18 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontScale(1.0f, 1.0f);
+	dc.SetFontStyle(dc.GetTheme().uiFontBig);
 
-	dc.SetFontScale(1.5f, 1.5f);
 	dc.DrawTextRect(StringFromFormat("%d", entry->rank), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
 
-	dc.SetFontScale(1.0f, 1.0f);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(entry->user, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontScale(0.66f, 0.66f);
+	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
 	dc.DrawTextRect(DeNull(entry->display), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontScale(1.0f, 1.0f);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.Flush();
 
 	// Come up with a unique name for the icon entry.
