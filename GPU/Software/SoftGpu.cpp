@@ -644,7 +644,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 
 	presentation_->SourceTexture(fbTex, desc.width, desc.height);
 	presentation_->RunPostshaderPasses(config, outputFlags, config.iInternalScreenRotation, u0, v0, u1, v1);
-	presentation_->CopyToOutput(config, outputFlags);
+	presentation_->CopyToOutput(config);
 }
 
 void SoftGPU::CopyDisplayToOutput(const DisplayLayoutConfig &config) {

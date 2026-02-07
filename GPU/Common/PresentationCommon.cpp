@@ -655,6 +655,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	postShaderOutput_ = nullptr;
+	outputFlags_ = flags;
 
 	// TODO: If shader objects have been created by now, we might have received errors.
 	// GLES can have the shader fail later, shader->failed / shader->error.
@@ -874,11 +875,11 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	}
 }
 
-void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags) {
-	bool useNearest = flags & OutputFlags::NEAREST;
+void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
+	bool useNearest = outputFlags_ & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
 
-	const bool usePostShader = usePostShader_ && !useStereo && !(flags & OutputFlags::RB_SWIZZLE);
+	const bool usePostShader = usePostShader_ && !useStereo && !(outputFlags_ & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
@@ -886,7 +887,7 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config, OutputF
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
-	Draw::Pipeline *pipeline = (flags & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
+	Draw::Pipeline *pipeline = (outputFlags_ & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
 
 	if (useStereo) {
 		draw_->BindPipeline(stereoPipeline_);

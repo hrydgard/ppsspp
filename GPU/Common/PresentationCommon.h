@@ -69,6 +69,7 @@ struct ShaderInfo;
 class TextureCacheCommon;
 
 enum class OutputFlags {
+	DEFAULT = 0,
 	LINEAR = 0x0000,
 	NEAREST = 0x0001,
 	RB_SWIZZLE = 0x0002,
@@ -127,7 +128,7 @@ public:
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
 
 	void RunPostshaderPasses(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
-	void CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags);
+	void CopyToOutput(const DisplayLayoutConfig &config);
 
 	void CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
@@ -195,4 +196,5 @@ protected:
 	// Carry over info between RunPostShaderPasses and CopyToOutput.
 	Draw::Framebuffer *postShaderOutput_ = nullptr;
 	FRect rc_;
+	OutputFlags outputFlags_ = OutputFlags::DEFAULT;
 };
