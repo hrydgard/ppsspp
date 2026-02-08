@@ -1576,7 +1576,19 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 	draw_->SetViewport(viewport);
 }
 
-void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
+void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+	// PresentationCommon sets all kinds of state, we can't rely on anything.
+	gstate_c.Dirty(DIRTY_ALL);
+	DiscardFramebufferCopy();
+	currentRenderVfb_ = nullptr;
+	if (useBufferedRendering_) {
+		presentation_->CopyToOutput(config);
+	} else {
+		presentation_->NotifyPresent();
+	}
+}
+
+void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 	shaderManager_->DirtyLastShader();
 
@@ -1589,12 +1601,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		}
 		// No framebuffer to display! Clear to black.
 		presentation_->SourceBlank();
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-		if (useBufferedRendering_) {
-			presentation_->CopyToOutput(config);
-		} else {
-			presentation_->NotifyPresent();
-		}
 		return;
 	}
 
@@ -1663,11 +1669,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 			// No framebuffer to display! Clear to black.
 			presentation_->SourceBlank();
 		}
-		if (useBufferedRendering_) {
-			presentation_->CopyToOutput(config);
-		} else {
-			presentation_->NotifyPresent();
-		}
 		return;
 	}
 
@@ -1685,6 +1686,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
+		_dbg_assert_(useBufferedRendering_);
 		if (GetUIState() != UISTATE_PAUSEMENU) {
 			if (Core_IsStepping())
 				VERBOSE_LOG(Log::FrameBuf, "Displaying FBO %08x", vfb->fb_address);
@@ -1729,22 +1731,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
-		presentation_->CopyToOutput(config);
-	} else {
-		// This is OK because here we're in "skip buffered" mode, so even if we haven't presented
-		// we will have a render target.
-		if (useBufferedRendering_) {
-			presentation_->CopyToOutput(config);
-		} else {
-			presentation_->NotifyPresent();
-		}
 	}
-
-	// This may get called mid-draw if the game uses an immediate flip.
-	// PresentationCommon sets all kinds of state, we can't rely on anything.
-	gstate_c.Dirty(DIRTY_ALL);
-	DiscardFramebufferCopy();
-	currentRenderVfb_ = nullptr;
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {

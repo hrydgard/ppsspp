@@ -538,10 +538,9 @@ void GPUCommonHW::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
 	shaderManager_->DirtyLastShader();
 
 	// after this, render pass is active.
-	framebufferManager_->CopyDisplayToOutput(config, curFramebufferDirty_);
+	framebufferManager_->PrepareCopyDisplayToOutput(config, curFramebufferDirty_);
+	framebufferManager_->CopyDisplayToOutput(config);
 	curFramebufferDirty_ = false;
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 bool GPUCommonHW::PresentedThisFrame() const {
