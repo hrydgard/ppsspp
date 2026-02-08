@@ -182,6 +182,9 @@ struct GPUDebugBuffer {
 
 	u32 PixelSize() const;
 
+	void SetIsBackbuffer(bool isBackBuffer) { isBackBuffer_ = isBackBuffer; }
+	bool IsBackBuffer() const { return isBackBuffer_; }
+
 private:
 	bool alloc_ = false;
 	u8 *data_ = nullptr;
@@ -189,6 +192,7 @@ private:
 	u32 height_ = 0;
 	GPUDebugBufferFormat fmt_ = GPU_DBG_FORMAT_INVALID;
 	bool flipped_ = false;
+	bool isBackBuffer_ = false;
 };
 
 struct GPUDebugVertex {

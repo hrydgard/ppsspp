@@ -325,8 +325,13 @@ ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filenam
 		if (!gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
 			return ScreenshotResult::ScreenshotNotPossible;
 		}
-		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
-		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
+		if (buf.IsBackBuffer()) {
+			w = buf.GetStride();
+			h = buf.GetHeight();
+		} else {
+			w = maxRes > 0 ? 480 * maxRes : buf.GetStride();
+			h = maxRes > 0 ? 272 * maxRes : buf.GetHeight();
+		}
 	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
@@ -343,12 +348,42 @@ ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filenam
 
 	if (callback) {
 		g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::LOW,
-			[buf = std::move(buf), callback = std::move(callback), filename, fmt, w, h]() {
+			[buf = std::move(buf), callback = std::move(callback), filename, fmt, w, h, maxRes]() {
 			u8 *flipbuffer = nullptr;
 			u32 width = w, height = h;
 			const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, width, height);
-			bool success = Save888RGBScreenshot(filename, fmt, buffer, width, height);
-			delete[] flipbuffer;
+
+			bool success;
+			if (width <= 480 * maxRes) {
+				success = Save888RGBScreenshot(filename, fmt, buffer, width, height);
+				delete[] flipbuffer;
+			} else {
+				u8 *shrinkBuffer = new u8[width * height * 3];
+				memcpy(shrinkBuffer, buffer, width * height * 3);
+				delete[] flipbuffer;
+
+				// TODO: Speed this thing up.
+				while (width > 480 * maxRes) {
+					u8 *halfSize = new u8[(width / 2) * (height / 2) * 3];
+					for (int y = 0; y < height / 2; y++) {
+						for (int x = 0; x < width / 2; x++) {
+							for (int c = 0; c < 3; c++) {
+								halfSize[(y * (width / 2) + x) * 3 + c] =
+									(shrinkBuffer[((y * 2) * width + (x * 2)) * 3 + c] +
+										shrinkBuffer[((y * 2) * width + (x * 2 + 1)) * 3 + c] +
+										shrinkBuffer[(((y * 2) + 1) * width + (x * 2)) * 3 + c] +
+										shrinkBuffer[(((y * 2) + 1) * width + (x * 2 + 1)) * 3 + c]) / 4;
+							}
+						}
+					}
+					std::swap(shrinkBuffer, halfSize);
+					delete[] halfSize;
+					width /= 2;
+					height /= 2;
+				}
+				success = Save888RGBScreenshot(filename, fmt, shrinkBuffer, width, height);
+			}
+
 			System_RunOnMainThread([success, callback = std::move(callback)]() {
 				callback(success);
 			});

@@ -3023,9 +3023,10 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	}
 
 	if (!useBufferedRendering_) {
-		// Safety check.
-		w = std::min(w, PSP_CoreParameter().pixelWidth);
-		h = std::min(h, PSP_CoreParameter().pixelHeight);
+		// In this mode, we can only screenshot the backbuffer, and we can't resize with a simple blit (well technically we could, but complicated)
+		w = PSP_CoreParameter().pixelWidth;
+		h = PSP_CoreParameter().pixelHeight;
+		buffer.SetIsBackbuffer(true);
 	}
 
 	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
