@@ -892,6 +892,17 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
+
+	case VIRTKEY_SWAP_LAYOUT:
+		if (down) {
+			const DeviceOrientation orientation = GetDeviceOrientation();
+			g_Config.SwapTouchControlsLayouts(orientation);
+			
+			auto co = GetI18NCategory(I18NCat::CONTROLS);
+			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
+		}
+		break;
+
 	default:
 		// To make sure we're not in an async context.
 		if (down) {
@@ -1072,17 +1083,6 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 			} else {
 				Core_Break(BreakReason::FrameAdvance);
 			}
-		}
-		break;
-
-	case VIRTKEY_SWAP_LAYOUT:
-		if (down) {
-			const DeviceOrientation orientation = GetDeviceOrientation();
-			// Swap the two layouts
-			g_Config.SwapTouchControlsLayouts(orientation);
-			
-			auto co = GetI18NCategory(I18NCat::CONTROLS);
-			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
 		}
 		break;
 
