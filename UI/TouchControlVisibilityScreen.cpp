@@ -80,7 +80,7 @@ void TouchControlVisibilityScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	gridsettings.fillCells = true;
 	GridLayout *grid = parent->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(GetDeviceOrientation());
 
 	toggles_.clear();
 	toggles_.push_back({ "Circle", &touch.bShowTouchCircle, ImageID("I_CIRCLE"), nullptr });
@@ -161,7 +161,7 @@ void RightAnalogMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(GetDeviceOrientation());
 
 	static const char *rightAnalogButton[] = {"None", "L", "R", "Square", "Triangle", "Circle", "Cross", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "Start", "Select", "RightAn.Up", "RightAn.Down", "RightAn.Left", "RightAn.Right", "An.Up", "An.Down", "An.Left", "An.Right"};
 

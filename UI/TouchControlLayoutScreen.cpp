@@ -475,7 +475,7 @@ void ControlLayoutView::CreateViews() {
 	}
 
 	// Create all the subviews.
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation_);
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(deviceOrientation_);
 
 	if (touch.bShowTouchCircle || touch.bShowTouchCross || touch.bShowTouchTriangle || touch.bShowTouchSquare) {
 		PSPActionButtons *actionButtons = new PSPActionButtons(touch.touchActionButtonCenter, "Action buttons", touch.fActionButtonSpacing, bounds);
@@ -592,7 +592,7 @@ void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	const DeviceOrientation orientation = GetDeviceOrientation();
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(orientation);
 	touch.ResetLayout();
 	InitPadLayout(&touch, orientation, bounds.w, bounds.h);
 	RecreateViews();
@@ -663,7 +663,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	// setup g_Config for button layout
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	const DeviceOrientation orientation = GetDeviceOrientation();
-	InitPadLayout(&g_Config.GetTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
+	InitPadLayout(&g_Config.GetCurrentTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
 
 	// const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 

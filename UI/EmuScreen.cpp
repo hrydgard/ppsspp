@@ -1316,7 +1316,7 @@ void EmuScreen::CreateViews() {
 
 	const DeviceOrientation deviceOrientation = GetDeviceOrientation();
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation);
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(deviceOrientation);
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(&touch, deviceOrientation, bounds.w, bounds.h);
