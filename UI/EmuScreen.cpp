@@ -286,7 +286,7 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "Shader cache is disabled (developer)");
 	}
 
-	if (g_Config.bTiltInputEnabled && g_Config.iTiltInputType != 0) {
+	if (g_Config.bTiltInputEnabled && g_Config.iTiltInputType != 0 && System_GetPropertyBool(SYSPROP_HAS_ACCELEROMETER)) {
 		auto co = GetI18NCategory(I18NCat::CONTROLS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", co->T("Tilt control"), di->T("Enabled")), "", "I_CONTROLLER", 2.5f, "tilt");

@@ -61,6 +61,7 @@ public:
 	void Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s = 0.0f, const char *id = nullptr);
 
 	void ShowOnOff(std::string_view message, bool on, float duration_s = 0.0f);
+	void CancelById(std::string_view id);
 
 	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
 
