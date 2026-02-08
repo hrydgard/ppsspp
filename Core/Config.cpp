@@ -1991,12 +1991,32 @@ void Config::SwapTouchControlsLayouts(DeviceOrientation orientation) {
 }
 
 void Config::EnsureSecondaryLayoutsInitialized() {
-	// If secondary layouts are empty/default, copy primary layouts so swap is visible.
-	// We consider a layout "empty" when it has zero controls configured.
-	if (touchControlsPortraitLayout2.controls.empty()) {
+	auto IsConfigured = [](const TouchControlConfig &c) {
+		// If any position has been set (x >= 0), or any custom button is visible,
+		// consider the layout configured.
+		auto posSet = [](const ConfigTouchPos &p) { return p.x >= 0.0f || p.y >= 0.0f; };
+
+		if (posSet(c.touchActionButtonCenter) || posSet(c.touchDpad) || posSet(c.touchStartKey) ||
+			posSet(c.touchSelectKey) || posSet(c.touchFastForwardKey) || posSet(c.touchLKey) ||
+			posSet(c.touchRKey) || posSet(c.touchAnalogStick) || posSet(c.touchRightAnalogStick) ||
+			posSet(c.touchPauseKey)) {
+			return true;
+		}
+
+		for (size_t i = 0; i < TouchControlConfig::CUSTOM_BUTTON_COUNT; ++i) {
+			if (c.touchCustom[i].show)
+				return true;
+			if (posSet(c.touchCustom[i]))
+				return true;
+		}
+
+		return false;
+	};
+
+	if (!IsConfigured(touchControlsPortraitLayout2)) {
 		touchControlsPortraitLayout2 = touchControlsPortrait;
 	}
-	if (touchControlsLandscapeLayout2.controls.empty()) {
+	if (!IsConfigured(touchControlsLandscapeLayout2)) {
 		touchControlsLandscapeLayout2 = touchControlsLandscape;
 	}
 }
