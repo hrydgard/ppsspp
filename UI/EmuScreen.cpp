@@ -1567,7 +1567,7 @@ bool EmuScreen::checkPowerDown() {
 
 ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 	auto CanBeBackground = [&]() -> bool {
-		if (g_Config.bSkipBufferEffects) {
+		if (skipBufferEffects_) {
 			return isTop || (g_Config.bTransparentBackground && ShouldRunBehind());
 		}
 

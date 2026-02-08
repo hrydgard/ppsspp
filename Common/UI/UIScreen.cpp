@@ -147,13 +147,6 @@ void UIScreen::update() {
 
 	DoRecreateViews();
 
-	if (root_) {
-		DialogResult result = UpdateViewHierarchy(root_);
-		if (result != DR_NONE) {
-			TriggerFinish(result);
-		}
-	}
-
 	while (true) {
 		QueuedEvent ev{};
 		{
@@ -186,6 +179,13 @@ void UIScreen::update() {
 		case QueuedEventType::AXIS:
 			axis(ev.axis);
 			break;
+		}
+	}
+
+	if (root_) {
+		DialogResult result = UpdateViewHierarchy(root_);
+		if (result != DR_NONE) {
+			TriggerFinish(result);
 		}
 	}
 }
