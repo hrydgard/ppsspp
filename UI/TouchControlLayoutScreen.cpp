@@ -621,20 +621,6 @@ void TouchControlLayoutScreen::OnLayoutSelection(UI::EventParams &e) {
 	RecreateViews();
 }
 
-void TouchControlLayoutScreen::OnSwapLayouts(UI::EventParams &e) {
-	INFO_LOG(Log::G3D, "Swapping touch control layouts.");
-	
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-	const DeviceOrientation orientation = GetDeviceOrientation();
-	
-	// Swap the layout configurations
-	g_Config.SwapTouchControlsLayouts(orientation);
-	
-	// Reload and show the current layout (which is now the swapped one)
-	InitPadLayout(&g_Config.GetCurrentTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
-	RecreateViews();
-}
-
 void TouchControlLayoutScreen::update() {
 	UIBaseDialogScreen::update();
 
@@ -705,7 +691,6 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Spacer(8.0f));
 	leftColumn->Add(new TextView(di->T("Layout:")))->SetTextSize(TextSize::Small);
 	leftColumn->Add(layoutSelectionStrip);
-	leftColumn->Add(new Choice(di->T("Swap Layouts")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnSwapLayouts);
 	leftColumn->Add(snap);
 	leftColumn->Add(gridSize);
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
