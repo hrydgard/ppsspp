@@ -55,8 +55,12 @@ Fitur **Swap Layout** telah berhasil diimplementasikan di PPSSPP. Fitur ini memu
 | Core/Config.cpp | 10 | Added SwapTouchControlsLayouts() implementation, ConfigSetting |
 | UI/TouchControlLayoutScreen.h | 2 | Added 2 event handler methods |
 | UI/TouchControlLayoutScreen.cpp | 37 | Added UI elements, 2 event handlers |
-| **Documentation** | **497** | 3 comprehensive markdown guides |
-| **TOTAL** | **568** | 7 files modified |
+| Core/KeyMap.h | 1 | Added VIRTKEY_SWAP_LAYOUT enum (NEW) |
+| Core/KeyMap.cpp | 1 | Added swap layout key mapping (NEW) |
+| UI/GamepadEmu.h | 1 | Added swap layout to custom key list (NEW) |
+| UI/EmuScreen.cpp | 11 | Added swap layout key handler (NEW) |
+| **Documentation** | **797** | 6 comprehensive markdown guides |
+| **TOTAL** | **884** | 12 files modified |
 
 ### Code Quality
 - ✅ No breaking changes
@@ -218,6 +222,10 @@ InitPadLayout() renders Layout 2
 - ✅ Persistent storage in ppsspp.ini
 - ✅ Per-game configuration support
 - ✅ Portrait and landscape orientation support
+- ✅ Button binding support for swap layout (NEW)
+  - Can bind to custom touch buttons
+  - Can bind to keyboard/gamepad inputs
+  - OSD feedback on layout swap
 
 ### Quality Features
 - ✅ No breaking changes
