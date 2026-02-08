@@ -108,6 +108,22 @@ Layout 2: Custom/Experimental
 3. Layout akan langsung berubah
 ```
 
+#### Cara 3: Menggunakan Custom Button Binding (NEW)
+```
+1. Buka Touch Control Layout editor
+2. Klik "Customize" untuk membuka Touch Control Visibility
+3. Klik pada "Custom X" button yang ingin digunakan untuk swap
+4. Di CustomButtonMappingScreen, pilih "Swap layout" dari action list
+5. Atur posisi, shape, dan icon sesuai keinginan
+6. Sekarang tombol tersebut akan swap layout saat di-tekan dalam game!
+```
+
+Ini memungkinkan Anda untuk:
+- Memiliki dedicated button untuk swap layout
+- Akses swap layout tanpa membuka menu
+- Combine dengan button mapping untuk keyboard/gamepad
+- Quick toggle antara 2 layout saat bermain
+
 ## ⚙️ Configuration File Format
 
 Pengaturan disimpan di `PSP/SYSTEM/ppsspp.ini` di bawah section `[Control]`:
@@ -174,6 +190,21 @@ Jika ppsspp.ini support per-game config:
 - Input different layouts untuk setiap game
 - Swap layout saat switch game
 
+### Tip 2.5: Button Binding untuk Quick Swap (NEW)
+Setup dedicated button untuk instant layout swap saat bermain:
+```
+1. Buka Touch Control Layout → Customize
+2. Pilih Custom Button (misalnya Custom 1)
+3. Set action ke "Swap layout"
+4. Tempatkan di corner yang mudah diakses
+5. Sekarang tekan button anytime untuk swap layout!
+```
+
+Keuntungan:
+- Swap layout tanpa buka menu
+- Improve gaming experience
+- Quick toggle antara 2 setup
+
 ### Tip 3: Share Layouts
 ```
 Format sharing (manual edit ppsspp.ini):
@@ -239,6 +270,8 @@ Layout2_ActionY=0.75000
 
 ---
 
-**Version**: PPSSPP Swap Layout v1.0  
+**Version**: PPSSPP Swap Layout v1.1  
 **Branch**: swap-layout  
 **Last Updated**: February 8, 2026
+
+**See Also**: [Swap Layout Button Binding Guide](SWAP_LAYOUT_BUTTON_BINDING.md) for advanced button mapping options
