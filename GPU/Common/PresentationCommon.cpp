@@ -898,7 +898,6 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
 
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
 	if (!srcFramebuffer_ && !srcTexture_) {

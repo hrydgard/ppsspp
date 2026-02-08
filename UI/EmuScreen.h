@@ -70,10 +70,11 @@ public:
 protected:
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
+	ScreenRenderFlags PreRender() override;
 
 private:
 	void CreateViews() override;
-	ScreenRenderFlags RunEmulation(ScreenRenderMode mode, bool framebufferBound, bool skipBufferEffects);
+	ScreenRenderFlags RunEmulation(bool skipBufferEffects);
 	void OnDevTools(UI::EventParams &params);
 	void OnChat(UI::EventParams &params);
 
@@ -159,6 +160,7 @@ private:
 #endif
 	bool autoLoadFailed_ = false;  // to prevent repeat reloads
 	bool readyToFinishBoot_ = false;
+	bool skipBufferEffects_ = false;  // cached state, fetched once per frame.
 };
 
 bool MustRunBehind();

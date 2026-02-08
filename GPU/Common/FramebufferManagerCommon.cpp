@@ -1665,6 +1665,8 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 			}
 		} else {
 			DEBUG_LOG(Log::FrameBuf, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
+			// No framebuffer to display! Clear to black.
+			// TODO: Draw a black rectangle, will be important once we add backgrounds.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			// No framebuffer to display! Clear to black.
 			presentation_->SourceBlank();
@@ -3434,10 +3436,6 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		if (useBufferedRendering_) {
-			// Just bind the back buffer for rendering, forget about doing anything else as we're in a weird state.
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
-		}
 		return;
 	}
 
