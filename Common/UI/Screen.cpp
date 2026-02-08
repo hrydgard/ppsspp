@@ -215,8 +215,13 @@ ScreenRenderFlags ScreenManager::render() {
 
 	// First, go through the whole stack and have every screen render any non-backbuffer render passes.
 	// In EmuScreen, this might result in running emulation.
-	for (auto &layer : stack_) {
-		flags |= layer.screen->PreRender();
+	for (size_t i = 0; i < stack_.size(); i++) {
+		const auto &layer = stack_[i];
+		ScreenRenderMode mode = ScreenRenderMode::DEFAULT;
+		if (i == stack_.size() - 1) {
+			mode |= ScreenRenderMode::TOP;
+		}
+		flags |= layer.screen->PreRender(mode);
 	}
 
 	// Now, start the final render pass. This is now the ONLY place where binding the null fb is allowed.

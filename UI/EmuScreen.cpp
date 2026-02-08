@@ -93,6 +93,7 @@ using namespace std::placeholders;
 #include "UI/ControlMappingScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/MiscViews.h"
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/ChatScreen.h"
@@ -1231,52 +1232,6 @@ void EmuScreen::touch(const TouchInput &touch) {
 	}
 }
 
-class GameInfoBGView : public UI::InertView {
-public:
-	GameInfoBGView(const Path &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {}
-
-	void Draw(UIContext &dc) override {
-		// Should only be called when visible.
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::PIC1);
-		dc.Flush();
-
-		// PIC1 is the loading image, so let's only draw if it's available.
-		if (ginfo->Ready(GameInfoFlags::PIC1) && ginfo->pic1.texture) {
-			Draw::Texture *texture = ginfo->pic1.texture;
-			if (texture) {
-				const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-				// Similar to presentation, we want to put the game PIC1 in the same region of the screen.
-				FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
-				FRect rc;
-				CalculateDisplayOutputRect(config, &rc, texture->Width(), texture->Height(), frame, config.iInternalScreenRotation);
-
-				// Need to adjust for DPI here since we're still in the UI coordinate space here, not the pixel coordinate space used for in-game presentation.
-				Bounds bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y);
-
-				dc.GetDrawContext()->BindTexture(0, texture);
-
-				double loadTime = ginfo->pic1.timeLoaded;
-				uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
-				dc.Draw()->DrawTexRect(bounds, 0, 0, 1, 1, color);
-				dc.Flush();
-				dc.RebindTexture();
-			}
-		}
-	}
-
-	std::string DescribeText() const override {
-		return "";
-	}
-
-	void SetColor(uint32_t c) {
-		color_ = c;
-	}
-
-protected:
-	Path gamePath_;
-	uint32_t color_ = 0xFFC0C0C0;
-};
-
 // TODO: Shouldn't actually need bounds for this, Anchor can center too.
 static UI::AnchorLayoutParams *AnchorInCorner(const Bounds &bounds, int corner, float xOffset, float yOffset) {
 	using namespace UI;
@@ -1627,15 +1582,29 @@ void EmuScreen::HandleFlip() {
 #endif
 }
 
-ScreenRenderFlags EmuScreen::PreRender() {
+bool EmuScreen::ShouldRunEmulation(ScreenRenderMode mode) const {
+	if (!(mode & ScreenRenderMode::TOP) && !ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
+		return false;
+	}
+	return true;
+}
+
+ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 	// If a boot is in progress, update it.
 	ProcessGameBoot(gamePath_);
 
 	using namespace Draw;
 	skipBufferEffects_ = g_Config.bSkipBufferEffects;
 	if (!skipBufferEffects_) {
-		// We need to run emulation here, and perform all the normal render passes.
-		return RunEmulation(false);
+		if (ShouldRunEmulation(mode)) {
+			// We need to run emulation here, and perform all the normal render passes.
+			return RunEmulation(false);
+		} else {
+			const DeviceOrientation orientation = GetDeviceOrientation();
+			const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+			// We run just the post shaders.
+			gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
+		}
 	}
 	return ScreenRenderFlags::NONE;
 }
@@ -1653,6 +1622,31 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	ScreenRenderFlags screenRenderFlags = ScreenRenderFlags::NONE;
 
+	if (mode & ScreenRenderMode::TOP) {
+		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
+	}
+
+	const DeviceOrientation orientation = GetDeviceOrientation();
+	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+
+	if (!skipBufferEffects_ && !ShouldRunEmulation(mode)) {
+		if (gpu) {
+			gpu->CopyDisplayToOutput(displayLayoutConfig);
+		}
+		darken();
+		return screenRenderFlags;
+	}
+
+	if (!PSP_IsInited() || readyToFinishBoot_) {
+		// It's possible this might be set outside PSP_RunLoopFor().
+		// In this case, we need to double check it here.
+		if (mode & ScreenRenderMode::TOP) {
+			checkPowerDown();
+		}
+		renderUI();
+		return screenRenderFlags;
+	}
+
 	if (skipBufferEffects_) {
 		// In skip buffer effects mode, we run emulation *after* the backbuffer bind.
 		screenRenderFlags = RunEmulation(true);
@@ -1666,31 +1660,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	const bool skipBufferEffects = skipBufferEffects_;
 
-	const DeviceOrientation orientation = GetDeviceOrientation();
-	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
-
 	// Gotta copy the output at some point. Also this is where we take the screenshot if needed.
 	if (gpu) {
 		gpu->CopyDisplayToOutput(displayLayoutConfig);
-	}
-
-	if (mode & ScreenRenderMode::TOP) {
-		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
-		// Need to make sure the UI texture is available, for "darken".
-		darken();
-		return screenRenderFlags;
-	}
-
-	if (!PSP_IsInited() || readyToFinishBoot_) {
-		// It's possible this might be set outside PSP_RunLoopFor().
-		// In this case, we need to double check it here.
-		if (mode & ScreenRenderMode::TOP) {
-			checkPowerDown();
-		}
-		// Need to make sure the UI texture is available, for "darken".
-		renderUI();
-		return screenRenderFlags;
 	}
 
 	runImDebugger();

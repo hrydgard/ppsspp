@@ -70,7 +70,7 @@ public:
 protected:
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
-	ScreenRenderFlags PreRender() override;
+	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
 
 private:
 	void CreateViews() override;
@@ -95,6 +95,8 @@ private:
 
 	void ProcessQueuedVKeys();
 	void ProcessVKey(VirtKey vkey);
+
+	bool ShouldRunEmulation(ScreenRenderMode mode) const;
 
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;

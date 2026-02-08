@@ -77,7 +77,7 @@ public:
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
-	virtual ScreenRenderFlags PreRender() { return ScreenRenderFlags::NONE; }
+	virtual ScreenRenderFlags PreRender(ScreenRenderMode mode) { return ScreenRenderFlags::NONE; }
 	virtual ScreenRenderFlags render(ScreenRenderMode mode) = 0;
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}

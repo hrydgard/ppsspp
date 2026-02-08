@@ -1559,9 +1559,11 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 	constexpr float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	constexpr float v0 = 0.0f, v1 = 1.0f;
 
-	presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
-	presentation_->SourceTexture(pixelsTex, 512, 272);
-	presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	if (useBufferedRendering_) {
+		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
+		presentation_->SourceTexture(pixelsTex, 512, 272);
+		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	}
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
