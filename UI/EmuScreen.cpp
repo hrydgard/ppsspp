@@ -1634,13 +1634,12 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	// If a boot is in progress, update it.
 	ProcessGameBoot(gamePath_);
 
-	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
-	Draw::Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
+	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 	using namespace Draw;
 
 	DrawContext *draw = screenManager()->getDrawContext();
 	if (!draw) {
-		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
+		return ScreenRenderFlags::NONE;  // shouldn't really happen but I've seen a suspicious stack trace..
 	}
 
 	ProcessQueuedVKeys();
@@ -1648,8 +1647,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	const bool skipBufferEffects = g_Config.bSkipBufferEffects;
 
 	bool framebufferBound = false;
-
-	const DeviceOrientation orientation = GetDeviceOrientation();
 
 	if (mode & ScreenRenderMode::FIRST) {
 		// Actually, always gonna be first when it exists (?)
@@ -1664,9 +1661,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (skipBufferEffects && !g_Config.bSoftwareRendering) {
 			// We need to clear here already so that drawing during the frame is done on a clean slate.
 			if (Core_IsStepping() && gpuStats.numFlips != 0) {
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_BackBuffer");
+				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR}, "EmuScreen_BackBuffer");
 			} else {
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "EmuScreen_BackBuffer");
+				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000}, "EmuScreen_BackBuffer");
 			}
 
 			draw->SetViewport(viewport);
@@ -1681,6 +1678,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	g_OSD.NudgeIngameNotifications();
 
+	const DeviceOrientation orientation = GetDeviceOrientation();
 	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
 	__DisplaySetDisplayLayoutConfig(displayLayoutConfig);
 
@@ -1692,14 +1690,15 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (PSP_IsInited() && !skipBufferEffects) {
 			_dbg_assert_(gpu);
 			gpu->BeginHostFrame(displayLayoutConfig);
-			gpu->CopyDisplayToOutput(displayLayoutConfig, true);
+			gpu->SetCurFramebufferDirty(true);
+			gpu->CopyDisplayToOutput(displayLayoutConfig);
 			gpu->EndHostFrame();
 		}
 		if (gpu && gpu->PresentedThisFrame()) {
 			framebufferBound = true;
 		}
 		if (!framebufferBound) {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
+			draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR,}, "EmuScreen_Behind");
 		}
 
 		Draw::BackendState state = draw->GetCurrentBackendState();
@@ -1708,7 +1707,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// _dbg_assert_msg_(state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d tag: %s behi: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, screenManager()->topScreen()->tag(), (int)g_Config.bRunBehindPauseMenu);
 			// Workaround any remaining bugs like this.
 			if (state.passes == 0) {
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_SafeFallback");
+				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR,}, "EmuScreen_SafeFallback");
 			}
 		}
 
@@ -1717,7 +1716,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		darken();
-		return flags;
+		return ScreenRenderFlags::NONE;
 	}
 
 	if (!PSP_IsInited() || readyToFinishBoot_) {
@@ -1726,13 +1725,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (mode & ScreenRenderMode::TOP) {
 			checkPowerDown();
 		}
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_Invalid");
+		draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "EmuScreen_Invalid");
 		// Need to make sure the UI texture is available, for "darken".
 		screenManager()->getUIContext()->BeginFrame();
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		renderUI();
-		return flags;
+		return ScreenRenderFlags::NONE;
 	}
 
 	// Freeze-frame functionality (loads a savestate on every frame).
@@ -1748,13 +1747,24 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 	}
 
-	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
-
 	// Running it early allows things like direct readbacks of buffers, things we can't do
 	// when we have started the final render pass. Well, technically we probably could with some manipulation
 	// of pass order in the render managers..
 	runImDebugger();
 
+	return RunEmulation(mode, framebufferBound, skipBufferEffects);
+}
+
+ScreenRenderFlags EmuScreen::RunEmulation(ScreenRenderMode mode, bool framebufferBound, bool skipBufferEffects) {
+	using namespace Draw;
+	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
+
+	const DeviceOrientation orientation = GetDeviceOrientation();
+	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+	DrawContext *draw = screenManager()->getDrawContext();
+	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
+
+	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
@@ -1794,7 +1804,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				// This won't work in non-buffered, but that's fine.
 				if (!framebufferBound && PSP_IsInited()) {
 					// draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
-					gpu->CopyDisplayToOutput(displayLayoutConfig, true);
+					gpu->SetCurFramebufferDirty(true);
+					gpu->CopyDisplayToOutput(displayLayoutConfig);
 					framebufferBound = true;
 				}
 			}

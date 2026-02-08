@@ -137,7 +137,8 @@ public:
 	void UpdateCmdInfo() override {}
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) override;
+	void SetCurFramebufferDirty(bool dirty) override {}
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
