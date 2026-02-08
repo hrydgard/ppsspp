@@ -1588,11 +1588,13 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
 		}
 		// No framebuffer to display! Clear to black.
-		if (useBufferedRendering_) {
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
-		}
+		presentation_->SourceBlank();
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-		presentation_->NotifyPresent();
+		if (useBufferedRendering_) {
+			presentation_->CopyToOutput(config);
+		} else {
+			presentation_->NotifyPresent();
+		}
 		return;
 	}
 
@@ -1651,27 +1653,22 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			// If successful, this effectively calls presentation_->NotifyPresent();
-			if (DrawFramebufferToOutput(config, Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_)) {
-				presentation_->CopyToOutput(config);
-			} else {
-				if (useBufferedRendering_) {
-					// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_DrawError");
-				}
-				presentation_->NotifyPresent();
+			if (!DrawFramebufferToOutput(config, Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_)) {
+				// No framebuffer to display! Clear to black.
+				presentation_->SourceBlank();
 			}
-			return;
 		} else {
 			DEBUG_LOG(Log::FrameBuf, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
-			// No framebuffer to display! Clear to black.
-			if (useBufferedRendering_) {
-				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
-			} // For non-buffered rendering, every frame is cleared anyway.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-			presentation_->NotifyPresent();
-			return;
+			// No framebuffer to display! Clear to black.
+			presentation_->SourceBlank();
 		}
+		if (useBufferedRendering_) {
+			presentation_->CopyToOutput(config);
+		} else {
+			presentation_->NotifyPresent();
+		}
+		return;
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
@@ -1733,12 +1730,14 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
 		presentation_->CopyToOutput(config);
-	} else if (useBufferedRendering_) {
-		WARN_LOG(Log::FrameBuf, "Using buffered rendering, and current VFB lacks an FBO: %08x", vfb->fb_address);
 	} else {
 		// This is OK because here we're in "skip buffered" mode, so even if we haven't presented
 		// we will have a render target.
-		presentation_->NotifyPresent();
+		if (useBufferedRendering_) {
+			presentation_->CopyToOutput(config);
+		} else {
+			presentation_->NotifyPresent();
+		}
 	}
 
 	// This may get called mid-draw if the game uses an immediate flip.

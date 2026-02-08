@@ -124,6 +124,9 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void UpdateUniforms(bool hasVideo);
+
+	// One of these must be called every frame.
+	void SourceBlank();
 	void SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight);
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
 

@@ -599,6 +599,15 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 	return draw_->CreateShaderModule(stage, lang_, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
 }
 
+void PresentationCommon::SourceBlank() {
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
+
+	srcWidth_ = 0;
+	srcHeight_ = 0;
+}
+
+// If texture == null, that means there's nothing to display, so we should show a black screen in CopyToOutput.
 void PresentationCommon::SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight) {
 	// AddRef before release and assign in case it's the same.
 	texture->AddRef();
@@ -681,6 +690,11 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		pixelWidth /= 2;
 	}
 	CalculateDisplayOutputRect(config, &rc_, 480.0f, 272.0f, frame, uvRotation);
+
+	if (!srcTexture_ && !srcFramebuffer_) {
+		// Presenting blank, no need to run post shaders. But we did compute the output rect.
+		return;
+	}
 
 	// To make buffer updates easier, we use one array of verts.
 	int postVertsOffset = (int)sizeof(Vertex) * 4;
@@ -886,6 +900,12 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+
+	if (!srcFramebuffer_ && !srcTexture_) {
+		// Bound blank. We're done (although we could draw a black rectangle here).
+		presentedThisFrame_ = true;
+		return;
+	}
 
 	Draw::Pipeline *pipeline = (outputFlags_ & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
 
