@@ -2019,9 +2019,12 @@ void Config::EnsureSecondaryLayoutsInitialized() {
 	};
 
 	if (!IsConfigured(touchControlsPortraitLayout2)) {
-		touchControlsPortraitLayout2 = touchControlsPortrait;
+		// Use preset defaults for the secondary layout instead of copying
+		// the primary layout. This avoids unintentionally duplicating
+		// user-customized primary layouts into layout 2.
+		touchControlsPortraitLayout2.ResetToDefault("TouchControls.PortraitLayout2");
 	}
 	if (!IsConfigured(touchControlsLandscapeLayout2)) {
-		touchControlsLandscapeLayout2 = touchControlsLandscape;
+		touchControlsLandscapeLayout2.ResetToDefault("TouchControls.LandscapeLayout2");
 	}
 }
