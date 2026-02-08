@@ -1669,7 +1669,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
 
-	// Gotta copy the output at some point.
+	// Gotta copy the output at some point. Also this is where we take the screenshot if needed.
 	if (gpu) {
 		gpu->CopyDisplayToOutput(displayLayoutConfig);
 	}
@@ -1741,6 +1741,9 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
+		// We process savestates before running the frame.
+		SaveState::Process();
+
 		if (gpu) {
 			gpu->BeginHostFrame(displayLayoutConfig);
 		}
@@ -1758,9 +1761,6 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			}
 		}
 
-		if (SaveState::Process()) {
-			// TODO: investigate.
-		}
 		PSP_RunLoopWhileState();
 
 		// Hopefully, after running, coreState is now CORE_NEXTFRAME
@@ -1806,6 +1806,12 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			// Run post processing and other passes.
 			gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
 			gpu->EndHostFrame();
+
+			// The right time to run this
+			if (SaveState::ProcessScreenshot(skipBufferEffects) && skipBufferEffects) {
+				// Need to restore the backbuffer render pass, it probably got destroyed.
+				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+			}
 		}
 
 		if (SaveState::PollRestartNeeded() && !bootPending_) {

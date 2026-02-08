@@ -237,7 +237,7 @@ typedef std::function<void(EventParams &)> EventCallback;
 
 class Event {
 public:
-	Event() {}
+	Event() = default;
 	~Event();
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
