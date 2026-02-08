@@ -443,6 +443,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 #endif
 	{VIRTKEY_TOGGLE_DEBUGGER, "Toggle Debugger"},
 	{VIRTKEY_TOGGLE_TILT, "Toggle tilt control"},
+	{VIRTKEY_SWAP_LAYOUT, "Swap layout"},
 
 	{VIRTKEY_OPENCHAT, "OpenChat" },
 

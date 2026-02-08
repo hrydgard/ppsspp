@@ -362,6 +362,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_DEBUGGER },
 		{ ImageID::invalid(), VIRTKEY_PAUSE_NO_MENU },
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_TILT },
+		{ ImageID::invalid(), VIRTKEY_SWAP_LAYOUT },
 		// IMPORTANT: Only add at the end!
 	};
 	static_assert(ARRAY_SIZE(g_customKeyList) <= 64, "Too many key for a uint64_t bit mask");

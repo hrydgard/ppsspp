@@ -1075,6 +1075,17 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		}
 		break;
 
+	case VIRTKEY_SWAP_LAYOUT:
+		if (down) {
+			const DeviceOrientation orientation = GetDeviceOrientation();
+			// Swap the two layouts
+			g_Config.SwapTouchControlsLayouts(orientation);
+			
+			auto co = GetI18NCategory(I18NCat::CONTROLS);
+			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
+		}
+		break;
+
 	default:
 		break;
 	}
