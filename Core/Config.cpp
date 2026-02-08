@@ -1394,6 +1394,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// but these configs shouldn't contain older versions anyhow
 	_dbg_assert_(!IsGameSpecific());
 
+	// Ensure layout2 defaults are initialized from layout1 so swapping is visible
+	EnsureSecondaryLayoutsInitialized();
+
 	PostLoadCleanup();
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
