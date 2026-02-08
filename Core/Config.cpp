@@ -1986,3 +1986,14 @@ void Config::SwapTouchControlsLayouts(DeviceOrientation orientation) {
 		std::swap(touchControlsLandscape, touchControlsLandscapeLayout2);
 	}
 }
+
+void Config::EnsureSecondaryLayoutsInitialized() {
+	// If secondary layouts are empty/default, copy primary layouts so swap is visible.
+	// We consider a layout "empty" when it has zero controls configured.
+	if (touchControlsPortraitLayout2.controls.empty()) {
+		touchControlsPortraitLayout2 = touchControlsPortrait;
+	}
+	if (touchControlsLandscapeLayout2.controls.empty()) {
+		touchControlsLandscapeLayout2 = touchControlsLandscape;
+	}
+}

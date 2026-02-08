@@ -743,7 +743,13 @@ public:
 	// Exchange layouts between the two selections
 	void SwapTouchControlsLayouts(DeviceOrientation orientation);
 
+	// Ensure layout2 is initialized as a copy of layout1 if empty
+	void EnsureSecondaryLayoutsInitialized();
+
 	static int GetDefaultValueInt(int *configSetting);
+	// Initialize Layout 2 as copy of Layout 1 if not already configured
+	void InitializeLayout2IfNeeded();
+
 
 	void DoNotSaveSetting(void *configSetting) {
 		settingsNotToSave_.push_back(configSetting);
