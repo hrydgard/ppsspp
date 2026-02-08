@@ -900,6 +900,9 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 			
 			auto co = GetI18NCategory(I18NCat::CONTROLS);
 			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
+		
+			// Recreate views to update touch button layout visual representation
+			RecreateViews();
 		}
 		break;
 
