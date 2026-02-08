@@ -1027,6 +1027,9 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("SystemControls", SETTING(g_Config, bSystemControls), true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
+	
+	// Touch layout selection for swap layout feature
+	ConfigSetting("TouchLayoutSelection", SETTING(g_Config, iTouchLayoutSelection), 1, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting networkSettings[] = {
@@ -1975,4 +1978,11 @@ int MultiplierToVolume100(float multiplier) {
 
 float UIScaleFactorToMultiplier(int factor) {
 	return powf(2.0f, (float)factor / 8.0f);
+}
+void Config::SwapTouchControlsLayouts(DeviceOrientation orientation) {
+	if (orientation == DeviceOrientation::Portrait) {
+		std::swap(touchControlsPortrait, touchControlsPortraitLayout2);
+	} else {
+		std::swap(touchControlsLandscape, touchControlsLandscapeLayout2);
+	}
 }

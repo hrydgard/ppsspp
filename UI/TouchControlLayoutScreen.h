@@ -39,6 +39,8 @@ public:
 protected:
 	void OnReset(UI::EventParams &e);
 	void OnMode(UI::EventParams &e);
+	void OnLayoutSelection(UI::EventParams &e);
+	void OnSwapLayouts(UI::EventParams &e);
 
 private:
 	UI::ChoiceStrip *mode_ = nullptr;

@@ -494,6 +494,13 @@ public:
 	TouchControlConfig touchControlsLandscape;
 	TouchControlConfig touchControlsPortrait;
 
+	// Alternative layout (for swap layout feature)
+	TouchControlConfig touchControlsLandscapeLayout2;
+	TouchControlConfig touchControlsPortraitLayout2;
+	
+	// Current layout selection (1 for primary layout, 2 for secondary layout)
+	int iTouchLayoutSelection = 1;
+
 	// These are shared between portrait and landscape, just the positions aren't.
 	ConfigCustomButton CustomButton[TouchControlConfig::CUSTOM_BUTTON_COUNT];
 
@@ -718,6 +725,23 @@ public:
 	TouchControlConfig &GetTouchControlsConfig(DeviceOrientation orientation) {
 		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
 	}
+
+	// Get the touched control config based on current layout selection
+	const TouchControlConfig &GetCurrentTouchControlsConfig(DeviceOrientation orientation) const {
+		if (iTouchLayoutSelection == 2) {
+			return orientation == DeviceOrientation::Portrait ? touchControlsPortraitLayout2 : touchControlsLandscapeLayout2;
+		}
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	TouchControlConfig &GetCurrentTouchControlsConfig(DeviceOrientation orientation) {
+		if (iTouchLayoutSelection == 2) {
+			return orientation == DeviceOrientation::Portrait ? touchControlsPortraitLayout2 : touchControlsLandscapeLayout2;
+		}
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	
+	// Exchange layouts between the two selections
+	void SwapTouchControlsLayouts(DeviceOrientation orientation);
 
 	static int GetDefaultValueInt(int *configSetting);
 

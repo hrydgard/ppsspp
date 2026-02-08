@@ -609,6 +609,32 @@ void TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 	}
 }
 
+void TouchControlLayoutScreen::OnLayoutSelection(UI::EventParams &e) {
+	const DeviceOrientation orientation = GetDeviceOrientation();
+	int selection = e.a;
+	
+	g_Config.iTouchLayoutSelection = selection + 1; // Convert from 0-based to 1-based
+	
+	// Reload the layout for the newly selected layout
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	InitPadLayout(&g_Config.GetCurrentTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
+	RecreateViews();
+}
+
+void TouchControlLayoutScreen::OnSwapLayouts(UI::EventParams &e) {
+	INFO_LOG(Log::G3D, "Swapping touch control layouts.");
+	
+	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	const DeviceOrientation orientation = GetDeviceOrientation();
+	
+	// Swap the layout configurations
+	g_Config.SwapTouchControlsLayouts(orientation);
+	
+	// Reload and show the current layout (which is now the swapped one)
+	InitPadLayout(&g_Config.GetCurrentTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
+	RecreateViews();
+}
+
 void TouchControlLayoutScreen::update() {
 	UIBaseDialogScreen::update();
 
@@ -661,6 +687,13 @@ void TouchControlLayoutScreen::CreateViews() {
 	mode_->SetSelection(0, false);
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
+	// Layout selection for swap layout feature
+	auto layoutSelectionStrip = new ChoiceStrip(ORIENT_VERTICAL);
+	layoutSelectionStrip->AddChoice("Layout 1");
+	layoutSelectionStrip->AddChoice("Layout 2");
+	layoutSelectionStrip->SetSelection(g_Config.iTouchLayoutSelection - 1, false);
+	layoutSelectionStrip->OnChoice.Handle(this, &TouchControlLayoutScreen::OnLayoutSelection);
+
 	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
 	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, 64, di->T("Grid"), screenManager(), "");
 	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
@@ -669,6 +702,10 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
 	});
+	leftColumn->Add(new Spacer(8.0f));
+	leftColumn->Add(new TextView(di->T("Layout:")))->SetTextSize(TextSize::Small);
+	leftColumn->Add(layoutSelectionStrip);
+	leftColumn->Add(new Choice(di->T("Swap Layouts")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnSwapLayouts);
 	leftColumn->Add(snap);
 	leftColumn->Add(gridSize);
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
