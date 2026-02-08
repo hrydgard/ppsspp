@@ -902,6 +902,11 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
 		
 			// Recreate views to update touch button layout visual representation
+			// Reset all touch input to prevent buttons stuck in pressed state
+			TouchInput releaseAll{};
+			releaseAll.flags = TouchInputFlags::RELEASE_ALL;
+			if (root_) root_->Touch(releaseAll);
+			
 			RecreateViews();
 		}
 		break;
