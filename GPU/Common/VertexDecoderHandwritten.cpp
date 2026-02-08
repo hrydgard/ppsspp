@@ -163,7 +163,6 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 	__m128i lowbits = _mm_set1_epi32(0x00070707);
 
 	// Two vertices at a time, we can share some calculations.
-	// It's OK to accidentally decode an extra vertex.
 	while (count >= 2) {
 		__m128i pos0 = _mm_loadl_epi64((const __m128i *) & src[0].x);
 		__m128i pos1 = _mm_loadl_epi64((const __m128i *) & src[1].x);
@@ -181,7 +180,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		__m128d uvf = _mm_castps_pd(_mm_add_ps(_mm_mul_ps(_mm_cvtepi32_ps(uv32), uvScale), uvOff));
 		alpha &= col0;
 
-		// Combined RGBA
+		// Combined 5551 -> 8888 RGBA. Nasty.
 		__m128i col = _mm_set1_epi64x(col0);
 		__m128i r = _mm_slli_epi32(_mm_and_si128(col, rmask), 8 - 5);
 		__m128i g = _mm_slli_epi32(_mm_and_si128(col, gmask), 16 - 10);
@@ -224,7 +223,6 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 	uint32x2_t lowbits = vdup_n_u32(0x00070707);
 
 	// Two vertices at a time, we can share some calculations.
-	// It's OK to accidentally decode an extra vertex.
 	// Doing four vertices at a time might be even better, can share more of the pesky color format conversion.
 	while (count >= 2) {
 		int16x4_t pos0 = vld1_s16(&src[0].x);

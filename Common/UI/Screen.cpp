@@ -209,7 +209,30 @@ void ScreenManager::resized() {
 }
 
 ScreenRenderFlags ScreenManager::render() {
+	using namespace Draw;
+
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
+
+	// First, go through the whole stack and have every screen render any non-backbuffer render passes.
+	// In EmuScreen, this might result in running emulation.
+	for (size_t i = 0; i < stack_.size(); i++) {
+		const auto &layer = stack_[i];
+		ScreenRenderMode mode = ScreenRenderMode::DEFAULT;
+		if (i == stack_.size() - 1) {
+			mode |= ScreenRenderMode::TOP;
+		}
+		flags |= layer.screen->PreRender(mode);
+	}
+
+	// Now, start the final render pass. This is now the ONLY place where binding the null fb is allowed.
+	draw_->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+	getUIContext()->BeginFrame();
+
+	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
+	draw_->SetViewport(viewport);
+	draw_->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
+	draw_->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+
 	if (!stack_.empty()) {
 		// Collect the screens to render
 		TinySet<Screen *, 6> layers;

@@ -334,7 +334,8 @@ public:
 	void RebindFramebuffer(const char *tag);
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const;
 
-	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty);
+	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty);
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config);
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);

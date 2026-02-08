@@ -125,6 +125,7 @@ public:
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
 	virtual void SetCurFramebufferDirty(bool dirty) = 0;
+	virtual void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) = 0;
 	virtual void CopyDisplayToOutput(const DisplayLayoutConfig &config) = 0;
 	virtual bool PresentedThisFrame() const = 0;
 

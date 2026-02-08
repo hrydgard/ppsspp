@@ -129,6 +129,16 @@ void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view
 	entries_.insert(entries_.begin(), msg);
 }
 
+void OnScreenDisplay::CancelById(std::string_view id) {
+	for (auto iter = entries_.begin(); iter != entries_.end();) {
+		if (iter->id == id) {
+			iter = entries_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
+}
+
 void OnScreenDisplay::ShowOnOff(std::string_view message, bool on, float duration_s) {
 	std::string msg(message);
 	msg += ": ";
