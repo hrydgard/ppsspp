@@ -15,14 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
 // Regular replacement funcs are just C functions. These take care of their
 // own parameter parsing using the old school PARAM macros.
 // The return value is the number of cycles to eat.
 
+// Replacement functions are replaced by function hash, also checking the size to reduce
+// collisions. This is not really super safe, and we probably should restrict them by
+// game ID, really...
+
 // JIT replacefuncs can be for inline or "outline" replacement.
 // With inline replacement, we recognize the call to the functions
 // at jal time already. With outline replacement, we just replace the
-// implementation.
+// implementation, which gets jumped to from other functions.
 
 // In both cases the jit needs to know how much to subtract downcount.
 //

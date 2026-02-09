@@ -12,6 +12,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
@@ -750,6 +751,16 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 		}
 		if (ImGui::MenuItem("Copy instruction (hex)")) {
 			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::OPCODES);
+		}
+		if (ImGui::MenuItem("Copy function hash")) {
+			MIPSAnalyst::AnalyzedFunction func;
+			if (MIPSAnalyst::GetAnalyzedFunctionAt(curAddress_, &func)) {
+				if (func.hasHash) {
+					char temp[256];
+					snprintf(temp, sizeof(temp), "%016llx:%d = %s\n", func.hash, func.size, func.name);
+					System_CopyStringToClipboard(temp);
+				}
+			}
 		}
 		ImGui::Separator();
 

@@ -1848,6 +1848,8 @@ std::map<u32, u32> SaveAndClearReplacements() {
 			Memory::Write_U32(instr, addr);
 		}
 	}
+
+	// TODO: Should we not also call replacedInstructions.clear(); ?
 	return saved;
 }
 

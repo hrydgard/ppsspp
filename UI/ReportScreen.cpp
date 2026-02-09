@@ -428,7 +428,7 @@ void ReportFinishScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 	parent->Add(new Spacer(20.0f));
 
-	parent->Add(new Choice(rp->T("View Feedback"), ImageID("I_LINK_OUT")))->OnClick.Handle(this, &ReportFinishScreen::HandleViewFeedback);
+	parent->Add(new Choice(rp->T("View Feedback"), ImageID("I_LINK_OUT"), new LayoutParams(WRAP_CONTENT, ITEM_HEIGHT)))->OnClick.Handle(this, &ReportFinishScreen::HandleViewFeedback);
 }
 
 void ReportFinishScreen::update() {

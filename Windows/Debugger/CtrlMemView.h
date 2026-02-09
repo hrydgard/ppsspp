@@ -41,7 +41,7 @@ public:
 	MIPSDebugInterface *getDebugger() {
 		return debugger_;
 	}
-	std::vector<u32> searchString(const std::string &searchQuery);
+	std::vector<u32> searchString(std::string_view query);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
@@ -57,10 +57,10 @@ public:
 	void setHighlightType(MemBlockFlags flags);
 
 private:
-	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
+	bool ParseSearchString(std::string_view query, bool asHex, std::vector<uint8_t> &data);
 	void updateStatusBarText();
 	void search(bool continueSearch);
-	uint32_t pickTagColor(const std::string &tag);
+	uint32_t pickTagColor(std::string_view tag);
 
 	enum class GotoMode {
 		RESET,

@@ -1261,6 +1261,17 @@ skip:
 		}
 	}
 
+	bool GetAnalyzedFunctionAt(u32 addr, AnalyzedFunction *out) {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+		for (auto iter = functions.begin(), end = functions.end(); iter != end; ++iter) {
+			if (iter->start <= addr && iter->end >= addr) {
+				*out = *iter;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void ReplaceFunctions() {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
@@ -1297,13 +1308,6 @@ skip:
 			return it->name;
 		}
 		return 0;
-	}
-
-	void SetHashMapFilename(const std::string& filename) {
-		if (filename.empty())
-			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
-		else
-			hashmapFileName = Path(filename);
 	}
 
 	void StoreHashMap(Path filename) {
