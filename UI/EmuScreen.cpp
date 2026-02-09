@@ -895,18 +895,12 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 
 	case VIRTKEY_SWAP_LAYOUT:
 		if (down) {
+			// Only perform minimal operations during emulation:
+			// 1. Swap the layout configuration
+			// 2. Post async UI message to handle view recreation in UI thread
+			// Avoid I18N, OSD, and direct root_ access which may not be thread-safe.
 			const DeviceOrientation orientation = GetDeviceOrientation();
 			g_Config.SwapTouchControlsLayouts(orientation);
-			
-			auto co = GetI18NCategory(I18NCat::CONTROLS);
-			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
-		
-			// Reset all touch input to prevent buttons stuck in pressed state
-			TouchInput releaseAll{};
-			releaseAll.flags = TouchInputFlags::RELEASE_ALL;
-			if (root_) root_->Touch(releaseAll);
-			
-			// Post async message to recreate UI views in UI thread instead of from emulation context
 			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 		}
 		break;
