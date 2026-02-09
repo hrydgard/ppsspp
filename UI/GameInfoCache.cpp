@@ -251,7 +251,11 @@ std::string GameInfo::GetMTime() const {
 // Not too meaningful if the object itself is a savedata directory...
 // Call this under lock.
 std::vector<Path> GameInfo::GetSaveDataDirectories() {
-	_dbg_assert_(hasFlags & GameInfoFlags::PARAM_SFO);  // so we know we have the ID.
+	if (!(hasFlags & GameInfoFlags::PARAM_SFO)) {
+		ERROR_LOG(Log::UI, "Can't get savedata directories if we don't have PARAM_SFO.");
+		return std::vector<Path>();
+	}
+
 	Path memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
 	std::vector<Path> directories;

@@ -846,12 +846,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		// This is a warning, not an error.
 		auto g = GetI18NCategory(I18NCat::GRAPHICS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(g->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), 8.0f, "low_refresh");
-		g_OSD.SetClickCallback("low_refresh", [](bool clicked, void *) {
-			if (clicked) {
-				// Open the display settings.
-				System_OpenDisplaySettings();
-			}
-		}, nullptr);
+		g_OSD.SetClickCallback("low_refresh", []() {
+			// Open the display settings.
+			System_OpenDisplaySettings();
+		});
 	}
 #endif
 
@@ -1016,14 +1014,9 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 		if (success) {
 			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
 			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-				g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
-					Path *path = reinterpret_cast<Path *>(data);
-					if (clicked) {
-						System_ShowFileInFolder(*path);
-					} else {
-						delete path;
-					}
-				}, new Path(filename));
+				g_OSD.SetClickCallback("screenshot_link", [filename]() -> void {
+					System_ShowFileInFolder(filename);
+				});
 			}
 		} else {
 			auto err = GetI18NCategory(I18NCat::ERRORS);
