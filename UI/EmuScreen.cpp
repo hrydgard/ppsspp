@@ -901,13 +901,13 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 			auto co = GetI18NCategory(I18NCat::CONTROLS);
 			g_OSD.Show(OSDType::MESSAGE_INFO, co->T("Touch layout switched"));
 		
-			// Recreate views to update touch button layout visual representation
 			// Reset all touch input to prevent buttons stuck in pressed state
 			TouchInput releaseAll{};
 			releaseAll.flags = TouchInputFlags::RELEASE_ALL;
 			if (root_) root_->Touch(releaseAll);
 			
-			RecreateViews();
+			// Post async message to recreate UI views in UI thread instead of from emulation context
+			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 		}
 		break;
 
