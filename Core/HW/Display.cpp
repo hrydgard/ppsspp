@@ -311,6 +311,8 @@ void DisplayHWReset() {
 
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
+	lastFpsTime = 0.0;
+	lastFpsFrame = 0;
 
 	frameTimeHistoryValid = 0;
 	frameTimeHistoryPos = 0;
