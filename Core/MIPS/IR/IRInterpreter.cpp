@@ -771,7 +771,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Mult:
 		{
 			s64 result = (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			memcpy(&mips->lo, &result, 8);  // note: lo is followed by hi, so this is ok (little-endian).
 			break;
 		}
 		case IROp::MultU:
