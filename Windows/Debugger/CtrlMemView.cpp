@@ -596,7 +596,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			std::ostringstream stream;
 			stream << (Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
 			auto temp_string = stream.str();
-			W32Util::CopyTextToClipboard(wnd, temp_string.c_str());
+			W32Util::CopyTextToClipboard(wnd, temp_string);
 		}
 		break;
 
@@ -814,7 +814,7 @@ void CtrlMemView::ScrollCursor(int bytes, GotoMode mode) {
 	redraw();
 }
 
-bool CtrlMemView::ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data) {
+bool CtrlMemView::ParseSearchString(std::string_view query, bool asHex, std::vector<uint8_t> &data) {
 	data.clear();
 	if (!asHex) {
 		for (size_t i = 0; i < query.length(); i++) {
@@ -847,7 +847,7 @@ bool CtrlMemView::ParseSearchString(const std::string &query, bool asHex, std::v
 	return true;
 }
 
-std::vector<u32> CtrlMemView::searchString(const std::string &searchQuery) {
+std::vector<u32> CtrlMemView::searchString(std::string_view searchQuery) {
 	std::vector<u32> searchResAddrs;
 
 	auto memLock = Memory::Lock();
@@ -993,8 +993,8 @@ void CtrlMemView::setHighlightType(MemBlockFlags flags) {
 	}
 }
 
-uint32_t CtrlMemView::pickTagColor(const std::string &tag) {
+uint32_t CtrlMemView::pickTagColor(std::string_view tag) {
 	int colors[6] = { 0xe0FFFF, 0xFFE0E0, 0xE8E8FF, 0xFFE0FF, 0xE0FFE0, 0xFFFFE0 };
-	int which = XXH3_64bits(tag.c_str(), tag.length()) % ARRAY_SIZE(colors);
+	int which = XXH3_64bits(tag.data(), tag.length()) % ARRAY_SIZE(colors);
 	return colors[which];
 }

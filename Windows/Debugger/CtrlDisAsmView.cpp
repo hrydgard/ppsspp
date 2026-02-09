@@ -891,9 +891,25 @@ void CtrlDisAsmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructio
 		delete [] temp;
 	} else {
 		std::string disassembly = DisassembleRange(startAddr,endAddr-startAddr, displaySymbols, debugger);
-		W32Util::CopyTextToClipboard(wnd, disassembly.c_str());
+		W32Util::CopyTextToClipboard(wnd, disassembly);
 	}
 }
+
+void CtrlDisAsmView::CopyFunctionHash(u32 addr) {
+	MIPSAnalyst::AnalyzedFunction func;
+	if (MIPSAnalyst::GetAnalyzedFunctionAt(addr, &func)) {
+		if (func.hasHash) {
+			char temp[256];
+			snprintf(temp, sizeof(temp), "%016llx:%d = %s\n", func.hash, func.size, func.name);
+			W32Util::CopyTextToClipboard(wnd, temp);
+		} else {
+			MessageBox(wnd, L"No hash", L"", 0);
+		}
+	} else {
+		MessageBox(wnd, L"No function", L"", 0);
+	}
+}
+
 
 void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
@@ -944,6 +960,9 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
 			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::OPCODES);
+			break;
+		case ID_DISASM_COPYFUNCTIONHASH:
+			CopyFunctionHash(curAddress);
 			break;
 		case ID_DISASM_NOPINSTRUCTION:
 			NopInstructions(selectRangeStart, selectRangeEnd);
