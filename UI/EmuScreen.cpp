@@ -1596,11 +1596,12 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 
 	using namespace Draw;
 	skipBufferEffects_ = g_Config.bSkipBufferEffects;
-	if (!skipBufferEffects_) {
+	if (!skipBufferEffects_ && PSP_IsInited()) {
 		if (ShouldRunEmulation(mode)) {
 			// We need to run emulation here, and perform all the normal render passes.
 			return RunEmulation(false);
-		} else {
+		} else if (gpu) {
+			// Need to check for gpu here, we might be in reset.
 			const DeviceOrientation orientation = GetDeviceOrientation();
 			const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
 			// We run just the post shaders.
