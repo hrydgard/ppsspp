@@ -1988,11 +1988,7 @@ void Config::SwapTouchControlsLayouts(DeviceOrientation orientation) {
 	} else {
 		std::swap(touchControlsLandscape, touchControlsLandscapeLayout2);
 	}
-	// Persist the swapped layouts so the change is permanent in the
-	// appropriate ini (game-specific or global) rather than only in memory.
-	INFO_LOG(Log::G3D, "Persisting swapped touch control layouts to ini.");
-	// Save() will handle game-specific vs global saving based on current mode.
-	Save("SwapTouchControlsLayouts");
+	// Note: do NOT auto-save here. Caller should persist if desired.
 }
 
 void Config::EnsureSecondaryLayoutsInitialized() {
