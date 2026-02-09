@@ -90,7 +90,7 @@
       <PreprocessorDefinitions>_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/bigobj /await %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>
@@ -115,7 +115,7 @@
       <PreprocessorDefinitions>NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/bigobj /await %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>
@@ -140,7 +140,7 @@
       <PreprocessorDefinitions>GOLD;NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/bigobj /await %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>
@@ -166,7 +166,7 @@
       <PreprocessorDefinitions>_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/bigobj /await %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>
@@ -191,7 +191,7 @@
       <PreprocessorDefinitions>NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/bigobj /await %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>
@@ -216,7 +216,7 @@
       <PreprocessorDefinitions>GOLD;NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>/bigobj /await %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>

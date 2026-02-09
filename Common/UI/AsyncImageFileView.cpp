@@ -79,7 +79,7 @@ void AsyncImageFileView::DeviceRestored(Draw::DrawContext *draw) {
 void AsyncImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !filename_.empty()) {
-		texture_ = std::make_unique<ManagedTexture>(dc.GetDrawContext(), filename_.c_str(), ImageFileType::DETECT, true);
+		texture_ = std::make_unique<ManagedTexture>(dc.GetDrawContext(), filename_.c_str(), ImageFileType::DETECT);
 		if (!texture_.get())
 			textureFailed_ = true;
 	}

@@ -403,22 +403,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	if ((g_logManager.GetOutputsEnabled() & LogOutput::File) && !g_logManager.GetLogFilePath().empty()) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-		std::string logPath = g_logManager.GetLogFilePath().ToString();
-
-		// TODO: Really need a cleaner way to make clickable path notifications.
-		char *path = new char[logPath.size() + 1];
-		strcpy(path, logPath.data());
+		Path logPath = g_logManager.GetLogFilePath();
 
 		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", dev->T("Log to file"), g_logManager.GetLogFilePath().ToVisualString()), 0.0f, "log_to_file");
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("log_to_file", [](bool clicked, void *userdata) {
-				char *path = (char *)userdata;
-				if (clicked) {
-					System_ShowFileInFolder(Path(path));
-				} else {
-					delete[] path;
-				}
-			}, path);
+			g_OSD.SetClickCallback("log_to_file", [logPath]() {
+				System_ShowFileInFolder(logPath);
+			});
 		}
 	}
 
@@ -837,21 +828,11 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 	if (File::Exists(fullPath)) {
 		INFO_LOG(Log::sceModule, "%s already exists for this game, skipping dump.", filenameToDumpTo.c_str());
 
-		char *path = new char[strlen(fullPath.c_str()) + 1];
-		strcpy(path, fullPath.c_str());
-
-		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f, "file_dumped");
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("file_dumped", [](bool clicked, void *userdata) {
-				char *path = (char *)userdata;
-				if (clicked) {
-					System_ShowFileInFolder(Path(path));
-				} else {
-					delete[] path;
-				}
-			}, path);
-		} else {
-			delete[] path;
+			g_OSD.SetClickCallback("file_dumped", [fullPath]() {
+				System_ShowFileInFolder(fullPath);
+			});
 		}
 		return;
 	}
@@ -877,18 +858,11 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 
 	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", DumpFileTypeToString(type), fullPath.ToVisualString().c_str());
 
-	char *path = new char[strlen(fullPath.c_str()) + 1];
-	strcpy(path, fullPath.c_str());
-
-	// Re-suing the translation string here.
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f);
+	// Re-using the translation string here.
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f, "decr");
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
-			char *path = (char *)userdata;
-			if (clicked) {
-				System_ShowFileInFolder(Path(path));
-			}
-			delete[] path;
-		}, path);
+		g_OSD.SetClickCallback("decr", [fullPath]() {
+			System_ShowFileInFolder(fullPath);
+		});
 	}
 }

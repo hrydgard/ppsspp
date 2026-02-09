@@ -1574,9 +1574,10 @@ void EmuScreen::HandleFlip() {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		avi.Stop();
 		g_OSD.Show(OSDType::MESSAGE_INFO, sy->T("AVI Dump stopped."), 3.0f, "avi_dump");
-		g_OSD.SetClickCallback("avi_dump", [](bool, void *) {
-			System_ShowFileInFolder(avi.LastFilename());
-		}, nullptr);
+		Path lastFilename = avi.LastFilename();
+		g_OSD.SetClickCallback("avi_dump", [lastFilename]() {
+			System_ShowFileInFolder(lastFilename);
+		});
 		startDumping_ = false;
 	}
 #endif

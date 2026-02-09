@@ -393,11 +393,9 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	// This one is clickable
 	list->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success", 0.0f, "clickable");
-		g_OSD.SetClickCallback("clickable", [](bool clicked, void *) {
-			if (clicked) {
-				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
-			}
-		}, nullptr);
+		g_OSD.SetClickCallback("clickable", []() {
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
+		});
 	});
 	list->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "RetroAchievements warning", "", "I_RETROACHIEVEMENTS_LOGO");
