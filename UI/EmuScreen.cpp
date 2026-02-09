@@ -896,11 +896,9 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 	case VIRTKEY_SWAP_LAYOUT:
 		if (down) {
 			// Only perform minimal operations during emulation:
-			// 1. Swap the layout configuration
-			// 2. Post async UI message to handle view recreation in UI thread
-			// Avoid I18N, OSD, and direct root_ access which may not be thread-safe.
-			const DeviceOrientation orientation = GetDeviceOrientation();
-			g_Config.SwapTouchControlsLayouts(orientation);
+			// Toggle layout selection between 1 and 2.
+			// This is safer than swapping struct contents, avoids invalidating references.
+			g_Config.SwapTouchControlsLayouts();
 			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 		}
 		break;

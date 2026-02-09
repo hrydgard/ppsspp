@@ -747,8 +747,8 @@ public:
 		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
 	}
 	
-	// Exchange layouts between the two selections
-	void SwapTouchControlsLayouts(DeviceOrientation orientation);
+	// Exchange layout selections between mode 1 and 2
+	void SwapTouchControlsLayouts();
 
 	// Ensure layout2 is initialized as a copy of layout1 if empty
 	void EnsureSecondaryLayoutsInitialized();

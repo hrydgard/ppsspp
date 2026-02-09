@@ -1989,10 +1989,14 @@ float UIScaleFactorToMultiplier(int factor) {
 	return powf(2.0f, (float)factor / 8.0f);
 }
 void Config::SwapTouchControlsLayouts(DeviceOrientation orientation) {
-	if (orientation == DeviceOrientation::Portrait) {
-		std::swap(touchControlsPortrait, touchControlsPortraitLayout2);
+	// Instead of swapping the large layout structs themselves,
+	// just toggle the selection between layout 1 and 2.
+	// This is much safer: avoids invalidating any references/pointers
+	// to the layout structs, and is atomic.
+	if (iTouchLayoutSelection == 1) {
+		iTouchLayoutSelection = 2;
 	} else {
-		std::swap(touchControlsLandscape, touchControlsLandscapeLayout2);
+		iTouchLayoutSelection = 1;
 	}
 	// Note: do NOT auto-save here. Caller should persist if desired.
 }
