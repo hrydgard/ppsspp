@@ -982,20 +982,27 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curPipelineFlags_ = (PipelineFlags)0;
 }
 
-void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
+void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction colorLoad, VKRRenderPassLoadAction depthLoad, VKRRenderPassLoadAction stencilLoad, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
+	if (!fb) {
+		// Backbuffer render passes have some requirements.
+		_dbg_assert_(colorLoad != VKRRenderPassLoadAction::KEEP);
+		_dbg_assert_(depthLoad != VKRRenderPassLoadAction::KEEP);
+		_dbg_assert_(stencilLoad != VKRRenderPassLoadAction::KEEP);
+	}
 
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
-		if (color == VKRRenderPassLoadAction::CLEAR) {
+		if (colorLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_COLOR_BIT;
 		}
-		if (depth == VKRRenderPassLoadAction::CLEAR) {
+		if (depthLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
-		if (stencil == VKRRenderPassLoadAction::CLEAR) {
+		if (stencilLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
@@ -1057,25 +1064,25 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
 	// TODO: Determine which versions and do this only where necessary.
 	u32 lateClearMask = 0;
-	if (depth != stencil && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_ARM) {
-		if (stencil == VKRRenderPassLoadAction::DONT_CARE) {
-			stencil = depth;
-		} else if (depth == VKRRenderPassLoadAction::DONT_CARE) {
-			depth = stencil;
-		} else if (stencil == VKRRenderPassLoadAction::CLEAR) {
-			depth = stencil;
+	if (depthLoad != stencilLoad && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_ARM) {
+		if (stencilLoad == VKRRenderPassLoadAction::DONT_CARE) {
+			stencilLoad = depthLoad;
+		} else if (depthLoad == VKRRenderPassLoadAction::DONT_CARE) {
+			depthLoad = stencilLoad;
+		} else if (stencilLoad == VKRRenderPassLoadAction::CLEAR) {
+			depthLoad = stencilLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		} else if (depth == VKRRenderPassLoadAction::CLEAR) {
-			stencil = depth;
+		} else if (depthLoad == VKRRenderPassLoadAction::CLEAR) {
+			stencilLoad = depthLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 		}
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
 	step->render.framebuffer = fb;
-	step->render.colorLoad = color;
-	step->render.depthLoad = depth;
-	step->render.stencilLoad = stencil;
+	step->render.colorLoad = colorLoad;
+	step->render.depthLoad = depthLoad;
+	step->render.stencilLoad = stencilLoad;
 	step->render.colorStore = VKRRenderPassStoreAction::STORE;
 	step->render.depthStore = VKRRenderPassStoreAction::STORE;
 	step->render.stencilStore = VKRRenderPassStoreAction::STORE;
@@ -1092,7 +1099,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 
 	if (fb) {
 		// If there's a KEEP, we naturally read from the framebuffer.
-		if (color == VKRRenderPassLoadAction::KEEP || depth == VKRRenderPassLoadAction::KEEP || stencil == VKRRenderPassLoadAction::KEEP) {
+		if (colorLoad == VKRRenderPassLoadAction::KEEP || depthLoad == VKRRenderPassLoadAction::KEEP || stencilLoad == VKRRenderPassLoadAction::KEEP) {
 			step->dependencies.insert(fb);
 		}
 	}
@@ -1118,7 +1125,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 	}
 
-	if (color == VKRRenderPassLoadAction::CLEAR || depth == VKRRenderPassLoadAction::CLEAR || stencil == VKRRenderPassLoadAction::CLEAR) {
+	if (colorLoad == VKRRenderPassLoadAction::CLEAR || depthLoad == VKRRenderPassLoadAction::CLEAR || stencilLoad == VKRRenderPassLoadAction::CLEAR) {
 		curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 	}
 

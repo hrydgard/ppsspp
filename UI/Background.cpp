@@ -446,7 +446,7 @@ void DrawBackground(UIContext &dc, float alpha, Lin::Vec3 focus) {
 }
 
 uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
-	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
+	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.72f);  // 0.72 = 183 = B7
 }
 
 enum class BackgroundFillMode {

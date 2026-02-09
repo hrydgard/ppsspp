@@ -78,6 +78,7 @@
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/sceUtility.h"
 #include "GPU/Common/PostShader.h"
+#include "GPU/GPU.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
@@ -499,6 +500,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		if (g_Config.bSkipBufferEffects) {
 			g_Config.bAutoFrameSkip = false;
 		}
+
 		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	});
 	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);

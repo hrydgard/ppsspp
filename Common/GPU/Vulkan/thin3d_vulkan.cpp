@@ -1839,6 +1839,8 @@ DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+	_dbg_assert_(fbo != nullptr || equals(tag, "BackBuffer"))
+
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassLoadAction color = (VKRRenderPassLoadAction)rp.color;
 	VKRRenderPassLoadAction depth = (VKRRenderPassLoadAction)rp.depth;

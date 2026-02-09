@@ -1559,9 +1559,11 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 	constexpr float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	constexpr float v0 = 0.0f, v1 = 1.0f;
 
-	presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
-	presentation_->SourceTexture(pixelsTex, 512, 272);
-	presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	if (useBufferedRendering_) {
+		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
+		presentation_->SourceTexture(pixelsTex, 512, 272);
+		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	}
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
@@ -1576,7 +1578,19 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 	draw_->SetViewport(viewport);
 }
 
-void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
+void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+	// PresentationCommon sets all kinds of state, we can't rely on anything.
+	gstate_c.Dirty(DIRTY_ALL);
+	DiscardFramebufferCopy();
+	currentRenderVfb_ = nullptr;
+	if (useBufferedRendering_) {
+		presentation_->CopyToOutput(config);
+	} else {
+		presentation_->NotifyPresent();
+	}
+}
+
+void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 	shaderManager_->DirtyLastShader();
 
@@ -1588,11 +1602,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
 		}
 		// No framebuffer to display! Clear to black.
-		if (useBufferedRendering_) {
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
-		}
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-		presentation_->NotifyPresent();
+		presentation_->SourceBlank();
 		return;
 	}
 
@@ -1651,27 +1661,19 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			// If successful, this effectively calls presentation_->NotifyPresent();
-			if (DrawFramebufferToOutput(config, Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_)) {
-				presentation_->CopyToOutput(config);
-			} else {
-				if (useBufferedRendering_) {
-					// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_DrawError");
-				}
-				presentation_->NotifyPresent();
+			if (!DrawFramebufferToOutput(config, Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_)) {
+				// No framebuffer to display! Clear to black.
+				presentation_->SourceBlank();
 			}
-			return;
 		} else {
 			DEBUG_LOG(Log::FrameBuf, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
 			// No framebuffer to display! Clear to black.
-			if (useBufferedRendering_) {
-				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
-			} // For non-buffered rendering, every frame is cleared anyway.
+			// TODO: Draw a black rectangle, will be important once we add backgrounds.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-			presentation_->NotifyPresent();
-			return;
+			// No framebuffer to display! Clear to black.
+			presentation_->SourceBlank();
 		}
+		return;
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
@@ -1688,6 +1690,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
+		_dbg_assert_(useBufferedRendering_);
 		if (GetUIState() != UISTATE_PAUSEMENU) {
 			if (Core_IsStepping())
 				VERBOSE_LOG(Log::FrameBuf, "Displaying FBO %08x", vfb->fb_address);
@@ -1732,20 +1735,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
-		presentation_->CopyToOutput(config);
-	} else if (useBufferedRendering_) {
-		WARN_LOG(Log::FrameBuf, "Using buffered rendering, and current VFB lacks an FBO: %08x", vfb->fb_address);
-	} else {
-		// This is OK because here we're in "skip buffered" mode, so even if we haven't presented
-		// we will have a render target.
-		presentation_->NotifyPresent();
 	}
-
-	// This may get called mid-draw if the game uses an immediate flip.
-	// PresentationCommon sets all kinds of state, we can't rely on anything.
-	gstate_c.Dirty(DIRTY_ALL);
-	DiscardFramebufferCopy();
-	currentRenderVfb_ = nullptr;
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
@@ -3035,9 +3025,10 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	}
 
 	if (!useBufferedRendering_) {
-		// Safety check.
-		w = std::min(w, PSP_CoreParameter().pixelWidth);
-		h = std::min(h, PSP_CoreParameter().pixelHeight);
+		// In this mode, we can only screenshot the backbuffer, and we can't resize with a simple blit (well technically we could, but complicated)
+		w = PSP_CoreParameter().pixelWidth;
+		h = PSP_CoreParameter().pixelHeight;
+		buffer.SetIsBackbuffer(true);
 	}
 
 	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
@@ -3448,10 +3439,6 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		if (useBufferedRendering_) {
-			// Just bind the back buffer for rendering, forget about doing anything else as we're in a weird state.
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer");
-		}
 		return;
 	}
 

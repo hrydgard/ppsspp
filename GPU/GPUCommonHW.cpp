@@ -530,7 +530,7 @@ void GPUCommonHW::PreExecuteOp(u32 op, u32 diff) {
 	CheckFlushOp(op >> 24, diff);
 }
 
-void GPUCommonHW::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+void GPUCommonHW::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) {
 	drawEngineCommon_->FlushQueuedDepth();
 	// Flush anything left over.
 	drawEngineCommon_->Flush();
@@ -538,10 +538,12 @@ void GPUCommonHW::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
 	shaderManager_->DirtyLastShader();
 
 	// after this, render pass is active.
-	framebufferManager_->CopyDisplayToOutput(config, curFramebufferDirty_);
-	curFramebufferDirty_ = false;
+	framebufferManager_->PrepareCopyDisplayToOutput(config, curFramebufferDirty_);
+}
 
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+void GPUCommonHW::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+	framebufferManager_->CopyDisplayToOutput(config);
+	curFramebufferDirty_ = false;
 }
 
 bool GPUCommonHW::PresentedThisFrame() const {

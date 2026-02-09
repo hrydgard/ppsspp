@@ -147,13 +147,6 @@ void UIScreen::update() {
 
 	DoRecreateViews();
 
-	if (root_) {
-		DialogResult result = UpdateViewHierarchy(root_);
-		if (result != DR_NONE) {
-			TriggerFinish(result);
-		}
-	}
-
 	while (true) {
 		QueuedEvent ev{};
 		{
@@ -188,6 +181,13 @@ void UIScreen::update() {
 			break;
 		}
 	}
+
+	if (root_) {
+		DialogResult result = UpdateViewHierarchy(root_);
+		if (result != DR_NONE) {
+			TriggerFinish(result);
+		}
+	}
 }
 
 void UIScreen::deviceLost() {
@@ -200,30 +200,7 @@ void UIScreen::deviceRestored(Draw::DrawContext *draw) {
 		root_->DeviceRestored(draw);
 }
 
-void UIScreen::SetupViewport() {
-	using namespace Draw;
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-	_dbg_assert_(draw != nullptr);
-	// Bind and clear the back buffer
-	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
-	screenManager()->getUIContext()->BeginFrame();
-
-	Draw::Viewport viewport;
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = g_display.pixel_xres;
-	viewport.Height = g_display.pixel_yres;
-	viewport.MaxDepth = 1.0;
-	viewport.MinDepth = 0.0;
-	draw->SetViewport(viewport);
-	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
-}
-
 ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
-	if (mode & ScreenRenderMode::FIRST) {
-		SetupViewport();
-	}
-
 	DoRecreateViews();
 
 	UIContext &uiContext = *screenManager()->getUIContext();

@@ -11,6 +11,7 @@
 #include "UI/GameInfoCache.h"
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"
+#include "GPU/Common/PresentationCommon.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
@@ -258,4 +259,33 @@ void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool
 		INFO_LOG(Log::System, "New display rotation: %d", g_Config.iScreenRotation);
 		System_Notify(SystemNotification::ROTATE_UPDATED);
 	});
+}
+
+void GameInfoBGView::Draw(UIContext &dc) {
+	// Should only be called when visible.
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::PIC1);
+	dc.Flush();
+
+	// PIC1 is the loading image, so let's only draw if it's available.
+	if (ginfo->Ready(GameInfoFlags::PIC1) && ginfo->pic1.texture) {
+		Draw::Texture *texture = ginfo->pic1.texture;
+		if (texture) {
+			const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			// Similar to presentation, we want to put the game PIC1 in the same region of the screen.
+			FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
+			FRect rc;
+			CalculateDisplayOutputRect(config, &rc, texture->Width(), texture->Height(), frame, config.iInternalScreenRotation);
+
+			// Need to adjust for DPI here since we're still in the UI coordinate space here, not the pixel coordinate space used for in-game presentation.
+			Bounds bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y);
+
+			dc.GetDrawContext()->BindTexture(0, texture);
+
+			double loadTime = ginfo->pic1.timeLoaded;
+			uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
+			dc.Draw()->DrawTexRect(bounds, 0, 0, 1, 1, color);
+			dc.Flush();
+			dc.RebindTexture();
+		}
+	}
 }
