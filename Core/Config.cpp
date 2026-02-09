@@ -1988,7 +1988,7 @@ int MultiplierToVolume100(float multiplier) {
 float UIScaleFactorToMultiplier(int factor) {
 	return powf(2.0f, (float)factor / 8.0f);
 }
-void Config::SwapTouchControlsLayouts(DeviceOrientation orientation) {
+void Config::SwapTouchControlsLayouts() {
 	// Instead of swapping the large layout structs themselves,
 	// just toggle the selection between layout 1 and 2.
 	// This is much safer: avoids invalidating any references/pointers
