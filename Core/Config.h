@@ -499,7 +499,14 @@ public:
 	TouchControlConfig touchControlsPortraitLayout2;
 	
 	// Current layout selection (1 for primary layout, 2 for secondary layout)
+	// Runtime selection used by UI/runtime. This value reflects the currently
+	// active layout during runtime but is not written directly to the ini when
+	// changed in-game via button bindings.
 	int iTouchLayoutSelection = 1;
+
+	// Persisted selection stored in ini. Editor changes should update this
+	// value so the user's saved preference is preserved across restarts.
+	int iTouchLayoutSelectionSaved = 1;
 
 	// These are shared between portrait and landscape, just the positions aren't.
 	ConfigCustomButton CustomButton[TouchControlConfig::CUSTOM_BUTTON_COUNT];

@@ -613,7 +613,10 @@ void TouchControlLayoutScreen::OnLayoutSelection(UI::EventParams &e) {
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	int selection = e.a;
 	
-	g_Config.iTouchLayoutSelection = selection + 1; // Convert from 0-based to 1-based
+	int newSelection = selection + 1; // Convert from 0-based to 1-based
+	// Update both runtime and persisted selection when changed through the editor.
+	g_Config.iTouchLayoutSelection = newSelection;
+	g_Config.iTouchLayoutSelectionSaved = newSelection;
 	
 	// Reload the layout for the newly selected layout
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();

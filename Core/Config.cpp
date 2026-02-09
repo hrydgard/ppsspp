@@ -1028,8 +1028,8 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("SystemControls", SETTING(g_Config, bSystemControls), true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
 	
-	// Touch layout selection for swap layout feature
-	ConfigSetting("TouchLayoutSelection", SETTING(g_Config, iTouchLayoutSelection), 1, CfgFlag::PER_GAME),
+	// Touch layout selection for swap layout feature (persisted value)
+	ConfigSetting("TouchLayoutSelection", SETTING(g_Config, iTouchLayoutSelectionSaved), 1, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting networkSettings[] = {
@@ -1398,6 +1398,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	EnsureSecondaryLayoutsInitialized();
 
 	PostLoadCleanup();
+
+	// Apply persisted layout selection to runtime selection.
+	g_Config.iTouchLayoutSelection = g_Config.iTouchLayoutSelectionSaved;
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
@@ -1805,6 +1808,9 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 	PostLoadCleanup();
 
 	DEBUG_LOG(Log::Loader, "Game-specific config loaded: %s", gameId_.c_str());
+
+	// Apply persisted layout selection to runtime selection for game-specific mode.
+	g_Config.iTouchLayoutSelection = g_Config.iTouchLayoutSelectionSaved;
 	return true;
 }
 
