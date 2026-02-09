@@ -166,43 +166,27 @@ ReportScreen::ReportScreen(const Path &gamePath)
 	Reporting::QueueCRC(gamePath_);
 }
 
-ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
-	_dbg_assert_(mode & ScreenRenderMode::FIRST);
-	// _dbg_assert_(mode & ScreenRenderMode::TOP);
-
-	if (mode & ScreenRenderMode::TOP) {
-		// We do this after render because we need it to be within the frame (so the screenshot works).
+ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
+	if ((mode & ScreenRenderMode::TOP) && !tookScreenshot_ && !g_Config.bSkipBufferEffects) {
+		// We do this in PreRender because we need it to be before the main render pass.
 		// We could do it mid frame, but then we have to reapply viewport/scissor.
-		if (!tookScreenshot_ && !g_Config.bSkipBufferEffects) {
-			Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-			if (!File::Exists(path)) {
-				File::CreateDir(path);
-			}
-			screenshotFilename_ = path / ".reporting.jpg";
-			ScreenshotResult ignored = TakeGameScreenshot(screenManager()->getDrawContext(), screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_RENDER, 4, [this](bool success) {
-				if (success) {
-					// Redo the views already, now with a screenshot included.
-					RecreateViews();
-				} else {
-					// Good news (?), the views are good as-is without a screenshot.
-					screenshotFilename_.clear();
-				}
-			});
-			tookScreenshot_ = true;
+		Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+		if (!File::Exists(path)) {
+			File::CreateDir(path);
 		}
+		screenshotFilename_ = path / ".reporting.jpg";
+		ScreenshotResult ignored = TakeGameScreenshot(screenManager()->getDrawContext(), screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_RENDER, 4, [this](bool success) {
+			if (success) {
+				// Redo the views already, now with a screenshot included.
+				RecreateViews();
+			} else {
+				// Good news (?), the views are good as-is without a screenshot.
+				screenshotFilename_.clear();
+			}
+		});
+		tookScreenshot_ = true;
 	}
-
-	// We take the screenshot first, then we start rendering.
-	// We are the only screen visible so this avoid starting and then trying to resume a backbuffer render pass.
-	return UITwoPaneBaseDialogScreen::render(mode);
-}
-
-// For the screenshotting functionality to work.
-ScreenRenderRole ReportScreen::renderRole(bool isTop) const {
-	// if (tookScreenshot_) {
-	// 	return ScreenRenderRole::NONE;
-	// }
-	return ScreenRenderRole::MUST_BE_FIRST | ScreenRenderRole::CAN_BE_BACKGROUND;
+	return ScreenRenderFlags::NONE;
 }
 
 void ReportScreen::update() {

@@ -468,7 +468,7 @@ public:
 		return t;
 	}
 
-	virtual void Recurse(void (*func)(View *view)) {}
+	virtual void Recurse(std::function<void(View *)> func) {}
 	virtual void SetAutoResult(DialogResult result) {
 		hasAutoResult_ = true;
 		autoResult_ = result;
@@ -756,6 +756,9 @@ public:
 	}
 	void SetIconOnly(bool iconOnly) {
 		iconOnly_ = iconOnly;
+	}
+	void SetSelectedIndicator(bool selected) {
+		selected_ = selected;
 	}
 
 protected:

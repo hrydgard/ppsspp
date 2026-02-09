@@ -48,7 +48,7 @@ ViewGroup::~ViewGroup() {
 	Clear();
 }
 
-void ViewGroup::Recurse(void (*func)(View *view)) {
+void ViewGroup::Recurse(std::function<void(View *)> func) {
 	for (View *view : views_) {
 		func(view);
 		view->Recurse(func);

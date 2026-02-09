@@ -171,6 +171,7 @@ void GameImageView::GetContentDimensions(const UIContext &dc, float &w, float &h
 	w = 0;
 	h = 0;
 	if (!tex || !tex->texture) {
+		// Not ready yet
 		return;
 	}
 	Draw::Texture *texture = tex->texture;

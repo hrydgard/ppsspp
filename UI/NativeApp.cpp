@@ -1086,11 +1086,19 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_iconCache.FrameUpdate();
 
-	g_screenManager->update();
-
 	if (g_audioBackend) {
 		g_audioBackend->FrameUpdate(g_Config.bAutoAudioDevice);
 	}
+
+	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
+	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
+		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
+	if (g_Config.bGpuLogProfiler)
+		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
+	g_draw->BeginFrame(debugFlags);
+
+	g_screenManager->update();
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
@@ -1129,16 +1137,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
 
-	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
-		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
-	if (g_Config.bGpuLogProfiler)
-		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
-
 	// Can be overridden by sceDisplay which may pass true for the second argument.
 	g_frameTiming.ComputePresentMode(g_draw, false);
-
-	g_draw->BeginFrame(debugFlags);
 
 	ui_draw2d.PushDrawMatrix(ortho);
 
