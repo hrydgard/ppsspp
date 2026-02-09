@@ -138,6 +138,7 @@ public:
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void SetCurFramebufferDirty(bool dirty) override {}
+	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }

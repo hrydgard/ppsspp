@@ -98,12 +98,6 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 }
 
 ScreenRenderFlags BackgroundScreen::render(ScreenRenderMode mode) {
-	if (mode & ScreenRenderMode::FIRST) {
-		SetupViewport();
-	} else {
-		_dbg_assert_(false);
-	}
-
 	UIContext *uiContext = screenManager()->getUIContext();
 
 	uiContext->PushTransform({ translation_, scale_, alpha_ });

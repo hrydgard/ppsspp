@@ -68,7 +68,6 @@ void Event::Add(std::function<void(EventParams&)> func) {
 	func_ = func;
 }
 
-// Call this from input thread or whatever, it doesn't matter
 void Event::Trigger(EventParams &e) {
 	if (!func_) {
 		return;
@@ -76,7 +75,6 @@ void Event::Trigger(EventParams &e) {
 	EventTriggered(this, e);
 }
 
-// Call this from UI thread
 void Event::Dispatch(EventParams &e) {
 	if (func_)
 		func_(e);

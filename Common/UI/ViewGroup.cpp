@@ -321,17 +321,17 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		distance = 0.001f;
 	}
 	float overlap = 0.0f;
-	float dirX = dx / distance;
-	float dirY = dy / distance;
+	const float dirX = dx / distance;
+	const float dirY = dy / distance;
 
 	bool wrongDirection = false;
 	bool vertical = false;
-	float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
-	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
+	const float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
+	const float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
 		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
-			INFO_LOG(Log::UI, "Contain overlap");
-			return 0.0;
+			INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
+			return 0.0f;
 		}
 	}
 	float originSize = 0.0f;

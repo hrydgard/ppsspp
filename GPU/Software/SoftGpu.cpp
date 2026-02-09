@@ -624,7 +624,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "CopyToCurrentFboFromDisplayRam");
+		presentation_->SourceBlank();
 		presentation_->NotifyPresent();
 		return;
 	}
@@ -644,13 +644,16 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 
 	presentation_->SourceTexture(fbTex, desc.width, desc.height);
 	presentation_->RunPostshaderPasses(config, outputFlags, config.iInternalScreenRotation, u0, v0, u1, v1);
-	presentation_->CopyToOutput(config);
 }
 
-void SoftGPU::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+void SoftGPU::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) {
 	drawEngine_->transformUnit.Flush(this, "output");
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(config, FB_WIDTH, FB_HEIGHT);
+}
+
+void SoftGPU::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+	presentation_->CopyToOutput(config);
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
 }
 

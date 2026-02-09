@@ -11,6 +11,7 @@ public:
 
 	// This can fail, and if so no render pass is active.
 	void SetCurFramebufferDirty(bool dirty) override { curFramebufferDirty_ = dirty; }
+	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;

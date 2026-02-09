@@ -77,7 +77,6 @@ protected:
 	virtual void DrawBackground(UIContext &ui) {}
 	virtual void DrawForeground(UIContext &ui) {}
 
-	void SetupViewport();
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
