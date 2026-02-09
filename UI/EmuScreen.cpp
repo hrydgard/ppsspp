@@ -908,10 +908,6 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 			if (root_) root_->Touch(releaseAll);
 			
 			RecreateViews();
-
-			// Persist the swap: Save() will write to game-specific ini if active,
-			// otherwise to the global settings.ini.
-			g_Config.Save("SwapTouchControlsLayouts");
 		}
 		break;
 
