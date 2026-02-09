@@ -6,6 +6,7 @@
 
 #include "Common/TimeUtil.h"
 #include "Common/Input/GestureDetector.h"
+#include "Common/System/Display.h"
 
 const float estimatedInertiaDamping = 0.75f;
 

@@ -93,7 +93,7 @@ private:
 class ListAdaptor {
 public:
 	virtual ~ListAdaptor() {}
-	virtual View *CreateItemView(int index, ImageID *optionalImageID) = 0;
+	virtual View *CreateItemView(int index, bool selected, ImageID *optionalImageID) = 0;
 	virtual int GetNumItems() = 0;
 	virtual void AddEventCallback(View *view, std::function<void(EventParams &)> callback) {}
 	virtual std::string GetTitle(int index) const { return ""; }
@@ -104,7 +104,7 @@ public:
 class ChoiceListAdaptor : public ListAdaptor {
 public:
 	ChoiceListAdaptor(const char *items[], int numItems) : items_(items), numItems_(numItems) {}
-	View *CreateItemView(int index, ImageID *optionalImageID) override;
+	View *CreateItemView(int index, bool selected, ImageID *optionalImageID) override;
 	int GetNumItems() override { return numItems_; }
 	void AddEventCallback(View *view, std::function<void(EventParams &)> callback) override;
 
@@ -118,7 +118,7 @@ class StringVectorListAdaptor : public ListAdaptor {
 public:
 	StringVectorListAdaptor() : selected_(-1) {}
 	StringVectorListAdaptor(const std::vector<std::string> &items, int selected = -1) : items_(items), selected_(selected) {}
-	View *CreateItemView(int index, ImageID *optionalImageID) override;
+	View *CreateItemView(int index, bool selected, ImageID *optionalImageID) override;
 	int GetNumItems() override { return (int)items_.size(); }
 	void AddEventCallback(View *view, std::function<void(EventParams &)> callback) override;
 	void SetSelected(int sel) override { selected_ = sel; }

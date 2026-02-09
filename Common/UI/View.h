@@ -757,6 +757,9 @@ public:
 	void SetIconOnly(bool iconOnly) {
 		iconOnly_ = iconOnly;
 	}
+	void SetSelectedIndicator(bool selected) {
+		selected_ = selected;
+	}
 
 protected:
 	void ClickInternal() override;

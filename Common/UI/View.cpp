@@ -568,7 +568,7 @@ void Choice::Draw(UIContext &dc) {
 	}
 
 	if (selected_) {
-		dc.Draw()->DrawImage(dc.GetTheme().checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+		dc.Draw()->DrawImage(ImageID("I_CHECKMARK"), bounds_.x2() - 30, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	}
 }
 

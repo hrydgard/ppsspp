@@ -572,17 +572,21 @@ void ListView::CreateAllItems() {
 	linLayout_->Clear();
 	// Let's not be clever yet, we'll just create them all up front and add them all in.
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
-		if (hidden_.find(i) == hidden_.end()) {
-			ImageID *imageID = nullptr;
-			auto iter = icons_.find(i);
-			if (iter != icons_.end()) {
-				imageID = &iter->second;
-			}
-			View *v = linLayout_->Add(adaptor_->CreateItemView(i, imageID));
-			adaptor_->AddEventCallback(v, [this, i](UI::EventParams &e) {
-				OnItemCallback(i, e);
-			});
+		if (hidden_.count(i)) {
+			// Item was hidden, skip it.
+			continue;
 		}
+
+		ImageID *imageID = nullptr;
+		auto iter = icons_.find(i);
+		if (iter != icons_.end()) {
+			imageID = &iter->second;
+		}
+		const bool selected = adaptor_->GetSelected() == i;
+		View *v = linLayout_->Add(adaptor_->CreateItemView(i, selected, imageID));
+		adaptor_->AddEventCallback(v, [this, i](UI::EventParams &e) {
+			OnItemCallback(i, e);
+		});
 	}
 }
 
@@ -607,37 +611,39 @@ void ListView::OnItemCallback(int num, EventParams &e) {
 	CreateAllItems();
 }
 
-View *ChoiceListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
+View *ChoiceListAdaptor::CreateItemView(int index, bool selected, ImageID *optionalImageID) {
 	Choice *choice;
 	if (optionalImageID) {
 		choice = new Choice(items_[index], *optionalImageID);
 	} else {
 		choice = new Choice(items_[index]);
-		//choice->SetIconRight(*optionalImageID);
+	}
+	if (selected) {
+		choice->SetSelectedIndicator(true);
 	}
 	return choice;
 }
 
 void ChoiceListAdaptor::AddEventCallback(View *view, std::function<void(EventParams &)> callback) {
-	Choice *choice = (Choice *)view;
-	choice->OnClick.Add(callback);
+	Clickable *choice = dynamic_cast<Clickable *>(view);
+	if (choice) {
+		choice->OnClick.Add(callback);
+	}
 }
 
-View *StringVectorListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
-	ImageID temp;
-	if (optionalImageID) {
-		temp = *optionalImageID;
+View *StringVectorListAdaptor::CreateItemView(int index, bool selected, ImageID *optionalImageID) {
+	Choice *choice = new Choice(items_[index], optionalImageID ? *optionalImageID : ImageID());
+	if (selected) {
+		choice->SetSelectedIndicator(true);
 	}
-	Choice *choice = new Choice(items_[index], temp);
-	// if (optionalImageID) {
-	// 	choice->SetIconRight(*optionalImageID);
-	// }
 	return choice;
 }
 
 void StringVectorListAdaptor::AddEventCallback(View *view, std::function<void(EventParams &)> callback) {
-	Choice *choice = (Choice *)view;
-	choice->OnClick.Add(callback);
+	Clickable *choice = dynamic_cast<Clickable *>(view);
+	if (choice) {
+		choice->OnClick.Add(callback);
+	}
 }
 
 }  // namespace
