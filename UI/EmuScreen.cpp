@@ -1666,6 +1666,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		gpu->CopyDisplayToOutput(displayLayoutConfig);
 	}
 
+	// Reset the viewport. Needed in case Cardboard or something similar was enabled.
+	draw->SetViewport(viewport);
+
 	runImDebugger();
 
 	Draw::BackendState state = draw->GetCurrentBackendState();
