@@ -451,6 +451,12 @@ static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *da
 
 void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
+	if (numFiles < 0) {
+		// Broken zip archive?
+		ERROR_LOG(Log::HLE, "Failed to get the file count of zip file");
+		info->contents = ZipFileContents::UNKNOWN;
+		return;
+	}
 	_dbg_assert_(numFiles >= 0);
 
 	// Verify that this is a PSP zip file with the correct layout. We also try
