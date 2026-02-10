@@ -238,6 +238,8 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		break;
 	}
 	case ZipFileContents::FRAME_DUMP:
+		// Re-use an almost correct string, not worth it to add a new one
+		leftColumn->Add(new TextView(di->T("GE Frame Dumps")));
 		leftColumn->Add(new TextView(zipFileInfo_.contentName));
 		// It's a frame dump, add a play button!
 		break;

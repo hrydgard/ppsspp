@@ -1820,7 +1820,7 @@ static u32 sceMpegFlushAllStream(u32 mpeg) {
 		ringbuffer->packetsWritePos = 0;
 	}
 
-	return hleLogWarning(Log::Mpeg, 0, "UNIMPL");
+	return hleLogInfo(Log::Mpeg, 0, "UNIMPL");
 }
 
 static u32 sceMpegFlushStream(u32 mpeg, int stream_addr) {

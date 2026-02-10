@@ -27,6 +27,7 @@ ZipFileLoader::ZipFileLoader(FileLoader *sourceLoader)
 	if (!zipArchive_) {
 		ERROR_LOG(Log::IO, "Failed to open ZIP archive: %s", zip_error_strerror(&error));
 		zip_source_free(zipSource);
+		// zipArchive_ is already nullptr here.
 	}
 }
 

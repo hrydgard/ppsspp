@@ -472,7 +472,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 		int aligned_len = align16(cryptedSize);
 		if (aligned_len != cryptedSize) {
-			WARN_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d)", cryptedSize, cryptedSize & 15);
+			INFO_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d) (should be ok)", cryptedSize, cryptedSize & 15);
 		}
 
 		cryptedData = new u8[aligned_len + 0x10]();

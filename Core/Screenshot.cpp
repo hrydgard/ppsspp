@@ -354,7 +354,7 @@ ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filenam
 			const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, width, height);
 
 			bool success;
-			if (width <= 480 * maxRes) {
+			if ((int)width <= 480 * maxRes) {
 				success = Save888RGBScreenshot(filename, fmt, buffer, width, height);
 				delete[] flipbuffer;
 			} else {
@@ -363,13 +363,12 @@ ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filenam
 				delete[] flipbuffer;
 
 				// TODO: Speed this thing up.
-				while (width > 480 * maxRes) {
+				while ((int)width > 480 * maxRes) {
 					u8 *halfSize = new u8[(width / 2) * (height / 2) * 3];
-					for (int y = 0; y < height / 2; y++) {
-						for (int x = 0; x < width / 2; x++) {
+					for (u32 y = 0; y < height / 2; y++) {
+						for (u32 x = 0; x < width / 2; x++) {
 							for (int c = 0; c < 3; c++) {
-								halfSize[(y * (width / 2) + x) * 3 + c] =
-									(shrinkBuffer[((y * 2) * width + (x * 2)) * 3 + c] +
+								halfSize[(y * (width / 2) + x) * 3 + c] = (shrinkBuffer[((y * 2) * width + (x * 2)) * 3 + c] +
 										shrinkBuffer[((y * 2) * width + (x * 2 + 1)) * 3 + c] +
 										shrinkBuffer[(((y * 2) + 1) * width + (x * 2)) * 3 + c] +
 										shrinkBuffer[(((y * 2) + 1) * width + (x * 2 + 1)) * 3 + c]) / 4;

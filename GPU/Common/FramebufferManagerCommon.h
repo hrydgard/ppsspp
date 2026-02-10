@@ -142,15 +142,16 @@ struct VirtualFramebuffer {
 
 	// These are mainly used for garbage collection purposes and similar.
 	// Cannot be used to determine new-ness against a similar other buffer, since they are
-	// only at frame granularity.
+	// only at frame granularity. Although, can be used to check for -1 to see if they have ever
+	// been affected in that way.
 	int last_frame_used;
 	int last_frame_attached;
 	int last_frame_render;
 	int last_frame_displayed;
 	int last_frame_clut;
 	int last_frame_failed;
-	int last_frame_depth_updated;
-	int last_frame_depth_render;
+	int last_frame_depth_updated = -1;
+	int last_frame_depth_render = -1;
 
 	// Convenience methods
 	inline int WidthInBytes() const { return width * BufferFormatBytesPerPixel(fb_format); }

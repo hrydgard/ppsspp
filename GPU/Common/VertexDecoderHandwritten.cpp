@@ -31,7 +31,9 @@
 // [04000116] P: s16 C: 5551 T: u16  (12b) (7688298)
 
 // This is the first GoW one. TODO: Do two verts at a time.
+// God of War.
 void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	// Input: 4 + 4 + 4 + 12 = 24 bytes
 	struct GOWVTX {
 		union {
 			struct {
@@ -47,6 +49,7 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		float z;
 	};
 	// NOTE: This might be different for different vertex formats.
+	// Output: 8 + 4 + 4 + 12 = 28 bytes.
 	struct OutVTX {
 		float u;
 		float v;
