@@ -152,7 +152,7 @@ void PathBrowser::HandlePath() {
 	if (pendingThread_.joinable())
 		return;
 
-	pendingThread_ = std::thread([&] {
+	pendingThread_ = std::thread([this] {
 		SetCurrentThreadName("PathBrowser");
 
 		AndroidJNIThreadContext jniContext;  // destructor detaches

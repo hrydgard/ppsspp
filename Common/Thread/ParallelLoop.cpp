@@ -129,7 +129,7 @@ void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t
 
 	char *d = (char *)dst;
 	const char *s = (const char *)src;
-	ParallelRangeLoop(threadMan, [&](int l, int h) {
+	ParallelRangeLoop(threadMan, [d, s](int l, int h) {
 		memmove(d + l, s + l, h - l);
 	}, 0, (int)bytes, 128 * 1024, priority);
 }
@@ -145,7 +145,7 @@ void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t b
 	// unknown's testing showed that 128kB is an appropriate minimum size.
 
 	char *d = (char *)dst;
-	ParallelRangeLoop(threadMan, [&](int l, int h) {
+	ParallelRangeLoop(threadMan, [d, value](int l, int h) {
 		memset(d + l, value, h - l);
 	}, 0, (int)bytes, 128 * 1024, priority);
 }

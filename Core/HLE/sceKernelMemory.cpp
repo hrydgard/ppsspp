@@ -1387,7 +1387,10 @@ static bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, b
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl) {
 		if (size == 0 || size > (u32) vpl->nv.poolSize) {
-			WARN_LOG(Log::sceKernel, "%s(vpl=%i, size=%i, ptrout=%08x): invalid size", funcname, uid, size, addrPtr);
+			if (size != 0) {
+				// Some games do a lot of 0-sized allocations, ignore.
+				WARN_LOG(Log::sceKernel, "%s(vpl=%i, size=%i, ptrout=%08x): invalid size", funcname, uid, size, addrPtr);
+			}
 			error = SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 			return false;
 		}

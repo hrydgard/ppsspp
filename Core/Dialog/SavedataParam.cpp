@@ -607,7 +607,9 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (param->icon1FileData.buf.IsValid())
 	{
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
-		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.size);
+		if (param->icon1FileData.size > 0) {
+			WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.size);
+		}
 	}
 	// SAVE PIC1
 	if (param->pic1FileData.buf.IsValid())
@@ -619,7 +621,9 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (param->snd0FileData.buf.IsValid())
 	{
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
-		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
+		if (param->snd0FileData.size > 0) {
+			WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
+		}
 	}
 	return 0;
 }
