@@ -105,7 +105,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 #else
 			u32 addr = offset + gpr.GetImm(rs);
 #endif
-			gpr.SetRegImm(SCRATCH1, addr);
+			MOVI2R(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
 			if (g_Config.bFastMemory) {
@@ -136,7 +136,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 #else
 			u32 addr = offset + gpr.GetImm(rs);
 #endif
-			gpr.SetRegImm(SCRATCH1, addr);
+			MOVI2R(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
 			if (g_Config.bFastMemory) {

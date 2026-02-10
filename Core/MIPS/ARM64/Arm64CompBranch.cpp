@@ -534,7 +534,7 @@ void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
-		gpr.SetRegImm(SCRATCH1, GetCompilerPC() + 8);
+		MOVI2R(SCRATCH1, GetCompilerPC() + 8);
 		MovToPC(SCRATCH1);
 		MOVI2R(W0, targetAddr);
 		QuickCallFunction(SCRATCH1, (const void *)&HitInvalidJump);
@@ -692,7 +692,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	js.downcountAmount = -offset;
 
 	if (!js.inDelaySlot) {
-		gpr.SetRegImm(SCRATCH1, GetCompilerPC() + 4);
+		MOVI2R(SCRATCH1, GetCompilerPC() + 4);
 		MovToPC(SCRATCH1);
 	}
 
