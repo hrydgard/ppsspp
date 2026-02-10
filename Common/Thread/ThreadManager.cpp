@@ -68,7 +68,7 @@ void ThreadManager::Teardown() {
 
 	// Purge any cancellable tasks while the threads shut down.
 	if (global_->compute_queue_size > 0 || global_->io_queue_size > 0) {
-		auto drainQueue = [&](std::deque<Task *> queue[TASK_PRIORITY_COUNT], std::atomic<int> &size) {
+		auto drainQueue = [this](std::deque<Task *> queue[TASK_PRIORITY_COUNT], std::atomic<int> &size) {
 			for (size_t i = 0; i < TASK_PRIORITY_COUNT; ++i) {
 				for (auto it = queue[i].begin(); it != queue[i].end(); ++it) {
 					if (TeardownTask(*it, false)) {

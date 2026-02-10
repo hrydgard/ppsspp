@@ -59,7 +59,7 @@ void GLQueueRunner::CreateDeviceObjects() {
 
 	// Populate some strings from the GL thread so they can be queried from thin3d.
 	// TODO: Merge with GLFeatures.cpp/h
-	auto populate = [&](int name) {
+	auto populate = [this](int name) {
 		const GLubyte *value = glGetString(name);
 		if (!value)
 			glStrings_[name] = "?";
