@@ -170,19 +170,19 @@ void Arm64Jit::FlushPrefixV() {
 	}
 
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(SCRATCH1, js.prefixS);
+		MOVI2R(SCRATCH1, js.prefixS);
 		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(SCRATCH1, js.prefixT);
+		MOVI2R(SCRATCH1, js.prefixT);
 		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(SCRATCH1, js.prefixD);
+		MOVI2R(SCRATCH1, js.prefixD);
 		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
@@ -251,6 +251,10 @@ void Arm64Jit::Compile(u32 em_address) {
 	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
 
 	int block_num = blocks.AllocateBlock(em_address);
+
+	// To debug really wacky JIT issues, it can be a good idea to bisect the block number,
+	// and disable parts of the jit using jo.disableFlags for certain ranges of blocks.
+
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
@@ -381,7 +385,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 
 	if (jo.useForwardJump) {
 		SetJumpTarget(bail);
-		gpr.SetRegImm(SCRATCH1, js.blockStart);
+		MOVI2R(SCRATCH1, js.blockStart);
 		B((const void *)outerLoopPCInSCRATCH1);
 	}
 
@@ -599,7 +603,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		FlushAll();
 		SaveStaticRegisters();
 		RestoreRoundingMode();
-		gpr.SetRegImm(SCRATCH1, GetCompilerPC());
+		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
 
 		// Standard function call, nothing fancy.

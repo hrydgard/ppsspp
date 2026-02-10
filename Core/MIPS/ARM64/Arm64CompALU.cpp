@@ -66,7 +66,7 @@ void Arm64Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARM64XEm
 	} else {
 		gpr.MapDirtyIn(rt, rs);
 		if (!(this->*tryArithI2R)(gpr.R(rt), gpr.R(rs), uimm)) {
-			gpr.SetRegImm(SCRATCH1, uimm);
+			MOVI2R(SCRATCH1, uimm);
 			(this->*arith)(gpr.R(rt), gpr.R(rs), SCRATCH1);
 		}
 	}
@@ -119,7 +119,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 		}
 		gpr.MapDirtyIn(rt, rs);
 		if (!TryCMPI2R(gpr.R(rs), (u32)simm)) {
-			gpr.SetRegImm(SCRATCH1, simm);
+			MOVI2R(SCRATCH1, simm);
 			CMP(gpr.R(rs), SCRATCH1);
 		}
 		CSET(gpr.R(rt), CC_LT);
@@ -132,7 +132,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 		}
 		gpr.MapDirtyIn(rt, rs);
 		if (!TryCMPI2R(gpr.R(rs), suimm)) {
-			gpr.SetRegImm(SCRATCH1, suimm);
+			MOVI2R(SCRATCH1, suimm);
 			CMP(gpr.R(rs), SCRATCH1);
 		}
 		CSET(gpr.R(rt), CC_LO);

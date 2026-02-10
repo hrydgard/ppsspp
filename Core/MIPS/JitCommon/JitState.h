@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
@@ -179,7 +180,9 @@ namespace MIPSComp {
 		}
 	};
 
-	enum class JitDisable {
+	enum class JitDisable : u32 {
+		DEFAULT = 0,
+
 		ALU = 0x0001,
 		ALU_IMM = 0x0002,
 		ALU_BIT = 0x0004,
@@ -212,13 +215,14 @@ namespace MIPSComp {
 
 		ALL_FLAGS = 0x3FFFFFFF,
 	};
+	ENUM_CLASS_BITOPS(JitDisable);
 
 	struct JitOptions {
 		JitOptions();
 
 		bool Disabled(JitDisable bit);
 
-		uint32_t disableFlags;
+		JitDisable disableFlags;
 
 		// x86
 		bool enableVFPUSIMD;
