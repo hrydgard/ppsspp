@@ -2869,7 +2869,6 @@ set(NativeAssets
 	assets/ppge_atlas.zim
 	assets/ppge_atlas.meta
 	assets/rargray.png
-	assets/unknown.png
 	assets/zip.png
 	assets/sfx_back.wav
 	assets/sfx_confirm.wav

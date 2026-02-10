@@ -187,14 +187,14 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (portrait) {
 		mainGameInfo = new LinearLayout(ORIENT_VERTICAL);
 		leftColumn->Add(new Spacer(8.0f));
-		if (fileTypeHasIcon) {
+		if (fileTypeHasIcon && !(info_->icon.dataLoaded && info_->icon.data.empty())) {
 			leftColumn->Add(new GameImageView(gamePath_, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(UI::Margins(0))));
 		}
 		leftColumn->Add(mainGameInfo);
 	} else {
 		mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 		ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL);
-		if (fileTypeHasIcon) {
+		if (fileTypeHasIcon && !(info_->icon.dataLoaded && info_->icon.data.empty())) {
 			badgeHolder->Add(new GameImageView(gamePath_, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
 		}
 		badgeHolder->Add(mainGameInfo);

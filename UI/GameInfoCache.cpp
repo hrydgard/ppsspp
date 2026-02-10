@@ -630,8 +630,7 @@ public:
 						} else if (File::Exists(screenshot_jpg)) {
 							ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 						} else {
-							// Read standard icon
-							ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+							// No icon.
 						}
 					}
 					info_->icon.dataLoaded = true;
@@ -688,9 +687,7 @@ handleELF:
 				} else if (File::Exists(screenshot_jpg)) {
 					ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 				} else {
-					// Read standard icon
-					VERBOSE_LOG(Log::Loader, "Loading unknown.png because there was an ELF");
-					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+					// No icon
 				}
 				info_->icon.dataLoaded = true;
 			}
@@ -854,13 +851,13 @@ handleELF:
 						Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
 						Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 						// Try using png/jpg screenshots first
-						if (File::Exists(screenshot_png))
+						if (File::Exists(screenshot_png)) {
 							info_->icon.dataLoaded = ReadLocalFileToString(screenshot_png, &info_->icon.data, &info_->lock);
-						else if (File::Exists(screenshot_jpg))
+						} else if (File::Exists(screenshot_jpg)) {
 							info_->icon.dataLoaded = ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
-						else {
-							DEBUG_LOG(Log::Loader, "Loading unknown.png because no icon was found");
-							info_->icon.dataLoaded = ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+						} else {
+							// This should be very rare.
+							info_->icon.dataLoaded = true;
 						}
 					}
 				}
