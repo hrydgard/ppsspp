@@ -340,7 +340,7 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	case 44: //R(rd) = max(R(rs), R(rt);        break; //max
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-			gpr.SetImm(rd, std::max(gpr.GetImm(rs), gpr.GetImm(rt)));
+			gpr.SetImm(rd, (u32)std::max((int)gpr.GetImm(rs), (int)gpr.GetImm(rt)));
 			break;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
@@ -350,7 +350,7 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	case 45: //R(rd) = min(R(rs), R(rt));       break; //min
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-			gpr.SetImm(rd, std::min(gpr.GetImm(rs), gpr.GetImm(rt)));
+			gpr.SetImm(rd, (u32)std::min((int)gpr.GetImm(rs), (int)gpr.GetImm(rt)));
 			break;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
@@ -459,11 +459,11 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 
 	case 0x4: //ins
 		{
-			u32 sourcemask = mask >> pos;
-			u32 destmask = ~(sourcemask << pos);
+			const u32 sourcemask = mask >> pos;
 			if (gpr.IsImm(rs)) {
-				u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+				const u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
 				if (gpr.IsImm(rt)) {
+					const u32 destmask = ~(sourcemask << pos);
 					gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
 					return;
 				}
