@@ -146,7 +146,14 @@ GameSettingsScreen::~GameSettingsScreen() {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	if (!g_Config.Save("GameSettingsScreen::onFinish")) {
-		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
+		std::string message = "Failed to save settings!\n";
+#ifdef MOBILE_DEVICE
+		message += "Check permissions, or try to restart the device.";
+#else
+		message += "Make sure this folder isn't read-only:\n";
+		message += g_Config.memStickDirectory.ToVisualString();
+#endif
+		System_Toast(message);
 	}
 
 	if (editGameSpecificThenRestore_) {
