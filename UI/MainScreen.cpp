@@ -292,7 +292,9 @@ void GameButton::Draw(UIContext &dc) {
 
 	// Some types we just draw a default icon for.
 	ImageID imageIcon = ImageID::invalid();
+	bool drawBackground = true;
 	switch (ginfo->fileType) {
+	case IdentifiedFileType::PSP_ELF: imageIcon = ImageID("I_DEBUGGER"); drawBackground = false; break;
 	case IdentifiedFileType::UNKNOWN_ELF: imageIcon = ImageID("I_DEBUGGER"); break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP: imageIcon = ImageID("I_DISPLAY"); break;
 	case IdentifiedFileType::PSX_ISO:
@@ -323,7 +325,7 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	if (ginfo->Ready(GameInfoFlags::ICON) && ginfo->icon.texture) {
+	if (ginfo->Ready(GameInfoFlags::ICON) && ginfo->icon.texture && drawBackground) {
 		texture = ginfo->icon.texture;
 	}
 
