@@ -745,7 +745,6 @@ BEGIN
         MENUITEM "Copy Address",               ID_DISASM_COPYADDRESS
         MENUITEM "Copy Instruction (Hex)",     ID_DISASM_COPYINSTRUCTIONHEX
         MENUITEM "Copy Instruction (Disasm)",  ID_DISASM_COPYINSTRUCTIONDISASM
-        MENUITEM "Copy Function Hash",         ID_DISASM_COPYFUNCTIONHASH
         MENUITEM "Disassemble to File",        ID_DISASM_DISASSEMBLETOFILE
         MENUITEM SEPARATOR
         MENUITEM "Assemble Opcode",            ID_DISASM_ASSEMBLE

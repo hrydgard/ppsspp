@@ -893,6 +893,17 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
+
+	case VIRTKEY_SWAP_LAYOUT:
+		if (down) {
+			// Only perform minimal operations during emulation:
+			// Toggle layout selection between 1 and 2.
+			// This is safer than swapping struct contents, avoids invalidating references.
+			g_Config.SwapTouchControlsLayouts();
+			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
+		}
+		break;
+
 	default:
 		// To make sure we're not in an async context.
 		if (down) {
@@ -1257,7 +1268,7 @@ void EmuScreen::CreateViews() {
 
 	const DeviceOrientation deviceOrientation = GetDeviceOrientation();
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation);
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(deviceOrientation);
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(&touch, deviceOrientation, bounds.w, bounds.h);
@@ -1574,10 +1585,9 @@ void EmuScreen::HandleFlip() {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		avi.Stop();
 		g_OSD.Show(OSDType::MESSAGE_INFO, sy->T("AVI Dump stopped."), 3.0f, "avi_dump");
-		Path lastFilename = avi.LastFilename();
-		g_OSD.SetClickCallback("avi_dump", [lastFilename]() {
-			System_ShowFileInFolder(lastFilename);
-		});
+		g_OSD.SetClickCallback("avi_dump", [](bool, void *) {
+			System_ShowFileInFolder(avi.LastFilename());
+		}, nullptr);
 		startDumping_ = false;
 	}
 #endif
@@ -1596,12 +1606,11 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 
 	using namespace Draw;
 	skipBufferEffects_ = g_Config.bSkipBufferEffects;
-	if (!skipBufferEffects_ && PSP_IsInited()) {
+	if (!skipBufferEffects_) {
 		if (ShouldRunEmulation(mode)) {
 			// We need to run emulation here, and perform all the normal render passes.
 			return RunEmulation(false);
-		} else if (gpu) {
-			// Need to check for gpu here, we might be in reset.
+		} else {
 			const DeviceOrientation orientation = GetDeviceOrientation();
 			const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
 			// We run just the post shaders.
@@ -1666,9 +1675,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (gpu) {
 		gpu->CopyDisplayToOutput(displayLayoutConfig);
 	}
-
-	// Reset the viewport. Needed in case Cardboard or something similar was enabled.
-	draw->SetViewport(viewport);
 
 	runImDebugger();
 

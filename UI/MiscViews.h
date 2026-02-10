@@ -37,11 +37,12 @@ public:
 private:
 	UI::Choice *backButton_ = nullptr;
 	UI::Choice *contextMenuButton_ = nullptr;
+	TopBarFlags flags_ = TopBarFlags::Default;
 };
 
 class ShinyIcon : public UI::ImageView {
 public:
-	ShinyIcon(ImageID atlasImage, UI::LayoutParams *layoutParams = 0) : UI::ImageView(atlasImage, "", layoutParams) {}
+	ShinyIcon(ImageID atlasImage, UI::LayoutParams *layoutParams = 0) : UI::ImageView(atlasImage, "", UI::IS_DEFAULT, layoutParams) {}
 	void Draw(UIContext &dc) override;
 	void SetAnimated(bool anim) { animated_ = anim; }
 private:

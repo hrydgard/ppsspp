@@ -53,12 +53,6 @@ enum DrawableType {
 	DRAW_STRETCH_IMAGE,
 };
 
-enum ImageSizeMode {
-	IS_DEFAULT,
-	IS_FIXED,
-	IS_KEEP_ASPECT,
-};
-
 enum Visibility {
 	V_VISIBLE,
 	V_INVISIBLE,  // Keeps position, not drawn or interacted with
@@ -468,7 +462,7 @@ public:
 		return t;
 	}
 
-	virtual void Recurse(std::function<void(View *)> func) {}
+	virtual void Recurse(void (*func)(View *view)) {}
 	virtual void SetAutoResult(DialogResult result) {
 		hasAutoResult_ = true;
 		autoResult_ = result;
@@ -756,9 +750,6 @@ public:
 	}
 	void SetIconOnly(bool iconOnly) {
 		iconOnly_ = iconOnly;
-	}
-	void SetSelectedIndicator(bool selected) {
-		selected_ = selected;
 	}
 
 protected:
@@ -1125,9 +1116,15 @@ private:
 	// TODO: Selections
 };
 
+enum ImageSizeMode {
+	IS_DEFAULT,
+	IS_FIXED,
+	IS_KEEP_ASPECT,
+};
+
 class ImageView : public InertView {
 public:
-	ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams = nullptr);
+	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = nullptr);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return text_; }
@@ -1136,6 +1133,7 @@ public:
 private:
 	std::string text_;
 	ImageID atlasImage_;
+	ImageSizeMode sizeMode_;  // TODO: Not actually used yet.
 	float scale_ = 1.0f;
 };
 

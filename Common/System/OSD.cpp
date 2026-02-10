@@ -12,12 +12,29 @@ OnScreenDisplay g_OSD;
 // Effectively forever.
 constexpr double forever_s = 10000000000.0;
 
+OnScreenDisplay::~OnScreenDisplay() {
+	std::lock_guard<std::mutex> guard(mutex_);
+
+	double now = time_now_d();
+	for (auto &iter : entries_) {
+		if (iter.clickCallback) {
+			// Wasn't clicked, but let it free any data.
+			iter.clickCallback(false, iter.clickUserData);
+		}
+	}
+}
+
 void OnScreenDisplay::Update() {
 	std::lock_guard<std::mutex> guard(mutex_);
 
 	double now = time_now_d();
 	for (auto iter = entries_.begin(); iter != entries_.end(); ) {
 		if (now >= iter->endTime) {
+			if (iter->clickCallback) {
+				// Wasn't clicked, but let it free any data.
+				iter->clickCallback(false, iter->clickUserData);
+				iter->clickCallback = nullptr;
+			}
 			iter = entries_.erase(iter);
 		} else {
 			iter++;
@@ -44,10 +61,9 @@ float OnScreenDisplay::IngameAlpha() const {
 void OnScreenDisplay::ClickEntry(size_t index, double now) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (index < entries_.size() && entries_[index].type != OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR) {
+		entries_[index].endTime = std::min(now + FadeoutTime(), entries_[index].endTime);
 		if (entries_[index].clickCallback) {
-			entries_[index].clickCallback();
-		} else {
-			entries_[index].endTime = std::min(now + FadeoutTime(), entries_[index].endTime);
+			entries_[index].clickCallback(true, entries_[index].clickUserData);
 		}
 	}
 }
@@ -317,17 +333,18 @@ void OnScreenDisplay::ClearAchievementStuff() {
 	}
 }
 
-void OnScreenDisplay::SetClickCallback(std::string_view id, std::function<void()> callback) {
+void OnScreenDisplay::SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata) {
 	_dbg_assert_(callback != nullptr);
 	for (auto &ent : entries_) {
 		// protect against dupes.
-		if (ent.id == id) {
+		if (ent.id == id && !ent.clickCallback) {
 			ent.clickCallback = callback;
+			ent.clickUserData = userdata;
 		}
 	}
 }
 
-void OnScreenDisplay::SetFlags(std::string_view id, OSDMessageFlags flags) {
+void OnScreenDisplay::SetFlags(const char *id, OSDMessageFlags flags) {
 	for (auto &ent : entries_) {
 		// protect against dupes.
 		if (ent.id == id) {

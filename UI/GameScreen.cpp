@@ -206,13 +206,13 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	std::vector<GameDBInfo> dbInfos;
 	const bool inGameDB = g_gameDB.GetGameInfos(info_->id_version, &dbInfos);
 
-	// Show the game ID title below the icon. The top title will be from the DB.
-	std::string title = info_->GetTitle();
-
 	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
 		std::string regionID = ReplaceAll(info_->id_version, "_", " v");
 		if (!regionID.empty()) {
 			regionID += ": ";
+
+			// Show the game ID title below the icon. The top title will be from the DB.
+			std::string title = info_->GetTitle();
 
 			TextView *tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			tvTitle->SetShadow(true);
@@ -278,7 +278,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Choice *btnResetTime = timeHoriz->Add(new Choice(di->T("Reset"), new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
-		btnResetTime->OnClick.Add([this, ga, timeStr, title](UI::EventParams &) {
+		btnResetTime->OnClick.Add([this, ga, timeStr](UI::EventParams &) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			auto gta = GetI18NCategory(I18NCat::GAME);
 			std::string id = info_->id;
@@ -286,12 +286,12 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 			questionText += "\n";
 			questionText += timeStr;
 			screenManager()->push(
-				new UI::MessagePopupScreen(title, questionText, di->T("Reset"), di->T("Cancel"), [this, id](bool reset) {
-				if (reset) {
+				new PromptScreen(gamePath_, questionText, di->T("Reset"), di->T("Cancel"), [id](bool yes) {
+				if (yes) {
 					g_Config.TimeTracker().Reset(id);
-					RecreateViews();
 				}
 			}));
+			RecreateViews();
 		});
 	}
 

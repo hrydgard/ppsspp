@@ -21,7 +21,7 @@ TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearL
 		layoutParams_->height = ITEM_HEIGHT;
 	}
 	if (imageID.isValid()) {
-		Add(new ImageView(imageID, "", new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
+		Add(new ImageView(imageID, "", UI::IS_DEFAULT, new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
 	}
 	Add(new TextView(text, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER)));
 }
@@ -34,7 +34,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 		layoutParams_->height = ITEM_HEIGHT;
 	}
 	if (imageID.isValid()) {
-		Add(new ImageView(imageID, "", new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
+		Add(new ImageView(imageID, "", UI::IS_DEFAULT, new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
 	}
 	Add(new TextView(text, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER)))->SetBig(true);
 
@@ -44,7 +44,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
+TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), flags_(flags) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
@@ -171,7 +171,6 @@ void GameImageView::GetContentDimensions(const UIContext &dc, float &w, float &h
 	w = 0;
 	h = 0;
 	if (!tex || !tex->texture) {
-		// Not ready yet
 		return;
 	}
 	Draw::Texture *texture = tex->texture;

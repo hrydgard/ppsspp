@@ -65,11 +65,6 @@ public:
 	virtual std::string toString() const = 0;
 };
 
-struct VFSEntry {
-	std::string_view prefix;
-	VFSBackend *reader;
-};
-
 class VFS : public VFSInterface {
 public:
 	~VFS() { Clear(); }
@@ -86,6 +81,10 @@ public:
 	bool Exists(std::string_view path);
 
 private:
+	struct VFSEntry {
+		std::string_view prefix;
+		VFSBackend *reader;
+	};
 	std::vector<VFSEntry> entries_;
 };
 

@@ -494,6 +494,20 @@ public:
 	TouchControlConfig touchControlsLandscape;
 	TouchControlConfig touchControlsPortrait;
 
+	// Alternative layout (for swap layout feature)
+	TouchControlConfig touchControlsLandscapeLayout2;
+	TouchControlConfig touchControlsPortraitLayout2;
+	
+	// Current layout selection (1 for primary layout, 2 for secondary layout)
+	// Runtime selection used by UI/runtime. This value reflects the currently
+	// active layout during runtime but is not written directly to the ini when
+	// changed in-game via button bindings.
+	int iTouchLayoutSelection = 1;
+
+	// Persisted selection stored in ini. Editor changes should update this
+	// value so the user's saved preference is preserved across restarts.
+	int iTouchLayoutSelectionSaved = 1;
+
 	// These are shared between portrait and landscape, just the positions aren't.
 	ConfigCustomButton CustomButton[TouchControlConfig::CUSTOM_BUTTON_COUNT];
 
@@ -719,7 +733,30 @@ public:
 		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
 	}
 
+	// Get the touched control config based on current layout selection
+	const TouchControlConfig &GetCurrentTouchControlsConfig(DeviceOrientation orientation) const {
+		if (iTouchLayoutSelection == 2) {
+			return orientation == DeviceOrientation::Portrait ? touchControlsPortraitLayout2 : touchControlsLandscapeLayout2;
+		}
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	TouchControlConfig &GetCurrentTouchControlsConfig(DeviceOrientation orientation) {
+		if (iTouchLayoutSelection == 2) {
+			return orientation == DeviceOrientation::Portrait ? touchControlsPortraitLayout2 : touchControlsLandscapeLayout2;
+		}
+		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
+	}
+	
+	// Exchange layout selections between mode 1 and 2
+	void SwapTouchControlsLayouts();
+
+	// Ensure layout2 is initialized as a copy of layout1 if empty
+	void EnsureSecondaryLayoutsInitialized();
+
 	static int GetDefaultValueInt(int *configSetting);
+	// Initialize Layout 2 as copy of Layout 1 if not already configured
+	void InitializeLayout2IfNeeded();
+
 
 	void DoNotSaveSetting(void *configSetting) {
 		settingsNotToSave_.push_back(configSetting);

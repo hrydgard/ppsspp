@@ -1027,6 +1027,9 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("SystemControls", SETTING(g_Config, bSystemControls), true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
+	
+	// Touch layout selection for swap layout feature (persisted value)
+	ConfigSetting("TouchLayoutSelection", SETTING(g_Config, iTouchLayoutSelectionSaved), 1, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting networkSettings[] = {
@@ -1151,6 +1154,8 @@ static const ConfigSectionMeta g_sectionMeta[] = {
 	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 	{ &g_Config.touchControlsLandscape, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Landscape", "Control" },  // We read the old settings from [Control], since most people played in landscape before.
 	{ &g_Config.touchControlsPortrait, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config.touchControlsLandscapeLayout2, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.LandscapeLayout2" },
+	{ &g_Config.touchControlsPortraitLayout2, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.PortraitLayout2" },
 	{ &g_Config.gestureControls[0], gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Left", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
 	{ &g_Config.gestureControls[1], gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Right", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
 };
@@ -1391,7 +1396,13 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// but these configs shouldn't contain older versions anyhow
 	_dbg_assert_(!IsGameSpecific());
 
+	// Ensure layout2 defaults are initialized from layout1 so swapping is visible
+	EnsureSecondaryLayoutsInitialized();
+
 	PostLoadCleanup();
+
+	// Apply persisted layout selection to runtime selection.
+	g_Config.iTouchLayoutSelection = g_Config.iTouchLayoutSelectionSaved;
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
@@ -1799,6 +1810,9 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 	PostLoadCleanup();
 
 	DEBUG_LOG(Log::Loader, "Game-specific config loaded: %s", gameId_.c_str());
+
+	// Apply persisted layout selection to runtime selection for game-specific mode.
+	g_Config.iTouchLayoutSelection = g_Config.iTouchLayoutSelectionSaved;
 	return true;
 }
 
@@ -1975,4 +1989,50 @@ int MultiplierToVolume100(float multiplier) {
 
 float UIScaleFactorToMultiplier(int factor) {
 	return powf(2.0f, (float)factor / 8.0f);
+}
+void Config::SwapTouchControlsLayouts() {
+	// Instead of swapping the large layout structs themselves,
+	// just toggle the selection between layout 1 and 2.
+	// This is much safer: avoids invalidating any references/pointers
+	// to the layout structs, and is atomic.
+	if (iTouchLayoutSelection == 1) {
+		iTouchLayoutSelection = 2;
+	} else {
+		iTouchLayoutSelection = 1;
+	}
+	// Note: do NOT auto-save here. Caller should persist if desired.
+}
+
+void Config::EnsureSecondaryLayoutsInitialized() {
+	auto IsConfigured = [](const TouchControlConfig &c) {
+		// If any position has been set (x >= 0), or any custom button is visible,
+		// consider the layout configured.
+		auto posSet = [](const ConfigTouchPos &p) { return p.x >= 0.0f || p.y >= 0.0f; };
+
+		if (posSet(c.touchActionButtonCenter) || posSet(c.touchDpad) || posSet(c.touchStartKey) ||
+			posSet(c.touchSelectKey) || posSet(c.touchFastForwardKey) || posSet(c.touchLKey) ||
+			posSet(c.touchRKey) || posSet(c.touchAnalogStick) || posSet(c.touchRightAnalogStick) ||
+			posSet(c.touchPauseKey)) {
+			return true;
+		}
+
+		for (size_t i = 0; i < TouchControlConfig::CUSTOM_BUTTON_COUNT; ++i) {
+			if (c.touchCustom[i].show)
+				return true;
+			if (posSet(c.touchCustom[i]))
+				return true;
+		}
+
+		return false;
+	};
+
+	if (!IsConfigured(touchControlsPortraitLayout2)) {
+		// Use preset defaults for the secondary layout instead of copying
+		// the primary layout. This avoids unintentionally duplicating
+		// user-customized primary layouts into layout 2.
+		touchControlsPortraitLayout2.ResetToDefault("TouchControls.PortraitLayout2");
+	}
+	if (!IsConfigured(touchControlsLandscapeLayout2)) {
+		touchControlsLandscapeLayout2.ResetToDefault("TouchControls.LandscapeLayout2");
+	}
 }

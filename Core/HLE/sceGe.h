@@ -28,6 +28,7 @@
 
 typedef int SceUID;
 typedef u32_le SceSize_le;
+// typedef void (*PspGeCallback)(int id, void *arg);
 
 struct PspGeCallbackData
 {

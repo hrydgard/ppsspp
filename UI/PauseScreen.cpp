@@ -711,17 +711,13 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 			std::string confirmMessage = GetConfirmExitMessage();
 			if (!confirmMessage.empty()) {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
-				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [this](bool result) {
+				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [](bool result) {
 					if (result) {
 						System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-						finishNextFrameResult_ = DR_BACK;  // resume
-						finishNextFrame_ = true;
 					}
 				}));
 			} else {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-				finishNextFrameResult_ = DR_BACK;  // resume
-				finishNextFrame_ = true;
 			}
 		});
 

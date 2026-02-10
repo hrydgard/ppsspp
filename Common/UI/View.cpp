@@ -568,7 +568,7 @@ void Choice::Draw(UIContext &dc) {
 	}
 
 	if (selected_) {
-		dc.Draw()->DrawImage(ImageID("I_CHECKMARK"), bounds_.x2() - 30, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+		dc.Draw()->DrawImage(dc.GetTheme().checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	}
 }
 
@@ -1027,8 +1027,8 @@ void RadioButton::Draw(UIContext &dc) {
 	}
 }
 
-ImageView::ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams)
-	: InertView(layoutParams), text_(text), atlasImage_(atlasImage) {}
+ImageView::ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams)
+	: InertView(layoutParams), text_(text), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
 
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
