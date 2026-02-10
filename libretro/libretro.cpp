@@ -1360,9 +1360,9 @@ namespace Libretro
          ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
       }
 
+      const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
       if (gpu) {
-         const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-         gpu->BeginHostFrame(config);
+         gpu->BeginHostFrame(displayLayoutConfig);
       }
 
       PSP_RunLoopWhileState();
@@ -1377,8 +1377,19 @@ namespace Libretro
          break;
       }
 
-      if (gpu)
+      if (gpu) {
          gpu->EndHostFrame();
+
+         gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
+      }
+
+      // gotta do the backbuffer bind somewhere.
+      using namespace Draw;
+      ctx->GetDrawContext()->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+
+      if (gpu) {
+         gpu->CopyDisplayToOutput(displayLayoutConfig);
+      }
 
       if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->EndFrame();
