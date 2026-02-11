@@ -81,6 +81,12 @@ enum class CPUCore {
 	JIT_IR = 3,
 };
 
+enum class AdhocServerRelayMode {
+	Auto = 0,
+	AlwaysOn = 1,
+	AlwaysOff = 2,
+};
+
 enum {
 	ROTATION_AUTO = 0,
 	ROTATION_LOCKED_HORIZONTAL = 1,

@@ -552,7 +552,7 @@ public:
 	// Networking
 	bool bEnableAdhocServer;
 	std::string sProAdhocServer;
-	bool bUseServerRelay;
+	int iAdhocServerRelayMode;
 	std::vector<std::string> proAdhocServerList;
 	std::string sInfrastructureDNSServer;
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
@@ -764,4 +764,6 @@ std::string CreateRandMAC();
 // TODO: Find a better place for this.
 extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
+
+extern const std::vector<std::string_view> defaultProAdhocServerList;
 

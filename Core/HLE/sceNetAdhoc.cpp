@@ -1648,7 +1648,25 @@ u32 sceNetAdhocInit() {
 		// Since we are deleting GameMode Master here, we should probably need to make sure GameMode resources all cleared too.
 		deleteAllGMB();
 
-		serverHasRelay = g_Config.bUseServerRelay;
+		// If a server is in our default list, we know it supports relay.
+		switch ((AdhocServerRelayMode)g_Config.iAdhocServerRelayMode) {
+		case AdhocServerRelayMode::Auto:
+			serverHasRelay = false;
+			// If it's in our default server list, we know it supports relay.
+			for (auto serverName : defaultProAdhocServerList) {
+				if (serverName == g_Config.sProAdhocServer) {
+					serverHasRelay = true;
+					break;
+				}
+			}
+			break;
+		case AdhocServerRelayMode::AlwaysOn:
+			serverHasRelay = true;
+			break;
+		default:
+			serverHasRelay = false;
+			break;
+		}
 
 		if (serverHasRelay) {
 			aemu_post_office_init();
