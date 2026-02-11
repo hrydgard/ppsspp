@@ -1050,8 +1050,8 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
 
-	static const char *relayModes[] = {"Auto", "On", "Off"};
-	PopupMultiChoice *relayModePopup = networkingSettings->Add(new PopupMultiChoice(&g_Config.iAdhocServerRelayMode, n->T("Try to use server-provided packet relay"), relayModes, 0, ARRAY_SIZE(relayModes), I18NCat::NETWORKING, screenManager()));
+	static const char *relayModes[] = {"Auto", "Yes", "No"};
+	PopupMultiChoice *relayModePopup = networkingSettings->Add(new PopupMultiChoice(&g_Config.iAdhocServerRelayMode, n->T("Try to use server-provided packet relay"), relayModes, 0, ARRAY_SIZE(relayModes), I18NCat::DIALOG, screenManager()));
 	relayModePopup->SetEnabled(!PSP_IsInited());
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower.")));
 
