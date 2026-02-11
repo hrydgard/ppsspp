@@ -100,9 +100,12 @@ struct ImGeReadbackViewer : public PixelLookup {
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 	void DeviceLost();
 
-	// TODO: This is unsafe! If you load state for example with the debugger open...
-	// We need to re-fetch this each frame from the parameters.
-	VirtualFramebuffer *vfb = nullptr;
+	VirtualFramebuffer *GetVFB(FramebufferManagerCommon *fbMan) const;
+
+	// We need to re-fetch the vfb each frame from these parameters.
+	u32 fbAddr = 0;
+	u32 fbStride = 0;
+	GEBufferFormat fbFormat = GE_FORMAT_INVALID;
 
 	// This specifies what to show
 	Draw::Aspect aspect;
