@@ -1863,11 +1863,6 @@ list(APPEND CoreExtra
 )
 
 list(APPEND CoreExtra
-	Core/MIPS/MIPS/MipsJit.cpp
-	Core/MIPS/MIPS/MipsJit.h
-)
-
-list(APPEND CoreExtra
 	Core/MIPS/RiscV/RiscVAsm.cpp
 	Core/MIPS/RiscV/RiscVCompALU.cpp
 	Core/MIPS/RiscV/RiscVCompBranch.cpp

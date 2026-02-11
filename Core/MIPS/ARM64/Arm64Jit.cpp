@@ -240,7 +240,6 @@ void Arm64Jit::CompileDelaySlot(int flags) {
 		_MSR(FIELD_NZCV, FLAGTEMPREG);  // Restore flags register
 }
 
-
 void Arm64Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {

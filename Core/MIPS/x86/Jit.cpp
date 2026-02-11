@@ -359,7 +359,7 @@ MIPSOpcode Jit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
+void Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
