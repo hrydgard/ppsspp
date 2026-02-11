@@ -315,7 +315,7 @@ void Jit::Compile(u32 em_address) {
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
-	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
+	b->DoIntegrityCheck(em_address, block_num);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
 	EndWrite();
@@ -360,19 +360,7 @@ MIPSOpcode Jit::GetOffsetInstruction(int offset) {
 }
 
 void Jit::DoJit(u32 em_address, JitBlock *b) {
-	js.cancel = false;
-	js.blockStart = em_address;
-	js.compilerPC = em_address;
-	js.lastContinuedPC = 0;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
-	js.downcountAmount = 0;
-	js.curBlock = b;
-	js.compiling = true;
-	js.inDelaySlot = false;
-	js.blockWrotePrefixes = false;
-	js.afterOp = JitState::AFTER_NONE;
-	js.PrefixStart();
+	js.Begin(b);
 
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();
@@ -384,10 +372,8 @@ void Jit::DoJit(u32 em_address, JitBlock *b) {
 
 	b->normalEntry = GetCodePtr();
 
-	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
-
-	gpr.Start(mips_, &js, &jo, analysis);
-	fpr.Start(mips_, &js, &jo, analysis, RipAccessible(&mips_->v[0]));
+	gpr.Start(mips_, &js, &jo);
+	fpr.Start(mips_, &js, &jo, RipAccessible(&mips_->v[0]));
 
 	js.numInstructions = 0;
 	while (js.compiling) {
@@ -442,6 +428,7 @@ void Jit::DoJit(u32 em_address, JitBlock *b) {
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
+
 	if (js.lastContinuedPC == 0) {
 		b->originalSize = js.numInstructions;
 	} else {

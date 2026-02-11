@@ -304,18 +304,7 @@ MIPSOpcode Arm64Jit::GetOffsetInstruction(int offset) {
 }
 
 void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
-	js.cancel = false;
-	js.blockStart = em_address;
-	js.compilerPC = em_address;
-	js.lastContinuedPC = 0;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
-	js.downcountAmount = 0;
-	js.curBlock = b;
-	js.compiling = true;
-	js.inDelaySlot = false;
-	js.blockWrotePrefixes = false;
-	js.PrefixStart();
+	js.Begin(b);
 
 	// We add a downcount flag check before the block, used when entering from a linked block.
 	// The last block decremented downcounter, and the flag should still be available.
@@ -346,11 +335,9 @@ void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	}
 
 	b->normalEntry = GetCodePtr();
-	// TODO: this needs work
-	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
-	gpr.Start(analysis);
-	fpr.Start(analysis);
+	gpr.Start();
+	fpr.Start();
 
 	js.numInstructions = 0;
 	while (js.compiling) {
@@ -391,7 +378,7 @@ void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(Log::JIT, "=============== mips %d ===============", blocks.GetNumBlocks());
-		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
+		for (u32 cpc = b->originalAddress; cpc != GetCompilerPC() + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(Log::JIT, "M: %08x   %s", cpc, temp);
 		}

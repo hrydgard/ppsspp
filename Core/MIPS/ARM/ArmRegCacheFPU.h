@@ -45,10 +45,6 @@ enum {
 
 }
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 struct FPURegARM {
 	int mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
@@ -87,7 +83,7 @@ public:
 
 	void Init(ArmGen::ARMXEmitter *emitter);
 
-	void Start(MIPSAnalyst::AnalysisResults &stats);
+	void Start();
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.

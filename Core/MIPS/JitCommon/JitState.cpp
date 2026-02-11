@@ -19,9 +19,27 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Common/MemoryUtil.h"
 
 namespace MIPSComp {
+
+void JitState::Begin(JitBlock *block) {
+	cancel = false;
+	blockStart = block->originalAddress;
+	compilerPC = block->originalAddress;
+	lastContinuedPC = 0;
+	initialBlockSize = 0;
+	nextExit = 0;
+	downcountAmount = 0;
+	curBlock = block;
+	compiling = true;
+	inDelaySlot = false;
+	blockWrotePrefixes = false;
+	afterOp = JitState::AFTER_NONE;
+	PrefixStart();
+}
+
 	JitOptions::JitOptions() {
 		disableFlags = (JitDisable)g_Config.uJitDisableFlags;
 

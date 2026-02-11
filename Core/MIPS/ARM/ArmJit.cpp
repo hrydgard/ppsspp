@@ -300,18 +300,7 @@ MIPSOpcode ArmJit::GetOffsetInstruction(int offset) {
 }
 
 void ArmJit::DoJit(u32 em_address, JitBlock *b) {
-	js.cancel = false;
-	js.blockStart = em_address;
-	js.compilerPC = em_address;
-	js.lastContinuedPC = 0;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
-	js.downcountAmount = 0;
-	js.curBlock = b;
-	js.compiling = true;
-	js.inDelaySlot = false;
-	js.blockWrotePrefixes = false;
-	js.PrefixStart();
+	js.Begin(b);
 
 	// We add a downcount flag check before the block, used when entering from a linked block.
 	// The last block decremented downcounter, and the flag should still be available.
@@ -344,11 +333,9 @@ void ArmJit::DoJit(u32 em_address, JitBlock *b) {
 	}
 
 	b->normalEntry = GetCodePtr();
-	// TODO: this needs work
-	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
-	gpr.Start(analysis);
-	fpr.Start(analysis);
+	gpr.Start();
+	fpr.Start();
 
 	js.numInstructions = 0;
 	while (js.compiling)

@@ -32,14 +32,13 @@
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
-ArmRegCache::ArmRegCache(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo) {
-}
+ArmRegCache::ArmRegCache(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo) {}
 
 void ArmRegCache::Init(ARMXEmitter *emitter) {
 	emit_ = emitter;
 }
 
-void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
+void ArmRegCache::Start() {
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		ar[i].mipsReg = MIPS_REG_INVALID;
 		ar[i].isDirty = false;
