@@ -73,7 +73,7 @@ static const std::string_view logSectionName = "Log";
 #endif
 
 const std::vector<std::string_view> defaultProAdhocServerList = {
-	"socom.cc", "psp.gameplayer.club",
+	"socom.cc", "psp.gameplayer.club",  // TODO: Add some saved recent history too?
 };
 
 std::string GPUBackendToString(GPUBackend backend) {
@@ -1034,7 +1034,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", SETTING(g_Config, bEnableWlan), false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), "socom.cc", CfgFlag::PER_GAME),
-	ConfigSetting("UseServerRelay", SETTING(g_Config, bUseServerRelay), false, CfgFlag::PER_GAME),
+	ConfigSetting("AdhocServerRelayMode", SETTING(g_Config, iAdhocServerRelayMode), (int)AdhocServerRelayMode::Auto, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServerList", SETTING(g_Config, proAdhocServerList), &defaultProAdhocServerList, CfgFlag::DEFAULT),
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
