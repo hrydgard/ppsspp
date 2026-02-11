@@ -71,8 +71,8 @@ static const std::string_view logSectionName = "LogDebug";
 static const std::string_view logSectionName = "Log";
 #endif
 
-static const std::vector<std::string_view> defaultProAdhocServerList = {
-	"socom.cc", "psp.gameplayer.club",  // TODO: Add some saved recent history too?
+const std::vector<std::string_view> defaultProAdhocServerList = {
+	"socom.cc", "psp.gameplayer.club",
 };
 
 std::string GPUBackendToString(GPUBackend backend) {
