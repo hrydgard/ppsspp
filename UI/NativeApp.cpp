@@ -1381,6 +1381,8 @@ bool NativeKey(const KeyInput &key) {
 		std::vector<File::FileInfo> tempLangs;
 		g_VFS.GetFileListing("lang", &tempLangs, "ini");
 		int x = rand() % tempLangs.size();
+
+		g_Config.DoNotSaveSetting(&g_Config.sLanguageIni);
 		std::string_view code, part2;
 		if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
 			g_Config.sLanguageIni = code;
