@@ -65,7 +65,7 @@ namespace MainWindow {
 	LRESULT CALLBACK AboutDlgProc(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
-		bool menuEnableBool = state == UISTATE_INGAME || state == UISTATE_EXCEPTION;
+		const bool menuEnableBool = state == UISTATE_INGAME || state == UISTATE_EXCEPTION;
 
 		bool loadStateEnableBool = menuEnableBool;
 		bool saveStateEnableBool = menuEnableBool;
@@ -124,10 +124,10 @@ namespace MainWindow {
 		return nullptr;
 	}
 
-	static void EmptySubMenu(HMENU menu) {
-		int c = GetMenuItemCount(menu);
-		for (int i = 0; i < c; ++i) {
-			RemoveMenu(menu, 0, MF_BYPOSITION);
+	static void ClearSubMenu(HMENU menu) {
+		const int count = GetMenuItemCount(menu);
+		for (int i = count - 1; i >= 0; --i) {
+			RemoveMenu(menu, i, MF_BYPOSITION);
 		}
 	}
 
@@ -135,11 +135,10 @@ namespace MainWindow {
 		MENUITEMINFO menuInfo{ sizeof(menuInfo), MIIM_STRING };
 		std::string retVal;
 		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
-			wchar_t *buffer = new wchar_t[++menuInfo.cch];
-			menuInfo.dwTypeData = buffer;
+			std::vector<wchar_t> buffer(menuInfo.cch + 1);
+			menuInfo.dwTypeData = buffer.data();
 			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);  // note, this is buffer.
-			delete[] buffer;
 		}
 
 		return retVal;
@@ -241,7 +240,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_LOADSYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE);
-		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, g_Config.bSystemControls ? L"\tF12" : L"");
+		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT);  // TODO: Automatically show the bound key.
 		TranslateMenuItem(menu, ID_DEBUG_SAVEFRAMEDUMP);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
 		TranslateMenuItem(menu, ID_DEBUG_RESTARTGRAPHICS);
