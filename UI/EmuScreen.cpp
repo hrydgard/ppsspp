@@ -1670,8 +1670,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	// Reset the viewport. Needed in case Cardboard or something similar was enabled.
 	draw->SetViewport(viewport);
 
-	runImDebugger();
-
 	Draw::BackendState state = draw->GetCurrentBackendState();
 
 	if (!(mode & ScreenRenderMode::TOP)) {
@@ -1814,6 +1812,8 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			Core_Break(BreakReason::FrameAdvance, 0);
 		}
 	}
+
+	runImDebugger();
 
 	return flags;
 }

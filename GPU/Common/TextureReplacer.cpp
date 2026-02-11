@@ -332,11 +332,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 
 	std::string badFilenames;
+	constexpr int MaxBadFilenameCount = 5;  // How many to list in the popup
 
 	if (ini.HasSection("hashes")) {
 		const Section *hashesSection = ini.GetOrCreateSection("hashes");
 		// Format: hashname = filename.png
-		bool checkFilenames = saveEnabled_ && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
+		const bool checkFilenames = saveEnabled_ && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
 
 		for (const auto &line : hashesSection->Lines()) {
 			if (line.Key().empty())
@@ -362,9 +363,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 #endif
 					if (bad) {
 						badFileNameCount++;
-						if (badFileNameCount == 10) {
+						if (badFileNameCount == MaxBadFilenameCount) {
 							badFilenames.append("...");
-						} else if (badFileNameCount < 10) {
+						} else if (badFileNameCount < MaxBadFilenameCount) {
 							badFilenames.append(v);
 							badFilenames.push_back('\n');
 						}

@@ -2472,6 +2472,10 @@ int sceKernelWakeupThread(SceUID uid) {
 			return hleLogVerbose(Log::sceKernel, 0, "woke thread at %i", t->nt.wakeupCount);
 		}
 	} else {
+		if (uid == (SceUID)-1) {
+			// Common error (for example in Power Stone). Let's log at debug level.
+			return hleLogDebug(Log::sceKernel, error, "bad thread id");
+		}
 		return hleLogError(Log::sceKernel, error, "bad thread id");
 	}
 }
