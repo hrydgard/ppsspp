@@ -525,6 +525,9 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 		}
 	}
 
+	// TODO: In issue #19957, we're looking at NFL Street 3 which gets stuck. Possibly if a dialog is already open here,
+	// we should block until it's done?
+
 	ActivateDialog(UtilityDialogType::SAVEDATA);
 	return hleLogDebug(Log::sceUtility, saveDialog->Init(paramAddr));
 }

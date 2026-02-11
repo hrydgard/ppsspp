@@ -446,10 +446,9 @@ void Jit::DoJit(u32 em_address, JitBlock *b) {
 		b->originalSize = js.numInstructions;
 	} else {
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
-	return b->normalEntry;
 }
 
 void Jit::AddContinuedBlock(u32 dest) {
@@ -457,7 +456,7 @@ void Jit::AddContinuedBlock(u32 dest) {
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
 	else
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 	js.lastContinuedPC = dest;
 }
 
@@ -591,7 +590,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
+	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 	return true;
 }
 

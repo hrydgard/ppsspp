@@ -193,7 +193,7 @@ public:
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 private:
-	const u8 *DoJit(u32 em_address, JitBlock *b);
+	void DoJit(u32 em_address, JitBlock *b);
 
 	void GenerateFixedCode();
 	void FlushAll();

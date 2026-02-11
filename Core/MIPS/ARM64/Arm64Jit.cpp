@@ -256,7 +256,7 @@ void Arm64Jit::Compile(u32 em_address) {
 
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
-	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
+	b->DoIntegrityCheck(em_address, block_num);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 	EndWrite();
 
@@ -303,7 +303,7 @@ MIPSOpcode Arm64Jit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
+void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
@@ -411,11 +411,9 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		b->originalSize = js.numInstructions;
 	} else {
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
-
-	return b->normalEntry;
 }
 
 void Arm64Jit::AddContinuedBlock(u32 dest) {
@@ -423,7 +421,7 @@ void Arm64Jit::AddContinuedBlock(u32 dest) {
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
 	else
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 	js.lastContinuedPC = dest;
 }
 
@@ -549,7 +547,7 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
+	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 #endif
 	return true;
 }

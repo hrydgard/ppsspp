@@ -41,6 +41,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 constexpr u32 INVALID_EXIT = 0xFFFFFFFF;
+constexpr u32 SENTINEL_VAL = 0xc0ffeefe;
 
 static uint64_t HashJitBlock(const JitBlock &b) {
 	PROFILE_THIS_SCOPE("jithash");
@@ -56,18 +57,23 @@ static uint64_t HashJitBlock(const JitBlock &b) {
 	return 0;
 }
 
+bool JitBlock::ContainsAddress(u32 address) const {
+	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
+	// However, that doesn't exist yet so meh.
+	return address >= originalAddress && address < originalAddress + 4 * originalSize;
+}
+
+void JitBlock::DoIntegrityCheck(u32 em_address, int blockNum) const {
+	_assert_msg_(sentinel == SENTINEL_VAL, "Block %d sentinel got corrupted: %08x (origAddr: %08x)", blockNum, sentinel, originalAddress);
+	_assert_msg_(originalAddress == em_address, "Block %d address got corrupted: %08x != %08x", blockNum, em_address, originalAddress);
+}
+
 JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
 	codeBlock_(codeBlock) {
 }
 
 JitBlockCache::~JitBlockCache() {
 	Shutdown();
-}
-
-bool JitBlock::ContainsAddress(u32 em_address) const {
-	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
-	// However, that doesn't exist yet so meh.
-	return em_address >= originalAddress && em_address < originalAddress + 4 * originalSize;
 }
 
 bool JitBlockCache::IsFull() const {
@@ -109,14 +115,6 @@ void JitBlockCache::Reset() {
 	Init();
 }
 
-JitBlock *JitBlockCache::GetBlock(int no) {
-	return &blocks_[no];
-}
-
-const JitBlock *JitBlockCache::GetBlock(int no) const {
-	return &blocks_[no];
-}
-
 int JitBlockCache::AllocateBlock(u32 startAddress) {
 	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
 
@@ -146,11 +144,12 @@ int JitBlockCache::AllocateBlock(u32 startAddress) {
 		b.linkStatus[i] = false;
 	}
 	b.blockNum = num_blocks_;
+	b.sentinel = SENTINEL_VAL;
 	num_blocks_++; //commit the current block
 	return num_blocks_ - 1;
 }
 
-void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
+void JitBlockCache::CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
 	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
 
 	// If there's an existing block at the startAddress, add rootAddress as a proxy root of that block
@@ -333,18 +332,17 @@ int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly)
 	return bl;
 }
 
-void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers) {
+void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers) const {
 	for (int i = 0; i < num_blocks_; i++)
 		if (blocks_[i].ContainsAddress(em_address))
 			block_numbers->push_back(i);
 }
 
-int JitBlockCache::GetBlockNumberFromAddress(u32 em_address) {
+int JitBlockCache::GetBlockNumberFromAddress(u32 em_address) const {
 	for (int i = 0; i < num_blocks_; i++) {
 		if (blocks_[i].ContainsAddress(em_address))
 			return i;
 	}
-
 	return -1;
 }
 
@@ -363,7 +361,7 @@ u32 JitBlockCache::GetAddressFromBlockPtr(const u8 *ptr) const {
 	return 0;
 }
 
-MIPSOpcode JitBlockCache::GetOriginalFirstOp(int block_num) {
+MIPSOpcode JitBlockCache::GetOriginalFirstOp(int block_num) const {
 	if (block_num >= num_blocks_ || block_num < 0) {
 		return MIPSOpcode(block_num);
 	}
