@@ -416,7 +416,6 @@ void GameButton::Draw(UIContext &dc) {
 		if (overlayColor) {
 			dc.FillRect(Drawable(overlayColor), overlayBounds);
 		}
-		return;
 	}
 
 	char discNumInfo[8];
@@ -428,17 +427,7 @@ void GameButton::Draw(UIContext &dc) {
 	dc.Draw()->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.GetTheme().uiFont);
-	if (gridStyle_ && ginfo->fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
-		// Super simple drawing for GE dumps (no icon, just the filename).
-		dc.PushScissor(bounds_);
-		const std::string currentTitle = ginfo->GetTitle();
-		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
-		dc.DrawText(title_, bounds_.x + 4.0f, bounds_.centerY(), style.fgColor, ALIGN_VCENTER | ALIGN_LEFT);
-		dc.SetFontStyle(dc.GetTheme().uiFont);
-		title_ = currentTitle;
-		dc.Draw()->Flush();
-		dc.PopScissor();
-	} else if (!gridStyle_) {
+	if (!gridStyle_) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);

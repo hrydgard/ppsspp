@@ -202,7 +202,6 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 	mainGameInfo->SetSpacing(3.0f);
 
-	GameDBInfo dbInfo;
 	std::vector<GameDBInfo> dbInfos;
 	const bool inGameDB = g_gameDB.GetGameInfos(info_->id_version, &dbInfos);
 
@@ -482,10 +481,18 @@ void GameScreen::OnCreateConfig(UI::EventParams &e) {
 }
 
 std::string_view GameScreen::GetTitle() const {
-	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
-		titleCache_ = info_->GetDBTitle();
+	if (!info_->Ready(GameInfoFlags::PARAM_SFO)) {
+		return "";
 	}
 
+	// Don't look up homebrew in the database, sometimes they take IDs from games.
+	if (info_->fileType != IdentifiedFileType::PSP_PBP_DIRECTORY) {
+		if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
+			titleCache_ = info_->GetDBTitle();
+		}
+	} else {
+		titleCache_ = info_->GetTitle();
+	}
 	return titleCache_;
 }
 

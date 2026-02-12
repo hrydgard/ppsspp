@@ -22,6 +22,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Reporting.h"
 #include "Common/Arm64Emitter.h"
 
