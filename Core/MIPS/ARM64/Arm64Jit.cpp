@@ -240,7 +240,6 @@ void Arm64Jit::CompileDelaySlot(int flags) {
 		_MSR(FIELD_NZCV, FLAGTEMPREG);  // Restore flags register
 }
 
-
 void Arm64Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
@@ -257,7 +256,7 @@ void Arm64Jit::Compile(u32 em_address) {
 
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
-	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
+	b->DoIntegrityCheck(em_address, block_num);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 	EndWrite();
 
@@ -304,19 +303,8 @@ MIPSOpcode Arm64Jit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
-	js.cancel = false;
-	js.blockStart = em_address;
-	js.compilerPC = em_address;
-	js.lastContinuedPC = 0;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
-	js.downcountAmount = 0;
-	js.curBlock = b;
-	js.compiling = true;
-	js.inDelaySlot = false;
-	js.blockWrotePrefixes = false;
-	js.PrefixStart();
+void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
+	js.Begin(b);
 
 	// We add a downcount flag check before the block, used when entering from a linked block.
 	// The last block decremented downcounter, and the flag should still be available.
@@ -347,11 +335,9 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	}
 
 	b->normalEntry = GetCodePtr();
-	// TODO: this needs work
-	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
-	gpr.Start(analysis);
-	fpr.Start(analysis);
+	gpr.Start();
+	fpr.Start();
 
 	js.numInstructions = 0;
 	while (js.compiling) {
@@ -392,7 +378,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(Log::JIT, "=============== mips %d ===============", blocks.GetNumBlocks());
-		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
+		for (u32 cpc = b->originalAddress; cpc != GetCompilerPC() + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(Log::JIT, "M: %08x   %s", cpc, temp);
 		}
@@ -412,11 +398,9 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		b->originalSize = js.numInstructions;
 	} else {
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
-
-	return b->normalEntry;
 }
 
 void Arm64Jit::AddContinuedBlock(u32 dest) {
@@ -424,7 +408,7 @@ void Arm64Jit::AddContinuedBlock(u32 dest) {
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
 	else
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 	js.lastContinuedPC = dest;
 }
 
@@ -550,7 +534,7 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
+	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 #endif
 	return true;
 }

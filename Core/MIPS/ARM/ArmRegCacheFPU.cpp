@@ -29,7 +29,7 @@ using namespace ArmJitConstants;
 
 ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mipsState), js_(js), jo_(jo), vr(mr + 32) {}
 
-void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+void ArmRegCacheFPU::Start() {
 	if (!initialReady) {
 		SetupInitialRegs();
 		initialReady = true;

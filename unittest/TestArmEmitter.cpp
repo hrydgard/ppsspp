@@ -251,7 +251,7 @@ bool TestArmEmitter() {
 
 	using namespace ArmJitConstants;
 
-	fpr.Start(results);
+	fpr.Start();
 	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
 	fpr.QMapReg(C010, V_Quad, MAP_DIRTY);
 	fpr.QMapReg(C020, V_Quad, MAP_DIRTY);
@@ -260,7 +260,7 @@ bool TestArmEmitter() {
 	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
 	fpr.FlushAll();
 
-	fpr.Start(results);
+	fpr.Start();
 	emitter.ORR(R0, R0, R0);
 	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
 	fpr.QMapReg(R001, V_Quad, MAP_DIRTY);

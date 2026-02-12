@@ -50,7 +50,7 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
-	const u8 *DoJit(u32 em_address, JitBlock *b);
+	void DoJit(u32 em_address, JitBlock *b);
 
 	const u8 *GetCrashHandler() const override { return crashHandler; }
 	bool CodeInRange(const u8 *ptr) const override { return IsInSpace(ptr); }

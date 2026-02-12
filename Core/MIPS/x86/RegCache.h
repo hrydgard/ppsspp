@@ -41,10 +41,6 @@ namespace X64JitConstants {
 #endif
 }
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 struct MIPSCachedReg {
 	Gen::OpArg location;
 	bool away;  // value not in source register
@@ -73,7 +69,7 @@ class GPRRegCache
 public:
 	GPRRegCache();
 	~GPRRegCache() {}
-	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
 	void DiscardR(MIPSGPReg preg);

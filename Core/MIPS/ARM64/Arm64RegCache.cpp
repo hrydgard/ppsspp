@@ -40,7 +40,7 @@ void Arm64RegCache::Init(ARM64XEmitter *emitter) {
 	emit_ = emitter;
 }
 
-void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
+void Arm64RegCache::Start() {
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		ar[i].mipsReg = MIPS_REG_INVALID;
 		ar[i].isDirty = false;

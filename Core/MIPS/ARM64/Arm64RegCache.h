@@ -54,10 +54,6 @@ enum {
 
 }  // namespace
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 typedef int MIPSReg;
 
 struct RegARM64 {
@@ -89,7 +85,7 @@ public:
 	~Arm64RegCache() {}
 
 	void Init(Arm64Gen::ARM64XEmitter *emitter);
-	void Start(MIPSAnalyst::AnalysisResults &stats);
+	void Start();
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.

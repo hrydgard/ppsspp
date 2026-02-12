@@ -28,8 +28,7 @@ class JitBlockCache;
 
 namespace MIPSComp {
 
-	enum CompileDelaySlotFlags
-	{
+	enum CompileDelaySlotFlags {
 		// Easy, nothing extra.
 		DELAYSLOT_NICE = 0,
 		// Flush registers after delay slot.
@@ -40,18 +39,15 @@ namespace MIPSComp {
 		DELAYSLOT_SAFE_FLUSH = DELAYSLOT_FLUSH | DELAYSLOT_SAFE,
 	};
 
-	struct JitState
-	{
-		enum PrefixState
-		{
+	struct JitState {
+		enum PrefixState {
 			PREFIX_UNKNOWN = 0x00,
 			PREFIX_KNOWN = 0x01,
 			PREFIX_DIRTY = 0x10,
 			PREFIX_KNOWN_DIRTY = 0x11,
 		};
 
-		enum AfterOp
-		{
+		enum AfterOp {
 			AFTER_NONE = 0x00,
 			AFTER_CORE_STATE = 0x01,
 		};
@@ -84,6 +80,8 @@ namespace MIPSComp {
 		PrefixState prefixSFlag = PREFIX_UNKNOWN;
 		PrefixState prefixTFlag = PREFIX_UNKNOWN;
 		PrefixState prefixDFlag = PREFIX_UNKNOWN;
+
+		void Begin(JitBlock *block);
 
 		void PrefixStart() {
 			if (startDefaultPrefix) {

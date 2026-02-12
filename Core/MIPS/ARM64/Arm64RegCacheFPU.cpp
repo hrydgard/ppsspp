@@ -40,7 +40,7 @@ void Arm64RegCacheFPU::Init(Arm64Gen::ARM64XEmitter *emit, Arm64Gen::ARM64FloatE
 	fp_ = fp;
 }
 
-void Arm64RegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+void Arm64RegCacheFPU::Start() {
 	if (!initialReady) {
 		SetupInitialRegs();
 		initialReady = true;

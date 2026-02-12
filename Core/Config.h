@@ -90,7 +90,7 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	int iCardboardScreenSize = 50; // Screen Size (in %)
 	int iCardboardXShift = 0; // X-Shift of Screen (in %)
 	int iCardboardYShift = 0; // Y-Shift of Screen (in %)
-	bool bImmersiveMode = false;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
+	bool bImmersiveMode = true;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 
 	bool InternalRotationIsPortrait() const;
 	bool CanResetToDefault() const override { return true; }

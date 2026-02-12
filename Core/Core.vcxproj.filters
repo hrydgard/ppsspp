@@ -13,9 +13,6 @@
     <Filter Include="MIPS\ARM">
       <UniqueIdentifier>{8a5bebeb-575f-483d-8bd2-4b7eac163a7d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="MIPS\MIPS">
-      <UniqueIdentifier>{aaaaaaaa-575f-483d-8bd2-4b7eac163a7d}</UniqueIdentifier>
-    </Filter>
     <Filter Include="MIPS\JitCommon">
       <UniqueIdentifier>{37896407-c373-44a3-b6ec-b57bceb2c4a3}</UniqueIdentifier>
     </Filter>
@@ -437,9 +434,6 @@
     </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmJit.cpp">
       <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\MIPS\MipsJit.cpp">
-      <Filter>MIPS\MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
       <Filter>MIPS\ARM</Filter>
@@ -1721,9 +1715,6 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmJit.h">
       <Filter>MIPS\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\MIPS\MipsJit.h">
-      <Filter>MIPS\MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCache.h">
       <Filter>MIPS\ARM</Filter>

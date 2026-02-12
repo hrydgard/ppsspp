@@ -33,6 +33,7 @@ const int MAX_JIT_BLOCK_EXITS = 4;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;
 #endif
+
 constexpr bool JIT_USE_COMPILEDHASH = true;
 
 struct BlockCacheStats {
@@ -54,17 +55,21 @@ enum class DestroyType {
 // We should be careful not to access these block structures during runtime as they are large.
 // Fine to mess with them at block compile time though.
 struct JitBlock {
-	bool ContainsAddress(u32 em_address) const;
+	bool ContainsAddress(u32 address) const;
+	void DoIntegrityCheck(u32 emAddress, int blockNum) const;
 
 	const u8 *checkedEntry;  // const, we have to translate to writable.
 	const u8 *normalEntry;
 
 	u8 *exitPtrs[MAX_JIT_BLOCK_EXITS];      // to be able to rewrite the exit jump
 	u32 exitAddress[MAX_JIT_BLOCK_EXITS];   // 0xFFFFFFFF == unknown
+	u32 sentinel;
 
 	u32 originalAddress;
 	MIPSOpcode originalFirstOpcode; //to be able to restore
+
 	uint64_t compiledHash;
+
 	u16 codeSize;
 	u16 originalSize;
 	u16 blockNum;
@@ -72,8 +77,8 @@ struct JitBlock {
 	bool invalid;
 	bool linkStatus[MAX_JIT_BLOCK_EXITS];
 
-	// By having a pointer, we avoid a constructor/destructor being generated and dog slow
-	// performance in debug.
+	// By having a pointer, we avoid a constructor/destructor call being generated if unused,
+	// thus avoiding dog slow performance in debug build.
 	std::vector<u32> *proxyFor;
 
 	bool IsPureProxy() const {
@@ -127,7 +132,7 @@ public:
 
 	int AllocateBlock(u32 em_address);
 	// When a proxy block is invalidated, the block located at the rootAddress is invalidated too.
-	void ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
+	void CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
@@ -139,8 +144,8 @@ public:
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 
 	// Code Cache
-	JitBlock *GetBlock(int block_num);
-	const JitBlock *GetBlock(int block_num) const;
+	JitBlock *GetBlock(int no) { return &blocks_[no]; }
+	const JitBlock *GetBlock(int no) const { return &blocks_[no]; }
 
 	// Fast way to get a block. Only works on the first source-cpu instruction of a block.
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
@@ -149,14 +154,14 @@ public:
 	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
 	// Returns a list of block numbers - only one block can start at a particular address, but they CAN overlap.
 	// This one is slow so should only be used for one-shots from the debugger UI, not for anything during runtime.
-	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
+	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers) const;
 	// Similar to above, but only the first matching address.
-	int GetBlockNumberFromAddress(u32 em_address);
+	int GetBlockNumberFromAddress(u32 em_address) const;
 	int GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad = false) const;
 
 	u32 GetAddressFromBlockPtr(const u8 *ptr) const;
 
-	MIPSOpcode GetOriginalFirstOp(int block_num);
+	MIPSOpcode GetOriginalFirstOp(int block_num) const;
 
 	bool RangeMayHaveEmuHacks(u32 start, u32 end) const;
 

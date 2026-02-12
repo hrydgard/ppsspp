@@ -299,20 +299,8 @@ MIPSOpcode ArmJit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
-{
-	js.cancel = false;
-	js.blockStart = em_address;
-	js.compilerPC = em_address;
-	js.lastContinuedPC = 0;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
-	js.downcountAmount = 0;
-	js.curBlock = b;
-	js.compiling = true;
-	js.inDelaySlot = false;
-	js.blockWrotePrefixes = false;
-	js.PrefixStart();
+void ArmJit::DoJit(u32 em_address, JitBlock *b) {
+	js.Begin(b);
 
 	// We add a downcount flag check before the block, used when entering from a linked block.
 	// The last block decremented downcounter, and the flag should still be available.
@@ -345,11 +333,9 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	}
 
 	b->normalEntry = GetCodePtr();
-	// TODO: this needs work
-	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
-	gpr.Start(analysis);
-	fpr.Start(analysis);
+	gpr.Start();
+	fpr.Start();
 
 	js.numInstructions = 0;
 	while (js.compiling)
@@ -424,10 +410,9 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	else
 	{
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
-	return b->normalEntry;
 }
 
 void ArmJit::AddContinuedBlock(u32 dest)
@@ -436,7 +421,7 @@ void ArmJit::AddContinuedBlock(u32 dest)
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
 	else
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 	js.lastContinuedPC = dest;
 }
 
@@ -544,7 +529,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
+	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 	return true;
 }
 

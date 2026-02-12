@@ -132,9 +132,8 @@ void FakeJit::RunLoopUntil(u64 globalticks) {
 	MIPSInterpret_RunUntil(globalticks);
 }
 
-const u8 *FakeJit::DoJit(u32 em_address, JitBlock *b) {
+void FakeJit::DoJit(u32 em_address, JitBlock *b) {
 	_assert_(false);
-	return nullptr;
 }
 
 void FakeJit::AddContinuedBlock(u32 dest)

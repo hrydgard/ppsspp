@@ -135,7 +135,8 @@ namespace MainWindow {
 		MENUITEMINFO menuInfo{ sizeof(menuInfo), MIIM_STRING };
 		std::string retVal;
 		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
-			std::vector<wchar_t> buffer(menuInfo.cch + 1);
+			menuInfo.cch++;  // account for null terminator
+			std::vector<wchar_t> buffer(menuInfo.cch);
 			menuInfo.dwTypeData = buffer.data();
 			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);  // note, this is buffer.
