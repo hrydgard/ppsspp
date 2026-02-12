@@ -33,11 +33,16 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 		return;
 	}
 
-	ImGui::BeginTable("framebuffers", 4);
+	ImGui::Text("Cur frame: %d seq: %d", gpuStats.numFlips, framebufferManager->PeekBindSeqCount());
+
+	ImGui::BeginTable("framebuffers", 7);
 	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
 	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
 	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
 	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("BindSeq", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("LastRender", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("LastUse", ImGuiTableColumnFlags_WidthFixed);
 
 	ImGui::TableHeadersRow();
 
@@ -69,6 +74,12 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 			ImGui::Text("Framebuffer: %s", tag);
 			ImGui::EndPopup();
 		}
+		ImGui::TableNextColumn();
+		ImGui::Text("%d/%d", vfb->colorBindSeq, vfb->depthBindSeq);
+		ImGui::TableNextColumn();
+		ImGui::Text("%d/%d", vfb->last_frame_render, vfb->last_frame_depth_updated);
+		ImGui::TableNextColumn();
+		ImGui::Text("%d/%d", vfb->last_frame_used, vfb->last_frame_depth_render);
 		ImGui::PopID();
 	}
 	ImGui::EndTable();

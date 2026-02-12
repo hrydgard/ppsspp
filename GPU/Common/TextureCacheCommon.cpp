@@ -1090,6 +1090,10 @@ bool TextureCacheCommon::MatchFramebuffer(
 			matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-texelOffset % (int)entry.bufw);
 		}
 
+		if (matchInfo->yOffset >= 512) {
+			// Reject unreasonably large y offsets. 512 is the largest texture size.
+			return false;
+		}
 		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer.
 			return false;
@@ -1121,14 +1125,14 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
-			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, Log::G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", RasterChannelToString(channel), GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
-			}
 			if (channel == RasterChannel::RASTER_DEPTH && framebuffer->last_frame_depth_updated < 0) {
 				// Reject depth textures that have not been rendered to. See #15828
 				// We're right before the final check here, so we can bail.
 				return false;
 			} else {
+				if (!noOffset) {
+					WARN_LOG_ONCE(subareaClut, Log::G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", RasterChannelToString(channel), GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				}
 				return true;
 			}
 		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
