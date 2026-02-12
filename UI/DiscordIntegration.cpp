@@ -32,6 +32,7 @@
 Discord g_Discord;
 
 static const char *ppsspp_app_id = "423397985041383434";
+static const char *ppsspp_app_id_gold = "1471464214710190152";
 
 #ifdef ENABLE_DISCORD
 // No context argument? What?
@@ -65,7 +66,13 @@ void Discord::Init() {
 #ifdef ENABLE_DISCORD
 	DiscordEventHandlers eventHandlers{};
 	eventHandlers.errored = &handleDiscordError;
-	Discord_Initialize(ppsspp_app_id, &eventHandlers, 0, nullptr);
+
+	const char *appId = ppsspp_app_id;
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		appId = ppsspp_app_id_gold;
+	}
+
+	Discord_Initialize(appId, &eventHandlers, 0, nullptr);
 	INFO_LOG(Log::System, "Discord connection initialized");
 #endif
 
