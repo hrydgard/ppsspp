@@ -162,7 +162,7 @@ void EmuScreen::SetPSPAnalog(int iInternalScreenRotation, int stick, float x, fl
 EmuScreen::EmuScreen(const Path &filename)
 	: gamePath_(filename) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
-	controlMapper_.SetListener(this);
+	controlMapper_.AddListener(this);
 
 	_dbg_assert_(coreState == CORE_POWERDOWN);
 
@@ -446,7 +446,7 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
-	controlMapper_.SetListener(nullptr);
+	controlMapper_.RemoveListener(this);
 
 	if (imguiInited_) {
 		ImGui_ImplThin3d_Shutdown();

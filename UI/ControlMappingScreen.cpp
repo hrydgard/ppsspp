@@ -480,11 +480,11 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 }
 
 AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsCanScroll) {
-	mapper_.SetListener(this);
+	mapper_.AddListener(this);
 }
 
 AnalogCalibrationScreen::~AnalogCalibrationScreen() {
-	mapper_.SetListener(nullptr);
+	mapper_.RemoveListener(this);
 }
 
 void AnalogCalibrationScreen::SetPSPAnalog(int rotation, int stick, float x, float y) {

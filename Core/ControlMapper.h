@@ -6,6 +6,7 @@
 #include <functional>
 #include <cstring>
 #include <mutex>
+#include <vector>
 
 struct DisplayLayoutConfig;
 
@@ -33,9 +34,10 @@ public:
 
 	// Required callbacks.
 	// TODO: These are so many now that a virtual interface might be more appropriate..
-	void SetListener(ControlListener *listener) {
-		listener_ = listener;
+	void AddListener(ControlListener *listener) {
+		listeners_.push_back(listener);
 	}
+	void RemoveListener(ControlListener *listener);
 
 	// Inject raw PSP key input directly, such as from touch screen controls.
 	// Combined with the mapped input. Unlike __Ctrl APIs, this supports
@@ -105,7 +107,7 @@ private:
 	std::map<InputMapping, InputSample> curInput_;
 
 	// Callbacks
-	ControlListener *listener_ = nullptr;
+	std::vector<ControlListener *> listeners_;
 };
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY);

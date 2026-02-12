@@ -161,7 +161,9 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 	const float x = position[0];
 	const float y = position[1];
 
-	listener_->SetRawAnalog(stick, x, y);
+	for (auto listener : listeners_) {
+		listener->SetRawAnalog(stick, x, y);
+	}
 
 	// NOTE: We need to use single-axis checks, since the other axis might be from another device,
 	// so we'll add a little leeway.
@@ -193,7 +195,9 @@ void ControlMapper::UpdateAnalogOutput(int stick) {
 	}
 	converted_[stick][0] = x;
 	converted_[stick][1] = y;
-	listener_->SetPSPAnalog(iInternalScreenRotationCached_, stick, x, y);
+	for (auto listener : listeners_) {
+		listener->SetPSPAnalog(iInternalScreenRotationCached_, stick, x, y);
+	}
 }
 
 void ControlMapper::ForceReleaseVKey(int vkey) {
@@ -401,7 +405,9 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	}
 
 	// We only request changing the buttons where the mapped input was involved.
-	listener_->UpdatePSPButtons(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
+	for (auto listener : listeners_) {
+		listener->UpdatePSPButtons(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
+	}
 
 	bool keyInputUsed = changedButtonMask != 0;
 	bool updateAnalogSticks = false;
@@ -564,16 +570,22 @@ void ControlMapper::ToggleSwapAxes() {
 
 	swapAxes_ = !swapAxes_;
 
-	listener_->UpdatePSPButtons(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
+	for (auto listener : listeners_) {
+		listener->UpdatePSPButtons(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
+	}
 
 	for (VirtKey vkey = VIRTKEY_FIRST; vkey < VIRTKEY_LAST; vkey = (VirtKey)(vkey + 1)) {
 		if (IsSwappableVKey(vkey)) {
 			if (virtKeyOn_[vkey - VIRTKEY_FIRST]) {
-				listener_->OnVKey(vkey, false);
+				for (auto listener : listeners_) {
+					listener->OnVKey(vkey, false);
+				}
 				virtKeyOn_[vkey - VIRTKEY_FIRST] = false;
 			}
 			if (virtKeys_[vkey - VIRTKEY_FIRST] > 0.0f) {
-				listener_->OnVKeyAnalog(vkey, 0.0f);
+				for (auto listener : listeners_) {
+					listener->OnVKeyAnalog(vkey, 0.0f);
+				}
 				virtKeys_[vkey - VIRTKEY_FIRST] = 0.0f;
 			}
 		}
@@ -642,12 +654,16 @@ void ControlMapper::Update(const DisplayLayoutConfig &config, double now) {
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * -g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * -g_Config.fAnalogAutoRotSpeed)));
 
-		listener_->SetPSPAnalog(iInternalScreenRotationCached_, 0, x, y);
+		for (auto listener : listeners_) {
+			listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, x, y);
+		}
 	} else if (autoRotatingAnalogCCW_) {
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * g_Config.fAnalogAutoRotSpeed)));
 
-		listener_->SetPSPAnalog(iInternalScreenRotationCached_, 0, x, y);
+		for (auto listener : listeners_) {
+			listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, x, y);
+		}
 	}
 }
 
@@ -668,9 +684,13 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, KeyInputFlags flags) {
 	} else {
 		// INFO_LOG(Log::System, "pspKey %d %d", pspKeyCode, flags);
 		if (flags & KeyInputFlags::DOWN)
-			listener_->UpdatePSPButtons(pspKeyCode, 0);
+			for (auto listener : listeners_) {
+				listener->UpdatePSPButtons(pspKeyCode, 0);
+			}
 		if (flags & KeyInputFlags::UP)
-			listener_->UpdatePSPButtons(0, pspKeyCode);
+			for (auto listener : listeners_) {
+				listener->UpdatePSPButtons(0, pspKeyCode);
+			}
 	}
 }
 
@@ -691,7 +711,9 @@ void ControlMapper::onVKeyAnalog(int deviceId, VirtKey vkey, float value) {
 	case VIRTKEY_AXIS_RIGHT_Y_MIN: stick = CTRL_STICK_RIGHT; axis = 'Y'; sign = -1.0f; break;
 	case VIRTKEY_AXIS_RIGHT_Y_MAX: stick = CTRL_STICK_RIGHT; axis = 'Y'; break;
 	default:
-		listener_->OnVKeyAnalog(vkey, value);
+		for (auto listener : listeners_) {
+			listener->OnVKeyAnalog(vkey, value);
+		}
 		return;
 	}
 	if (oppositeVKey != 0) {
@@ -712,7 +734,9 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 			autoRotatingAnalogCCW_ = false;
 		} else {
 			autoRotatingAnalogCW_ = false;
-			listener_->SetPSPAnalog(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			for (auto listener : listeners_) {
+				listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			}
 		}
 		break;
 	case VIRTKEY_ANALOG_ROTATE_CCW:
@@ -721,11 +745,15 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 			autoRotatingAnalogCCW_ = true;
 		} else {
 			autoRotatingAnalogCCW_ = false;
-			listener_->SetPSPAnalog(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			for (auto listener : listeners_) {
+				listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			}
 		}
 		break;
 	default:
-		listener_->OnVKey(vkey, down);
+		for (auto listener : listeners_) {
+			listener->OnVKey(vkey, down);
+		}
 		break;
 	}
 }
@@ -745,4 +773,12 @@ void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
 	}
 	str << "Lstick: " << converted_[0][0] << ", " << converted_[0][1] << std::endl;
 	truncate_cpy(buffer, bufSize, str.str().c_str());
+}
+
+void ControlMapper::RemoveListener(ControlListener *listener) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	auto it = std::find(listeners_.begin(), listeners_.end(), listener);
+	if (it != listeners_.end()) {
+		listeners_.erase(it);
+	}
 }
