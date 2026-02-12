@@ -141,8 +141,6 @@ private:
 
 	std::string extraAssertInfoStr_;
 
-	ControlMapper controlMapper_;
-
 	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
 	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 

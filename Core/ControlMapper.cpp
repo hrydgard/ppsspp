@@ -18,6 +18,7 @@ using KeyMap::MultiInputMapping;
 const float AXIS_BIND_THRESHOLD = 0.75f;
 const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
+ControlMapper g_controlMapper;
 
 // We reduce the threshold of some axes when another axis on the same stick is active.
 // This makes it easier to hit diagonals if you bind an analog stick to four face buttons or D-Pad.

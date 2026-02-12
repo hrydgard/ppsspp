@@ -148,8 +148,6 @@ protected:
 private:
 	void OnResetToDefaults(UI::EventParams &e);
 
-	ControlMapper mapper_;
-
 	float analogX_[2]{};
 	float analogY_[2]{};
 	float rawX_[2]{};

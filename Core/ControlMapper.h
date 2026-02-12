@@ -112,3 +112,5 @@ private:
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY);
 float GetDeviceAxisThreshold(int device, const InputMapping &mapping);
+
+extern ControlMapper g_controlMapper;

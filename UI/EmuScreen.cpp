@@ -162,7 +162,7 @@ void EmuScreen::SetPSPAnalog(int iInternalScreenRotation, int stick, float x, fl
 EmuScreen::EmuScreen(const Path &filename)
 	: gamePath_(filename) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
-	controlMapper_.AddListener(this);
+	g_controlMapper.AddListener(this);
 
 	_dbg_assert_(coreState == CORE_POWERDOWN);
 
@@ -446,7 +446,7 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
-	controlMapper_.RemoveListener(this);
+	g_controlMapper.RemoveListener(this);
 
 	if (imguiInited_) {
 		ImGui_ImplThin3d_Shutdown();
@@ -539,7 +539,7 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 	switch (focusChange) {
 	case ScreenFocusChange::FOCUS_LOST_TOP:
 		g_Config.TimeTracker().Stop(gameID);
-		controlMapper_.ReleaseAll();
+		g_controlMapper.ReleaseAll();
 		break;
 	case ScreenFocusChange::FOCUS_BECAME_TOP:
 		g_Config.TimeTracker().Start(gameID);
@@ -831,7 +831,7 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 			// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
 			// running in the background of the menu.
 			pauseTrigger_ = true;
-			controlMapper_.ForceReleaseVKey(virtualKeyCode);
+			g_controlMapper.ForceReleaseVKey(virtualKeyCode);
 		}
 		break;
 
@@ -917,12 +917,12 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
-			controlMapper_.ForceReleaseVKey(VIRTKEY_OPENCHAT);
+			g_controlMapper.ForceReleaseVKey(VIRTKEY_OPENCHAT);
 		}
 		break;
 
 	case VIRTKEY_AXIS_SWAP:
-		controlMapper_.ToggleSwapAxes();
+		g_controlMapper.ToggleSwapAxes();
 		g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
 		break;
 
@@ -1142,7 +1142,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 				if (mappingFound) {
 					for (auto b : pspButtons) {
 						if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-							return controlMapper_.Key(key, &pauseTrigger_);
+							return g_controlMapper.Key(key, &pauseTrigger_);
 						}
 					}
 				}
@@ -1152,28 +1152,28 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 			switch (key.deviceId) {
 			case DEVICE_ID_KEYBOARD:
 				if (!ImGui::GetIO().WantCaptureKeyboard) {
-					controlMapper_.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key, &pauseTrigger_);
 				}
 				break;
 			case DEVICE_ID_MOUSE:
 				if (!ImGui::GetIO().WantCaptureMouse) {
-					controlMapper_.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key, &pauseTrigger_);
 				}
 				break;
 			default:
-				controlMapper_.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key, &pauseTrigger_);
 				break;
 			}
 		} else {
 			// Let up-events through to the controlMapper_ so input doesn't get stuck.
 			if (key.flags & KeyInputFlags::UP) {
-				controlMapper_.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key, &pauseTrigger_);
 			}
 		}
 
 		return UIScreen::UnsyncKey(key);
 	}
-	return controlMapper_.Key(key, &pauseTrigger_);
+	return g_controlMapper.Key(key, &pauseTrigger_);
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
@@ -1183,7 +1183,7 @@ void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 		return UIScreen::UnsyncAxis(axes, count);
 	}
 
-	return controlMapper_.Axis(axes, count);
+	return g_controlMapper.Axis(axes, count);
 }
 
 bool EmuScreen::key(const KeyInput &key) {
@@ -1261,7 +1261,7 @@ void EmuScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(&touch, deviceOrientation, bounds.w, bounds.h);
 
-	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, &controlMapper_);
+	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, &g_controlMapper);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -1474,7 +1474,7 @@ void EmuScreen::update() {
 	double now = time_now_d();
 
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-	controlMapper_.Update(config, now);
+	g_controlMapper.Update(config, now);
 
 	if (saveStatePreview_ && !bootPending_) {
 		int currentSlot = SaveState::GetCurrentSlot();
@@ -1943,7 +1943,7 @@ void EmuScreen::renderUI() {
 
 	if (PSP_IsInited()) {
 		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::CONTROL) {
-			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), controlMapper_);
+			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), g_controlMapper);
 		}
 		if (g_Config.iShowStatusFlags) {
 			DrawFPS(ctx, ctx->GetLayoutBounds());
