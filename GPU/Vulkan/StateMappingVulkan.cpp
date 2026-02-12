@@ -17,7 +17,6 @@
 
 #include <algorithm>
 
-#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "GPU/GPUState.h"

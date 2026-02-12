@@ -508,6 +508,9 @@ public:
 		return displayLayoutConfigCopy_;
 	}
 
+	// For the debugger.
+	inline int PeekBindSeqCount() const { return fbBindSeqCount_; }
+
 protected:
 	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Used for when a shader is required, such as GLES.
@@ -565,9 +568,8 @@ protected:
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
 
-	inline int GetBindSeqCount() {
-		return fbBindSeqCount_++;
-	}
+	// For use when binding.
+	inline int GetBindSeqCount() { return fbBindSeqCount_++; }
 
 	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
 
