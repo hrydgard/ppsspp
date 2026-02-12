@@ -1012,14 +1012,14 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::s
 		std::string_view warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
 		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
 
-		auto confirmScreen = new PromptScreen(
-			gamePath,
+		auto confirmScreen = new MessagePopupScreen(
+			title,
 			combined, di->T("Yes"), di->T("No"),
-			[&](bool success) {
+			[](bool success) {
 				if (success) {
 					g_Config.sMACAddress = CreateRandMAC();
-				}}
-		);
+				}
+			});
 		screenManager->push(confirmScreen);
 	});
 }
@@ -1820,8 +1820,9 @@ void GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	if (g_Config.IsGameSpecific()) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		screenManager()->push(
-			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"),
+			new UI::MessagePopupScreen(sy->T("Restore Default Settings"), dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"),
 				di->T("OK"), di->T("Cancel"), [this](bool yes) { CallbackRestoreDefaults(yes); }));
 	} else {
 		std::string_view title = sy->T("Restore Default Settings");

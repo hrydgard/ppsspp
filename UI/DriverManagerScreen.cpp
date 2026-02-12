@@ -189,8 +189,9 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 
 void DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+	screenManager()->push(new UI::MessagePopupScreen(gr->T("Drivers"), di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 		if (yes) {
 			INFO_LOG(Log::G3D, "Switching driver to '%s'", e.s.c_str());
 			g_Config.sCustomDriver = e.s;
