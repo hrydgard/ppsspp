@@ -127,10 +127,19 @@ static void AssertCancelCallback(const char *message, void *userdata) {
 
 // Handles control rotation due to internal screen rotation.
 void EmuScreen::UpdatePSPButtons(uint32_t bitsToSet, uint32_t bitsToClear) {
+	if (!isOnTop_) {
+		// Auto-release inputs
+		bitsToSet = 0;
+	}
 	__CtrlUpdateButtons(bitsToSet, bitsToClear);
 }
 
 void EmuScreen::SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float y) {
+	if (!isOnTop_) {
+		x = 0.0f;
+		y = 0.0f;
+	}
+
 	switch (iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
 		// Standard rotation. No change.
@@ -539,10 +548,11 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 	switch (focusChange) {
 	case ScreenFocusChange::FOCUS_LOST_TOP:
 		g_Config.TimeTracker().Stop(gameID);
-		g_controlMapper.ReleaseAll();
+		isOnTop_ = false;
 		break;
 	case ScreenFocusChange::FOCUS_BECAME_TOP:
 		g_Config.TimeTracker().Start(gameID);
+		isOnTop_ = true;
 		break;
 	}
 }
@@ -739,37 +749,13 @@ static void ShowFpsLimitNotice() {
 }
 
 void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
+	if (!isOnTop_)
+		return;
+
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_TOGGLE_DEBUGGER:
-		if (down) {
-			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
-		}
-		break;
-	case VIRTKEY_TOGGLE_TILT:
-		if (down) {
-			g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
-			if (!g_Config.bTiltInputEnabled) {
-				// Reset whatever got tilted.
-				switch (g_Config.iTiltInputType) {
-				case TILT_ANALOG:
-					__CtrlSetAnalogXY(0, 0, 0);
-					break;
-				case TILT_ACTION_BUTTON:
-					__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
-					break;
-				case TILT_DPAD:
-					__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
-					break;
-				case TILT_TRIGGER_BUTTONS:
-					__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
-					break;
-				}
-			}
-		}
-		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed() && !bootPending_) {
 			/*
@@ -823,15 +809,6 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
 				ShowFpsLimitNotice();
 			}
-		}
-		break;
-
-	case VIRTKEY_PAUSE:
-		if (down) {
-			// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
-			// running in the background of the menu.
-			pauseTrigger_ = true;
-			g_controlMapper.ForceReleaseVKey(virtualKeyCode);
 		}
 		break;
 
@@ -913,6 +890,35 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	switch (virtKey) {
+	case VIRTKEY_PAUSE:
+		// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
+		// running in the background of the menu.
+		pauseTrigger_ = true;
+		break;
+
+	case VIRTKEY_TOGGLE_DEBUGGER:
+		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+		break;
+	case VIRTKEY_TOGGLE_TILT:
+		g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
+		if (!g_Config.bTiltInputEnabled) {
+			// Reset whatever got tilted.
+			switch (g_Config.iTiltInputType) {
+			case TILT_ANALOG:
+				__CtrlSetAnalogXY(0, 0, 0);
+				break;
+			case TILT_ACTION_BUTTON:
+				__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
+				break;
+			case TILT_DPAD:
+				__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
+				break;
+			case TILT_TRIGGER_BUTTONS:
+				__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
+				break;
+			}
+		}
+		break;
 	case VIRTKEY_OPENCHAT:
 		if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
 			UI::EventParams e{};
@@ -1081,6 +1087,9 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 }
 
 void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
+	if (!isOnTop_)
+		return;
+
 	if (virtualKeyCode != VIRTKEY_SPEED_ANALOG) {
 		return;
 	}

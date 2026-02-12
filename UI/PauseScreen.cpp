@@ -352,30 +352,32 @@ GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 	SetExtraAssertInfo(assertStr.c_str());
 	saveStatePrefix_ = SaveState::GetGamePrefix(g_paramSFO);
 	SaveState::Rescan(saveStatePrefix_);
+	g_controlMapper.AddListener(this);
+	createdTime_ = time_now_d();
 }
 
 GamePauseScreen::~GamePauseScreen() {
+	g_controlMapper.RemoveListener(this);
 	__DisplaySetWasPaused();
 }
 
-bool GamePauseScreen::key(const KeyInput &key) {
-	bool handled = UIDialogScreen::key(key);
+bool GamePauseScreen::UnsyncKey(const KeyInput &key) {
+	int retval = UIScreen::UnsyncKey(key);
+	bool pauseTrigger = false;
+	return retval || g_controlMapper.Key(key, &pauseTrigger);
+}
 
-	if (!handled && (key.flags & KeyInputFlags::DOWN)) {
-		// Special case to be able to unpause with a bound pause key.
-		// Normally we can't bind keys used in the UI.
-		InputMapping mapping(key.deviceId, key.keyCode);
-		std::vector<int> pspButtons;
-		KeyMap::InputMappingToPspButton(mapping, &pspButtons);
-		for (auto button : pspButtons) {
-			if (button == VIRTKEY_PAUSE) {
-				TriggerFinish(DR_CANCEL);
-				return true;
-			}
-		}
-		return false;
+void GamePauseScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
+	UIScreen::UnsyncAxis(axes, count);
+	g_controlMapper.Axis(axes, count);
+}
+
+void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
+	// Simple de-bounce using createdTime_, just to be safe.
+	if (down && virtualKeyCode == VIRTKEY_PAUSE && time_now_d() > createdTime_ + 0.1) {
+		finishNextFrame_ = true;
+		finishNextFrameResult_ = DR_BACK;
 	}
-	return handled;
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems) {

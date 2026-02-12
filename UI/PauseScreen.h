@@ -23,17 +23,17 @@
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
+#include "Core/ControlMapper.h"
 #include "UI/BaseScreens.h"
 #include "UI/Screen.h"
 #include "UI/GameInfoCache.h"
 
-class GamePauseScreen : public UIBaseDialogScreen {
+class GamePauseScreen : public UIBaseDialogScreen, protected ControlListener {
 public:
 	GamePauseScreen(const Path &filename, bool bootPending);
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
-	bool key(const KeyInput &key) override;
 
 	const char *tag() const override { return "GamePause"; }
 
@@ -41,6 +41,12 @@ protected:
 	void CreateViews() override;
 	void update() override;
 	UI::Margins RootMargins() const override;
+
+	// For processing of certain mapped keys.
+	bool UnsyncKey(const KeyInput &key) override;
+	void UnsyncAxis(const AxisInput *axes, size_t count) override;
+
+	void OnVKey(VirtKey virtualKeyCode, bool down);
 
 private:
 	void CreateSavestateControls(UI::LinearLayout *viewGroup);
@@ -77,6 +83,7 @@ private:
 	bool bootPending_ = false;
 
 	std::string saveStatePrefix_;
+	double createdTime_ = 0.0;
 };
 
 std::string GetConfirmExitMessage();

@@ -166,6 +166,8 @@ private:
 	bool autoLoadFailed_ = false;  // to prevent repeat reloads
 	bool readyToFinishBoot_ = false;
 	bool skipBufferEffects_ = false;  // cached state, fetched once per frame.
+
+	bool isOnTop_ = true;
 };
 
 bool MustRunBehind();
