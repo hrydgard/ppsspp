@@ -125,9 +125,10 @@ private:
 
 class JoystickHistoryView;
 
-class AnalogCalibrationScreen : public UITwoPaneBaseDialogScreen {
+class AnalogCalibrationScreen : public UITwoPaneBaseDialogScreen, protected ControlListener {
 public:
 	AnalogCalibrationScreen(const Path &gamePath);
+	~AnalogCalibrationScreen();
 
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;
@@ -139,6 +140,9 @@ public:
 protected:
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
+
+	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
+	void SetRawAnalog(int stick, float x, float y) override;
 
 	std::string_view GetTitle() const override;
 private:

@@ -36,7 +36,7 @@ struct AxisInput;
 class AsyncImageFileView;
 class ChatMenu;
 
-class EmuScreen : public UIScreen {
+class EmuScreen : public UIScreen, public ControlListener {
 public:
 	EmuScreen(const Path &filename);
 	~EmuScreen();
@@ -72,6 +72,13 @@ protected:
 	void focusChanged(ScreenFocusChange focusChange) override;
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
 
+	// ControlListener implementations
+	void OnVKey(VirtKey virtualKeyCode, bool down);
+	void OnVKeyAnalog(VirtKey virtualKeyCode, float value);
+	void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) override;
+	void SetPSPAnalog(int rotation, int stick, float x, float y);
+	void SetRawAnalog(int deviceId, float x, float y) {}
+
 private:
 	void CreateViews() override;
 	ScreenRenderFlags RunEmulation(bool skipBufferEffects);
@@ -87,8 +94,6 @@ private:
 	void runImDebugger();
 	void renderImDebugger();
 
-	void onVKey(VirtKey virtualKeyCode, bool down);
-	void onVKeyAnalog(VirtKey virtualKeyCode, float value);
 
 	void AutoLoadSaveState();
 	bool checkPowerDown();

@@ -8,6 +8,18 @@
 #include <mutex>
 
 struct DisplayLayoutConfig;
+
+// Pure interface.
+class ControlListener {
+public:
+	virtual ~ControlListener() = default;
+	virtual void OnVKey(VirtKey vkey, bool down) {}
+	virtual void OnVKeyAnalog(VirtKey vkey, float value) {}
+	virtual void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) {}
+	virtual void SetPSPAnalog(int rotation, int stick, float x, float y) {}
+	virtual void SetRawAnalog(int stick, float x, float y) {}
+};
+
 // Utilities for mapping input events to PSP inputs and virtual keys.
 // Main use is of course from EmuScreen.cpp, but also useful from control settings etc.
 class ControlMapper {
@@ -21,12 +33,9 @@ public:
 
 	// Required callbacks.
 	// TODO: These are so many now that a virtual interface might be more appropriate..
-	void SetCallbacks(
-		std::function<void(VirtKey, bool)> onVKey,
-		std::function<void(VirtKey, float)> onVKeyAnalog,
-		std::function<void(uint32_t, uint32_t)> updatePSPButtons,
-		std::function<void(int, int, float, float)> setPSPAnalog,
-		std::function<void(int, float, float)> setRawAnalog);
+	void SetListener(ControlListener *listener) {
+		listener_ = listener;
+	}
 
 	// Inject raw PSP key input directly, such as from touch screen controls.
 	// Combined with the mapped input. Unlike __Ctrl APIs, this supports
@@ -96,11 +105,7 @@ private:
 	std::map<InputMapping, InputSample> curInput_;
 
 	// Callbacks
-	std::function<void(VirtKey, bool)> onVKey_;
-	std::function<void(VirtKey, float)> onVKeyAnalog_;
-	std::function<void(uint32_t, uint32_t)> updatePSPButtons_;
-	std::function<void(int, int, float, float)> setPSPAnalog_;
-	std::function<void(int, float, float)> setRawAnalog_;
+	ControlListener *listener_ = nullptr;
 };
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY);

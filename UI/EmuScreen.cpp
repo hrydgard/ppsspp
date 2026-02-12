@@ -126,7 +126,11 @@ static void AssertCancelCallback(const char *message, void *userdata) {
 }
 
 // Handles control rotation due to internal screen rotation.
-static void SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float y) {
+void EmuScreen::UpdatePSPButtons(uint32_t bitsToSet, uint32_t bitsToClear) {
+	__CtrlUpdateButtons(bitsToSet, bitsToClear);
+}
+
+void EmuScreen::SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float y) {
 	switch (iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
 		// Standard rotation. No change.
@@ -158,14 +162,7 @@ static void SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float 
 EmuScreen::EmuScreen(const Path &filename)
 	: gamePath_(filename) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
-	controlMapper_.SetCallbacks(
-		std::bind(&EmuScreen::onVKey, this, _1, _2),
-		std::bind(&EmuScreen::onVKeyAnalog, this, _1, _2),
-		[](uint32_t bitsToSet, uint32_t bitsToClear) {
-			__CtrlUpdateButtons(bitsToSet, bitsToClear);
-		},
-		&SetPSPAnalog,
-		nullptr);
+	controlMapper_.SetListener(this);
 
 	_dbg_assert_(coreState == CORE_POWERDOWN);
 
@@ -449,6 +446,8 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
+	controlMapper_.SetListener(nullptr);
+
 	if (imguiInited_) {
 		ImGui_ImplThin3d_Shutdown();
 		ImGui::DestroyContext(ctx_);
@@ -739,7 +738,7 @@ static void ShowFpsLimitNotice() {
 	g_OSD.SetFlags("altspeed", OSDMessageFlags::Transparent);
 }
 
-void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
+void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
@@ -1081,7 +1080,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	}
 }
 
-void EmuScreen::onVKeyAnalog(VirtKey virtualKeyCode, float value) {
+void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	if (virtualKeyCode != VIRTKEY_SPEED_ANALOG) {
 		return;
 	}

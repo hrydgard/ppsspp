@@ -480,18 +480,21 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 }
 
 AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsCanScroll) {
-	mapper_.SetCallbacks(
-		[](int vkey, bool down) {},
-		[](int vkey, float analogValue) {},
-		[&](uint32_t bitsToSet, uint32_t bitsToClear) {},
-		[&](int iInternalRotation, int stick, float x, float y) {
-			analogX_[stick] = x;
-			analogY_[stick] = y;
-		},
-		[&](int stick, float x, float y) {
-			rawX_[stick] = x;
-			rawY_[stick] = y;
-		});
+	mapper_.SetListener(this);
+}
+
+AnalogCalibrationScreen::~AnalogCalibrationScreen() {
+	mapper_.SetListener(nullptr);
+}
+
+void AnalogCalibrationScreen::SetPSPAnalog(int rotation, int stick, float x, float y) {
+	analogX_[stick] = x;
+	analogY_[stick] = y;
+}
+
+void AnalogCalibrationScreen::SetRawAnalog(int stick, float x, float y) {
+	rawX_[stick] = x;
+	rawY_[stick] = y;
 }
 
 void AnalogCalibrationScreen::update() {
