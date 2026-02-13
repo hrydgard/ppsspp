@@ -538,7 +538,8 @@ void TakeUserScreenshotImpl() {
 
 	ScheduleScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](ScreenshotResult result) {
 		if (result == ScreenshotResult::Success) {
-			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
+			const std::string friendlyPath = GetFriendlyPath(filename);
+			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, friendlyPath, 0.0f, "screenshot_link");
 			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 				g_OSD.SetClickCallback("screenshot_link", [filename]() -> void {
 					System_ShowFileInFolder(filename);

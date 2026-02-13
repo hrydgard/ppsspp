@@ -32,6 +32,7 @@
 
 - (void)uiStateChanged;
 - (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId;
+- (void)updateResolutionWithView:(UIView *)view;
 
 @end
 

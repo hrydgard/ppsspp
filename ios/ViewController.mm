@@ -7,7 +7,6 @@
 
 #import "AppDelegate.h"
 #import "ViewController.h"
-#import "DisplayManager.h"
 #import "iOSCoreAudio.h"
 
 #import <GLKit/GLKit.h>
@@ -216,8 +215,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	self.lastTimestamp = 0;
 
-	[[DisplayManager shared] setupDisplayListener];
-
 	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
@@ -316,8 +313,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	INFO_LOG(Log::System, "didBecomeActive begin");
 
+	[self updateResolutionWithView:self.view];
 	[self runGLRenderLoop];
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
 	INFO_LOG(Log::System, "didBecomeActive end");
 
@@ -386,8 +383,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		NSLog(@"Rotation finished");
 		// Reinitialize graphics context to match new size
 		[self requestExitGLRenderLoop];
+		[self updateResolutionWithView:self.view];
 		[self runGLRenderLoop];
-		[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 	}];
 }
 
