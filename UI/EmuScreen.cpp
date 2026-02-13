@@ -126,7 +126,20 @@ static void AssertCancelCallback(const char *message, void *userdata) {
 }
 
 // Handles control rotation due to internal screen rotation.
-static void SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float y) {
+void EmuScreen::UpdatePSPButtons(uint32_t bitsToSet, uint32_t bitsToClear) {
+	if (!isOnTop_) {
+		// Auto-release inputs
+		bitsToSet = 0;
+	}
+	__CtrlUpdateButtons(bitsToSet, bitsToClear);
+}
+
+void EmuScreen::SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float y) {
+	if (!isOnTop_) {
+		x = 0.0f;
+		y = 0.0f;
+	}
+
 	switch (iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
 		// Standard rotation. No change.
@@ -158,14 +171,7 @@ static void SetPSPAnalog(int iInternalScreenRotation, int stick, float x, float 
 EmuScreen::EmuScreen(const Path &filename)
 	: gamePath_(filename) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
-	controlMapper_.SetCallbacks(
-		std::bind(&EmuScreen::onVKey, this, _1, _2),
-		std::bind(&EmuScreen::onVKeyAnalog, this, _1, _2),
-		[](uint32_t bitsToSet, uint32_t bitsToClear) {
-			__CtrlUpdateButtons(bitsToSet, bitsToClear);
-		},
-		&SetPSPAnalog,
-		nullptr);
+	g_controlMapper.AddListener(this);
 
 	_dbg_assert_(coreState == CORE_POWERDOWN);
 
@@ -449,6 +455,8 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
+	g_controlMapper.RemoveListener(this);
+
 	if (imguiInited_) {
 		ImGui_ImplThin3d_Shutdown();
 		ImGui::DestroyContext(ctx_);
@@ -540,10 +548,11 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 	switch (focusChange) {
 	case ScreenFocusChange::FOCUS_LOST_TOP:
 		g_Config.TimeTracker().Stop(gameID);
-		controlMapper_.ReleaseAll();
+		isOnTop_ = false;
 		break;
 	case ScreenFocusChange::FOCUS_BECAME_TOP:
 		g_Config.TimeTracker().Start(gameID);
+		isOnTop_ = true;
 		break;
 	}
 }
@@ -739,38 +748,14 @@ static void ShowFpsLimitNotice() {
 	g_OSD.SetFlags("altspeed", OSDMessageFlags::Transparent);
 }
 
-void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
+void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
+	if (!isOnTop_)
+		return;
+
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_TOGGLE_DEBUGGER:
-		if (down) {
-			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
-		}
-		break;
-	case VIRTKEY_TOGGLE_TILT:
-		if (down) {
-			g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
-			if (!g_Config.bTiltInputEnabled) {
-				// Reset whatever got tilted.
-				switch (g_Config.iTiltInputType) {
-				case TILT_ANALOG:
-					__CtrlSetAnalogXY(0, 0, 0);
-					break;
-				case TILT_ACTION_BUTTON:
-					__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
-					break;
-				case TILT_DPAD:
-					__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
-					break;
-				case TILT_TRIGGER_BUTTONS:
-					__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
-					break;
-				}
-			}
-		}
-		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed() && !bootPending_) {
 			/*
@@ -824,15 +809,6 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
 				ShowFpsLimitNotice();
 			}
-		}
-		break;
-
-	case VIRTKEY_PAUSE:
-		if (down) {
-			// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
-			// running in the background of the menu.
-			pauseTrigger_ = true;
-			controlMapper_.ForceReleaseVKey(virtualKeyCode);
 		}
 		break;
 
@@ -914,16 +890,45 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	switch (virtKey) {
+	case VIRTKEY_PAUSE:
+		// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
+		// running in the background of the menu.
+		pauseTrigger_ = true;
+		break;
+
+	case VIRTKEY_TOGGLE_DEBUGGER:
+		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+		break;
+	case VIRTKEY_TOGGLE_TILT:
+		g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
+		if (!g_Config.bTiltInputEnabled) {
+			// Reset whatever got tilted.
+			switch (g_Config.iTiltInputType) {
+			case TILT_ANALOG:
+				__CtrlSetAnalogXY(0, 0, 0);
+				break;
+			case TILT_ACTION_BUTTON:
+				__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
+				break;
+			case TILT_DPAD:
+				__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
+				break;
+			case TILT_TRIGGER_BUTTONS:
+				__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
+				break;
+			}
+		}
+		break;
 	case VIRTKEY_OPENCHAT:
 		if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
-			controlMapper_.ForceReleaseVKey(VIRTKEY_OPENCHAT);
+			g_controlMapper.ForceReleaseVKey(VIRTKEY_OPENCHAT);
 		}
 		break;
 
 	case VIRTKEY_AXIS_SWAP:
-		controlMapper_.ToggleSwapAxes();
+		g_controlMapper.ToggleSwapAxes();
 		g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
 		break;
 
@@ -1081,7 +1086,10 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	}
 }
 
-void EmuScreen::onVKeyAnalog(VirtKey virtualKeyCode, float value) {
+void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
+	if (!isOnTop_)
+		return;
+
 	if (virtualKeyCode != VIRTKEY_SPEED_ANALOG) {
 		return;
 	}
@@ -1143,7 +1151,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 				if (mappingFound) {
 					for (auto b : pspButtons) {
 						if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-							return controlMapper_.Key(key, &pauseTrigger_);
+							return g_controlMapper.Key(key, &pauseTrigger_);
 						}
 					}
 				}
@@ -1153,28 +1161,28 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 			switch (key.deviceId) {
 			case DEVICE_ID_KEYBOARD:
 				if (!ImGui::GetIO().WantCaptureKeyboard) {
-					controlMapper_.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key, &pauseTrigger_);
 				}
 				break;
 			case DEVICE_ID_MOUSE:
 				if (!ImGui::GetIO().WantCaptureMouse) {
-					controlMapper_.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key, &pauseTrigger_);
 				}
 				break;
 			default:
-				controlMapper_.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key, &pauseTrigger_);
 				break;
 			}
 		} else {
 			// Let up-events through to the controlMapper_ so input doesn't get stuck.
 			if (key.flags & KeyInputFlags::UP) {
-				controlMapper_.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key, &pauseTrigger_);
 			}
 		}
 
 		return UIScreen::UnsyncKey(key);
 	}
-	return controlMapper_.Key(key, &pauseTrigger_);
+	return g_controlMapper.Key(key, &pauseTrigger_);
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
@@ -1184,7 +1192,7 @@ void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 		return UIScreen::UnsyncAxis(axes, count);
 	}
 
-	return controlMapper_.Axis(axes, count);
+	return g_controlMapper.Axis(axes, count);
 }
 
 bool EmuScreen::key(const KeyInput &key) {
@@ -1262,7 +1270,7 @@ void EmuScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(&touch, deviceOrientation, bounds.w, bounds.h);
 
-	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, &controlMapper_);
+	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, &g_controlMapper);
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -1475,7 +1483,7 @@ void EmuScreen::update() {
 	double now = time_now_d();
 
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-	controlMapper_.Update(config, now);
+	g_controlMapper.Update(config, now);
 
 	if (saveStatePreview_ && !bootPending_) {
 		int currentSlot = SaveState::GetCurrentSlot();
@@ -1944,7 +1952,7 @@ void EmuScreen::renderUI() {
 
 	if (PSP_IsInited()) {
 		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::CONTROL) {
-			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), controlMapper_);
+			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), g_controlMapper);
 		}
 		if (g_Config.iShowStatusFlags) {
 			DrawFPS(ctx, ctx->GetLayoutBounds());

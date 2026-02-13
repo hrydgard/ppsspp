@@ -480,22 +480,25 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 }
 
 AnalogCalibrationScreen::AnalogCalibrationScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsCanScroll) {
-	mapper_.SetCallbacks(
-		[](int vkey, bool down) {},
-		[](int vkey, float analogValue) {},
-		[&](uint32_t bitsToSet, uint32_t bitsToClear) {},
-		[&](int iInternalRotation, int stick, float x, float y) {
-			analogX_[stick] = x;
-			analogY_[stick] = y;
-		},
-		[&](int stick, float x, float y) {
-			rawX_[stick] = x;
-			rawY_[stick] = y;
-		});
+	g_controlMapper.AddListener(this);
+}
+
+AnalogCalibrationScreen::~AnalogCalibrationScreen() {
+	g_controlMapper.RemoveListener(this);
+}
+
+void AnalogCalibrationScreen::SetPSPAnalog(int rotation, int stick, float x, float y) {
+	analogX_[stick] = x;
+	analogY_[stick] = y;
+}
+
+void AnalogCalibrationScreen::SetRawAnalog(int stick, float x, float y) {
+	rawX_[stick] = x;
+	rawY_[stick] = y;
 }
 
 void AnalogCalibrationScreen::update() {
-	mapper_.Update(g_Config.GetDisplayLayoutConfig(GetDeviceOrientation()), time_now_d());
+	g_controlMapper.Update(g_Config.GetDisplayLayoutConfig(GetDeviceOrientation()), time_now_d());
 	// We ignore the secondary stick for now and just use the two views
 	// for raw and psp input.
 	if (stickView_[0]) {
@@ -512,7 +515,7 @@ bool AnalogCalibrationScreen::key(const KeyInput &key) {
 
 	// Allow testing auto-rotation. If it collides with UI keys, too bad.
 	bool pauseTrigger = false;
-	mapper_.Key(key, &pauseTrigger);
+	g_controlMapper.Key(key, &pauseTrigger);
 
 	if (UI::IsEscapeKey(key)) {
 		TriggerFinish(DR_BACK);
@@ -526,7 +529,7 @@ void AnalogCalibrationScreen::axis(const AxisInput &axis) {
 	// UIScreen::axis(axis);
 
 	// Instead we just send the input directly to the mapper, that we'll visualize.
-	mapper_.Axis(&axis, 1);
+	g_controlMapper.Axis(&axis, 1);
 }
 
 std::string_view AnalogCalibrationScreen::GetTitle() const {
