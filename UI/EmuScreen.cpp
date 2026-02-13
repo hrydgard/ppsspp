@@ -60,13 +60,8 @@ using namespace std::placeholders;
 #include "Core/Util/PathUtil.h"
 #include "Core/System.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
-#if !PPSSPP_PLATFORM(UWP)
-#include "GPU/Vulkan/DebugVisVulkan.h"
-#endif
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
@@ -83,7 +78,6 @@ using namespace std::placeholders;
 #include "Core/HW/Display.h"
 
 #include "UI/BackgroundAudio.h"
-#include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
 #include "UI/MainScreen.h"
@@ -1616,6 +1610,8 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 			const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
 			// We run just the post shaders.
 			gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
+			// Screens on top like reporting might want to take screenshots of existing framebuffers.
+			ScreenshotNotifyPostGameRender(screenManager()->getDrawContext());
 		}
 	}
 	return ScreenRenderFlags::NONE;
@@ -1687,6 +1683,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff. We do draw the imdebugger though.
 		// So, darken and bail here.
 		// Reset viewport/scissor to be sure.
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		darken();
 		return screenRenderFlags;
 	}
