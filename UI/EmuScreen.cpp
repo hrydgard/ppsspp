@@ -57,6 +57,7 @@ using namespace std::placeholders;
 #include "Core/KeyMap.h"
 #include "Core/MemFault.h"
 #include "Core/Reporting.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/System.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -105,7 +106,6 @@ using namespace std::placeholders;
 #include "ext/imgui/imgui_impl_thin3d.h"
 #include "ext/imgui/imgui_impl_platform.h"
 
-#include "Core/Reporting.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
@@ -1461,7 +1461,7 @@ void EmuScreen::update() {
 	if (errorMessage_.size()) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		std::string errLoadingFile = gamePath_.ToVisualString() + "\n\n";
+		std::string errLoadingFile = GetFriendlyPath(gamePath_) + "\n\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append("\n");
 		errLoadingFile.append(errorMessage_);

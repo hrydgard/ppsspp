@@ -120,7 +120,7 @@ void SaveFrameDump() {
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			System_ShowFileInFolder(dumpPath);
 		} else {
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, dumpPath.ToVisualString(), 7.0f);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f);
 		}
 	});
 }
