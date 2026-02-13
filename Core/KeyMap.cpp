@@ -84,6 +84,11 @@ void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mapping
 	}
 }
 
+static void InsertIntoVector(std::vector<InputMapping> *vec, const InputMapping &mapping) {
+	if (std::find(vec->begin(), vec->end(), mapping) == vec->end())
+		vec->push_back(mapping);
+}
+
 // TODO: This is such a mess...
 void UpdateNativeMenuKeys() {
 	std::vector<InputMapping> confirmKeys, cancelKeys;
@@ -92,9 +97,10 @@ void UpdateNativeMenuKeys() {
 	std::vector<InputMapping> infoKeys;
 
 	// Mouse mapping might be problematic in UI, so let's ignore mouse for UI
+	const bool confirmWithCross = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS;
 
-	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
-	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+	const int confirmKey = confirmWithCross ? CTRL_CROSS : CTRL_CIRCLE;
+	const int cancelKey = confirmWithCross ? CTRL_CIRCLE : CTRL_CROSS;
 
 	SingleInputMappingFromPspButton(confirmKey, &confirmKeys, true);
 	SingleInputMappingFromPspButton(cancelKey, &cancelKeys, true);
@@ -106,7 +112,7 @@ void UpdateNativeMenuKeys() {
 	SingleInputMappingFromPspButton(CTRL_LEFT, &leftKeys, true);
 	SingleInputMappingFromPspButton(CTRL_RIGHT, &rightKeys, true);
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	// Hardcode DPAD on Android
 	upKeys.push_back(InputMapping(DEVICE_ID_ANY, NKCODE_DPAD_UP));
 	downKeys.push_back(InputMapping(DEVICE_ID_ANY, NKCODE_DPAD_DOWN));
@@ -119,26 +125,24 @@ void UpdateNativeMenuKeys() {
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_NUMPAD_ENTER),
-		InputMapping(DEVICE_ID_ANY, NKCODE_BUTTON_A),
-		InputMapping(DEVICE_ID_PAD_0, NKCODE_DPAD_CENTER),  // A number of Android devices.
+		InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_A : NKCODE_BUTTON_B),
+		InputMapping(DEVICE_ID_PAD_0, NKCODE_DPAD_CENTER),  // A number of old obscure Android devices need this.
 	};
 
 	// If they're not already bound, add them in.
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedConfirmKeys); i++) {
-		if (std::find(confirmKeys.begin(), confirmKeys.end(), hardcodedConfirmKeys[i]) == confirmKeys.end())
-			confirmKeys.push_back(hardcodedConfirmKeys[i]);
+		InsertIntoVector(&confirmKeys, hardcodedConfirmKeys[i]);
 	}
 
 	const InputMapping hardcodedCancelKeys[] = {
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
 		InputMapping(DEVICE_ID_ANY, NKCODE_BACK),
-		InputMapping(DEVICE_ID_ANY, NKCODE_BUTTON_B),
+		InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_B : NKCODE_BUTTON_A),
 		InputMapping(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
-		if (std::find(cancelKeys.begin(), cancelKeys.end(), hardcodedCancelKeys[i]) == cancelKeys.end())
-			cancelKeys.push_back(hardcodedCancelKeys[i]);
+		InsertIntoVector(&cancelKeys, hardcodedCancelKeys[i]);
 	}
 
 	const InputMapping hardcodedInfoKeys[] = {
@@ -148,9 +152,17 @@ void UpdateNativeMenuKeys() {
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedInfoKeys); i++) {
-		if (std::find(infoKeys.begin(), infoKeys.end(), hardcodedInfoKeys[i]) == infoKeys.end())
-			infoKeys.push_back(hardcodedInfoKeys[i]);
+		InsertIntoVector(&infoKeys, hardcodedInfoKeys[i]);
 	}
+
+	/*
+	for (size_t i = 0; i < confirmKeys.size(); i++) {
+		INFO_LOG(Log::System, "Confirm key: %s", MultiInputMapping(confirmKeys[i]).ToVisualString().c_str());
+	}
+	for (size_t i = 0; i < cancelKeys.size(); i++) {
+		INFO_LOG(Log::System, "Cancel key: %s", MultiInputMapping(cancelKeys[i]).ToVisualString().c_str());
+	}
+	*/
 
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
