@@ -21,8 +21,6 @@
 #include "Core/System.h"
 #include "Qt/QtMain.h"
 
-extern bool g_TakeScreenshot;
-
 class MenuAction;
 class MenuTree;
 
@@ -116,7 +114,7 @@ private slots:
 	void ssymAct();
 	void resetTableAct();
 	void dumpNextAct();
-	void takeScreen() { g_TakeScreenshot = true; }
+	void takeScreen();
 	void consoleAct();
 
 	// Game settings

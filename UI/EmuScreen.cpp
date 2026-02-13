@@ -75,6 +75,7 @@ using namespace std::placeholders;
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
+#include "Core/Screenshot.h"
 #include "UI/ImDebugger/ImDebugger.h"
 #include "Core/HLE/__sceAudio.h"
 // #include "Core/HLE/proAdhoc.h"
@@ -863,8 +864,7 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_SCREENSHOT:
-		if (down)
-			g_TakeScreenshot = true;
+		TakeUserScreenshot();
 		break;
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
@@ -1792,7 +1792,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			gpu->EndHostFrame();
 
 			// The right time to run this
-			if (SaveState::ProcessScreenshot(skipBufferEffects) && skipBufferEffects) {
+			if (ScreenshotNotifyPostGameRender(draw) && skipBufferEffects) {
 				// Need to restore the backbuffer render pass, it probably got destroyed.
 				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 			}

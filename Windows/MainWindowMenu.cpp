@@ -30,6 +30,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/KeyMap.h"
+#include "Core/Screenshot.h"
 #include "Windows/MainWindowMenu.h"
 #include "Windows/MainWindow.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -48,8 +49,6 @@
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 #include "ext/rcheevos/include/rc_client_raintegration.h"
 #endif
-
-extern bool g_TakeScreenshot;
 
 namespace MainWindow {
 	extern bool noFocusPause;
@@ -955,7 +954,7 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_TAKESCREENSHOT:
-			g_TakeScreenshot = true;
+			TakeUserScreenshot();
 			break;
 
 		case ID_DEBUG_RESTARTGRAPHICS:

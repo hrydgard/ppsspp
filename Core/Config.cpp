@@ -1891,8 +1891,8 @@ void PlayTimeTracker::Stop(std::string_view gameId) {
 		return;
 	}
 
-	// Shouldn't happen, ignore this case.
-	WARN_LOG(Log::System, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
+	// Can happen if boot gets cancelled. Not worth warn-logging.
+	DEBUG_LOG(Log::System, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
 }
 
 void PlayTimeTracker::Reset(std::string_view gameId) {

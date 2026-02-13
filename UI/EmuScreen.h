@@ -36,7 +36,7 @@ struct AxisInput;
 class AsyncImageFileView;
 class ChatMenu;
 
-class EmuScreen : public UIScreen, public ControlListener {
+class EmuScreen : public UIScreen, protected ControlListener {
 public:
 	EmuScreen(const Path &filename);
 	~EmuScreen();
