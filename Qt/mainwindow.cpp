@@ -19,6 +19,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Screenshot.h"
 #include "GPU/GPUCommon.h"
 #include "UI/GamepadEmu.h"
 
@@ -517,6 +518,10 @@ void MainWindow::loadLanguage(const QString& language, bool translate)
 		if (translate)
 			emit retranslate();
 	}
+}
+
+void MainWindow::takeScreen() {
+	TakeUserScreenshot();
 }
 
 void MainWindow::createMenus()

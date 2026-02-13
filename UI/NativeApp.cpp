@@ -968,69 +968,8 @@ void NativeShutdownGraphics() {
 	INFO_LOG(Log::System, "NativeShutdownGraphics end");
 }
 
-static void TakeScreenshot(Draw::DrawContext *draw) {
-	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-	if (!File::Exists(path)) {
-		File::CreateDir(path);
-	}
-
-	// First, find a free filename.
-	//
-	// NOTE: On Android, the old approach of checking filenames one by one doesn't scale.
-	// So let's just grab the full file listing, and then find a name that's not in it.
-	//
-	// TODO: Also, we could do this on a thread too. Not sure if worth it.
-
-	const std::string gameId = g_paramSFO.GetDiscID();
-
-	// TODO: Make something like IterateFileInDir instead.
-	std::vector<File::FileInfo> files;
-	const std::string prefix = gameId + "_";
-	File::GetFilesInDir(path, &files, nullptr, 0, prefix);
-	std::set<std::string> existingNames;
-	for (auto &file : files) {
-		existingNames.insert(file.name);
-	}
-
-	Path filename;
-	int i = 0;
-	for (int i = 0; i < 20000; i++) {
-		const std::string pngName = prefix + StringFromFormat("%05d.png", i);
-		const std::string jpgName = prefix + StringFromFormat("%05d.jpg", i);
-		if (existingNames.find(pngName) == existingNames.end() && existingNames.find(jpgName) == existingNames.end()) {
-			filename = path / (g_Config.bScreenshotsAsPNG ? pngName : jpgName);
-			break;
-		}
-	}
-
-	if (filename.empty()) {
-		// Overwrite this one over and over.
-		filename = path / (prefix + (g_Config.bScreenshotsAsPNG ? "20000.png" : "20000.jpg"));
-	}
-
-	const ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? SCREENSHOT_DISPLAY : SCREENSHOT_OUTPUT;
-
-	const ScreenshotResult result = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](bool success) {
-		if (success) {
-			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
-			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-				g_OSD.SetClickCallback("screenshot_link", [filename]() -> void {
-					System_ShowFileInFolder(filename);
-				});
-			}
-		} else {
-			auto err = GetI18NCategory(I18NCat::ERRORS);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
-			WARN_LOG(Log::System, "Failed to take screenshot.");
-		}
-	});
-}
-
 void CallbackPostRender(UIContext *dc, void *userdata) {
-	if (g_TakeScreenshot) {
-		TakeScreenshot(dc->GetDrawContext());
-		g_TakeScreenshot = false;
-	}
+	ScreenshotNotifyEndOfFrame(dc->GetDrawContext());
 }
 
 static void SendMouseDeltaAxis();

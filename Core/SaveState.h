@@ -112,10 +112,6 @@ namespace SaveState {
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
 	void Process();
 
-	// Separate function to just process screenshots, as they need to be done at a specific time in a frame.
-	// Returns true if a screenshot was taken.
-	bool ProcessScreenshot(bool skipBufferEffects);
-
 	// Notify save state code that new save data has been written.
 	void NotifySaveData();
 

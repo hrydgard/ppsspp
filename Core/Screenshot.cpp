@@ -29,16 +29,30 @@
 #include "Common/Log.h"
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
+#include "Common/System/OSD.h"
+#include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Thread/Promise.h"
+#include "Common/StringUtils.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Screenshot.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GPUCommon.h"
 
-// This is used to make non-ASCII paths work for filename.
-// Technically only needed on Windows.
+struct PendingScreenshot {
+	ScreenshotType type;
+	ScreenshotFormat format;
+	Path path;
+	std::function<void(ScreenshotResult result)> callback;
+	int maxRes;
+};
+
+PendingScreenshot g_pendingScreenshot;
+
 class JPEGFileStream : public jpge::output_stream {
 public:
 	JPEGFileStream(const Path &filename) {
@@ -49,22 +63,20 @@ public:
 			fclose(fp_);
 		}
 	}
-
-	bool put_buf(const void *buf, int len) override
-	{
-		if (fp_) {
-			if (fwrite(buf, len, 1, fp_) != 1) {
-				fclose(fp_);
-				fp_ = nullptr;
-			}
+	bool put_buf(const void *buf, int len) override {
+		if (!fp_) {
+			return false;
 		}
-		return Valid();
+		if (fwrite(buf, len, 1, fp_) != 1) {
+			fclose(fp_);
+			fp_ = nullptr;
+			return false;
+		}
+		return true;
 	}
-
 	bool Valid() {
 		return fp_ != nullptr;
 	}
-
 private:
 	FILE *fp_;
 };
@@ -88,7 +100,7 @@ static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, i
 				return false;
 			}
 		}
-		if (!dst_image.process_scanline(NULL)) {
+		if (!dst_image.process_scanline(nullptr)) {
 			return false;
 		}
 	}
@@ -312,88 +324,124 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 	return rotated;
 }
 
-ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes, std::function<void(bool success)> callback) {
-	GPUDebugBuffer buf;
-	u32 w = (u32)-1;
-	u32 h = (u32)-1;
+static void SaveScreenshotAsync(GPUDebugBuffer &&buf, int w, int h, int maxRes);
 
-	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
-		if (!gpuDebug) {
-			ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
-			return ScreenshotResult::ScreenshotNotPossible;
-		}
-		if (!gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
-			return ScreenshotResult::ScreenshotNotPossible;
-		}
-		if (buf.IsBackBuffer()) {
-			w = buf.GetStride();
-			h = buf.GetHeight();
-		} else {
-			w = maxRes > 0 ? 480 * maxRes : buf.GetStride();
-			h = maxRes > 0 ? 272 * maxRes : buf.GetHeight();
-		}
-	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
+void ScheduleScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes, std::function<void(ScreenshotResult)> &&callback) {
+	g_pendingScreenshot = {};
+	g_pendingScreenshot.path = filename;
+	g_pendingScreenshot.format = fmt;
+	g_pendingScreenshot.type = type;
+	g_pendingScreenshot.callback = std::move(callback);
+	g_pendingScreenshot.maxRes = maxRes;
+}
+
+bool ScreenshotNotifyEndOfFrame(Draw::DrawContext *draw) {
+	if (g_pendingScreenshot.path.empty() || g_pendingScreenshot.type != ScreenshotType::Output) {
+		return false;
+	}
+
+	GPUDebugBuffer buf;
+	if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
 		if (!::GetOutputFramebuffer(draw, temp)) {
-			return ScreenshotResult::ScreenshotNotPossible;
+			g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
+			g_pendingScreenshot = {};
+			return false;
 		}
 		buf = ApplyRotation(temp, g_display.rotation);
 	} else {
 		_dbg_assert_(draw);
 		if (!GetOutputFramebuffer(draw, buf)) {
-			return ScreenshotResult::ScreenshotNotPossible;
+			g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
+			g_pendingScreenshot = {};
+			return false;
 		}
 	}
 
-	if (callback) {
-		g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::LOW,
-			[buf = std::move(buf), callback = std::move(callback), filename, fmt, w, h, maxRes]() {
-			u8 *flipbuffer = nullptr;
-			u32 width = w, height = h;
-			const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, width, height);
+	_dbg_assert_(buf.IsBackBuffer());
+	const int w = buf.GetStride();
+	const int h = buf.GetHeight();
+	SaveScreenshotAsync(std::move(buf), w, h, g_pendingScreenshot.maxRes);
+	return true;
+}
 
-			bool success;
-			if ((int)width <= 480 * maxRes) {
-				success = Save888RGBScreenshot(filename, fmt, buffer, width, height);
-				delete[] flipbuffer;
-			} else {
-				u8 *shrinkBuffer = new u8[width * height * 3];
-				memcpy(shrinkBuffer, buffer, width * height * 3);
-				delete[] flipbuffer;
+bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
+	if (g_pendingScreenshot.path.empty() || g_pendingScreenshot.type == ScreenshotType::Output) {
+		return false;
+	}
 
-				// TODO: Speed this thing up.
-				while ((int)width > 480 * maxRes) {
-					u8 *halfSize = new u8[(width / 2) * (height / 2) * 3];
-					for (u32 y = 0; y < height / 2; y++) {
-						for (u32 x = 0; x < width / 2; x++) {
-							for (int c = 0; c < 3; c++) {
-								halfSize[(y * (width / 2) + x) * 3 + c] = (shrinkBuffer[((y * 2) * width + (x * 2)) * 3 + c] +
-										shrinkBuffer[((y * 2) * width + (x * 2 + 1)) * 3 + c] +
-										shrinkBuffer[(((y * 2) + 1) * width + (x * 2)) * 3 + c] +
-										shrinkBuffer[(((y * 2) + 1) * width + (x * 2 + 1)) * 3 + c]) / 4;
-							}
+	GPUDebugBuffer buf;
+	if (!gpuDebug) {
+		ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
+		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
+		g_pendingScreenshot = {};
+		return false;
+	}
+
+	const int maxRes = g_pendingScreenshot.maxRes;
+
+	if (!gpuDebug->GetCurrentFramebuffer(buf, g_pendingScreenshot.type == ScreenshotType::Render ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
+		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
+		g_pendingScreenshot = {};
+		return false;
+	}
+
+	int w;
+	int h;
+	if (buf.IsBackBuffer()) {
+		w = buf.GetStride();
+		h = buf.GetHeight();
+	} else {
+		w = maxRes > 0 ? 480 * maxRes : buf.GetStride();
+		h = maxRes > 0 ? 272 * maxRes : buf.GetHeight();
+	}
+
+	SaveScreenshotAsync(std::move(buf), w, h, g_pendingScreenshot.maxRes);
+	return true;
+}
+
+static void SaveScreenshotAsync(GPUDebugBuffer &&buf, int w, int h, int maxRes) {
+	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::LOW,
+		[filename = std::move(g_pendingScreenshot.path), buf = std::move(buf), callback = std::move(g_pendingScreenshot.callback), fmt = g_pendingScreenshot.format, w, h, maxRes]() {
+		u8 *flipbuffer = nullptr;
+		u32 width = w, height = h;
+		const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, width, height);
+
+		ScreenshotResult result;
+		if (maxRes <= 0 || (int)width <= 480 * maxRes) {
+			result = Save888RGBScreenshot(filename, fmt, buffer, width, height) ? ScreenshotResult::Success : ScreenshotResult::FailedToWriteFile;
+			delete[] flipbuffer;
+		} else {
+			u8 *shrinkBuffer = new u8[width * height * 3];
+			memcpy(shrinkBuffer, buffer, width * height * 3);
+			delete[] flipbuffer;
+
+			// TODO: Speed this thing up.
+			while ((int)width > 480 * maxRes) {
+				u8 *halfSize = new u8[(width / 2) * (height / 2) * 3];
+				for (u32 y = 0; y < height / 2; y++) {
+					for (u32 x = 0; x < width / 2; x++) {
+						for (int c = 0; c < 3; c++) {
+							halfSize[(y * (width / 2) + x) * 3 + c] = (shrinkBuffer[((y * 2) * width + (x * 2)) * 3 + c] +
+									shrinkBuffer[((y * 2) * width + (x * 2 + 1)) * 3 + c] +
+									shrinkBuffer[(((y * 2) + 1) * width + (x * 2)) * 3 + c] +
+									shrinkBuffer[(((y * 2) + 1) * width + (x * 2 + 1)) * 3 + c]) / 4;
 						}
 					}
-					std::swap(shrinkBuffer, halfSize);
-					delete[] halfSize;
-					width /= 2;
-					height /= 2;
 				}
-				success = Save888RGBScreenshot(filename, fmt, shrinkBuffer, width, height);
+				std::swap(shrinkBuffer, halfSize);
+				delete[] halfSize;
+				width /= 2;
+				height /= 2;
 			}
+			result = Save888RGBScreenshot(filename, fmt, shrinkBuffer, width, height) ? ScreenshotResult::Success : ScreenshotResult::FailedToWriteFile;
+		}
 
-			System_RunOnMainThread([success, callback = std::move(callback)]() {
-				callback(success);
-			});
-		}));
-		return ScreenshotResult::DelayedResult;
-	}
-	u8 *flipbuffer = nullptr;
-	const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
-	bool success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
-	delete[] flipbuffer;
-	return success ? ScreenshotResult::Success : ScreenshotResult::FailedToWriteFile;
+		System_RunOnMainThread([result, callback = std::move(callback)]() {
+			callback(result);
+		});
+	}));
 }
 
 bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
@@ -437,4 +485,72 @@ bool Save8888RGBAScreenshot(std::vector<uint8_t> &bufferPNG, const u8 *bufferRGB
 		bufferPNG.clear();
 	}
 	return success;
+}
+
+void TakeUserScreenshotImpl() {
+	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+	// Make sure the screenshot directory exists.
+	File::CreateDir(path);
+
+	// First, find a free filename.
+	//
+	// NOTE: On Android, the old approach of checking filenames one by one doesn't scale.
+	// So let's just grab the full file listing, and then find a name that's not in it.
+	//
+	// TODO: Also, we could do this on a thread too. Not sure if worth it.
+
+	const std::string gameId = g_paramSFO.GetDiscID();
+
+	std::vector<File::FileInfo> files;
+	const std::string prefix = gameId + "_";
+	File::GetFilesInDir(path, &files, nullptr, 0, prefix);
+	std::set<std::string> existingNames;
+	for (auto &file : files) {
+		existingNames.insert(file.name);
+	}
+
+	Path filename;
+	int i = 0;
+	for (int i = 0; i < 20000; i++) {
+		const std::string pngName = prefix + StringFromFormat("%05d.png", i);
+		const std::string jpgName = prefix + StringFromFormat("%05d.jpg", i);
+		if (existingNames.find(pngName) == existingNames.end() && existingNames.find(jpgName) == existingNames.end()) {
+			filename = path / (g_Config.bScreenshotsAsPNG ? pngName : jpgName);
+			break;
+		}
+	}
+
+	if (filename.empty()) {
+		// Overwrite this one over and over.
+		filename = path / (prefix + (g_Config.bScreenshotsAsPNG ? "20000.png" : "20000.jpg"));
+	}
+
+	ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? ScreenshotType::Display : ScreenshotType::Output;
+
+	if (GetUIState() != UISTATE_INGAME) {
+		// We're out in the UI, no game. The only type of screenshot available is output.
+		type = ScreenshotType::Output;
+	}
+
+	ScheduleScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](ScreenshotResult result) {
+		if (result == ScreenshotResult::Success) {
+			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				g_OSD.SetClickCallback("screenshot_link", [filename]() -> void {
+					System_ShowFileInFolder(filename);
+				});
+			}
+		} else if (result == ScreenshotResult::FailedToWriteFile) {
+			auto err = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
+			WARN_LOG(Log::System, "Failed to take screenshot.");
+		}
+		// TODO: What to do about ScreenshotNotPossible?
+	});
+}
+
+void TakeUserScreenshot() {
+	System_RunOnMainThread([]() {
+		TakeUserScreenshotImpl();
+	});
 }

@@ -116,9 +116,6 @@ struct Operation {
 
 static std::vector<Operation> g_pendingOperations;
 
-// If this isn't empty, a screenshot operation is pending. It's protected by mutex.
-Path g_screenshotPath;
-
 int g_screenshotFailures;
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
@@ -383,8 +380,26 @@ int g_screenshotFailures;
 
 	static void ScheduleSaveScreenshot(const Path &path) {
 		std::lock_guard<std::mutex> guard(mutex);
-		g_screenshotPath = path;
 		g_screenshotFailures = 0;
+
+		// Savestate thumbnails don't need to be bigger.
+		constexpr int maxResMultiplier = 2;
+		ScheduleScreenshot(path, ScreenshotFormat::JPG, ScreenshotType::Display, maxResMultiplier, [path](ScreenshotResult result) {
+			switch (result) {
+			case ScreenshotResult::ScreenshotNotPossible:
+				// Try again soon, for a short while.
+				WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", path.c_str());
+				if (coreState != CORE_STEPPING_CPU && g_screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
+					// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
+					ScheduleSaveScreenshot(path);
+				}
+				break;
+			case ScreenshotResult::FailedToWriteFile:
+			case ScreenshotResult::Success:
+				g_screenshotFailures = 0;
+				break;
+			}
+		});
 	}
 
 	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback) {
@@ -972,44 +987,5 @@ int g_screenshotFailures;
 			return time_now_d() - g_lastSaveTime;
 		}
 	}
-
-bool ProcessScreenshot(bool skipBufferEffects) {
-	Path screenshotPath;
-	{
-		std::lock_guard<std::mutex> guard(mutex);
-		if (!g_screenshotPath.empty()) {
-			screenshotPath = g_screenshotPath;
-			g_screenshotPath.clear();
-		} else {
-			return false;
-		}
-	}
-
-	// Savestate thumbnails don't need to be bigger.
-	constexpr int maxResMultiplier = 2;
-	ScreenshotResult tempResult = TakeGameScreenshot(nullptr, screenshotPath, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, maxResMultiplier, [](bool success) {
-		if (success) {
-			g_screenshotFailures = 0;
-		}
-	});
-
-	switch (tempResult) {
-	case ScreenshotResult::ScreenshotNotPossible:
-		// Try again soon, for a short while.
-		WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", g_screenshotPath.c_str());
-		if (coreState != CORE_STEPPING_CPU && g_screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
-			// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
-			ScheduleSaveScreenshot(g_screenshotPath);
-		}
-		break;
-	case ScreenshotResult::FailedToWriteFile:
-		break;
-	case ScreenshotResult::DelayedResult:
-		return true;
-	case ScreenshotResult::Success:
-		return true;
-	}
-	return false; // Didn't take a screenshot right now.
-}
 
 }  // namespace SaveState
