@@ -326,12 +326,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)loadView {
 	INFO_LOG(Log::G3D, "Creating metal view");
-
-	CGRect screenRect = [[UIScreen mainScreen] bounds];
-	CGFloat screenWidth = screenRect.size.width;
-	CGFloat screenHeight = screenRect.size.height;
-
-	PPSSPPMetalView *metalView = [[PPSSPPMetalView alloc] initWithFrame:CGRectMake(0, 0, screenWidth,screenHeight)];
+	// The view gets auto-resized later.
+	PPSSPPMetalView *metalView = [[PPSSPPMetalView alloc] initWithFrame:CGRectMake(0, 0, 0, 0)];
 	self.view = metalView;
 }
 
@@ -379,12 +375,24 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
-	INFO_LOG(Log::G3D, "viewWillDisappear");
+	INFO_LOG(Log::G3D, "viewDidDisappear");
 }
 
-- (void)bindDefaultFBO
-{
+- (void)bindDefaultFBO {
 	// Do nothing
+}
+
+- (void)viewWillLayoutSubviews {
+	[super viewWillLayoutSubviews];
+
+	// This is the first reliable place where self.view.bounds
+	// matches the forced orientation.
+	CGRect bounds = self.view.bounds;
+
+	INFO_LOG(Log::G3D, "Correcting metal view layout: %dx%d",
+			 (int)bounds.size.width, (int)bounds.size.height);
+
+	// Update your Metal layer/viewport here if necessary
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size
