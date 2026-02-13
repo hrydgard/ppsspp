@@ -338,26 +338,26 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			// Can't use the SSE shuffle here because it takes an immediate. pshufb with a table would work though,
 			// or a big switch - there are only 256 shuffles possible (4^4)
 			float temp[4];
-			for (int i = 0; i < 4; i++)
-				temp[i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
-			const int dest = inst->dest;
-			for (int i = 0; i < 4; i++)
+			for (u32 i = 0; i < 4; i++)
+				temp[i] = mips->f[(u32)inst->src1 + (u32)((inst->src2 >> (i * 2)) & 3)];
+			const u32 dest = inst->dest;
+			for (u32 i = 0; i < 4; i++)
 				mips->f[dest + i] = temp[i];
 			break;
 		}
 
 		case IROp::Vec4Blend:
 		{
-			const int dest = inst->dest;
-			const int src1 = inst->src1;
-			const int src2 = inst->src2;
-			const int constant = inst->constant;
+			const u32 dest = inst->dest;
+			const u32 src1 = inst->src1;
+			const u32 src2 = inst->src2;
+			const u32 constant = inst->constant;
 			// 90% of calls to this is inst->constant == 7 or inst->constant == 8. Some are 1 and 4, others very rare.
 			// Could use _mm_blendv_ps (SSE4+BMI), vbslq_f32 (ARM), __riscv_vmerge_vvm (RISC-V)
 			float temp[4];
-			for (int i = 0; i < 4; i++)
+			for (u32 i = 0; i < 4; i++)
 				temp[i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
-			for (int i = 0; i < 4; i++)
+			for (u32 i = 0; i < 4; i++)
 				mips->f[dest + i] = temp[i];
 			break;
 		}
@@ -468,10 +468,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Unpack16To31:
 		{
-			const int dest = inst->dest;
-			const int src1 = inst->src1;
-			const int temp0 = (mips->fi[src1] << 16) >> 1;
-			const int temp1 = (mips->fi[src1] & 0xFFFF0000) >> 1;
+			const u32 dest = inst->dest;
+			const u32 src1 = inst->src1;
+			const u32 temp0 = (mips->fi[src1] << 16) >> 1;
+			const u32 temp1 = (mips->fi[src1] & 0xFFFF0000) >> 1;
 			mips->fi[dest] = temp0;
 			mips->fi[dest + 1] = temp1;
 			break;
@@ -479,10 +479,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Unpack16To32:
 		{
-			const int dest = inst->dest;
-			const int src1 = inst->src1;
-			const int temp0 = (mips->fi[src1] << 16);
-			const int temp1 = (mips->fi[src1] & 0xFFFF0000);
+			const u32 dest = inst->dest;
+			const u32 src1 = inst->src1;
+			const u32 temp0 = (mips->fi[src1] << 16);
+			const u32 temp1 = (mips->fi[src1] & 0xFFFF0000);
 			mips->fi[dest] = temp0;
 			mips->fi[dest + 1] = temp1;
 			break;
@@ -513,16 +513,15 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Vec2Pack32To16:
 		{
 			u32 val = mips->fi[inst->src1] >> 16;
-			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF0000) | val;
+			mips->fi[inst->dest] = (mips->fi[(u32)inst->src1 + 1] & 0xFFFF0000) | val;
 			break;
 		}
 
 		case IROp::Vec2Pack31To16:
 		{
 			// Used in Tekken 6
-
 			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
-			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
+			val |= (mips->fi[(u32)inst->src1 + 1] << 1) & 0xFFFF0000;
 			mips->fi[inst->dest] = val;
 			break;
 		}
@@ -531,10 +530,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
-			u32 val = mips->fi[inst->src1] >> 24;
-			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
-			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
-			val |= (mips->fi[inst->src1 + 3]) & 0xFF000000;
+			u32 val = mips->fi[(u32)inst->src1] >> 24;
+			val |= (mips->fi[(u32)inst->src1 + 1] >> 16) & 0xFF00;
+			val |= (mips->fi[(u32)inst->src1 + 2] >> 8) & 0xFF0000;
+			val |= (mips->fi[(u32)inst->src1 + 3]) & 0xFF000000;
 			mips->fi[inst->dest] = val;
 			break;
 		}
@@ -553,21 +552,21 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			uint8x8_t halvedAgain = vshrn_n_u16(vcombine_u16(halved, vdup_n_u16(0)), 8);
 			mips->fi[inst->dest] = vget_lane_u32(vreinterpret_u32_u8(halvedAgain), 0);
 #else
-			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
-			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
-			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
-			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
-			mips->fi[inst->dest] = val;
+			u32 val = (mips->fi[(u32)inst->src1] >> 23) & 0xFF;
+			val |= (mips->fi[(u32)inst->src1 + 1] >> 15) & 0xFF00;
+			val |= (mips->fi[(u32)inst->src1 + 2] >> 7) & 0xFF0000;
+			val |= (mips->fi[(u32)inst->src1 + 3] << 1) & 0xFF000000;
+			mips->fi[(u32)inst->dest] = val;
 #endif
 			break;
 		}
 
 		case IROp::Vec2ClampToZero:
 		{
-			const u32 temp0 = mips->fi[inst->src1];
-			const u32 temp1 = mips->fi[inst->src1 + 1];
-			mips->fi[inst->dest] = (int)temp0 >= 0 ? temp0 : 0;
-			mips->fi[inst->dest + 1] = (int)temp1 >= 0 ? temp1 : 0;
+			const u32 temp0 = mips->fi[(u32)inst->src1];
+			const u32 temp1 = mips->fi[(u32)inst->src1 + 1];
+			mips->fi[(u32)inst->dest] = (int)temp0 >= 0 ? temp0 : 0;
+			mips->fi[(u32)inst->dest + 1] = (int)temp1 >= 0 ? temp1 : 0;
 			break;
 		}
 
@@ -667,10 +666,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			// Not quickly implementable on all platforms, unfortunately.
 			// Though, this is still pretty fast compared to one split into multiple IR instructions.
 			// This might be good though: https://gist.github.com/rikusalminen/3040241
-			float dot = mips->f[inst->src1] * mips->f[inst->src2];
-			for (int i = 1; i < 4; i++)
-				dot += mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
-			mips->f[inst->dest] = dot;
+			const float *a = &mips->f[(u32)inst->src1];
+			const float *b = &mips->f[(u32)inst->src2];
+			mips->f[inst->dest] = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
 			break;
 		}
 
