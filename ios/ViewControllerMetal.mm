@@ -1,6 +1,5 @@
 #import "AppDelegate.h"
 #import "ViewControllerMetal.h"
-#import "DisplayManager.h"
 #import "iOSCoreAudio.h"
 
 #include "Common/Log.h"
@@ -296,7 +295,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+	[self updateResolution:[UIScreen mainScreen]];
 }
 
 - (void)willResignActive {
@@ -340,8 +339,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	[super viewDidLoad];
 	[self hideKeyboard];
 
-	[[DisplayManager shared] setupDisplayListener];
-
 	INFO_LOG(Log::System, "Metal viewDidLoad");
 
 	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
@@ -352,7 +349,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	graphicsContext = new IOSVulkanContext();
 
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+	[self updateResolution:[UIScreen mainScreen]];
 
 	if (!graphicsContext->InitAPI()) {
 		_assert_msg_(false, "Failed to init Vulkan");
@@ -403,7 +400,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 		// Reinitialize graphics context to match new size
 		[self requestExitVulkanRenderLoop];
 		[self runVulkanRenderLoop];
-		[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+		[self updateResolution:[UIScreen mainScreen]];
 	}];
 }
 

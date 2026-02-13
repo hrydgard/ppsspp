@@ -1371,8 +1371,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/AppDelegate.h
 		ios/SceneDelegate.mm
 		ios/SceneDelegate.h
-		ios/DisplayManager.h
-		ios/DisplayManager.mm
 		ios/Controls.h
 		ios/Controls.mm
 		ios/ViewControllerCommon.h
@@ -1421,7 +1419,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/CameraHelper.mm
 		ios/AudioEngine.mm
 		ios/LocationHelper.mm
-		ios/DisplayManager.mm
 		ios/Controls.mm
 		UI/DarwinFileSystemServices.mm
 		Common/Battery/AppleBatteryClient.m

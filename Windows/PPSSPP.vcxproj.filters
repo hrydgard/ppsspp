@@ -433,9 +433,6 @@
     <ClInclude Include="..\ios\PPSSPPUIApplication.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
-    <ClInclude Include="..\ios\DisplayManager.h">
-      <Filter>Other Platforms\iOS</Filter>
-    </ClInclude>
     <ClInclude Include="..\ios\AppDelegate.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
@@ -687,9 +684,6 @@
       <Filter>Other Platforms\iOS</Filter>
     </None>
     <None Include="..\ios\CameraHelper.mm">
-      <Filter>Other Platforms\iOS</Filter>
-    </None>
-    <None Include="..\ios\DisplayManager.mm">
       <Filter>Other Platforms\iOS</Filter>
     </None>
     <None Include="..\ios\iOSCoreAudio.mm">
