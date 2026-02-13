@@ -86,11 +86,7 @@ void IAPScreen::CreateViews() {
 					WARN_LOG(Log::System, "Purchase failed or cancelled!");
 				});
 			} else {
-#if PPSSPP_PLATFORM(ANDROID)
-				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
-#else
-				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
-#endif
+				LaunchPlayStoreOrWebsiteGold();
 			}
 		});
 	}
@@ -124,4 +120,12 @@ void IAPScreen::CreateViews() {
 		});
 		rightColumnItems->Add(restorePurchases);
 	}
+}
+
+void LaunchPlayStoreOrWebsiteGold() {
+#if PPSSPP_PLATFORM(ANDROID)
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
+#else
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
+#endif
 }

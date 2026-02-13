@@ -1604,7 +1604,11 @@ void LaunchBuyGold(ScreenManager *screenManager) {
 	if (System_GetPropertyBool(SYSPROP_USE_IAP)) {
 		screenManager->push(new IAPScreen(true));
 	} else if (System_GetPropertyBool(SYSPROP_USE_APP_STORE)) {
+#if PPSSPP_PLATFORM(ANDROID)
+		LaunchPlayStoreOrWebsiteGold();
+#else
 		screenManager->push(new IAPScreen(false));
+#endif
 	} else {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");

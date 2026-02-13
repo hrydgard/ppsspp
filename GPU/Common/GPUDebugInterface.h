@@ -122,6 +122,7 @@ struct GPUDebugBuffer {
 		height_ = other.height_;
 		stride_ = other.stride_;
 		flipped_ = other.flipped_;
+		isBackBuffer_ = other.isBackBuffer_;
 		fmt_ = other.fmt_;
 		other.alloc_ = false;
 		other.data_ = nullptr;
@@ -131,7 +132,7 @@ struct GPUDebugBuffer {
 		Free();
 	}
 
-	GPUDebugBuffer &operator = (GPUDebugBuffer &&other) noexcept {
+	GPUDebugBuffer &operator =(GPUDebugBuffer &&other) noexcept {
 		if (this != &other) {
 			Free();
 			alloc_ = other.alloc_;
@@ -140,6 +141,7 @@ struct GPUDebugBuffer {
 			stride_ = other.stride_;
 			flipped_ = other.flipped_;
 			fmt_ = other.fmt_;
+			isBackBuffer_ = other.isBackBuffer_;
 			other.alloc_ = false;
 			other.data_ = nullptr;
 		}

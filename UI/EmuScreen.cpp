@@ -863,9 +863,6 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 		}
 		break;
-	case VIRTKEY_SCREENSHOT:
-		TakeUserScreenshot();
-		break;
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
@@ -894,6 +891,10 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
 		// running in the background of the menu.
 		pauseTrigger_ = true;
+		break;
+
+	case VIRTKEY_SCREENSHOT:
+		TakeUserScreenshot();
 		break;
 
 	case VIRTKEY_TOGGLE_DEBUGGER:
