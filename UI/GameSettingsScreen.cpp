@@ -164,8 +164,6 @@ GameSettingsScreen::~GameSettingsScreen() {
 
 	System_Notify(SystemNotification::UI);
 
-	KeyMap::UpdateNativeMenuKeys();
-
 	// Wipe some caches after potentially changing settings.
 	// Let's not send resize messages here, handled elsewhere.
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
@@ -1466,7 +1464,10 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	static const char *timeFormat[] = { "24HR", "12HR" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 0, ARRAY_SIZE(timeFormat), I18NCat::SYSTEM, screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, ARRAY_SIZE(buttonPref), I18NCat::SYSTEM, screenManager()));
+	PopupMultiChoice *buttonPrefChoice = systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, ARRAY_SIZE(buttonPref), I18NCat::SYSTEM, screenManager()));
+	buttonPrefChoice->OnChoice.Add([](UI::EventParams &e) {
+		KeyMap::UpdateNativeMenuKeys();
+	});
 
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	systemSettings->Add(new ItemHeader(sy->T("Recording")));

@@ -167,6 +167,7 @@ ReportScreen::ReportScreen(const Path &gamePath)
 }
 
 ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
+	Path screenshotPath = GetSysDirectory(DIRECTORY_SCREENSHOT) / ".reporting.jpg";
 	if ((mode & ScreenRenderMode::TOP) && !tookScreenshot_ && !g_Config.bSkipBufferEffects) {
 		// We do this in PreRender because we need it to be before the main render pass.
 		// We could do it mid-frame, but then we have to reapply viewport/scissor.
@@ -174,7 +175,7 @@ ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
 		if (!File::Exists(path)) {
 			File::CreateDir(path);
 		}
-		screenshotFilename_ = path / ".reporting.jpg";
+		screenshotFilename_ = screenshotPath;
 		ScheduleScreenshot(screenshotFilename_, ScreenshotFormat::JPG, ScreenshotType::Display, 4, [this](ScreenshotResult result) {
 			if (result == ScreenshotResult::Success) {
 				// Redo the views already, now with a screenshot included.
@@ -184,8 +185,15 @@ ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
 				screenshotFilename_.clear();
 			}
 		});
+
 		tookScreenshot_ = true;
+	} else if (g_Config.bSkipBufferEffects && !tookScreenshot_) {
+		// Delete a leftover screenshot if we didn't take one now.
+		File::Delete(screenshotPath);
+		tookScreenshot_ = true;
+		screenshotFilename_.clear();
 	}
+
 	return ScreenRenderFlags::NONE;
 }
 

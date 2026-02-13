@@ -289,66 +289,29 @@ bool IsDPadKey(const KeyInput &key) {
 }
 
 bool IsAcceptKey(const KeyInput &key) {
-	if (confirmKeys.empty()) {
-		// This path is pretty much not used, confirmKeys should be set.
-		// TODO: Get rid of this stuff?
-		if (key.deviceId == DEVICE_ID_KEYBOARD) {
-			return key.keyCode == NKCODE_SPACE || key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_Z || key.keyCode == NKCODE_NUMPAD_ENTER;
-		} else {
-			return key.keyCode == NKCODE_BUTTON_A || key.keyCode == NKCODE_BUTTON_CROSS || key.keyCode == NKCODE_BUTTON_1 || key.keyCode == NKCODE_DPAD_CENTER;
-		}
-	} else {
-		return MatchesKeyDef(confirmKeys, key);
-	}
+	_dbg_assert_(!confirmKeys.empty());
+	return MatchesKeyDef(confirmKeys, key);
 }
 
 bool IsEscapeKey(const KeyInput &key) {
-	if (cancelKeys.empty()) {
-		// This path is pretty much not used, cancelKeys should be set.
-		// TODO: Get rid of this stuff?
-		if (key.deviceId == DEVICE_ID_KEYBOARD) {
-			return key.keyCode == NKCODE_ESCAPE || key.keyCode == NKCODE_BACK;
-		} else {
-			return key.keyCode == NKCODE_BUTTON_CIRCLE || key.keyCode == NKCODE_BUTTON_B || key.keyCode == NKCODE_BUTTON_2;
-		}
-	} else {
-		return MatchesKeyDef(cancelKeys, key);
-	}
+	_dbg_assert_(!cancelKeys.empty());
+	return MatchesKeyDef(cancelKeys, key);
 }
 
 // Corresponds to Triangle
 bool IsInfoKey(const KeyInput &key) {
-	if (infoKeys.empty()) {
-		// This path is pretty much not used, infoKeys should be set.
-		// TODO: Get rid of this stuff?
-		if (key.deviceId == DEVICE_ID_KEYBOARD) {
-			return key.keyCode == NKCODE_S || key.keyCode == NKCODE_NUMPAD_ADD;
-		} else {
-			return key.keyCode == NKCODE_BUTTON_Y || key.keyCode == NKCODE_BUTTON_3;
-		}
-	} else {
-		return MatchesKeyDef(infoKeys, key);
-	}
+	_dbg_assert_(!infoKeys.empty());
+	return MatchesKeyDef(infoKeys, key);
 }
 
 bool IsTabLeftKey(const KeyInput &key) {
-	if (tabLeftKeys.empty()) {
-		// This path is pretty much not used, tabLeftKeys should be set.
-		// TODO: Get rid of this stuff?
-		return key.keyCode == NKCODE_BUTTON_L1;
-	} else {
-		return MatchesKeyDef(tabLeftKeys, key);
-	}
+	_dbg_assert_(!tabLeftKeys.empty());
+	return MatchesKeyDef(tabLeftKeys, key);
 }
 
 bool IsTabRightKey(const KeyInput &key) {
-	if (tabRightKeys.empty()) {
-		// This path is pretty much not used, tabRightKeys should be set.
-		// TODO: Get rid of this stuff?
-		return key.keyCode == NKCODE_BUTTON_R1;
-	} else {
-		return MatchesKeyDef(tabRightKeys, key);
-	}
+	_dbg_assert_(!tabRightKeys.empty());
+	return MatchesKeyDef(tabRightKeys, key);
 }
 
 bool Clickable::Key(const KeyInput &key) {

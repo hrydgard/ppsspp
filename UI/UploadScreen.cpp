@@ -6,6 +6,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/I18n.h"
 #include "Core/WebServer.h"
+#include "Core/Util/PathUtil.h"
 #include "UI/UploadScreen.h"
 #include "UI/MiscViews.h"
 
@@ -33,7 +34,7 @@ void UploadScreen::CreateDialogViews(UI::ViewGroup *root) {
 	LinearLayout *container = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(500, FILL_PARENT, 0.0f, UI::Gravity::G_HCENTER, Margins(10)));
 	root->Add(container);
 
-	container->Add(new TextWithImage(ImageID("I_FOLDER_UPLOAD"), targetFolder_.ToVisualString()));
+	container->Add(new TextWithImage(ImageID("I_FOLDER_UPLOAD"), GetFriendlyPath(targetFolder_)));
 	container->Add(new Spacer(20.0f));
 
 	if (prevRunning_) {

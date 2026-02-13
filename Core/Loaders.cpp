@@ -344,7 +344,7 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 	FileLoader *loadedFile = ConstructFileLoader(filepath);
 
 	if (!loadedFile || !loadedFile->Exists()) {
-		error = loadedFile ? (loadedFile->GetPath().ToVisualString() + " doesn't exist") : "no loaded file";
+		error = loadedFile ? (GetFriendlyPath(loadedFile->GetPath()) + " doesn't exist") : "no loaded file";
 		delete loadedFile;
 		return false;
 	}

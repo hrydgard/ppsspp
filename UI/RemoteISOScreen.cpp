@@ -328,7 +328,7 @@ void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 	if ((RemoteISOShareType)g_Config.iRemoteISOShareType == RemoteISOShareType::RECENT) {
 		tab->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	} else {
-		tab->Add(new TextView(std::string(ri->T("Share Games (Server)")) + ": " + Path(g_Config.sRemoteISOSharedDir).ToVisualString(), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		tab->Add(new TextView(std::string(ri->T("Share Games (Server)")) + ": " + GetFriendlyPath(Path(g_Config.sRemoteISOSharedDir)), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	}
 	tab->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_ = tab->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));

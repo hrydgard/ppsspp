@@ -36,6 +36,7 @@
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/WebServer.h"
+#include "Core/Util/PathUtil.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DevScreens.h"
@@ -654,7 +655,7 @@ void DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 		} else {
 			// Can't do much here, let's send a "toast" so the user sees that something happened.
 			auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-			System_Toast((generatedFilename.ToVisualString() + ": " + dev->T_cstr("Texture ini file created")).c_str());
+			System_Toast((GetFriendlyPath(generatedFilename) + ": " + dev->T_cstr("Texture ini file created")).c_str());
 		}
 
 		hasTexturesIni_ = HasIni::YES;

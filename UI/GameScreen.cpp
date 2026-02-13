@@ -567,7 +567,7 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string prompt;
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
-		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
+		prompt += "\n\n" + GetFriendlyPath(gamePath_);
 		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 		Path gamePath = gamePath_;
 		ScreenManager *sm = screenManager();
