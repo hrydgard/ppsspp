@@ -320,7 +320,7 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 			}
 		}
 	}
-
+	rotated.SetIsBackbuffer(buf.IsBackBuffer());
 	return rotated;
 }
 
@@ -340,29 +340,31 @@ bool ScreenshotNotifyEndOfFrame(Draw::DrawContext *draw) {
 		return false;
 	}
 
+	_dbg_assert_(draw);
+
 	GPUDebugBuffer buf;
 	if (g_display.rotation != DisplayRotation::ROTATE_0) {
-		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
 		if (!::GetOutputFramebuffer(draw, temp)) {
 			g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
 			g_pendingScreenshot = {};
 			return false;
 		}
+		_dbg_assert_msg_(temp.IsBackBuffer(), "temp isn't backbuffer??");
 		buf = ApplyRotation(temp, g_display.rotation);
 	} else {
-		_dbg_assert_(draw);
-		if (!GetOutputFramebuffer(draw, buf)) {
+		if (!::GetOutputFramebuffer(draw, buf)) {
 			g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
 			g_pendingScreenshot = {};
 			return false;
 		}
 	}
-
-	_dbg_assert_(buf.IsBackBuffer());
+	_dbg_assert_msg_(buf.IsBackBuffer(), "buf isn't backbuffer?? rotation: %d", g_display.rotation);
 	const int w = buf.GetStride();
 	const int h = buf.GetHeight();
 	SaveScreenshotAsync(std::move(buf), w, h, g_pendingScreenshot.maxRes);
+	// Wipe the screenshot state.
+	g_pendingScreenshot = {};
 	return true;
 }
 
@@ -398,6 +400,8 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 	}
 
 	SaveScreenshotAsync(std::move(buf), w, h, g_pendingScreenshot.maxRes);
+	// Wipe the screenshot state.
+	g_pendingScreenshot = {};
 	return true;
 }
 

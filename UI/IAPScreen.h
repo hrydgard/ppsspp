@@ -16,3 +16,5 @@ private:
 	// This screen can also be used to direct to Play Store purchases, for example.
 	bool useIAP_ = false;
 };
+
+void LaunchPlayStoreOrWebsiteGold();
