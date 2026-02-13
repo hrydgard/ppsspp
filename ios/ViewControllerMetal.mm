@@ -294,8 +294,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
+	[self updateResolutionWithView:self.view];
 	[self runVulkanRenderLoop];
-	[self updateResolution:[UIScreen mainScreen]];
 }
 
 - (void)willResignActive {
@@ -345,7 +345,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	graphicsContext = new IOSVulkanContext();
 
-	[self updateResolution:[UIScreen mainScreen]];
+	[self updateResolutionWithView:self.view];
 
 	if (!graphicsContext->InitAPI()) {
 		_assert_msg_(false, "Failed to init Vulkan");
@@ -365,7 +365,14 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
 	INFO_LOG(Log::G3D, "viewWillAppear");
-	self.view.contentScaleFactor = UIScreen.mainScreen.nativeScale;
+	// This is to make sure we get 1:1 pixels.
+	UIWindowScene *scene = self.view.window.windowScene;
+	if (scene) {
+		self.view.contentScaleFactor = scene.screen.nativeScale;
+	}
+	if (@available(iOS 16.0, *)) {
+        [self setNeedsUpdateOfSupportedInterfaceOrientations];
+    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -407,8 +414,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 		NSLog(@"Rotation finished");
 		// Reinitialize graphics context to match new size
 		[self requestExitVulkanRenderLoop];
+		[self updateResolutionWithView:self.view];
 		[self runVulkanRenderLoop];
-		[self updateResolution:[UIScreen mainScreen]];
 	}];
 }
 

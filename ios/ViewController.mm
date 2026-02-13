@@ -313,8 +313,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	INFO_LOG(Log::System, "didBecomeActive begin");
 
+	[self updateResolutionWithView:self.view];
 	[self runGLRenderLoop];
-	[self updateResolution:[UIScreen mainScreen]];
 
 	INFO_LOG(Log::System, "didBecomeActive end");
 
@@ -383,8 +383,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		NSLog(@"Rotation finished");
 		// Reinitialize graphics context to match new size
 		[self requestExitGLRenderLoop];
+		[self updateResolutionWithView:self.view];
 		[self runGLRenderLoop];
-		[self updateResolution:[UIScreen mainScreen]];
 	}];
 }
 

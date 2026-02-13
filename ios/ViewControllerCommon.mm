@@ -442,17 +442,28 @@ extern float g_safeInsetBottom;
 	[self setNeedsStatusBarAppearanceUpdate];
 }
 
-- (void)updateResolution:(UIScreen *)screen {
-	float scale = screen.nativeScale;
-	CGSize size = screen.bounds.size;
+- (void)updateResolutionWithView:(UIView *)view {
+	// 1. Get the scale from the window scene (safest for Metal)
+	CGFloat scale = 1.0;
+	if (view.window.windowScene) {
+		scale = view.window.windowScene.screen.nativeScale;
+	} else {
+		scale = [UITraitCollection currentTraitCollection].displayScale;
+	}
 
+	// 2. Get the ACTUAL bounds of the view (already corrected for orientation)
+	CGSize size = view.bounds.size;
+
+	// Your existing logic
 	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
-
 	const float dpi_scale_x = 240.0f / dpi;
 	const float dpi_scale_y = 240.0f / dpi;
-	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale_x, dpi_scale_y, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
-	[[sharedViewController getView] setContentScaleFactor:scale];
+	g_display.Recalculate(size.width * scale, size.height * scale,
+						 dpi_scale_x, dpi_scale_y,
+						 UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+
+	[view setContentScaleFactor:scale];
 
 	// PSP native resize
 	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
@@ -460,7 +471,8 @@ extern float g_safeInsetBottom;
 
 	NativeResized();
 
-	NSLog(@"Updated display resolution: (%d, %d) @%.1fx", g_display.pixel_xres, g_display.pixel_yres, scale);
+	NSLog(@"Updated display resolution: (%d, %d) @%.1fx",
+		  g_display.pixel_xres, g_display.pixel_yres, (float)scale);
 }
 
 @end
