@@ -108,7 +108,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_WARNING", false},
 	{"I_TRASHCAN", false},
 	{"I_PLUS", false},
-	{"I_MINUS", false}
+	{"I_MINUS", false},
 	{"I_ROTATE_LEFT", true},
 	{"I_ROTATE_RIGHT", true},
 	{"I_ARROW_LEFT", true},
