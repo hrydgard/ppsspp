@@ -437,7 +437,7 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 
 	// TODO: This is synchronous, bad!
 	if (!inGame_ && g_recentFiles.ContainsFile(gamePath_.ToString())) {
-		Choice *removeButton = parent->Add(new Choice(ga->T("Remove From Recent")));
+		Choice *removeButton = parent->Add(new Choice(ga->T("Remove From Recent"), ImageID("I_UNPIN")));
 		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
 
@@ -447,12 +447,12 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 	}
 
 	if (info_->pic1.texture) {
-		Choice *btnSetBackground = parent->Add(new Choice(ga->T("Use background as UI background")));
+		Choice *btnSetBackground = parent->Add(new Choice(ga->T("Use background as UI background"), ImageID("I_DISPLAY")));
 		btnSetBackground->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	}
 
 	if ((knownFlags_ & GameInfoFlags::PARAM_SFO) && System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
-		parent->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Add([this](UI::EventParams &e) {
+		parent->Add(new Choice(ga->T("Create Shortcut"), ImageID("I_SHORTCUT")))->OnClick.Add([this](UI::EventParams &e) {
 			GameInfoFlags hasFlags;
 			std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO, &hasFlags);
 			if (hasFlags & GameInfoFlags::PARAM_SFO) {
