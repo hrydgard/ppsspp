@@ -37,9 +37,9 @@ void Matrix4x4::setViewFrame(const Vec3 &pos, const Vec3 &vRight, const Vec3 &vV
 	yx = vRight.y; yy = vUp.y; yz=vView.y; yw = 0.0f;
 	zx = vRight.z; zy = vUp.z; zz=vView.z; zw = 0.0f;
 
-	wx = -pos * vRight;
-	wy = -pos * vUp;
-	wz = -pos * vView;
+	wx = dot(-pos, vRight);
+	wy = dot(-pos, vUp);
+	wz = dot(-pos, vView);
 	ww = 1.0f;
 }
 
