@@ -495,8 +495,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		overrideShortcutParam = null;
 		shortcutParam = null;
 
+		PackageManager packageManager = getPackageManager();
+		String installerName = getInstallerName(packageManager);
+
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -531,6 +534,25 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		// android.graphics.SurfaceTexture is not available before version 11.
 		mCameraHelper = new CameraHelper(this);
+	}
+
+	@NonNull
+	private static String getInstallerName(PackageManager packageManager) {
+		String installerName;
+		try {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+				installerName = packageManager.getInstallSourceInfo("package name").getInstallingPackageName();
+			else {
+				installerName = packageManager.getInstallerPackageName("package name");
+			}
+			if (installerName == null || installerName.isEmpty()) {
+				installerName = "unknown";
+			}
+		} catch (Exception e) {
+			installerName = "unknown";
+			Log.e(TAG, "Exception while determining installer name");
+		}
+		return installerName;
 	}
 
 	private void updateSustainedPerformanceMode() {

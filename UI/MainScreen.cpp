@@ -1461,6 +1461,42 @@ void MainScreen::CreateViews() {
 	}
 
 	root_->SetTag("mainroot");
+
+	upgradeBar_ = nullptr;
+	if (!g_Config.sUpgradeMessage.empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		Margins margins(0, 0);
+		if (vertical) {
+			margins.bottom = ITEM_HEIGHT;
+		}
+		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
+
+		UI::Margins textMargins(10, 5);
+		UI::Margins buttonMargins(5, 0);
+		UI::Drawable solid(0xFFbd9939);
+		upgradeBar_->SetSpacing(5.0f);
+		upgradeBar_->SetBG(solid);
+		std::string upgradeMessage(di->T("New version of PPSSPP available"));
+		if (!vertical) {
+			// The version only really fits in the horizontal layout.
+			upgradeMessage += ": " + g_Config.sUpgradeVersion;
+		}
+		upgradeBar_->Add(new TextView(upgradeMessage, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
+		upgradeBar_->Add(new Choice(di->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
+		Choice *dismiss = upgradeBar_->Add(new Choice("", ImageID("I_CROSS"), new LinearLayoutParams(buttonMargins)));
+		dismiss->OnClick.Add([this](UI::EventParams &e) {
+			g_Config.DismissUpgrade();
+			g_Config.Save("dismissupgrade");
+			RecreateViews();
+		});
+
+		// Slip in under root_
+		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
+		newRoot->Add(root_);
+		newRoot->Add(upgradeBar_);
+		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		root_ = newRoot;
+	}
 }
 
 bool MainScreen::key(const KeyInput &touch) {
@@ -1484,6 +1520,26 @@ bool MainScreen::key(const KeyInput &touch) {
 
 void MainScreen::OnAllowStorage(UI::EventParams &e) {
 	System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
+}
+
+// See Config::SupportsUpgradeCheck() if you add more platforms.
+void MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(ANDROID)
+	// Go to app store
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
+	} else {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppsspp");
+	}
+#elif PPSSPP_PLATFORM(WINDOWS)
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/download");
+#elif PPSSPP_PLATFORM(IOS_APP_STORE)
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "itms-apps://itunes.apple.com/app/id6496972903");
+#else
+	// Go directly to ppsspp.org and let the user sort it out
+	// (for details and in case downloads doesn't have their platform.)
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
+#endif
 }
 
 void MainScreen::sendMessage(UIMessage message, const char *value) {
