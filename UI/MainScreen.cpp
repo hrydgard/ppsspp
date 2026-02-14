@@ -1465,19 +1465,30 @@ void MainScreen::CreateViews() {
 	upgradeBar_ = nullptr;
 	if (!g_Config.sUpgradeMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		Margins margins(0, 0);
+		if (vertical) {
+			margins.bottom = ITEM_HEIGHT;
+		}
+		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
 
 		UI::Margins textMargins(10, 5);
-		UI::Margins buttonMargins(0, 0);
+		UI::Margins buttonMargins(5, 0);
 		UI::Drawable solid(0xFFbd9939);
+		upgradeBar_->SetSpacing(5.0f);
 		upgradeBar_->SetBG(solid);
-		upgradeBar_->Add(new TextView(ApplySafeSubstitutions("%1: %2", di->T("New version of PPSSPP available"), g_Config.sUpgradeVersion), new LinearLayoutParams(1.0f, textMargins)));
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(WINDOWS)
-		upgradeBar_->Add(new Button(di->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
-#else
-		upgradeBar_->Add(new Button(di->T("Details"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
-#endif
-		upgradeBar_->Add(new Button(di->T("Dismiss"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDismissUpgrade);
+		std::string upgradeMessage(di->T("New version of PPSSPP available"));
+		if (!vertical) {
+			// The version only really fits in the horizontal layout.
+			upgradeMessage += ": " + g_Config.sUpgradeVersion;
+		}
+		upgradeBar_->Add(new TextView(upgradeMessage, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
+		upgradeBar_->Add(new Choice(di->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
+		Choice *dismiss = upgradeBar_->Add(new Choice("", ImageID("I_CROSS"), new LinearLayoutParams(buttonMargins)));
+		dismiss->OnClick.Add([this](UI::EventParams &e) {
+			g_Config.DismissUpgrade();
+			g_Config.Save("dismissupgrade");
+			RecreateViews();
+		});
 
 		// Slip in under root_
 		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
@@ -1529,11 +1540,6 @@ void MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 	// (for details and in case downloads doesn't have their platform.)
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
 #endif
-}
-
-void MainScreen::OnDismissUpgrade(UI::EventParams &e) {
-	g_Config.DismissUpgrade();
-	upgradeBar_->SetVisibility(UI::V_GONE);
 }
 
 void MainScreen::sendMessage(UIMessage message, const char *value) {

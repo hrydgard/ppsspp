@@ -1621,7 +1621,7 @@ bool Config::SupportsUpgradeCheck() const {
 
 #if 0
 // Use for debugging the version check without messing with the server
-#define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
+#define NEW_VERSION_OVERRIDE "v1.100.3-gaaaaaaaaa"
 constexpr int UPDATE_CHECK_FREQ = 1;
 #else
 constexpr int UPDATE_CHECK_FREQ = 5;
@@ -1679,6 +1679,10 @@ void Config::VersionJsonDownloadCompleted(http::Request &download) {
 	std::string version;
 	root.getString("version", &version);
 
+	#ifdef NEW_VERSION_OVERRIDE
+	version = NEW_VERSION_OVERRIDE;
+	#endif
+
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);
 	Version upgrade(version);
@@ -1708,8 +1712,14 @@ void Config::VersionJsonDownloadCompleted(http::Request &download) {
 	}
 }
 
+bool Config::ShowUpgradeReminder() {
+	return !sUpgradeMessage.empty() && !sUpgradeVersion.empty() && sUpgradeVersion != sDismissedVersion;
+}
+
 void Config::DismissUpgrade() {
-	g_Config.sDismissedVersion = g_Config.sUpgradeVersion;
+	INFO_LOG(Log::Loader, "Upgrade dismissed for version %s", sUpgradeVersion.c_str());
+	sDismissedVersion = sUpgradeVersion;
+	sUpgradeMessage.clear();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {

@@ -703,6 +703,7 @@ public:
 	void CheckForUpdate();
 	void VersionJsonDownloadCompleted(http::Request &download);
 	void DismissUpgrade();
+	bool ShowUpgradeReminder();
 
 	void GetReportingInfo(UrlEncoder &data) const;
 
