@@ -65,13 +65,8 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIColorName</key>
-		<string>black</string>
-		<key>UIImageName</key>
-		<string>LaunchIcon</string>
-	</dict>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UILaunchImageFile</key>
 	<string>Default.png</string>
 	<key>UIFileSharingEnabled</key>
