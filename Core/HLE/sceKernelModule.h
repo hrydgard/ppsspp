@@ -240,3 +240,4 @@ void Register_ModuleMgrForKernel();
 
 // Expose for use by KUBridge.
 u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr);
+u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr);
