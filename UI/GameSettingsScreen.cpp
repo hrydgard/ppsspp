@@ -116,7 +116,7 @@ public:
 	SettingHint(std::string_view text)
 		: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)) {
 		SetTextSize(UI::TextSize::Tiny);
-		SetPadding(UI::Margins(14, 0, 0, 8));
+		SetPadding(UI::Margins(14, 0, 12, 8));
 		SetAlign(FLAG_WRAP_TEXT);
 	}
 

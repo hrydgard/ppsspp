@@ -167,6 +167,8 @@ private:
 	bool skipBufferEffects_ = false;  // cached state, fetched once per frame.
 
 	bool isOnTop_ = true;
+
+	uint32_t clearColor_ = 0;
 };
 
 bool MustRunBehind();

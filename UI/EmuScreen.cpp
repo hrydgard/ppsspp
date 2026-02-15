@@ -1693,6 +1693,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	checkPowerDown();
 
 	if (hasVisibleUI()) {
+		if (clearColor_) {
+			// This is used on the exception bluescreen for example.
+			draw->Clear(Draw::Aspect::COLOR_BIT, clearColor_, 0.0f, 0);
+		}
 		cardboardDisableButton_->SetVisibility(displayLayoutConfig.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		renderUI();
 	}
@@ -1721,8 +1725,8 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 
 	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
+	clearColor_ = 0;
 	bool blockedExecution = Achievements::IsBlockingExecution();
-	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		// We process savestates before running the frame.
 		SaveState::Process();
@@ -1762,9 +1766,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			if (info.type != MIPSExceptionType::NONE) {
 				// Clear to blue background screen
 				bool dangerousSettings = !Reporting::IsSupported();
-				clearColor = dangerousSettings ? 0xFF900050 : 0xFF900000;
-				draw->Clear(Draw::Aspect::COLOR_BIT, clearColor, 0.0f, 0);
-				// The info is drawn later in renderUI
+				clearColor_ = dangerousSettings ? 0xFF900050 : 0xFF900000;
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.

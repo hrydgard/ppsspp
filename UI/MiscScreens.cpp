@@ -746,8 +746,8 @@ void CreditsScroller::Draw(UIContext &dc) {
 
 	dc.Begin();
 
-	const Bounds &bounds = bounds_;
-	bounds.Inset(10.f, 10.f);
+	Bounds &bounds = bounds_;
+	bounds = bounds.Inset(10.f, 10.f);
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
 	int contentsHeight = numItems * itemHeight + bounds.h + 200;
