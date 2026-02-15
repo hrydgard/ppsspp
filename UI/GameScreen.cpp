@@ -309,12 +309,13 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 			if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
 				Choice *tvCRCCopy = crcHoriz->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 				tvCRCCopy->OnClick.Add([this](UI::EventParams &) {
+					auto di = GetI18NCategory(I18NCat::DIALOG);
 					u32 crc = Reporting::RetrieveCRC(gamePath_);
 					char buffer[16];
 					snprintf(buffer, sizeof(buffer), "%08X", crc);
 					System_CopyStringToClipboard(buffer);
 					// Success indication. Not worth a translatable string.
-					g_OSD.Show(OSDType::MESSAGE_SUCCESS, buffer, 1.0f);
+					g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), buffer), 1.0f);
 				});
 			}
 

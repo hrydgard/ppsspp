@@ -1059,11 +1059,12 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	if (bullet_) {
 		availWidth -= bulletOffset;
 	}
+	availWidth -= pad_.horiz();
 	const FontStyle *style = GetTextStyle(dc, textSize_);
 	float measuredW;
 	float measuredH;
 	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, availWidth, &measuredW, &measuredH, textAlign_);
-	w = measuredW + pad_.horiz();
+	w = measuredW;
 	h = measuredH + pad_.vert();
 	if (bullet_) {
 		w += bulletOffset;
@@ -1110,11 +1111,13 @@ void TextView::Draw(UIContext &dc) {
 		textBounds.w -= bulletOffset;
 	}
 
+	textBounds = textBounds.Inset(pad_.left, pad_.top, pad_.right, pad_.bottom);
+
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_, textBounds.Offset(1.0f + pad_.left, 1.0f + pad_.top), shadowColor, textAlign_);
+		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textAlign_);
 	}
-	dc.DrawTextRect(text_, textBounds.Offset(pad_.left, pad_.top), textColor, textAlign_);
+	dc.DrawTextRect(text_, textBounds, textColor, textAlign_);
 	if (textSize_ != TextSize::Normal) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.GetTheme().uiFont);
