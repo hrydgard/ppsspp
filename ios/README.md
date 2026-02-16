@@ -1,5 +1,8 @@
 Updating with a self-built MoltenVK
 ===================================
+
+Probably won't be needed again.
+
 cp -r ../dev/build-molten/MoltenVK/Package/Release/MoltenVK/static/MoltenVK.xcframework ios/MoltenVK
 
 The Old iOS Build Instructions
