@@ -187,7 +187,6 @@ private:
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
-	bool ReplaceJalTo(u32 dest);
 
 	u32 GetCompilerPC();
 	// See CompileDelaySlotFlags for flags.

@@ -493,52 +493,6 @@ void Arm64Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	}
 }
 
-bool Arm64Jit::ReplaceJalTo(u32 dest) {
-#if PPSSPP_ARCH(ARM64)
-	const ReplacementTableEntry *entry = nullptr;
-	u32 funcSize = 0;
-	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
-		return false;
-	}
-
-	// Warning - this might be bad if the code at the destination changes...
-	if (entry->flags & REPFLAG_ALLOWINLINE) {
-		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
-		// First, compile the delay slot. It's unconditional so no issues.
-		CompileDelaySlot(DELAYSLOT_NICE);
-		// Technically, we should write the unused return address to RA, but meh.
-		MIPSReplaceFunc repl = entry->jitReplaceFunc;
-		int cycles = (this->*repl)();
-		js.downcountAmount += cycles;
-	} else {
-		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
-		CompileDelaySlot(DELAYSLOT_NICE);
-		FlushAll();
-		SaveStaticRegisters();
-		RestoreRoundingMode();
-		QuickCallFunction(SCRATCH1_64, (const void *)(entry->replaceFunc));
-		ApplyRoundingMode();
-		LoadStaticRegisters();
-		WriteDownCountR(W0);  // W0 is the return value from entry->replaceFunc. Neither LoadStaticRegisters nor ApplyRoundingMode can trash it.
-	}
-
-	js.compilerPC += 4;
-	// No writing exits, keep going!
-
-	if (g_breakpoints.HasMemChecks()) {
-		// We could modify coreState, so we need to write PC and check.
-		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
-		FlushAll();
-		WriteExit(GetCompilerPC() + 4, js.nextExit++);
-		js.compiling = false;
-	}
-
-	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
-#endif
-	return true;
-}
-
 void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 {
 	// We get here if we execute the first instruction of a replaced function. This means

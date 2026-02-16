@@ -212,8 +212,6 @@ private:
 	void MovFromPC(Arm64Gen::ARM64Reg r);
 	void MovToPC(Arm64Gen::ARM64Reg r);
 
-	bool ReplaceJalTo(u32 dest);
-
 	// Clobbers SCRATCH2.
 	void SaveStaticRegisters();
 	// Clobbers SCRATCH2.

@@ -213,8 +213,6 @@ private:
 	void MovFromPC(ArmGen::ARMReg r);
 	void MovToPC(ArmGen::ARMReg r);
 
-	bool ReplaceJalTo(u32 dest);
-
 	void SaveDowncount();
 	void RestoreDowncount();
 

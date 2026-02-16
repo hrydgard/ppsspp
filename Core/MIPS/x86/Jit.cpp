@@ -538,51 +538,6 @@ void Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	}
 }
 
-bool Jit::ReplaceJalTo(u32 dest) {
-	const ReplacementTableEntry *entry = nullptr;
-	u32 funcSize = 0;
-	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
-		return false;
-	}
-
-	// Warning - this might be bad if the code at the destination changes...
-	if (entry->flags & REPFLAG_ALLOWINLINE) {
-		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
-
-		// First, compile the delay slot. It's unconditional so no issues.
-		CompileDelaySlot(DELAYSLOT_NICE);
-		// Technically, we should write the unused return address to RA, but meh.
-		MIPSReplaceFunc repl = entry->jitReplaceFunc;
-		int cycles = (this->*repl)();
-		js.downcountAmount += cycles;
-	} else {
-		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
-		CompileDelaySlot(DELAYSLOT_NICE);
-		FlushAll();
-		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
-		RestoreRoundingMode();
-		ABI_CallFunction(entry->replaceFunc);
-		SUB(32, MIPSSTATE_VAR(downcount), R(EAX));
-		ApplyRoundingMode();
-	}
-
-	js.compilerPC += 4;
-	// No writing exits, keep going!
-
-	if (g_breakpoints.HasMemChecks()) {
-		// We could modify coreState, so we need to write PC and check.
-		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
-		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
-		js.afterOp |= JitState::AFTER_CORE_STATE;
-	}
-
-	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
-	return true;
-}
-
-
-
 void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 	// We get here if we execute the first instruction of a replaced function. This means
 	// that we do need to return to RA.
