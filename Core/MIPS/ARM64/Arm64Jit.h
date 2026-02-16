@@ -201,7 +201,6 @@ private:
 	u32 GetCompilerPC();
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteDownCount(int offset = 0, bool updateFlags = true);

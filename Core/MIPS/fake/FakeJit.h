@@ -53,7 +53,6 @@ public:
 
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 
 	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;

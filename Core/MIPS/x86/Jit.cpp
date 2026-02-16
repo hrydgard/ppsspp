@@ -429,22 +429,7 @@ void Jit::DoJit(u32 em_address, JitBlock *b) {
 	NOP();
 	AlignCode4();
 
-	if (js.lastContinuedPC == 0) {
-		b->originalSize = js.numInstructions;
-	} else {
-		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
-		b->originalSize = js.initialBlockSize;
-	}
-}
-
-void Jit::AddContinuedBlock(u32 dest) {
-	// The first block is the root block.  When we continue, we create proxy blocks after that.
-	if (js.lastContinuedPC == 0)
-		js.initialBlockSize = js.numInstructions;
-	else
-		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
-	js.lastContinuedPC = dest;
+	b->originalSize = js.numInstructions;
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {

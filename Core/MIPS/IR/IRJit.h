@@ -185,7 +185,7 @@ public:
 #endif
 	}
 	void ComputeStats(BlockCacheStats &bcStats) const override;
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+	int GetBlockNumberFromStartAddress(u32 em_address) const override;
 
 	bool SupportsProfiling() const override {
 #ifdef IR_PROFILING
