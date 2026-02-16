@@ -1603,6 +1603,11 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 				outOfDateFrames_++;
 			} else if (res == VK_SUBOPTIMAL_KHR) {
 				outOfDateFrames_++;
+			} else if (res == VK_ERROR_SURFACE_LOST_KHR) {
+				_dbg_assert_msg_(false, "vkQueuePresentKHR failed with VK_ERROR_SURFACE_LOST_KHR! result=%s", VulkanResultToString(res));
+				// Can't really do anything about this here, but let's try to continue anyway, maybe the app is in the process of being switched
+				// away from on Android or something.
+				outOfDateFrames_++;
 			} else if (res != VK_SUCCESS) {
 				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
 			} else {
