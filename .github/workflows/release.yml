@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/i686-linux-android \
+            /usr/share/swift /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          df -h
+
+      - name: Check valid version tags
+        id: valid-tags
+        run: echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Fetch upstream tags
+        if: steps.valid-tags.outputs.count == '0'
+        run: |
+          git remote add upstream https://github.com/hrydgard/ppsspp.git
+          git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Decode keystore
+        run: echo "${{ secrets.SIGNING_KEY }}" | tr -d '\n\r ' | base64 -d > /tmp/release.jks
+
+      - name: Build & sign release APK
+        run: |
+          ./gradlew assembleNormalRelease \
+            -PRELEASE_STORE_FILE=/tmp/release.jks \
+            -PRELEASE_STORE_PASSWORD="${{ secrets.KEY_STORE_PASSWORD }}" \
+            -PRELEASE_KEY_ALIAS="${{ secrets.ALIAS }}" \
+            -PRELEASE_KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+
+      - name: Rename APK
+        run: |
+          APK=$(find android/build -name '*.apk' -path '*/normal/release/*' | head -1)
+          mv "$APK" ppsspp-lnk-${{ github.ref_name }}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PPSSPP Lnk ${{ github.ref_name }}
+          body: ""
+          files: ppsspp-lnk-${{ github.ref_name }}.apk
+          draft: true
+          prerelease: false

@@ -50,11 +50,11 @@ val gitVersionName = buildString {
 	if (isDirty) append("-dirty")
 }
 
-val gitVersionCode =
+val gitVersionCode = maxOf(1,
 	major * 100_000_000 +
 		minor * 1000_000 +
 		patch * 10_000 +
-		commitsSinceTag
+		commitsSinceTag)
 
 dependencies {
 	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
@@ -114,7 +114,7 @@ android {
 	}
 
 	defaultConfig {
-		applicationId = "org.ppsspp.ppsspp"
+		applicationId = "org.ppsspp.ppsspplnk"
 		// Access the git version info via the extension
 		if (gitVersionName != "unknown") {
 			println("INFO: Overriding Android Version Name, Code: $gitVersionName $gitVersionCode")
@@ -186,7 +186,7 @@ android {
 	}
 	productFlavors {
 		create("normal") {
-			applicationId = "org.ppsspp.ppsspp"
+			applicationId = "org.ppsspp.ppsspplnk"
 			dimension = "variant"
 			externalNativeBuild {
 				cmake {
