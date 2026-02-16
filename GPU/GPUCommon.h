@@ -70,9 +70,6 @@ public:
 
 	virtual void UpdateCmdInfo() = 0;
 
-	virtual bool IsStarted() {
-		return true;
-	}
 	virtual void Reinitialize();
 
 	virtual void BeginHostFrame(const DisplayLayoutConfig &config);

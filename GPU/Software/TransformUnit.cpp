@@ -53,10 +53,6 @@ TransformUnit::~TransformUnit() {
 	delete binner_;
 }
 
-bool TransformUnit::IsStarted() {
-	return binner_ && decoded_;
-}
-
 SoftwareDrawEngine::SoftwareDrawEngine() {
 	flushOnParams_ = false;
 }
