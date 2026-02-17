@@ -196,7 +196,6 @@
     <ClInclude Include="..\..\Common\LogReporting.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
-    <ClInclude Include="..\..\Common\MipsEmitter.h" />
     <ClInclude Include="..\..\Common\RiscVEmitter.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
@@ -369,8 +368,6 @@
     <ClCompile Include="..\..\Common\MemArenaPosix.cpp" />
     <ClCompile Include="..\..\Common\MemArenaWin32.cpp" />
     <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
-    <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
-    <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
     <ClCompile Include="..\..\Common\RiscVEmitter.cpp" />
     <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
