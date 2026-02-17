@@ -1239,7 +1239,7 @@ public:
 		dc.DrawText(versionString,
 			bounds_.x + iconImg->w + 8,
 			bounds_.y + logoImg->h + (tiny ? 8 : 6),
-			dc.GetTheme().itemStyle.fgColor);
+			dc.GetTheme().infoStyle.fgColor);
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 	}
 
