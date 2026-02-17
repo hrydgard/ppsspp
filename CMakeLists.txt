@@ -594,13 +594,6 @@ set(CommonARM64
 )
 source_group(ARM64 FILES ${CommonARM64})
 
-set(CommonMIPS
-	Common/MipsCPUDetect.cpp
-	Common/MipsEmitter.cpp
-	Common/MipsEmitter.h
-)
-source_group(MIPS FILES ${CommonMIPS})
-
 set(CommonRISCV64
 	${CommonJIT}
 	Common/RiscVCPUDetect.cpp
@@ -654,7 +647,6 @@ add_library(Common STATIC
 	${CommonX86}
 	${CommonARM}
 	${CommonARM64}
-	${CommonMIPS}
 	${CommonRISCV64}
 	${CommonLOONGARCH64}
 	${CommonD3D}

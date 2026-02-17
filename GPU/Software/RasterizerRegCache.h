@@ -41,8 +41,6 @@
 #include "Common/Arm64Emitter.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/x64Emitter.h"
-#elif PPSSPP_ARCH(MIPS)
-#include "Common/MipsEmitter.h"
 #elif PPSSPP_ARCH(RISCV64)
 #include "Common/RiscVEmitter.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
@@ -61,8 +59,6 @@ typedef ArmGen::ARMXCodeBlock BaseCodeBlock;
 typedef Arm64Gen::ARM64CodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 typedef Gen::XCodeBlock BaseCodeBlock;
-#elif PPSSPP_ARCH(MIPS)
-typedef MIPSGen::MIPSCodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(RISCV64)
 typedef RiscVGen::RiscVCodeBlock BaseCodeBlock;
 #elif PPSSPP_ARCH(LOONGARCH64) 
