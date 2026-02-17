@@ -623,7 +623,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		restartArgs = param1;
 		if (!restartArgs.empty())
 			AddDebugRestartArgs();
-		if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
+		if (false) {  // This doesn't really work anymore: System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
 			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;
