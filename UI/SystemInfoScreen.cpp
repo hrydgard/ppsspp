@@ -68,7 +68,7 @@ static void CopySummaryToClipboard(Draw::DrawContext *draw) {
 	System_CopyStringToClipboard(summary);
 	delete[] summary;
 
-	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")));
+	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")), 0.0f, "copyToClip");
 }
 
 void SystemInfoScreen::CreateTabs() {

@@ -214,7 +214,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		std::string configStr = g_Config.GetConfigAsString();
 		if (!configStr.empty()) {
 			System_CopyStringToClipboard(configStr);
-			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 1.0f);
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 0.0f, "copyToClip");
 		}
 	});
 }
