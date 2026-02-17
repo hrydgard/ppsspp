@@ -163,7 +163,7 @@ public:
 	IRNativeBlockCacheDebugInterface(const MIPSComp::IRBlockCache &irBlocks);
 	void Init(const IRNativeBackend *backend);
 	int GetNumBlocks() const override;
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+	int GetBlockNumberFromStartAddress(u32 em_address) const override;
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
 	JitBlockMeta GetBlockMeta(int blockNum) const override;
 	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override;

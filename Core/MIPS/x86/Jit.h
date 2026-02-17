@@ -187,7 +187,6 @@ private:
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
-	bool ReplaceJalTo(u32 dest);
 
 	u32 GetCompilerPC();
 	// See CompileDelaySlotFlags for flags.
@@ -196,7 +195,6 @@ private:
 		CompileDelaySlot(flags, &state);
 	}
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteExit(u32 destination, int exit_num);
@@ -268,22 +266,6 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
-	bool CanContinueJump(u32 targetAddr) {
-		if (!jo.continueJumps || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		if (!targetAddr) {
-			return false;
-		}
-		return true;
-	}
-	bool CanContinueImmBranch(u32 targetAddr) {
-		if (!jo.immBranches || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		return true;
-	}
-
 	bool IsAtDispatchFetch(const u8 *codePtr) const override {
 		return codePtr == dispatcherFetch;
 	}

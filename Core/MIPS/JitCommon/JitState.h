@@ -54,7 +54,6 @@ namespace MIPSComp {
 
 		u32 compilerPC;
 		u32 blockStart;
-		u32 lastContinuedPC;
 		u32 initialBlockSize;
 		int nextExit;
 		bool cancel;
@@ -240,8 +239,5 @@ namespace MIPSComp {
 
 		// Common
 		bool enableBlocklink;
-		bool immBranches;
-		bool continueJumps;
-		int continueMaxInstructions;
 	};
 }

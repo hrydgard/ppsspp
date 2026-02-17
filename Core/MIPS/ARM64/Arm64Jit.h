@@ -201,7 +201,6 @@ private:
 	u32 GetCompilerPC();
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteDownCount(int offset = 0, bool updateFlags = true);
@@ -211,8 +210,6 @@ private:
 	void UpdateRoundingMode(u32 fcr31 = -1);
 	void MovFromPC(Arm64Gen::ARM64Reg r);
 	void MovToPC(Arm64Gen::ARM64Reg r);
-
-	bool ReplaceJalTo(u32 dest);
 
 	// Clobbers SCRATCH2.
 	void SaveStaticRegisters();

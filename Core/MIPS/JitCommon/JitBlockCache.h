@@ -76,18 +76,6 @@ struct JitBlock {
 
 	bool invalid;
 	bool linkStatus[MAX_JIT_BLOCK_EXITS];
-
-	// By having a pointer, we avoid a constructor/destructor call being generated if unused,
-	// thus avoiding dog slow performance in debug build.
-	std::vector<u32> *proxyFor;
-
-	bool IsPureProxy() const {
-		return originalFirstOpcode.encoding == 0x68FF0000;
-	}
-	void SetPureProxy() {
-		// Magic number that won't be a real opcode.
-		originalFirstOpcode.encoding = 0x68FF0000;
-	}
 };
 
 typedef void (*CompiledCode)();
@@ -114,7 +102,7 @@ struct JitBlockMeta {
 class JitBlockCacheDebugInterface {
 public:
 	virtual int GetNumBlocks() const = 0;
-	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
+	virtual int GetBlockNumberFromStartAddress(u32 em_address) const = 0;
 	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0; // Expensive
 	virtual JitBlockMeta GetBlockMeta(int blockNum) const = 0;
 	virtual JitBlockProfileStats GetBlockProfileStats(int blockNum) const = 0;
@@ -131,8 +119,6 @@ public:
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);
-	// When a proxy block is invalidated, the block located at the rootAddress is invalidated too.
-	void CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
@@ -148,7 +134,7 @@ public:
 	const JitBlock *GetBlock(int no) const { return &blocks_[no]; }
 
 	// Fast way to get a block. Only works on the first source-cpu instruction of a block.
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+	int GetBlockNumberFromStartAddress(u32 em_address) const override;
 
 	// slower, but can get numbers from within blocks, not just the first instruction.
 	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
@@ -210,7 +196,6 @@ private:
 
 	CodeBlockCommon *codeBlock_;
 	JitBlock *blocks_ = nullptr;
-	std::unordered_multimap<u32, int> proxyBlockMap_;
 
 	int num_blocks_ = 0;
 	std::unordered_multimap<u32, int> links_to_;
@@ -222,7 +207,7 @@ private:
 		JITBLOCK_RANGE_RAMTOP = 2,
 		JITBLOCK_RANGE_COUNT = 3,
 	};
-	std::pair<u32, u32> blockMemRanges_[3];
+	std::pair<u32, u32> blockMemRanges_[JITBLOCK_RANGE_COUNT];
 
 	enum {
 		// Where does this number come from?

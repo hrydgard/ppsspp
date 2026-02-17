@@ -202,7 +202,6 @@ private:
 	u32 GetCompilerPC();
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteDownCount(int offset = 0);
@@ -212,8 +211,6 @@ private:
 	void UpdateRoundingMode(u32 fcr31 = -1);
 	void MovFromPC(ArmGen::ARMReg r);
 	void MovToPC(ArmGen::ARMReg r);
-
-	bool ReplaceJalTo(u32 dest);
 
 	void SaveDowncount();
 	void RestoreDowncount();
