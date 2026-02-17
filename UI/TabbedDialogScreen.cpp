@@ -31,7 +31,7 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 
 		if (dialogFlags & TabDialogFlags::AddAutoTitles) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
-			contents->Add(new PaneTitleBar(gamePath, cachedTitle, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			contents->Add(new PaneTitleBar(gamePath, cachedTitle, ""));
 		}
 
 		createCallback(contents);
