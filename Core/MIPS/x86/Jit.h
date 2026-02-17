@@ -180,6 +180,8 @@ public:
 	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
+	const u8 *GetCodeBase() const override { return GetCodePtr(); }
+
 private:
 	void GenerateFixedCode(JitOptions &jo);
 	void GetStateAndFlushAll(RegCacheState &state);
@@ -307,4 +309,3 @@ private:
 };
 
 }	// namespace MIPSComp
-
