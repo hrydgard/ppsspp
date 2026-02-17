@@ -410,9 +410,22 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	u32 tableOffset_, tableSize_;
 
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
+	if (psarOffset >= fileLoader_->FileSize() - 256) {
+		errorString_ = "Unexpected psarOffset";
+		return;
+	}
+
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
-	if (readSize != 256){
+	if (readSize != 256) {
 		errorString_ = "Invalid NPUMDIMG header!";
+		return;
+	}
+
+	// Check np_header
+	if (memcmp(np_header, "NPUMDIMG", 8) != 0) {
+		// This is not something we can deal with here. Might be an oversized/misdetected
+		// regular PBP.
+		errorString_ = "Not a NPDRM PBP ISO";
 		return;
 	}
 
@@ -446,10 +459,10 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
 	u32 lbaEnd   = *(u32*)(np_header+0x64); // LBA end
-	lbaSize_     = (lbaEnd-lbaStart+1);     // LBA size of ISO
+	lbaSize_     = (lbaEnd - lbaStart + 1); // LBA size of ISO
 	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
-	char psarStr[5] = {};
+	char psarStr[5]{};
 	memcpy(psarStr, &psar_id, 4);
 
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
@@ -462,12 +475,16 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	}
 
 	blockSize_ = blockLBAs_ * 2048;
-	numBlocks_ = (lbaSize_ + blockLBAs_-1) / blockLBAs_; // total blocks;
+	numBlocks_ = (lbaSize_ + blockLBAs_ - 1) / blockLBAs_; // total blocks;
 
 	blockBuf_ = new u8[blockSize_];
 	tempBuf_  = new u8[blockSize_];
 
-	tableOffset_ = *(u32*)(np_header+0x6c); // table offset
+	tableOffset_ = *(u32*)(np_header + 0x6c); // table offset
+	if (tableOffset_ > fileLoader_->FileSize()) {
+		errorString_ = "Invalid table offset";
+		return;
+	}
 
 	tableSize_ = numBlocks_ * 32;
 	table_ = new table_info[numBlocks_];
@@ -480,7 +497,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 *p = (u32*)table_;
 	u32 i, k0, k1, k2, k3;
-	for (i=0; i<numBlocks_; i++){
+	for (i = 0; i < numBlocks_; i++){
 		k0 = p[0]^p[1];
 		k1 = p[1]^p[2];
 		k2 = p[0]^p[3];

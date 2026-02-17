@@ -315,7 +315,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 					snprintf(buffer, sizeof(buffer), "%08X", crc);
 					System_CopyStringToClipboard(buffer);
 					// Success indication. Not worth a translatable string.
-					g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), buffer), 1.0f);
+					g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), buffer), 0.0f, "copyToClip");
 				});
 			}
 

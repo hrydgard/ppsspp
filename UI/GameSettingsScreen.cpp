@@ -122,6 +122,7 @@ public:
 
 	void Draw(UIContext &dc) override {
 		UI::Style style = dc.GetTheme().itemStyle;
+		SetTextColor(style.fgColor);  // bit hacky but works
 		dc.FillRect(style.background, bounds_);
 		UI::TextView::Draw(dc);
 	}

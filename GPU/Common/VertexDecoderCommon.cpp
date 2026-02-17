@@ -255,7 +255,6 @@ void VertexDecoder::Step_WeightsFloat(const VertexDecoder *dec, const u8 *ptr, u
 }
 
 void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
-	memset(skinMatrix, 0, sizeof(skinMatrix));
 	const int count = nweights;
 #if PPSSPP_ARCH(SSE2)
 	__m128 skin0 = _mm_setzero_ps();
@@ -290,6 +289,7 @@ void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
 	vst1q_f32(skinMatrix + 4, skin1);
 	vst1q_f32(skinMatrix + 8, skin2);
 #else
+	memset(skinMatrix, 0, sizeof(skinMatrix));
 	for (int j = 0; j < count; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
 		if (weights[j] != 0.0f) {
@@ -1466,8 +1466,8 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const u8 *startPtr, const UVScal
 		u8 *decoded = decodedptr;
 		prescaleUV_ = uvScaleOffset;
 		// Interpret the decode steps
+		const int steps = numSteps_;
 		for (; count; count--) {
-			const int steps = numSteps_;
 			for (int i = 0; i < steps; i++) {
 				steps_[i](this, ptr, decoded);
 			}
