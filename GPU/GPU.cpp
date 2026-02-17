@@ -44,14 +44,6 @@ GPUDebugInterface *gpuDebug;
 #endif
 
 static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
-#if PPSSPP_PLATFORM(UWP)
-	// TODO: Can probably remove this special case.
-	if (gpuCore == GPUCORE_SOFTWARE) {
-		return new SoftGPU(ctx, draw);
-	} else {
-		return new GPU_D3D11(ctx, draw);
-	}
-#else
 	switch (gpuCore) {
 	case GPUCORE_GLES:
 		// Disable GLES on ARM Windows (but leave it enabled on other ARM platforms).
@@ -68,7 +60,7 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 #else
 		return nullptr;
 #endif
-#if !PPSSPP_PLATFORM(SWITCH)
+#if !PPSSPP_PLATFORM(SWITCH) && !PPSSPP_PLATFORM(UWP)
 	case GPUCORE_VULKAN:
 		if (!ctx) {
 			// Can this happen?
@@ -80,23 +72,16 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 	default:
 		return nullptr;
 	}
-#endif
 }
 
 bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
 	_dbg_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
+	_dbg_assert_(!gpu);
+
 	GPUCommon *createdGPU = CreateGPUCore(gpuCore, ctx, draw);
 
-	// This can happen on some memory allocation failure, but can probably just be ignored in practice.
-	if (createdGPU && !createdGPU->IsStarted()) {
-		delete createdGPU;
-		createdGPU = nullptr;
-	}
-
-	if (createdGPU) {
-		gpu = createdGPU;
-		gpuDebug = createdGPU;
-	}
+	gpu = createdGPU;
+	gpuDebug = createdGPU;
 
 	return gpu != nullptr;
 }

@@ -1284,6 +1284,15 @@ void Config::ReadAllSettings(const IniFile &iniFile) {
 	}
 }
 
+std::string Config::GetConfigAsString() {
+	Config::Save("beforecopy");
+	std::string temp;
+	if (File::ReadTextFileToString(iniFilename_, &temp)) {
+		return temp;
+	}
+	return "";
+}
+
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	double startTime = time_now_d();
 

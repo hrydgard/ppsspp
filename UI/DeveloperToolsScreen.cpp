@@ -206,6 +206,17 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 #if PPSSPP_PLATFORM(IOS)
 	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
 #endif
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	// Reuse strings to the max, heh.
+	list->Add(new Choice(ApplySafeSubstitutions("%1: ppsspp.ini", di->T("Copy to clipboard"))))->OnClick.Add([=](UI::EventParams &) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::string configStr = g_Config.GetConfigAsString();
+		if (!configStr.empty()) {
+			System_CopyStringToClipboard(configStr);
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 1.0f);
+		}
+	});
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {

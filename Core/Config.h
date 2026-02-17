@@ -685,6 +685,9 @@ public:
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
 
+	// For bug reporting
+	std::string GetConfigAsString();
+
 	// Note: This doesn't switch to the config, just creates it.
 	bool CreateGameConfig(std::string_view gameId);
 	bool DeleteGameConfig(std::string_view gameId);

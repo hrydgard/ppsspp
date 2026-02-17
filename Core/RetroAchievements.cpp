@@ -623,8 +623,14 @@ static void load_integration_callback(int result, const char *error_message, rc_
 
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
-		_dbg_assert_(!g_rcClient);
 		INFO_LOG(Log::Achievements, "Achievements are disabled, not initializing.");
+		if (g_rcClient) {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+			rc_client_unload_raintegration(g_rcClient);
+#endif
+			rc_client_destroy(g_rcClient);
+			g_rcClient = nullptr;
+		}
 		return;
 	}
 	if (g_rcClient) {
