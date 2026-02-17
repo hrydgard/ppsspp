@@ -314,9 +314,12 @@ void Jit::Compile(u32 em_address) {
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeJit");
 	DoJit(em_address, b);
-	b->DoIntegrityCheck(em_address, block_num);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeFinalize");
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
+	_dbg_assert_(js.nextExit <= 2);
 
 	EndWrite();
 

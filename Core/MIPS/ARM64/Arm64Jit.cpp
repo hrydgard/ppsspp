@@ -255,10 +255,13 @@ void Arm64Jit::Compile(u32 em_address) {
 	// and disable parts of the jit using jo.disableFlags for certain ranges of blocks.
 
 	JitBlock *b = blocks.GetBlock(block_num);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeDoJit");
 	DoJit(em_address, b);
-	b->DoIntegrityCheck(em_address, block_num);
-	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeFinalize");
+	blocks.FinalizeBlock(em_address, block_num, jo.enableBlocklink);
+	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
 	EndWrite();
+	_dbg_assert_(js.nextExit <= 2);
 
 	// Don't forget to zap the newly written instructions in the instruction cache!
 	FlushIcache();
