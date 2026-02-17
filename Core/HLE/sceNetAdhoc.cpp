@@ -573,6 +573,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 			if (next_size > *req.length) {
 				// next is larger than current buffer
 				result = SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
+				*req.length = next_size;
 				return 0;
 			}
 			ret = pdp_recv_postoffice(req.id - 1, req.remoteMAC, req.remotePort, req.buffer, req.length);
@@ -2301,6 +2302,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 						}
 						if (next_size > *len) {
 							// next is larger than current buffer
+							*len = next_size;
 							return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
 						}
 						received = pdp_recv_postoffice(id - 1, saddr, sport, buf, len);
