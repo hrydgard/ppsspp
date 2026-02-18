@@ -96,7 +96,7 @@ namespace
 		return result == dataSize;
 	}
 
-	PSPFileInfo FileFromListing(const std::vector<PSPFileInfo> &listing, const std::string &filename) {
+	static PSPFileInfo FileFromListing(const std::vector<PSPFileInfo> &listing, std::string_view filename) {
 		for (const PSPFileInfo &sub : listing) {
 			if (sub.name == filename)
 				return sub;
@@ -1426,12 +1426,12 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 		s64 writeBytes = 0;
 		for (int i = 0; i < param->sizeInfo->numNormalEntries; ++i) {
 			const auto &entry = param->sizeInfo->normalEntries[i];
-			overwriteBytes += FileFromListing(listing, entry.name).size;
+			overwriteBytes += FileFromListing(listing, StringViewFromFixedSizeField(entry.name)).size;
 			writeBytes += entry.size;
 		}
 		for (int i = 0; i < param->sizeInfo->numSecureEntries; ++i) {
 			const auto &entry = param->sizeInfo->secureEntries[i];
-			overwriteBytes += FileFromListing(listing, entry.name).size;
+			overwriteBytes += FileFromListing(listing, StringViewFromFixedSizeField(entry.name)).size;
 			writeBytes += entry.size + 0x10;
 		}
 
