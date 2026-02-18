@@ -266,31 +266,22 @@ std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param,
 	return GetSaveFilePath(param, GetSaveDir(param, saveId));
 }
 
-inline static std::string FixedToString(const char *str, size_t n)
-{
-	if (!str) {
-		return std::string();
-	} else {
-		return std::string(str, strnlen(str, n));
-	}
-}
-
 std::string SavedataParam::GetGameName(const SceUtilitySavedataParam *param) const
 {
-	return FixedToString(param->gameName, ARRAY_SIZE(param->gameName));
+	return std::string(StringViewFromFixedSizeField(param->gameName));
 }
 
 std::string SavedataParam::GetSaveName(const SceUtilitySavedataParam *param) const
 {
-	const std::string saveName = FixedToString(param->saveName, ARRAY_SIZE(param->saveName));
+	const std::string_view saveName = StringViewFromFixedSizeField(param->saveName);
 	if (saveName == "<>")
 		return "";
-	return saveName;
+	return std::string(saveName);
 }
 
 std::string SavedataParam::GetFileName(const SceUtilitySavedataParam *param) const
 {
-	return FixedToString(param->fileName, ARRAY_SIZE(param->fileName));
+	return std::string(StringViewFromFixedSizeField(param->fileName));
 }
 
 std::string SavedataParam::GetKey(const SceUtilitySavedataParam *param) const
@@ -507,9 +498,9 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	// Update values. NOTE! #18430 made this conditional on !subWrite, but this is not correct, as it causes #18687.
 	// So now we do a hacky trick and just check for a valid title before we proceed with updating the sfoFile.
 	if (strnlen(param->sfoParam.title, sizeof(param->sfoParam.title)) > 0) {
-		sfoFile->SetValue("TITLE", param->sfoParam.title, 128);
-		sfoFile->SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
-		sfoFile->SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
+		sfoFile->SetValue("TITLE", StringViewFromFixedSizeField(param->sfoParam.title), 128);
+		sfoFile->SetValue("SAVEDATA_TITLE", StringViewFromFixedSizeField(param->sfoParam.savedataTitle), 128);
+		sfoFile->SetValue("SAVEDATA_DETAIL", StringViewFromFixedSizeField(param->sfoParam.detail), 1024);
 		sfoFile->SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
 		sfoFile->SetValue("CATEGORY", "MS", 4);
 		sfoFile->SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
@@ -598,28 +589,24 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	}
 
 	// SAVE ICON0
-	if (param->icon0FileData.buf.IsValid())
-	{
+	if (param->icon0FileData.buf.IsValid()) {
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
 		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.size);
 	}
 	// SAVE ICON1
-	if (param->icon1FileData.buf.IsValid())
-	{
+	if (param->icon1FileData.buf.IsValid()) {
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
 		if (param->icon1FileData.size > 0) {
 			WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.size);
 		}
 	}
 	// SAVE PIC1
-	if (param->pic1FileData.buf.IsValid())
-	{
+	if (param->pic1FileData.buf.IsValid()) {
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
 		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.size);
 	}
 	// Save SND
-	if (param->snd0FileData.buf.IsValid())
-	{
+	if (param->snd0FileData.buf.IsValid()) {
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
 		if (param->snd0FileData.size > 0) {
 			WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
@@ -1592,7 +1579,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					continue;
 				}
 
-				const std::string thisSaveName = FixedToString(saveNameListData[i], ARRAY_SIZE(saveNameListData[i]));
+				const std::string thisSaveName(StringViewFromFixedSizeField(saveNameListData[i]));
 
 				const std::string folderName = gameName + thisSaveName;
 
