@@ -21,6 +21,7 @@
 #include <string_view>
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -779,5 +780,23 @@ std::string CreateRandMAC();
 extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
 
-extern const std::vector<std::string_view> defaultProAdhocServerList;
+enum class AdhocDataMode {
+	P2P = 0,
+	AemuPostoffice,
+};
 
+struct AdhocServerListEntry{
+	std::string name = "";
+	std::string hostname = "";
+	std::string community_link = "";
+	std::string location = "";
+	std::string note = "";
+	AdhocDataMode mode = AdhocDataMode::P2P;
+};
+
+extern const std::vector<AdhocServerListEntry> defaultProAdhocServerList;
+
+extern std::mutex downloadedProAdhocServerListMutex;
+extern std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
+
+AdhocDataMode getAdhocServerDataMode(std::string &server);

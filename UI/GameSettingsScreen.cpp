@@ -1058,7 +1058,13 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc server")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new HostnameSelectScreen(&g_Config.sProAdhocServer, &g_Config.proAdhocServerList, n->T("proAdhocServer Address:")));
+		auto list_to_use = defaultProAdhocServerList;
+		downloadedProAdhocServerListMutex.lock();
+		if (downloadedProAdhocServerList.size() != 0) {
+			list_to_use = downloadedProAdhocServerList;
+		}
+		downloadedProAdhocServerListMutex.unlock();
+		screenManager()->push(new HostnameSelectScreen(&g_Config.sProAdhocServer, list_to_use, n->T("proAdhocServer Address:")));
 	});
 	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
 
@@ -1879,9 +1885,10 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
 
 	std::vector<std::string> listIP;
-	if (listItems_) {
-		listIP = *listItems_;
+	for (const auto &item : listItems_) {
+		listIP.push_back(item.hostname);
 	}
+
 	// Add non-editable items
 	listIP.push_back("localhost");
 	net::GetLocalIP4List(listIP);
