@@ -115,7 +115,7 @@ private:
 class HostnameSelectScreen : public UI::PopupScreen {
 public:
 	HostnameSelectScreen(std::string *value, std::vector<std::string> *listItems, std::string_view title)
-		: UI::PopupScreen(title, "OK", "Cancel"), listItems_(listItems), value_(value) {
+		: UI::PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), listItems_(listItems), value_(value) {
 		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
 			thiz->ResolverThread();
 		}, this);
