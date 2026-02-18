@@ -85,12 +85,21 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		// Check if we already know that this game isn't playable.
 		auto info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE);
 
-		if (info->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+		switch (info->fileType) {
+		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 			// We show info about it.
 			screenManager->push(new GameScreen(path, false));
 			return;
+		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
+		{
+			// Show the savedata popup, why not?
+			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
+			screenManager->push(new SavedataPopupScreen(Path(), path, title));
+			return;
 		}
-
+		default:
+			break;
+		}
 		if (currentScreen) {
 			screenManager->cancelScreensAbove(currentScreen);
 		}
@@ -398,9 +407,14 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	if (gridStyle_ && g_Config.bShowIDOnGameIcon && ginfo->fileType != IdentifiedFileType::PSP_ELF && !ginfo->id_version.empty()) {
+		std::string_view idStr = ginfo->id_version;
+		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+			auto ga = GetI18NCategory(I18NCat::GAME);
+			idStr = ga->T("SaveData");
+		}
 		dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
-		dc.DrawText(ginfo->id_version, bounds_.x + 5, y + 1, 0xFF000000, ALIGN_TOPLEFT);
-		dc.DrawText(ginfo->id_version, bounds_.x + 4, y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
+		dc.DrawText(idStr, bounds_.x + 5, y + 1, 0xFF000000, ALIGN_TOPLEFT);
+		dc.DrawText(idStr, bounds_.x + 4, y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 
@@ -1728,6 +1742,11 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	} else if (tag == "Upload") {
 		// Files may have been uploaded.
 		RecreateViews();
+	} else if (tag == "SavedataPopup") {
+		// We must have come from the file browser tab.
+		if (gameBrowsers_.size() >= 2) {
+			gameBrowsers_[1]->RequestRefresh();
+		}
 	}
 }
 

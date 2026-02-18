@@ -132,75 +132,63 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 	}
 }
 
-class SavedataPopupScreen : public UI::PopupScreen {
-public:
-	SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) { }
+SavedataPopupScreen::SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) {}
 
-	const char *tag() const override { return "SavedataPopup"; }
-	void update() override {
-		PopupScreen::update();
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
-		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
-			// Hm, this is no good. But hopefully the previous screen loaded it.
-			return;
-		}
-		if (savedataView_) {
-			savedataView_->UpdateGame(ginfo.get());
-		}
+void SavedataPopupScreen::update() {
+	PopupScreen::update();
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		// Hm, this is no good. But hopefully the previous screen loaded it.
+		return;
+	}
+	if (savedataView_) {
+		savedataView_->UpdateGame(ginfo.get());
+	}
+}
+
+void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		// This is OK, handled in Update. Though most likely, the previous screen loaded it.
 	}
 
-	void CreatePopupContents(UI::ViewGroup *parent) override {
-		using namespace UI;
-		UIContext &dc = *screenManager()->getUIContext();
+	ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(0, 3)));
+	parent->Add(contentScroll);
 
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
-		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
-			// This is OK, handled in Update. Though most likely, the previous screen loaded it.
-		}
+	// TODO: If the game info wasn't already loaded, we'll get a bogus fileType here.
+	savedataView_ = contentScroll->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
 
-		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(0, 3)));
-		parent->Add(contentScroll);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		// TODO: If the game info wasn't already loaded, we'll get a bogus fileType here.
-		savedataView_ = contentScroll->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
+	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	buttonRow->SetSpacing(0);
+	Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
 
+	buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 
-		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		buttonRow->SetSpacing(0);
-		Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
+		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 
-		buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
-
-			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
-
-			std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
-			screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
-				if (result) {
-					ginfo->Delete();
-					TriggerFinish(DR_NO);
-				}
-			}));
+		std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
+		screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
+			if (result) {
+				ginfo->Delete();
+				TriggerFinish(DR_NO);
+			}
+		}));
+	});
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+			System_ShowFileInFolder(savePath_);
 		});
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
-				System_ShowFileInFolder(savePath_);
-			});
-		}
-		parent->Add(buttonRow);
 	}
-
-protected:
-	UI::Size PopupWidth() const override { return 600; }
-
-private:
-	SavedataView *savedataView_ = nullptr;
-	Path savePath_;
-	Path gamePath_;
-};
+	parent->Add(buttonRow);
+}
 
 class SortedLinearLayout : public UI::LinearLayoutList {
 public:
