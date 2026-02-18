@@ -393,7 +393,6 @@ void PSPDpad::ProcessTouch(float x, float y, bool down, bool ignorePress) {
 	if (down) {
 		if (fourWay) {
 			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 4) + 0.5f)) & 3;
-			printf("%f, %f ", dy, dx);
 			switch (direction) {
 			case 0: ctrlMask = CTRL_RIGHT; break;
 			case 1: ctrlMask = CTRL_DOWN; break;
