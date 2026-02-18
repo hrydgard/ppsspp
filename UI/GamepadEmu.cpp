@@ -95,15 +95,18 @@ GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layou
 static void rotateTouchHelper(float &dx, float &dy) {
 	// rotates dx and dy depending on rotation count
 	// modified from controlmapper.cpp
+	if (!g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+		return;
+	}
 	int rotations = 0;
 	switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
 	case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
 	}
-	for (int i=0; i<rotations; i++) {
+	for (int i = 0; i < rotations; i ++) {
 		float tempVal = dx;
-		dx = -dy;
+		dx = - dy;
 		dy = tempVal;
 	}
 }
@@ -442,17 +445,19 @@ void PSPDpad::Draw(UIContext &dc) {
 		return;
 	// from control mapper.cpp
 	int rotations = 0;
-	switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
-	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
-	case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
-	case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
+	if (g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+		switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+		case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
+		case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
+		case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
+		}
 	}
 	static const float xoff[4] = {1, 0, -1, 0};
 	static const float yoff[4] = {0, 1, 0, -1};
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
-	int rotatedDir[4];
 	// shitfs right by amount of rotations (accounts for overflow)
-	for (int i=0; i<4; i++) {
+	int rotatedDir[4];
+	for (int i = 0; i < 4; i ++) {
 		rotatedDir[i] = dir[(i+rotations)%4];
 	}
 	int buttons = __CtrlPeekButtons();
