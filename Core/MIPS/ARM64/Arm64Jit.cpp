@@ -249,16 +249,16 @@ void Arm64Jit::Compile(u32 em_address) {
 
 	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
 
-	int block_num = blocks.AllocateBlock(em_address);
 
 	// To debug really wacky JIT issues, it can be a good idea to bisect the block number,
 	// and disable parts of the jit using jo.disableFlags for certain ranges of blocks.
 
+	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	b->DoIntegrityCheck(em_address, block_num, "BeforeDoJit");
 	DoJit(em_address, b);
 	b->DoIntegrityCheck(em_address, block_num, "BeforeFinalize");
-	blocks.FinalizeBlock(em_address, block_num, jo.enableBlocklink);
+	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
 	EndWrite();
 	_dbg_assert_(js.nextExit <= 2);
@@ -283,6 +283,7 @@ void Arm64Jit::Compile(u32 em_address) {
 		// Let's try that one more time.  We won't get back here because we toggled the value.
 		js.startDefaultPrefix = false;
 		// TODO ARM64: This crashes.
+		// TODO: Really? Need to fix that in such a case. Wonder what games are affected.
 		//cleanSlate = true;
 	}
 

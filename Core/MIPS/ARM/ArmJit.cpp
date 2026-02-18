@@ -259,9 +259,9 @@ void ArmJit::Compile(u32 em_address) {
 	b->DoIntegrityCheck(em_address, block_num, "BeforeFinalize");
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
-	_dbg_assert_(js.nextExit <= 2);
-
 	EndWrite();
+
+	_dbg_assert_(js.nextExit <= 2);
 
 	bool cleanSlate = false;
 
