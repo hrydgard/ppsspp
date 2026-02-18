@@ -136,6 +136,11 @@ inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
 }
 
+template<size_t Count>
+inline std::string_view StringViewFromFixedSizeField(const char(&field)[Count]) {
+	return std::string_view(field, strnlen(field, Count));
+}
+
 inline std::string join(std::string_view a, std::string_view b) {
 	std::string result;
 	result.reserve(a.size() + b.size());
