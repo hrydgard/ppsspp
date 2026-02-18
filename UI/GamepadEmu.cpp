@@ -92,6 +92,25 @@ static u32 GetButtonColor() {
 
 GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
+static void rotateTouchHelper(float &dx, float &dy) {
+	// rotates dx and dy depending on rotation count
+	// modified from controlmapper.cpp
+	if (!g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+		return;
+	}
+	int rotations = 0;
+	switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
+	case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
+	case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
+	}
+	for (int i = 0; i < rotations; i ++) {
+		float tempVal = dx;
+		dx = - dy;
+		dy = tempVal;
+	}
+}
+
 std::string GamepadComponent::DescribeText() const {
 	return key_;
 }
@@ -368,6 +387,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down, bool ignorePress) {
 	float dx = (x - bounds_.centerX()) * inv_stick_size;
 	float dy = (y - bounds_.centerY()) * inv_stick_size;
 	float rad = sqrtf(dx * dx + dy * dy);
+	rotateTouchHelper(dx, dy);
 	if (!g_Config.bStickyTouchDPad && (rad < deadzone || fabs(dx) > 0.5f || fabs(dy) > 0.5))
 		down = false;
 
@@ -423,15 +443,27 @@ void PSPDpad::Draw(UIContext &dc) {
 	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
-
+	// from control mapper.cpp
+	int rotations = 0;
+	if (g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+		switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+		case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
+		case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
+		case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
+		}
+	}
 	static const float xoff[4] = {1, 0, -1, 0};
 	static const float yoff[4] = {0, 1, 0, -1};
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
+	// shitfs right by amount of rotations (accounts for overflow)
+	int rotatedDir[4];
+	for (int i = 0; i < 4; i ++) {
+		rotatedDir[i] = dir[(i+rotations)%4];
+	}
 	int buttons = __CtrlPeekButtons();
 	float r = D_pad_Radius * spacing_;
 	for (int i = 0; i < 4; i++) {
-		bool isDown = (buttons & dir[i]) != 0;
-
+		bool isDown = (buttons & rotatedDir[i]) != 0;
 		float x = bounds_.centerX() + xoff[i] * r;
 		float y = bounds_.centerY() + yoff[i] * r;
 		float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
@@ -491,6 +523,7 @@ void PSPStick::Draw(UIContext &dc) {
 
 	float dx, dy;
 	__CtrlPeekAnalog(stick_, &dx, &dy);
+	rotateTouchHelper(dx, dy);
 
 	const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
 
@@ -557,6 +590,7 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 
 		float dx = (x - centerX_) * inv_stick_size;
 		float dy = (y - centerY_) * inv_stick_size;
+		rotateTouchHelper(dx, dy);
 		// Do not clamp to a circle! The PSP has nearly square range!
 
 		// Old code to clamp to a circle
