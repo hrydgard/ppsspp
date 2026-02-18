@@ -511,7 +511,7 @@ void GameButton::Draw(UIContext &dc) {
 		};
 		int regionIndex = (int)ginfo->region;
 		if (regionIndex >= (int)GameRegion::FLAG_COUNT || regionIndex < 0) {
-			regionIndex = (int)GameRegion::FLAG_COUNT - 1;
+			regionIndex = (int)GameRegion::UNKNOWN;
 		}
 		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
 		if (image) {
