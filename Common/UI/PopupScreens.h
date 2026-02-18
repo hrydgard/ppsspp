@@ -103,6 +103,9 @@ public:
 	void SetChoiceIcons(const std::map<int, ImageID> &icons) {
 		icons_ = icons;
 	}
+	void SetDefault(int defaultChoice) {
+		adaptor_.SetDefault(defaultChoice);
+	}
 	const char *tag() const override { return "listpopup"; }
 
 	UI::Event OnChoice;
@@ -311,6 +314,9 @@ public:
 	void SetChoiceIcons(std::map<int, ImageID> icons) {
 		icons_ = icons;
 	}
+	void SetDefault(int defaultChoice) {
+		default_ = defaultChoice;
+	}
 
 	UI::Event OnChoice;
 
@@ -345,6 +351,7 @@ private:
 
 	std::function<void(PopupMultiChoice *)> preOpenCallback_;
 	bool callbackExecuted_ = false;
+	int default_ = -99;
 };
 
 // Allows passing in a dynamic vector of strings. Saves the string.
