@@ -28,6 +28,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
 extern "C"
@@ -88,7 +89,7 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 void BlockDevice::NotifyReadError() {
 	if (!reportedError_) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), fileLoader_->GetPath().ToVisualString(), 6.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), GetFriendlyPath(fileLoader_->GetPath()), 6.0f);
 		reportedError_ = true;
 	}
 }
@@ -470,7 +471,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	// When we remove the above assert, let's just try to survive.
 	if (blockLBAs_ > 4096) {
-		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, GetFriendlyPath(fileLoader->GetPath()).c_str(), psarStr);
 		return;
 	}
 
@@ -586,8 +587,6 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	return true;
 }
 
-// static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
-
 struct CHDImpl {
 	chd_file *chd = nullptr;
 	const chd_header *header = nullptr;
@@ -659,6 +658,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
+	// static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
 	if (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0) {
 		chd_header parentHeader;
 
@@ -697,7 +697,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	chd_file *file = nullptr;
 	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
 	if (err != CHDERR_NONE) {
-		errorString_ = StringFromFormat("CHD error: %s", paths[depth].c_str(), chd_error_string(err));
+		errorString_ = StringFromFormat("CHD error: %s: %s", paths[depth].c_str(), chd_error_string(err));
 		return;
 	}
 

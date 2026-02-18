@@ -2085,7 +2085,7 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)
-	: PopupScreen(title, "OK", "Cancel") {}
+	: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")) {}
 
 void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

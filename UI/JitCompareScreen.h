@@ -58,7 +58,7 @@ private:
 
 class AddressPromptScreen : public UI::PopupScreen {
 public:
-	AddressPromptScreen(std::string_view title) : PopupScreen(title, "OK", "Cancel") {}
+	AddressPromptScreen(std::string_view title) : PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")) {}
 
 	const char *tag() const override { return "AddressPrompt"; }
 

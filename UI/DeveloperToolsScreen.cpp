@@ -440,11 +440,11 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	});
 
 	list->Add(new ItemHeader(ac->T("Notifications")));
-	list->Add(new PopupMultiChoice(&g_Config.iNotificationPos, "General notifications", positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
+	list->Add(new PopupMultiChoice(&g_Config.iNotificationPos, sy->T("Notification screen position"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
 	list->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
-	list->Add(new CheckBox(&pretendIngame_, ac->T("Pretend to be in-game (for testing)")));
 
 #ifdef _DEBUG
+	list->Add(new CheckBox(&pretendIngame_, ac->T("Pretend to be in-game (for testing)")));
 	// Untranslated string because this is debug mode only, only for PPSSPP developers.
 	list->Add(new ItemHeader(ac->T("Assert")));
 	list->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {

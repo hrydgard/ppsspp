@@ -146,7 +146,7 @@ private:
 class SliderPopupScreen : public PopupScreen {
 public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, int defaultValue, std::string_view title, int step, std::string_view units, bool liveUpdate)
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	void SetNegativeDisable(const std::string &str) {
@@ -189,7 +189,7 @@ private:
 class SliderFloatPopupScreen : public PopupScreen {
 public:
 	SliderFloatPopupScreen(float *value, float minValue, float maxValue, float defaultValue, std::string_view title, float step = 1.0f, std::string_view units = "", bool liveUpdate = false)
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "SliderFloatPopup"; }
@@ -220,7 +220,7 @@ private:
 class TextEditPopupScreen : public PopupScreen {
 public:
 	TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
-		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	const char *tag() const override { return "TextEditPopup"; }
