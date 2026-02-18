@@ -110,6 +110,10 @@ enum Command {
         pattern: String,
         replacement: Option<String>,
     },
+    SplitKey {
+        section: String,
+        key: String,
+    },
 }
 
 fn copy_missing_lines(
@@ -254,7 +258,9 @@ fn add_new_key(
 ) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         if !overwrite_translated {
-            if let Some(existing_value) = section.get_value(key) && existing_value != key {
+            if let Some(existing_value) = section.get_value(key)
+                && existing_value != key
+            {
                 // This one was already translated. Skip it.
                 println!(
                     "Key '{key}' already has a translated value '{existing_value}', skipping."
@@ -309,7 +315,9 @@ fn fixup_keys(target_ini: IniFile, dry_run: bool) -> io::Result<()> {
         }
 
         for line in &section.lines {
-            if let Some((key, value)) = split_line(line) && key != value {
+            if let Some((key, value)) = split_line(line)
+                && key != value
+            {
                 mismatches.push((key, value));
             }
         }
@@ -526,11 +534,8 @@ fn finish_language_with_ai(
                             } else {
                                 println!();
                             }
-                            if !target_section.set_value(
-                                original_key,
-                                value,
-                                Some("AI translated"),
-                            ) {
+                            if !target_section.set_value(original_key, value, Some("AI translated"))
+                            {
                                 println!("Failed to update '{}'", original_key);
                             }
                         }
@@ -563,6 +568,15 @@ fn apply_regex(
 ) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.apply_regex(key, pattern, replacement);
+    } else {
+        println!("No section {section}");
+    }
+    Ok(())
+}
+
+fn split_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
+    if let Some(section) = target_ini.get_section_mut(section) {
+        section.split_key(key);
     } else {
         println!("No section {section}");
     }
@@ -769,6 +783,12 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                 )
                 .unwrap();
             }
+            Command::SplitKey {
+                ref section,
+                ref key,
+            } => {
+                split_key(&mut target_ini, section, key).unwrap();
+            }
             Command::FinishLanguageWithAI {
                 language: _,
                 section: _,
@@ -833,7 +853,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             Command::AddNewKeyValueAI {
                 ref section,
                 ref key,
-                value: _,  // was translated above
+                value: _, // was translated above
                 extra: _,
                 overwrite_translated,
             } => {
@@ -1033,6 +1053,12 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             ref new,
         } => {
             dupe_key(&mut reference_ini, section, old, new).unwrap();
+        }
+        Command::SplitKey {
+            ref section,
+            ref key,
+        } => {
+            split_key(&mut reference_ini, section, key).unwrap();
         }
         Command::RemoveKey {
             ref section,
