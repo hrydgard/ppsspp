@@ -63,13 +63,13 @@ bool JitBlock::ContainsAddress(u32 address) const {
 	return address >= originalAddress && address < originalAddress + 4 * originalSize;
 }
 
-void JitBlock::DoIntegrityCheck(u32 em_address, int blockNum) const {
-	_assert_msg_(sentinel == SENTINEL_VAL, "Block %d sentinel got corrupted: %08x (origAddr: %08x)", blockNum, sentinel, originalAddress);
-	_assert_msg_(originalAddress == em_address, "Block %d address got corrupted: %08x != %08x", blockNum, em_address, originalAddress);
+void JitBlock::DoIntegrityCheck(u32 emAddress, int num, const char *reason) const {
+	_assert_msg_(emAddress == originalAddress, "%s: Bad orig %08x (expected: %08x, snt: %08x) in block %d (b.num: %d) sz: %d", reason, originalAddress, emAddress, sentinel, num, blockNum, codeSize);
+	// Also alert just if the sentinel got corrupted.
+	_assert_msg_(sentinel == SENTINEL_VAL, "%s: Block %d(%d) sentinel got corrupted: %08x != %08x (origAddr: %08x)", reason, num, blockNum, sentinel, SENTINEL_VAL, originalAddress);
 }
 
-JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
-	codeBlock_(codeBlock) {
+JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) : codeBlock_(codeBlock) {
 }
 
 JitBlockCache::~JitBlockCache() {
@@ -169,7 +169,6 @@ static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
 
 void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	JitBlock &b = blocks_[block_num];
-	_assert_msg_(Memory::IsValidAddress(b.originalAddress), "FinalizeBlock: Bad originalAddress %08x in block %d (b.num: %d) sz: %d", b.originalAddress, block_num, b.blockNum, b.codeSize);
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);

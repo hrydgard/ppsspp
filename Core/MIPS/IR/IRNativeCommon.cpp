@@ -587,6 +587,10 @@ bool IRNativeJit::CodeInRange(const u8 *ptr) const {
 	return backend_->CodeInRange(ptr);
 }
 
+const u8 *IRNativeJit::GetCodeBase() const {
+	return backend_->CodeBlock().GetBasePtr();
+}
+
 bool IRNativeJit::IsAtDispatchFetch(const u8 *ptr) const {
 	return ptr == backend_->GetNativeHooks().dispatchFetch;
 }

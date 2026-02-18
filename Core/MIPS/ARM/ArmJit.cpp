@@ -254,11 +254,14 @@ void ArmJit::Compile(u32 em_address) {
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeJit");
 	DoJit(em_address, b);
-	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeFinalize");
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
-
+	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
 	EndWrite();
+
+	_dbg_assert_(js.nextExit <= 2);
 
 	bool cleanSlate = false;
 

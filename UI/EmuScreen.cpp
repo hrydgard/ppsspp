@@ -743,6 +743,7 @@ static void ShowFpsLimitNotice() {
 	g_OSD.SetFlags("altspeed", OSDMessageFlags::Transparent);
 }
 
+// NOTE: This is unsynchronized! We should have as little as possible in here.
 void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	if (!isOnTop_)
 		return;
@@ -762,21 +763,6 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 			PSP_CoreParameter().fastForward = true;
 		} else {
 			PSP_CoreParameter().fastForward = false;
-		}
-		break;
-
-	case VIRTKEY_SPEED_TOGGLE:
-		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
-			// Cycle through enabled speeds.
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit2 >= 0) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
-			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 || PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-			}
-
-			ShowFpsLimitNotice();
 		}
 		break;
 
@@ -807,56 +793,6 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 
-	case VIRTKEY_RESET_EMULATION:
-		if (down) {
-			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-		}
-		break;
-
-#ifndef MOBILE_DEVICE
-	case VIRTKEY_RECORD:
-		if (down) {
-			if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
-				g_Config.bDumpFrames = !g_Config.bDumpFrames;
-				g_Config.bDumpAudio = !g_Config.bDumpAudio;
-			} else {
-				// This hotkey should always toggle both audio and video together.
-				// So let's make sure that's the only outcome even if video OR audio was already being dumped.
-				if (g_Config.bDumpFrames) {
-					AVIDump::Stop();
-					AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-					g_Config.bDumpAudio = true;
-				} else {
-					WAVDump::Reset();
-					g_Config.bDumpFrames = true;
-				}
-			}
-		}
-		break;
-#endif
-
-	case VIRTKEY_SAVE_STATE:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
-		}
-		break;
-	case VIRTKEY_LOAD_STATE:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
-		}
-		break;
-	case VIRTKEY_PREVIOUS_SLOT:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-			SaveState::PrevSlot();
-			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
-		}
-		break;
-	case VIRTKEY_NEXT_SLOT:
-		if (down && !Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-			SaveState::NextSlot();
-			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
-		}
-		break;
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
@@ -876,6 +812,7 @@ void EmuScreen::ProcessQueuedVKeys() {
 	queuedVirtKeys_.clear();
 }
 
+// Synchronized processing of virtkeys.
 void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
@@ -1076,6 +1013,67 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		}
 		break;
 
+	case VIRTKEY_SPEED_TOGGLE:
+		if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
+			// Cycle through enabled speeds.
+			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
+				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit2 >= 0) {
+				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 || PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
+				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+			}
+
+			ShowFpsLimitNotice();
+		}
+		break;
+
+	case VIRTKEY_RESET_EMULATION:
+		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		break;
+
+#ifndef MOBILE_DEVICE
+	case VIRTKEY_RECORD:
+		if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
+			g_Config.bDumpFrames = !g_Config.bDumpFrames;
+			g_Config.bDumpAudio = !g_Config.bDumpAudio;
+		} else {
+			// This hotkey should always toggle both audio and video together.
+			// So let's make sure that's the only outcome even if video OR audio was already being dumped.
+			if (g_Config.bDumpFrames) {
+				AVIDump::Stop();
+				AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+				g_Config.bDumpAudio = true;
+			} else {
+				WAVDump::Reset();
+				g_Config.bDumpFrames = true;
+			}
+		}
+		break;
+#endif
+
+	case VIRTKEY_SAVE_STATE:
+		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
+			SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+		}
+		break;
+	case VIRTKEY_LOAD_STATE:
+		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
+			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+		}
+		break;
+	case VIRTKEY_PREVIOUS_SLOT:
+		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+			SaveState::PrevSlot();
+			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
+		}
+		break;
+	case VIRTKEY_NEXT_SLOT:
+		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+			SaveState::NextSlot();
+			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
+		}
+		break;
 	default:
 		break;
 	}

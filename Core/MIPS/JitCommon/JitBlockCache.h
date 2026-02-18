@@ -28,11 +28,8 @@
 #include "Common/CodeBlock.h"
 #include "Core/MIPS/MIPS.h"
 
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
+// Can probably reduce to 2 now that block continuation is gone.
 const int MAX_JIT_BLOCK_EXITS = 4;
-#else
-const int MAX_JIT_BLOCK_EXITS = 8;
-#endif
 
 constexpr bool JIT_USE_COMPILEDHASH = true;
 
@@ -56,7 +53,7 @@ enum class DestroyType {
 // Fine to mess with them at block compile time though.
 struct JitBlock {
 	bool ContainsAddress(u32 address) const;
-	void DoIntegrityCheck(u32 emAddress, int blockNum) const;
+	void DoIntegrityCheck(u32 emAddress, int blockNum, const char *reason) const;
 
 	const u8 *checkedEntry;  // const, we have to translate to writable.
 	const u8 *normalEntry;
@@ -118,7 +115,7 @@ public:
 	JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock);
 	~JitBlockCache();
 
-	int AllocateBlock(u32 em_address);
+	int AllocateBlock(u32 emAddress);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
@@ -214,4 +211,3 @@ private:
 		MAX_NUM_BLOCKS = 65536 * 4
 	};
 };
-

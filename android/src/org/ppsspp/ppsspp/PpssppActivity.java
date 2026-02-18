@@ -1731,19 +1731,23 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// Note that these three do not require the VIBRATE Android
 			// permission.
 			if (surfView != null) {
-				switch (milliseconds) {
-					case -1:
-						surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					case -2:
-						surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					case -3:
-						surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					default:
-						// Requires the vibrate permission, which we don't have, so disabled.
-						break;
+				try {
+					switch (milliseconds) {
+						case -1:
+							surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							break;
+						case -2:
+							surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							break;
+						case -3:
+							surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							break;
+						default:
+							// Requires the vibrate permission, which we don't have, so disabled.
+							break;
+					}
+				} catch (Exception e) {
+					// Ignore. Seen these in reporting but don't understand how.
 				}
 			} else {
 				Log.e(TAG, "Can't vibrate, no surface view");

@@ -109,7 +109,7 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 				}
 				const ImGuiTableColumnSortSpecs *spec = &sortSpecs_->Specs[0];
 				int delta = 0;
-				switch (spec->ColumnUserID) {
+				switch (spec ? spec->ColumnUserID : 0) {
 				case 0: delta = (int)a.blockNum - (int)b.blockNum; break;
 				case 1: delta = (int)a.addr - (int)b.addr; break;
 				case 2: delta = a.sizeInBytes - b.sizeInBytes; break;

@@ -196,6 +196,8 @@ public:
 
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
 
+	const u8 *GetCodeBase() const override;
+
 protected:
 	void Init(IRNativeBackend &backend);
 	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) override;

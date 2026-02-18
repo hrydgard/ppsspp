@@ -64,7 +64,6 @@ void JitState::Begin(JitBlock *block) {
 #else
 		enableBlocklink = !Disabled(JitDisable::BLOCKLINK);
 #endif
-
 		useStaticAlloc = false;
 		enablePointerify = false;
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)

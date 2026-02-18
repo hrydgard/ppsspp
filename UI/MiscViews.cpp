@@ -49,7 +49,7 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 	SetSpacing(10.0f);
 	if (!layoutParams) {
 		layoutParams_->width = UI::FILL_PARENT;
-		layoutParams_->height = 64.0f;
+		layoutParams_->height = ITEM_HEIGHT;
 	}
 
 	if (!(flags & TopBarFlags::NoBackButton)) {
@@ -64,7 +64,7 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 
 	if (!title.empty()) {
 		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
-		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
+		titleView->SetTextColor(ctx.GetTheme().itemStyle.fgColor);
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
@@ -128,7 +128,8 @@ private:
 	int textureHeight_ = 0;
 };
 
-PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
+PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) 
+	: UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
