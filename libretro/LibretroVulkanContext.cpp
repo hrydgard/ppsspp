@@ -124,8 +124,10 @@ void LibretroVulkanContext::ContextReset() {
 
 void LibretroVulkanContext::ContextDestroy() {
    INFO_LOG(Log::G3D, "LibretroVulkanContext::ContextDestroy()");
-   vk->WaitUntilQueueIdle();
-   LibretroHWRenderContext::ContextDestroy();
+   if (vk) {
+      vk->WaitUntilQueueIdle();
+      LibretroHWRenderContext::ContextDestroy();
+   }
 }
 
 void LibretroVulkanContext::CreateDrawContext() {

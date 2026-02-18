@@ -600,11 +600,16 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 	Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
 
 	GPUCore gpuCore = g_CoreParameter.gpuCore;
+
+	// In libretro, the creation order is different, it's ok with a null draw context here.
+	// We do need to rework the whole init process.. ugh.
+#ifndef __LIBRETRO__
 	if (!draw && gpuCore != GPUCORE_SOFTWARE) {
 		ERROR_LOG(Log::Loader, "No drawing context provided.");
 		g_bootState = BootState::Failed;
 		return false;
 	}
+#endif
 
 	g_CoreParameter.errorString.clear();
 
