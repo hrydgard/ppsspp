@@ -21,6 +21,7 @@
 #include <string_view>
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -552,7 +553,7 @@ public:
 	// Networking
 	bool bEnableAdhocServer;
 	std::string sProAdhocServer;
-	bool bUseServerRelay;
+	int iAdhocServerRelayMode;
 	std::vector<std::string> proAdhocServerList;
 	std::string sInfrastructureDNSServer;
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
@@ -779,3 +780,23 @@ std::string CreateRandMAC();
 extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
 
+enum class AdhocDataMode {
+	P2P = 0,
+	AemuPostoffice,
+};
+
+struct AdhocServerListEntry{
+	std::string name;
+	std::string hostname;
+	std::string community_link;
+	std::string location;
+	std::string note;
+	AdhocDataMode mode = AdhocDataMode::P2P;
+};
+
+extern const std::vector<AdhocServerListEntry> defaultProAdhocServerList;
+
+extern std::mutex downloadedProAdhocServerListMutex;
+extern std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
+
+AdhocDataMode getAdhocServerDataMode(std::string &server);

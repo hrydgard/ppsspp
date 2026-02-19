@@ -72,9 +72,50 @@ static const std::string_view logSectionName = "LogDebug";
 static const std::string_view logSectionName = "Log";
 #endif
 
-const std::vector<std::string_view> defaultProAdhocServerList = {
-	"socom.cc", "psp.gameplayer.club",
+const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
+	{"Socom Adhoc Server", "socom.cc", "https://discord.com/invite/XtVYDr7", "France", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
+	{"Madness Gaming Network", "psp.mgn.pub", "https://discord.com/invite/kaPScVrPes", "Alaska USA", "For players looking to play any games, has a good amount of Monster Hunter players, also provides VPN to work around connection issues as well as P2P mode", AdhocDataMode::AemuPostoffice},
+	{"EA Nation Hub", "eahub.eu", "https://discord.com/invite/fwrQHHxrQQ", "France", "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games", AdhocDataMode::AemuPostoffice},
+	{"Psi-Hate", "psi-hate.com", "https://discord.com/invite/wxeGVkM", "Minnesota USA", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"AlexGHD", "jpa36a7.glddns.com", "https://discord.com/invite/gp45nhdjQJ", "São Paulo Brazil", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 };
+
+// TODO download the list from somewhere and probably cache it on disk
+// should also make the url configurable and support file:/ local list besides https:// online lists
+std::mutex downloadedProAdhocServerListMutex;
+std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
+
+static const char *get_data_mode_string(AdhocDataMode mode) {
+	switch (mode) {
+	case AdhocDataMode::P2P:
+		return "AdhocDataMode::P2P";
+	case AdhocDataMode::AemuPostoffice:
+		return "AdhocDataMode::AemuPostoffice";
+	}
+	return "unknown";
+}
+
+AdhocDataMode getAdhocServerDataMode(std::string &server) {
+	auto list = defaultProAdhocServerList;
+
+	downloadedProAdhocServerListMutex.lock();
+	if (downloadedProAdhocServerList.size() != 0) {
+		INFO_LOG(Log::sceNet, "Using downloaded adhoc server list");
+		list = downloadedProAdhocServerList;
+	}
+	downloadedProAdhocServerListMutex.unlock();
+
+	for (const auto &item : list) {
+		if (equals(server, item.hostname)) {
+			INFO_LOG(Log::sceNet, "server %s is in known list, using data mode %s", server.c_str(), get_data_mode_string(item.mode));
+			return item.mode;
+		}
+	}
+
+	INFO_LOG(Log::sceNet, "server %s is not in known list, using data mode %s", server.c_str(), get_data_mode_string(AdhocDataMode::P2P));
+	return AdhocDataMode::P2P;
+}
 
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
@@ -1034,8 +1075,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", SETTING(g_Config, bEnableWlan), false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), "socom.cc", CfgFlag::PER_GAME),
-	ConfigSetting("UseServerRelay", SETTING(g_Config, bUseServerRelay), false, CfgFlag::PER_GAME),
-	ConfigSetting("proAdhocServerList", SETTING(g_Config, proAdhocServerList), &defaultProAdhocServerList, CfgFlag::DEFAULT),
+	ConfigSetting("AdhocServerRelayMode", SETTING(g_Config, iAdhocServerRelayMode), (int)AdhocServerRelayMode::Auto, CfgFlag::PER_GAME),
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
 	ConfigSetting("MinTimeout", SETTING(g_Config, iMinTimeout), 0, CfgFlag::PER_GAME),

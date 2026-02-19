@@ -1649,10 +1649,31 @@ u32 sceNetAdhocInit() {
 		// Since we are deleting GameMode Master here, we should probably need to make sure GameMode resources all cleared too.
 		deleteAllGMB();
 
-		serverHasRelay = g_Config.bUseServerRelay;
+		switch ((AdhocServerRelayMode)g_Config.iAdhocServerRelayMode) {
+		case AdhocServerRelayMode::Auto:
+			serverHasRelay = false;
+			// Fetch data mode from server list
+			if (getAdhocServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
+				serverHasRelay = true;
+			}
+			break;
+		case AdhocServerRelayMode::AlwaysOn:
+			serverHasRelay = true;
+			break;
+		default:
+			serverHasRelay = false;
+			break;
+		}
 
 		if (serverHasRelay) {
 			aemu_post_office_init();
+		}
+
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		if (serverHasRelay) {
+			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Started adhoc networking in relay mode"), 0.0f, "adhoc started in relay mode");
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Started adhoc networking in P2P mode"), 0.0f, "adhoc started in P2P mode");
 		}
 
 		// Return Success

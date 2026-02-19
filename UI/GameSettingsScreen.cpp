@@ -1036,13 +1036,22 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	}
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
-	networkingSettings->Add(new CheckBox(&g_Config.bUseServerRelay, n->T("Try to use server-provided packet relay")))->SetEnabled(!PSP_IsInited());
+
+	static const char *relayModes[] = {"Auto", "Yes", "No"};
+	PopupMultiChoice *relayModePopup = networkingSettings->Add(new PopupMultiChoice(&g_Config.iAdhocServerRelayMode, n->T("Try to use server-provided packet relay"), relayModes, 0, ARRAY_SIZE(relayModes), I18NCat::DIALOG, screenManager()));
+	relayModePopup->SetEnabled(!PSP_IsInited());
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower.")));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc server")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new HostnameSelectScreen(&g_Config.sProAdhocServer, &g_Config.proAdhocServerList, n->T("proAdhocServer Address:")));
+		auto list_to_use = defaultProAdhocServerList;
+		downloadedProAdhocServerListMutex.lock();
+		if (downloadedProAdhocServerList.size() != 0) {
+			list_to_use = downloadedProAdhocServerList;
+		}
+		downloadedProAdhocServerListMutex.unlock();
+		screenManager()->push(new HostnameSelectScreen(&g_Config.sProAdhocServer, list_to_use, n->T("proAdhocServer Address:")));
 	});
 	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
 
@@ -1883,9 +1892,10 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
 
 	std::vector<std::string> listIP;
-	if (listItems_) {
-		listIP = *listItems_;
+	for (const auto &item : listItems_) {
+		listIP.push_back(item.hostname);
 	}
+
 	// Add non-editable items
 	listIP.push_back("localhost");
 	net::GetLocalIP4List(listIP);

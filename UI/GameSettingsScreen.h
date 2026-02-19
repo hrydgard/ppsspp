@@ -27,6 +27,7 @@
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
+#include "Core/Config.h"
 
 class Path;
 
@@ -114,7 +115,7 @@ private:
 
 class HostnameSelectScreen : public UI::PopupScreen {
 public:
-	HostnameSelectScreen(std::string *value, std::vector<std::string> *listItems, std::string_view title)
+	HostnameSelectScreen(std::string *value, std::vector<AdhocServerListEntry> &listItems, std::string_view title)
 		: UI::PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), listItems_(listItems), value_(value) {
 		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
 			thiz->ResolverThread();
@@ -158,7 +159,7 @@ private:
 	};
 
 	std::string *value_;
-	std::vector<std::string> *listItems_;
+	std::vector<AdhocServerListEntry> listItems_;
 	UI::TextEdit *addrView_ = nullptr;
 	UI::TextView *progressView_ = nullptr;
 	UI::LinearLayout *ipRows_ = nullptr;
