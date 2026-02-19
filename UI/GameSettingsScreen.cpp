@@ -510,10 +510,11 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *disableCulling = graphicsSettings->Add(new CheckBox(&g_Config.bDisableRangeCulling, gr->T("Disable culling")));
 	disableCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *skipGpuReadbackModes[] = { "No (default)", "Skip", "Copy to texture" };
+	static const char *skipGpuReadbackModes[] = { "No", "Skip", "Copy to texture" };
 
 	PopupMultiChoice *skipGPUReadbacks = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSkipGPUReadbackMode, gr->T("Skip GPU Readbacks"), skipGpuReadbackModes, 0, ARRAY_SIZE(skipGpuReadbackModes), I18NCat::GRAPHICS, screenManager()));
 	skipGPUReadbacks->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	skipGPUReadbacks->SetDefault(0);
 
 	static const char *depthRasterModes[] = { "Auto", "Low", "Off", "Always on" };
 
@@ -529,7 +530,8 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new SettingHint(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games")));
 
 	static const char *quality[] = { "Low", "Medium", "High" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), I18NCat::GRAPHICS, screenManager()));
+	PopupMultiChoice *bezierQuality = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), I18NCat::GRAPHICS, screenManager()));
+	bezierQuality->SetDefault(2);
 	graphicsSettings->Add(new SettingHint(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves")));
 
 	static const char *bloomHackOptions[] = {"Off", "Safe", "Balanced", "Aggressive"};
