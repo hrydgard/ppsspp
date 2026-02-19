@@ -53,7 +53,7 @@ private:
 	void DrawBanner();
 	void DrawIndicator();
 
-	SceUtilityNetconfParam request = {};
+	SceUtilityNetconfParam request{};
 	u32 requestAddr = 0;
 	int connResult = -1;
 

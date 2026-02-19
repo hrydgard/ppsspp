@@ -1156,8 +1156,7 @@ const Path GetCurDirectory() {
 	return Path(curDir);
 #else
 	char temp[4096]{};
-	getcwd(temp, 4096);
-	return Path(temp);
+	return Path(getcwd(temp, 4096));
 #endif
 }
 

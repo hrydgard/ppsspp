@@ -61,7 +61,7 @@ private:
 	void WriteSfoFile();
 
 	SceUtilityGamedataInstallParam request{};
-	PSPPointer<SceUtilityGamedataInstallParam> param;
+	PSPPointer<SceUtilityGamedataInstallParam> param{};
 	std::vector<std::string> inFileNames;
 	int numFiles = 0;
 	int readFiles = 0;

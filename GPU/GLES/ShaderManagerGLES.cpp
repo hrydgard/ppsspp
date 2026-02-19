@@ -389,8 +389,11 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	dirtyUniforms = 0;
 
 	// Analyze scene
-	bool is2D, flatScreen;
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+	bool is2D = false, flatScreen = false;
+
+	const bool useVR = gstate_c.Use(GPU_USE_VIRTUAL_REALITY);
+
+	if (useVR) {
 		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
 		flatScreen = IsFlatVRScene();
 	}
@@ -410,7 +413,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	}
 
 	// Set HUD mode
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+	if (useVR) {
 		if (GuessVRDrawingHUD(is2D, flatScreen)) {
 			float aspect = 480.0f / 272.0f * (IsImmersiveVRMode() ? 0.5f : 1.0f);
 			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDisplayScale * aspect);
@@ -423,7 +426,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		if (useVR) {
 			Matrix4x4 vrProjection;
 			if (flatScreen || is2D) {
 				memcpy(&vrProjection, gstate.projMatrix, 16 * sizeof(float));
@@ -482,7 +485,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		if (useVR) {
 			SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
 		}
 	}
@@ -567,7 +570,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		if (useVR) {
 			float leftEyeView[16];
 			float rightEyeView[16];
 			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);

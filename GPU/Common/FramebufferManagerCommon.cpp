@@ -1196,7 +1196,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
-	DrawTextureFlags flags;
+	DrawTextureFlags flags = DrawTextureFlags::DRAWTEX_DEFAULT;
 	if (useBufferedRendering_ && vfb) {
 		_dbg_assert_(vfb->fbo);
 		if (vfb->fbo) {
@@ -2102,10 +2102,10 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	// For now fill in these old variables from the candidates to reduce the initial diff.
 	VirtualFramebuffer *dstBuffer = nullptr;
 	VirtualFramebuffer *srcBuffer = nullptr;
-	int srcY;
-	int srcH;
-	int dstY;
-	int dstH;
+	int srcY = 0;
+	int srcH = 0;
+	int dstY = 0;
+	int dstH = 0;
 
 	const CopyCandidate *bestSrc = GetBestCopyCandidate(srcCandidates, src, channel);
 	if (bestSrc) {

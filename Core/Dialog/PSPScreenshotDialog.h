@@ -39,6 +39,6 @@ protected:
 		return true;
 	}
 
-	int mode;
-	PSPPointer<SceUtilityScreenshotParams> params_;
+	int mode = 0;
+	PSPPointer<SceUtilityScreenshotParams> params_{};
 };

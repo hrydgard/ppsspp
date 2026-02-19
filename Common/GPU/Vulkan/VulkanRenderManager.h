@@ -451,7 +451,7 @@ public:
 		PendingDescSet &descSet = data.descSets_.push_uninitialized();
 		descSet.offset = (uint32_t)offset;
 		descSet.count = count;
-		// descSet.set = VK_NULL_HANDLE;  // to be filled in
+		descSet.set = VK_NULL_HANDLE;  // to be filled in
 		*descSetIndex = setIndex;
 		return retval;
 	}

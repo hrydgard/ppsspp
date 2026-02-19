@@ -59,7 +59,7 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 	memcpy(flags, zim + 12, 4);
 
 	int num_levels = 1;
-	int image_data_size[ZIM_MAX_MIP_LEVELS];
+	int image_data_size[ZIM_MAX_MIP_LEVELS]{};
 	if (*flags & ZIM_HAS_MIPS) {
 		num_levels = log2i(*width < *height ? *width : *height) + 1;
 	}

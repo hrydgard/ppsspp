@@ -283,7 +283,7 @@ float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &map
 		// If a signed axis is mapped to an unsigned mapping,
 		// convert it. This happens when mapping DirectInput triggers to analog speed,
 		// for example.
-		int direction;
+		int direction = 0;
 		if (IsSignedAxis(mapping.Axis(&direction))) {
 			// The value has been split up into two curInput values, so we need to go fetch the other
 			// and put them back together again. Kind of awkward, but at least makes the regular case simple...
