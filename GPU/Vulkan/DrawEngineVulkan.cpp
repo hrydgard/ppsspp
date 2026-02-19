@@ -537,10 +537,13 @@ void DrawEngineVulkan::Flush() {
 			descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 			descriptors[3].buffer.buffer = baseBuf;
 			descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+			descriptors[3].buffer.offset = 0;
 			descriptors[4].buffer.buffer = lightBuf;
 			descriptors[4].buffer.range = sizeof(UB_VS_Lights);
+			descriptors[4].buffer.offset = 0;
 			descriptors[5].buffer.buffer = boneBuf;
 			descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+			descriptors[5].buffer.offset = 0;
 
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
