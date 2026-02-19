@@ -87,11 +87,11 @@ std::mutex downloadedProAdhocServerListMutex;
 std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
 
 static const char *get_data_mode_string(AdhocDataMode mode) {
-	switch(mode) {
-		case AdhocDataMode::P2P:
-			return "AdhocDataMode::P2P";
-		case AdhocDataMode::AemuPostoffice:
-			return "AdhocDataMode::AemuPostoffice";
+	switch (mode) {
+	case AdhocDataMode::P2P:
+		return "AdhocDataMode::P2P";
+	case AdhocDataMode::AemuPostoffice:
+		return "AdhocDataMode::AemuPostoffice";
 	}
 	return "unknown";
 }
@@ -107,7 +107,7 @@ AdhocDataMode getAdhocServerDataMode(std::string &server) {
 	downloadedProAdhocServerListMutex.unlock();
 
 	for (const auto &item : list) {
-		if (strcmp(server.c_str(), item.hostname.c_str()) == 0) {
+		if (equals(server, item.hostname)) {
 			INFO_LOG(Log::sceNet, "server %s is in known list, using data mode %s", server.c_str(), get_data_mode_string(item.mode));
 			return item.mode;
 		}

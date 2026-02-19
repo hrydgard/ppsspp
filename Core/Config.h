@@ -786,11 +786,11 @@ enum class AdhocDataMode {
 };
 
 struct AdhocServerListEntry{
-	std::string name = "";
-	std::string hostname = "";
-	std::string community_link = "";
-	std::string location = "";
-	std::string note = "";
+	std::string name;
+	std::string hostname;
+	std::string community_link;
+	std::string location;
+	std::string note;
 	AdhocDataMode mode = AdhocDataMode::P2P;
 };
 
