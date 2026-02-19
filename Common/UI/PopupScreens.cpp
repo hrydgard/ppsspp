@@ -366,7 +366,12 @@ void PopupMultiChoice::UpdateText() {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
 		if (choices_[index]) {
-			valueText_ = T(category_, choices_[index]);
+			std::string text(T(category_, choices_[index]));
+			if (default_ == index) {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				text = ApplySafeSubstitutions("%1 (%2)", text, di->T("Default"));
+			}
+			valueText_ = std::move(text);
 		} else {
 			valueText_ = "";
 		}

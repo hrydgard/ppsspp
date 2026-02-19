@@ -1458,7 +1458,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 			}
 		}
 
-		INFO_LOG(Log::sceUtility, "SectorSize: %d FreeSectors: %d FreeKB: %d neededKb: %d overwriteKb: %d",
+		INFO_LOG(Log::sceUtility, "GETSIZE: SectorSize: %d FreeSectors: %d FreeKB: %d neededKb: %d overwriteKb: %d",
 			param->sizeInfo->sectorSize, param->sizeInfo->freeSectors, param->sizeInfo->freeKB, param->sizeInfo->neededKB, param->sizeInfo->overwriteKB);
 
 		NotifyMemInfo(MemBlockFlags::WRITE, param->sizeInfo.ptr, sizeof(PspUtilitySavedataSizeInfo), "SavedataGetSize");

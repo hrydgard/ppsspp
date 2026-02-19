@@ -548,17 +548,17 @@ void GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 			Path gamePath = gamePath_;
 			screenManager()->push(
 				new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-					[gamePath](bool yes) {
+					[this, gamePath](bool yes) {
 				if (yes) {
 					std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
 					info_->DeleteAllSaveData();
 					info_->saveDataSize = 0;
 					info_->installDataSize = 0;
+					RecreateViews();
 				}
 			}));
 		}
 	}
-	RecreateViews();
 }
 
 void GameScreen::OnDeleteGame(UI::EventParams &e) {
