@@ -165,7 +165,7 @@ void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 void ScreenshotViewScreen::OnUndoState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		SaveState::UndoSaveSlot(saveStatePrefix_, slot_);
-		TriggerFinish(DR_CANCEL);
+		TriggerFinish(DR_YES);  // DR_YES signals that we need a refresh, but not to close the pause menu.
 	}
 }
 
@@ -183,7 +183,7 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 	screenManager()->push(new UI::MessagePopupScreen(title, message, di->T("Delete"), di->T("Cancel"), [this](bool result) {
 		if (result) {
 			SaveState::DeleteSlot(saveStatePrefix_, slot_);
-			TriggerFinish(DR_CANCEL);
+			TriggerFinish(DR_YES);  // DR_YES signals that we need a refresh, but not to close the pause menu.
 		}
 	}));
 }
@@ -753,8 +753,13 @@ void GamePauseScreen::OnState(UI::EventParams &e) {
 
 void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	std::string tag = dialog->tag();
-	if (tag == "ScreenshotView" && dr == DR_OK) {
-		finishNextFrame_ = true;
+	if (tag == "ScreenshotView") {
+		if (dr == DR_OK) {
+			finishNextFrame_ = true;
+		} else if (dr != DR_CANCEL && dr != DR_BACK) {
+			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.
+			RecreateViews();
+		}
 	} else {
 		if (tag == "Game") {
 			g_BackgroundAudio.SetGame(Path());

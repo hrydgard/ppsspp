@@ -180,9 +180,6 @@ ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
 			if (result == ScreenshotResult::Success) {
 				// Redo the views already, now with a screenshot included.
 				RecreateViews();
-			} else {
-				// Good news (?), the views are good as-is without a screenshot.
-				screenshotFilename_.clear();
 			}
 		});
 

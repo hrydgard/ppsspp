@@ -5,6 +5,7 @@
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 namespace UI {
 
@@ -613,10 +614,17 @@ void ListView::OnItemCallback(int num, EventParams &e) {
 
 View *ChoiceListAdaptor::CreateItemView(int index, bool selected, ImageID *optionalImageID) {
 	Choice *choice;
+
+	std::string title = items_[index];
+	if (default_ == index) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		title = ApplySafeSubstitutions("%1 (%2)", title, di->T("Default"));
+	}
+
 	if (optionalImageID) {
-		choice = new Choice(items_[index], *optionalImageID);
+		choice = new Choice(title, *optionalImageID);
 	} else {
-		choice = new Choice(items_[index]);
+		choice = new Choice(title);
 	}
 	if (selected) {
 		choice->SetSelectedIndicator(true);
@@ -632,7 +640,12 @@ void ChoiceListAdaptor::AddEventCallback(View *view, std::function<void(EventPar
 }
 
 View *StringVectorListAdaptor::CreateItemView(int index, bool selected, ImageID *optionalImageID) {
-	Choice *choice = new Choice(items_[index], optionalImageID ? *optionalImageID : ImageID());
+	std::string title = items_[index];
+	if (index == default_) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		title = ApplySafeSubstitutions("%1 (%2)", title, di->T("Default"));
+	}
+	Choice *choice = new Choice(title, optionalImageID ? *optionalImageID : ImageID());
 	if (selected) {
 		choice->SetSelectedIndicator(true);
 	}

@@ -19,6 +19,7 @@
 // * Frame skipping. This gets complicated.
 // * The game not actually asking for flips, like in static loading screens
 
+#include <algorithm>
 #include "ppsspp_config.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Log.h"
@@ -36,10 +37,13 @@
 
 FrameTiming g_frameTiming;
 
+constexpr double g_MaxSleepTime = 0.5;  // 500ms.
+
+// Note: To avoid hang bugs, this has a maximum of 0.5 second wait time.
 void WaitUntil(double now, double timestamp, const char *reason) {
 #if 1
 	// Use precise timing.
-	sleep_precise(timestamp - now, reason);
+	sleep_precise(std::min(timestamp - now, g_MaxSleepTime), reason);
 #else
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -49,7 +53,7 @@ void WaitUntil(double now, double timestamp, const char *reason) {
 	}
 #else
 	const double left = timestamp - now;
-	if (left > 0.0 && left < 3.0) {
+	if (left > 0.0 && left < g_MaxSleepTime) {
 		usleep((long)(left * 1000000));
 	}
 #endif

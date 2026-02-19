@@ -129,7 +129,7 @@ std::string DefaultLangRegion() {
 	return defaultLangRegion;
 }
 
-static int DefaultDepthRaster() {
+int DefaultDepthRaster() {
 #ifdef CROSSSIMD_SLOW
 	// No SIMD acceleration for the depth rasterizer.
 	// Default to off.

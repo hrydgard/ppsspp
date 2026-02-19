@@ -471,6 +471,9 @@ void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	list->Add(portChoice);
 }
 
+// TODO: Make this generic
+extern int DefaultDepthRaster();
+
 void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -505,10 +508,11 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 		});
 	}
 
-	static const char *depthRasterModes[] = { "Auto (default)", "Low", "Off", "Always on" };
+	static const char *depthRasterModes[] = { "Auto", "Low", "Off", "Always on" };
 
 	PopupMultiChoice *depthRasterMode = list->Add(new PopupMultiChoice(&g_Config.iDepthRasterMode, gr->T("Lens flare occlusion"), depthRasterModes, 0, ARRAY_SIZE(depthRasterModes), I18NCat::GRAPHICS, screenManager()));
 	depthRasterMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	depthRasterMode->SetDefault(DefaultDepthRaster());
 	depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));

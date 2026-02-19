@@ -419,6 +419,12 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	}
 
 	b->invalid = true;
+
+	if (!Memory::IsValid4AlignedAddress(b->originalAddress)) {
+		_dbg_assert_msg_(false, "Destroying block with invalid original address: %08x (block num: %d)", b->originalAddress, block_num);
+		return;
+	}
+
 	if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding) {
 		Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
 	}
