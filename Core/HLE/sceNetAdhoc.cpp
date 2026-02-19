@@ -1670,11 +1670,8 @@ u32 sceNetAdhocInit() {
 		}
 
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		if (serverHasRelay) {
-			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Started adhoc networking in relay mode"), 0.0f, "adhoc started in relay mode");
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Started adhoc networking in P2P mode"), 0.0f, "adhoc started in P2P mode");
-		}
+		std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", n->T("Ad Hoc multiplayer"), modeStr), 0.0f, "adhoc started");
 
 		// Return Success
 		return hleLogInfo(Log::sceNet, 0, "at %08x", currentMIPS->pc);
