@@ -23,6 +23,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -59,20 +60,23 @@ void Compatibility::Load(const std::string &gameID) {
 		}
 	}
 
-	{
-		IniFile compat;
-		// This loads from assets.
-		if (compat.LoadFromVFS(g_VFS, "compatvr.ini")) {
-			CheckVRSettings(compat, gameID);
+	const int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if ((deviceType == DEVICE_TYPE_VR) || g_Config.bForceVR) {
+		{
+			IniFile compat;
+			// This loads from assets.
+			if (compat.LoadFromVFS(g_VFS, "compatvr.ini")) {
+				CheckVRSettings(compat, gameID);
+			}
 		}
-	}
 
-	{
-		IniFile compat2;
-		// This one is user-editable. Need to load it after the system one.
-		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
-		if (compat2.Load(path)) {
-			CheckVRSettings(compat2, gameID);
+		{
+			IniFile compat2;
+			// This one is user-editable. Need to load it after the system one.
+			Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
+			if (compat2.Load(path)) {
+				CheckVRSettings(compat2, gameID);
+			}
 		}
 	}
 }

@@ -1960,7 +1960,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
-				bufferInfo[numBuffers].offset = 0;
+				bufferInfo[numBuffers].offset = 0;  // This is supplied by the dynamic offset.
 				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
 				writes[numWrites].pImageInfo = nullptr;
