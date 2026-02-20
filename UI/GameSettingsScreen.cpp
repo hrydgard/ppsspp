@@ -1676,6 +1676,11 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (equals(dialog->tag(), "NewLanguage") && result == DR_OK) {
+		screenManager()->RecreateAllViews();
+		return;
+	}
+
 	bool recreate = false;
 	if (result == DialogResult::DR_OK) {
 		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
