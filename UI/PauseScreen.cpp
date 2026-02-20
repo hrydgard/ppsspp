@@ -380,7 +380,7 @@ void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	}
 }
 
-void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems) {
+void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, UI::LinearLayout **extraRow) {
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
 	using namespace UI;
@@ -407,23 +407,39 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems)
 			RecreateViews();
 		});
 	}
-	leftColumnItems->Add(new Spacer(0.0));
 
-	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 0))));
+	*extraRow = nullptr;
+
+	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 0)));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK")));
+		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
-		loadUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLoadUndo);
+		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
+			SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
+			TriggerFinish(DR_CANCEL);
+		});
 
-		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK")));
+		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(saveStatePrefix_));
-		saveUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLastSaveUndo);
+		saveUndoButton->OnClick.Add([this](UI::EventParams &e) {
+			SaveState::UndoLastSave(saveStatePrefix_);
+			RecreateViews();
+		});
 	}
 
 	if (g_Config.iRewindSnapshotInterval > 0 && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND")));
+		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		rewindButton->SetEnabled(SaveState::CanRewind());
-		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
+		rewindButton->OnClick.Add([this](UI::EventParams &e) {
+			SaveState::Rewind(&AfterSaveStateAction);
+			TriggerFinish(DR_CANCEL);
+		});
+	}
+
+	if (buttonRow->GetNumSubviews() == 0) {
+		delete buttonRow;
+	} else {
+		*extraRow = buttonRow;
 	}
 }
 
@@ -476,8 +492,11 @@ void GamePauseScreen::CreateViews() {
 		});
 	}
 
-	ViewGroup *saveStateScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, scrollMargins));
-	root_->Add(saveStateScroll);
+	ViewGroup *saveScrollContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, scrollMargins));
+	root_->Add(saveScrollContainer);
+
+	ScrollView *saveStateScroll = saveScrollContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+	saveStateScroll->SetShadows(false);
 
 	LinearLayout *saveDataScrollItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	saveStateScroll->Add(saveDataScrollItems);
@@ -547,7 +566,11 @@ void GamePauseScreen::CreateViews() {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps");
 			});
 		}
-		CreateSavestateControls(saveDataScrollItems);
+		LinearLayout *extraRow = nullptr;
+		CreateSavestateControls(saveDataScrollItems, &extraRow);
+		if (extraRow) {
+			saveScrollContainer->Add(extraRow);
+		}
 	} else {
 		// Let's show the active challenges.
 		std::set<uint32_t> ids = Achievements::GetActiveChallengeIDs();
@@ -844,24 +867,6 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 
 void GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 	screenManager()->push(new ReportScreen(gamePath_));
-}
-
-void GamePauseScreen::OnRewind(UI::EventParams &e) {
-	SaveState::Rewind(&AfterSaveStateAction);
-
-	TriggerFinish(DR_CANCEL);
-}
-
-void GamePauseScreen::OnLoadUndo(UI::EventParams &e) {
-	SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
-
-	TriggerFinish(DR_CANCEL);
-}
-
-void GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
-	SaveState::UndoLastSave(saveStatePrefix_);
-
-	RecreateViews();
 }
 
 void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
