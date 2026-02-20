@@ -44,6 +44,10 @@ public:
 		alignOpposite_ = alignOpposite;
 	}
 
+	void SetShadows(bool shadows) {
+		shadows_ = shadows;
+	}
+
 	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) override;
 
 private:
@@ -81,6 +85,7 @@ private:
 	bool alignOpposite_ = false;
 	bool draggingBob_ = false;
 	bool mouseHover_ = false;
+	bool shadows_ = true;
 
 	float barDragStart_ = 0.0f;
 	float barDragOffset_ = 0.0f;
