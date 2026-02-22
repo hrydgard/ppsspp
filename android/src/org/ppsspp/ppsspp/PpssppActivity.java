@@ -667,7 +667,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 
 			// We don't call super.onCreate, we just bail in an ugly way.
-			System.exit(-1);
+			finish();
 			return;
 		}
 
