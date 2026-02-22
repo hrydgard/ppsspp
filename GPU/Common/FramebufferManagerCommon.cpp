@@ -1747,6 +1747,8 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 	fbosToDelete_.clear();
 
+	const bool persistentFramebuffers = PSP_CoreParameter().compat.flags().PersistentFramebuffers;
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
@@ -1760,7 +1762,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		UpdateFramebufUsage(vfb);
 
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
-			if (age > FBO_OLD_AGE) {
+			if (age > FBO_OLD_AGE && !persistentFramebuffers) {
 				INFO_LOG(Log::FrameBuf, "Decimating FBO for %08x (%ix%i %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
@@ -1770,7 +1772,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
 		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
-		if (age > FBO_OLD_AGE) {
+		if (age > FBO_OLD_AGE && !persistentFramebuffers) {
 			it->second.fbo->Release();
 			it = tempFBOs_.erase(it);
 		} else {
@@ -1782,7 +1784,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
-		if (age > FBO_OLD_AGE) {
+		if (age > FBO_OLD_AGE && !persistentFramebuffers) {
 			INFO_LOG(Log::FrameBuf, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
