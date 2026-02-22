@@ -341,7 +341,7 @@ namespace MainWindow {
 			if (g_Config.bFullScreenMulti) {
 				SetMenu(hWnd, NULL);
 				// Strip all decorations
-				SetWindowLong(hWnd, GWL_STYLE, prevStyle & ~WS_OVERLAPPEDWINDOW);
+				SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_OVERLAPPEDWINDOW) | WS_POPUP);
 				// Maximize isn't enough to display on all monitors.
 				// Remember that negative coordinates may be valid.
 				const int totalX = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -357,7 +357,7 @@ namespace MainWindow {
 				if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
 					SetMenu(hWnd, NULL);
 					// Strip all decorations
-					SetWindowLong(hWnd, GWL_STYLE, prevStyle & ~WS_OVERLAPPEDWINDOW);
+					SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_OVERLAPPEDWINDOW) | WS_POPUP);
 
 					SetWindowPos(hWnd, HWND_TOP,
 						mi.rcMonitor.left, mi.rcMonitor.top,
@@ -373,7 +373,7 @@ namespace MainWindow {
 				g_Config.iWindowX, g_Config.iWindowY);
 
 			// Transitioning to Windowed
-			SetWindowLong(hWnd, GWL_STYLE, prevStyle | WS_OVERLAPPEDWINDOW);
+			SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
 			SetMenu(hWnd, g_hMenu);
 
 			WINDOWPLACEMENT wp = {sizeof(WINDOWPLACEMENT)};
@@ -902,8 +902,8 @@ namespace MainWindow {
 				if (g_Config.bFullScreen && !g_inForcedResize) {
 					MONITORINFO mi = {sizeof(mi)};
 					if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
-						int monWidth = mi.rcMonitor.right - mi.rcMonitor.left;
-						int monHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
+						const int monWidth = mi.rcMonitor.right - mi.rcMonitor.left;
+						const int monHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
 
 						// If the new size is no longer the full monitor size, drop FS state (put back the menu
 						// and recalculate window decorations without actually changing the size of the window).
@@ -912,9 +912,9 @@ namespace MainWindow {
 							if (GetMenu(hWnd) == NULL) {
 								SetMenu(hWnd, g_hMenu);
 							}
-							DWORD style = GetWindowLong(hWnd, GWL_STYLE);
+							const DWORD style = GetWindowLong(hWnd, GWL_STYLE);
 							if (!(style & WS_CAPTION)) {
-								SetWindowLong(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+								SetWindowLong(hWnd, GWL_STYLE, (style & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
 								SetWindowPos(hWnd, NULL, 0, 0, 0, 0,
 									SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
 							}
