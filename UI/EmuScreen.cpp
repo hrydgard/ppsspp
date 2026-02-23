@@ -1368,6 +1368,13 @@ void EmuScreen::CreateViews() {
 }
 
 void EmuScreen::deviceLost() {
+	// If we are currently in the middle of boot, we have to block here!
+	// Otherwise the boot thread will encounter draw_ == nullptr and weird stuff like that.
+	// We're doing this in a very ugly way for now.
+	while (PollBootState() == BootState::Booting) {
+		sleep_ms(100, "device-lost-during-boot");
+	}
+
 	UIScreen::deviceLost();
 
 	if (imguiInited_) {

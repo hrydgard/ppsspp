@@ -720,6 +720,10 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	}
 }
 
+BootState PollBootState() {
+	return g_bootState;
+}
+
 void PSP_Shutdown(bool success) {
 	// Reduce the risk for weird races with the Windows GE debugger.
 	gpuDebug = nullptr;
