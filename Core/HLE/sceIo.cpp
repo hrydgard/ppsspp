@@ -905,18 +905,17 @@ u64 __IoCompleteAsyncIO(FileNode *f) {
 	return 0;
 }
 
-void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in)
-{
-	date_out.year = date_in.tm_year+1900;
-	date_out.month = date_in.tm_mon+1;
+void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int microSeconds) {
+	date_out.year = date_in.tm_year + 1900;
+	date_out.month = date_in.tm_mon + 1;
 	date_out.day = date_in.tm_mday;
 	date_out.hour = date_in.tm_hour;
 	date_out.minute = date_in.tm_min;
 	date_out.second = date_in.tm_sec;
-	date_out.microsecond = 0;
+	date_out.microsecond = microSeconds;
 }
 
-static void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
+static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info) {
 	memset(stat, 0xfe, sizeof(SceIoStat));
 
 	int type, attr;
@@ -931,9 +930,9 @@ static void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	stat->st_mode = type | info.access;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
-	__IoCopyDate(stat->st_a_time, info.atime);
-	__IoCopyDate(stat->st_c_time, info.ctime);
-	__IoCopyDate(stat->st_m_time, info.mtime);
+	ConvertTmToPspDateTime(stat->st_a_time, info.atime, info.atimeUs);
+	ConvertTmToPspDateTime(stat->st_c_time, info.ctime, info.ctimeUs);
+	ConvertTmToPspDateTime(stat->st_m_time, info.mtime, info.mtimeUs);
 	stat->st_private[0] = info.startSector;
 }
 

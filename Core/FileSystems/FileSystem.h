@@ -118,9 +118,9 @@ struct PSPFileInfo {
 	bool exists = false;
 	FileType type = FILETYPE_NORMAL;
 
-	tm atime{};
-	tm ctime{};
-	tm mtime{};
+	tm atime{}; int atimeUs = 0;
+	tm ctime{}; int ctimeUs = 0;
+	tm mtime{}; int mtimeUs = 0;
 
 	bool isOnSectorSystem = false;
 	u32 startSector = 0;
