@@ -67,6 +67,29 @@ static uint64_t FiletimeToStatTime(FILETIME ft, int* out_usec) {
 
 	return (uint64_t)(ticks / windowsTickResolution - secToUnixEpoch);
 }
+
+// This is used for both WIN32_FILE_ATTRIBUTE_DATA and WIN32_FIND_DATA, which have the same time and size fields.
+template<class T>
+void ReadFileAttributes(FileInfo *fileInfo, const T &attrs) {
+	fileInfo->atime = FiletimeToStatTime(attrs.ftLastAccessTime, &fileInfo->atimeUs);
+	fileInfo->mtime = FiletimeToStatTime(attrs.ftLastWriteTime, &fileInfo->mtimeUs);
+	fileInfo->ctime = FiletimeToStatTime(attrs.ftCreationTime, &fileInfo->ctimeUs);
+
+	fileInfo->exists = true;
+	fileInfo->size = ((uint64_t)attrs.nFileSizeHigh << 32) | attrs.nFileSizeLow;
+	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
+
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+		fileInfo->access = 0444;  // Read
+	} else {
+		fileInfo->access = 0666;  // Read/Write
+	}
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+		fileInfo->access |= 0111;  // Execute
+	}
+}
+
 #endif
 
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
@@ -101,21 +124,9 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 		fileInfo->exists = false;
 		return false;
 	}
-	fileInfo->size = (uint64_t)attrs.nFileSizeLow | ((uint64_t)attrs.nFileSizeHigh << 32);
-	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
-	fileInfo->exists = true;
-	fileInfo->atime = FiletimeToStatTime(attrs.ftLastAccessTime, &fileInfo->atimeUs);
-	fileInfo->mtime = FiletimeToStatTime(attrs.ftLastWriteTime, &fileInfo->mtimeUs);
-	fileInfo->ctime = FiletimeToStatTime(attrs.ftCreationTime, &fileInfo->ctimeUs);
-	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-		fileInfo->access = 0444;  // Read
-	} else {
-		fileInfo->access = 0666;  // Read/Write
-	}
-	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-		fileInfo->access |= 0111;  // Execute
-	}
+
+	ReadFileAttributes(fileInfo, attrs);
+
 #else
 
 #if (defined __ANDROID__) && (__ANDROID_API__ < 21)
@@ -313,21 +324,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		FileInfo info;
 		info.name = virtualName;
 		info.fullName = directory / virtualName;
-		info.exists = true;
-		info.size = ((uint64_t)ffd.nFileSizeHigh << 32) | ffd.nFileSizeLow;
-		info.isDirectory = (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-		info.isWritable = (ffd.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
-		info.atime = FiletimeToStatTime(ffd.ftLastAccessTime, &info.atimeUs);
-		info.mtime = FiletimeToStatTime(ffd.ftLastWriteTime, &info.mtimeUs);
-		info.ctime = FiletimeToStatTime(ffd.ftCreationTime, &info.ctimeUs);
-		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-			info.access = 0444;  // Read
-		} else {
-			info.access = 0666;  // Read/Write
-		}
-		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-			info.access |= 0111;  // Execute
-		}
+
+		ReadFileAttributes(&info, ffd);
+
 		if (!info.isDirectory) {
 			std::string ext = info.fullName.GetFileExtension();
 			if (!ext.empty()) {

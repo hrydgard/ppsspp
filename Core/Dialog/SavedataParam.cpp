@@ -1236,7 +1236,11 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		{
 			entries[i].st_mode = 0x11FF;
 			if (sfoFiles[i].exists) {
-				ConvertTmToPspDateTime(entries[i].st_ctime, sfoFiles[i].ctime, sfoFiles[i].ctimeUs);
+				tm ctime = sfoFiles[i].ctime;
+				if (PSP_CoreParameter().compat.flags().FileCreatedTimeHack) {
+					ctime = {};
+				}
+				ConvertTmToPspDateTime(entries[i].st_ctime, ctime, sfoFiles[i].ctimeUs);
 				ConvertTmToPspDateTime(entries[i].st_atime, sfoFiles[i].atime, sfoFiles[i].atimeUs);
 				ConvertTmToPspDateTime(entries[i].st_mtime, sfoFiles[i].mtime, sfoFiles[i].mtimeUs);
 			} else {
@@ -1257,7 +1261,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		if (GenericLogEnabled(Log::sceUtility, LogLevel::LINFO)) {
 			INFO_LOG(Log::sceUtility, "LIST (searchstring=%s): %d files (max: %d)", searchString.c_str(), param->idList->resultCount, maxFileCount);
 			for (int i = 0; i < validDir.size(); i++) {
-				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+				NOTICE_LOG(Log::sceUtility, "LIST %s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					entries[i].name, entries[i].st_mode, FmtPspTime(entries[i].st_ctime).c_str(), FmtPspTime(entries[i].st_atime).c_str(), FmtPspTime(entries[i].st_mtime).c_str());
 			}
 		}
@@ -1326,18 +1330,18 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
 	bool isCrypted = GetSaveCryptMode(param, GetSaveDirName(param, 0)) != 0;
-	for (auto file = files.begin(), end = files.end(); file != end; ++file) {
-		if (file->type == FILETYPE_DIRECTORY) {
+	for (const auto &file : files) {
+		if (file.type == FILETYPE_DIRECTORY) {
 			continue;
 		}
 		// TODO: What are the exact rules?  It definitely skips lowercase, and allows FILE or FILE.EXT.
-		if (file->name.find_first_of("abcdefghijklmnopqrstuvwxyz") != file->name.npos) {
-			DEBUG_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file->name.c_str());
+		if (file.name.find_first_of("abcdefghijklmnopqrstuvwxyz") != file.name.npos) {
+			DEBUG_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file.name.c_str());
 			continue;
 		}
 
-		bool isSystemFile = file->name == ICON0_FILENAME || file->name == ICON1_FILENAME || file->name == PIC1_FILENAME;
-		isSystemFile = isSystemFile || file->name == SND0_FILENAME || file->name == SFO_FILENAME;
+		bool isSystemFile = file.name == ICON0_FILENAME || file.name == ICON1_FILENAME || file.name == PIC1_FILENAME;
+		isSystemFile = isSystemFile || file.name == SND0_FILENAME || file.name == SFO_FILENAME;
 
 		SceUtilitySavedataFileListEntry *entry = NULL;
 		int sizeOffset = 0;
@@ -1345,7 +1349,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 			if (fileList->systemEntries.IsValid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries) {
 				entry = &fileList->systemEntries[fileList->resultNumSystemEntries++];
 			}
-		} else if (secureFilenames.find(file->name) != secureFilenames.end()) {
+		} else if (secureFilenames.find(file.name) != secureFilenames.end()) {
 			if (fileList->secureEntries.IsValid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries) {
 				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
 			}
@@ -1360,17 +1364,24 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		}
 
 		// Out of space for this file in the list.
-		if (entry == NULL) {
+		if (!entry) {
 			continue;
 		}
 
 		entry->st_mode = 0x21FF;
-		entry->st_size = file->size + sizeOffset;
-		ConvertTmToPspDateTime(entry->st_ctime, file->ctime, file->ctimeUs);
-		ConvertTmToPspDateTime(entry->st_atime, file->atime, file->atimeUs);
-		ConvertTmToPspDateTime(entry->st_mtime, file->mtime, file->mtimeUs);
+		entry->st_size = file.size + sizeOffset;
+
+		tm ctime = file.ctime;
+		if (PSP_CoreParameter().compat.flags().FileCreatedTimeHack) {
+			ctime = {};
+		}
+
+		ConvertTmToPspDateTime(entry->st_ctime, ctime, file.ctimeUs);
+		ConvertTmToPspDateTime(entry->st_atime, file.atime, file.atimeUs);
+		ConvertTmToPspDateTime(entry->st_mtime, file.mtime, file.mtimeUs);
+
 		// TODO: Probably actually 13 + 3 pad...
-		strncpy(entry->name, file->name.c_str(), 16);
+		strncpy(entry->name, file.name.c_str(), 16);
 		entry->name[15] = '\0';
 	}
 
@@ -1379,7 +1390,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		if (fileList->normalEntries.IsValid()) {
 			for (int i = 0; i < (int)fileList->resultNumNormalEntries; i++) {
 				const SceUtilitySavedataFileListEntry &info = fileList->normalEntries[i];
-				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+				NOTICE_LOG(Log::sceUtility, "FILES: %s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					info.name, info.st_mode, FmtPspTime(info.st_ctime).c_str(), FmtPspTime(info.st_atime).c_str(), FmtPspTime(info.st_mtime).c_str());
 			}
 		} else if (fileList->resultNumNormalEntries > 0) {

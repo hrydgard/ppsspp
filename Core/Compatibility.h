@@ -121,6 +121,7 @@ struct CompatFlags {
 	bool DetectDestBlendSquared;
 	bool BoostExactFramebufferMatch;
 	bool PersistentFramebuffers;
+	bool FileCreatedTimeHack;
 };
 
 struct VRCompat {
