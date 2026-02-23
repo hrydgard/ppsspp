@@ -1648,11 +1648,15 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+	// We might have a bad viewport after RunEmulation, reset.
+	Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 
 	if (!skipBufferEffects_ && !ShouldRunEmulation(mode)) {
 		if (gpu) {
 			gpu->CopyDisplayToOutput(displayLayoutConfig);
 		}
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		darken();
 		return screenRenderFlags;
 	}
@@ -1663,6 +1667,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (mode & ScreenRenderMode::TOP) {
 			checkPowerDown();
 		}
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		renderUI();
 		return screenRenderFlags;
 	}
@@ -1672,8 +1678,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		screenRenderFlags = RunEmulation(true);
 	}
 
-	// We might have a bad viewport after RunEmulation, reset.
-	Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 	draw->SetViewport(viewport);
 
 	ProcessQueuedVKeys();
