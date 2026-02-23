@@ -460,12 +460,19 @@ EmuScreen::~EmuScreen() {
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
-	// Should not be able to quit during boot, as boot can't be cancelled.
-	_dbg_assert_(!bootPending_);
-	if (!bootPending_) {
-		Achievements::UnloadGame();
-		PSP_Shutdown(true);
+	if (bootPending_) {
+		// We probably quit during boot, got blocked in lostdevice, and then didn't end up in update again to call PSP_InitUpdate.
+		// So we need to finish and join the boot thread before we can exit.
+		_dbg_assert_(PollBootState() != BootState::Booting);
+		// Make sure we join the boot thread, by calling PSP_InitUpdate.
+		std::string error_string = "(unknown error)";
+		PSP_InitUpdate(&error_string);
+		ERROR_LOG(Log::G3D, "Quit during boot, not good. %s", error_string.c_str());
+		bootPending_ = false;
 	}
+
+	Achievements::UnloadGame();
+	PSP_Shutdown(true);
 
 	// If achievements are disabled in the global config, let's shut it down here.
 	if (!g_Config.bAchievementsEnable) {
