@@ -569,16 +569,18 @@ void PSP_ForceDebugStats(bool enable) {
 	_assert_(coreCollectDebugStatsCounter >= 0);
 }
 
-static void InitGPU(GPUCore gpuCore, Draw::DrawContext *draw, std::string *error_string) {
-	_dbg_assert_(!gpu);
-
-	INFO_LOG(Log::Loader, "Starting graphics...");
-	// This set the `gpu` global.
-	bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
-	if (!success) {
-		*error_string = "Unable to initialize rendering engine.";
-		CPU_Shutdown(false);
-		g_bootState = BootState::Failed;
+static void InitGPU(std::string *error_string) {
+	if (!gpu) {  // should be!
+		INFO_LOG(Log::Loader, "Starting graphics...");
+		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
+		// This set the `gpu` global.
+		GPUCore gpuCore = PSP_CoreParameter().gpuCore;
+		bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
+		if (!success) {
+			*error_string = "Unable to initialize rendering engine.";
+			CPU_Shutdown(false);
+			g_bootState = BootState::Failed;
+		}
 	}
 }
 
@@ -597,19 +599,6 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_CoreParameter.graphicsContext == nullptr) {
 		g_CoreParameter.graphicsContext = temp;
 	}
-	Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
-
-	GPUCore gpuCore = g_CoreParameter.gpuCore;
-
-	// In libretro, the creation order is different, it's ok with a null draw context here.
-	// We do need to rework the whole init process.. ugh.
-#ifndef __LIBRETRO__
-	if (!draw && gpuCore != GPUCORE_SOFTWARE) {
-		ERROR_LOG(Log::Loader, "No drawing context provided.");
-		g_bootState = BootState::Failed;
-		return false;
-	}
-#endif
 
 	g_CoreParameter.errorString.clear();
 
@@ -621,7 +610,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 
-	g_loadingThread = std::thread([errorString, gpuCore, draw]() {
+	g_loadingThread = std::thread([errorString]() {
 		SetCurrentThreadName("ExecLoader");
 
 		AndroidJNIThreadContext jniContext;
@@ -663,8 +652,9 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		}
 
 		// Initialize the GPU as far as we can here (do things like load cache files).
+		_dbg_assert_(!gpu);
 #ifndef __LIBRETRO__
-		InitGPU(gpuCore, draw, errorString);
+		InitGPU(errorString);
 #endif
 		g_bootState = BootState::Complete;
 	});
@@ -696,7 +686,7 @@ BootState PSP_InitUpdate(std::string *error_string) {
 	}
 
 #ifdef __LIBRETRO__
-	InitGPU(g_CoreParameter.gpuCore, g_CoreParameter.graphicsContext->GetDrawContext(), error_string);
+	InitGPU(error_string);
 #endif
 
 	// Ok, async part of the boot completed, let's finish up things on the main thread.
