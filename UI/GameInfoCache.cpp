@@ -907,24 +907,30 @@ handleELF:
 			u64 saveDataSize = 0;
 			u64 installDataSize = 0;
 
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->gameSizeOnDisk = gameSizeOnDisk;
+			info_->saveDataSize = saveDataSize;
+			info_->installDataSize = installDataSize;
+		}
+
+		if (flags_ & GameInfoFlags::SAVEDATA_SIZE) {
 			switch (info_->fileType) {
 			case IdentifiedFileType::PSP_ISO:
 			case IdentifiedFileType::PSP_ISO_NP:
 			case IdentifiedFileType::PSP_DISC_DIRECTORY:
 			case IdentifiedFileType::PSP_PBP:
 			case IdentifiedFileType::PSP_PBP_DIRECTORY:
-				saveDataSize = info_->GetGameSavedataSizeInBytes();
-				installDataSize = info_->GetInstallDataSizeInBytes();
+			{
+				std::lock_guard<std::mutex> lock(info_->lock);
+				info_->saveDataSize = info_->GetGameSavedataSizeInBytes();
+				info_->installDataSize = info_->GetInstallDataSizeInBytes();
 				break;
+			}
 			default:
 				break;
 			}
-
-			std::lock_guard<std::mutex> lock(info_->lock);
-			info_->gameSizeOnDisk = gameSizeOnDisk;
-			info_->saveDataSize = saveDataSize;
-			info_->installDataSize = installDataSize;
 		}
+
 		if (flags_ & GameInfoFlags::UNCOMPRESSED_SIZE) {
 			info_->gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
 		}
@@ -1038,12 +1044,13 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 
 // Call on the main thread ONLY - that is from stuff called from NativeFrame.
 // Can also be called from the audio thread for menu background music, but that cannot request images!
-std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags) {
+std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags, GameInfoFlags refetchFlags) {
 	const std::string &pathStr = gamePath.ToString();
 
 	// _dbg_assert_(gamePath != GetSysDirectory(DIRECTORY_SAVEDATA));
 
 	// This is always needed to determine the method to get the other info, so make sure it's computed first.
+
 	wantFlags |= GameInfoFlags::FILE_TYPE;
 
 	mapLock_.lock();
@@ -1056,10 +1063,15 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 
 		info->FinishPendingTextureLoads(draw);
 		info->lastAccessedTime = time_now_d();
+
 		GameInfoFlags wanted = (GameInfoFlags)0;
 		{
 			// Careful now!
 			std::unique_lock<std::mutex> lock(info->lock);
+			if (refetchFlags != GameInfoFlags::EMPTY) {
+				// Forget some flags!
+				info->hasFlags &= ~refetchFlags;
+			}
 			GameInfoFlags willHaveFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
 			wanted = (GameInfoFlags)((int)wantFlags & ~(int)willHaveFlags);  // & is reserved for testing so we have to cast to int. ugh.
 			info->pendingFlags |= wanted;
@@ -1067,6 +1079,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 				*outHasFlags = info->hasFlags;
 			}
 		}
+
 		if (wanted != (GameInfoFlags)0) {
 			// We're missing info that we want. Go get it!
 			GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wanted);

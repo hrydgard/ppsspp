@@ -48,6 +48,7 @@ enum class GameInfoFlags {
 	SND = 0x20,
 	SIZE = 0x40,
 	UNCOMPRESSED_SIZE = 0x80,
+	SAVEDATA_SIZE = 0x100,
 };
 ENUM_CLASS_BITOPS(GameInfoFlags);
 
@@ -200,7 +201,7 @@ public:
 	// because they're big. bgTextures and sound may be discarded over time as well.
 	// NOTE: This never returns null, so you don't need to check for that. Do check Ready() flags though.
 	// It's OK to pass in nullptr for draw if you don't need the actual texture right now.
-	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags = nullptr);
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags = nullptr, GameInfoFlags refetchFlags = GameInfoFlags::EMPTY);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	void CancelAll();
