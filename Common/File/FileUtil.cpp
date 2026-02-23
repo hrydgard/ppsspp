@@ -317,7 +317,7 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		return -1;
 	}
 
-	INFO_LOG(Log::IO, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
+	DEBUG_LOG(Log::IO, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
 	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
 	if (descriptor < 0) {
 		// File probably just doesn't exist. No biggie.
