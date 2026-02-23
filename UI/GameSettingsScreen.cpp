@@ -1744,9 +1744,19 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	System_RestartApp(param);
 }
 
+// From PauseScreen
+std::string GetConfirmExitMessage();
+
 void GameSettingsScreen::TriggerRestartOrDo(std::function<void()> callback) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+
+	std::string confirmExitMessage = GetConfirmExitMessage();
+	if (!confirmExitMessage.empty()) {
+		confirmExitMessage = "\n\n" + confirmExitMessage;
+	}
+	confirmExitMessage = std::string(di->T("Changing this setting requires PPSSPP to restart.")) + confirmExitMessage;
+
+	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), confirmExitMessage, di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 		if (yes) {
 			TriggerRestart("GameSettingsScreen::RenderingBackendYes", editGameSpecificThenRestore_, gamePath_);
 		} else {

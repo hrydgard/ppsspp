@@ -782,6 +782,10 @@ int GetUnsavedProgressSeconds() {
 std::string GetConfirmExitMessage() {
 	std::string confirmMessage;
 
+	if (!PSP_IsInited()) {
+		return std::string();
+	}
+
 	int unsavedSeconds = GetUnsavedProgressSeconds();
 
 	// If RAIntegration has dirty info, ask for confirmation.
