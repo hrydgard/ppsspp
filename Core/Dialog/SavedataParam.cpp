@@ -1236,14 +1236,16 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		{
 			entries[i].st_mode = 0x11FF;
 			if (sfoFiles[i].exists) {
-				__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
-				__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
-				__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
+				ConvertTmToPspDateTime(entries[i].st_ctime, sfoFiles[i].ctime, sfoFiles[i].ctimeUs);
+				ConvertTmToPspDateTime(entries[i].st_atime, sfoFiles[i].atime, sfoFiles[i].atimeUs);
+				ConvertTmToPspDateTime(entries[i].st_mtime, sfoFiles[i].mtime, sfoFiles[i].mtimeUs);
 			} else {
-				__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
-				__IoCopyDate(entries[i].st_atime, validDir[i].atime);
-				__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
+				// What?
+				ConvertTmToPspDateTime(entries[i].st_ctime, validDir[i].ctime, validDir[i].ctimeUs);
+				ConvertTmToPspDateTime(entries[i].st_atime, validDir[i].atime, validDir[i].atimeUs);
+				ConvertTmToPspDateTime(entries[i].st_mtime, validDir[i].mtime, validDir[i].mtimeUs);
 			}
+
 			// folder name without gamename (max 20 u8)
 			std::string outName = validDir[i].name.substr(GetGameName(param).size());
 			memset(entries[i].name, 0, sizeof(entries[i].name));
@@ -1364,9 +1366,9 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 
 		entry->st_mode = 0x21FF;
 		entry->st_size = file->size + sizeOffset;
-		__IoCopyDate(entry->st_ctime, file->ctime);
-		__IoCopyDate(entry->st_atime, file->atime);
-		__IoCopyDate(entry->st_mtime, file->mtime);
+		ConvertTmToPspDateTime(entry->st_ctime, file->ctime, file->ctimeUs);
+		ConvertTmToPspDateTime(entry->st_atime, file->atime, file->atimeUs);
+		ConvertTmToPspDateTime(entry->st_mtime, file->mtime, file->mtimeUs);
 		// TODO: Probably actually 13 + 3 pad...
 		strncpy(entry->name, file->name.c_str(), 16);
 		entry->name[15] = '\0';
@@ -1467,14 +1469,12 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 	return exists;
 }
 
-void SavedataParam::Clear()
-{
-	if (saveDataList)
-	{
-		for (int i = 0; i < saveNameListDataCount; i++)
-		{
-			if (saveDataList[i].texture != NULL && (!noSaveIcon || saveDataList[i].texture != noSaveIcon->texture))
+void SavedataParam::Clear() {
+	if (saveDataList) {
+		for (int i = 0; i < saveNameListDataCount; i++) {
+			if (saveDataList[i].texture && (!noSaveIcon || saveDataList[i].texture != noSaveIcon->texture)) {
 				delete saveDataList[i].texture;
+			}
 			saveDataList[i].texture = NULL;
 		}
 
@@ -1491,8 +1491,7 @@ void SavedataParam::Clear()
 	}
 }
 
-int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
-{
+int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 	pspParam = param;
 	if (!pspParam) {
 		Clear();

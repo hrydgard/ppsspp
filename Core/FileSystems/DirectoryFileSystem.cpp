@@ -776,6 +776,10 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	localtime_r((time_t*)&ctime, &x.ctime);
 	localtime_r((time_t*)&mtime, &x.mtime);
 
+	x.atimeUs = info.atimeUs;
+	x.ctimeUs = info.ctimeUs;
+	x.mtimeUs = info.mtimeUs;
+
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
 

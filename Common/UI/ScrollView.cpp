@@ -143,6 +143,11 @@ const float friction = 0.92f;
 const float stop_threshold = 0.1f;
 
 bool ScrollView::Touch(const TouchInput &input) {
+	// Ignore buttons other than the left one.
+	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
+		return false;
+	}
+
 	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();

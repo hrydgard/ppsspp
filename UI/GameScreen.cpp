@@ -56,13 +56,16 @@
 #include "UI/SavedataScreen.h"
 #include "UI/MiscViews.h"
 
-constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE;
+constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE | GameInfoFlags::SAVEDATA_SIZE;
 
 GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
-	info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_);
+	// We want to re-fetch savedata size when opening this screen.
+	constexpr GameInfoFlags refetchFlags = GameInfoFlags::SAVEDATA_SIZE;
+
+	info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_, refetchFlags);
 }
 
 GameScreen::~GameScreen() {
@@ -252,7 +255,10 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 		TextView *tvGameSize = mainGameInfo->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvGameSize->SetShadow(true);
+	}
 
+	if ((knownFlags_ & GameInfoFlags::SAVEDATA_SIZE)) {
+		char temp[256];
 		if (info_->saveDataSize > 0) {
 			snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("SaveData"), NiceSizeFormat(info_->saveDataSize).c_str());
 			TextView *tvSaveDataSize = infoLayout->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
