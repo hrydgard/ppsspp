@@ -162,6 +162,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DetectDestBlendSquared", &flags_.DetectDestBlendSquared);
 	CheckSetting(iniFile, gameID, "BoostExactFramebufferMatch", &flags_.BoostExactFramebufferMatch);
 	CheckSetting(iniFile, gameID, "PersistentFramebuffers", &flags_.PersistentFramebuffers);
+	CheckSetting(iniFile, gameID, "FileCreatedTimeHack", &flags_.FileCreatedTimeHack);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
