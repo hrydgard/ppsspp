@@ -62,7 +62,7 @@ dependencies {
 	// Will replace with a different plugin soon.
 	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
-	implementation("com.google.protobuf:protobuf-javalite:4.33.4")
+	implementation("com.google.protobuf:protobuf-javalite:4.33.5")
 }
 
 protobuf {
