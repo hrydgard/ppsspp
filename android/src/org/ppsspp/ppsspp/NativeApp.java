@@ -2,7 +2,6 @@ package org.ppsspp.ppsspp;
 
 // Note that the display* methods are in NativeRenderer.java
 
-import android.annotation.SuppressLint;
 import android.os.Build;
 import android.util.Log;
 import android.view.InputDevice;

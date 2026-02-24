@@ -58,14 +58,6 @@ public class ContentUri {
 		}
 	}
 
-	private static final String[] columns = new String[] {
-		DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-		DocumentsContract.Document.COLUMN_SIZE,
-		DocumentsContract.Document.COLUMN_FLAGS,
-		DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
-		DocumentsContract.Document.COLUMN_LAST_MODIFIED
-	};
-
 	private static String cursorToString(Cursor c, String prefixLowercase) {
 		final int flags = c.getInt(2);
 		// Filter out any virtual or partial nonsense.

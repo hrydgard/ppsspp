@@ -3,10 +3,7 @@ package org.ppsspp.ppsspp;
 import android.content.Context;
 import android.hardware.ConsumerIrManager;
 import android.hardware.ConsumerIrManager.CarrierFrequencyRange;
-import android.os.Build;
 import android.util.Log;
-
-import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
 import java.util.Arrays;
