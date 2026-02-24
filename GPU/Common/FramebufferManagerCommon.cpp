@@ -2700,6 +2700,16 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			return true;  // Skip the memory copy.
 		}
 
+		// If the formats mismatch badly, we need a resolve.
+		if (srcRect.vfb && dstRect.vfb && srcRect.channel == RASTER_COLOR && dstRect.channel == RASTER_COLOR && srcRect.vfb->fb_format != dstRect.vfb->fb_format) {
+			WARN_LOG_N_TIMES(dstnotsrc, 5, Log::G3D, "Mismatched color format requiring reinterpret during block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",
+				width, height, bpp,
+				srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride, GeBufferFormatToString(srcRect.vfb->fb_format),
+				dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride, GeBufferFormatToString(dstRect.vfb->fb_format));
+			// Seen in Silent Hill: Shattered Memories.
+			srcRect.vfb = ResolveFramebufferColorToFormat(srcRect.vfb, dstRect.vfb->fb_format);
+		}
+
 		// Straightforward blit between two same-format framebuffers.
 		if (srcRect.vfb && srcRect.channel == dstRect.channel && srcRect.vfb->Format(srcRect.channel) == dstRect.vfb->Format(dstRect.channel)) {
 			WARN_LOG_N_TIMES(dstnotsrc, 5, Log::G3D, "Inter-buffer %s block transfer %dx%d %dbpp from %08x (x:%d y:%d stride:%d %s) -> %08x (x:%d y:%d stride:%d %s)",

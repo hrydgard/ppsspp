@@ -1135,8 +1135,19 @@ bool TextureCacheCommon::MatchFramebuffer(
 				}
 				return true;
 			}
-		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, Log::G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+		} else if (IsClutFormat((GETextureFormat)(entry.format))) {
+			WARN_LOG_ONCE(nomatch_clut, Log::G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+			// Seen in Silent Hill: Shattered Memories (#6265).
+			if (entry.format == GE_TFMT_CLUT32 && fb_format != GE_FORMAT_8888) {
+				matchInfo->reinterpret = true;
+				matchInfo->reinterpretTo = GE_FORMAT_8888;
+				matchInfo->xOffset = 0;
+				matchInfo->yOffset = 0;
+				return true;
+			}
+			return false;
+		} else if (IsDXTFormat((GETextureFormat)(entry.format))) {
+			WARN_LOG_ONCE(nomatch_dxt, Log::G3D, "%s texture format (DXT!) not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
 			return false;
 		}
 
