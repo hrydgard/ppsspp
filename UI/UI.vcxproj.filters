@@ -144,6 +144,7 @@
     <ClCompile Include="Background.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="VideoPlayer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -285,6 +286,7 @@
     <ClInclude Include="Background.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="VideoPlayer.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

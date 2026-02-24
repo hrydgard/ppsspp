@@ -947,6 +947,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/Theme.cpp \
   $(SRC)/UI/UIAtlas.cpp \
+  $(SRC)/UI/VideoPlayer.cpp \
   $(SRC)/UI/CustomButtonMappingScreen.cpp \
   $(SRC)/UI/RetroAchievementScreens.cpp
 

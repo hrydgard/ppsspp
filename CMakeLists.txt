@@ -1651,6 +1651,8 @@ list(APPEND NativeAppSource
 	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
+	UI/VideoPlayer.h
+	UI/VideoPlayer.cpp
 	UI/UIAtlas.h
 	UI/UIAtlas.cpp
 	UI/RetroAchievementScreens.cpp
@@ -2517,6 +2519,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	Core/Util/RecentFiles.cpp
 	Core/Util/RecentFiles.h
+	Core/Util/VideoPlayer.cpp
+	Core/Util/VideoPlayer.h
 	${GPU_SOURCES}
 	ext/disarm.cpp
 	ext/disarm.h
