@@ -659,7 +659,7 @@ PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
 	return x;
 }
 
-std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 	const TreeEntry *entry = GetFromPath(path);
 	if (!entry) {

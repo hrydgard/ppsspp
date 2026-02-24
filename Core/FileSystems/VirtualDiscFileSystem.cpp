@@ -652,7 +652,7 @@ static void tmFromFiletime(tm &dest, const FILETIME &src)
 }
 #endif
 
-std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 
 	// TODO(scoped): Switch this over to GetFilesInDir!
@@ -700,7 +700,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string 
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
 		entry.isOnSectorSystem = true;
 
-		std::string fullRelativePath = path + "/" + entry.name;
+		std::string fullRelativePath = std::string(path) + "/" + entry.name;
 		int fileIndex = getFileListIndex(fullRelativePath);
 		if (fileIndex != -1)
 			entry.startSector = fileList[fileIndex].firstBlock;
