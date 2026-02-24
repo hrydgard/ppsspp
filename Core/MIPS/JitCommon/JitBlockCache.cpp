@@ -69,8 +69,7 @@ void JitBlock::DoIntegrityCheck(u32 emAddress, int num, const char *reason) cons
 	_assert_msg_(sentinel == SENTINEL_VAL, "%s: Block %d(%d) sentinel got corrupted: %08x != %08x (origAddr: %08x)", reason, num, blockNum, sentinel, SENTINEL_VAL, originalAddress);
 }
 
-JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) : codeBlock_(codeBlock) {
-}
+JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) : codeBlock_(codeBlock) {}
 
 JitBlockCache::~JitBlockCache() {
 	Shutdown();
@@ -117,7 +116,9 @@ void JitBlockCache::Reset() {
 int JitBlockCache::AllocateBlock(u32 startAddress) {
 	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
 
-	JitBlock &b = blocks_[num_blocks_];
+	const int numBlocks = num_blocks_;
+
+	JitBlock &b = blocks_[numBlocks];
 
 	b.invalid = false;
 	b.originalAddress = startAddress;
@@ -126,10 +127,11 @@ int JitBlockCache::AllocateBlock(u32 startAddress) {
 		b.exitPtrs[i] = 0;
 		b.linkStatus[i] = false;
 	}
-	b.blockNum = num_blocks_;
+	b.blockNum = numBlocks;
 	b.sentinel = SENTINEL_VAL;
-	num_blocks_++; //commit the current block
-	return num_blocks_ - 1;
+
+	num_blocks_ = numBlocks + 1; //commit the current block
+	return numBlocks;
 }
 
 void JitBlockCache::AddBlockMap(int block_num) {

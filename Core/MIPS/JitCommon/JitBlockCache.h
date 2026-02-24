@@ -191,10 +191,9 @@ private:
 
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
+	int num_blocks_ = 0;
 	CodeBlockCommon *codeBlock_;
 	JitBlock *blocks_ = nullptr;
-
-	int num_blocks_ = 0;
 	std::unordered_multimap<u32, int> links_to_;
 	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
 
