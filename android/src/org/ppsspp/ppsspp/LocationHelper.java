@@ -1,6 +1,5 @@
 package org.ppsspp.ppsspp;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.location.GnssStatus;
 import android.location.GpsSatellite;
@@ -15,8 +14,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-
-import java.util.Iterator;
 
 class LocationHelper implements LocationListener {
 	private static final String TAG = LocationHelper.class.getSimpleName();
@@ -37,7 +34,6 @@ class LocationHelper implements LocationListener {
 		mLocationEnable = false;
 	}
 
-	@SuppressWarnings("deprecation")
 	void startLocationUpdates() {
 		Log.d(TAG, "startLocationUpdates");
 		if (!mLocationEnable) {
@@ -56,22 +52,12 @@ class LocationHelper implements LocationListener {
 						}
 					};
 					mLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
-					mNmeaMessageListener = new OnNmeaMessageListener() {
-						@Override
-						public void onNmeaMessage(String message, long timestamp) {
-							onNmea(message);
-						}
-					};
+					mNmeaMessageListener = (message, timestamp) -> onNmea(message);
 					mLocationManager.addNmeaListener(mNmeaMessageListener);
 				} else {
 					mGpsStatusListener = this::onGpsStatus;
 					mLocationManager.addGpsStatusListener(mGpsStatusListener);
-					mNmeaListener = new GpsStatus.NmeaListener() {
-						@Override
-						public void onNmeaReceived(long timestamp, String nmea) {
-							onNmea(nmea);
-						}
-					};
+					mNmeaListener = (timestamp, nmea) -> onNmea(nmea);
 					mLocationManager.addNmeaListener(mNmeaListener);
 				}
 				mLocationEnable = true;
@@ -85,7 +71,6 @@ class LocationHelper implements LocationListener {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	void stopLocationUpdates() {
 		Log.d(TAG, "stopLocationUpdates");
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
