@@ -49,15 +49,11 @@ protected:
 	void OnVKey(VirtKey virtualKeyCode, bool down) override;
 
 private:
-	void CreateSavestateControls(UI::LinearLayout *viewGroup);
+	void CreateSavestateControls(UI::LinearLayout *viewGroup, UI::LinearLayout **extraRow);
 
 	void OnGameSettings(UI::EventParams &e);
 	void OnExit(UI::EventParams &e);
 	void OnReportFeedback(UI::EventParams &e);
-
-	void OnRewind(UI::EventParams &e);
-	void OnLoadUndo(UI::EventParams &e);
-	void OnLastSaveUndo(UI::EventParams &e);
 
 	void OnCreateConfig(UI::EventParams &e);
 	void OnDeleteConfig(UI::EventParams &e);

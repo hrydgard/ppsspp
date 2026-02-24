@@ -2874,7 +2874,7 @@ void FramebufferManagerCommon::NotifyRenderResized(const DisplayLayoutConfig &co
 	PSP_CoreParameter().renderHeight = h;
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
-	if (UpdateRenderSize(msaaLevel)) {
+	if (draw_ && UpdateRenderSize(msaaLevel)) {
 		draw_->StopThreads();
 		DestroyAllFBOs();
 		draw_->StartThreads();

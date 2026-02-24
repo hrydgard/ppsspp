@@ -636,6 +636,9 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			}
 		}
 
+		// Use this to test exit-during-boot and other exceptional cases.
+		// sleep_ms(6000, "test");
+
 		g_CoreParameter.fileType = fileType;
 
 		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
@@ -718,6 +721,10 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		}
 		sleep_ms(5, "psp-init-poll");
 	}
+}
+
+BootState PollBootState() {
+	return g_bootState;
 }
 
 void PSP_Shutdown(bool success) {

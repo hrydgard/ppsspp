@@ -48,6 +48,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -1501,26 +1502,24 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
-		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
-		return bld;
+		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
-		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
-		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
-		return bld;
+		return new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+	}
+
+	private AlertDialog.Builder createDialogBuilder() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			return createDialogBuilderNew();
+		} else {
+			return createDialogBuilderWithDeviceThemeAndUiVisibility();
+		}
 	}
 
 	// The return value is sent to C++ via requestID.
 	public void inputBox(final int requestId, final String title, String defaultText, String defaultAction) {
-		// Workaround for issue #13363 to fix Split/Second game start
-		if (isVRDevice()) {
-			NativeApp.sendRequestResult(requestId, false, defaultText, 0);
-			return;
-		}
-
 		final FrameLayout fl = new FrameLayout(this);
 		final EditText input = new EditText(this);
 		input.setGravity(Gravity.CENTER);
@@ -1530,39 +1529,52 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		fl.addView(input, editBoxLayout);
 
 		input.setInputType(InputType.TYPE_CLASS_TEXT);
+		input.setImeOptions(EditorInfo.IME_ACTION_DONE);
 		input.setText(defaultText);
+		input.setFocusableInTouchMode(true);
+		input.requestFocus();
+
 		input.selectAll();
+		//input.setSelection(input.getText().length());
 
-		AlertDialog.Builder bld;
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			bld = createDialogBuilderNew();
-		} else {
-			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
-		}
-
-		AlertDialog.Builder builder = bld
+		AlertDialog.Builder builder = createDialogBuilder()
 			.setView(fl)
 			.setTitle(title)
 			.setPositiveButton(defaultAction, (d, which) -> {
 				Log.i(TAG, "input box successful");
 				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
-				d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
+				// Dismiss happens automatically.
 			})
 			.setNegativeButton("Cancel", (d, which) -> {
-				Log.i(TAG, "input box cancelled");
-				NativeApp.sendRequestResult(requestId, false, "", 0);
 				d.cancel();
 			});
-		builder.setOnDismissListener(d -> {
+		builder.setOnDismissListener(	d -> {
 			Log.i(TAG, "input box dismissed");
+			// This will be ignored if we already sent a success.
 			NativeApp.sendRequestResult(requestId, false, "", 0);
 			updateSystemUiVisibility();
 		});
-		AlertDialog dlg = builder.create();
 
+		AlertDialog dlg = builder.create();
+		input.setOnEditorActionListener((v, actionId, event) -> {
+			if (actionId == EditorInfo.IME_ACTION_DONE) {
+				Log.i(TAG, "input box successful via Keyboard Done");
+				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
+
+				// We must dismiss the dialog manually here
+				dlg.dismiss();
+				return true; // Consume the event
+			}
+			return false;
+		});
 		dlg.setCancelable(true);
+		Window wnd = dlg.getWindow();
+		if (wnd != null) {
+			wnd.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+		}
 		try {
 			dlg.show();
+			input.requestFocus();
 		} catch (Exception e) {
 			NativeApp.reportException(e, "AlertDialog");
 		}
@@ -1711,6 +1723,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				title = param[1];
 			if (param.length > 2)
 				defString = param[2];
+			// Workaround for issue #13363 to fix Split/Second game start - it requires text input
+			// but we don't support it on VR devices.
+			if (isVRDevice()) {
+				NativeApp.sendRequestResult(requestID, false, defString, 0);
+				return true;
+			}
 			Log.i(TAG, "Launching inputbox: #" + requestID + " " + title + " " + defString);
 			inputBox(requestID, title, defString, "OK");
 			return true;

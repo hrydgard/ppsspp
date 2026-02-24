@@ -460,12 +460,19 @@ EmuScreen::~EmuScreen() {
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
-	// Should not be able to quit during boot, as boot can't be cancelled.
-	_dbg_assert_(!bootPending_);
-	if (!bootPending_) {
-		Achievements::UnloadGame();
-		PSP_Shutdown(true);
+	if (bootPending_) {
+		// We probably quit during boot, got blocked in lostdevice, and then didn't end up in update again to call PSP_InitUpdate.
+		// So we need to finish and join the boot thread before we can exit.
+		_dbg_assert_(PollBootState() != BootState::Booting);
+		// Make sure we join the boot thread, by calling PSP_InitUpdate.
+		std::string error_string = "(unknown error)";
+		PSP_InitUpdate(&error_string);
+		ERROR_LOG(Log::G3D, "Quit during boot, not good. %s", error_string.c_str());
+		bootPending_ = false;
 	}
+
+	Achievements::UnloadGame();
+	PSP_Shutdown(true);
 
 	// If achievements are disabled in the global config, let's shut it down here.
 	if (!g_Config.bAchievementsEnable) {
@@ -1368,6 +1375,13 @@ void EmuScreen::CreateViews() {
 }
 
 void EmuScreen::deviceLost() {
+	// If we are currently in the middle of boot, we have to block here!
+	// Otherwise the boot thread will encounter draw_ == nullptr and weird stuff like that.
+	// We're doing this in a very ugly way for now.
+	while (PollBootState() == BootState::Booting) {
+		sleep_ms(100, "device-lost-during-boot");
+	}
+
 	UIScreen::deviceLost();
 
 	if (imguiInited_) {
@@ -1634,11 +1648,15 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+	// We might have a bad viewport after RunEmulation, reset.
+	Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 
 	if (!skipBufferEffects_ && !ShouldRunEmulation(mode)) {
 		if (gpu) {
 			gpu->CopyDisplayToOutput(displayLayoutConfig);
 		}
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		darken();
 		return screenRenderFlags;
 	}
@@ -1649,6 +1667,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (mode & ScreenRenderMode::TOP) {
 			checkPowerDown();
 		}
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		renderUI();
 		return screenRenderFlags;
 	}
@@ -1658,8 +1678,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		screenRenderFlags = RunEmulation(true);
 	}
 
-	// We might have a bad viewport after RunEmulation, reset.
-	Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 	draw->SetViewport(viewport);
 
 	ProcessQueuedVKeys();

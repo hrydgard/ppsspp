@@ -55,6 +55,9 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			if (layoutParams_->height == WRAP_CONTENT)
 				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		}
+
+		// The below seems misguided and leads to wrong sized scrollviews. Need to investigate if it's needed somewhere...
+		/*
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
 			float bestHeight = std::max(views_[0]->GetMeasuredHeight(), views_[0]->GetBounds().h);
 			if (vert.type == AT_MOST)
@@ -63,7 +66,7 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			if (measuredHeight_ < bestHeight && layoutParams_->height < 0.0f) {
 				measuredHeight_ = bestHeight;
 			}
-		}
+		}*/
 	}
 }
 
@@ -276,8 +279,8 @@ void ScrollView::Draw(UIContext &dc) {
 	// If not anchored at the top of the screen exactly, and not scrolled to the top,
 	// draw a subtle drop shadow to indicate scrollability.
 
-	const float darkness = 0.4f;
-	if (bounds_.y > 0.0f && orientation_ == ORIENT_VERTICAL) {
+	constexpr float darkness = 0.4f;
+	if (shadows_ && bounds_.y > 0.0f && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
 		Bounds shadowBounds = bounds_;
@@ -292,8 +295,8 @@ void ScrollView::Draw(UIContext &dc) {
 	}
 
 	// Same at the bottom.
-	float y2 = dc.GetLayoutBounds().y2();
-	if (bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
+	const float y2 = dc.GetLayoutBounds().y2();
+	if (shadows_ && bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
 		Bounds shadowBounds = bounds_;
@@ -483,10 +486,10 @@ float ScrollView::ClampedScrollPos(float pos) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
 			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
-			pull_ = -(sqrt(dist) * maxPull);
+			pull_ = -(sqrtf(dist) * maxPull);
 		} else if (pos > scrollMax) {
 			float dist = std::min((pos - scrollMax) * (1.0f / bounds_.h), 1.0f);
-			pull_ = sqrt(dist) * maxPull;
+			pull_ = sqrtf(dist) * maxPull;
 		} else {
 			pull_ = 0.0f;
 		}
