@@ -32,7 +32,7 @@ public:
 	~ISOFileSystem();
 
 	void DoState(PointerWrap &p) override;
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
@@ -114,7 +114,7 @@ public:
 		isoFileSystem_->DoState(p);
 	}
 
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override {
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override {
 		if (exists)
 			*exists = true;
 		return std::vector<PSPFileInfo>();

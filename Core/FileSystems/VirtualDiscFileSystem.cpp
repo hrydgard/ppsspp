@@ -652,7 +652,7 @@ static void tmFromFiletime(tm &dest, const FILETIME &src)
 }
 #endif
 
-std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string_view pathStr, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 
 	// TODO(scoped): Switch this over to GetFilesInDir!
@@ -663,7 +663,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string 
 
 	// TODO: Handler files that are virtual might not be listed.
 
-	std::wstring w32path = GetLocalPath(path).ToWString() + L"\\*.*";
+	std::wstring w32path = GetLocalPath(pathStr).ToWString() + L"\\*.*";
 
 #if PPSSPP_PLATFORM(UWP)
 	hFind = FindFirstFileExFromAppW(w32path.c_str(), FindExInfoStandard, &findData, FindExSearchNameMatch, NULL, 0);
@@ -700,7 +700,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string 
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
 		entry.isOnSectorSystem = true;
 
-		std::string fullRelativePath = path + "/" + entry.name;
+		std::string fullRelativePath = std::string(pathStr) + "/" + entry.name;
 		int fileIndex = getFileListIndex(fullRelativePath);
 		if (fileIndex != -1)
 			entry.startSector = fileList[fileIndex].firstBlock;
@@ -709,11 +709,11 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string 
 	FindClose(hFind);
 #else
 	dirent *dirp;
-	Path localPath = GetLocalPath(path);
+	Path localPath = GetLocalPath(pathStr);
 	DIR *dp = opendir(localPath.c_str());
 
 #if HOST_IS_CASE_SENSITIVE
-	std::string fixedPath = path;
+	std::string fixedPath(pathStr);
 	if(dp == NULL && FixPathCase(basePath, fixedPath, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again
 		localPath = GetLocalPath(fixedPath);
@@ -722,7 +722,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string 
 #endif
 
 	if (dp == NULL) {
-		ERROR_LOG(Log::FileSystem,"Error opening directory %s\n", path.c_str());
+		ERROR_LOG(Log::FileSystem,"Error opening directory %.*s\n", STR_VIEW(pathStr));
 		if (exists)
 			*exists = false;
 		return myVector;
@@ -753,7 +753,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(const std::string 
 		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
 		entry.isOnSectorSystem = true;
 
-		std::string fullRelativePath = path + "/" + entry.name;
+		std::string fullRelativePath = std::string(pathStr) + "/" + entry.name;
 		int fileIndex = getFileListIndex(fullRelativePath);
 		if (fileIndex != -1)
 			entry.startSector = fileList[fileIndex].firstBlock;

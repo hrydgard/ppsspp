@@ -1240,7 +1240,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 						char c = (char) unicode;
 						Log.i(TAG, "Key char event " + unicode);
 						// Handle alphanumeric character
-						NativeApp.keyChar(NativeApp.DEVICE_ID_KEYBOARD, (int)c);
+						NativeApp.keyChar(NativeApp.DEVICE_ID_KEYBOARD, c);
 						return true;
 					}
 
@@ -1507,7 +1507,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
-		return new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+		return new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
 	}
 
 	private AlertDialog.Builder createDialogBuilder() {
@@ -1533,7 +1533,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		input.setText(defaultText);
 		input.setFocusableInTouchMode(true);
 		input.requestFocus();
-
 		input.selectAll();
 		//input.setSelection(input.getText().length());
 
@@ -1545,9 +1544,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
 				// Dismiss happens automatically.
 			})
-			.setNegativeButton("Cancel", (d, which) -> {
-				d.cancel();
-			});
+			.setNegativeButton("Cancel", (d, which) -> d.cancel());
 		builder.setOnDismissListener(	d -> {
 			Log.i(TAG, "input box dismissed");
 			// This will be ignored if we already sent a success.
@@ -1951,12 +1948,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void postCommand(String command, String parameter) {
 		final String cmd = command;
 		final String param = parameter;
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (!processCommand(cmd, param)) {
-					Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
-				}
+		runOnUiThread(() -> {
+			if (!processCommand(cmd, param)) {
+				Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
 			}
 		});
 	}

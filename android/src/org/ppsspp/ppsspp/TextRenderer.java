@@ -10,11 +10,6 @@ import androidx.annotation.Keep;
 import java.util.HashMap;
 
 public class TextRenderer {
-	private static class Font {
-		public Paint paint;
-		public Typeface typeFace;
-	}
-
 	private static Paint textPaint = null;
 
 	private static final Paint bg;
@@ -22,7 +17,7 @@ public class TextRenderer {
 
 	private static int idGen = 1;
 
-	private static HashMap<java.lang.Integer, Typeface> fontMap = new HashMap<>();
+	private static final HashMap<java.lang.Integer, Typeface> fontMap = new HashMap<>();
 
 	private static boolean highContrastFontsEnabled = false;
 

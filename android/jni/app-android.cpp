@@ -125,9 +125,8 @@ static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 AndroidAudioState *g_audioState;
 
 struct FrameCommand {
-	FrameCommand() {}
-	FrameCommand(std::string cmd, std::string prm) : command(cmd), params(prm) {}
-
+	FrameCommand() = default;
+	FrameCommand(std::string_view cmd, std::string_view param) : command(cmd), params(param) {}
 	std::string command;
 	std::string params;
 };
@@ -354,7 +353,7 @@ static void PushCommand(std::string_view cmd, std::string_view param) {
 
 // Android implementation of callbacks to the Java part of the app
 void System_Toast(std::string_view text) {
-	PushCommand("toast", std::string(text));
+	PushCommand("toast", text);
 }
 
 void System_ShowKeyboard() {
@@ -372,6 +371,9 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
 	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
 	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
+	// Can't really support the below well on Android...
+	case LaunchUrlType::LOCAL_FOLDER: break;
+	case LaunchUrlType::LOCAL_FILE: break;
 	}
 }
 

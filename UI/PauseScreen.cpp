@@ -833,7 +833,7 @@ std::string GetConfirmExitMessage() {
 			return confirmMessage;
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		confirmMessage = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
+		confirmMessage += ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
 		confirmMessage += '\n';
 	}
 

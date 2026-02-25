@@ -111,10 +111,6 @@
             </intent-filter>
         </activity>
 
-        <meta-data
-            android:name="xperiaplayoptimized_content"
-            android:resource="@mipmap/ic_launcher" />
-
         <profileable android:shell="true" android:enabled="true" />
     </application>
 

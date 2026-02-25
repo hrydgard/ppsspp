@@ -1,6 +1,5 @@
 package org.ppsspp.ppsspp;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
@@ -12,6 +11,8 @@ import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
+
+import androidx.annotation.Keep;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -124,31 +125,28 @@ class CameraHelper {
 		return output;
 	}
 
-	private final Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
-		@Override
-		public void onPreviewFrame(byte[] previewData, Camera camera) {
-			// throttle at 16 ms
-			long currentTime = SystemClock.elapsedRealtime();
-			if (currentTime - mLastFrameTime < 16) {
-				return;
-			}
-			mLastFrameTime = currentTime;
+	private final Camera.PreviewCallback mPreviewCallback = (previewData, camera) -> {
+		// throttle at 16 ms
+		long currentTime = SystemClock.elapsedRealtime();
+		if (currentTime - mLastFrameTime < 16) {
+			return;
+		}
+		mLastFrameTime = currentTime;
 
-			int cameraRotation = getCameraRotation();
-			byte[] newPreviewData = rotateNV21(previewData, mPreviewSize.width, mPreviewSize.height,
-					mTargetWidth, mTargetHeight, cameraRotation);
-			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, mTargetWidth, mTargetHeight, null);
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		int cameraRotation = getCameraRotation();
+		byte[] newPreviewData = rotateNV21(previewData, mPreviewSize.width, mPreviewSize.height,
+				mTargetWidth, mTargetHeight, cameraRotation);
+		YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, mTargetWidth, mTargetHeight, null);
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-			// convert to Jpeg
-			Rect crop = new Rect(0, 0, mTargetWidth, mTargetHeight);
-			yuvImage.compressToJpeg(crop, 80, baos);
-			NativeApp.pushCameraImageAndroid(baos.toByteArray());
-			try {
-				baos.close();
-			} catch (IOException e) {
-				Log.e(TAG,"Camera I/O exception: " + e);
-			}
+		// convert to Jpeg
+		Rect crop = new Rect(0, 0, mTargetWidth, mTargetHeight);
+		yuvImage.compressToJpeg(crop, 80, baos);
+		NativeApp.pushCameraImageAndroid(baos.toByteArray());
+		try {
+			baos.close();
+		} catch (IOException e) {
+			Log.e(TAG,"Camera I/O exception: " + e);
 		}
 	};
 
@@ -158,6 +156,7 @@ class CameraHelper {
 		mSurfaceTexture = new SurfaceTexture(10);
 	}
 
+	@Keep
 	static ArrayList<String> getDeviceList() {
 		ArrayList<String> deviceList = new ArrayList<>();
 		if (PpssppActivity.isVRDevice()) {

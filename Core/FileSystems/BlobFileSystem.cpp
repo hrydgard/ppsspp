@@ -30,7 +30,7 @@ void BlobFileSystem::DoState(PointerWrap &p) {
 	// Not used in real emulation.
 }
 
-std::vector<PSPFileInfo> BlobFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> BlobFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> listing;
 	listing.push_back(GetFileInfo(alias_));
 	if (exists)
