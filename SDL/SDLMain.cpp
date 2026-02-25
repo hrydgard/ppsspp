@@ -956,7 +956,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			Native_NotifyWindowHidden(false);
 
 			Uint32 window_flags = SDL_GetWindowFlags(window);
-			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+			bool fullscreen = (window_flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP));
 
 			// This one calls NativeResized if the size changed.
 			Native_UpdateScreenScale(new_width_px, new_height_px, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
@@ -986,7 +986,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_WINDOWEVENT_MOVED:
 		{
 			Uint32 window_flags = SDL_GetWindowFlags(window);
-			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+			bool fullscreen = (window_flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP));
 			if (!fullscreen) {
 				g_Config.iWindowX = (int)event.window.data1;
 				g_Config.iWindowY = (int)event.window.data2;
@@ -1633,8 +1633,11 @@ int main(int argc, char *argv[]) {
 	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
-	if (g_Config.bFullScreen)
+	if (g_Config.bFullScreen) {
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		g_display.pixel_xres = g_DesktopWidth;
+		g_display.pixel_yres = g_DesktopHeight;
+	}
 
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
@@ -1790,11 +1793,13 @@ int main(int argc, char *argv[]) {
 		// input events, and so on.
 		while (true) {
 			SDL_Event event;
-			while (SDL_WaitEventTimeout(&event, 100)) {
-				if (g_QuitRequested || g_RestartRequested)
-					break;
+			if (SDL_WaitEventTimeout(&event, 100)) {
+				do {
+					ProcessSDLEvent(window, event, &inputTracker);
 
-				ProcessSDLEvent(window, event, &inputTracker);
+					if (g_QuitRequested || g_RestartRequested)
+						break;
+				} while (SDL_PollEvent(&event));
 			}
 
 			if (g_QuitRequested || g_RestartRequested)
