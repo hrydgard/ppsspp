@@ -103,9 +103,9 @@ protected:
 		Margins contentMargins(10, 0);
 		content->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
 
-		GridLayoutSettings gridsettings(240, 64, 5);
+		GridLayoutSettings gridsettings(235, 64, 10);
 		gridsettings.fillCells = true;
-		GridLayout *grid = content->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		GridLayout *grid = content->Add(new GridLayoutList(gridsettings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0))));
 
 		Choice *back = new Choice(di->T("Back"));
 
