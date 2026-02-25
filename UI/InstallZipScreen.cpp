@@ -23,11 +23,13 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Format/IniFile.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/GameDB.h"
 #include "Core/Loaders.h"
 
 #include "UI/InstallZipScreen.h"
@@ -87,6 +89,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	case ZipFileContents::TEXTURE_PACK:
 	case ZipFileContents::SAVE_DATA:
 	case ZipFileContents::SAVE_STATES:
+	case ZipFileContents::PRX_PLUGIN:
 		installChoice_ = parent->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 		showDeleteCheckbox = true;
@@ -178,6 +181,34 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		showDeleteCheckbox = true;
 		break;
 	}
+	case ZipFileContents::PRX_PLUGIN:
+	{
+		leftColumn->Add(new TextView(iz->T("Install plugin from ZIP file?")));
+		leftColumn->Add(new TextView(GetFriendlyPath(zipPath_)));
+		Path pluginsDir = GetSysDirectory(DIRECTORY_PLUGINS);
+		ZipContainer zipFile = ZipOpenPath(zipPath_);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, pluginsDir, 50);
+		ZipClose(zipFile);
+		std::stringstream sstream(zipFileInfo_.iniContents);
+		IniFile ini;
+		ini.Load(sstream);
+		if (Section *games = ini.GetSection("games")) {
+			leftColumn->Add(new TextView(iz->T("Supported games:")));
+			for (const auto &line : games->Lines()) {
+				std::string gameID(line.Key());
+				std::vector<GameDBInfo> infos;
+				if (g_gameDB.GetGameInfos(gameID, &infos)) {
+					for (const auto &info : infos) {
+						leftColumn->Add(new TextView(info.title + " - " + gameID));
+						break;  // Let's just show the first match for each gameID, it gets messy otherwise.
+					}
+				} else {
+					leftColumn->Add(new TextView(gameID));
+				}
+			}
+		}
+		break;
+	}
 	case ZipFileContents::SAVE_STATES:
 	{
 		std::string_view question = iz->T("Import savestates from ZIP file");
@@ -187,7 +218,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !CanExtractWithoutOverwrite(zipFile, savestateDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savestateDir, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savestateDir);
@@ -204,7 +235,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !CanExtractWithoutOverwrite(zipFile, savedataDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savedataDir);

@@ -119,4 +119,4 @@ private:
 
 extern GameManager g_GameManager;
 
-bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);
+bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);
