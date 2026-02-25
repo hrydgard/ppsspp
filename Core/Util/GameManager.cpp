@@ -171,7 +171,7 @@ void GameManager::Update() {
 	}
 }
 
-bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
+bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
 	int numFiles = zip_get_num_files(z);
 	if (numFiles > maxOkFiles && maxOkFiles >= 0) {
 		// Ignore the check, just assume we can't.
@@ -190,6 +190,19 @@ bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxO
 		}
 	}
 	return true;
+}
+
+static std::string ZipReadFileByIndex(struct zip *z, int file_index) {
+	struct zip_stat zstat;
+	zip_stat_index(z, file_index, 0, &zstat);
+	std::string buffer;
+	buffer.resize(zstat.size);
+	zip_file *zf = zip_fopen_index(z, file_index, 0);
+	if (zip_fread(zf, &buffer[0], buffer.size()) != (zip_int64_t)zstat.size) {
+		return {};
+	}
+	zip_fclose(zf);
+	return buffer;
 }
 
 // Parameters need to be by value, since this is a thread func.
@@ -308,6 +321,12 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		success = ExtractZipContents(z, pspSaveData, zipInfo, true);
 		break;
 	}
+	case ZipFileContents::PRX_PLUGIN:
+	{
+		Path pspPlugins = GetSysDirectory(DIRECTORY_PLUGINS);
+		success = ExtractZipContents(z, pspPlugins, zipInfo, true);
+		break;
+	}
 	default:
 		ERROR_LOG(Log::HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
@@ -337,10 +356,8 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 		return false;
 	}
 
-	std::string buffer;
-	buffer.resize(zstat.size);
-	zip_file *zf = zip_fopen_index(z, iniIndex, 0);
-	if (zip_fread(zf, &buffer[0], buffer.size()) != (zip_int64_t)zstat.size) {
+	std::string buffer = ZipReadFileByIndex(z, iniIndex);
+	if (buffer.empty()) {
 		SetInstallError(iz->T("Zip archive corrupt"));
 		return false;
 	}

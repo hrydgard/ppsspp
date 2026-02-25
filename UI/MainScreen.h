@@ -162,9 +162,7 @@ protected:
 	void OnDownloadUpgrade(UI::EventParams &e);
 	void OnAllowStorage(UI::EventParams &e);
 
-	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
-	UI::Button *fullscreenButton_ = nullptr;
 
 	Path restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;

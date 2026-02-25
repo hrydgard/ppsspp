@@ -173,21 +173,23 @@ enum class ZipFileContents {
 	FRAME_DUMP,
 	EXTRACTED_GAME,
 	SAVE_STATES,
+	PRX_PLUGIN,
 };
 
 struct ZipFileInfo {
-	ZipFileContents contents;
-	int numFiles;
-	int stripChars;  // for PSP game - how much to strip from the path.
-	int isoFileIndex;  // for ISO
-	int textureIniIndex;  // for textures
-	bool ignoreMetaFiles;
+	ZipFileContents contents = ZipFileContents::NOT_A_ZIP_FILE;
+	int numFiles = 0;
+	int stripChars = 0;  // for PSP game - how much to strip from the path.
+	int isoFileIndex = -1;  // for ISO
+	int textureIniIndex = -1;  // for textures
+	bool ignoreMetaFiles = false;
 	std::string gameTitle;  // from PARAM.SFO if available
 	std::string savedataTitle;
 	std::string savedataDetails;
 	std::string savedataDir;
 	std::string mTime;
-	s64 totalFileSize;
+	std::string iniContents;
+	s64 totalFileSize = 0;
 
 	std::string contentName;
 };

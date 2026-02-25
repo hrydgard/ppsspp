@@ -468,14 +468,14 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	bool isSaveStates = false;
 	bool isFrameDump = false;
 	int stripChars = 0;
-	int isoFileIndex = -1;
 	int stripCharsTexturePack = -1;
-	int textureIniIndex = -1;
 	int filesInRoot = 0;
 	int directoriesInRoot = 0;
 	bool hasParamSFO = false;
 	bool isExtractedISO = false;
 	bool hasIcon0PNG = false;
+	bool hasPRX = false;
+	bool hasPluginIni = false;
 	s64 totalFileSize = 0;
 
 	// TODO: It might be cleaner to write separate detection functions, but this big loop doing it all at once
@@ -514,10 +514,10 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 				// We only do this if the ISO file is in the root or one level down.
 				isZippedISO = true;
 				INFO_LOG(Log::HLE, "ISO found in zip: %s", zippedName.c_str());
-				if (isoFileIndex != -1) {
+				if (info->isoFileIndex != -1) {
 					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
 				} else {
-					isoFileIndex = i;
+					info->isoFileIndex = i;
 					info->contentName = zippedName;
 				}
 			}
@@ -526,11 +526,11 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			if (stripCharsTexturePack == -1 || slashLocation < stripCharsTexturePack + 1) {
 				stripCharsTexturePack = slashLocation + 1;
 				isTexturePack = true;
-				textureIniIndex = i;
+				info->textureIniIndex = i;
 			}
 		} else if (endsWith(zippedName, ".ppdmp")) {
 			isFrameDump = true;
-			isoFileIndex = i;
+			info->isoFileIndex = i;
 			info->contentName = zippedName;
 		} else if (endsWith(zippedName, ".ppst")) {
 			int slashLocation = (int)zippedName.find_last_of('/');
@@ -561,6 +561,12 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			}
 		} else if (endsWith(zippedName, "/icon0.png")) {
 			hasIcon0PNG = true;
+		} else if (endsWith(zippedName, "/plugin.ini") && slashCount == 1) {
+			hasPluginIni = true;
+			ZipExtractFileToMemory(z, i, &info->iniContents);
+			info->contentName = zippedName.substr(0, zippedName.find_last_of('/'));
+		} else if (endsWith(zippedName, ".prx") && slashCount == 1) {
+			hasPRX = true;
 		}
 		if (slashCount == 0) {
 			filesInRoot++;
@@ -569,8 +575,6 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 
 	info->stripChars = stripChars;
 	info->numFiles = numFiles;
-	info->isoFileIndex = isoFileIndex;
-	info->textureIniIndex = textureIniIndex;
 	info->ignoreMetaFiles = false;
 	info->totalFileSize = totalFileSize;
 
@@ -592,6 +596,8 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		info->contents = ZipFileContents::SAVE_STATES;
 	} else if (isExtractedISO && hasParamSFO) {
 		info->contents = ZipFileContents::EXTRACTED_GAME;
+	} else if (hasPluginIni && hasPRX) {
+		info->contents = ZipFileContents::PRX_PLUGIN;
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}

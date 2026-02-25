@@ -914,7 +914,7 @@ void GameBrowser::Refresh() {
 		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 		if (*gridStyle_) {
-			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 0, 0)));
+			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));
 		} else {
 			UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
@@ -922,7 +922,7 @@ void GameBrowser::Refresh() {
 		}
 	} else {
 		if (*gridStyle_) {
-			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 0, 0)));
+			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));
 		} else {
 			UI::LinearLayout *gl = new UI::LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
@@ -1437,20 +1437,22 @@ void MainScreen::CreateViews() {
 		rootLayout->Add(header);
 		rootLayout->Add(leftColumn);
 		root_ = rootLayout;
+
+		// no space for a fullscreen button!
 	} else {
 		const Margins actionMenuMargins(0, 10, 10, 0);
-		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(320, FILL_PARENT, actionMenuMargins));
 		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		rightColumnItems->SetSpacing(0.0f);
 		ViewGroup *logo = new LogoView(false, new LinearLayoutParams(FILL_PARENT, 80.0f));
 #if !defined(MOBILE_DEVICE)
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ImageID icon(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN");
-		fullscreenButton_ = logo->Add(new Button("", icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
-		fullscreenButton_->SetIgnoreText(true);
-		fullscreenButton_->OnClick.Add([this](UI::EventParams &e) {
-			if (fullscreenButton_) {
-				fullscreenButton_->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
+		UI::Button *fullscreenButton = logo->Add(new Button("", icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
+		fullscreenButton->SetIgnoreText(true);
+		fullscreenButton->OnClick.Add([fullscreenButton](UI::EventParams &e) {
+			if (fullscreenButton) {
+				fullscreenButton->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
 			}
 			g_Config.bFullScreen = !g_Config.bFullScreen;
 			System_ApplyFullscreenState();
@@ -1476,28 +1478,27 @@ void MainScreen::CreateViews() {
 
 	root_->SetTag("mainroot");
 
-	upgradeBar_ = nullptr;
 	if (!g_Config.sUpgradeMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Margins margins(0, 0);
 		if (vertical) {
 			margins.bottom = ITEM_HEIGHT;
 		}
-		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
+		UI::LinearLayout *upgradeBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
 
 		UI::Margins textMargins(10, 5);
 		UI::Margins buttonMargins(5, 0);
 		UI::Drawable solid(0xFFbd9939);
-		upgradeBar_->SetSpacing(5.0f);
-		upgradeBar_->SetBG(solid);
+		upgradeBar->SetSpacing(5.0f);
+		upgradeBar->SetBG(solid);
 		std::string upgradeMessage(di->T("New version of PPSSPP available"));
 		if (!vertical) {
 			// The version only really fits in the horizontal layout.
 			upgradeMessage += ": " + g_Config.sUpgradeVersion;
 		}
-		upgradeBar_->Add(new TextView(upgradeMessage, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
-		upgradeBar_->Add(new Choice(di->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
-		Choice *dismiss = upgradeBar_->Add(new Choice("", ImageID("I_CROSS"), new LinearLayoutParams(buttonMargins)));
+		upgradeBar->Add(new TextView(upgradeMessage, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
+		upgradeBar->Add(new Choice(di->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
+		Choice *dismiss = upgradeBar->Add(new Choice("", ImageID("I_CROSS"), new LinearLayoutParams(buttonMargins)));
 		dismiss->OnClick.Add([this](UI::EventParams &e) {
 			g_Config.DismissUpgrade();
 			g_Config.Save("dismissupgrade");
@@ -1507,7 +1508,7 @@ void MainScreen::CreateViews() {
 		// Slip in under root_
 		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
 		newRoot->Add(root_);
-		newRoot->Add(upgradeBar_);
+		newRoot->Add(upgradeBar);
 		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		root_ = newRoot;
 	}
