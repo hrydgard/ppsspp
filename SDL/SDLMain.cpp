@@ -1793,11 +1793,13 @@ int main(int argc, char *argv[]) {
 		// input events, and so on.
 		while (true) {
 			SDL_Event event;
-			while (SDL_WaitEventTimeout(&event, 100)) {
-				if (g_QuitRequested || g_RestartRequested)
-					break;
+			if (SDL_WaitEventTimeout(&event, 100)) {
+				do {
+					ProcessSDLEvent(window, event, &inputTracker);
 
-				ProcessSDLEvent(window, event, &inputTracker);
+					if (g_QuitRequested || g_RestartRequested)
+						break;
+				} while (SDL_PollEvent(&event));
 			}
 
 			if (g_QuitRequested || g_RestartRequested)
