@@ -769,6 +769,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \
   $(SRC)/Core/Util/RecentFiles.cpp \
+  $(SRC)/Core/Util/VideoPlayer.cpp \
   $(SRC)/git-version.cpp
 
 LOCAL_MODULE := ppsspp_core
@@ -947,7 +948,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/Theme.cpp \
   $(SRC)/UI/UIAtlas.cpp \
-  $(SRC)/UI/VideoPlayer.cpp \
   $(SRC)/UI/CustomButtonMappingScreen.cpp \
   $(SRC)/UI/RetroAchievementScreens.cpp
 

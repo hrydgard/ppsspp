@@ -49,6 +49,7 @@ enum class GameInfoFlags {
 	SIZE = 0x40,
 	UNCOMPRESSED_SIZE = 0x80,
 	SAVEDATA_SIZE = 0x100,
+	ICON1_PMF = 0x200,
 };
 ENUM_CLASS_BITOPS(GameInfoFlags);
 
@@ -157,6 +158,7 @@ public:
 	GameInfoTex icon;
 	GameInfoTex pic0;
 	GameInfoTex pic1;
+	std::string icon1pmf;
 
 	std::string sndFileData;
 	std::atomic<bool> sndDataLoaded{};

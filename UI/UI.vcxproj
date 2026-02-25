@@ -80,7 +80,6 @@
     <ClCompile Include="Theme.cpp" />
     <ClCompile Include="UIAtlas.cpp" />
     <ClCompile Include="UploadScreen.cpp" />
-    <ClCompile Include="VideoPlayer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioCommon.h" />
@@ -134,7 +133,6 @@
     <ClInclude Include="Theme.h" />
     <ClInclude Include="UIAtlas.h" />
     <ClInclude Include="UploadScreen.h" />
-    <ClInclude Include="VideoPlayer.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
