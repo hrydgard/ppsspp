@@ -1318,13 +1318,22 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	showExitButton = false;
 #elif PPSSPP_PLATFORM(ANDROID)
-	// Allow it in Android TV only.
-	showExitButton = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV;
+	// The exit button previously created problems on Android.
+	// However now we allow it in landscape mode.
+	showExitButton = !portrait; //  System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV;
 #endif
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
-	// Additionally, the Exit button creates problems on Android.
 	if (showExitButton) {
-		parent->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+		parent->Add(new Choice(mm->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
+			// Let's make sure the config was saved, since it may not have been.
+			if (!g_Config.Save("MainScreen::OnExit")) {
+				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
+			}
+
+			UpdateUIState(UISTATE_EXIT);
+			// Request the framework to exit cleanly.
+			System_ExitApp();
+		});
 	}
 }
 
@@ -1514,23 +1523,31 @@ void MainScreen::CreateViews() {
 	}
 }
 
-bool MainScreen::key(const KeyInput &touch) {
-	if (touch.flags & KeyInputFlags::DOWN) {
-		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
+bool MainScreen::key(const KeyInput &key) {
+	if (key.flags & KeyInputFlags::DOWN) {
+		if (key.keyCode == NKCODE_CTRL_LEFT || key.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = true;
-		if (touch.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		if (key.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
 			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, false, [&](const std::string &value, int) {
 				searchFilter_ = StripSpaces(value);
 				searchChanged_ = true;
 			});
 		}
-	} else if (touch.flags & KeyInputFlags::UP) {
-		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
+		// This is not a DialogScreen so we have to implement behavior here too.
+		// However we add a small safety hatch by checking for gamepad, and for now we only allow this behavior
+		// on Android. Might reconsider for other platforms.
+#if PPSSPP_PLATFORM(ANDROID)
+		if ((key.deviceId == DEVICE_ID_PAD_0 || key.deviceId == DEVICE_ID_XINPUT_0) && UI::IsEscapeKey(key)) {
+			System_ExitApp();
+		}
+#endif
+	} else if (key.flags & KeyInputFlags::UP) {
+		if (key.keyCode == NKCODE_CTRL_LEFT || key.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = false;
 	}
 
-	return UIBaseScreen::key(touch);
+	return UIBaseScreen::key(key);
 }
 
 void MainScreen::OnAllowStorage(UI::EventParams &e) {
@@ -1695,18 +1712,6 @@ void MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
 
 void MainScreen::OnForums(UI::EventParams &e) {
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
-}
-
-void MainScreen::OnExit(UI::EventParams &e) {
-	// Let's make sure the config was saved, since it may not have been.
-	if (!g_Config.Save("MainScreen::OnExit")) {
-		System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
-	}
-
-	// Request the framework to exit cleanly.
-	System_ExitApp();
-
-	UpdateUIState(UISTATE_EXIT);
 }
 
 void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
