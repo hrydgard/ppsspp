@@ -300,13 +300,14 @@ void Jit::EatInstruction(MIPSOpcode op) {
 
 void Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
-	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
-		ClearCache();
-	}
 
-	if (!Memory::IsValidAddress(em_address) || (em_address & 3) != 0) {
+	if (!Memory::IsValid4AlignedAddress(em_address)) {
 		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
 		return;
+	}
+
+	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
+		ClearCache();
 	}
 
 	// Sometimes we compile fairly large blocks, although it's uncommon.
