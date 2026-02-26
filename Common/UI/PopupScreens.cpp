@@ -800,17 +800,111 @@ std::string PopupTextInputChoice::ValueText() const {
 	return *value_;
 }
 
+LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
+	LinearLayout *keyboard = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	// TODO: Make something a bit more international... Although we don't need that for domain names.
+	static struct {
+		std::string_view v; const char *tag;
+	} kbRows[] = {
+		{"1234567890-=", "A"},
+		{"qwertyuiop'[]", "L"},
+		{"asdfghjkl()", "L"},
+		{"zxcvbnm,.", "L"},
+		{"QWERTYUIOP'[]", "U"},
+		{"ASDFGHJKL()", "U"},
+		{"ZXCVBNM,.", "U"},
+		{"", "A"},
+	};
+	static const float space[] = {
+		0.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 30.0f,
+	};
+
+	static_assert(ARRAY_SIZE(kbRows) == ARRAY_SIZE(space));
+
+	keyboard->SetSpacing(5.0f);
+	for (int i = 0; i < ARRAY_SIZE(kbRows); i++) {
+		LinearLayout *row = keyboard->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		row->SetSpacing(5.0f);
+		row->Add(new Spacer(space[i]));
+		row->SetTag(kbRows[i].tag);
+		for (int j = 0; j < kbRows[i].v.length(); j++) {
+			char c = kbRows[i].v[j];
+			row->Add(new Button(StringFromFormat("%c", c), new LinearLayoutParams(40.0f, 50.0f)))->OnClick.Add([edit, c](EventParams &) {
+				edit->InsertAtCaret(StringFromFormat("%c", c).c_str());
+			});
+		}
+
+		bool visible = false;
+		switch (kbRows[i].tag[0]) {
+		case 'L': visible = !(*upperCase); break;
+		case 'U': visible = *upperCase; break;
+		case 'A': visible = true; break;
+		default: visible = false; break;
+		}
+		row->SetVisibility(visible ? V_VISIBLE : V_GONE);
+
+		switch (i) {
+		case 0:
+			// Add backspace button at the end of the first row.
+			row->Add(new Button("", ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->Backspace();
+			});
+			break;
+		case 7:
+			// Special keys.
+			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([edit, keyboard, upperCase](EventParams &) {
+				*upperCase = !(*upperCase);
+				// Work through visibility.
+				for (int i = 0; i < keyboard->GetNumSubviews(); i++) {
+					LinearLayout *row = (LinearLayout *)keyboard->GetViewByIndex(i);
+					switch (row->Tag()[0]) {
+					case 'L': row->SetVisibility(*upperCase ? V_GONE : V_VISIBLE); break;
+					case 'U': row->SetVisibility(*upperCase ? V_VISIBLE : V_GONE); break;
+					case 'A': row->SetVisibility(V_VISIBLE); break;
+					default: row->SetVisibility(V_GONE); break;
+					}
+				}
+			});
+
+			row->Add(new Button("Space", new LinearLayoutParams(200.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->SetText(edit->GetText() + " ");
+			});
+			row->Add(new Button("", ImageID("I_ARROW_LEFT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->MoveLeft();
+			});
+			row->Add(new Button("", ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->MoveRight();
+			});
+			break;
+		}
+	}
+	return keyboard;
+}
+
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
 
 	textEditValue_ = *value_;
-	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
-	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f));
+	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f, Gravity::G_VCENTER, Margins(8)));
 	edit_->SetMaxLen(maxLen_);
 	edit_->SetTextColor(dc.GetTheme().popupStyle.fgColor);
 	edit_->SetPasswordMasking(passwordMasking_);
 	lin->Add(edit_);
+
+	parent->Add(new Spacer(8.0f));
+
+	keyboard_ = parent->Add(CreateSoftKeyboard(edit_, &upperCase_));
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+		keyboard_->SetVisibility(V_GONE);
+		lin->Add(new Spacer(5.0f));
+		showKeyboardChoice_ = lin->Add(new Choice(ImageID("I_KEYBOARD"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		showKeyboardChoice_->OnClick.Add([this](EventParams &) {
+			keyboard_->SetVisibility(V_VISIBLE);
+			showKeyboardChoice_->SetEnabled(false);
+		});
+	}
 
 	UI::SetFocusedView(edit_);
 }

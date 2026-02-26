@@ -1206,19 +1206,34 @@ void TextEdit::Draw(UIContext &dc) {
 		dc.DrawTextRect(textToDisplay, textBounds, textColor, ALIGN_VCENTER | ALIGN_LEFT | align_);
 	}
 
-	if (HasFocus()) {
-		// Hack to find the caret position. Might want to find a better way...
-		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, caret_), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
-		float caretX = w - scrollPos_;
-		if (caretX > bounds_.w) {
-			scrollPos_ += caretX - bounds_.w;
-		}
-		if (caretX < 0) {
-			scrollPos_ += caretX;
-		}
-		caretX += textX;
-		dc.FillRect(UI::Drawable(textColor), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+	// Hack to find the caret position. Might want to find a better way...
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, caret_), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
+	float caretX = w - scrollPos_;
+	if (caretX > bounds_.w) {
+		scrollPos_ += caretX - bounds_.w;
 	}
+	if (caretX < 0) {
+		scrollPos_ += caretX;
+	}
+	caretX += textX;
+	dc.FillRect(UI::Drawable(textColor), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+
+	if (selectAtX_ >= 0) {
+		caret_ = -1;
+		for (int i = 0; i <= text_.size(); i++) {
+			dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, i), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
+			float charX = w - scrollPos_;
+			if (charX >= selectAtX_ - 3) {
+				caret_ = i;
+				break;
+			}
+		}
+		if (caret_ == -1) {
+			caret_ = (int)text_.size();
+		}
+		selectAtX_ = -1;
+	}
+
 	dc.PopScissor();
 }
 
@@ -1250,8 +1265,34 @@ bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(touch.x, touch.y)) {
 			SetFocusedView(this, true);
+			int relativeX = touch.x - bounds_.x + scrollPos_;
+			selectAtX_ = relativeX;
 			return true;
 		}
+	}
+	return false;
+}
+
+void TextEdit::MoveLeft() {
+	if (caret_ > 0) {
+		u8_dec(text_.c_str(), &caret_);
+	}
+}
+
+void TextEdit::MoveRight() {
+	if (caret_ < (int)text_.size()) {
+		u8_inc(text_.c_str(), &caret_);
+	}
+}
+
+bool TextEdit::Backspace() {
+	if (caret_ > 0) {
+		int begCaret = caret_;
+		u8_dec(text_.c_str(), &begCaret);
+		undo_ = text_;
+		text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
+		caret_--;
+		return true;
 	}
 	return false;
 }
@@ -1268,10 +1309,10 @@ bool TextEdit::Key(const KeyInput &input) {
 			ctrlDown_ = true;
 			break;
 		case NKCODE_DPAD_LEFT:  // ASCII left arrow
-			u8_dec(text_.c_str(), &caret_);
+			MoveLeft();
 			break;
 		case NKCODE_DPAD_RIGHT: // ASCII right arrow
-			u8_inc(text_.c_str(), &caret_);
+			MoveRight();
 			break;
 		case NKCODE_MOVE_HOME:
 		case NKCODE_PAGE_UP:
@@ -1291,12 +1332,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			}
 			break;
 		case NKCODE_DEL:
-			if (caret_ > 0) {
-				int begCaret = caret_;
-				u8_dec(text_.c_str(), &begCaret);
-				undo_ = text_;
-				text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
-				caret_--;
+			if (Backspace()) {
 				textChanged = true;
 			}
 			break;

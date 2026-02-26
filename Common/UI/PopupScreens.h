@@ -220,6 +220,8 @@ private:
 	bool liveUpdate_;
 };
 
+LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase);
+
 class TextEditPopupScreen : public PopupScreen {
 public:
 	TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
@@ -235,12 +237,17 @@ public:
 	Event OnChange;
 
 private:
+	virtual UI::Size PopupWidth() const override { return 600; }
+
 	void OnCompleted(DialogResult result) override;
 	TextEdit *edit_ = nullptr;
+	LinearLayout *keyboard_ = nullptr;
+	Choice *showKeyboardChoice_ = nullptr;
 	std::string *value_;
 	std::string textEditValue_;
 	std::string placeholder_;
 	int maxLen_;
+	bool upperCase_ = false;
 	bool passwordMasking_ = false;
 };
 
