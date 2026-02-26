@@ -42,6 +42,12 @@ void pngWarningHandler(png_structp png_ptr, png_const_charp warning_msg) {
 	DEBUG_LOG(Log::System, "libpng warning: %s\n", warning_msg);
 }
 
+struct PngReadContext {
+	const unsigned char *ptr;
+	size_t remaining;
+};
+
+
 int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr) {
 	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
 	if (!png) {
@@ -70,10 +76,20 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 		return 0;
 	}
 
-	png_set_read_fn(png, (png_voidp)&input_ptr, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
-		const unsigned char **input = (const unsigned char **)png_get_io_ptr(png_ptr);
-		memcpy(outBytes, *input, byteCountToRead);
-		*input += byteCountToRead;
+	PngReadContext readContext = {input_ptr, input_len};
+
+	png_set_read_fn(png, &readContext, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
+		PngReadContext *ctx = (PngReadContext *)png_get_io_ptr(png_ptr);
+
+		if (byteCountToRead > ctx->remaining) {
+			// This triggers the longjmp to your pngErrorHandler
+			png_error(png_ptr, "Read past end of buffer");
+			return;
+		}
+
+		memcpy(outBytes, ctx->ptr, byteCountToRead);
+		ctx->ptr += byteCountToRead;
+		ctx->remaining -= byteCountToRead;
 	});
 
 	png_read_info(png, info);
