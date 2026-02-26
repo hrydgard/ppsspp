@@ -799,4 +799,4 @@ extern const std::vector<AdhocServerListEntry> defaultProAdhocServerList;
 extern std::mutex downloadedProAdhocServerListMutex;
 extern std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
 
-AdhocDataMode getAdhocServerDataMode(std::string &server);
+AdhocDataMode getAdhocServerDataMode(const std::string &server);
