@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 #include <png.h>
 
 #include "Common/Data/Format/PNGLoad.h"
@@ -80,7 +81,6 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	png_set_read_fn(png, &readContext, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
 		PngReadContext *ctx = (PngReadContext *)png_get_io_ptr(png_ptr);
-
 		if (byteCountToRead > ctx->remaining) {
 			// This triggers the longjmp to your pngErrorHandler
 			png_error(png_ptr, "Read past end of buffer");
@@ -93,9 +93,6 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	});
 
 	png_read_info(png, info);
-
-	*pwidth = png_get_image_width(png, info);
-	*pheight = png_get_image_height(png, info);
 
 	const int color_type = png_get_color_type(png, info);
 	png_set_strip_16(png);
@@ -118,22 +115,22 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	png_read_update_info(png, info);
 
-	size_t row_bytes = png_get_rowbytes(png, info);
-	size_t size = row_bytes * (*pheight);
+	*pwidth = png_get_image_width(png, info);
+	*pheight = png_get_image_height(png, info);
 
-	*image_data_ptr = (unsigned char *)malloc(size);
+	size_t row_bytes = png_get_rowbytes(png, info);
+	*image_data_ptr = (unsigned char *)malloc(row_bytes * (*pheight));
 	if (!*image_data_ptr) {
 		png_destroy_read_struct(&png, &info, NULL);
 		return 0;
 	}
 
-	png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * (*pheight));
+	std::vector<png_bytep> row_pointers(*pheight);
 	for (int y = 0; y < *pheight; y++) {
 		row_pointers[y] = *image_data_ptr + y * row_bytes;
 	}
 
-	png_read_image(png, row_pointers);
-	free(row_pointers);
+	png_read_image(png, row_pointers.data());
 	png_destroy_read_struct(&png, &info, NULL);
 	return 1;
 }
