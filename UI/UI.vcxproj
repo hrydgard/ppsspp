@@ -27,6 +27,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AdhocServerScreen.cpp" />
     <ClCompile Include="Background.cpp" />
     <ClCompile Include="BackgroundAudio.cpp" />
     <ClCompile Include="BaseScreens.cpp" />
@@ -82,6 +83,7 @@
     <ClCompile Include="UploadScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AdhocServerScreen.h" />
     <ClInclude Include="AudioCommon.h" />
     <ClInclude Include="Background.h" />
     <ClInclude Include="BackgroundAudio.h" />

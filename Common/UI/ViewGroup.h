@@ -51,6 +51,10 @@ public:
 		return view;
 	}
 
+	// Note: This deletes the old view, if found. Returns whether the view was found.
+	// If it fails, the newView is deleted.
+	bool ReplaceSubview(View *view, View *newView);
+
 	bool SetFocus() override;
 	bool SubviewFocused(View *view) override;
 	virtual void RemoveSubview(View *view);

@@ -554,7 +554,6 @@ public:
 	bool bEnableAdhocServer;
 	std::string sProAdhocServer;
 	int iAdhocServerRelayMode;
-	std::vector<std::string> proAdhocServerList;
 	std::string sInfrastructureDNSServer;
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
 	bool bInfrastructureAutoDNS;
@@ -799,4 +798,4 @@ extern const std::vector<AdhocServerListEntry> defaultProAdhocServerList;
 extern std::mutex downloadedProAdhocServerListMutex;
 extern std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
 
-AdhocDataMode getAdhocServerDataMode(std::string &server);
+AdhocDataMode getAdhocServerDataMode(const std::string &server);

@@ -160,6 +160,18 @@ void ViewGroup::DeviceRestored(Draw::DrawContext *draw) {
 	}
 }
 
+bool ViewGroup::ReplaceSubview(View *view, View *newView) {
+	for (int i = 0; i < (int)views_.size(); i++) {
+		if (views_[i] == view) {
+			views_[i] = newView;
+			delete view;
+			return true;
+		}
+	}
+	delete newView;
+	return false;
+}
+
 void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.

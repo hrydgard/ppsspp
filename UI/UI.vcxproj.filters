@@ -144,6 +144,9 @@
     <ClCompile Include="Background.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="AdhocServerScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -283,6 +286,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Background.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="AdhocServerScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

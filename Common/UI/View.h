@@ -1104,12 +1104,15 @@ public:
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &touch) override;
 
+	bool Backspace();
+	void MoveLeft();
+	void MoveRight();
+	void InsertAtCaret(const char *text);
+
 	Event OnTextChange;
 	Event OnEnter;
 
 private:
-	void InsertAtCaret(const char *text);
-
 	std::string text_;
 	std::string title_;
 	std::string undo_;
@@ -1122,6 +1125,7 @@ private:
 	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
 	bool passwordMasking_ = false;
 	int align_ = 0;
+	int selectAtX_ = -1;  // on next draw, will select the character closest to this X coordinate. Used for touch selection.
 	// TODO: Selections
 };
 
