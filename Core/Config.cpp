@@ -78,6 +78,7 @@ const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
 	{"Madness Gaming Network", "psp.mgn.pub", "https://discord.com/invite/kaPScVrPes", "Alaska USA", "For players looking to play any games, has a good amount of Monster Hunter players, also provides VPN to work around connection issues as well as P2P mode", AdhocDataMode::AemuPostoffice},
 	{"EA Nation Hub", "eahub.eu", "https://discord.com/invite/fwrQHHxrQQ", "France", "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games", AdhocDataMode::AemuPostoffice},
 	{"Psi-Hate", "psi-hate.com", "https://discord.com/invite/wxeGVkM", "Minnesota USA", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"AlexGHD", "jpa36a7.glddns.com", "https://discord.com/invite/gp45nhdjQJ", "São Paulo Brazil", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"ArenaAnywhere SA", "relay-sa.arenaanywhere.site", "https://discord.com/invite/gp45nhdjQJ", "South Africa", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"ArenaAnywhere EU", "relay.arenaanywhere.site", "https://discord.com/invite/gp45nhdjQJ", "Europe", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"Retroverze Relay Beta", "psp.retroverze.my.id", "https://retroverze.my.id/beta", "Unknown", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
