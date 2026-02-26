@@ -311,7 +311,7 @@ static void EmuThreadFunc() {
 			ERROR_LOG(Log::System, "No activity, clearing commands");
 			while (!frameCommands.empty())
 				frameCommands.pop();
-			return;
+			break;
 		}
 		// Still under lock here.
 		ProcessFrameCommands(env);
@@ -1635,9 +1635,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 // Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
 	while (!frameCommands.empty()) {
-		FrameCommand frameCmd;
-		frameCmd = frameCommands.front();
-		frameCommands.pop();
+		const FrameCommand &frameCmd = frameCommands.front();
 
 		DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
@@ -1646,6 +1644,8 @@ static void ProcessFrameCommands(JNIEnv *env) {
 		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd);
 		env->DeleteLocalRef(param);
+
+		frameCommands.pop();
 	}
 }
 
