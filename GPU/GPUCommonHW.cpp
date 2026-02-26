@@ -1290,7 +1290,10 @@ bail:
 
 	int cycles = vertexCost_ * totalVertCount;
 	gpuStats.vertexGPUCycles += cycles;
-	cyclesExecuted += cycles;
+
+	if (!PSP_CoreParameter().compat.flags().FastEmulatedGPU) {
+		cyclesExecuted += cycles;
+	}
 }
 
 void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {

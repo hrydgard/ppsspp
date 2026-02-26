@@ -100,8 +100,7 @@ static u32 JitMemCheck(u32 pc) {
 	return coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME ? 0 : 1;
 }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
@@ -244,7 +243,10 @@ void ArmJit::CompileDelaySlot(int flags) {
 void ArmJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 
-	// INFO_LOG(Log::JIT, "Compiling at %08x", em_address);
+	if (!Memory::IsValid4AlignedAddress(em_address)) {
+		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
+		return;
+	}
 
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();

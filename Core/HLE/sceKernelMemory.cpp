@@ -132,6 +132,10 @@ void SceKernelVplHeader::Init(u32 ptr, u32 size) {
 
 u32 SceKernelVplHeader::Allocate(u32 size) {
 	u32 allocBlocks = ((size + 7) / 8) + 1;
+	if (!nextFreeBlock_.IsValid()) {
+		ERROR_LOG(Log::sceKernel, "VPL: nextFreeBlock invalid.");
+		return (u32)-1;
+	}
 	auto prev = nextFreeBlock_;
 	do {
 		auto b = prev->next;

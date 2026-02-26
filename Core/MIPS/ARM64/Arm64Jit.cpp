@@ -242,13 +242,18 @@ void Arm64Jit::CompileDelaySlot(int flags) {
 
 void Arm64Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
+
+	if (!Memory::IsValid4AlignedAddress(em_address)) {
+		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
+		return;
+	}
+
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		INFO_LOG(Log::JIT, "Space left: %d", (int)GetSpaceLeft());
 		ClearCache();
 	}
 
 	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
-
 
 	// To debug really wacky JIT issues, it can be a good idea to bisect the block number,
 	// and disable parts of the jit using jo.disableFlags for certain ranges of blocks.

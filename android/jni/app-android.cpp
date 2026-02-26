@@ -311,7 +311,7 @@ static void EmuThreadFunc() {
 			ERROR_LOG(Log::System, "No activity, clearing commands");
 			while (!frameCommands.empty())
 				frameCommands.pop();
-			return;
+			break;
 		}
 		// Still under lock here.
 		ProcessFrameCommands(env);
@@ -847,6 +847,7 @@ retry:
 			INFO_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL");
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend(GPUBackend::OPENGL);
+			delete ctx;
 			goto retry;
 		} else {
 			graphicsContext = ctx;
@@ -1635,9 +1636,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 // Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
 	while (!frameCommands.empty()) {
-		FrameCommand frameCmd;
-		frameCmd = frameCommands.front();
-		frameCommands.pop();
+		const FrameCommand &frameCmd = frameCommands.front();
 
 		DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
@@ -1646,6 +1645,8 @@ static void ProcessFrameCommands(JNIEnv *env) {
 		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd);
 		env->DeleteLocalRef(param);
+
+		frameCommands.pop();
 	}
 }
 
@@ -1693,6 +1694,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanR
 }
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
+// This function must release the window reference.
 static void VulkanEmuThread(ANativeWindow *wnd) {
 	SetCurrentThreadName("EmuThread");
 
@@ -1703,6 +1705,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1710,6 +1713,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1729,6 +1733,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		delete graphicsContext;
 		graphicsContext = nullptr;
 		renderLoopRunning = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1764,6 +1769,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
+	ANativeWindow_release(wnd);
 
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
@@ -1798,15 +1804,15 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	if (info) {
 		INFO_LOG(Log::System, "GetInfo successful, waiting");
 
-		// Wait for both name and icon
-		int attempts = 1000;
+		// Wait for both name and icon for a second.
+		int attempts = 100;
 		while ((!info->Ready(GameInfoFlags::PARAM_SFO) || !info->Ready(GameInfoFlags::ICON)) && attempts > 0) {
-			sleep_ms(1, "info-icon-poll");
+			sleep_ms(10, "info-icon-poll");
 			attempts--;
 		}
 		INFO_LOG(Log::System, "Done waiting");
 
-		if (info->fileType != IdentifiedFileType::UNKNOWN) {
+		if (attempts > 0 && info->fileType != IdentifiedFileType::UNKNOWN) {
 			// Get the game title
 			gameName = info->GetTitle();
 			if (gameName.length() > strlen("The ") && startsWithNoCase(gameName, "The ")) {

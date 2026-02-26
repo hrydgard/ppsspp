@@ -46,10 +46,12 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		p.lastY = touch.y;
 	}
 
+	const float dragThreshold = 5.0f / g_display.dpi_scale_y;
+
 	if (p.distanceY > p.distanceX) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
-			if (!p.active && p.distanceY * timeDown > 3) {
+			if (!p.active && p.distanceY > dragThreshold) {
 				p.active |= GESTURE_DRAG_VERTICAL;
 				// Kill the drag. TODO: Only cancel the drag in one direction.
 				TouchInput inp2 = touch;
@@ -64,7 +66,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 	if (p.distanceX > p.distanceY) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
-			if (!p.active && p.distanceX * timeDown > 3) {
+			if (!p.active && p.distanceX > dragThreshold) {
 				p.active |= GESTURE_DRAG_HORIZONTAL;
 				// Kill the drag. TODO: Only cancel the drag in one direction.
 				TouchInput inp2 = touch;
