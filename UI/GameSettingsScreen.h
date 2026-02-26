@@ -113,67 +113,6 @@ private:
 	std::string pendingMemstickFolder_;
 };
 
-class HostnameSelectScreen : public UI::PopupScreen {
-public:
-	HostnameSelectScreen(std::string *value, std::vector<AdhocServerListEntry> &listItems, std::string_view title)
-		: UI::PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), listItems_(listItems), value_(value) {
-		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
-			thiz->ResolverThread();
-		}, this);
-	}
-	~HostnameSelectScreen() {
-		{
-			std::unique_lock<std::mutex> guard(resolverLock_);
-			resolverState_ = ResolverState::QUIT;
-			resolverCond_.notify_one();
-		}
-		resolver_.join();
-	}
-
-	void CreatePopupContents(UI::ViewGroup *parent) override;
-
-	const char *tag() const override { return "HostnameSelect"; }
-
-protected:
-	void OnCompleted(DialogResult result) override;
-	bool CanComplete(DialogResult result) override;
-
-private:
-	void ResolverThread();
-	void SendEditKey(InputKeyCode keyCode, KeyInputFlags flags = (KeyInputFlags)0);
-
-	void OnNumberClick(UI::EventParams &e);
-	void OnPointClick(UI::EventParams &e);
-	void OnDeleteClick(UI::EventParams &e);
-	void OnDeleteAllClick(UI::EventParams &e);
-	void OnEditClick(UI::EventParams& e);
-	void OnShowIPListClick(UI::EventParams& e);
-	void OnIPClick(UI::EventParams& e);
-
-	enum class ResolverState {
-		WAITING,
-		QUEUED,
-		PROGRESS,
-		READY,
-		QUIT,
-	};
-
-	std::string *value_;
-	std::vector<AdhocServerListEntry> listItems_;
-	UI::TextEdit *addrView_ = nullptr;
-	UI::TextView *progressView_ = nullptr;
-	UI::LinearLayout *ipRows_ = nullptr;
-
-	std::thread resolver_;
-	ResolverState resolverState_ = ResolverState::WAITING;
-	std::mutex resolverLock_;
-	std::condition_variable resolverCond_;
-	std::string toResolve_ = "";
-	bool toResolveResult_ = false;
-	std::string lastResolved_ = "";
-	bool lastResolvedResult_ = false;
-};
-
 class GestureMappingScreen : public UITabbedBaseDialogScreen {
 public:
 	GestureMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
