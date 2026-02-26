@@ -108,7 +108,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	inputAssembly.topology = desc->topology;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-#if PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	if (vulkan->GetWindowSystem() == WindowSystem::WINDOWSYSTEM_METAL_EXT) {
 		if (desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP ||
 		    desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN ||

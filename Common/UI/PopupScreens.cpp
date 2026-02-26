@@ -852,7 +852,7 @@ LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 			break;
 		case 7:
 			// Special keys.
-			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([edit, keyboard, upperCase](EventParams &) {
+			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([keyboard, upperCase](EventParams &) {
 				*upperCase = !(*upperCase);
 				// Work through visibility.
 				for (int i = 0; i < keyboard->GetNumSubviews(); i++) {

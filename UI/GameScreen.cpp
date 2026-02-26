@@ -151,8 +151,8 @@ GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogS
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
-	// We want to re-fetch savedata size when opening this screen.
-	constexpr GameInfoFlags refetchFlags = GameInfoFlags::SAVEDATA_SIZE;
+	// We want to re-fetch savedata size when opening this screen. We re-fetch PARAM_SFO because it's connected to updating the hasConfig bool.
+	constexpr GameInfoFlags refetchFlags = GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::PARAM_SFO;
 
 	info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_, refetchFlags);
 }

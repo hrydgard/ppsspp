@@ -2,13 +2,17 @@
 
 #include <vector>
 #include <string>
+#include <thread>
+#include <condition_variable>
+
 #include "Common/UI/View.h"
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"  // for AdhocServerListEntry!
+#include "Common/UI/Notice.h"
 
 class AdhocServerScreen : public UI::PopupScreen {
 public:
-	AdhocServerScreen(std::string *value, std::vector<AdhocServerListEntry> &listItems, std::string_view title);
+	AdhocServerScreen(std::string *value, std::string_view title);
 	~AdhocServerScreen();
 
 	void CreatePopupContents(UI::ViewGroup *parent) override;
@@ -21,14 +25,6 @@ protected:
 
 private:
 	void ResolverThread();
-	void SendEditKey(InputKeyCode keyCode, KeyInputFlags flags = (KeyInputFlags)0);
-
-	void OnNumberClick(UI::EventParams &e);
-	void OnPointClick(UI::EventParams &e);
-	void OnDeleteClick(UI::EventParams &e);
-	void OnDeleteAllClick(UI::EventParams &e);
-	void OnEditClick(UI::EventParams& e);
-	void OnIPClick(UI::EventParams& e);
 
 	enum class ResolverState {
 		WAITING,
@@ -39,9 +35,9 @@ private:
 	};
 
 	std::string *value_;
+	std::string editValue_;
 	std::vector<AdhocServerListEntry> listItems_;
-	UI::TextEdit *addrView_ = nullptr;
-	UI::TextView *progressView_ = nullptr;
+	NoticeView *progressView_ = nullptr;
 
 	std::thread resolver_;
 	ResolverState resolverState_ = ResolverState::WAITING;

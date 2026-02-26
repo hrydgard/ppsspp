@@ -1046,17 +1046,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower.")));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc server")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
-		auto list_to_use = defaultProAdhocServerList;
-		downloadedProAdhocServerListMutex.lock();
-		if (downloadedProAdhocServerList.size() != 0) {
-			list_to_use = downloadedProAdhocServerList;
-		}
-		downloadedProAdhocServerListMutex.unlock();
-		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, list_to_use, n->T("proAdhocServer Address:")));
+		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("proAdhocServer Address:")));
 	});
 	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
