@@ -134,7 +134,12 @@ void PopupScreen::CreateViews() {
 	int y = dc.GetBounds().centerY() + offsetY_;
 	Centering vCentering = Centering::Vertical;
 	if (alignTop_) {
-		y = 0;
+		if (GetDeviceOrientation() == DeviceOrientation::Landscape) {
+			y = 0;
+		} else {
+			// In portrait, we need some space.
+			y = 200;
+		}
 		vCentering = Centering::None;
 	}
 
