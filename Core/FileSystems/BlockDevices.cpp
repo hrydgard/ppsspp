@@ -154,6 +154,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader)
 {
 	// CISO format is fairly simple, but most tools do not write the header_size.
+	// NOTE: CSOv2 isn't actually a thing. It was partially implemented in maxcso but it has never been in active use.
 
 	CISO_H hdr;
 	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
@@ -322,7 +323,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	}
 
 	const u32 lastBlock = std::min(minBlock + count, numBlocks) - 1;
-	const u32 missingBlocks = (lastBlock + 1 - minBlock) - count;
+	const u32 missingBlocks = count - (lastBlock + 1 - minBlock);
 	if (lastBlock < minBlock + count) {
 		memset(outPtr + GetBlockSize() * (count - missingBlocks), 0, GetBlockSize() * missingBlocks);
 	}
@@ -367,7 +368,12 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 		}
 
 		u8 *rawBuffer = &readBuffer[frameReadPos - readBufferStart];
-		const int plain = idx & 0x80000000;
+		bool plain = (idx & 0x80000000) != 0;
+		if (ver_ >= 2) {
+			// CSO v2+ requires blocks be uncompressed if large enough to be.  High bit means other things.
+			plain = frameReadSize >= frameSize;
+		}
+
 		if (plain) {
 			memcpy(outPtr, rawBuffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
 		} else {
