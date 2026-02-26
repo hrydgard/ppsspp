@@ -802,6 +802,10 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 		return false;
 	}
 	_dbg_assert_(pushBuffer);
+	_dbg_assert_(desc.tag != nullptr);
+	_dbg_assert_(desc.mipLevels > 0);
+	_dbg_assert_(desc.format != DataFormat::UNDEFINED);
+	// _dbg_assert_(desc.type == TextureType::LINEAR2D);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;

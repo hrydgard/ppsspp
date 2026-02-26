@@ -636,6 +636,15 @@ public:
 					info_->icon.dataLoaded = true;
 				}
 
+				if (flags_ & GameInfoFlags::ICON1_PMF) {
+					if (pbp.GetSubFileSize(PBP_ICON1_PMF) > 0) {
+						std::string data;
+						pbp.GetSubFileAsString(PBP_ICON1_PMF, &data);
+						std::lock_guard<std::mutex> lock(info_->lock);
+						info_->icon1pmf = std::move(data);
+					}
+				}
+
 				if (flags_ & GameInfoFlags::PIC0) {
 					if (pbp.GetSubFileSize(PBP_PIC0_PNG) > 0) {
 						std::string data;
@@ -769,6 +778,9 @@ handleELF:
 					ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock);
 					info_->icon.dataLoaded = true;
 				}
+				if (flags_ & GameInfoFlags::ICON1_PMF) {
+					ReadFileToString(&umd, "/PSP_GAME/ICON1.PMF", &info_->icon1pmf, &info_->lock);
+				}
 				if (flags_ & GameInfoFlags::PIC0) {
 					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, &info_->lock);
 					info_->pic0.dataLoaded = true;
@@ -830,6 +842,10 @@ handleELF:
 
 				if (flags_ & GameInfoFlags::PIC0) {
 					info_->pic0.dataLoaded = ReadFileToString(&umd, join(gameRoot, "PIC0.PNG"), &info_->pic0.data, &info_->lock);
+				}
+
+				if (flags_ & GameInfoFlags::ICON1_PMF) {
+					ReadFileToString(&umd, join(gameRoot, "ICON1.PMF"), &info_->icon1pmf, &info_->lock);
 				}
 
 				if (flags_ & GameInfoFlags::PIC1) {

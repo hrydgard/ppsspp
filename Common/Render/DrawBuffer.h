@@ -124,6 +124,7 @@ public:
 	}
 	// Results in 18 triangles. Kind of expensive for a button.
 	void DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
+
 	// This is only 6 triangles, much cheaper.
 	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 

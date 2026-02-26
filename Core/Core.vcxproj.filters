@@ -1387,6 +1387,9 @@
     <ClCompile Include="SaveStateRewind.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Util\VideoPlayer.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2243,6 +2246,9 @@
     </ClInclude>
     <ClInclude Include="SaveStateRewind.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\VideoPlayer.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
