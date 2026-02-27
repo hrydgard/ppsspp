@@ -338,33 +338,33 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			// Can't use the SSE shuffle here because it takes an immediate. pshufb with a table would work though,
 			// or a big switch - there are only 256 shuffles possible (4^4)
 			float temp[4];
-			for (int i = 0; i < 4; i++)
-				temp[i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
-			const int dest = inst->dest;
-			for (int i = 0; i < 4; i++)
+			for (u32 i = 0; i < 4; i++)
+				temp[i] = mips->f[(u32)inst->src1 + (u32)((inst->src2 >> (i * 2)) & 3)];
+			const u32 dest = inst->dest;
+			for (u32 i = 0; i < 4; i++)
 				mips->f[dest + i] = temp[i];
 			break;
 		}
 
 		case IROp::Vec4Blend:
 		{
-			const int dest = inst->dest;
-			const int src1 = inst->src1;
-			const int src2 = inst->src2;
-			const int constant = inst->constant;
+			const u32 dest = inst->dest;
+			const u32 src1 = inst->src1;
+			const u32 src2 = inst->src2;
+			const u32 constant = inst->constant;
 			// 90% of calls to this is inst->constant == 7 or inst->constant == 8. Some are 1 and 4, others very rare.
 			// Could use _mm_blendv_ps (SSE4+BMI), vbslq_f32 (ARM), __riscv_vmerge_vvm (RISC-V)
 			float temp[4];
-			for (int i = 0; i < 4; i++)
+			for (u32 i = 0; i < 4; i++)
 				temp[i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
-			for (int i = 0; i < 4; i++)
+			for (u32 i = 0; i < 4; i++)
 				mips->f[dest + i] = temp[i];
 			break;
 		}
 
 		case IROp::Vec4Mov:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(&mips->f[inst->src1]));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vld1q_f32(&mips->f[inst->src1]));
@@ -376,7 +376,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Add:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vaddq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -389,7 +389,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Sub:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vsubq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -402,7 +402,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Mul:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vmulq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -415,7 +415,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Div:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_div_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM64_NEON)
 			vst1q_f32(&mips->f[inst->dest], vdivq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
@@ -428,7 +428,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Scale:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vmulq_lane_f32(vld1q_f32(&mips->f[inst->src1]), vdup_n_f32(mips->f[inst->src2]), 0));
@@ -442,7 +442,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Neg:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_xor_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)signBits)));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vnegq_f32(vld1q_f32(&mips->f[inst->src1])));
@@ -455,7 +455,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Abs:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_and_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)noSignMask)));
 #elif PPSSPP_ARCH(ARM_NEON)
 			vst1q_f32(&mips->f[inst->dest], vabsq_f32(vld1q_f32(&mips->f[inst->src1])));
@@ -468,10 +468,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Unpack16To31:
 		{
-			const int dest = inst->dest;
-			const int src1 = inst->src1;
-			const int temp0 = (mips->fi[src1] << 16) >> 1;
-			const int temp1 = (mips->fi[src1] & 0xFFFF0000) >> 1;
+			const u32 dest = inst->dest;
+			const u32 src1 = inst->src1;
+			const u32 temp0 = (mips->fi[src1] << 16) >> 1;
+			const u32 temp1 = (mips->fi[src1] & 0xFFFF0000) >> 1;
 			mips->fi[dest] = temp0;
 			mips->fi[dest + 1] = temp1;
 			break;
@@ -479,10 +479,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Unpack16To32:
 		{
-			const int dest = inst->dest;
-			const int src1 = inst->src1;
-			const int temp0 = (mips->fi[src1] << 16);
-			const int temp1 = (mips->fi[src1] & 0xFFFF0000);
+			const u32 dest = inst->dest;
+			const u32 src1 = inst->src1;
+			const u32 temp0 = (mips->fi[src1] << 16);
+			const u32 temp1 = (mips->fi[src1] & 0xFFFF0000);
 			mips->fi[dest] = temp0;
 			mips->fi[dest + 1] = temp1;
 			break;
@@ -490,15 +490,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Unpack8To32:
 		{
-#if defined(_M_SSE)
+			// Used in Gran Turismo
+#if PPSSPP_ARCH(SSE2)
 			__m128i src = _mm_cvtsi32_si128(mips->fi[inst->src1]);
 			src = _mm_unpacklo_epi8(src, _mm_setzero_si128());
 			src = _mm_unpacklo_epi16(src, _mm_setzero_si128());
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], _mm_slli_epi32(src, 24));
-#elif PPSSPP_ARCH(ARM_NEON) && 0 // Untested
+#elif PPSSPP_ARCH(ARM_NEON)
 			const uint8x8_t value = (uint8x8_t)vdup_n_u32(mips->fi[inst->src1]);
 			const uint16x8_t value16 = vmovl_u8(value);
-			const uint32x4_t value32 = vshll_n_u16(vget_low_u16(value16), 24);
+			const uint32x4_t value32 = vshlq_n_u32(vshll_n_u16(vget_low_u16(value16), 8), 16);  // note: vshll has a range limited to 0..16
 			vst1q_u32(&mips->fi[inst->dest], value32);
 #else
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
@@ -512,72 +513,103 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Vec2Pack32To16:
 		{
 			u32 val = mips->fi[inst->src1] >> 16;
-			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF0000) | val;
+			mips->fi[inst->dest] = val | (mips->fi[(u32)inst->src1 + 1] & 0xFFFF0000);
 			break;
 		}
 
 		case IROp::Vec2Pack31To16:
 		{
 			// Used in Tekken 6
-
 			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
-			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
-			mips->fi[inst->dest] = val;
+			mips->fi[inst->dest] = val | (mips->fi[(u32)inst->src1 + 1] << 1) & 0xFFFF0000;
 			break;
 		}
 
 		case IROp::Vec4Pack32To8:
 		{
+#if PPSSPP_ARCH(SSE2)
+			__m128i src = _mm_loadu_si128((__m128i *)&mips->fi[inst->src1]);
+			// Shift each 32-bit lane right by 24 bits
+			src = _mm_srli_epi32(src, 24);
+			// Pack 32-bit lanes to 16-bit, then 16-bit to 8-bit
+			// This moves our target bytes to the bottom of the XMM register
+			src = _mm_packs_epi32(src, src);
+			src = _mm_packus_epi16(src, src);
+			// Extract the lower 32 bits (which now contains our 4 bytes)
+			mips->fi[inst->dest] = (u32)_mm_cvtsi128_si32(src);
+#elif PPSSPP_ARCH(ARM_NEON)
+			uint32x4_t src = vld1q_u32(&mips->fi[inst->src1]);
+			// 2. Shift right by 24 bits and then narrow to 16-bit lanes (d0). Can't do it in one go - vshrn_n_u32 is limited to 16.
+			uint16x4_t narrow_16 = vmovn_u32(vshrq_n_u32(src, 24));
+			// 3. Narrow from 16-bit lanes to 8-bit lanes (resulting in 4 bytes)
+			uint8x8_t narrow_8 = vshrn_n_u16(vcombine_u16(narrow_16, narrow_16), 0);
+			// 4. Extract the result as a single u32
+			mips->fi[inst->dest] = vget_lane_u32(vreinterpret_u32_u8(narrow_8), 0);
+#else
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
-			u32 val = mips->fi[inst->src1] >> 24;
-			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
-			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
-			val |= (mips->fi[inst->src1 + 3]) & 0xFF000000;
+			u32 val = mips->fi[(u32)inst->src1] >> 24;
+			val |= (mips->fi[(u32)inst->src1 + 1] >> 16) & 0xFF00;
+			val |= (mips->fi[(u32)inst->src1 + 2] >> 8) & 0xFF0000;
+			val |= (mips->fi[(u32)inst->src1 + 3]) & 0xFF000000;
 			mips->fi[inst->dest] = val;
+#endif
 			break;
 		}
 
 		case IROp::Vec4Pack31To8:
 		{
-			// Used in Tekken 6
+			// Used in Tekken 6, Gran Turismo
 
-			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
-			// pshufb or SSE4 instructions can be used instead.
-#if PPSSPP_ARCH(ARM_NEON) && 0
-			// Untested
+#if PPSSPP_ARCH(SSE2)
+			__m128i src = _mm_loadu_si128((__m128i *) & mips->fi[inst->src1]);
+			// Shift each 32-bit lane right by 24 bits. Then left by 1. This matches the rather weird behavior.
+			src = _mm_slli_epi32(_mm_srli_epi32(src, 24), 1);
+			// Pack 32-bit lanes to 16-bit, then 16-bit to 8-bit
+			// This moves our target bytes to the bottom of the XMM register
+			src = _mm_packs_epi32(src, src);
+			src = _mm_packus_epi16(src, src);
+			// Extract the lower 32 bits (which now contains our 4 bytes)
+			mips->fi[inst->dest] = (u32)_mm_cvtsi128_si32(src);
+#elif PPSSPP_ARCH(ARM_NEON)
 			uint32x4_t value = vld1q_u32(&mips->fi[inst->src1]);
 			value = vshlq_n_u32(value, 1);
-			uint32x2_t halved = vshrn_n_u32(value, 8);
-			uint32x2_t halvedAgain = vshrn_n_u32(vcombine_u32(halved, vdup_n_u32(0)), 8);
-			mips->fi[inst->dest] = vget_lane_u32(halvedAgain, 0);
+			uint16x4_t halved = vshrn_n_u32(value, 16);
+			uint8x8_t halvedAgain = vshrn_n_u16(vcombine_u16(halved, vdup_n_u16(0)), 8);
+			mips->fi[inst->dest] = vget_lane_u32(vreinterpret_u32_u8(halvedAgain), 0);
 #else
-			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
-			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
-			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
-			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
-			mips->fi[inst->dest] = val;
+			u32 val = (mips->fi[(u32)inst->src1] >> 23) & 0xFF;
+			val |= (mips->fi[(u32)inst->src1 + 1] >> 15) & 0xFF00;
+			val |= (mips->fi[(u32)inst->src1 + 2] >> 7) & 0xFF0000;
+			val |= (mips->fi[(u32)inst->src1 + 3] << 1) & 0xFF000000;
+			mips->fi[(u32)inst->dest] = val;
 #endif
 			break;
 		}
 
 		case IROp::Vec2ClampToZero:
 		{
-			const u32 temp0 = mips->fi[inst->src1];
-			const u32 temp1 = mips->fi[inst->src1 + 1];
-			mips->fi[inst->dest] = (int)temp0 >= 0 ? temp0 : 0;
-			mips->fi[inst->dest + 1] = (int)temp1 >= 0 ? temp1 : 0;
+			const u32 temp0 = mips->fi[(u32)inst->src1];
+			const u32 temp1 = mips->fi[(u32)inst->src1 + 1];
+			mips->fi[(u32)inst->dest] = (int)temp0 >= 0 ? temp0 : 0;
+			mips->fi[(u32)inst->dest + 1] = (int)temp1 >= 0 ? temp1 : 0;
 			break;
 		}
 
 		case IROp::Vec4ClampToZero:
 		{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 			// Trickery: Expand the sign bit, and use andnot to zero negative values.
 			__m128i val = _mm_load_si128((const __m128i *)&mips->fi[inst->src1]);
 			__m128i mask = _mm_srai_epi32(val, 31);
 			val = _mm_andnot_si128(mask, val);
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
+#elif PPSSPP_ARCH(ARM_NEON)
+			// On ARM we use a compare. On ARM64 we could also do a shift like on x86.
+			int32x4_t val = vld1q_s32((const int32_t *)&mips->fi[inst->src1]);
+			uint32x4_t mask = vcgtq_s32(val, vdupq_n_s32(-1));  // val > -1 → keeps >= 0
+			val = vandq_s32(val, vreinterpretq_s32_u32(mask));  // zero out negative lanes
+			vst1q_s32((int32_t *)&mips->fi[inst->dest], val);
 #else
 			const int src1 = inst->src1;
 			const int dest = inst->dest;
@@ -660,10 +692,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			// Not quickly implementable on all platforms, unfortunately.
 			// Though, this is still pretty fast compared to one split into multiple IR instructions.
 			// This might be good though: https://gist.github.com/rikusalminen/3040241
-			float dot = mips->f[inst->src1] * mips->f[inst->src2];
-			for (int i = 1; i < 4; i++)
-				dot += mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
-			mips->f[inst->dest] = dot;
+			const float *a = &mips->f[(u32)inst->src1];
+			const float *b = &mips->f[(u32)inst->src2];
+			mips->f[inst->dest] = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
 			break;
 		}
 
