@@ -1180,7 +1180,9 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 	StatusBar(memView_.StatusMessage());
 
 	ImGui::End();
-	ProcessKeyboardShortcuts();
+	if (!ImGui::GetIO().WantTextInput) {
+		ProcessKeyboardShortcuts();
+	}
 }
 
 const char *ImMemWindow::Title(int index) {
