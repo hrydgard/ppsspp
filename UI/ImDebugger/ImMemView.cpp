@@ -1104,7 +1104,7 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 			ImGui::SetKeyboardFocusHere(0);
 			focusSearchValueInput_ = false;
 		}
-		if (ImGui::InputText("data", searchStr_, IM_ARRAYSIZE(searchStr_), ImGuiInputTextFlags_EnterReturnsTrue) || ImGui::Button("Search")) {
+		if (ImGui::InputText("data", searchStr_, IM_ARRAYSIZE(searchStr_), ImGuiInputTextFlags_EnterReturnsTrue) | ImGui::Button("Search")) {
 			memView_.initSearch(searchStr_, selectedSearchType_);
 			// TODO: transfer focus on the memview.
 		}
