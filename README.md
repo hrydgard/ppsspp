@@ -25,6 +25,79 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.20
+------------------
+- User interface
+  - New feature: Proper support for Portrait Mode UI - you can now rotate your phone to vertical mode, and things will mostly work fine! ([#21185], [#21044]...)
+  - New feature: Separate touch controls and display layout configs for landscape/portrait, new default touch control layout for portrait mode
+  - New feature: Upload files via HTTP from devices on the same network
+  - Savestate count limit can now be configured ([#21112])
+  - UI icons are now vector-based, making them look sharper on high-DPI screens ([#20824], [#20870])
+  - Better handling of unsupported ISOs ([#21169], [#21166])
+  - Misc: Improved text rendering, chat box improvements ([#20653]), PIC0 is now visible on the game screen ([#20686]), ([#20611]), rotation fixes ([#21145]), input fixes ([#21248]), fixes for XBox FullScreen Experience, background stretch ([#21211]), handle savedata in main game browser ([#21277]), Discord Presence improvement ([#21246])
+  - Show ICON1.PMF on the game info screen ([#21303])
+
+- Regression fixes
+  - In 7th Dragon, voice-related crashes are fixed ([#20837])
+  - Soundtrack is working again in Tony Hawk's Project 8 ([#20775])
+  - Fix crash in StormBasic homebrew apps ([#20715])
+  - Built-in songs in Beats work again ([#20662])
+  - Fix adhoc in Syphon Filter games ([#20642])
+  - Fix strange cutscene speedups in Power Stone 2 (Power Stone Collection) ([#2124])
+  - Work around game bug to help more custom songs play again in GTA LCS ([#20692])
+
+- Multiplayer
+  - Support aemu relay servers for AdHoc multiplayer ([#21116], [#21271])
+  - Allow customizing the proAdhoc server list ([#20718])
+
+- Controller and touch screen input
+  - Native support for DualSense ([#20580], [#20620], [#21191]), DualShock and Switch Pro ([#20647]) controllers on Windows - including tilt controls for DualSense and Switch Pro
+  - Misc touch screen improvements ([#21195], [#21197], [#21258])
+
+- Graphics
+  - Fixed multiple graphical effects in Tales of Phantasia X
+  - Reworked the VSync setting to be more intuitive. It's now pretty much never a bad idea to turn it on.
+  - Fixes for various glitches in Tales of Phantasia X ([#21173], [#21141], [#21205])
+  - Some more framebuffer readback workarounds ([#20640], [#20631], [#20632])
+  - MMPX upscaling enhancements by crashGG ([#20622], [#20541])
+  - Huge rendering speedup in Brave Story ([#21151])
+  - Fix rendering bug caused by CPU emulation bug in ATV Offroad Fury: Blazing Trails ([#21238])
+  - Partially fix rendering problem in Mahjong Artifacts ([#21244]) and The Mystery of the Crystal Portal ([#21236])
+  - Boost the GPU in Outrun 2006 to avoid unnecessary slowdowns ([#21304])
+
+- Other game fixes
+  - Fix savedata problem in Silent Hill: Shattered Memories ([#21294])
+
+- Audio
+  - Added "Smooth" playback mode, which evens out glitches (while adding a very small amount of latency)
+  - Remove DirectSound support ([#20533]), add support for ultra-low-latency streams on WASAPI, available on some devices ([#20535])
+
+- Platform support
+  - Windows
+    - D3D9 support has been removed ([#19951], [#20490])
+    - ARM64 is now officially supported, and works great ([#20863])
+    - Correct fullscreen mode in Xbox Fullscreen Experience ([#21189])
+    - Assorted improvements ([#20778], [#20774])
+  - Android
+    - The minimum Android version has been raised for technical reasons, KitKat is no longer supported ([#19658])
+    - Shortcut widgets can now be created even if the app isn't running ([#20798])
+    - Support for Android devices with 16K page size. This is a technical change, required by Google Play, that unfortunately forced us to drop compatibility with the very oldest devices. ([#20788])
+    - Removed support for classic Moga controllers, these were only a thing on early Android ([#20762])
+  - iOS
+    - Support for portrait screen rotation (wasn't available previously).
+  - Linux
+    - Loongarch improvements by KatyushaScarlet ([#20683], [#20644], [#20599], [#20594]), text rendering improvements ([#21163])
+    - SDL fullscreen problems fixed ([#21300], more)
+
+- Debugger
+  - ImDebugger improvements ([#20861], [#20779], [#20657], [#20637], [#20550], [#20523])
+  - Websocket debugger fixes ([#20749])
+
+- Other
+  - RetroAchievements: Upgrade the support library with perf fixes ([#21081]), various fixes and improvements
+  - Add workaround for infamous God of War crash ([#21148])
+  - Fix assorted minor UI bugs ([#21042], ...)
+
 What's new in 1.19.3
 --------------------
 
