@@ -28,9 +28,6 @@ ImMemView::ImMemView() {
 	selectRangeStart_ = curAddress_;
 	selectRangeEnd_ = curAddress_ + 1;
 	lastSelectReset_ = curAddress_;
-	memSearch_.matchAddress = 0xFFFFFFFF;
-	memSearch_.searching = false;
-	memSearch_.status = SEARCH_INITIAL;
 }
 
 ImMemView::~ImMemView() {}
@@ -177,7 +174,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 					continueRect = true;
 				}
 			} else if (!tag.empty()) {
-				if (memSearch_.status == SEARCH_OK && address+j>= memSearch_.matchAddress && address +j < memSearch_.matchAddress + memSearch_.fast_size && !memSearch_.searching) {
+				if (memSearch_.status == SEARCH_OK && address+j>= memSearch_.matchAddress && address +j < memSearch_.matchAddress + memSearch_.data.size() && !memSearch_.searching) {
 					hexBGCol = searchResBg;
 				} else {
 					hexBGCol = pickTagColor(tag);
@@ -810,9 +807,6 @@ bool ImMemView::ParseSearchString(const char* query, MemorySearchType mode) {
 			break;
 	}
 
-	memSearch_.fast_data  = memSearch_.data.data();
-	memSearch_.fast_size  = memSearch_.data.size();
-
 	return true;
 }
 /*
@@ -873,6 +867,9 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 	// and put them in a matches list
 	// and display as;
 	// <match idx><memory region><addr><what matched>
+	const u8 *data = memSearch_.data.data();
+	const size_t size = memSearch_.data.size();
+
 	for (size_t i = 0; i < memoryAreas.size(); i++) {
 		memSearch_.segmentStart = memoryAreas[i].first;
 		memSearch_.segmentEnd = memoryAreas[i].second;
@@ -888,14 +885,14 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 			continue;
 
 		int index = memSearch_.searchAddress - memSearch_.segmentStart;
-		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - (int)memSearch_.fast_size;
+		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - size;
 		while (index < endIndex) {
 			// cancel search
 			if ((index % 256) == 0 && ImGui::IsKeyDown(ImGuiKey_Escape)) {
 				memSearch_.searching = false;
 				return SEARCH_CANCEL;
 			}
-			if (memcmp(&dataPointer[index], memSearch_.fast_data, memSearch_.fast_size) == 0) {
+			if (memcmp(&dataPointer[index], data, size) == 0) {
 				memSearch_.matchAddress = index + memSearch_.segmentStart;
 				memSearch_.searching = false;
 				gotoAddr(memSearch_.matchAddress);

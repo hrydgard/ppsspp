@@ -81,15 +81,13 @@ private:
 	struct MemorySearch{
 		// keep search related variables grouped
 		std::vector<u8> data;
-		uint8_t* fast_data;
-		size_t fast_size;
 		u32 searchAddress;
-		u32 matchAddress;
+		u32 matchAddress = 0xFFFFFFFF;
 		u32 segmentStart;
 		u32 segmentEnd;
 		bool searching;
-		MemorySearchStatus status;
-	} memSearch_;
+		MemorySearchStatus status = SEARCH_INITIAL;
+	} memSearch_{};
 
 	std::vector<u8> byteClipboard_;
 	void CopyToByteClipboard();
@@ -175,6 +173,9 @@ private:
 // Corresponds to the CMemView dialog
 class ImMemWindow {
 public:
+	ImMemWindow() {
+		searchStr_[0] = 0;
+	}
 	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index);
 	ImMemView &View() {
 		return memView_;
