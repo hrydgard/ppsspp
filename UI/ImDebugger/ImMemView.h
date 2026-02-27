@@ -18,8 +18,9 @@ enum CommonToggles {
 	Off,
 };
 
-enum MemorySearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND, SEARCH_CANCEL};
-enum MemorySearchType {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT_32, STRING, STRING_16,  BYTE_SEQ};
+enum MemorySearchStatus {SEARCH_PSP_NOT_INIT=-1, SEARCH_INITIAL, SEARCH_OK, SEARCH_NOTFOUND};
+enum MemorySearchType {BITS_8, BITS_16, BITS_32, BITS_64, FLOAT_32, STRING, STRING_16, BYTE_SEQ};
+
 class ImMemView {
 public:
 	ImMemView();
@@ -85,7 +86,6 @@ private:
 		u32 matchAddress = 0xFFFFFFFF;
 		u32 segmentStart;
 		u32 segmentEnd;
-		bool searching;
 		MemorySearchStatus status = SEARCH_INITIAL;
 	} memSearch_{};
 
@@ -210,7 +210,6 @@ private:
 	char searchStr_[512];
 	// store the state of the search form
 	ImMemView memView_;
-	char searchTerm_[64]{};
 
 	u32 gotoAddr_ = 0x08800000;
 };

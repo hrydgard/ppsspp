@@ -21,7 +21,7 @@
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImMemView.h"
 
-static const char* searchtypes[] = {"u8", "u16", "u32", "u64", "float", "string", "string16","bytesequence"};
+static const char* searchtypes[] = {"u8", "u16", "u32", "u64", "float", "string", "string16", "bytesequence"};
 
 ImMemView::ImMemView() {
 	windowStart_ = curAddress_;
@@ -156,7 +156,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 			const ImColor zeroColor = 0x888888ff;
 			const ImColor searchResBg = 0xFF108010;
 
-			if (address + j >= selectRangeStart_ && address + j < selectRangeEnd_ && !memSearch_.searching) {
+			if (address + j >= selectRangeStart_ && address + j < selectRangeEnd_) {
 				if (asciiSelected_) {
 					hexBGCol = secondarySelBg;
 					hexTextCol = secondarySelFg;
@@ -174,7 +174,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 					continueRect = true;
 				}
 			} else if (!tag.empty()) {
-				if (memSearch_.status == SEARCH_OK && address+j>= memSearch_.matchAddress && address +j < memSearch_.matchAddress + memSearch_.data.size() && !memSearch_.searching) {
+				if (memSearch_.status == SEARCH_OK && address+j >= memSearch_.matchAddress && address +j < memSearch_.matchAddress + memSearch_.data.size()) {
 					hexBGCol = searchResBg;
 				} else {
 					hexBGCol = pickTagColor(tag);
@@ -860,7 +860,6 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 	memoryAreas.emplace_back(PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd());
 	memoryAreas.emplace_back(PSP_GetScratchpadMemoryBase(), PSP_GetScratchpadMemoryEnd());
 
-	memSearch_.searching = true;
 	// NOTE:
 	// this currently stops at the first found value
 	// we could look for all matches
@@ -887,14 +886,8 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 		int index = memSearch_.searchAddress - memSearch_.segmentStart;
 		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - size;
 		while (index < endIndex) {
-			// cancel search
-			if ((index % 256) == 0 && ImGui::IsKeyDown(ImGuiKey_Escape)) {
-				memSearch_.searching = false;
-				return SEARCH_CANCEL;
-			}
 			if (memcmp(&dataPointer[index], data, size) == 0) {
 				memSearch_.matchAddress = index + memSearch_.segmentStart;
-				memSearch_.searching = false;
 				gotoAddr(memSearch_.matchAddress);
 				return SEARCH_OK;
 			}
@@ -903,7 +896,6 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 	}
 
 	statusMessage_ = "Not found";
-	memSearch_.searching = false;
 	return SEARCH_NOTFOUND;
 }
 
