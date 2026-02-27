@@ -1,3 +1,30 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EmuLnk/emulnk/master/.github/assets/logo.svg" alt="EmuLnk" width="80"/>
+</p>
+
+<p align="center">
+  <strong>EmuLnk fork of PPSSPP</strong><br/>
+  Adds the binary UDP protocol for live game data on a second screen.
+</p>
+
+<p align="center">
+  <a href="https://github.com/EmuLnk/emulnk"><img src="https://img.shields.io/badge/Main_Project-EmuLnk-B47CFF?style=for-the-badge&logo=github&logoColor=white" alt="EmuLnk"/></a>
+  &nbsp;
+  <a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/EmuLnk/ppsspp-lnk"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="28" alt="Get it on Obtainium"/></a>
+</p>
+
+## Project Repos
+
+| Repo | Description |
+|------|-------------|
+| [`emulnk`](https://github.com/EmuLnk/emulnk) | Android companion app |
+| [`emulnk-repo`](https://github.com/EmuLnk/emulnk-repo) | Themes, profiles, and system configs |
+| [`retroarch-lnk`](https://github.com/EmuLnk/retroarch-lnk) | RetroArch fork with UDP protocol |
+| [`dolphin-lnk`](https://github.com/EmuLnk/dolphin-lnk) | Dolphin fork with UDP protocol |
+| **`ppsspp-lnk`** | **PPSSPP fork with UDP protocol** |
+
+---
+
 PPSSPP - a fast and portable PSP emulator
 =========================================
 
