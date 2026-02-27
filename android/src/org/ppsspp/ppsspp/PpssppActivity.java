@@ -1241,7 +1241,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 						Log.i(TAG, "Key char event " + unicode);
 						// Handle alphanumeric character
 						NativeApp.keyChar(NativeApp.DEVICE_ID_KEYBOARD, c);
-						return true;
+						// Note: We also want to generate a KeyDown event with keycode.
 					}
 
 					// Log.i(TAG, "KeyEvent Down");
