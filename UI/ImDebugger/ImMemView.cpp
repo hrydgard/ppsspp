@@ -884,7 +884,7 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 			continue;
 
 		int index = memSearch_.searchAddress - memSearch_.segmentStart;
-		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - size;
+		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - (int)size;
 		while (index < endIndex) {
 			if (memcmp(&dataPointer[index], data, size) == 0) {
 				memSearch_.matchAddress = index + memSearch_.segmentStart;

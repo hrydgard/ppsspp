@@ -177,7 +177,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		return;
 
 	float scale = scale_;
-	if (IsDown()) {
+	if (IsDownVisually()) {
 		if (g_Config.iTouchButtonStyle == 2) {
 			opacity *= 1.35f;
 		} else {
@@ -190,7 +190,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	uint32_t downBg = colorAlpha(0xFFFFFF, opacity * 0.5f);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
-	if (IsDown() && g_Config.iTouchButtonStyle == 2) {
+	if (IsDownVisually() && g_Config.iTouchButtonStyle == 2) {
 		if (bgImg_ != bgDownImg_)
 			dc.Draw()->DrawImageRotated(bgDownImg_, bounds_.centerX(), bounds_.centerY(), scale, bgAngle_ * (M_PI * 2 / 360.0f), downBg, flipImageH_);
 	}
@@ -237,19 +237,23 @@ bool PSPButton::Touch(const TouchInput &input) {
 	return retval;
 }
 
-bool CustomButton::IsDown() const {
+bool CustomButton::IsDownVisually() const {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
 }
 
-bool CustomButton::IsDownForFadeoutCheck() const {
+bool CustomButton::IsDownByTouch() const {
 	// This check is due to a stupid mistake, see the header.
 #ifdef MOBILE_DEVICE
 	constexpr int bitNumber = 36;
 #else
 	constexpr int bitNumber = 38;
 #endif
-	const bool down = IsDown() && !(pspButtonBit_ & (1ULL << bitNumber));  // VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
-	return down;
+	if (pspButtonBit_ & (1ULL << bitNumber)) {
+		return false;
+	}
+	// VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
+
+	return !toggle_ && pointerDownMask_ != 0;
 }
 
 void CustomButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -322,7 +326,7 @@ void CustomButton::Update() {
 	}
 }
 
-bool PSPButton::IsDown() const {
+bool PSPButton::IsDownVisually() const {
 	return (__CtrlPeekButtonsVisual() & pspButtonBit_) != 0;
 }
 
@@ -1110,8 +1114,8 @@ void GamepadEmuView::Update() {
 	bool anyDown = false;
 	for (auto view : views_) {
 		GamepadComponent *component = dynamic_cast<GamepadComponent *>(view);
-		if (component && component->IsDownForFadeoutCheck()) {
-			// INFO_LOG(Log::System, "GamepadEmuView::Update: component is down for fadeout check: %s", component->DescribeText().c_str());
+		if (component && component->IsDownByTouch()) {
+			// INFO_LOG(Log::System, "GamepadEmuView::Update: component is down by touch: %s", component->DescribeText().c_str());
 			anyDown = true;
 		}
 	}
