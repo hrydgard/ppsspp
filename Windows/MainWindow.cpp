@@ -940,6 +940,28 @@ namespace MainWindow {
 		// Wheel events have to stay in WndProc for compatibility with older Windows(7). See #12156
 		case WM_MOUSEWHEEL:
 			{
+				// Get mouse position from the message (screen coordinates)
+				POINT pt;
+				pt.x = GET_X_LPARAM(lParam);
+				pt.y = GET_Y_LPARAM(lParam);
+
+				// Convert screen coordinates to client coordinates
+				ScreenToClient(hWnd, &pt);
+
+				// Update the internal mouse position first so the UI knows where the cursor is
+				// This enables "scroll on hover" behavior - scrolling works on the element under cursor
+				const float x = (float)pt.x * g_display.dpi_scale_x;
+				const float y = (float)pt.y * g_display.dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
+				// Send touch input to update hover state
+				TouchInput touch{};
+				touch.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
+
+				// Now send the wheel key event
 				int wheelDelta = (short)(wParam >> 16);
 				KeyInput key;
 				key.deviceId = DEVICE_ID_MOUSE;
