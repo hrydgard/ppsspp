@@ -579,6 +579,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		}
 		Achievements::UnloadGame();
 		PSP_Shutdown(true);
+		UI::EnableFocusMovement(false);
 
 		// Restart the boot process
 		bootPending_ = true;
