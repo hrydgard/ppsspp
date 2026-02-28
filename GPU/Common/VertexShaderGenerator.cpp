@@ -409,7 +409,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		if (isModeThrough) {
-			WRITE(p, "uniform mat4 u_proj_through;\n");
+			WRITE(p, "uniform vec4 u_xywh;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -519,6 +519,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// See comment above this function (GenerateVertexShader).
 	if (!isModeThrough && gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
+		// TODO: This is now bogus and should be properly integrated in the new pipeline!
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
@@ -747,9 +748,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			// The proj_through matrix already has the rotation, if needed.
-			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
+			WRITE(p, "  vec4 outPos = vec4(position.x, position.y, position.z, 1.0);\n");
 		} else {
-			if (compat.shaderLanguage == GLSL_VULKAN) {
+			if (false && compat.shaderLanguage == GLSL_VULKAN) {
 				// Apply rotation from the uniform.
 				WRITE(p, "  mat2 displayRotation = mat2(\n");
 				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
@@ -768,6 +769,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			} else {
 				WRITE(p, "  vec4 outPos = pos;\n");
 			}
+
+			// Here we need to apply the viewport and also range culling, just like with the hardware transform below.
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -861,6 +864,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 			}
 		}
+
+		// Perform the perspective projection and viewport transform. (We'll undo it later, after we applied the viewport).
+		// In software transform mode, this is performed in software.
+		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -1227,14 +1234,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	if (vertexRangeCulling) {
-		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
+		// Position is now already projected here.
+		WRITE(p, "  vec3 projPos = outPos.xyz;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 
 		if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 			// Vertex range culling doesn't happen when Z clips, note sign of w is important.
 			WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
-			const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
-			const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
+			const char *outMin = "projPos.x < 0.0 || projPos.y < 0.0";
+			const char *outMax = "projPos.x > 4096.0 || projPos.y > 4096.0";
 			WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
 			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
 			WRITE(p, "    }\n");
@@ -1250,7 +1258,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
-			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
+			// We add a small amount to prevent errors as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
 			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", compat.vsOutPrefix, vertexRangeClipSuffix, 0.0625 / 65536.0);
 		}
 		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
@@ -1265,6 +1273,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  }\n");
 		}
 	}
+
+	if (!isModeThrough) {
+		// Apply raster offset after the range culling.
+		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
+	}
+
+	// Convert to NDC space.
+	WRITE(p, "  outPos.x = ((outPos.x - u_xywh.x) / u_xywh.z) * 2.0 - 1.0;\n");
+	WRITE(p, "  outPos.y = ((outPos.y - u_xywh.y) / u_xywh.w) * 2.0 - 1.0;\n");
+	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");
+
+	// After all our changes, multiply xyz back with z to get clip space position.
+	WRITE(p, "  outPos.xyz *= outPos.w;\n");
 
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);

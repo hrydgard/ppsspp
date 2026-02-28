@@ -11,20 +11,23 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
-	DIRTY_BEZIERSPLINE | DIRTY_DEPAL,
+	DIRTY_BEZIERSPLINE | DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT_CONTROL | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
 };
 
-// Currently 496 bytes.
+// Currently 480 bytes.
 // Every line here is a 4-float.
 struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
-	float proj_through[16];
 	float view[12];
 	float world[12];
 	float tex[12];
+	float xywh[4];  // replacement for the old proj_through
+	float vpScale[3]; float padding1;
+	float vpOffset[3]; float padding2;
+	float rasterOffset[2]; float padding3[2];
 	float uvScaleOffset[4];
 	float depthRange[4];
 	float matAmbient[4];
@@ -33,7 +36,7 @@ struct alignas(16) UB_VS_FS_Base {
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float texNoAlpha; float texMul; float padding[2];  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
+	float texNoAlpha; float texMul; float padding4[2];  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
 	float texClamp[4];
@@ -44,12 +47,17 @@ struct alignas(16) UB_VS_FS_Base {
 	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
 
+static_assert(sizeof(UB_VS_FS_Base) == 480);
+
 static const char * const ub_baseStr =
 R"(  mat4 u_proj;
-  mat4 u_proj_through;
   mat3x4 u_view;
   mat3x4 u_world;
   mat3x4 u_texmtx;
+  vec4 u_xywh;
+  vec4 u_vpScale;  // w = offsetX
+  vec4 u_vpOffset; // w = offsetY
+  vec2 u_rasterOffset; vec2 pad0;
   vec4 u_uvscaleoffset;
   vec4 u_depthRange;
   vec4 u_matambientalpha;

@@ -60,7 +60,9 @@ public:
 	int u_tex;
 	int u_proj;
 	int u_proj_lens;
-	int u_proj_through;
+	int u_xywh;
+	int u_vpScale;
+	int u_vpOffset;
 	int u_texenv;
 	int u_view;
 	int u_texmtx;
