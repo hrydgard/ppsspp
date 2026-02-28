@@ -884,7 +884,7 @@ MemorySearchStatus ImMemView::search(bool continueSearch) {
 			continue;
 
 		int index = memSearch_.searchAddress - memSearch_.segmentStart;
-		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - size;
+		int endIndex = memSearch_.segmentEnd - memSearch_.segmentStart - (int)size;
 		while (index < endIndex) {
 			if (memcmp(&dataPointer[index], data, size) == 0) {
 				memSearch_.matchAddress = index + memSearch_.segmentStart;
@@ -1096,7 +1096,7 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 			ImGui::SetKeyboardFocusHere(0);
 			focusSearchValueInput_ = false;
 		}
-		if (ImGui::InputText("data", searchStr_, IM_ARRAYSIZE(searchStr_), ImGuiInputTextFlags_EnterReturnsTrue) | ImGui::Button("Search")) {
+		if (ImGui::InputText("data", searchStr_, IM_ARRAYSIZE(searchStr_), ImGuiInputTextFlags_EnterReturnsTrue) || ImGui::Button("Search")) {
 			memView_.initSearch(searchStr_, selectedSearchType_);
 			// TODO: transfer focus on the memview.
 		}

@@ -107,8 +107,6 @@ protected:
 		gridsettings.fillCells = true;
 		GridLayout *grid = content->Add(new GridLayoutList(gridsettings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0))));
 
-		Choice *back = new Choice(di->T("Back"));
-
 		const bool hasUndo = SaveState::HasUndoSaveInSlot(saveStatePrefix_, slot_);
 		const bool undoEnabled = g_Config.bEnableStateUndo;
 
@@ -120,14 +118,14 @@ protected:
 			undoButton->SetEnabled(hasUndo);
 		}
 
-		grid->Add(new Choice(pa->T("Save State")))->OnClick.Handle(this, &ScreenshotViewScreen::OnSaveState);
+		grid->Add(new Choice(pa->T("Save State"), ImageID("I_FILE_SAVE")))->OnClick.Handle(this, &ScreenshotViewScreen::OnSaveState);
 		// We can unconditionally show the load state button, because you can only pop this dialog up if a state exists.
-		grid->Add(new Choice(pa->T("Load State")))->OnClick.Handle(this, &ScreenshotViewScreen::OnLoadState);
-		grid->Add(new Choice(pa->T("Delete State")))->OnClick.Handle(this, &ScreenshotViewScreen::OnDeleteState);
+		grid->Add(new Choice(pa->T("Load State"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &ScreenshotViewScreen::OnLoadState);
+		grid->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN")))->OnClick.Handle(this, &ScreenshotViewScreen::OnDeleteState);
 		if (undoButton) {
 			grid->Add(undoButton)->OnClick.Handle(this, &ScreenshotViewScreen::OnUndoState);
 		}
-		grid->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		grid->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 		scroll->Add(content);
 		parent->Add(scroll);
@@ -410,20 +408,20 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 
 	*extraRow = nullptr;
 
-	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 0)));
+	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 10)));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
-		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
-		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
-			TriggerFinish(DR_CANCEL);
-		});
-
 		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(saveStatePrefix_));
 		saveUndoButton->OnClick.Add([this](UI::EventParams &e) {
 			SaveState::UndoLastSave(saveStatePrefix_);
 			RecreateViews();
+		});
+
+		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
+		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
+			SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
+			TriggerFinish(DR_CANCEL);
 		});
 	}
 
@@ -474,7 +472,7 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (portrait) {
-		// We have room for a title bar. Use the game DB title if available.
+		// We have room for a title bar in portrait mode. Use the game DB title if available.
 		std::string title;
 		std::vector<GameDBInfo> dbInfos;
 		const bool inGameDB = g_gameDB.GetGameInfos(g_paramSFO.GetDiscID(), &dbInfos);
