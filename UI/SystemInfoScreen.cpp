@@ -331,6 +331,9 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	}
 }
 
+// From MediaEngine.cpp.
+std::string GetFFMPEGVersion();
+
 void SystemInfoScreen::CreateStorageTab(UI::LinearLayout *storage) {
 	using namespace UI;
 
@@ -361,39 +364,56 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
+	std::string installerName = System_GetProperty(SYSPROP_INSTALLER_NAME);
+	if (installerName.empty()) {
+		installerName = "N/A";
+	}
+	std::vector<std::pair<std::string, std::string>> buildConfigItems = {
+		{"GIT_VERSION", PPSSPP_GIT_VERSION},
 #ifdef ANDROID_LEGACY
-	buildConfig->Add(new InfoItem("ANDROID_LEGACY", ""));
+		{"ANDROID_LEGACY", ""},
 #endif
 #ifdef _DEBUG
-	buildConfig->Add(new InfoItem("_DEBUG", ""));
+		{"_DEBUG", ""},
 #else
-	buildConfig->Add(new InfoItem("NDEBUG", ""));
+		{"NDEBUG", ""},
 #endif
 #ifdef USE_ASAN
-	buildConfig->Add(new InfoItem("USE_ASAN", ""));
+		{"USE_ASAN", ""},
 #endif
 #ifdef USING_GLES2
-	buildConfig->Add(new InfoItem("USING_GLES2", ""));
+		{"USING_GLES2", ""},
 #endif
 #ifdef MOBILE_DEVICE
-	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
+		{"MOBILE_DEVICE", ""},
 #endif
 #if PPSSPP_ARCH(ARMV7S)
-	buildConfig->Add(new InfoItem("ARMV7S", ""));
+		{"ARMV7S", ""},
 #endif
+		{std::string(si->T("ABI")), GetCompilerABI()},
 #if PPSSPP_ARCH(ARM_NEON)
-	buildConfig->Add(new InfoItem("ARM_NEON", ""));
+		{"ARM_NEON", ""},
 #endif
 #ifdef _M_SSE
-	buildConfig->Add(new InfoItem("_M_SSE", StringFromFormat("0x%x", _M_SSE)));
+		{"_M_SSE", StringFromFormat("0x%x", _M_SSE))},
 #endif
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		buildConfig->Add(new InfoItem("GOLD", ""));
-	}
+		{"FFMPEG", GetFFMPEGVersion()},
+		{std::string(si->T("Installer")), installerName},
+	};
 
-	// Not really build config, but similar.
-	std::string installerName = System_GetProperty(SYSPROP_INSTALLER_NAME);
-	buildConfig->Add(new InfoItem(si->T("Installer"), installerName));
+	buildConfig->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([buildConfigItems](UI::EventParams &e) {
+		std::string buildConfigStr;
+		for (auto &item : buildConfigItems) {
+			buildConfigStr += item.first + ": " + item.second + "\n";
+		}
+		System_CopyStringToClipboard(buildConfigStr.c_str());
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), di->T("Build Configuration")), 0.0f, "copyToClip");
+	});
+
+	for (auto &item : buildConfigItems) {
+		buildConfig->Add(new InfoItem(item.first, item.second));
+	}
 }
 
 void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
