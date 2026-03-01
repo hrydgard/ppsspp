@@ -271,7 +271,7 @@ jobs:
         version: 5.15.2
 
     - name: Setup Android NDK
-      uses: nttld/setup-ndk@afb4c9964b521afb97c864b7d40b11e6911bd410 # v1.5.0
+      uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
