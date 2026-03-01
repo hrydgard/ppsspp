@@ -116,7 +116,7 @@ jobs:
           #ls ppsspp
           
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: UWP-${{ github.event.inputs.buildConfiguration }}-${{ github.event.inputs.buildPlatform }} build
           path: ppsspp/
