@@ -100,6 +100,15 @@ void EmuLinkServer::ServerLoop() {
 		int received = recvfrom(m_socket, (char *)packet_buffer, sizeof(packet_buffer),
 		                        0, (sockaddr *)&sender, &senderLen);
 
+		// IDENTIFY handshake: 4-byte "EMLK" magic → respond with emulator name
+		if (received == 4 &&
+		    packet_buffer[0] == 'E' && packet_buffer[1] == 'M' &&
+		    packet_buffer[2] == 'L' && packet_buffer[3] == 'K') {
+			const char *id = "ppsspp";
+			sendto(m_socket, id, 6, 0, (sockaddr *)&sender, senderLen);
+			continue;
+		}
+
 		if (received >= 8) {
 			u32 address, size;
 			std::memcpy(&address, packet_buffer, 4);
