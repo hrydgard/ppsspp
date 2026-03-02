@@ -5,6 +5,155 @@
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceNetAdhoc.h"
 
+static UI::View *CreateLinkButton(std::string url) {
+	using namespace UI;
+
+	// steal strings from all over the place
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+	auto st = GetI18NCategory(I18NCat::STORE);
+
+	ImageID icon = ImageID("I_LINK_OUT_QUESTION");
+	std::string title;
+
+	if (startsWith(url, "https://discord")) {
+		icon = ImageID("I_LOGO_DISCORD");
+		title = cr->T("Discord");
+	} else {
+		icon = ImageID("I_WEB_BROWSER");
+		title = st->T("Website");
+	}
+
+	Choice *choice = new Choice(title, icon, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(12, 0)));
+	choice->OnClick.Add([url](UI::EventParams &) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
+	});
+	return choice;
+}
+
+// Later, this might also show games-in-progress.
+// For now, it's just a simple metadata viewer.
+class AdhocServerInfoScreen : public UI::PopupScreen {
+public:
+	AdhocServerInfoScreen(const AdhocServerListEntry &entry)
+		: PopupScreen(entry.name, T(I18NCat::DIALOG, "Back")), entry_(entry) {
+	}   // PopupScreen will translate Back on its own
+
+	const char *tag() const override { return "AdhocServerInfo"; }
+
+protected:
+	bool FillVertical() const override { return false; }
+	UI::Size PopupWidth() const override { return 500; }
+	bool ShowButtons() const override { return true; }
+
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		using namespace UI;
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto ni = GetI18NCategory(I18NCat::NETWORKING);
+
+		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
+		Margins contentMargins(10, 0);
+
+		content->Add(new InfoItem(entry_.host, ""));
+		if (!entry_.ip.empty()) {
+			content->Add(new InfoItem(entry_.ip, ""));
+		}
+		content->Add(new InfoItem(entry_.location, ""));
+		content->Add(new InfoItem(ni->T("Relay server mode"), entry_.mode == AdhocDataMode::AemuPostoffice ? di->T("Yes") : di->T("No")));
+		TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10))));
+		desc->SetTextSize(TextSize::Small);
+		desc->SetWordWrap();
+		if (!entry_.web.empty()) {
+			content->Add(CreateLinkButton(entry_.web));
+		}
+		if (!entry_.discord.empty()) {
+			content->Add(CreateLinkButton(entry_.discord));
+		}
+		scroll->Add(content);
+		parent->Add(scroll);
+	}
+private:
+	AdhocServerListEntry entry_;
+};
+
+class AdhocServerRow : public UI::LinearLayout {
+public:
+	AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 500; h = 90;
+	}
+
+	void Draw(UIContext &dc) override {
+		dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
+		if (*value_ == entry_.host) {
+			// TODO: Make this highlight themable
+			dc.FillRect(UI::Drawable(0x30FFFFFF), GetBounds());
+		}
+		LinearLayout::Draw(dc);
+	}
+
+	bool Touch(const TouchInput &input) override {
+		using namespace UI;
+		if (UI::LinearLayout::Touch(input)) {
+			return true;
+		}
+		if (input.flags & TouchInputFlags::DOWN) {
+			if (bounds_.Contains(input.x, input.y)) {
+				dragging_ = true;
+				return true;
+			}
+		}
+		if (dragging_ && (input.flags & TouchInputFlags::UP)) {
+			dragging_ = false;
+			if (!(input.flags & TouchInputFlags::CANCEL) && bounds_.Contains(input.x, input.y)) {
+				EventParams e;
+				e.v = this;
+				OnSelected.Trigger(e);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	UI::Event OnSelected;
+
+private:
+	bool dragging_ = false;
+	std::string *value_;
+	AdhocServerListEntry entry_;
+};
+
+AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
+	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(value), entry_(entry) {
+	using namespace UI;
+
+	int number = 0;
+
+	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
+	lines->SetSpacing(0.0f);
+	lines->Add(new TextView(entry.name));
+	if (entry.host != entry.name) {
+		lines->Add(new TextView(entry.host))->SetTextSize(TextSize::Small)->SetWordWrap();
+	}
+
+	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
+
+	if (entry.mode == AdhocDataMode::AemuPostoffice) {
+		TextView *relay = Add(new TextView("Relay", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+	}
+
+	if (!entry.description.empty()) {
+		Choice *infoButton = Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
+		AdhocServerListEntry copy = entry;
+		infoButton->OnClick.Add([this, copy, screenManager](UI::EventParams &e) {
+			e.v = this;
+			screenManager->push(new AdhocServerInfoScreen(copy));
+		});
+	}
+}
+
 AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 	: UI::PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value) {
 	resolver_ = std::thread([](AdhocServerScreen *thiz) {
@@ -37,7 +186,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	auto listItems = AdhocGetServerList();
 
-	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 256, screenManager()));
+	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 450, screenManager()));
 	parent->Add(new Spacer(5.0f));
 
 	// editValue_ has the currently selected server. On closing the dialog, we copy that to settings.
@@ -79,7 +228,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	for (const auto &host : g_Config.vCustomAdhocServerListWithRelay) {
 		// If the host is already in the public list, skip it. We don't want duplicates.
-		if (hostInEntries(host)) {
+		if (hostInEntries(host) || host.empty()) {
 			continue;
 		}
 		AdhocServerListEntry entry;
@@ -91,7 +240,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	for (const auto &host : g_Config.vCustomAdhocServerList) {
 		// If the host is already in the public list, skip it. We don't want duplicates.
-		if (hostInEntries(host)) {
+		if (hostInEntries(host) || host.empty()) {
 			continue;
 		}
 		AdhocServerListEntry entry;
@@ -106,9 +255,9 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	innerView->SetSpacing(5.0f);
 
 	auto AddButtonFromEntry = [this](UI::ViewGroup *parent, const AdhocServerListEntry &entry) {
-		// Filter out IP prefixed with "127." and "169.254." also "0." since they can be redundant or unusable
-		auto button = parent->Add(new Button(entry.host, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		button->OnClick.Add([this](UI::EventParams &e) {
+		AdhocServerRow *row = new AdhocServerRow(&editValue_, entry, screenManager());
+		parent->Add(row);
+		row->OnSelected.Add([this](UI::EventParams &e) {
 			std::string value = e.v->Tag();
 			if (!value.empty()) {
 				editValue_ = value;
@@ -116,7 +265,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 				System_CopyStringToClipboard(value);
 			}
 		});
-		button->SetTag(entry.host);
+		row->SetTag(entry.host);
 	};
 
 	if (!customEntries.empty()) {

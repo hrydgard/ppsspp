@@ -143,6 +143,7 @@ bool ParseServerListEntriesJSON(std::string_view json) {
 		entry.discord = server.getStringOr("discord", "");
 		entry.host = server.getStringOr("host", "");
 		entry.web = server.getStringOr("web", "");
+		entry.ip = server.getStringOr("ip", "");
 		entry.location = server.getStringOr("location", "");
 		entry.description = server.getStringOr("description", "");
 		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;

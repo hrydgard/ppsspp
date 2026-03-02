@@ -1052,7 +1052,7 @@ public:
 	std::string DescribeText() const override { return GetText(); }
 	void SetSmall(bool small) { textSize_ = TextSize::Small; }
 	void SetBig(bool big) { textSize_ = TextSize::Big; }
-	void SetTextSize(TextSize size) { textSize_ = size; }
+	TextView *SetTextSize(TextSize size) { textSize_ = size; return this; }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
@@ -1060,6 +1060,7 @@ public:
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(Margins padding) { pad_ = padding; }
 	void SetAlign(int align) { textAlign_ = align; }
+	TextView *SetWordWrap();
 
 	bool CanBeFocused() const override { return focusable_; }
 

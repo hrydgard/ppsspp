@@ -107,6 +107,7 @@ struct AdhocServerListEntry {
 	std::string name;
 	std::string host;
 	std::string web;
+	std::string ip;  // could be used as a fallback if DNS resolution fails. Currently unused.
 	std::string discord;
 	std::string location;
 	std::string description;

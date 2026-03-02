@@ -42,7 +42,7 @@ What's new in 1.20
   - Soundtrack is working again in Tony Hawk's Project 8 ([#20775])
   - Fix crash in StormBasic homebrew apps ([#20715])
   - Built-in songs in Beats work again ([#20662])
-  - Fix adhoc in Syphon Filter games ([#20642])
+   - Fix adhoc in Syphon Filter games ([#20642])
   - Fix strange cutscene speedups in Power Stone 2 (Power Stone Collection) ([#2124])
   - Work around game bug to help more custom songs play again in GTA LCS ([#20692])
 
