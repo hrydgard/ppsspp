@@ -1085,6 +1085,10 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	}
 }
 
+TextView *TextView::SetWordWrap() {
+	textAlign_ |= FLAG_WRAP_TEXT; return this;
+}
+
 void TextView::Draw(UIContext &dc) {
 	uint32_t textColor = hasTextColor_ ? textColor_ : (popupStyle_ ? dc.GetTheme().popupStyle.fgColor : dc.GetTheme().infoStyle.fgColor);
 	if (!(textColor & 0xFF000000))

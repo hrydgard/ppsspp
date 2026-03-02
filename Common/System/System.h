@@ -49,6 +49,7 @@ enum class LaunchUrlType {
 	EMAIL_ADDRESS,
 	LOCAL_FILE,
 	LOCAL_FOLDER,  // Shows the folder. Not supported on all systems of course.
+	AUTO,
 };
 
 void System_Vibrate(int length_ms);
