@@ -1031,6 +1031,7 @@ static const ConfigSetting controlSettings[] = {
 };
 
 static const ConfigSetting networkSettings[] = {
+	ConfigSetting("EnableEmuLink", SETTING(g_Config, bEnableEmuLink), true, CfgFlag::DEFAULT),
 	ConfigSetting("EnableWlan", SETTING(g_Config, bEnableWlan), false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), "socom.cc", CfgFlag::PER_GAME),
