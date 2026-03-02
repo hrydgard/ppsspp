@@ -28,12 +28,12 @@ static InputAxis GetCoAxis(InputAxis axis) {
 	case JOYSTICK_AXIS_Y: return JOYSTICK_AXIS_X;
 
 		// This looks weird, but it's simply how XInput axes are mapped.
-	case JOYSTICK_AXIS_Z: return JOYSTICK_AXIS_RZ;
-	case JOYSTICK_AXIS_RZ: return JOYSTICK_AXIS_Z;
+	case JOYSTICK_AXIS_Z: return JOYSTICK_AXIS_RX;
+	case JOYSTICK_AXIS_RX: return JOYSTICK_AXIS_Z;
 
 		// Not sure if these two are used.
-	case JOYSTICK_AXIS_RX: return JOYSTICK_AXIS_RY;
-	case JOYSTICK_AXIS_RY: return JOYSTICK_AXIS_RX;
+	case JOYSTICK_AXIS_RY: return JOYSTICK_AXIS_RZ;
+	case JOYSTICK_AXIS_RZ: return JOYSTICK_AXIS_RY;
 
 	default:
 		return JOYSTICK_AXIS_MAX; // invalid
@@ -51,18 +51,19 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 		case KeyMap::AxisType::STICK:
 		{
 			// Co-axis processing, see GetCoAxes comment.
-			InputAxis axis = (InputAxis)mapping.Axis(nullptr);
-			InputAxis coAxis = GetCoAxis(axis);
+			const InputAxis axis = (InputAxis)mapping.Axis(nullptr);
+			const InputAxis coAxis = GetCoAxis(axis);
 			if (coAxis != JOYSTICK_AXIS_MAX) {
-				float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
+				const float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
-					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.35f);
-					// INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
+					const float biasedThreshold = g_Config.fAnalogStickThreshold * (1.0f - absCoValue * 0.35f);
+					INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
 			}
-			break;
+			// Non-adjusted threshold.
+			return g_Config.fAnalogStickThreshold;
 		}
 		default:
 			break;
@@ -382,7 +383,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			// Check if all inputs are "on".
 			bool all = true;
 			double curTime = 0.0;
-			for (auto mapping : multiMapping.mappings) {
+			for (const auto &mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
 				if (iter == curInput_.end()) {
 					all = false;
