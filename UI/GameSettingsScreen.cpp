@@ -846,7 +846,6 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	controlsSettings->Add(new Choice(co->T("Calibrate analog stick")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new AnalogCalibrationScreen(gamePath_));
 	});
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
 
 #if defined(USING_WIN_UI) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
@@ -872,6 +871,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {  // TODO: This seems like a regression
 		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	}
+
+	controlsSettings->Add(new ItemHeader(co->T("Analog to digital input mapping")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogStickThreshold, 0.2f, 0.98f, 0.75f, co->T("Analog stick threshold"), screenManager()));
 
 	// TVs don't have touch control, at least not yet.
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
