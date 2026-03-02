@@ -2119,6 +2119,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CwCheat.h
 	Core/FrameTiming.cpp
 	Core/FrameTiming.h
+	Core/EmuLinkServer.cpp
+	Core/EmuLinkServer.h
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/Instance.cpp

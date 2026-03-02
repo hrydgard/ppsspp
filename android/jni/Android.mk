@@ -594,6 +594,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CwCheat.cpp \
   $(SRC)/Core/FrameTiming.cpp \
+  $(SRC)/Core/EmuLinkServer.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Instance.cpp \
   $(SRC)/Core/KeyMap.cpp \
