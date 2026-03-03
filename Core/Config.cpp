@@ -74,7 +74,6 @@ static const std::string_view logSectionName = "Log";
 
 const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
 	{"Socom Adhoc Server", "socom.cc", "https://discord.com/invite/XtVYDr7", "France", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
 	{"Madness Gaming Network", "psp.mgn.pub", "https://discord.com/invite/kaPScVrPes", "Alaska USA", "For players looking to play any games, has a good amount of Monster Hunter players, also provides VPN to work around connection issues as well as P2P mode", AdhocDataMode::AemuPostoffice},
 	{"EA Nation Hub", "eahub.eu", "https://discord.com/invite/fwrQHHxrQQ", "France", "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games", AdhocDataMode::AemuPostoffice},
 	{"Psi-Hate", "psi-hate.com", "https://discord.com/invite/wxeGVkM", "Minnesota USA", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
@@ -83,6 +82,7 @@ const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
 	{"ArenaAnywhere EU", "relay.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "Europe", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"Retroverze Relay Beta", "psp.retroverze.my.id", "https://retroverze.my.id/beta", "Unknown", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"Games Nexus", "adhoc.gamesnexus.ovh", "https://adhoc.gamesnexus.ovh", "Milan Italy", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
 };
 
 // TODO download the list from somewhere and probably cache it on disk
