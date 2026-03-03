@@ -80,6 +80,7 @@ const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
 	{"Relay Brasileiro", "jpa36a7.glddns.com", "https://discord.com/invite/gp45nhdjQJ", "São Paulo Brazil", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"ArenaAnywhere SA", "relay-sa.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "South Africa", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"ArenaAnywhere EU", "relay.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "Europe", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"ArenaAnywhere Dubai", "relay-dubai.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "Dubai", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"Retroverze Relay Beta", "psp.retroverze.my.id", "https://retroverze.my.id/beta", "Unknown", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"Games Nexus", "adhoc.gamesnexus.ovh", "https://adhoc.gamesnexus.ovh", "Milan Italy", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
 	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
