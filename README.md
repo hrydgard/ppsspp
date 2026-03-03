@@ -51,7 +51,8 @@ What's new in 1.20
 
 - Controller and touch screen input
   - Native support for DualSense ([#20580], [#20620], [#21191]), DualShock and Switch Pro ([#20647]) controllers on Windows - including tilt controls for DualSense and Switch Pro
-  - Misc touch screen improvements ([#21195], [#21197], [#21258])
+  - Misc touch screen and controller mapping improvements ([#21195], [#21197], [#21258], [#21325])
+  - Add simple virtual keyboard for text input for platforms that don't have one ([#21306])
 
 - Graphics
   - Fixed multiple graphical effects in Tales of Phantasia X
@@ -398,3 +399,5 @@ See [history.md](history.md).
 [#21081]: https://github.com/hrydgard/ppsspp/issues/21081 "Update the rcheevos library to 1.12.2."
 [#21148]: https://github.com/hrydgard/ppsspp/issues/21148 "Add workaround for infamous GoW crash"
 [#21042]: https://github.com/hrydgard/ppsspp/issues/21042 "Setting out of game UI confirmation button to O makes both O and X into UI confirmation buttons"
+[#21325]: https://github.com/hrydgard/ppsspp/issues/21325 "Controls: Add a setting for the threshold used to map analog stick inputs to digital buttons"
+[#21306]: https://github.com/hrydgard/ppsspp/issues/21306 "Server list update, add virtual keyboard to PopupTextInputChoice"
