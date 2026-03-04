@@ -79,12 +79,6 @@ static int sceNpDrmRenameCheck(const char *filename) {
 static int sceNpDrmEdataSetupKey(u32 edataFd) {
 	// Return an error if the key has not been set.
 	// Note: An empty key is valid, as long as it was set with sceNpDrmSetLicenseeKey.
-#ifndef __LIBRETRO__
-	// FIXME: sceNpDrmSetLicenseeKey is never called (?), therefore skip this check.
-	if (!isLicenseeKeySet) {
-		return hleLogError(Log::sceIo, SCE_NPDRM_ERROR_NO_K_LICENSEE_SET, "Licensee key not set");
-	}
-#endif
 
 	// Get file info to validate the file descriptor
 	u32 error;
@@ -97,6 +91,14 @@ static int sceNpDrmEdataSetupKey(u32 edataFd) {
 
 	// Check if the file is encrypted
 	if (isEncrypted(edataFd)) {
+		// In Wipeout Pure, the licensee key is not set, but the game's DLC still works.
+		// The data isn't encrypted, so it's likely that the check for having set the licensee key
+		// doesn't happen unless the file is actually encrypted.
+		// So moved the check in here, previously it was outside the isEncrypted check, which caused Wipeout Pure's DLC to not work.
+		if (!isLicenseeKeySet) {
+			return hleLogError(Log::sceIo, SCE_NPDRM_ERROR_NO_K_LICENSEE_SET, "Licensee key not set");
+		}
+
 		// File is encrypted, set up PGD decryption
 		// In JPCSP, this wraps the file in an EDATVirtualFile (lines 215-218)
 		// In this C++ implementation, we use ioctl commands to achieve the same result
