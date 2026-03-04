@@ -12,7 +12,7 @@
 #include "Common/UI/Root.h"
 #include "Common/Render/DrawBuffer.h"
 
-static const bool ClickDebug = false;
+static constexpr bool ClickDebug = false;
 
 UIScreen::UIScreen() : Screen() {
 	lastOrientation_ = GetDeviceOrientation();

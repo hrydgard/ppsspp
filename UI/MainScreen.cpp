@@ -1534,20 +1534,27 @@ bool MainScreen::key(const KeyInput &key) {
 				searchChanged_ = true;
 			});
 		}
-		// This is not a DialogScreen so we have to implement behavior here too.
-		// However we add a small safety hatch by checking for gamepad, and for now we only allow this behavior
-		// on Android. Might reconsider for other platforms.
-#if PPSSPP_PLATFORM(ANDROID)
-		if ((key.deviceId == DEVICE_ID_PAD_0 || key.deviceId == DEVICE_ID_XINPUT_0) && UI::IsEscapeKey(key)) {
-			System_ExitApp();
-		}
-#endif
 	} else if (key.flags & KeyInputFlags::UP) {
 		if (key.keyCode == NKCODE_CTRL_LEFT || key.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = false;
 	}
 
-	return UIBaseScreen::key(key);
+	bool retval = UIBaseScreen::key(key);
+	if (retval) {
+		return true;
+	}
+
+	// This is not a DialogScreen so we have to implement behavior here too.
+	// However we add a small safety hatch by checking for gamepad, and for now we only allow this behavior
+	// on Android. Might reconsider for other platforms.
+	#if PPSSPP_PLATFORM(ANDROID)
+	if (key.flags & KeyInputFlags::DOWN) {
+		if ((key.deviceId == DEVICE_ID_PAD_0 || key.deviceId == DEVICE_ID_XINPUT_0) && UI::IsEscapeKey(key)) {
+			System_ExitApp();
+		}
+	}
+	#endif
+	return true;
 }
 
 void MainScreen::OnAllowStorage(UI::EventParams &e) {

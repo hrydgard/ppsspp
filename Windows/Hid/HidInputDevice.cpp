@@ -70,11 +70,7 @@ static const HIDControllerInfo g_psInfos[] = {
 	// {PSSubType::DS5, DUALSENSE_EDGE_WIRELESS},
 };
 
-static const HIDControllerInfo *GetGamepadInfo(HANDLE handle) {
-	HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
-	if (!HidD_GetAttributes(handle, &attr)) {
-		return nullptr;
-	}
+static const HIDControllerInfo *GetGamepadInfo(const HIDD_ATTRIBUTES &attr) {
 	for (const auto &info : g_psInfos) {
 		if (attr.VendorID == info.vendorId && attr.ProductID == info.productId) {
 			return &info;
@@ -106,7 +102,11 @@ static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize
 			HANDLE handle = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE,
 				FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 			if (handle != INVALID_HANDLE_VALUE) {
-				const HIDControllerInfo *info = GetGamepadInfo(handle);
+				HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
+				if (!HidD_GetAttributes(handle, &attr)) {
+					return nullptr;
+				}
+				const HIDControllerInfo *info = GetGamepadInfo(attr);
 				*outInfo = info;
 				if (info) {
 					*subType = info->type;
