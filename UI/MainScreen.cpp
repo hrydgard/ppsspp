@@ -1456,15 +1456,14 @@ void MainScreen::CreateViews() {
 		ViewGroup *logo = new LogoView(false, new LinearLayoutParams(FILL_PARENT, 80.0f));
 #if !defined(MOBILE_DEVICE)
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		ImageID icon(g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN");
-		UI::Button *fullscreenButton = logo->Add(new Button("", icon, new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
+		Button *fullscreenButton = logo->Add(new Button("", ImageID(), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
 		fullscreenButton->SetIgnoreText(true);
-		fullscreenButton->OnClick.Add([fullscreenButton](UI::EventParams &e) {
-			if (fullscreenButton) {
-				fullscreenButton->SetImageID(ImageID(!g_Config.bFullScreen ? "I_RESTORE" : "I_FULLSCREEN"));
-			}
+		fullscreenButton->OnClick.Add([this](UI::EventParams &e) {
 			g_Config.bFullScreen = !g_Config.bFullScreen;
 			System_ApplyFullscreenState();
+		});
+		fullscreenButton->SetImageIDFunc([this]() {
+			return g_Config.bFullScreen ? ImageID("I_RESTORE") : ImageID("I_FULLSCREEN");
 		});
 #endif
 		rightColumnItems->Add(logo);

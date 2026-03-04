@@ -562,6 +562,9 @@ public:
 	void SetImageID(ImageID imageID) {
 		imageID_ = imageID;
 	}
+	void SetImageIDFunc(std::function<ImageID()> func) {
+		imageFunc_ = func;
+	}
 	void SetIgnoreText(bool ignore) {
 		ignoreText_ = ignore;
 	}
@@ -574,6 +577,7 @@ private:
 	Style style_;
 	std::string text_;
 	ImageID imageID_;
+	std::function<ImageID()> imageFunc_;
 	int paddingW_ = 16;
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
