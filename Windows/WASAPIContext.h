@@ -87,7 +87,10 @@ private:
 	HANDLE audioEvent_ = nullptr;
 	std::thread audioThread_;
 	int curSamplesPerSec_ = 0;
-	UINT32 defaultPeriodFrames = 0, fundamentalPeriodFrames = 0, minPeriodFrames = 0, maxPeriodFrames = 0;
+	UINT32 defaultPeriodFrames_ = 0;
+	UINT32 fundamentalPeriodFrames_ = 0;
+	UINT32 minPeriodFrames_ = 0;
+	UINT32 maxPeriodFrames_ = 0;
 	std::atomic<bool> running_ = true;
 	UINT32 actualPeriodFrames_ = 0;  // may not be the requested.
 	UINT32 reportedBufferSize_ = 0;

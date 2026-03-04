@@ -152,7 +152,10 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	GetDeviceDesc(device.Get(), &desc);
 	INFO_LOG(Log::Audio, "Activating audio device: %s", desc.name.c_str());
 
-	curDeviceId_ = uniqueId;
+	{
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		curDeviceId_ = uniqueId;
+	}
 
 	HRESULT hr = E_FAIL;
 	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
@@ -174,15 +177,15 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			audioClient3_.Reset();
 			// Fall through to AudioClient creation below.
 		} else {
-			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
+			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
 
-			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
-			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
+			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames_, (int)fundamentalPeriodFrames_, (int)minPeriodFrames_, (int)maxPeriodFrames_);
+			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames_, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames_, format_->nSamplesPerSec));
 
 			audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 			HRESULT result = audioClient3_->InitializeSharedAudioStream(
 				AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-				minPeriodFrames,
+				minPeriodFrames_,
 				format_,
 				nullptr
 			);
@@ -191,7 +194,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 				audioClient3_.Reset();
 				return false;
 			}
-			actualPeriodFrames_ = minPeriodFrames;
+			actualPeriodFrames_ = minPeriodFrames_;
 
 			audioClient3_->GetBufferSize(&reportedBufferSize_);
 			audioClient3_->SetEventHandle(audioEvent_);
@@ -318,6 +321,7 @@ void WASAPIContext::Stop() {
 
 	renderClient_.Reset();
 	audioClient_.Reset();
+	audioClient3_.Reset();
 	if (audioEvent_) {
 		CloseHandle(audioEvent_);
 		audioEvent_ = nullptr;
