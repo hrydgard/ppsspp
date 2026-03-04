@@ -70,7 +70,7 @@ WASAPIContext::~WASAPIContext() {
 }
 
 WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
-	if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 2) {
+	if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 16) {
 		return AudioFormat::S16;
 	} else if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		const WAVEFORMATEXTENSIBLE *ex = (const WAVEFORMATEXTENSIBLE *)format;
@@ -165,6 +165,8 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	if (SUCCEEDED(hr)) {
 		audioClient3_->GetMixFormat(&format_);
+		curSamplesPerSec_ = format_->nSamplesPerSec;
+
 		// We only use AudioClient3 if we got the format we wanted (stereo float).
 		if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
 			// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
@@ -205,11 +207,17 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			return false;
 		}
 
-		audioClient_->GetMixFormat(&format_);
+		hr = audioClient_->GetMixFormat(&format_);
+		if (FAILED(hr)) {
+			_dbg_assert_(false);
+			return false;
+		}
 
 		// If there are too many channels, try asking for a 2-channel output format.
 		DWORD extraStreamFlags = 0;
 		const AudioFormat fmt = Classify(format_);
+
+		curSamplesPerSec_ = format_->nSamplesPerSec;
 
 		bool createBuffer = false;
 		if (fmt == AudioFormat::Float) {
@@ -292,7 +300,12 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 }
 
 void WASAPIContext::Start() {
-	_dbg_assert_(!audioThread_.joinable());
+	if (audioThread_.joinable()) {
+		_dbg_assert_(false);
+		ERROR_LOG(Log::Audio, "Audio thread already running!");
+		return;
+	}
+
 	running_ = true;
 	audioThread_ = std::thread([this]() { AudioLoop(); });
 }
@@ -300,6 +313,7 @@ void WASAPIContext::Start() {
 void WASAPIContext::Stop() {
 	running_ = false;
 	if (audioEvent_) SetEvent(audioEvent_);
+	// Stop is actually called on the audioclient in the thread, while exiting.
 	if (audioThread_.joinable()) audioThread_.join();
 
 	renderClient_.Reset();
@@ -448,7 +462,8 @@ void WASAPIContext::AudioLoop() {
 
 	if (audioClient3_) {
 		audioClient3_->Stop();
-	} else {
+	}
+	if (audioClient_) {
 		audioClient_->Stop();
 	}
 
@@ -458,6 +473,10 @@ void WASAPIContext::AudioLoop() {
 }
 
 void WASAPIContext::DescribeOutputFormat(char *buffer, size_t bufferSize) const {
+	if (!format_) {
+		snprintf(buffer, bufferSize, "No format");
+		return;
+	}
 	const int numChannels = format_->nChannels;
 	const int sampleBits = format_->wBitsPerSample;
 	const int sampleRateHz = format_->nSamplesPerSec;

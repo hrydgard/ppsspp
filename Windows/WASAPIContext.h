@@ -18,6 +18,7 @@ public:
 	WASAPIContext();
 	~WASAPIContext();
 
+	// This is only called on init.
 	void SetRenderCallback(RenderCallback callback, void *userdata) override {
 		callback_ = callback;
 		userdata_ = userdata;
@@ -31,7 +32,7 @@ public:
 
 	int PeriodFrames() const override { return actualPeriodFrames_; }  // NOTE: This may have the wrong value (too large) until audio has started playing.
 	int BufferSize() const override { return reportedBufferSize_; }
-	int SampleRate() const override { return format_->nSamplesPerSec; }
+	int SampleRate() const override { return curSamplesPerSec_; }
 
 	// Implements device change notifications
 	class DeviceNotificationClient : public IMMNotificationClient {
@@ -85,6 +86,7 @@ private:
 	WAVEFORMATEX *format_ = nullptr;
 	HANDLE audioEvent_ = nullptr;
 	std::thread audioThread_;
+	int curSamplesPerSec_ = 0;
 	UINT32 defaultPeriodFrames = 0, fundamentalPeriodFrames = 0, minPeriodFrames = 0, maxPeriodFrames = 0;
 	std::atomic<bool> running_ = true;
 	UINT32 actualPeriodFrames_ = 0;  // may not be the requested.
