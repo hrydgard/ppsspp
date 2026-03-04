@@ -67,7 +67,6 @@ WASAPIContext::~WASAPIContext() {
 	}
 	Stop();
 	enumerator_->UnregisterEndpointNotificationCallback(&notificationClient_);
-	delete[] tempBuf_;
 }
 
 WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
@@ -162,8 +161,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	}
 
 	// Get rid of any old tempBuf_.
-	delete[] tempBuf_;
-	tempBuf_ = nullptr;
+	tempBuf_.reset();
 
 	if (SUCCEEDED(hr)) {
 		audioClient3_->GetMixFormat(&format_);
@@ -279,7 +277,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
 
 		if (createBuffer) {
-			tempBuf_ = new float[reportedBufferSize_ * 2];
+			tempBuf_ = std::make_unique<float[]>(reportedBufferSize_ * 2);
 		}
 	}
 
@@ -372,7 +370,7 @@ void WASAPIContext::AudioLoop() {
 				}
 			} else {
 				// We decided previously that we need conversion, so mix to our temp buffer...
-				callback_(tempBuf_, framesToWrite, format_->nSamplesPerSec, userdata_);
+				callback_(tempBuf_.get(), framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
 				if (format == AudioFormat::S16 && buffer) {
 					// Need to convert.

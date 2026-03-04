@@ -842,9 +842,10 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 	std::string confirmExitMessage = GetConfirmExitMessage();
 
 	if (!confirmExitMessage.empty()) {
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::string_view title = di->T("Are you sure you want to exit?");
-		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, di->T("Exit"), di->T("Cancel"), [this](bool result) {
+		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, mm->T("Exit"), di->T("Cancel"), [this](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();

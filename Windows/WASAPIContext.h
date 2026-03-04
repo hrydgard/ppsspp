@@ -9,6 +9,7 @@
 #include <thread>
 #include <string>
 #include <string_view>
+#include <memory>
 #include <wrl/client.h>
 
 class WASAPIContext : public AudioBackend {
@@ -97,5 +98,5 @@ private:
 	std::string deviceId_;
 	std::atomic<bool> defaultDeviceChanged_{};
 
-	float *tempBuf_ = nullptr;
+	std::unique_ptr<float[]> tempBuf_;
 };
