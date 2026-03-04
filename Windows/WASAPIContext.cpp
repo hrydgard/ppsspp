@@ -152,7 +152,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	GetDeviceDesc(device.Get(), &desc);
 	INFO_LOG(Log::Audio, "Activating audio device: %s", desc.name.c_str());
 
-	deviceId_ = uniqueId;
+	curDeviceId_ = uniqueId;
 
 	HRESULT hr = E_FAIL;
 	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
@@ -242,6 +242,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 				}
 			} else {
 				// All good, nothing to convert.
+				_dbg_assert_(format_);
 			}
 		} else {
 			// Some other format.
@@ -291,13 +292,13 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 }
 
 void WASAPIContext::Start() {
+	_dbg_assert_(!audioThread_.joinable());
 	running_ = true;
 	audioThread_ = std::thread([this]() { AudioLoop(); });
 }
 
 void WASAPIContext::Stop() {
 	running_ = false;
-	if (audioClient_) audioClient_->Stop();
 	if (audioEvent_) SetEvent(audioEvent_);
 	if (audioThread_.joinable()) audioThread_.join();
 
@@ -311,14 +312,37 @@ void WASAPIContext::Stop() {
 		CoTaskMemFree(format_);
 		format_ = nullptr;
 	}
+	{
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		curDeviceId_.clear();
+	}
 }
 
 void WASAPIContext::FrameUpdate(bool allowAutoChange) {
-	if (deviceId_.empty() && defaultDeviceChanged_ && allowAutoChange) {
-		defaultDeviceChanged_ = false;
-		Stop();
-		Start();
+	std::string deviceIdToInit;
+	{
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		if (!defaultDeviceChanged_) {
+			return;
+		}
+
+		if (allowAutoChange) {
+			// Check if there actually was a change, we ignore false positives.
+			{
+				if (newDeviceId_ == curDeviceId_) {
+					// False positive, ignore.
+					defaultDeviceChanged_ = false;
+					return;
+				}
+				deviceIdToInit = newDeviceId_;
+				newDeviceId_.clear();
+			}
+			defaultDeviceChanged_ = false;
+		}
 	}
+
+	bool reverted;
+	InitOutputDevice(deviceIdToInit, latencyMode_, &reverted);
 }
 
 void WASAPIContext::AudioLoop() {
@@ -340,6 +364,11 @@ void WASAPIContext::AudioLoop() {
 	} else {
 		// No audio client, nothing to do.
 		WARN_LOG(Log::Audio, "No audio client");
+		return;
+	}
+
+	if (!format_) {
+		ERROR_LOG(Log::Audio, "Can't start audio - no format");
 		return;
 	}
 
@@ -444,4 +473,39 @@ void WASAPIContext::DescribeOutputFormat(char *buffer, size_t bufferSize) const 
 		fmt = "PCM";  // probably
 	}
 	snprintf(buffer, bufferSize, "%d Hz %s %d-bit, %d ch%s", sampleRateHz, fmt, sampleBits, numChannels, audioClient3_ ? " (ac3)" : " (ac)");
+}
+
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR device) {
+	if (flow != eRender) {
+		INFO_LOG(Log::Audio, "Default WASAPI audio recording device changed! Currently ignoring.");
+		return S_OK;
+	}
+	INFO_LOG(Log::Audio, "Default device changed to %s! role=%d", ConvertWStringToUTF8(device).c_str(), role);
+	if (role == eConsole) {
+		// PostMessage(hwnd, WM_APP + 1, 0, 0);
+		std::lock_guard<std::mutex> guard(engine_->deviceLock_);
+		engine_->defaultDeviceChanged_ = true;
+		engine_->newDeviceId_ = ConvertWStringToUTF8(device);
+	}
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDeviceAdded(LPCWSTR device) {
+	INFO_LOG(Log::Audio, "Audio device added! device=%s", ConvertWStringToUTF8(device).c_str());
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDeviceRemoved(LPCWSTR device) {
+	INFO_LOG(Log::Audio, "Audio device removed! device=%s", ConvertWStringToUTF8(device).c_str());
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDeviceStateChanged(LPCWSTR device, DWORD state) {
+	INFO_LOG(Log::Audio, "Audio device state changed! device=%s state=%08x", ConvertWStringToUTF8(device).c_str(), state);
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnPropertyValueChanged(LPCWSTR device, const PROPERTYKEY key) {
+	return S_OK;
 }

@@ -2,6 +2,7 @@
 
 #include "Audio/AudioBackend.h"
 #include <atomic>
+#include <mutex>
 
 #include <windows.h>
 #include <mmdeviceapi.h>
@@ -47,23 +48,21 @@ public:
 			return E_NOINTERFACE;
 		}
 
-		HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR) override {
-			if (flow == eRender && role == eConsole) {
-				// PostMessage(hwnd, WM_APP + 1, 0, 0);
-				engine_->defaultDeviceChanged_ = true;
-			}
-			return S_OK;
-		}
-
-		HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR) override { return S_OK; }
-		HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR) override { return S_OK; }
-		HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR, DWORD) override { return S_OK; }
-		HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR, const PROPERTYKEY) override { return S_OK; }
+		HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR device) override;
+		HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR device) override;
+		HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR device) override;
+		HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR device, DWORD state) override;
+		HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR device, const PROPERTYKEY key) override;
 	private:
 		WASAPIContext *engine_;
 	};
 
 	void DescribeOutputFormat(char *buffer, size_t bufferSize) const override;
+
+	std::string GetCurrentDeviceName() const override {
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		return curDeviceId_;
+	}
 
 private:
 	void Start();
@@ -95,8 +94,11 @@ private:
 	RenderCallback callback_{};
 	void *userdata_ = nullptr;
 	LatencyMode latencyMode_ = LatencyMode::Aggressive;
-	std::string deviceId_;
-	std::atomic<bool> defaultDeviceChanged_{};
+
+	mutable std::mutex deviceLock_;
+	std::string curDeviceId_;
+	std::string newDeviceId_;
+	bool defaultDeviceChanged_ = false;
 
 	std::unique_ptr<float[]> tempBuf_;
 };

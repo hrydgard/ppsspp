@@ -796,7 +796,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 				WARN_LOG(Log::Audio, "InitOutputDevice failed");
 			}
 		});
-		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
 		autoAudio->SetEnabledFunc([]()->bool {
 			return g_Config.sAudioDevice.empty();
 		});
@@ -808,7 +808,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
 	if (sdlAudio) {
-		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+		audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
