@@ -297,3 +297,12 @@ afterEvaluate {
 		println(it)
 	}
 }*/
+
+// Use the below to get a lot of deprecation warnings.
+// Not really useful to fix most of them though, as the old paths are often needed to support
+// old Android versions.
+/*
+tasks.withType<JavaCompile> {
+	options.compilerArgs.addAll(listOf("-Xlint:deprecation"))
+}
+*/

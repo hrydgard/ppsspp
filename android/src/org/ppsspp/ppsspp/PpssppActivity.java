@@ -571,6 +571,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@SuppressLint("SourceLockedOrientationActivity")
 	private void updateScreenRotation(String cause) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			if (isInMultiWindowMode()) {
+				// Do not try to enforce rotation! This can result in re-init loops.
+				return;
+			}
+		}
+
 		// Query the native application on the desired rotation.
 		int rot;
 		String rotString = NativeApp.queryConfig("screenRotation");
@@ -613,12 +620,18 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private void updateSystemUiVisibility() {
 		Window window = getWindow();
 
-		window.setStatusBarColor(Color.TRANSPARENT);
-		window.setNavigationBarColor(0x80000000);
-
 		int orientation = getResources().getConfiguration().orientation;
 
 		WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+
+		window.setStatusBarColor(Color.TRANSPARENT);
+		window.setNavigationBarColor(0x80000000);
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			// Tell Android to use light icons on the bars.
+			controller.setAppearanceLightStatusBars(false);
+			controller.setAppearanceLightNavigationBars(false);
+		}
 
 		controller.setSystemBarsBehavior(
 			WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
