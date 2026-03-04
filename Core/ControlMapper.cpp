@@ -58,7 +58,7 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
 					const float biasedThreshold = g_Config.fAnalogStickThreshold * (1.0f - absCoValue * 0.35f);
-					INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
+					// INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
 			}

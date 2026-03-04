@@ -67,11 +67,10 @@ WASAPIContext::~WASAPIContext() {
 	}
 	Stop();
 	enumerator_->UnregisterEndpointNotificationCallback(&notificationClient_);
-	delete[] tempBuf_;
 }
 
 WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
-	if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 2) {
+	if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 16) {
 		return AudioFormat::S16;
 	} else if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		const WAVEFORMATEXTENSIBLE *ex = (const WAVEFORMATEXTENSIBLE *)format;
@@ -153,7 +152,10 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	GetDeviceDesc(device.Get(), &desc);
 	INFO_LOG(Log::Audio, "Activating audio device: %s", desc.name.c_str());
 
-	deviceId_ = uniqueId;
+	{
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		curDeviceId_ = uniqueId;
+	}
 
 	HRESULT hr = E_FAIL;
 	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
@@ -162,11 +164,12 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	}
 
 	// Get rid of any old tempBuf_.
-	delete[] tempBuf_;
-	tempBuf_ = nullptr;
+	tempBuf_.reset();
 
 	if (SUCCEEDED(hr)) {
 		audioClient3_->GetMixFormat(&format_);
+		curSamplesPerSec_ = format_->nSamplesPerSec;
+
 		// We only use AudioClient3 if we got the format we wanted (stereo float).
 		if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
 			// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
@@ -174,15 +177,15 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			audioClient3_.Reset();
 			// Fall through to AudioClient creation below.
 		} else {
-			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames, &fundamentalPeriodFrames, &minPeriodFrames, &maxPeriodFrames);
+			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
 
-			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames, (int)fundamentalPeriodFrames, (int)minPeriodFrames, (int)maxPeriodFrames);
-			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames, format_->nSamplesPerSec));
+			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames_, (int)fundamentalPeriodFrames_, (int)minPeriodFrames_, (int)maxPeriodFrames_);
+			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames_, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames_, format_->nSamplesPerSec));
 
 			audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 			HRESULT result = audioClient3_->InitializeSharedAudioStream(
 				AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-				minPeriodFrames,
+				minPeriodFrames_,
 				format_,
 				nullptr
 			);
@@ -191,7 +194,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 				audioClient3_.Reset();
 				return false;
 			}
-			actualPeriodFrames_ = minPeriodFrames;
+			actualPeriodFrames_ = minPeriodFrames_;
 
 			audioClient3_->GetBufferSize(&reportedBufferSize_);
 			audioClient3_->SetEventHandle(audioEvent_);
@@ -207,11 +210,17 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			return false;
 		}
 
-		audioClient_->GetMixFormat(&format_);
+		hr = audioClient_->GetMixFormat(&format_);
+		if (FAILED(hr)) {
+			_dbg_assert_(false);
+			return false;
+		}
 
 		// If there are too many channels, try asking for a 2-channel output format.
 		DWORD extraStreamFlags = 0;
 		const AudioFormat fmt = Classify(format_);
+
+		curSamplesPerSec_ = format_->nSamplesPerSec;
 
 		bool createBuffer = false;
 		if (fmt == AudioFormat::Float) {
@@ -244,6 +253,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 				}
 			} else {
 				// All good, nothing to convert.
+				_dbg_assert_(format_);
 			}
 		} else {
 			// Some other format.
@@ -279,7 +289,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
 
 		if (createBuffer) {
-			tempBuf_ = new float[reportedBufferSize_ * 2];
+			tempBuf_ = std::make_unique<float[]>(reportedBufferSize_ * 2);
 		}
 	}
 
@@ -293,18 +303,25 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 }
 
 void WASAPIContext::Start() {
+	if (audioThread_.joinable()) {
+		_dbg_assert_(false);
+		ERROR_LOG(Log::Audio, "Audio thread already running!");
+		return;
+	}
+
 	running_ = true;
 	audioThread_ = std::thread([this]() { AudioLoop(); });
 }
 
 void WASAPIContext::Stop() {
 	running_ = false;
-	if (audioClient_) audioClient_->Stop();
 	if (audioEvent_) SetEvent(audioEvent_);
+	// Stop is actually called on the audioclient in the thread, while exiting.
 	if (audioThread_.joinable()) audioThread_.join();
 
 	renderClient_.Reset();
 	audioClient_.Reset();
+	audioClient3_.Reset();
 	if (audioEvent_) {
 		CloseHandle(audioEvent_);
 		audioEvent_ = nullptr;
@@ -313,14 +330,37 @@ void WASAPIContext::Stop() {
 		CoTaskMemFree(format_);
 		format_ = nullptr;
 	}
+	{
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		curDeviceId_.clear();
+	}
 }
 
 void WASAPIContext::FrameUpdate(bool allowAutoChange) {
-	if (deviceId_.empty() && defaultDeviceChanged_ && allowAutoChange) {
-		defaultDeviceChanged_ = false;
-		Stop();
-		Start();
+	std::string deviceIdToInit;
+	{
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		if (!defaultDeviceChanged_) {
+			return;
+		}
+
+		if (allowAutoChange) {
+			// Check if there actually was a change, we ignore false positives.
+			{
+				if (newDeviceId_ == curDeviceId_) {
+					// False positive, ignore.
+					defaultDeviceChanged_ = false;
+					return;
+				}
+				deviceIdToInit = newDeviceId_;
+				newDeviceId_.clear();
+			}
+			defaultDeviceChanged_ = false;
+		}
 	}
+
+	bool reverted;
+	InitOutputDevice(deviceIdToInit, latencyMode_, &reverted);
 }
 
 void WASAPIContext::AudioLoop() {
@@ -342,6 +382,11 @@ void WASAPIContext::AudioLoop() {
 	} else {
 		// No audio client, nothing to do.
 		WARN_LOG(Log::Audio, "No audio client");
+		return;
+	}
+
+	if (!format_) {
+		ERROR_LOG(Log::Audio, "Can't start audio - no format");
 		return;
 	}
 
@@ -372,7 +417,7 @@ void WASAPIContext::AudioLoop() {
 				}
 			} else {
 				// We decided previously that we need conversion, so mix to our temp buffer...
-				callback_(tempBuf_, framesToWrite, format_->nSamplesPerSec, userdata_);
+				callback_(tempBuf_.get(), framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
 				if (format == AudioFormat::S16 && buffer) {
 					// Need to convert.
@@ -421,7 +466,8 @@ void WASAPIContext::AudioLoop() {
 
 	if (audioClient3_) {
 		audioClient3_->Stop();
-	} else {
+	}
+	if (audioClient_) {
 		audioClient_->Stop();
 	}
 
@@ -431,6 +477,10 @@ void WASAPIContext::AudioLoop() {
 }
 
 void WASAPIContext::DescribeOutputFormat(char *buffer, size_t bufferSize) const {
+	if (!format_) {
+		snprintf(buffer, bufferSize, "No format");
+		return;
+	}
 	const int numChannels = format_->nChannels;
 	const int sampleBits = format_->wBitsPerSample;
 	const int sampleRateHz = format_->nSamplesPerSec;
@@ -446,4 +496,39 @@ void WASAPIContext::DescribeOutputFormat(char *buffer, size_t bufferSize) const 
 		fmt = "PCM";  // probably
 	}
 	snprintf(buffer, bufferSize, "%d Hz %s %d-bit, %d ch%s", sampleRateHz, fmt, sampleBits, numChannels, audioClient3_ ? " (ac3)" : " (ac)");
+}
+
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR device) {
+	if (flow != eRender) {
+		INFO_LOG(Log::Audio, "Default WASAPI audio recording device changed! Currently ignoring.");
+		return S_OK;
+	}
+	INFO_LOG(Log::Audio, "Default device changed to %s! role=%d", ConvertWStringToUTF8(device).c_str(), role);
+	if (role == eConsole) {
+		// PostMessage(hwnd, WM_APP + 1, 0, 0);
+		std::lock_guard<std::mutex> guard(engine_->deviceLock_);
+		engine_->defaultDeviceChanged_ = true;
+		engine_->newDeviceId_ = ConvertWStringToUTF8(device);
+	}
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDeviceAdded(LPCWSTR device) {
+	INFO_LOG(Log::Audio, "Audio device added! device=%s", ConvertWStringToUTF8(device).c_str());
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDeviceRemoved(LPCWSTR device) {
+	INFO_LOG(Log::Audio, "Audio device removed! device=%s", ConvertWStringToUTF8(device).c_str());
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnDeviceStateChanged(LPCWSTR device, DWORD state) {
+	INFO_LOG(Log::Audio, "Audio device state changed! device=%s state=%08x", ConvertWStringToUTF8(device).c_str(), state);
+	return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WASAPIContext::DeviceNotificationClient::OnPropertyValueChanged(LPCWSTR device, const PROPERTYKEY key) {
+	return S_OK;
 }

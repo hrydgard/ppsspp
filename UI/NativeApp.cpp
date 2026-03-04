@@ -1017,7 +1017,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	if (g_audioBackend) {
-		g_audioBackend->FrameUpdate(g_Config.bAutoAudioDevice);
+		g_audioBackend->FrameUpdate(g_Config.bAutoSwitchAudioDevice);
 	}
 
 	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
