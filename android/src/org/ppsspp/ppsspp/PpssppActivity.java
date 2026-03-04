@@ -1643,9 +1643,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			try {
 				int requestId = Integer.parseInt(params);
 				int packedResultCode = packResultCode(RESULT_LOAD_IMAGE, requestId);
+				// 1. To Launch the picker:
+				Intent picker = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+				Intent proxy = new Intent(this, ImageResultProxyActivity.class);
+				proxy.putExtra("picker_intent", picker);
+				proxy.putExtra("request_id", requestId);
 				Log.i(TAG, "image request ID: " + requestId + " packed: " + packedResultCode);
-				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-				startActivityForResult(i, packedResultCode);
+				startActivity(proxy);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				NativeApp.reportException(e, params);
@@ -1945,16 +1949,57 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
+	public static void logIntentExtras(Intent intent) {
+		if (intent == null) {
+			Log.i(TAG, "Intent is null");
+			return;
+		}
+		Bundle bundle = intent.getExtras();
+		if (bundle != null) {
+			for (String key : bundle.keySet()) {
+				Object value = bundle.get(key);
+				String type = (value != null) ? value.getClass().getSimpleName() : "null";
+				Log.i(TAG, String.format("Extra Key: %s | Value: %s | Type: %s", key, value, type));
+			}
+		} else {
+			Log.i(TAG, "Intent has no extras.");
+		}
+	}
+
 	@Override
 	public void onNewIntent(Intent intent) {
 		super.onNewIntent(intent);
-		setIntent(intent);
-		String value = parseIntent(intent);
-		if (value != null) {
-			// TODO: Actually send a command to the native code to launch the new game.
-			Log.i(TAG, "NEW INTENT AT RUNTIME: " + value);
-			Log.i(TAG, "Posting a 'shortcutParam' message to the C++ code.");
-			NativeApp.sendMessageFromJava("shortcutParam", value);
+
+		Log.i(TAG, "onNewIntent: " + intent.toString());
+
+		if (intent.hasExtra("request_id")) {
+			logIntentExtras(intent);
+			// This was a proxied image request.
+			int requestId = intent.getIntExtra("request_id", -1);
+			int resultCode = intent.getIntExtra("result_code", RESULT_CANCELED);
+			String path = intent.getStringExtra("result_path");
+
+			if (path != null) {
+				Log.i(TAG, "Received valid intent: " + path);
+				Log.i(TAG, "requestId: " + requestId + " resultCode: " + resultCode);
+
+				// Now you can call your native method
+				NativeApp.sendRequestResult(requestId, (resultCode == RESULT_OK), path, resultCode);
+			} else {
+				Log.i(TAG, "Received failed intent");
+				Log.i(TAG, "requestId: " + requestId + " resultCode: " + resultCode);
+				NativeApp.sendRequestResult(requestId, false,"", resultCode);
+			}
+		} else {
+			// Someone launched a shortcut while we were running....
+			setIntent(intent);
+			String value = parseIntent(intent);
+			if (value != null) {
+				// TODO: Actually send a command to the native code to launch the new game.
+				Log.i(TAG, "NEW INTENT AT RUNTIME: " + value);
+				Log.i(TAG, "Posting a 'shortcutParam' message to the C++ code.");
+				NativeApp.sendMessageFromJava("shortcutParam", value);
+			}
 		}
 	}
 
