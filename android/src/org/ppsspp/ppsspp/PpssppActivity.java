@@ -619,19 +619,23 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@SuppressLint("InlinedApi")
 	private void updateSystemUiVisibility() {
 		Window window = getWindow();
-
 		int orientation = getResources().getConfiguration().orientation;
 
 		WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-
-		window.setStatusBarColor(Color.TRANSPARENT);
-		window.setNavigationBarColor(0x80000000);
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			// Tell Android to use light icons on the bars.
 			controller.setAppearanceLightStatusBars(false);
 			controller.setAppearanceLightNavigationBars(false);
 		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+			// This tells Android to not add any automatic shadows.
+			window.setStatusBarContrastEnforced(false);
+			window.setNavigationBarContrastEnforced(true);  // we do want this on the nav bar, for now.
+		}
+
+		window.setStatusBarColor(Color.TRANSPARENT);
+		window.setNavigationBarColor(0x80000000);
 
 		controller.setSystemBarsBehavior(
 			WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
