@@ -851,8 +851,15 @@ bool BitCheckBox::Toggled() const {
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	if (imageID_.isValid()) {
-		dc.Draw()->GetAtlas()->measureImage(imageID_, &w, &h);
+	ImageID imageId;
+	if (imageFunc_) {
+		imageId = imageFunc_();
+	} else {
+		imageId = imageID_;
+	}
+
+	if (imageId.isValid()) {
+		dc.Draw()->GetAtlas()->measureImage(imageId, &w, &h);
 	} else {
 		w = 0.0f;
 		h = 0.0f;
@@ -864,7 +871,7 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &width, &height);
 
 		w += width;
-		if (imageID_.isValid()) {
+		if (imageId.isValid()) {
 			w += paddingW_;
 		}
 		h = std::max(h, height);
@@ -902,19 +909,26 @@ void Button::Draw(UIContext &dc) {
 	tw *= scale_;
 	th *= scale_;
 
-	if (tw > bounds_.w || imageID_.isValid()) {
+	ImageID imageId;
+	if (imageFunc_) {
+		imageId = imageFunc_();
+	} else {
+		imageId = imageID_;
+	}
+
+	if (tw > bounds_.w || imageId.isValid()) {
 		dc.PushScissor(bounds_);
 	}
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(scale_, scale_);
-	if (imageID_.isValid() && (ignoreText_ || text_.empty())) {
-		dc.Draw()->DrawImage(imageID_, bounds_.centerX(), bounds_.centerY(), scale_, style.fgColor, ALIGN_CENTER);
+	if (imageId.isValid() && (ignoreText_ || text_.empty())) {
+		dc.Draw()->DrawImage(imageId, bounds_.centerX(), bounds_.centerY(), scale_, style.fgColor, ALIGN_CENTER);
 	} else if (!text_.empty()) {
 		float textX = bounds_.centerX();
-		if (imageID_.isValid()) {
-			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageID_);
+		if (imageId.isValid()) {
+			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageId);
 			if (img) {
-				dc.Draw()->DrawImage(imageID_, bounds_.centerX() - tw / 2 - 5, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+				dc.Draw()->DrawImage(imageId, bounds_.centerX() - tw / 2 - 5, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 				textX += img->w / 2.0f;
 			}
 		}
@@ -922,7 +936,7 @@ void Button::Draw(UIContext &dc) {
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 
-	if (tw > bounds_.w || imageID_.isValid()) {
+	if (tw > bounds_.w || imageId.isValid()) {
 		dc.PopScissor();
 	}
 }

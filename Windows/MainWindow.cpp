@@ -335,7 +335,6 @@ namespace MainWindow {
 				g_Config.iWindowY = wp.rcNormalPosition.top;
 				g_Config.iWindowWidth = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
 				g_Config.iWindowHeight = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
-				wp.showCmd = SW_SHOW;
 			}
 
 			if (g_Config.bFullScreenMulti) {
@@ -352,6 +351,7 @@ namespace MainWindow {
 					totalX, totalY,
 					totalWidth, totalHeight,
 					SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+				ShowWindow(hWnd, SW_SHOW);
 			} else {
 				MONITORINFO mi = {sizeof(mi)};
 				if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
@@ -365,6 +365,7 @@ namespace MainWindow {
 						mi.rcMonitor.bottom - mi.rcMonitor.top,
 						SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 				}
+				ShowWindow(hWnd, SW_SHOW);
 			}
 		} else if (!goFullscreen && isCurrentlyFullscreen) {
 			INFO_LOG(Log::System, "ApplyFullscreenState: Exiting fullscreen to %s mode at %dx%d+%d+%d",
@@ -502,7 +503,7 @@ namespace MainWindow {
 
 		g_hMenu = GetMenu(hwndMain);
 
-		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+		WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
 		if ((g_Config.iWindowX == -1 && g_Config.iWindowY == -1) || g_Config.iWindowWidth < 20 || g_Config.iWindowHeight < 20) {
 			RECT rc = DetermineDefaultWindowRectangle();
 			// Should be a first boot, or just bad parameters. Reset.
@@ -513,7 +514,8 @@ namespace MainWindow {
 			g_Config.iWindowHeight = rc.bottom - rc.top;
 		}
 
-		placement.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
+		// Start as hidden in fullscreen mode. Makes for a nicer transition.
+		placement.showCmd = g_Config.bFullScreen ? SW_HIDE : WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
 		placement.rcNormalPosition.left = g_Config.iWindowX;
 		placement.rcNormalPosition.top = g_Config.iWindowY;
 		placement.rcNormalPosition.right = g_Config.iWindowX + g_Config.iWindowWidth;
@@ -525,6 +527,7 @@ namespace MainWindow {
 
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
 		MainMenuInit(hwndMain, g_hMenu);
 
@@ -533,8 +536,6 @@ namespace MainWindow {
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-
-		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
