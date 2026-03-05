@@ -80,7 +80,7 @@ void TouchControlVisibilityScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	gridsettings.fillCells = true;
 	GridLayout *grid = parent->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(GetDeviceOrientation());
 
 	toggles_.clear();
 	toggles_.push_back({ "Circle", &touch.bShowTouchCircle, ImageID("I_CIRCLE"), nullptr });
@@ -146,6 +146,30 @@ void TouchControlVisibilityScreen::CreateDialogViews(UI::ViewGroup *parent) {
 }
 
 void TouchControlVisibilityScreen::onFinish(DialogResult result) {
+	// Refresh current layout pointer and sync visibility settings
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(GetDeviceOrientation());
+	for (size_t i = 0; i < toggles_.size(); i++) {
+		if (toggles_[i].show) {
+			bool val = *toggles_[i].show;
+			if (i == 0) touch.bShowTouchCircle = val;
+			else if (i == 1) touch.bShowTouchCross = val;
+			else if (i == 2) touch.bShowTouchSquare = val;
+			else if (i == 3) touch.bShowTouchTriangle = val;
+			else if (i == 4) touch.touchLKey.show = val;
+			else if (i == 5) touch.touchRKey.show = val;
+			else if (i == 6) touch.touchStartKey.show = val;
+			else if (i == 7) touch.touchSelectKey.show = val;
+			else if (i == 8) touch.touchDpad.show = val;
+			else if (i == 9) touch.touchAnalogStick.show = val;
+			else if (i == 10) touch.touchRightAnalogStick.show = val;
+			else if (i == 11) touch.touchFastForwardKey.show = val;
+			else if (i == 12) touch.touchPauseKey.show = val;
+			else if (i >= 13 && i < (size_t)(13 + TouchControlConfig::CUSTOM_BUTTON_COUNT)) {
+				int idx = i - 13;
+				touch.touchCustom[idx].show = val;
+			}
+		}
+	}
 	g_Config.Save("TouchControlVisibilityScreen::onFinish");
 }
 
@@ -161,7 +185,7 @@ void RightAnalogMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(GetDeviceOrientation());
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(GetDeviceOrientation());
 
 	static const char *rightAnalogButton[] = {"None", "L", "R", "Square", "Triangle", "Circle", "Cross", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "Start", "Select", "RightAn.Up", "RightAn.Down", "RightAn.Left", "RightAn.Right", "An.Up", "An.Down", "An.Left", "An.Right"};
 
