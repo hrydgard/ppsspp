@@ -138,7 +138,7 @@ bool ParseServerListEntriesJSON(std::string_view json, std::vector<AdhocServerLi
 		entry.web = server.getStringOr("web", "");
 		entry.location = server.getStringOr("location", "");
 		entry.description = server.getStringOr("description", "");
-		entry.mode = server.getStringOr("data_mode", "") == "AemuPostoffice" ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
 
 		if (entry.host.empty()) {
 			// Skipping invalid entry.
