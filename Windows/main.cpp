@@ -1093,6 +1093,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				break;
 			}
 
+			// NOTE: We need to parse --fullscreen early, before we create the window.
+			if (!wcscmp(wideArgs[i].c_str(), L"--fullscreen")) {
+				g_Config.bFullScreen = true;
+				g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+			} else if (!wcscmp(wideArgs[i].c_str(), L"--windowed")) {
+				g_Config.bFullScreen = false;
+				g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+			}
+
 			if (wideArgs[i].find(gpuBackend) != std::wstring::npos && wideArgs[i].size() > gpuBackend.size()) {
 				const std::wstring restOfOption = wideArgs[i].substr(gpuBackend.size());
 
@@ -1115,6 +1124,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				}
 			}
 		}
+
 	}
 #ifdef _DEBUG
 	g_Config.bEnableLogging = true;
