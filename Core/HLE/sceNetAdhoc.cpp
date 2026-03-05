@@ -582,6 +582,8 @@ static void *pdp_postoffice_recover(int idx) {
 	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server, check logs for more details"), 0.0f, "relay_connect_failed");
 	}
 
 	INFO_LOG(Log::sceNet, "%s: pdp recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
@@ -1103,6 +1105,8 @@ static void *ptp_listen_postoffice_recover(int idx) {
 
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed recovering ptp listen socket, %d", __func__, state);
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server, check logs for more details"), 0.0f, "relay_connect_failed");
 	}
 
 	INFO_LOG(Log::sceNet, "%s: ptp listen recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
@@ -1123,6 +1127,8 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server, check logs for more details"), 0.0f, "relay_connect_failed");
 			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
 			adhocSockets[idx]->postofficeHandle = NULL;
 			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
@@ -1273,6 +1279,8 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
+				auto n = GetI18NCategory(I18NCat::NETWORKING);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server, check logs for more details"), 0.0f, "relay_connect_failed");
 				internal->connectThreadDone = true;
 				return;
 			}
