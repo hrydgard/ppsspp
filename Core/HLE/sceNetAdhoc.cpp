@@ -118,31 +118,41 @@ const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
 	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
 };
 
-AdhocDataMode getAdhocServerDataMode(const std::string &server) {
-	auto list = defaultProAdhocServerList;
+// TODO download the list from somewhere and probably cache it on disk
+// should also make the url configurable and support file:/ local list besides https:// online lists
+std::mutex g_proAdhocServerListMutex;
+std::vector<AdhocServerListEntry> g_proAdhocServerList;
 
-	downloadedProAdhocServerListMutex.lock();
-	if (downloadedProAdhocServerList.size() != 0) {
-		INFO_LOG(Log::sceNet, "Using downloaded adhoc server list");
-		list = downloadedProAdhocServerList;
-	}
-	downloadedProAdhocServerListMutex.unlock();
+void AdhocLoadServerList() {
+	// Do this async.
+	std::thread thread([]() {
+		// Pretend for now, actually load later.
+		// We'll first load the default hardcoded list. Then we try:
+		// 1. Cached list in PSP/SYSTEM/CACHE
+		// 2. Online list from some url, and cache it in PSP/SYSTEM/CACHE for next time.
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+		g_proAdhocServerList = defaultProAdhocServerList;
+	});
+	thread.detach();
+}
 
+std::vector<AdhocServerListEntry> AdhocGetServerList() {
+	std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+	return g_proAdhocServerList;
+}
+
+static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
+	std::vector<AdhocServerListEntry> list = AdhocGetServerList();
 	for (const auto &item : list) {
 		if (equals(server, item.hostname)) {
-			INFO_LOG(Log::sceNet, "server %s is in known list, using data mode %s", server.c_str(), AdhocDataModeToString(item.mode));
+			INFO_LOG(Log::sceNet, "server %.*s is in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(item.mode));
 			return item.mode;
 		}
 	}
 
-	INFO_LOG(Log::sceNet, "server %s is not in known list, using data mode %s", server.c_str(), AdhocDataModeToString(AdhocDataMode::P2P));
+	INFO_LOG(Log::sceNet, "server %.*s is not in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::P2P));
 	return AdhocDataMode::P2P;
 }
-
-// TODO download the list from somewhere and probably cache it on disk
-// should also make the url configurable and support file:/ local list besides https:// online lists
-std::mutex downloadedProAdhocServerListMutex;
-std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
@@ -1705,7 +1715,7 @@ u32 sceNetAdhocInit() {
 		case AdhocServerRelayMode::Auto:
 			serverHasRelay = false;
 			// Fetch data mode from server list
-			if (getAdhocServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
+			if (AdhocGetServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
 				serverHasRelay = true;
 			}
 			break;

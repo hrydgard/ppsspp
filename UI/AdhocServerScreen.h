@@ -9,7 +9,6 @@
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"  // for AdhocServerListEntry!
 #include "Common/UI/Notice.h"
-#include "Core/HLE/sceNetAdhoc.h"
 
 class AdhocServerScreen : public UI::PopupScreen {
 public:
@@ -37,7 +36,6 @@ private:
 
 	std::string *value_;
 	std::string editValue_;
-	std::vector<AdhocServerListEntry> listItems_;
 	NoticeView *progressView_ = nullptr;
 
 	std::thread resolver_;

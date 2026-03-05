@@ -112,12 +112,7 @@ struct AdhocServerListEntry {
 	AdhocDataMode mode = AdhocDataMode::P2P;
 };
 
-extern const std::vector<AdhocServerListEntry> defaultProAdhocServerList;
-
-extern std::mutex downloadedProAdhocServerListMutex;
-extern std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
-
-AdhocDataMode getAdhocServerDataMode(const std::string &server);
+std::vector<AdhocServerListEntry> AdhocGetServerList();
 
 class PointerWrap;
 

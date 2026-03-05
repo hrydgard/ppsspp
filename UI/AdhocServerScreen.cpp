@@ -11,15 +11,6 @@ AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 		thiz->ResolverThread();
 	}, this);
 	editValue_ = *value;
-
-	auto list_to_use = defaultProAdhocServerList;
-	downloadedProAdhocServerListMutex.lock();
-	if (downloadedProAdhocServerList.size() != 0) {
-		list_to_use = downloadedProAdhocServerList;
-	}
-	downloadedProAdhocServerListMutex.unlock();
-
-	listItems_ = list_to_use;
 }
 
 AdhocServerScreen::~AdhocServerScreen() {
@@ -37,10 +28,12 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
+	auto listItems = AdhocGetServerList();
+
 	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 256, screenManager()));
 
 	std::vector<std::string> listIP;
-	for (const auto &item : listItems_) {
+	for (const auto &item : listItems) {
 		listIP.push_back(item.hostname);
 	}
 
