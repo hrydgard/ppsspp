@@ -95,17 +95,12 @@ PPSSPPBaseViewController *sharedViewController;
 
 @interface PPSSPPViewControllerGL () {
 	IOSGLESContext *graphicsContext;
-
-	int imageRequestId;
-	NSString *imageFilename;
 }
 
 @property (nonatomic, strong) EAGLContext *glContext;
 @property (nonatomic, strong) GLKView *glView;
 @property (nonatomic, strong) CADisplayLink *displayLink;
 @property (nonatomic, assign) NSTimeInterval lastTimestamp;
-
-@property (nonatomic, strong) EAGLContext* context;
 
 @end
 
@@ -144,12 +139,12 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (bool)runGLRenderLoop {
 	if (!graphicsContext) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(Log::G3D, "runGLRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
 	if (g_renderLoopThread.joinable()) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
+		ERROR_LOG(Log::G3D, "runGLRenderLoop: Already running");
 		return false;
 	}
 
@@ -239,7 +234,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	[self hideKeyboard];
 
-	// Initialize the motion manager for accelerometer control.
 	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
@@ -339,15 +333,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	g_Config.Save("shutdown GL");
 
 	_dbg_assert_(graphicsContext);
-
-	if (self.context) {
-		if ([EAGLContext currentContext] == self.context) {
-			[EAGLContext setCurrentContext:nil];
-		}
-		self.context = nil;
-	}
-
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
 	graphicsContext->BeginShutdown();
 	// Skipping GL calls here because the old context is lost.

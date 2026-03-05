@@ -81,18 +81,7 @@ bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBack
 
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
-	// This MUST run on the main thread. We're taking our chances with a dispatch_sync here.
 	g_Vulkan->InitSwapchain(presentMode);
-
-	if (false) {
-		delete draw_;
-		ERROR_LOG(Log::G3D, "InitSwapchain failed");
-		g_Vulkan->DestroySwapchain();
-		g_Vulkan->DestroySurface();
-		g_Vulkan->DestroyDevice();
-		g_Vulkan->DestroyInstance();
-		return false;
-	}
 
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool shaderSuccess = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.

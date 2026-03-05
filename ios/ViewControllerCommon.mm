@@ -110,7 +110,7 @@
 	// This needs to be called really late during startup, unfortunately.
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
-	NSLog(@"Metal viewDidAppear. updating icon");
+	NSLog(@"viewDidAppear. updating icon");
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 		[[IAPManager sharedIAPManager] updateIcon:false];
 		[self hideKeyboard];
@@ -443,9 +443,9 @@ extern float g_safeInsetBottom;
 }
 
 - (void)updateResolutionWithView:(UIView *)view {
-	// 1. Get the scale from the window scene (safest for Metal)
+	// 1. Get the scale from the window scene
 	CGFloat scale = 1.0;
-	if (view.window.windowScene) {
+	if (view.window && view.window.windowScene) {
 		scale = view.window.windowScene.screen.nativeScale;
 	} else {
 		scale = [UITraitCollection currentTraitCollection].displayScale;
