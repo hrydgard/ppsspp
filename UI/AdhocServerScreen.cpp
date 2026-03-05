@@ -38,43 +38,53 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto listItems = AdhocGetServerList();
 
 	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 256, screenManager()));
-
-	std::vector<std::string> listIP;
-	for (const auto &item : listItems) {
-		listIP.push_back(item.host);
-	}
-
-	// Add non-editable items
-	listIP.push_back("localhost");
-
 	parent->Add(new Spacer(5.0f));
 
-	net::GetLocalIP4List(listIP);
+	// Start with the downloaded list.
+	std::vector<AdhocServerListEntry> entries = listItems;
+
+	// Add localhost and local IPs, since those are common ones to connect to.
+	{
+		AdhocServerListEntry localhostEntry;
+		localhostEntry.name = "localhost";
+		localhostEntry.host = "localhost";
+		entries.push_back(localhostEntry);
+
+		std::vector<std::string> listIP;
+		net::GetLocalIP4List(listIP);
+
+		for (const auto &item : listIP) {
+			if (startsWith(item, "127.") || startsWith(item, "169.254.") || startsWith(item, "0.")) {
+				continue;
+			}
+			AdhocServerListEntry entry;
+			entry.name = item;
+			entry.host = item;
+			entries.push_back(entry);
+		}
+	}
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	LinearLayout *innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	innerView->SetSpacing(5.0f);
-	if (listIP.size() > 0) {
-		for (const auto &label : listIP) {
-			// Filter out IP prefixed with "127." and "169.254." also "0." since they can be redundant or unusable
-			if (label.find("127.") != 0 && label.find("169.254.") != 0 && label.find("0.") != 0) {
-				auto button = innerView->Add(new Button(label, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-				button->OnClick.Add([this](UI::EventParams &e) {
-					std::string value = e.v->Tag();
-					if (!value.empty()) {
-						editValue_ = value;
-						// TODO: Let's change this to an actual button later.
-						System_CopyStringToClipboard(value);
-					}
-				});
-				button->SetTag(label);
+
+	// TODO: Fancier UI.
+	for (const auto &entry : entries) {
+		// Filter out IP prefixed with "127." and "169.254." also "0." since they can be redundant or unusable
+		auto button = innerView->Add(new Button(entry.host, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		button->OnClick.Add([this](UI::EventParams &e) {
+			std::string value = e.v->Tag();
+			if (!value.empty()) {
+				editValue_ = value;
+				// TODO: Let's change this to an actual button later.
+				System_CopyStringToClipboard(value);
 			}
-		}
+		});
+		button->SetTag(entry.host);
 	}
 
 	scrollView->Add(innerView);
 	parent->Add(scrollView);
-	listIP.clear(); listIP.shrink_to_fit();
 
 	progressView_ = parent->Add(new NoticeView(NoticeLevel::INFO, n->T("Validating address..."), "", new LinearLayoutParams(Margins(0, 5, 0, 0))));
 	progressView_->SetVisibility(UI::V_GONE);
