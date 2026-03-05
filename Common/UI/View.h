@@ -577,7 +577,7 @@ private:
 	Style style_;
 	std::string text_;
 	ImageID imageID_;
-	std::function<ImageID()> imageFunc_;
+	std::function<ImageID()> imageFunc_{};
 	int paddingW_ = 16;
 	int paddingH_ = 8;
 	float scale_ = 1.0f;

@@ -531,11 +531,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 }
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
-	if (key.flags & KeyInputFlags::IS_REPEAT) {
-		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
-		return true;
-	}
-
 	double now = time_now_d();
 	InputMapping mapping(key.deviceId, key.keyCode);
 
