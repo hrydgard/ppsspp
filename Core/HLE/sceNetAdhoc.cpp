@@ -1334,11 +1334,13 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
-				handle_relay_connect_failure();
+				// do not count ptp connect failure as relay failure, since it could be the other client not accepting the connection
+				//handle_relay_connect_failure();
 				internal->connectThreadDone = true;
 				return;
 			}
-			handle_relay_connect_success();
+			// see above, ptp connect result is not used for checking if relay is working
+			//handle_relay_connect_success();
 			internal->postofficeHandle = ptp_socket;
 			internal->connectThreadResult = 0;
 			INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postofficeHandle);
