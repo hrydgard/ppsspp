@@ -560,6 +560,8 @@ public:
 	bool bInfrastructureAutoDNS;
 	bool bAllowSavestateWhileConnected;  // Developer option, ini-only. No normal users need this, it's always wrong to save/load state when online.
 	bool bAllowSpeedControlWhileConnected;  // Useful in some games but not recommended.
+
+	std::string sAdhocServerListUrl;
 	std::vector<std::string> vCustomAdhocServerList;
 
 	bool bEnableWlan;

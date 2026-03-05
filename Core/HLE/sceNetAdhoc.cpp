@@ -26,6 +26,7 @@
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -34,6 +35,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/Net/HTTPRequest.h"
 
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
@@ -117,7 +119,7 @@ static const char *AdhocDataModeToString(AdhocDataMode mode) {
 std::mutex g_proAdhocServerListMutex;
 std::vector<AdhocServerListEntry> g_proAdhocServerList;
 
-bool ParseServerListEntriesJSON(std::string_view json, std::vector<AdhocServerListEntry> *result) {
+bool ParseServerListEntriesJSON(std::string_view json) {
 	using namespace json;
 
 	// Use our JSONReader to parse json into a list of AdhocServerListEntry.
@@ -132,7 +134,7 @@ bool ParseServerListEntriesJSON(std::string_view json, std::vector<AdhocServerLi
 
 	const JsonNode *servers = root.getArray("servers");
 
-	result->clear();
+	std::vector<AdhocServerListEntry> newList;
 
 	for (const JsonNode *iter : servers->value) {
 		JsonGet server = iter->value;
@@ -149,8 +151,14 @@ bool ParseServerListEntriesJSON(std::string_view json, std::vector<AdhocServerLi
 			// Skipping invalid entry.
 			continue;
 		}
-		result->push_back(entry);
+		newList.push_back(entry);
 	}
+
+	{
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+		g_proAdhocServerList = newList;
+	}
+	System_PostUIMessage(UIMessage::ADHOC_SERVER_LIST_CHANGED);
 	return true;
 }
 
@@ -162,14 +170,39 @@ void AdhocLoadServerList() {
 		}
 	}
 
-	// Do this async.
-	std::thread thread([]() {
-		// Pretend for now, actually load later.
-		// We'll first load the default hardcoded list. Then we try:
-		// 1. Cached list in PSP/SYSTEM/CACHE
-		// 2. Online list from some url, and cache it in PSP/SYSTEM/CACHE for next time.
-		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+	// NOTE: If you want to load from a local file, set g_Config.sAdhocServerListUrl directly to the local path.
+	// There's currently no file:// support, as far as I remember.
 
+	if (startsWith(g_Config.sAdhocServerListUrl, "http")) {
+		// Download the list.
+		g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
+			if (request.Failed()) {
+				INFO_LOG(Log::sceNet, "Failed to download adhoc server list from %s, falling back.", url.c_str());
+
+				// Fall back to the asset. Don't bother doing it on a thread.
+				size_t jsonSize;
+				std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
+				if (!jsonStr) {
+					_dbg_assert_(false);
+					// Something went wrong. This shouldn't happen.
+					return;
+				}
+				ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+				return;
+			}
+
+			INFO_LOG(Log::sceNet, "Successfully downloaded adhoc server list from %s", url.c_str());
+
+			std::string json;
+			request.buffer().TakeAll(&json);
+			ParseServerListEntriesJSON(std::string_view(json.data(), json.size()));
+		});
+	} else if (!g_Config.sAdhocServerListUrl.empty()) {
+		// Try to read local file.
+		std::string json;
+		File::ReadTextFileToString(Path(g_Config.sAdhocServerListUrl), &json);
+		ParseServerListEntriesJSON(std::string_view(json.data(), json.size()));
+	} else {
 		size_t jsonSize;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
 		if (!jsonStr) {
@@ -177,12 +210,8 @@ void AdhocLoadServerList() {
 			// Something went wrong. This shouldn't happen.
 			return;
 		}
-
-		ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize), &g_proAdhocServerList);
-
-		System_PostUIMessage(UIMessage::ADHOC_SERVER_LIST_CHANGED);
-	});
-	thread.detach();
+		ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+	}
 }
 
 std::vector<AdhocServerListEntry> AdhocGetServerList() {

@@ -119,7 +119,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		AddButtonFromEntry(publicSection, entry);
 	}
 
-	CollapsibleSection *localSection = innerView->Add(new CollapsibleSection(n->T("Local addresses"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	CollapsibleSection *localSection = innerView->Add(new CollapsibleSection(n->T("Local network addresses"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	for (const auto &entry : localEntries) {
 		AddButtonFromEntry(localSection, entry);
 	}

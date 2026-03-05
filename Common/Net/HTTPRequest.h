@@ -105,15 +105,7 @@ public:
 	}
 
 	// NOTE: This is the only version that supports the cache flag (for now).
-	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime = nullptr);
-
-	std::shared_ptr<Request> StartDownloadWithCallback(
-		std::string_view url,
-		const Path &outfile,
-		RequestFlags flags,
-		std::function<void(Request &)> callback,
-		std::string_view name = "",
-		const char *acceptMime = nullptr);
+	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime = nullptr, std::string_view name = "", std::function<void(Request &)> callback = {});
 
 	std::shared_ptr<Request> AsyncPostWithCallback(
 		std::string_view url,
