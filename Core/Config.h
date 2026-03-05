@@ -779,24 +779,3 @@ std::string CreateRandMAC();
 // TODO: Find a better place for this.
 extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
-
-enum class AdhocDataMode {
-	P2P = 0,
-	AemuPostoffice,
-};
-
-struct AdhocServerListEntry{
-	std::string name;
-	std::string hostname;
-	std::string community_link;
-	std::string location;
-	std::string note;
-	AdhocDataMode mode = AdhocDataMode::P2P;
-};
-
-extern const std::vector<AdhocServerListEntry> defaultProAdhocServerList;
-
-extern std::mutex downloadedProAdhocServerListMutex;
-extern std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
-
-AdhocDataMode getAdhocServerDataMode(const std::string &server);

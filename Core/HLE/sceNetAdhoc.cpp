@@ -92,6 +92,58 @@ int gameModeNotifyEvent = -1;
 #define AEMU_POSTOFFICE_PORT 27313
 #define AEMU_POSTOFFICE_ID_BASE 2048
 
+static const char *AdhocDataModeToString(AdhocDataMode mode) {
+	switch (mode) {
+	case AdhocDataMode::P2P:
+		return "AdhocDataMode::P2P";
+	case AdhocDataMode::AemuPostoffice:
+		return "AdhocDataMode::AemuPostoffice";
+	default:
+		break;
+	}
+	return "unknown";
+}
+
+const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
+	{"Socom Adhoc Server", "socom.cc", "https://discord.com/invite/XtVYDr7", "France", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Madness Gaming Network", "psp.mgn.pub", "https://discord.com/invite/kaPScVrPes", "Alaska USA", "For players looking to play any games, has a good amount of Monster Hunter players, also provides VPN to work around connection issues as well as P2P mode", AdhocDataMode::AemuPostoffice},
+	{"EA Nation Hub", "eahub.eu", "https://discord.com/invite/fwrQHHxrQQ", "France", "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games", AdhocDataMode::AemuPostoffice},
+	{"Psi-Hate", "psi-hate.com", "https://discord.com/invite/wxeGVkM", "Minnesota USA", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Relay Brasileiro", "jpa36a7.glddns.com", "https://discord.com/invite/gp45nhdjQJ", "São Paulo Brazil", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"ArenaAnywhere SA", "relay-sa.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "South Africa", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"ArenaAnywhere EU", "relay.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "Europe", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"ArenaAnywhere Dubai", "relay-dubai.arenaanywhere.site", "https://discord.gg/MxZrDHmrN", "Dubai", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Retroverze Relay Beta", "psp.retroverze.my.id", "https://retroverze.my.id/beta", "Unknown", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Games Nexus", "adhoc.gamesnexus.ovh", "https://adhoc.gamesnexus.ovh", "Milan Italy", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
+	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
+};
+
+AdhocDataMode getAdhocServerDataMode(const std::string &server) {
+	auto list = defaultProAdhocServerList;
+
+	downloadedProAdhocServerListMutex.lock();
+	if (downloadedProAdhocServerList.size() != 0) {
+		INFO_LOG(Log::sceNet, "Using downloaded adhoc server list");
+		list = downloadedProAdhocServerList;
+	}
+	downloadedProAdhocServerListMutex.unlock();
+
+	for (const auto &item : list) {
+		if (equals(server, item.hostname)) {
+			INFO_LOG(Log::sceNet, "server %s is in known list, using data mode %s", server.c_str(), AdhocDataModeToString(item.mode));
+			return item.mode;
+		}
+	}
+
+	INFO_LOG(Log::sceNet, "server %s is not in known list, using data mode %s", server.c_str(), AdhocDataModeToString(AdhocDataMode::P2P));
+	return AdhocDataMode::P2P;
+}
+
+// TODO download the list from somewhere and probably cache it on disk
+// should also make the url configurable and support file:/ local list besides https:// online lists
+std::mutex downloadedProAdhocServerListMutex;
+std::vector<AdhocServerListEntry> downloadedProAdhocServerList;
+
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
 int FlushPtpSocket(int socketId);

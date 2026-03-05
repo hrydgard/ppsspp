@@ -3,6 +3,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
+#include "Core/HLE/sceNetAdhoc.h"
 
 AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 	: UI::PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value) {

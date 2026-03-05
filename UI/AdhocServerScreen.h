@@ -9,6 +9,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"  // for AdhocServerListEntry!
 #include "Common/UI/Notice.h"
+#include "Core/HLE/sceNetAdhoc.h"
 
 class AdhocServerScreen : public UI::PopupScreen {
 public:
