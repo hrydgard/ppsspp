@@ -304,6 +304,7 @@ enum class UIMessage {
 	RESTART_GRAPHICS,
 	RECENT_FILES_CHANGED,
 	SAVE_FRAME_DUMP,
+	ADHOC_SERVER_LIST_CHANGED,
 };
 
 std::string System_GetProperty(SystemProperty prop);

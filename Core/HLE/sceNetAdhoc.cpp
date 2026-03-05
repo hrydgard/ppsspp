@@ -29,6 +29,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
 
@@ -124,6 +125,13 @@ std::mutex g_proAdhocServerListMutex;
 std::vector<AdhocServerListEntry> g_proAdhocServerList;
 
 void AdhocLoadServerList() {
+	{
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+		if (!g_proAdhocServerList.empty()) {
+			return;
+		}
+	}
+
 	// Do this async.
 	std::thread thread([]() {
 		// Pretend for now, actually load later.
@@ -132,6 +140,7 @@ void AdhocLoadServerList() {
 		// 2. Online list from some url, and cache it in PSP/SYSTEM/CACHE for next time.
 		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 		g_proAdhocServerList = defaultProAdhocServerList;
+		System_PostUIMessage(UIMessage::ADHOC_SERVER_LIST_CHANGED);
 	});
 	thread.detach();
 }

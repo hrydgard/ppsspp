@@ -112,6 +112,7 @@ struct AdhocServerListEntry {
 	AdhocDataMode mode = AdhocDataMode::P2P;
 };
 
+void AdhocLoadServerList();
 std::vector<AdhocServerListEntry> AdhocGetServerList();
 
 class PointerWrap;

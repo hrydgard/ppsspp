@@ -11,6 +11,7 @@ AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 		thiz->ResolverThread();
 	}, this);
 	editValue_ = *value;
+	AdhocLoadServerList();
 }
 
 AdhocServerScreen::~AdhocServerScreen() {
@@ -20,6 +21,12 @@ AdhocServerScreen::~AdhocServerScreen() {
 		resolverCond_.notify_one();
 	}
 	resolver_.join();
+}
+
+void AdhocServerScreen::sendMessage(UIMessage message, const char *value) {
+	if (message == UIMessage::ADHOC_SERVER_LIST_CHANGED) {
+		RecreateViews();
+	}
 }
 
 void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -48,7 +55,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	innerView->SetSpacing(5.0f);
 	if (listIP.size() > 0) {
-		for (const auto& label : listIP) {
+		for (const auto &label : listIP) {
 			// Filter out IP prefixed with "127." and "169.254." also "0." since they can be redundant or unusable
 			if (label.find("127.") != 0 && label.find("169.254.") != 0 && label.find("0.") != 0) {
 				auto button = innerView->Add(new Button(label, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));

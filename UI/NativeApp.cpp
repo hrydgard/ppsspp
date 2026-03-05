@@ -348,9 +348,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Make sure UI state is MENU.
 	ResetUIState();
 
-	// We kind of have to do this during startup, since these are visible in settings.
-	AdhocLoadServerList();
-
 	bool skipLogo = false;
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
