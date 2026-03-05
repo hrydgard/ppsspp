@@ -193,6 +193,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	self.glView.drawableDepthFormat = GLKViewDrawableDepthFormat24;
 	self.glView.drawableStencilFormat = GLKViewDrawableStencilFormat8;
 	self.glView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	self.glView.multipleTouchEnabled = YES;
 	[self.view addSubview:self.glView];
 
 	// self.view.insetsLayoutMarginsFromSafeArea = NO;
