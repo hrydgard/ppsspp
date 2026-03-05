@@ -91,7 +91,7 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 				if (File::ReadBinaryFileToString(cacheFile, &contents)) {
 					INFO_LOG(Log::sceNet, "Returning cached file for %.*s: %s", (int)url.size(), url.data(), cacheFile.c_str());
 					// All is well, but we've indented a bit much here.
-					std::shared_ptr<Request> dl(new CachedRequest(RequestMethod::GET, url, "infra-dns.json", nullptr, flags, contents));
+					std::shared_ptr<Request> dl(new CachedRequest(RequestMethod::GET, url, KeepAfterLast(url, '/'), nullptr, flags, contents));
 					newDownloads_.push_back(dl);
 					return dl;
 				} else {

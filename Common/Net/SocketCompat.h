@@ -130,3 +130,7 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 // Default value to 0x00 (do nothing) in systems where it's not supported.
 #define MSG_NOSIGNAL 0x00
 #endif
+
+#ifdef ERROR
+#undef ERROR
+#endif

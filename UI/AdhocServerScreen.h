@@ -23,6 +23,8 @@ protected:
 	void OnCompleted(DialogResult result) override;
 	bool CanComplete(DialogResult result) override;
 
+	void sendMessage(UIMessage message, const char *value) override;
+
 private:
 	void ResolverThread();
 
@@ -36,7 +38,6 @@ private:
 
 	std::string *value_;
 	std::string editValue_;
-	std::vector<AdhocServerListEntry> listItems_;
 	NoticeView *progressView_ = nullptr;
 
 	std::thread resolver_;

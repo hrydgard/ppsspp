@@ -24,11 +24,14 @@
 #include <string>
 
 #include "Common/Net/SocketCompat.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
 
@@ -91,6 +94,109 @@ int gameModeNotifyEvent = -1;
 
 #define AEMU_POSTOFFICE_PORT 27313
 #define AEMU_POSTOFFICE_ID_BASE 2048
+
+static const char *AdhocDataModeToString(AdhocDataMode mode) {
+	switch (mode) {
+	case AdhocDataMode::P2P:
+		return "AdhocDataMode::P2P";
+	case AdhocDataMode::AemuPostoffice:
+		return "AdhocDataMode::AemuPostoffice";
+	default:
+		break;
+	}
+	return "unknown";
+}
+
+// TODO download the list from somewhere and probably cache it on disk
+// should also make the url configurable and support file:/ local list besides https:// online lists
+std::mutex g_proAdhocServerListMutex;
+std::vector<AdhocServerListEntry> g_proAdhocServerList;
+
+bool ParseServerListEntriesJSON(std::string_view json, std::vector<AdhocServerListEntry> *result) {
+	using namespace json;
+
+	// Use our JSONReader to parse json into a list of AdhocServerListEntry.
+	json::JsonReader reader(json.data(), json.length());
+
+	if (!reader.ok() || !reader.root()) {
+		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		return false;
+	}
+
+	const JsonGet root = reader.root();
+
+	const JsonNode *servers = root.getArray("servers");
+
+	result->clear();
+
+	for (const JsonNode *iter : servers->value) {
+		JsonGet server = iter->value;
+		AdhocServerListEntry entry;
+		entry.name = server.getStringOr("name", "");
+		entry.discord = server.getStringOr("discord", "");
+		entry.host = server.getStringOr("host", "");
+		entry.web = server.getStringOr("web", "");
+		entry.location = server.getStringOr("location", "");
+		entry.description = server.getStringOr("description", "");
+		entry.mode = server.getStringOr("data_mode", "") == "AemuPostoffice" ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+
+		if (entry.host.empty()) {
+			// Skipping invalid entry.
+			continue;
+		}
+		result->push_back(entry);
+	}
+	return true;
+}
+
+void AdhocLoadServerList() {
+	{
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+		if (!g_proAdhocServerList.empty()) {
+			return;
+		}
+	}
+
+	// Do this async.
+	std::thread thread([]() {
+		// Pretend for now, actually load later.
+		// We'll first load the default hardcoded list. Then we try:
+		// 1. Cached list in PSP/SYSTEM/CACHE
+		// 2. Online list from some url, and cache it in PSP/SYSTEM/CACHE for next time.
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+
+		size_t jsonSize;
+		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
+		if (!jsonStr) {
+			_dbg_assert_(false);
+			// Something went wrong. This shouldn't happen.
+			return;
+		}
+
+		ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize), &g_proAdhocServerList);
+
+		System_PostUIMessage(UIMessage::ADHOC_SERVER_LIST_CHANGED);
+	});
+	thread.detach();
+}
+
+std::vector<AdhocServerListEntry> AdhocGetServerList() {
+	std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+	return g_proAdhocServerList;
+}
+
+static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
+	std::vector<AdhocServerListEntry> list = AdhocGetServerList();
+	for (const auto &item : list) {
+		if (equals(server, item.host)) {
+			INFO_LOG(Log::sceNet, "server %.*s is in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(item.mode));
+			return item.mode;
+		}
+	}
+
+	INFO_LOG(Log::sceNet, "server %.*s is not in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::P2P));
+	return AdhocDataMode::P2P;
+}
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
@@ -1653,7 +1759,7 @@ u32 sceNetAdhocInit() {
 		case AdhocServerRelayMode::Auto:
 			serverHasRelay = false;
 			// Fetch data mode from server list
-			if (getAdhocServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
+			if (AdhocGetServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
 				serverHasRelay = true;
 			}
 			break;

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <deque>
+#include <string>
 #include "Core/HLE/proAdhoc.h"
 
 #ifdef _MSC_VER
@@ -97,6 +98,23 @@ enum AdhocDiscoverResult : int
 	NET_ADHOC_DISCOVER_RESULT_ABORTED = 3, // Internal Error occured?
 };
 
+enum class AdhocDataMode {
+	P2P = 0,
+	AemuPostoffice,
+};
+
+struct AdhocServerListEntry {
+	std::string name;
+	std::string host;
+	std::string web;
+	std::string discord;
+	std::string location;
+	std::string description;
+	AdhocDataMode mode = AdhocDataMode::P2P;
+};
+
+void AdhocLoadServerList();
+std::vector<AdhocServerListEntry> AdhocGetServerList();
 
 class PointerWrap;
 
