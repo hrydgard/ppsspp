@@ -1284,7 +1284,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@RequiresApi(Build.VERSION_CODES.N)
 	void sendMouseDelta(float dx, float dy) {
 		// Ignore zero deltas.
-		if (Math.abs(dx) > 0.001 || Math.abs(dx) > 0.001) {
+		if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
 			NativeApp.mouseDelta(dx, dy);
 		}
 	}
