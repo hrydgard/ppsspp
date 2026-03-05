@@ -325,7 +325,7 @@ static bool IsSwappableVKey(uint32_t vkey) {
 }
 
 void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
-	if (swapAxes_) {
+	if (swapAxes_ || IsVirtKeyOn(VIRTKEY_AXIS_SWAP_HOLD)) {
 		switch (*vkey) {
 		case CTRL_UP: *vkey = VIRTKEY_AXIS_Y_MAX; break;
 		case VIRTKEY_AXIS_Y_MAX: *vkey = CTRL_UP; break;
@@ -509,6 +509,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
 				updateAnalogSticks = true;
+			} else if (vkId == VIRTKEY_AXIS_SWAP_HOLD) {
+				UpdateSwapAxes();
 			}
 		} else if (bPrevValue && !bValue) {
 			// INFO_LOG(Log::G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
@@ -517,6 +519,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
 				updateAnalogSticks = true;
+			} else if (vkId == VIRTKEY_AXIS_SWAP_HOLD) {
+				UpdateSwapAxes();
 			}
 		}
 	}
@@ -564,9 +568,12 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 
 void ControlMapper::ToggleSwapAxes() {
 	// Note: The lock is already locked here.
-
 	swapAxes_ = !swapAxes_;
 
+	UpdateSwapAxes();
+}
+
+void ControlMapper::UpdateSwapAxes() {
 	for (auto listener : listeners_) {
 		listener->UpdatePSPButtons(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
 	}
