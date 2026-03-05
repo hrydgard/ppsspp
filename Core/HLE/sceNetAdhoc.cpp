@@ -662,6 +662,7 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 
 	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
@@ -845,6 +846,7 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 
 	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, offset_port_simple(dport), (char *)data, len, true);
 	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
@@ -938,6 +940,8 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
+		// this is not necessarily a relay failure, could simply be the other side disconnecting
+		//handle_relay_connect_failure();
 		return SOCKET_ERROR;
 	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
@@ -1041,6 +1045,8 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
+		// this is not necessarily a relay failure, could simply be the other side disconnecting
+		//handle_relay_connect_failure();
 		return SOCKET_ERROR;
 	}
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
