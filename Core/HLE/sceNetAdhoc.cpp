@@ -1177,7 +1177,6 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			handle_relay_connect_failure();
 			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
 			adhocSockets[idx]->postofficeHandle = NULL;
