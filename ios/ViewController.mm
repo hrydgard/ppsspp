@@ -47,16 +47,11 @@ PPSSPPBaseViewController *sharedViewController;
 
 @interface PPSSPPViewControllerGL () {
 	GraphicsContext *graphicsContext;
-
-	int imageRequestId;
-	NSString *imageFilename;
 }
 
 @property (nonatomic, strong) EAGLContext *glContext;
 @property (nonatomic, strong) GLKView *glView;
 @property (nonatomic, strong) CADisplayLink *displayLink;
-
-@property (nonatomic, strong) EAGLContext* context;
 
 @end
 
@@ -156,7 +151,6 @@ PPSSPPBaseViewController *sharedViewController;
 
 	[self hideKeyboard];
 
-	// Initialize the motion manager for accelerometer control.
 	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
@@ -246,15 +240,6 @@ PPSSPPBaseViewController *sharedViewController;
 	g_Config.Save("shutdown GL");
 
 	_dbg_assert_(graphicsContext);
-
-	if (self.context) {
-		if ([EAGLContext currentContext] == self.context) {
-			[EAGLContext setCurrentContext:nil];
-		}
-		self.context = nil;
-	}
-
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
 	graphicsContext->ShutdownSurface();
 	graphicsContext->ShutdownAPI();
