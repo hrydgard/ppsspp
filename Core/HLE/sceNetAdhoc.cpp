@@ -89,11 +89,16 @@ std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 bool serverHasRelay = false;
+std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
+bool trackingRelayFailure = false;
+bool relayDisabled = false;
+bool relayFirstConnect = true;
 
 int gameModeNotifyEvent = -1;
 
 #define AEMU_POSTOFFICE_PORT 27313
 #define AEMU_POSTOFFICE_ID_BASE 2048
+#define RELAY_FAILURE_DISABLE_THRESHOLD_SEC 15
 
 static const char *AdhocDataModeToString(AdhocDataMode mode) {
 	switch (mode) {
@@ -563,7 +568,38 @@ static uint16_t reverse_port_simple(uint16_t port) {
 	return port - portOffset;
 }
 
+static void handle_relay_connect_failure() {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	if (!trackingRelayFailure) {
+		trackingRelayFailure = true;
+		relayLastFailure = std::chrono::steady_clock::now();
+	}
+	int been_failing_since_sec = (std::chrono::steady_clock::now() - relayLastFailure) / std::chrono::seconds(1);
+	if (been_failing_since_sec < RELAY_FAILURE_DISABLE_THRESHOLD_SEC) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 5.0f, "relay_status");
+	} else {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server for extended period, relay disabled"), 30.0f, "relay_status");
+		relayDisabled = true;
+	}
+}
+
+static void handle_relay_connect_success() {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	if (trackingRelayFailure) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connection to relay has recovered"), 5.0f, "relay_status");
+	}
+	if (relayFirstConnect) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connected to relay"), 5.0f, "relay_status");
+		relayFirstConnect = false;
+	}
+	trackingRelayFailure = false;
+}
+
 static void *pdp_postoffice_recover(int idx) {
+	if (relayDisabled) {
+		return NULL;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
 		return internal->postofficeHandle;
@@ -582,6 +618,9 @@ static void *pdp_postoffice_recover(int idx) {
 	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
+		handle_relay_connect_failure();
+	} else {
+		handle_relay_connect_success();
 	}
 
 	INFO_LOG(Log::sceNet, "%s: pdp recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
@@ -623,6 +662,7 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 
 	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
@@ -806,6 +846,7 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 
 	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, offset_port_simple(dport), (char *)data, len, true);
 	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
@@ -885,6 +926,10 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 }
 
 static int ptp_send_postoffice(int idx, const void *data, int *len) {
+	if (relayDisabled) {
+		return SOCKET_ERROR;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 
 	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
@@ -895,6 +940,8 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
+		// this is not necessarily a relay failure, could simply be the other side disconnecting
+		//handle_relay_connect_failure();
 		return SOCKET_ERROR;
 	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
@@ -981,6 +1028,10 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 }
 
 static int ptp_recv_postoffice(int idx, void *data, int *len) {
+	if (relayDisabled) {
+		return SOCKET_ERROR;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 
 	int len_copy = *len;
@@ -994,6 +1045,8 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
+		// this is not necessarily a relay failure, could simply be the other side disconnecting
+		//handle_relay_connect_failure();
 		return SOCKET_ERROR;
 	}
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
@@ -1087,6 +1140,10 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 }
 
 static void *ptp_listen_postoffice_recover(int idx) {
+	if (relayDisabled) {
+		return NULL;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
 		return internal->postofficeHandle;
@@ -1103,6 +1160,9 @@ static void *ptp_listen_postoffice_recover(int idx) {
 
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed recovering ptp listen socket, %d", __func__, state);
+		handle_relay_connect_failure();
+	} else {
+		handle_relay_connect_success();
 	}
 
 	INFO_LOG(Log::sceNet, "%s: ptp listen recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
@@ -1123,6 +1183,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			handle_relay_connect_failure();
 			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
 			adhocSockets[idx]->postofficeHandle = NULL;
 			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
@@ -1135,7 +1196,8 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
-    // we have a new socket
+	// we have a new socket
+	handle_relay_connect_success();
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: critical: ran out of heap memory while accepting new connection", __func__);
@@ -1247,6 +1309,10 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 }
 
 static int ptp_connect_postoffice(int idx, const char *caller) {
+	if (relayDisabled) {
+		return SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 
 	struct aemu_post_office_sock_addr addr;
@@ -1273,9 +1339,13 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
+				// do not count ptp connect failure as relay failure, since it could be the other client not accepting the connection
+				//handle_relay_connect_failure();
 				internal->connectThreadDone = true;
 				return;
 			}
+			// see above, ptp connect result is not used for checking if relay is working
+			//handle_relay_connect_success();
 			internal->postofficeHandle = ptp_socket;
 			internal->connectThreadResult = 0;
 			INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postofficeHandle);
@@ -1761,10 +1831,16 @@ u32 sceNetAdhocInit() {
 			// Fetch data mode from server list
 			if (AdhocGetServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
 				serverHasRelay = true;
+				trackingRelayFailure = false;
+				relayDisabled = false;
+				relayFirstConnect = true;
 			}
 			break;
 		case AdhocServerRelayMode::AlwaysOn:
 			serverHasRelay = true;
+			trackingRelayFailure = false;
+			relayDisabled = false;
+			relayFirstConnect = true;
 			break;
 		default:
 			serverHasRelay = false;
@@ -1853,6 +1929,10 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 }
 
 static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize) {
+	if (relayDisabled) {
+		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "relay disabled");
+	}
+
 	AdhocSocket *internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "net no space");
@@ -4720,6 +4800,10 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 }
 
 static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize) {
+	if (relayDisabled) {
+		return ERROR_NET_NO_SPACE;
+	}
+
 	// server connect delegated to accept
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
