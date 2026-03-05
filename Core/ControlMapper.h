@@ -63,6 +63,7 @@ public:
 	};
 
 private:
+	void UpdateSwapAxes();
 	bool UpdatePSPState(const InputMapping &changedMapping, double now);
 	float MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched);
 	void SwapMappingIfEnabled(uint32_t *vkey);
@@ -75,6 +76,14 @@ private:
 
 	void UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp);
 	float GetDeviceAxisThreshold(int device, const InputMapping &mapping);
+
+	bool IsVirtKeyOn(VirtKey key) const {
+		int index = key - VIRTKEY_FIRST;
+		if (index < 0 || index >= VIRTKEY_COUNT) {
+			return false;
+		}
+		return virtKeyOn_[index];
+	}
 
 	// To track mappable virtual keys. We can have as many as we want.
 	float virtKeys_[VIRTKEY_COUNT]{};

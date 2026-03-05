@@ -460,7 +460,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
 	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
-	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
+	{VIRTKEY_AXIS_SWAP_HOLD, "Axis swap (hold)"},
+	{VIRTKEY_AXIS_SWAP_TOGGLE, "Axis swap (toggle)"},
 
 	{VIRTKEY_FASTFORWARD, "Fast-forward"},
 	{VIRTKEY_PAUSE, "Pause"},
