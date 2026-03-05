@@ -24,12 +24,14 @@
 #include <string>
 
 #include "Common/Net/SocketCompat.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
 
@@ -105,24 +107,47 @@ static const char *AdhocDataModeToString(AdhocDataMode mode) {
 	return "unknown";
 }
 
-const std::vector<AdhocServerListEntry> defaultProAdhocServerList = {
-	{"Socom Adhoc Server", "socom.cc", "https://discord.com/invite/XtVYDr7", "France", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"Madness Gaming Network", "psp.mgn.pub", "https://discord.com/invite/kaPScVrPes", "Alaska USA", "For players looking to play any games, has a good amount of Monster Hunter players, also provides VPN to work around connection issues as well as P2P mode", AdhocDataMode::AemuPostoffice},
-	{"EA Nation Hub", "eahub.eu", "https://discord.com/invite/fwrQHHxrQQ", "France", "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games", AdhocDataMode::AemuPostoffice},
-	{"Psi-Hate", "psi-hate.com", "https://discord.com/invite/wxeGVkM", "Minnesota USA", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"Relay Brasileiro", "jpa36a7.glddns.com", "https://discord.com/invite/gp45nhdjQJ", "São Paulo Brazil", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"ArenaAnywhere SA", "relay-sa.arenaanywhere.site", "https://discord.gg/GdsXWmNHq5", "South Africa", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"ArenaAnywhere EU", "relay.arenaanywhere.site", "https://discord.gg/GdsXWmNHq5", "Europe", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"ArenaAnywhere Dubai", "relay-dubai.arenaanywhere.site", "https://discord.gg/GdsXWmNHq5", "Dubai", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"Retroverze Relay Beta", "psp.retroverze.my.id", "https://retroverze.my.id/beta", "Unknown", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"Games Nexus", "adhoc.gamesnexus.ovh", "https://adhoc.gamesnexus.ovh", "Milan Italy", "For players looking to play any games", AdhocDataMode::AemuPostoffice},
-	{"Sony PSP & PSVita Fans", "psp.gameplayer.club", "https://psp.gameplayer.club/", "Unknown", "For players looking to play any games", AdhocDataMode::P2P},
-};
-
 // TODO download the list from somewhere and probably cache it on disk
 // should also make the url configurable and support file:/ local list besides https:// online lists
 std::mutex g_proAdhocServerListMutex;
 std::vector<AdhocServerListEntry> g_proAdhocServerList;
+
+bool ParseServerListEntriesJSON(std::string_view json, std::vector<AdhocServerListEntry> *result) {
+	using namespace json;
+
+	// Use our JSONReader to parse json into a list of AdhocServerListEntry.
+	json::JsonReader reader(json.data(), json.length());
+
+	if (!reader.ok() || !reader.root()) {
+		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		return false;
+	}
+
+	const JsonGet root = reader.root();
+
+	const JsonNode *servers = root.getArray("servers");
+
+	result->clear();
+
+	for (const JsonNode *iter : servers->value) {
+		JsonGet server = iter->value;
+		AdhocServerListEntry entry;
+		entry.name = server.getStringOr("name", "");
+		entry.discord = server.getStringOr("discord", "");
+		entry.host = server.getStringOr("host", "");
+		entry.web = server.getStringOr("web", "");
+		entry.location = server.getStringOr("location", "");
+		entry.description = server.getStringOr("description", "");
+		entry.mode = server.getStringOr("data_mode", "") == "AemuPostoffice" ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+
+		if (entry.host.empty()) {
+			// Skipping invalid entry.
+			continue;
+		}
+		result->push_back(entry);
+	}
+	return true;
+}
 
 void AdhocLoadServerList() {
 	{
@@ -139,7 +164,17 @@ void AdhocLoadServerList() {
 		// 1. Cached list in PSP/SYSTEM/CACHE
 		// 2. Online list from some url, and cache it in PSP/SYSTEM/CACHE for next time.
 		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
-		g_proAdhocServerList = defaultProAdhocServerList;
+
+		size_t jsonSize;
+		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
+		if (!jsonStr) {
+			_dbg_assert_(false);
+			// Something went wrong. This shouldn't happen.
+			return;
+		}
+
+		ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize), &g_proAdhocServerList);
+
 		System_PostUIMessage(UIMessage::ADHOC_SERVER_LIST_CHANGED);
 	});
 	thread.detach();
@@ -153,7 +188,7 @@ std::vector<AdhocServerListEntry> AdhocGetServerList() {
 static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
 	std::vector<AdhocServerListEntry> list = AdhocGetServerList();
 	for (const auto &item : list) {
-		if (equals(server, item.hostname)) {
+		if (equals(server, item.host)) {
 			INFO_LOG(Log::sceNet, "server %.*s is in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(item.mode));
 			return item.mode;
 		}

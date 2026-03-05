@@ -41,7 +41,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	std::vector<std::string> listIP;
 	for (const auto &item : listItems) {
-		listIP.push_back(item.hostname);
+		listIP.push_back(item.host);
 	}
 
 	// Add non-editable items

@@ -2851,6 +2851,7 @@ set(NativeAssets
 	assets/Inconsolata-Regular.ttf
 	assets/7z.png
 	assets/compat.ini
+	assets/adhoc-servers.json
 	assets/infra-dns.json
 	assets/gamecontrollerdb.txt
 	assets/langregion.ini
