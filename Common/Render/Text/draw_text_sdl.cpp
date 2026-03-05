@@ -431,6 +431,7 @@ void TextDrawerSDL::ClearFonts() {
 	// We wipe all the maps, including fontMap_.
 	fontMap_.clear();
 	fallbackFonts_.clear();
+	glyphFallbackFontIndex_.clear();
 }
 
 #endif
