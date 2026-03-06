@@ -1027,6 +1027,8 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
 };
 
+static const std::vector<std::string_view> emptyList;
+
 static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", SETTING(g_Config, bEnableWlan), false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
@@ -1043,7 +1045,9 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("AllowSavestateWhileConnected", SETTING(g_Config, bAllowSavestateWhileConnected), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AllowSpeedControlWhileConnected", SETTING(g_Config, bAllowSpeedControlWhileConnected), false, CfgFlag::PER_GAME),
 	ConfigSetting("DontDownloadInfraJson", SETTING(g_Config, bDontDownloadInfraJson), false, CfgFlag::DONT_SAVE),
-
+	ConfigSetting("proAdhocServerList", SETTING(g_Config, vCustomAdhocServerList), &emptyList, CfgFlag::DEFAULT),  // Customizable server list.
+	ConfigSetting("RelayAdhocServerList", SETTING(g_Config, vCustomAdhocServerListWithRelay), &emptyList, CfgFlag::DEFAULT),  // Customizable server list.
+	ConfigSetting("AdhocServerListUrl", SETTING(g_Config, sAdhocServerListUrl), "http://metadata.ppsspp.org/adhoc-servers.json", CfgFlag::DEFAULT),  // URL for the server list. Can be set to a local path too.
 	ConfigSetting("EnableNetworkChat", SETTING(g_Config, bEnableNetworkChat), false, CfgFlag::PER_GAME),
 	ConfigSetting("ChatButtonPosition", SETTING(g_Config, iChatButtonPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("ChatScreenPosition", SETTING(g_Config, iChatScreenPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
@@ -1658,7 +1662,7 @@ void Config::CheckForUpdate() {
 	if (checkThisTime) {
 		const char *versionUrl = "http://www.ppsspp.org/version.json";
 		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::RequestFlags::Default, [this](http::Request &download) { VersionJsonDownloadCompleted(download); }, "version", acceptMime);
+		g_DownloadManager.StartDownload(versionUrl, Path(), http::RequestFlags::Default, acceptMime, "version", [this](http::Request &download) { VersionJsonDownloadCompleted(download); });
 	}
 }
 

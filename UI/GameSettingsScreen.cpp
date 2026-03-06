@@ -1050,7 +1050,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("proAdhocServer Address:")));
+		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
 	});
 	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));

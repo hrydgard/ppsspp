@@ -40,38 +40,74 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 256, screenManager()));
 	parent->Add(new Spacer(5.0f));
 
+	// editValue_ has the currently selected server. On closing the dialog, we copy that to settings.
+
 	// Start with the downloaded list.
 	std::vector<AdhocServerListEntry> entries = listItems;
+	std::vector<AdhocServerListEntry> localEntries;
+	std::vector<AdhocServerListEntry> customEntries;
 
 	// Add localhost and local IPs, since those are common ones to connect to.
 	{
 		AdhocServerListEntry localhostEntry;
 		localhostEntry.name = "localhost";
 		localhostEntry.host = "localhost";
-		entries.push_back(localhostEntry);
+		localEntries.push_back(localhostEntry);
 
 		std::vector<std::string> listIP;
 		net::GetLocalIP4List(listIP);
 
-		for (const auto &item : listIP) {
-			if (startsWith(item, "127.") || startsWith(item, "169.254.") || startsWith(item, "0.")) {
+		for (const auto &ipAddress : listIP) {
+			if (startsWith(ipAddress, "127.") || startsWith(ipAddress, "169.254.") || startsWith(ipAddress, "0.")) {
 				continue;
 			}
 			AdhocServerListEntry entry;
-			entry.name = item;
-			entry.host = item;
-			entries.push_back(entry);
+			entry.name = ipAddress;
+			entry.host = ipAddress;
+			localEntries.push_back(entry);
 		}
+	}
+
+	auto hostInEntries = [entries](const std::string &host) {
+		for (const auto &entry : entries) {
+			if (entry.host == host) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	for (const auto &host : g_Config.vCustomAdhocServerListWithRelay) {
+		// If the host is already in the public list, skip it. We don't want duplicates.
+		if (hostInEntries(host)) {
+			continue;
+		}
+		AdhocServerListEntry entry;
+		entry.name = host;
+		entry.host = host;
+		entry.mode = AdhocDataMode::AemuPostoffice;
+		customEntries.push_back(entry);
+	}
+
+	for (const auto &host : g_Config.vCustomAdhocServerList) {
+		// If the host is already in the public list, skip it. We don't want duplicates.
+		if (hostInEntries(host)) {
+			continue;
+		}
+		AdhocServerListEntry entry;
+		entry.name = host;
+		entry.host = host;
+		entry.mode = AdhocDataMode::P2P;
+		customEntries.push_back(entry);
 	}
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	LinearLayout *innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	innerView->SetSpacing(5.0f);
 
-	// TODO: Fancier UI.
-	for (const auto &entry : entries) {
+	auto AddButtonFromEntry = [this](UI::ViewGroup *parent, const AdhocServerListEntry &entry) {
 		// Filter out IP prefixed with "127." and "169.254." also "0." since they can be redundant or unusable
-		auto button = innerView->Add(new Button(entry.host, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		auto button = parent->Add(new Button(entry.host, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		button->OnClick.Add([this](UI::EventParams &e) {
 			std::string value = e.v->Tag();
 			if (!value.empty()) {
@@ -81,6 +117,23 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			}
 		});
 		button->SetTag(entry.host);
+	};
+
+	if (!customEntries.empty()) {
+		CollapsibleSection *customSection = innerView->Add(new CollapsibleSection(n->T("Custom server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		for (const auto &entry : customEntries) {
+			AddButtonFromEntry(customSection, entry);
+		}
+	}
+
+	CollapsibleSection *publicSection = innerView->Add(new CollapsibleSection(n->T("Public server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	for (const auto &entry : entries) {
+		AddButtonFromEntry(publicSection, entry);
+	}
+
+	CollapsibleSection *localSection = innerView->Add(new CollapsibleSection(n->T("Local network addresses"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	for (const auto &entry : localEntries) {
+		AddButtonFromEntry(localSection, entry);
 	}
 
 	scrollView->Add(innerView);
