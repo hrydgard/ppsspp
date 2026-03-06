@@ -126,7 +126,7 @@ bool ParseServerListEntriesJSON(std::string_view json) {
 	json::JsonReader reader(json.data(), json.length());
 
 	if (!reader.ok() || !reader.root()) {
-		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		ERROR_LOG(Log::IO, "Error parsing adhoc server list JSON");
 		return false;
 	}
 
@@ -162,6 +162,19 @@ bool ParseServerListEntriesJSON(std::string_view json) {
 	return true;
 }
 
+static void LoadFallbackServerList() {
+	// Fall back to the asset file. Don't bother doing it on a thread.
+	size_t jsonSize;
+	std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
+	if (!jsonStr) {
+		ERROR_LOG(Log::sceNet, "Failed to load adhoc server list from assets! Something is badly wrong.");
+		_dbg_assert_(false);
+		// Something went wrong. This shouldn't happen.
+		return;
+	}
+	ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+}
+
 void AdhocLoadServerList() {
 	{
 		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
@@ -177,17 +190,8 @@ void AdhocLoadServerList() {
 		// Download the list.
 		g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
 			if (request.Failed()) {
-				INFO_LOG(Log::sceNet, "Failed to download adhoc server list from %s, falling back.", url.c_str());
-
-				// Fall back to the asset. Don't bother doing it on a thread.
-				size_t jsonSize;
-				std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
-				if (!jsonStr) {
-					_dbg_assert_(false);
-					// Something went wrong. This shouldn't happen.
-					return;
-				}
-				ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+				ERROR_LOG(Log::sceNet, "Failed to download adhoc server list from %s, falling back.", url.c_str());
+				LoadFallbackServerList();
 				return;
 			}
 
@@ -200,17 +204,15 @@ void AdhocLoadServerList() {
 	} else if (!g_Config.sAdhocServerListUrl.empty()) {
 		// Try to read local file.
 		std::string json;
-		File::ReadTextFileToString(Path(g_Config.sAdhocServerListUrl), &json);
-		ParseServerListEntriesJSON(std::string_view(json.data(), json.size()));
-	} else {
-		size_t jsonSize;
-		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
-		if (!jsonStr) {
-			_dbg_assert_(false);
-			// Something went wrong. This shouldn't happen.
+		Path path(g_Config.sAdhocServerListUrl);
+		if (!File::ReadTextFileToString(path, &json)) {
+			ERROR_LOG(Log::sceNet, "Failed to load list from %s, falling back.", path.ToVisualString().c_str());
+			LoadFallbackServerList();
 			return;
 		}
-		ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+		ParseServerListEntriesJSON(std::string_view(json.data(), json.size()));
+	} else {
+		LoadFallbackServerList();
 	}
 }
 

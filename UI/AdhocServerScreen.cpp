@@ -68,25 +68,37 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	}
 
-	{
-		for (const auto &host : g_Config.vCustomAdhocServerList) {
-			// If the host is already in the public list, skip it. We don't want duplicates.
-			bool found = false;
-			for (const auto &entry : entries) {
-				if (entry.host == host) {
-					found = true;
-					break;
-				}
+	auto hostInEntries = [entries](const std::string &host) {
+		for (const auto &entry : entries) {
+			if (entry.host == host) {
+				return true;
 			}
-			if (found) {
-				continue;
-			}
-
-			AdhocServerListEntry entry;
-			entry.name = host;
-			entry.host = host;
-			customEntries.push_back(entry);
 		}
+		return false;
+	};
+
+	for (const auto &host : g_Config.vCustomAdhocServerListWithRelay) {
+		// If the host is already in the public list, skip it. We don't want duplicates.
+		if (hostInEntries(host)) {
+			continue;
+		}
+		AdhocServerListEntry entry;
+		entry.name = host;
+		entry.host = host;
+		entry.mode = AdhocDataMode::AemuPostoffice;
+		customEntries.push_back(entry);
+	}
+
+	for (const auto &host : g_Config.vCustomAdhocServerList) {
+		// If the host is already in the public list, skip it. We don't want duplicates.
+		if (hostInEntries(host)) {
+			continue;
+		}
+		AdhocServerListEntry entry;
+		entry.name = host;
+		entry.host = host;
+		entry.mode = AdhocDataMode::P2P;
+		customEntries.push_back(entry);
 	}
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
