@@ -23,6 +23,7 @@
 | [`dolphin-lnk`](https://github.com/EmuLnk/dolphin-lnk) | Dolphin fork with UDP protocol |
 | **`ppsspp-lnk`** | **PPSSPP fork with UDP protocol** |
 | [`melonds-lnk`](https://github.com/EmuLnk/melonDS-lnk) | melonDS fork with UDP protocol |
+| [`azahar-lnk`](https://github.com/EmuLnk/azahar-lnk) | Azahar fork with UDP protocol |
 
 ---
 
