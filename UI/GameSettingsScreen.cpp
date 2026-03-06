@@ -872,7 +872,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	}
 
-	controlsSettings->Add(new ItemHeader(co->T("Analog to digital input mapping")));
+	controlsSettings->Add(new ItemHeader(co->T("Analog to digital mapping")));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogStickThreshold, 0.2f, 0.98f, 0.75f, co->T("Analog stick threshold"), screenManager()));
 

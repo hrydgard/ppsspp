@@ -388,6 +388,10 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>
     </None>
+    <None Include="..\Assets\adhoc-servers.json">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </None>
     <None Include="..\Assets\knownfuncs.ini">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>

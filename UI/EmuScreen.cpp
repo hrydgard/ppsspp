@@ -874,7 +874,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		}
 		break;
 
-	case VIRTKEY_AXIS_SWAP:
+	case VIRTKEY_AXIS_SWAP_TOGGLE:
 		g_controlMapper.ToggleSwapAxes();
 		g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
 		break;

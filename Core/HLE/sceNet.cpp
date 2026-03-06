@@ -409,7 +409,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
 		if (!jsonStr) {
 			jsonOutput->clear();
-			return true;  // A clear output but returning true means something vent very wrong.
+			return true;  // A clear output but returning true means something went very wrong.
 		}
 		*jsonOutput = std::string((const char *)jsonStr.get(), jsonSize);
 		// In case there's an old request, get rid of it.
