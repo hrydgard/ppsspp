@@ -1098,7 +1098,7 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 
 	// Add the two gesture zones.
 	for (int i = 0; i < 2; i++) {
-		if (g_Config.gestureControls[i].bGestureControlEnabled) {
+		if (g_Config.gestureControls[i].bGestureControlEnabled || g_Config.gestureControls[i].bAnalogGesture) {
 			// We have them both cover the whole surface, then limit in the touch handler.
 			// This is because there's no easy way to do "half the screen" in AnchorLayout.
 			// We can do more complex layout combinations, but meh.
@@ -1236,6 +1236,14 @@ void GestureGamepad::Update() {
 	const float th = 1.0f;
 	float dx = deltaX_ * g_display.dpi_scale_x * GetZone().fSwipeSensitivity;
 	float dy = deltaY_ * g_display.dpi_scale_y * GetZone().fSwipeSensitivity;
+	const float smoothing = GetZone().fSwipeSmoothing;
+	deltaX_ *= smoothing;
+	deltaY_ *= smoothing;
+
+	if (!GetZone().bGestureControlEnabled) {
+		return;
+	}
+
 	if (GetZone().iSwipeRight != 0) {
 		if (dx > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight - 1], KeyInputFlags::DOWN);
@@ -1272,7 +1280,4 @@ void GestureGamepad::Update() {
 			swipeDownReleased_ = true;
 		}
 	}
-	const float smoothing = GetZone().fSwipeSmoothing;
-	deltaX_ *= smoothing;
-	deltaY_ *= smoothing;
 }

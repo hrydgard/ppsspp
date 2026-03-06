@@ -36,6 +36,8 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -333,9 +335,16 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		break;
 	}
 
+	// Need to close before trying to delete.
+	z.close();
+
 	// Common functionality.
 	if (task.deleteAfter && success) {
-		File::Delete(task.fileName);
+		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+			System_MoveToTrash(task.fileName);
+		} else {
+			File::Delete(task.fileName);
+		}
 	}
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
 	installProgress_ = 1.0f;

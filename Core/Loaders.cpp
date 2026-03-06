@@ -487,7 +487,8 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		zip_stat_index(z, i, 0, &stat);
 		totalFileSize += stat.size;
 
-		std::string zippedName = fn;
+		std::string fileName(fn);
+		std::string zippedName = fileName;  // actually, lowercase-name
 		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
 			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
 		// Ignore macos metadata stuff
@@ -518,7 +519,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
 				} else {
 					info->isoFileIndex = i;
-					info->contentName = zippedName;
+					info->contentName = fn;
 				}
 			}
 		} else if (zippedName.find("textures.ini") != std::string::npos) {
@@ -531,7 +532,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		} else if (endsWith(zippedName, ".ppdmp")) {
 			isFrameDump = true;
 			info->isoFileIndex = i;
-			info->contentName = zippedName;
+			info->contentName = fn;
 		} else if (endsWith(zippedName, ".ppst")) {
 			int slashLocation = (int)zippedName.find_last_of('/');
 			if (stripChars == 0 || slashLocation < stripChars + 1) {
@@ -564,7 +565,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		} else if (endsWith(zippedName, "/plugin.ini") && slashCount == 1) {
 			hasPluginIni = true;
 			ZipExtractFileToMemory(z, i, &info->iniContents);
-			info->contentName = zippedName.substr(0, zippedName.find_last_of('/'));
+			info->contentName = fileName.substr(0, fileName.find_last_of('/'));
 		} else if (endsWith(zippedName, ".prx") && slashCount == 1) {
 			hasPRX = true;
 		}
