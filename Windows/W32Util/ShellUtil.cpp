@@ -114,40 +114,30 @@ std::string BrowseForFolder2(HWND parent, std::string_view title, std::string_vi
 }
 
 	bool BrowseForFileName(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
-		const wchar_t *_pInitialFolder, const wchar_t *_pFilter, const wchar_t *_pExtension,
+		const wchar_t *_pInitialFolder, const wchar_t *initialFilename, const wchar_t *_pFilter, const wchar_t *_pExtension,
 		std::string &_strFileName) {
 		// Let's hope this is large enough, don't want to trigger the dialog twice...
-		std::wstring filenameBuffer(32768 * 10, '\0');
+		wchar_t fileBuffer[2048]{};
+		wchar_t fileNameBuffer[2048]{};
+
+		if (initialFilename) {
+			wcscpy_s(fileBuffer, initialFilename);
+		}
 
 		OPENFILENAME ofn{ sizeof(OPENFILENAME) };
-
-		auto resetFileBuffer = [&] {
-			ofn.nMaxFile = (DWORD)filenameBuffer.size();
-			ofn.lpstrFile = &filenameBuffer[0];
-			if (!_strFileName.empty())
-				wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), filenameBuffer.size() - 1);
-		};
-
-		resetFileBuffer();
 		ofn.lpstrInitialDir = _pInitialFolder;
 		ofn.lpstrFilter = _pFilter;
-		ofn.lpstrFileTitle = nullptr;
-		ofn.nMaxFileTitle = 0;
+		ofn.lpstrFileTitle = fileNameBuffer;
+		ofn.nMaxFileTitle = ARRAY_SIZE(fileNameBuffer);
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
+		ofn.lpstrFile = fileBuffer;
+		ofn.nMaxFile = ARRAY_SIZE(fileBuffer);
 		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER;
 		if (!_bLoad)
 			ofn.Flags |= OFN_HIDEREADONLY;
 
 		int success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
-		if (success == 0 && CommDlgExtendedError() == FNERR_BUFFERTOOSMALL) {
-			size_t sz = *(unsigned short *)&filenameBuffer[0];
-			// Documentation is unclear if this is WCHARs to CHARs.
-			filenameBuffer.resize(filenameBuffer.size() + sz * 2);
-			resetFileBuffer();
-			success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
-		}
-
 		if (success) {
 			_strFileName = ConvertWStringToUTF8(ofn.lpstrFile);
 			return true;
