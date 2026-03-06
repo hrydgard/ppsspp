@@ -178,4 +178,3 @@ void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdat
 void System_MoveToTrash(const Path &path) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::MOVE_TO_TRASH, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), "", 0);
 }
-

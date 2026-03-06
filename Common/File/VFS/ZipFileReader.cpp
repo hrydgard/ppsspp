@@ -45,10 +45,8 @@ void ZipContainer::close() noexcept {
 		zip_close(zip_);
 		zip_ = nullptr;
 	}
-	if (sourceData_ != nullptr) {
-		delete sourceData_;
-		sourceData_ = nullptr;
-	}
+	delete sourceData_;
+	sourceData_ = nullptr;
 }
 
 ZipContainer::operator zip_t *() const noexcept {
