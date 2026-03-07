@@ -111,6 +111,15 @@
 			"location": "Unknown",
 			"description": "For players looking to play any games",
 			"data_mode": "P2P"
+		},
+		{
+		    "name": "CVN-Play",
+		    "host": "cvn-play.top",
+		    "discord": "",
+		    "web": "https://game.cvn-play.top/emu",
+		    "location": "China",
+		    "description": "For players looking to play any games",
+		    "data_mode": "AemuPostoffice"
 		}
 	]
 }
