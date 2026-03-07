@@ -12,6 +12,7 @@
 #include "libretro/LibretroVulkanContext.h"
 #include <libretro_vulkan.h>
 #include <GPU/Vulkan/VulkanRenderManager.h>
+#include "ext/glslang/OGLCompilersDLL/InitializeDll.h"
 
 #undef fflush
 
@@ -169,6 +170,7 @@ void LibretroVulkanContext::Shutdown() {
    vk = nullptr;
 
    finalize_glslang();
+   glslang::DetachProcess();
    vk_libretro_shutdown();
 }
 
