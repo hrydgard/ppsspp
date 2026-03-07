@@ -155,9 +155,7 @@
 #include <mach-o/dyld.h>
 #endif
 
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "UI/DarwinFileSystemServices.h"
-#endif
+#include "Core/Util/DarwinFileSystemServices.h"
 
 #if !defined(__LIBRETRO__)
 #include "Core/Util/GameDB.h"
@@ -930,6 +928,10 @@ void NativeShutdownGraphics() {
 		delete winMic;
 		winMic = nullptr;
 	}
+#endif
+
+#if PPSSPP_PLATFORM(IOS)
+	DarwinFileSystemServices::terminate();
 #endif
 
 	if (g_audioBackend) {

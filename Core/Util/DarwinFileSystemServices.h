@@ -11,6 +11,8 @@
 #include "Common/File/Path.h"
 #include "Common/System/Request.h"
 
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+
 #define PreferredMemoryStickUserDefaultsKey "UserPreferredMemoryStickDirectoryPath"
 
 typedef std::function<void (bool, Path)> DarwinDirectoryPanelCallback;
@@ -29,8 +31,11 @@ public:
 	static Path appropriateMemoryStickDirectoryToUse();
 	static void setUserPreferredMemoryStickDirectory(Path);
 	static Path defaultMemoryStickPath();
-
 	static void ClearDelegate();
+
+	static Path reauthorizeBookmarkByPath(const Path &pathStr);
+	static void stopAccessingPath(const Path &pathStr);
+	static void terminate();
 private:
 #if PPSSPP_PLATFORM(IOS)
 	// iOS only, needed for UIDocumentPickerViewController
@@ -39,3 +44,5 @@ private:
 };
 
 void RestartMacApp();
+
+#endif

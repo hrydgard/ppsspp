@@ -76,7 +76,7 @@ SDLJoystick *joystick = NULL;
 #endif
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #endif
 
 #if PPSSPP_PLATFORM(MAC)
