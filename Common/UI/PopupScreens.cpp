@@ -24,6 +24,9 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 	if (button1 == di->T("Delete") || button1 == di->T("Move to trash")) {
 		button1Image_ = ImageID("I_TRASHCAN");
 	}
+	if (button1 == di->T("Back")) {
+		button1Image_ = ImageID("I_NAVIGATE_BACK");
+	}
 
 	alpha_ = 0.0f;  // inherited
 	ignoreInsets_ = true;  // for layout purposes.
