@@ -73,7 +73,7 @@ private:
 
 	enum class AudioFormat {
 		Float,
-		S16,
+		PCM16,
 		Unhandled,
 	};
 	static AudioFormat Classify(const WAVEFORMATEX *format);

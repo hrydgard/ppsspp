@@ -1090,7 +1090,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 			matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-texelOffset % (int)entry.bufw);
 		}
 
-		if (matchInfo->yOffset >= 512) {
+		if (matchInfo->yOffset >= 512 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
 			// Reject unreasonably large y offsets. 512 is the largest texture size.
 			return false;
 		}
