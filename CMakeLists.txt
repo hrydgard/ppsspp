@@ -1386,8 +1386,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
-		UI/DarwinFileSystemServices.mm
-		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
 	)
 
@@ -1412,7 +1410,7 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/AudioEngine.mm
 		ios/LocationHelper.mm
 		ios/Controls.mm
-		UI/DarwinFileSystemServices.mm
+		Core/Util/DarwinFileSystemServices.mm
 		Common/Battery/AppleBatteryClient.m
 		Common/Render/Text/draw_text_cocoa.mm
 		PROPERTIES COMPILE_FLAGS -fobjc-arc)
@@ -1435,11 +1433,8 @@ elseif(USING_QT_UI)
 	endif()
 	if(APPLE)
 		list(APPEND NativeAppSource
-			UI/DarwinFileSystemServices.mm
-			UI/DarwinFileSystemServices.h
 			Common/Battery/AppleBatteryClient.m)
 		set_source_files_properties(Common/Battery/AppleBatteryClient.m
-			UI/DarwinFileSystemServices.mm
 			Common/Render/Text/draw_text_cocoa.mm
 			PROPERTIES COMPILE_FLAGS -fobjc-arc)
 		list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
@@ -1509,8 +1504,6 @@ else()
 		SDL/PPSSPPAboutViewController.m
 		SDL/PPSSPPAboutViewController.h
 		SDL/MacCameraHelper.mm
-		UI/DarwinFileSystemServices.mm
-		UI/DarwinFileSystemServices.h
 		Common/Battery/AppleBatteryClient.m
 		UI/PSPNSApplicationDelegate.mm
 		UI/PSPNSApplicationDelegate.h)
@@ -1518,7 +1511,7 @@ else()
 		# TODO
 		# set_source_files_properties(SDL/SDLMain.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
-		set_source_files_properties(UI/DarwinFileSystemServices.mm
+		set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
 			UI/PSPNSApplicationDelegate.mm
 			SDL/CocoaMetalLayer.mm
 			SDL/CocoaBarItems.mm
@@ -2090,6 +2083,12 @@ if(LINUX OR ANDROID OR MACOSX OR IOS)
 	)
 endif()
 
+if(MACOSX OR IOS)
+	list(APPEND CoreExtra
+		Core/Util/DarwinFileSystemServices.mm
+		Core/Util/DarwinFileSystemServices.h)
+endif()
+
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
@@ -2530,6 +2529,11 @@ add_library(${CoreLibName} ${CoreLinkType}
 	ext/loongarch-disasm.h
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
+
+if(MACOSX OR IOS)
+	set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
+		PROPERTIES COMPILE_FLAGS -fobjc-arc)
+endif()
 
 if(LIBRETRO)
 	target_include_directories(${CoreLibName} PRIVATE libretro/libretro-common/include)

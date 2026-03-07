@@ -11,6 +11,8 @@
 #include "Common/File/Path.h"
 #include "Common/System/Request.h"
 
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+
 #define PreferredMemoryStickUserDefaultsKey "UserPreferredMemoryStickDirectoryPath"
 
 typedef std::function<void (bool, Path)> DarwinDirectoryPanelCallback;
@@ -39,3 +41,5 @@ private:
 };
 
 void RestartMacApp();
+
+#endif

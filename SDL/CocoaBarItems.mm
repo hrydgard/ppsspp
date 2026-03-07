@@ -8,7 +8,7 @@
 #import <Cocoa/Cocoa.h>
 #import "PPSSPPAboutViewController.h"
 
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "UI/PSPNSApplicationDelegate.h"
 
 #include "Core/Debugger/SymbolMap.h"

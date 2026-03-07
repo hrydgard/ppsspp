@@ -82,7 +82,7 @@
 #include "GPU/GPU.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #endif
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)

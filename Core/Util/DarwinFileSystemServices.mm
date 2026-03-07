@@ -12,7 +12,6 @@
 // /var/mobile/Containers/Data/Application/<UUID>/Documents
 // The /private prefix seems to be optional, so we strip it off before returning it.
 
-
 #include <dispatch/dispatch.h>
 #include <CoreServices/CoreServices.h>
 

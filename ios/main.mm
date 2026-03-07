@@ -40,7 +40,7 @@
 #include "Core/Config.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 
 // Compile out all the hackery in app store builds.
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)

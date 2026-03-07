@@ -68,10 +68,7 @@
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Common/Data/Text/I18n.h"
-
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "UI/DarwinFileSystemServices.h" // For the browser
-#endif
+#include "Core/Util/DarwinFileSystemServices.h" // For the browser
 
 #include "Core/HLE/sceUmd.h"
 
