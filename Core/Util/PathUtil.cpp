@@ -155,6 +155,10 @@ bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
 	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
+	if (startsWith(pathStr, "/private/var/mobile/Containers/Data/Application/")) {
+		// For in-application files only, strip off the /private prefix if present - it's sometimes there, sometimes not.
+		pathStr = pathStr.substr(8);
+	}
 
 	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";
 	if (startsWith(pathStr, applicationRoot)) {

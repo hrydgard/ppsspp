@@ -54,16 +54,23 @@ void DarwinFileSystemServices::ClearDelegate() {
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
-	std::string pathStr = urls[0].path.UTF8String;
-	// Strip /private prefix if present.
-	if (startsWith(pathStr, "/private/var/mobile/Containers/Data/Application/")) {
-		pathStr = pathStr.substr(8);
+	NSURL *url = urls.firstObject;
+	if (!url) {
+		self.panelCallback(false, Path());
+		return;
 	}
 
-	if (urls.count >= 1)
-		self.panelCallback(true, Path(pathStr));
-	else
+	// 1. Start accessing the resource
+	BOOL success = [url startAccessingSecurityScopedResource];
+	if (success) {
+		// 2. Pass the path to PPSSPP
+		// Note: In a real app, you'd want to call stopAccessingSecurityScopedResource
+		// when the game is closed, otherwise you "leak" kernel permissions.
+		self.panelCallback(true, Path(url.path.UTF8String));
+	} else {
+		ERROR_LOG(Log::System, "Failed to start accessing security scoped resource for: %s", url.path.UTF8String);
 		self.panelCallback(false, Path());
+	}
 
 	INFO_LOG(Log::System, "Callback processed, pre-emptively hide keyboard");
 	[sharedViewController hideKeyboard];

@@ -686,7 +686,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::thread([=] {
 			SetCurrentThreadName("BrowseForImage");
 			std::string out;
-			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, nullptr,
 				FinalizeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
@@ -699,16 +699,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		const BrowseFileType browseType = (BrowseFileType)param3;
 		std::wstring filter = MakeWindowsFilter(browseType);
-		std::wstring initialFilename = ConvertUTF8ToWString(param2);  // TODO: Plumb through
+		std::string initialFilename = param2;
 		if (filter.empty()) {
 			// Unsupported.
 			return false;
 		}
 		const bool load = type == SystemRequestType::BROWSE_FOR_FILE;
-		std::thread([=] {
+		std::thread([load, param1, initialFilename, filter, requestId] {
 			SetCurrentThreadName("BrowseForFile");
-			std::string out;
-			if (W32Util::BrowseForFileName(load, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
+			std::string out = initialFilename;
+			std::wstring wInitial = ConvertUTF8ToWString(initialFilename);
+			if (W32Util::BrowseForFileName(load, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, wInitial.c_str(), filter.c_str(), L"", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);

@@ -112,9 +112,6 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, MIPSDebugInterface *_cpu) 
 
 	// init status bar
 	statusBarWnd = CreateWindowEx(0, STATUSCLASSNAME, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, m_hDlg, (HMENU)IDC_DISASMSTATUSBAR, _hInstance, NULL);
-	if (g_Config.bDisplayStatusBar == false) {
-		ShowWindow(statusBarWnd,SW_HIDE);
-	}
 
 	// set it to use two parts
 	RECT statusBarRect;
@@ -614,12 +611,8 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND bottomTabs = GetDlgItem(m_hDlg, IDC_DEBUG_BOTTOMTABS);
 
 	// ignore the status bar
-	int topHeightOffset = 0;
-	if (g_Config.bDisplayStatusBar)
-	{
-		GetWindowRect(statusBarWnd,&windowRect);
-		topHeightOffset = (windowRect.bottom-windowRect.top);
-	}
+	GetWindowRect(statusBarWnd, &windowRect);
+	int topHeightOffset = (windowRect.bottom - windowRect.top);
 	
 	CtrlDisAsmView *ptr = DisAsmView();
 	int disassemblyRowHeight = ptr->getRowHeight();

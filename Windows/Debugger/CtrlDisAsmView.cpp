@@ -1315,7 +1315,7 @@ void CtrlDisAsmView::disassembleToFile() {
 	}
 
 	std::string filename;
-	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
+	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
 		std::wstring fileName = ConvertUTF8ToWString(filename);
 		FILE *output = _wfopen(fileName.c_str(), L"wb");
 		if (output == nullptr) {

@@ -996,11 +996,8 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         }
     }
 
-    println!("Langtool processing reference {reference_ini_filename}");
-
-    if !dry_run {
-        reference_ini.write().unwrap();
-    }
+    // Don't need to additionally process reference here like we did before, this is done
+    // in the main loop.
 }
 
 fn generate_ai_response(
