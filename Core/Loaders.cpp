@@ -30,6 +30,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
 #include "Core/Loaders.h"
@@ -57,6 +58,15 @@ FileLoader *ConstructFileLoader(const Path &filename) {
 		}
 		return new CachingFileLoader(baseLoader);
 	}
+	#if PPSSPP_PLATFORM(IOS)
+	if (!File::Exists(filename)) {
+		// Try to "unlock" the path before the file loader hits it
+		Path newFilename = DarwinFileSystemServices::reauthorizeBookmarkByPath(filename);
+		if (!newFilename.empty()) {
+			return new LocalFileLoader(newFilename);
+		}
+	}
+	#endif
 	return new LocalFileLoader(filename);
 }
 

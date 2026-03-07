@@ -930,6 +930,10 @@ void NativeShutdownGraphics() {
 	}
 #endif
 
+#if PPSSPP_PLATFORM(IOS)
+	DarwinFileSystemServices::terminate();
+#endif
+
 	if (g_audioBackend) {
 		delete g_audioBackend;
 		g_audioBackend = nullptr;

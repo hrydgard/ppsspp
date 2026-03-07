@@ -1455,11 +1455,11 @@ void MainScreen::CreateViews() {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		Button *fullscreenButton = logo->Add(new Button("", ImageID(), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
 		fullscreenButton->SetIgnoreText(true);
-		fullscreenButton->OnClick.Add([this](UI::EventParams &e) {
+		fullscreenButton->OnClick.Add([](UI::EventParams &e) {
 			g_Config.bFullScreen = !g_Config.bFullScreen;
 			System_ApplyFullscreenState();
 		});
-		fullscreenButton->SetImageIDFunc([this]() {
+		fullscreenButton->SetImageIDFunc([]() {
 			return g_Config.bFullScreen ? ImageID("I_RESTORE") : ImageID("I_FULLSCREEN");
 		});
 #endif

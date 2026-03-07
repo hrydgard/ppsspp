@@ -6,6 +6,7 @@
 #include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/Config.h"
 #include "Common/VR/PPSSPPVR.h"
 
@@ -169,14 +170,24 @@ bool TryUpdateSavedPath(Path *path) {
 		std::string memstick = g_Config.memStickDirectory.ToString();
 		size_t memstickDocumentsPos = memstick.find("/Documents");  // Note: No trailing slash, or we won't find it.
 		*path = Path(memstick.substr(0, memstickDocumentsPos) + pathStr.substr(documentsPos));
-		return true;
-	} else {
-		// Path can't be auto-updated.
-		return false;
 	}
-#else
-	return false;
+
+	if (File::Exists(*path)) {
+		return true;
+	}
+
+	// Still doesn't exist? Maybe got de-authorized
+	// Try to "unlock" the path before the file loader hits it
+	Path newFilename = DarwinFileSystemServices::reauthorizeBookmarkByPath(*path);
+	if (!newFilename.empty()) {
+		INFO_LOG(Log::UI, "Bookmark rename: %s -> %s", path->c_str(), newFilename.c_str());
+		*path = newFilename;
+		return true;
+	}
+	
+	// Path can't be auto-updated.
 #endif
+	return false;
 }
 
 Path GetFailedBackendsDir() {

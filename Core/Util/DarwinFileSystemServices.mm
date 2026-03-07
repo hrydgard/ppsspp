@@ -14,6 +14,7 @@
 
 #include <dispatch/dispatch.h>
 #include <CoreServices/CoreServices.h>
+#include <map>
 
 #include "ppsspp_config.h"
 
@@ -36,6 +37,8 @@
 @property DarwinDirectoryPanelCallback panelCallback;
 @end
 
+static std::map<std::string, void*> activeAccessTokens;
+
 void *DarwinFileSystemServices::__pickerDelegate = nullptr;
 
 void DarwinFileSystemServices::ClearDelegate() {
@@ -52,12 +55,16 @@ void DarwinFileSystemServices::ClearDelegate() {
 	return self;
 }
 
+static void addBookmark(NSURL *url);
+
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 	NSURL *url = urls.firstObject;
 	if (!url) {
 		self.panelCallback(false, Path());
 		return;
 	}
+
+	addBookmark(url);
 
 	// 1. Start accessing the resource
 	BOOL success = [url startAccessingSecurityScopedResource];
@@ -82,8 +89,135 @@ void DarwinFileSystemServices::ClearDelegate() {
 	INFO_LOG(Log::System, "Picker cancelled, pre-emptively hide keyboard");
 	[sharedViewController hideKeyboard];
 }
-
 @end
+
+// Internal helper to generate and store a bookmark for a given URL.
+// Also activates the security scope for the current session.
+static void addBookmark(NSURL *url) {
+	if (!url) return;
+
+	// IMPORTANT: You must start accessing BEFORE creating the bookmark,
+	// otherwise the OS denies the 'read' required to seal the bookmark.
+	BOOL accessStarted = [url startAccessingSecurityScopedResource];
+
+	INFO_LOG(Log::System, "Darwin: Creating bookmark (Access: %s) for: %s",
+			 accessStarted ? "YES" : "NO", url.path.UTF8String);
+
+	NSError *error = nil;
+	#if PPSSPP_PLATFORM(IOS)
+		NSURLBookmarkCreationOptions options = 0;
+	#else
+		NSURLBookmarkCreationOptions options = NSURLBookmarkCreationWithSecurityScope;
+	#endif
+
+	NSData *bookmark = [url bookmarkDataWithOptions:options
+					  includingResourceValuesForKeys:nil
+									   relativeToURL:nil
+											   error:&error];
+
+	if (bookmark) {
+		NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+		NSMutableDictionary *dict = [[defaults dictionaryForKey:@"SecureBookmarks"] mutableCopy] ?: [NSMutableDictionary dictionary];
+
+		[dict setObject:bookmark forKey:url.path];
+		[defaults setObject:dict forKey:@"SecureBookmarks"];
+		[defaults synchronize];
+
+		// If we started access specifically for this function, we keep the token.
+		// If we didn't have it in our map yet, store this URL.
+		std::string pathKey = url.path.UTF8String;
+		if (accessStarted && activeAccessTokens.find(pathKey) == activeAccessTokens.end()) {
+			activeAccessTokens[pathKey] = (void *)CFBridgingRetain(url);
+		} else if (accessStarted) {
+			// If it's already in the map, we don't need a second retain.
+			[url stopAccessingSecurityScopedResource];
+		}
+	} else {
+		ERROR_LOG(Log::System, "Darwin: Bookmark failed. Error 260 often means the file isn't 'coordinated' yet. Detail: %s",
+				  error.localizedDescription.UTF8String);
+
+		if (accessStarted) [url stopAccessingSecurityScopedResource];
+	}
+}
+Path DarwinFileSystemServices::reauthorizeBookmarkByPath(const Path &pathStr) {
+    INFO_LOG(Log::System, "Darwin: Reauthorizing [%s]", pathStr.c_str());
+
+    // 1. Return immediately if already active
+    if (activeAccessTokens.count(pathStr.ToString())) {
+        return pathStr;
+    }
+
+    // 2. Retrieve bookmark from disk
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDictionary *dict = [defaults dictionaryForKey:@"SecureBookmarks"];
+    NSData *bookmarkData = dict[@(pathStr.c_str())];
+
+    if (!bookmarkData) {
+        WARN_LOG(Log::System, "Darwin: No bookmark data found for path (%s)", pathStr.c_str());
+        return Path();
+    }
+
+    // 3. Resolve
+    BOOL isStale = NO;
+    NSError *error = nil;
+#if PPSSPP_PLATFORM(IOS)
+    NSURLBookmarkResolutionOptions resOptions = 0;
+#else
+    NSURLBookmarkResolutionOptions resOptions = NSURLBookmarkResolutionWithSecurityScope;
+#endif
+
+    NSURL *url = [NSURL URLByResolvingBookmarkData:bookmarkData
+                                           options:resOptions
+                                     relativeToURL:nil
+                               bookmarkDataIsStale:&isStale
+                                             error:&error];
+
+    if (url && [url startAccessingSecurityScopedResource]) {
+        Path resolvedPath(url.path.UTF8String);
+
+        // 4. Handle stale/moved files
+        if (isStale || resolvedPath != pathStr) {
+            INFO_LOG(Log::System, "Darwin: File moved! Updating [%s] -> [%s]", pathStr.c_str(), resolvedPath.c_str());
+
+            // Clean up the old key from defaults
+            NSMutableDictionary *mutableDict = [dict mutableCopy];
+            [mutableDict removeObjectForKey:@(pathStr.c_str())];
+            [defaults setObject:mutableDict forKey:@"SecureBookmarks"];
+
+            // Re-save under the new path
+            addBookmark(url);
+        } else {
+            // Path is the same, just cache the token
+            activeAccessTokens[resolvedPath.ToString()] = (void *)CFBridgingRetain(url);
+        }
+
+        return resolvedPath;
+    }
+
+    ERROR_LOG(Log::System, "Darwin: Resolution failed for %s", pathStr.c_str());
+    return Path();
+}
+
+void DarwinFileSystemServices::stopAccessingPath(const Path &pathStr) {
+    auto it = activeAccessTokens.find(pathStr.ToString());
+    if (it != activeAccessTokens.end()) {
+        INFO_LOG(Log::System, "Darwin: Stopping access for: %s", pathStr.c_str());
+
+        NSURL *url = (__bridge_transfer NSURL *)it->second;
+        [url stopAccessingSecurityScopedResource];
+
+        activeAccessTokens.erase(it);
+    }
+}
+
+void DarwinFileSystemServices::terminate() {
+    INFO_LOG(Log::System, "Darwin: Terminating all security-scoped access.");
+    for (auto const& [path, token] : activeAccessTokens) {
+        NSURL *url = (__bridge_transfer NSURL *)token;
+        [url stopAccessingSecurityScopedResource];
+    }
+    activeAccessTokens.clear();
+}
 
 #else
 #include <AppKit/AppKit.h>
