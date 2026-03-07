@@ -70,13 +70,25 @@ WASAPIContext::~WASAPIContext() {
 }
 
 WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
-	if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 16) {
-		return AudioFormat::S16;
-	} else if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+	if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		const WAVEFORMATEXTENSIBLE *ex = (const WAVEFORMATEXTENSIBLE *)format;
 		if (ex->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT) {
-			return AudioFormat::Float;
+			if (format->nChannels >= 1)
+				return AudioFormat::Float;
+		} else {
+			wchar_t guid[256]{};
+			StringFromGUID2(ex->SubFormat, guid, 256);
+			ERROR_LOG(Log::Audio, "Got unexpected WASAPI 0xFFFE stream format (%S), expected float!", guid);
+			if (ex->Format.wBitsPerSample == 16 && format->nChannels >= 1) {
+				INFO_LOG(Log::Audio, "Got a PCM16 audio output (%d channels)", format->nChannels);
+				return AudioFormat::PCM16;
+			}
 		}
+	} else if (format->wFormatTag == WAVE_FORMAT_IEEE_FLOAT && format->nChannels >= 1) {
+		return AudioFormat::Float;
+	} else if (format->wFormatTag == WAVE_FORMAT_PCM && format->wBitsPerSample == 16 && format->nChannels >= 1) {
+		INFO_LOG(Log::Audio, "Got a PCM16 audio output", format->nChannels);
+		return AudioFormat::PCM16;
 	} else {
 		WARN_LOG(Log::Audio, "Unhandled output format!");
 	}
@@ -419,7 +431,7 @@ void WASAPIContext::AudioLoop() {
 				// We decided previously that we need conversion, so mix to our temp buffer...
 				callback_(tempBuf_.get(), framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
-				if (format == AudioFormat::S16 && buffer) {
+				if (format == AudioFormat::PCM16 && buffer) {
 					// Need to convert.
 					s16 *dest = reinterpret_cast<s16 *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {
