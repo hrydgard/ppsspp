@@ -199,7 +199,9 @@ void AdhocLoadServerList() {
 
 			std::string json;
 			request.buffer().TakeAll(&json);
-			ParseServerListEntriesJSON(std::string_view(json.data(), json.size()));
+			if (!ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
+				LoadFallbackServerList();
+			}
 		});
 	} else if (!g_Config.sAdhocServerListUrl.empty()) {
 		// Try to read local file.
@@ -210,7 +212,9 @@ void AdhocLoadServerList() {
 			LoadFallbackServerList();
 			return;
 		}
-		ParseServerListEntriesJSON(std::string_view(json.data(), json.size()));
+		if (!ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
+			LoadFallbackServerList();
+		}
 	} else {
 		LoadFallbackServerList();
 	}
