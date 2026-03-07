@@ -503,6 +503,9 @@ EmuScreen::~EmuScreen() {
 		g_Discord.ClearPresence();
 	else
 		g_Discord.SetPresenceMenu();
+
+	// This makes sure that the recents list is updated, among other things.
+	g_Config.Save("exitGame");
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
