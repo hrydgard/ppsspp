@@ -213,7 +213,8 @@ void AdhocLoadServerList(bool sync) {
 			do {
 				sleep_ms(10, "waiting-for-adhoc-server-list");
 				g_DownloadManager.Update();
-			} while (!dl->Done());
+			} while (!dl->HasRunCallback());
+			dl.reset();
 		}
 		g_serverListLoaded = true;
 	} else if (!g_Config.sAdhocServerListUrl.empty()) {

@@ -46,6 +46,7 @@ public:
 		if (callback_) {
 			callback_(*this);
 		}
+		hasRunCallback_ = true;
 	}
 
 	virtual void Start() = 0;
@@ -53,6 +54,8 @@ public:
 
 	virtual bool Done() = 0;
 	virtual bool Failed() const = 0;
+
+	virtual bool HasRunCallback() { return Done() && hasRunCallback_; }
 
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_.progress; }
@@ -87,6 +90,7 @@ protected:
 	Buffer buffer_;
 	bool cancelled_ = false;
 	int resultCode_ = 0;
+	bool hasRunCallback_ = false;
 	std::vector<std::string> responseHeaders_;
 
 	net::RequestProgress progress_;
