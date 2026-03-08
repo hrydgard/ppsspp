@@ -91,6 +91,7 @@ private:
 class UIDialogScreen : public UIScreen {
 public:
 	UIDialogScreen() : UIScreen(), finished_(false) {}
+	~UIDialogScreen() override;
 	bool key(const KeyInput &key) override;
 	void sendMessage(UIMessage message, const char *value) override;
 
