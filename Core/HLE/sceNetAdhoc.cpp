@@ -612,9 +612,9 @@ static void handle_relay_connect_failure() {
 	}
 	int been_failing_since_sec = (std::chrono::steady_clock::now() - relayLastFailure) / std::chrono::seconds(1);
 	if (been_failing_since_sec < RELAY_FAILURE_DISABLE_THRESHOLD_SEC) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 5.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 4.0f, "relay_status");
 	} else {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server for extended period, relay disabled"), 30.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server for extended period, relay disabled"), 10.0f, "relay_status");
 		relayDisabled = true;
 	}
 }
@@ -622,10 +622,10 @@ static void handle_relay_connect_failure() {
 static void handle_relay_connect_success() {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (trackingRelayFailure) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connection to relay has recovered"), 5.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connection to relay has recovered"), 2.0f, "relay_status");
 	}
 	if (relayFirstConnect) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connected to relay"), 5.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connected to relay"), 2.0f, "relay_status");
 		relayFirstConnect = false;
 	}
 	trackingRelayFailure = false;
