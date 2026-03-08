@@ -209,6 +209,7 @@
 	}
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
+
 	[self hideKeyboard];
 }
 

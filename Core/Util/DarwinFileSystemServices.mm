@@ -70,8 +70,8 @@ static void addBookmark(NSURL *url);
 	BOOL success = [url startAccessingSecurityScopedResource];
 	if (success) {
 		// 2. Pass the path to PPSSPP
-		// Note: In a real app, you'd want to call stopAccessingSecurityScopedResource
-		// when the game is closed, otherwise you "leak" kernel permissions.
+		// You should call stopAccessingSecurityScopedResource
+		// when the file is closed, otherwise you "leak" kernel permissions.
 		self.panelCallback(true, Path(url.path.UTF8String));
 	} else {
 		ERROR_LOG(Log::System, "Failed to start accessing security scoped resource for: %s", url.path.UTF8String);
@@ -139,6 +139,7 @@ static void addBookmark(NSURL *url) {
 		if (accessStarted) [url stopAccessingSecurityScopedResource];
 	}
 }
+
 Path DarwinFileSystemServices::reauthorizeBookmarkByPath(const Path &pathStr) {
     INFO_LOG(Log::System, "Darwin: Reauthorizing [%s]", pathStr.c_str());
 
@@ -207,7 +208,7 @@ void DarwinFileSystemServices::stopAccessingPath(const Path &pathStr) {
         [url stopAccessingSecurityScopedResource];
 
         activeAccessTokens.erase(it);
-    }
+	}
 }
 
 void DarwinFileSystemServices::terminate() {

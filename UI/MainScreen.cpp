@@ -163,15 +163,20 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.PopScissor();
 	} else {
-		bool scissor = false;
-		if (tw + 150 > bounds.w) {
-			dc.PushScissor(bounds);
-			scissor = true;
-		}
 		dc.Draw()->DrawImage(image, bounds.x + 72, bounds.centerY(), 0.88f * (gridStyle ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
-		dc.DrawText(text, bounds.x + 150, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 
-		if (scissor) {
+		float tx = 150;
+		int availableWidth = bounds.w - 150;
+		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+		if (availableWidth < tw) {
+			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+			Bounds tb = bounds;
+			tb.x = bounds.x + 150;
+			tb.w = availableWidth;
+			dc.PushScissor(tb);
+		}
+		dc.DrawText(text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		if (availableWidth < tw) {
 			dc.PopScissor();
 		}
 	}
@@ -294,6 +299,9 @@ void GameButton::Draw(UIContext &dc) {
 	UI::Style style = dc.GetTheme().itemStyle;
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
+	}
+	if (startsWith(ginfo->GetTitle(), "Nddemo")) {
+		style = style;
 	}
 
 	// Some types we just draw a default icon for.
@@ -427,61 +435,61 @@ void GameButton::Draw(UIContext &dc) {
 		if (overlayColor) {
 			dc.FillRect(Drawable(overlayColor), overlayBounds);
 		}
-	}
-
-	char discNumInfo[8];
-	if (ginfo->disc_total > 1)
-		snprintf(discNumInfo, sizeof(discNumInfo), "-DISC%d", ginfo->disc_number);
-	else
-		discNumInfo[0] = '\0';
-
-	dc.Draw()->Flush();
-	dc.RebindTexture();
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	if (!gridStyle_) {
-		float tw, th;
-		dc.Draw()->Flush();
-		dc.PushScissor(bounds_);
-		const std::string currentTitle = ginfo->GetTitle();
-		if (!currentTitle.empty()) {
-			title_ = ReplaceAll(currentTitle, "\n", " ");
-		}
-
-		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
-
-		int availableWidth = bounds_.w - 150;
-		if (g_Config.bShowIDOnGameIcon) {
-			float vw, vh;
-			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version, &vw, &vh, 0);
-			availableWidth -= vw + 20;
-			dc.SetFontScale(0.7f, 0.7f);
-			dc.DrawText(ginfo->id_version, bounds_.x + availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-			dc.SetFontScale(1.0f, 1.0f);
-		}
-		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
-
-		float tx = 150;
-		if (availableWidth < tw) {
-			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
-			Bounds tb = bounds_;
-			tb.x = bounds_.x + 150;
-			tb.w = availableWidth;
-			dc.PushScissor(tb);
-		}
-		dc.DrawText(title_, bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-		if (availableWidth < tw) {
-			dc.PopScissor();
-		}
-		dc.Draw()->Flush();
-		dc.PopScissor();
-	} else if (!texture) {
-		dc.Draw()->Flush();
-		dc.PushScissor(bounds_);
-		dc.DrawText(title_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-		dc.Draw()->Flush();
-		dc.PopScissor();
 	} else {
+		char discNumInfo[8];
+		if (ginfo->disc_total > 1)
+			snprintf(discNumInfo, sizeof(discNumInfo), "-DISC%d", ginfo->disc_number);
+		else
+			discNumInfo[0] = '\0';
+
 		dc.Draw()->Flush();
+		dc.RebindTexture();
+		dc.SetFontStyle(dc.GetTheme().uiFont);
+		if (!gridStyle_) {
+			float tw, th;
+			dc.Draw()->Flush();
+			dc.PushScissor(bounds_);
+			const std::string currentTitle = ginfo->GetTitle();
+			if (!currentTitle.empty()) {
+				title_ = ReplaceAll(currentTitle, "\n", " ");
+			}
+
+			dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
+
+			int availableWidth = bounds_.w - 150;
+			if (g_Config.bShowIDOnGameIcon) {
+				float vw, vh;
+				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version, &vw, &vh, 0);
+				availableWidth -= vw + 20;
+				dc.SetFontScale(0.7f, 0.7f);
+				dc.DrawText(ginfo->id_version, bounds_.x + availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+				dc.SetFontScale(1.0f, 1.0f);
+			}
+			float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+
+			float tx = 150;
+			if (availableWidth < tw) {
+				tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+				Bounds tb = bounds_;
+				tb.x = bounds_.x + 150;
+				tb.w = availableWidth;
+				dc.PushScissor(tb);
+			}
+			dc.DrawText(title_, bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			if (availableWidth < tw) {
+				dc.PopScissor();
+			}
+			dc.Draw()->Flush();
+			dc.PopScissor();
+		} else if (!texture) {
+			dc.Draw()->Flush();
+			dc.PushScissor(bounds_);
+			dc.DrawText(title_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.Draw()->Flush();
+			dc.PopScissor();
+		} else {
+			dc.Draw()->Flush();
+		}
 	}
 
 	if (ginfo->hasConfig && !ginfo->id.empty()) {

@@ -533,6 +533,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		switch ((UIEventNotification)param3) {
 		case UIEventNotification::POPUP_CLOSED:
+		case UIEventNotification::DIALOG_CLOSED:
 			[sharedViewController hideKeyboard];
 			break;
 		case UIEventNotification::TEXT_GOTFOCUS:

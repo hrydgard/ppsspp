@@ -62,6 +62,7 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url);
 enum class UIEventNotification {
 	MENU_RETURN,
 	POPUP_CLOSED,
+	DIALOG_CLOSED,
 	TEXT_GOTFOCUS,
 	TEXT_LOSTFOCUS,
 };

@@ -1495,6 +1495,12 @@ bool IsProbablyInDownloadsFolder(const Path &filename) {
 	default:
 		break;
 	}
+#if PPSSPP_PLATFORM(IOS)
+	if (filename.FilePathContainsNoCase("com~apple~CloudDocs")) {
+		return true;
+	}
+#endif
+
 	return filename.FilePathContainsNoCase("download");
 }
 

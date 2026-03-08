@@ -264,6 +264,10 @@ void UIDialogScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
+UIDialogScreen::~UIDialogScreen() {
+	System_NotifyUIEvent(UIEventNotification::DIALOG_CLOSED);
+}
+
 bool UIScreen::IsOnTop() const {
 	return screenManager()->topScreen() == this;
 }
