@@ -2083,7 +2083,7 @@ if(LINUX OR ANDROID OR MACOSX OR IOS)
 	)
 endif()
 
-if(MACOSX OR IOS)
+if((MACOSX OR IOS) AND NOT LIBRETRO)
 	list(APPEND CoreExtra
 		Core/Util/DarwinFileSystemServices.mm
 		Core/Util/DarwinFileSystemServices.h)
@@ -2530,7 +2530,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
 
-if(MACOSX OR IOS)
+if((MACOSX OR IOS) AND NOT LIBRETRO)
 	set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
 		PROPERTIES COMPILE_FLAGS -fobjc-arc)
 endif()

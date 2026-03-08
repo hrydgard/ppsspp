@@ -153,7 +153,7 @@ Path GetGameConfigFilePath(const Path &searchPath, std::string_view gameId, bool
 // /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
 // The GUID part changes on each launch.
 bool TryUpdateSavedPath(Path *path) {
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
 	if (startsWith(pathStr, "/private/var/mobile/Containers/Data/Application/")) {
