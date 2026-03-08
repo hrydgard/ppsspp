@@ -150,7 +150,7 @@ zip_int64_t ZipFileLoader::ZipSourceCallback(void *data, zip_uint64_t len, zip_s
 	case ZIP_SOURCE_FREE:
 		return 0;
 	case ZIP_SOURCE_SUPPORTS:
-		return zip_source_make_command_bitmap(ZIP_SOURCE_READ, ZIP_SOURCE_SEEK, ZIP_SOURCE_TELL, ZIP_SOURCE_OPEN, ZIP_SOURCE_CLOSE, ZIP_SOURCE_STAT);
+		return zip_source_make_command_bitmap(ZIP_SOURCE_READ, ZIP_SOURCE_SEEK, ZIP_SOURCE_TELL, ZIP_SOURCE_OPEN, ZIP_SOURCE_CLOSE, ZIP_SOURCE_STAT, -1);
 	default:
 		return -1;
 	}
