@@ -95,6 +95,7 @@ std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
 bool trackingRelayFailure = false;
 bool relayDisabled = false;
 bool relayFirstConnect = true;
+bool g_serverListLoaded = false;
 
 int gameModeNotifyEvent = -1;
 
@@ -174,9 +175,10 @@ static void LoadFallbackServerList() {
 		return;
 	}
 	ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+	g_serverListLoaded = true;
 }
 
-void AdhocLoadServerList() {
+void AdhocLoadServerList(bool sync) {
 	{
 		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 		if (!g_proAdhocServerList.empty()) {
@@ -189,7 +191,7 @@ void AdhocLoadServerList() {
 
 	if (startsWith(g_Config.sAdhocServerListUrl, "http")) {
 		// Download the list.
-		g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
+		auto dl = g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
 			if (request.Failed()) {
 				ERROR_LOG(Log::sceNet, "Failed to download adhoc server list from %s, falling back.", url.c_str());
 				LoadFallbackServerList();
@@ -202,8 +204,18 @@ void AdhocLoadServerList() {
 			request.buffer().TakeAll(&json);
 			if (!ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
 				LoadFallbackServerList();
+				return;
 			}
 		});
+
+		if (sync) {
+			// Unfortunate.
+			do {
+				sleep_ms(10, "waiting-for-adhoc-server-list");
+				g_DownloadManager.Update();
+			} while (!dl->Done());
+		}
+		g_serverListLoaded = true;
 	} else if (!g_Config.sAdhocServerListUrl.empty()) {
 		// Try to read local file.
 		std::string json;
@@ -221,13 +233,19 @@ void AdhocLoadServerList() {
 	}
 }
 
-std::vector<AdhocServerListEntry> AdhocGetServerList() {
+std::vector<AdhocServerListEntry> AdhocGetServerList(bool sync) {
+	if (!g_serverListLoaded) {
+		// In-game - unfortunately we have to do a synchronous load here.
+		// If cached it will be fast though.
+		AdhocLoadServerList(sync);
+	}
+
 	std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 	return g_proAdhocServerList;
 }
 
 static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
-	std::vector<AdhocServerListEntry> list = AdhocGetServerList();
+	std::vector<AdhocServerListEntry> list = AdhocGetServerList(true);
 	for (const auto &item : list) {
 		if (equals(server, item.host)) {
 			INFO_LOG(Log::sceNet, "server %.*s is in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(item.mode));
