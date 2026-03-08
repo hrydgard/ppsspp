@@ -46,19 +46,45 @@ ZipFileLoader::~ZipFileLoader() {
 bool ZipFileLoader::Initialize(int fileIndex) {
 	_dbg_assert_(!data_);
 
+	if (!zipArchive_) {
+		ERROR_LOG(Log::IO, "Cannot initialize: ZIP archive is null");
+		return false;
+	}
+
 	struct zip_stat zstat;
 	int retval = zip_stat_index(zipArchive_, fileIndex, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
 	if (retval < 0) {
 		return false;
 	}
 	const char *name = zip_get_name(zipArchive_, fileIndex, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
+	if (!name) {
+		ERROR_LOG(Log::IO, "Failed to get name for file index %d", fileIndex);
+		return false;
+	}
 	fileExtension_ = KeepIncludingLast(name, '.');
 
 	_dbg_assert_(zstat.index == fileIndex);
 	dataFileSize_ = zstat.size;
 	dataFile_ = zip_fopen_index(zipArchive_, zstat.index, ZIP_FL_UNCHANGED);
+	if (!dataFile_) {
+		ERROR_LOG(Log::IO, "Failed to open file index %d from ZIP", fileIndex);
+		return false;
+	}
+
+	// Handle zero-size files
+	if (dataFileSize_ == 0) {
+		data_ = nullptr;
+		return true;
+	}
+
 	data_ = (u8 *)malloc(dataFileSize_);
-	return data_ != nullptr;
+	if (!data_) {
+		ERROR_LOG(Log::IO, "Failed to allocate %lld bytes for ZIP file data", dataFileSize_);
+		zip_fclose(dataFile_);
+		dataFile_ = nullptr;
+		return false;
+	}
+	return true;
 }
 
 size_t ZipFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
@@ -67,7 +93,6 @@ size_t ZipFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags fl
 	}
 
 	if (absolutePos + (s64)bytes > dataFileSize_) {
-		// TODO: This could go negative..
 		bytes = dataFileSize_ - absolutePos;
 	}
 
@@ -78,7 +103,14 @@ size_t ZipFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags fl
 			remaining = (int)(dataFileSize_ - dataReadPos_);
 		}
 		zip_int64_t retval = zip_fread(dataFile_, data_ + dataReadPos_, remaining);
-		_dbg_assert_(retval == remaining);
+		if (retval < 0) {
+			ERROR_LOG(Log::IO, "zip_fread failed with error code %lld", retval);
+			return 0;
+		}
+		if (retval != remaining) {
+			ERROR_LOG(Log::IO, "zip_fread: expected %d bytes, got %lld", remaining, retval);
+			return 0;
+		}
 		dataReadPos_ += retval;
 	}
 
@@ -96,36 +128,32 @@ zip_int64_t ZipFileLoader::ZipSourceCallback(void *data, zip_uint64_t len, zip_s
 	}
 	case ZIP_SOURCE_READ:
 	{
-		size_t readBytes = static_cast<zip_int64_t>(backend_->ReadAt(zipReadPos_, len, data));
+		size_t readBytes = backend_->ReadAt(zipReadPos_, len, data);
 		zipReadPos_ += readBytes;
-		return readBytes;
+		return static_cast<zip_int64_t>(readBytes);
 	}
 	case ZIP_SOURCE_SEEK:
 	{
-		struct SeekData {
-			zip_int64_t offset;
-			int whence;
-		};
-		if (len < sizeof(SeekData)) {
-			return -1; // Invalid argument size
+		if (len < sizeof(zip_source_args_seek_t)) {
+			return -1;
 		}
-		const SeekData *seekData = static_cast<const SeekData*>(data);
+		const zip_source_args_seek_t *seekArgs = (const zip_source_args_seek_t *)data;
 		zip_int64_t new_offset;
-		switch (seekData->whence) {
+		switch (seekArgs->whence) {
 		case SEEK_SET:
-			new_offset = seekData->offset;
+			new_offset = seekArgs->offset;
 			break;
 		case SEEK_CUR:
-			new_offset = zipReadPos_ + seekData->offset;
+			new_offset = zipReadPos_ + seekArgs->offset;
 			break;
 		case SEEK_END:
-			new_offset = backend_->FileSize() + seekData->offset;
+			new_offset = backend_->FileSize() + seekArgs->offset;
 			break;
 		default:
-			return -1; // Invalid 'whence' value
+			return -1;
 		}
 		if (new_offset < 0 || new_offset > backend_->FileSize()) {
-			return -1; // Offset out of bounds
+			return -1;
 		}
 		zipReadPos_ = new_offset;
 		return 0;
