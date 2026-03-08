@@ -134,7 +134,13 @@ AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &e
 	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
 	lines->SetSpacing(0.0f);
 	lines->Add(new TextView(entry.name));
-	lines->Add(new TextView(entry.host))->SetTextSize(TextSize::Small)->SetWordWrap();
+
+	std::string secondLine = entry.host;
+	if (!entry.location.empty()) {
+		secondLine += ": " + entry.location;
+	}
+
+	lines->Add(new TextView(secondLine))->SetTextSize(TextSize::Small)->SetWordWrap();
 
 	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
 
