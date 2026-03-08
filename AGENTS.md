@@ -16,7 +16,23 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
 
 ## Build and Validation
 
-To verify that things build on Linux/Mac, use ./b.sh --debug. For Windows, use the Visual Studio solution in the Windows subdirectory.
+Check the current platform before picking a build method - don't assume Linux/Mac just because a
+`build/` directory or Makefiles happen to be present (e.g. from a prior WSL/cross build); match the
+method to the OS you're actually running on.
+
+To verify that things build on Linux/Mac, use ./b.sh --debug.
+
+On Windows, ALWAYS build via MSBuild against the Visual Studio solution (`Windows/PPSSPP.sln`) -
+never use `./b.sh`, `make`, `cmake --build`, or any other POSIX build tooling on Windows, even if
+such a build directory exists locally. If `msbuild` isn't on PATH, locate it with vswhere first:
+
+```powershell
+$msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+& $msbuild "Windows\PPSSPP.sln" /t:Common /p:Configuration=Debug /p:Platform=x64 /m /nologo /v:minimal
+```
+
+Swap `/t:Common` for the project you actually touched (e.g. `/t:Core`, `/t:UnitTest`), or omit
+`/t:` to build the whole solution.
 
 In addition to the pspautotests runner (test.py), there is a separate binary with C++ unit tests
 in the /unittest subdirectory. After substantial changes (at the end of a chunk of work, not
