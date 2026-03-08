@@ -244,7 +244,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		int beforeFilter = (int)fileList.size();
 		*files = ApplyFilter(fileList, filter, prefix);
 		std::sort(files->begin(), files->end());
-		DEBUG_LOG(Log::IO, "GetFilesInDir: Found %d entries (%d before filter)", (int)files->size(), beforeFilter);
+		DEBUG_LOG(Log::IO, "GetFilesInDir: Found %d entries (%d before filter). Path: %s", (int)files->size(), beforeFilter, directory.ToVisualString().c_str());
 		return exists;
 	}
 

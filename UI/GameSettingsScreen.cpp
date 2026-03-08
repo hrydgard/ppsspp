@@ -1659,8 +1659,13 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 			}
 
 			if (!filename.empty()) {
+				Path src(value);
 				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-				File::Copy(Path(value), dest);
+				File::Copy(src, dest);
+				if (src.FilePathContainsNoCase("temp_import.jpg")) {
+					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(src).c_str());
+					File::Delete(src);
+				}
 			} else {
 				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
 			}
