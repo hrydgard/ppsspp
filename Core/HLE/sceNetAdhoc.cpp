@@ -614,7 +614,7 @@ static void handle_relay_connect_failure() {
 	if (been_failing_since_sec < RELAY_FAILURE_DISABLE_THRESHOLD_SEC) {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 4.0f, "relay_status");
 	} else {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server for extended period, relay disabled"), 10.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, ApplySafeSubstitutions(n->T("Failed connecting to relay server for %1 seconds, relay disabled"), RELAY_FAILURE_DISABLE_THRESHOLD_SEC), 10.0f, "relay_status");
 		relayDisabled = true;
 	}
 }
