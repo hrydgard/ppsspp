@@ -591,6 +591,23 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 		return false;
 	}
 
+#ifndef _WIN32
+	// On non-Windows, we can't use select() if fd >= FD_SETSIZE
+	// For DNS, just set a socket timeout instead
+	struct timeval timeout;
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		WARN_LOG(Log::sceNet, "Failed to set socket timeout for DNS query");
+	}
+#else
+	// Windows version
+	DWORD timeout = 5000; // 5 seconds
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
+		WARN_LOG(Log::sceNet, "Failed to set socket timeout for DNS query");
+	}
+#endif
+
 	struct sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(DNS_PORT);
@@ -616,7 +633,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	*((uint16_t *)(qinfo + 2)) = htons(DNS_QUERY_CLASS_IN); // Query class: IN
 
 	// Send DNS query
-	size_t query_len = sizeof(DNSHeader) + (qinfo - buffer) + 4;
+	size_t query_len = (qinfo + 4) - buffer;
 	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		ERROR_LOG(Log::Net, "Failed to send DNS query");
 		closesocket(sockfd);
@@ -627,7 +644,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	socklen_t server_len = sizeof(server_addr);
 	size_t response_len;
 	if ((response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len)) < 0) {
-		ERROR_LOG(Log::Net, "Failed to receive DNS response");
+		ERROR_LOG(Log::sceNet, "Failed to receive DNS response (timeout or error)");
 		closesocket(sockfd);
 		return false;
 	}
