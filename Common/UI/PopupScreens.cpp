@@ -160,7 +160,7 @@ void PopupScreen::CreateViews() {
 			10, y, 10, NONE, vCentering);
 	} else {
 		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
-			dc.GetLayoutBounds().centerX(), y, NONE, NONE, vCentering | Centering::Horizontal);
+			(dc.GetLayoutBounds().w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
