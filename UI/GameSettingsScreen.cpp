@@ -805,10 +805,10 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	const bool isWindows = true;
 #else
 	const bool isWindows = false;
-	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
-
 	if (sdlAudio) {
 		audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
+	} else {
+		audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
