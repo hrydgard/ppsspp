@@ -192,6 +192,8 @@ bool CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_VIVANTE;
 		} else if (vendor == "Apple Inc." || vendor == "Apple") {
 			gl_extensions.gpuVendor = GPU_VENDOR_APPLE;
+		} else if (vendor == "Mesa") {
+			gl_extensions.gpuVendor = GPU_VENDOR_MESA;
 		} else {
 			WARN_LOG(Log::G3D, "Unknown GL vendor: '%s'", vendor.c_str());
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
@@ -291,9 +293,13 @@ bool CheckGLExtensions() {
 				}
 				gl_extensions.GLES3 = true;
 				// Though, let's ban Mali from the GLES 3 path for now, see #4078
-				if (strstr(renderer, "Mali") != 0) {
-					INFO_LOG(Log::G3D, "Forcing GLES3 off for Mali driver version: %s\n", versionStr ? versionStr : "N/A");
+				// Only apply to ARM's proprietary driver (GL_VENDOR="ARM"), not Mesa/Panfrost (GL_VENDOR="Mesa")
+				if (cvendor && strcmp(cvendor, "ARM") == 0 && strstr(renderer, "Mali") != 0) {
+					INFO_LOG(Log::G3D, "Forcing GLES3 off for ARM Mali proprietary driver version: %s\n", versionStr ? versionStr : "N/A");
 					gl_extensions.GLES3 = false;
+				} else if (strstr(renderer, "Mali") != 0) {
+					// Mali detected but not ARM vendor (likely Mesa/Panfrost) - allow GLES3
+					INFO_LOG(Log::G3D, "Mali GPU with non-ARM vendor '%s' detected, allowing GLES3\n", cvendor ? cvendor : "N/A");
 				}
 			} else {
 				// Just to be safe.
