@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "AdhocServerScreen.h"
 
 #include "Common/Net/Resolve.h"
@@ -28,6 +29,7 @@ public:
 			}
 		}
 	}
+	virtual bool CanComplete(DialogResult result) { return result == DR_OK ? !editValue_.empty() : true; }
 
 	const char *tag() const override { return "AdhocAddServerPopup"; }
 
