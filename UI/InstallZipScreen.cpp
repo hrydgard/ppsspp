@@ -117,16 +117,6 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	}
 }
 
-template<class T>
-bool Contains(const std::vector<T> &vec, const T &needle) {
-	for (const auto &item : vec) {
-		if (item == needle) {
-			return true;
-		}
-	}
-	return false;
-}
-
 void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
