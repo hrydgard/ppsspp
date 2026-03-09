@@ -71,6 +71,13 @@ static std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_
 	}
 }
 
+// Compatible with StartDownload
+// Synchronous (no callback).
+bool RequestManager::ReadFileFromCache(std::string_view url, std::string *data) {
+	Path cacheFile = UrlToCachePath(url);
+	return File::ReadBinaryFileToString(cacheFile, data);
+}
+
 std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime, std::string_view name, std::function<void(Request &)> callback) {
 	const bool enableCache = !cacheDir_.empty() && (flags & RequestFlags::Cached24H);
 

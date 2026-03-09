@@ -95,6 +95,7 @@ std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
 bool trackingRelayFailure = false;
 bool relayDisabled = false;
 bool relayFirstConnect = true;
+bool g_serverListLoaded = false;
 
 int gameModeNotifyEvent = -1;
 
@@ -114,12 +115,13 @@ static const char *AdhocDataModeToString(AdhocDataMode mode) {
 	return "unknown";
 }
 
-// TODO download the list from somewhere and probably cache it on disk
-// should also make the url configurable and support file:/ local list besides https:// online lists
+// We download the list and cache it on disk.
+// The URL can also be a local file path, in which case the download doesn't happen. This is only
+// for power users / debugging.
 std::mutex g_proAdhocServerListMutex;
 std::vector<AdhocServerListEntry> g_proAdhocServerList;
 
-bool ParseServerListEntriesJSON(std::string_view json) {
+static bool ParseServerListEntriesJSON(std::string_view json) {
 	using namespace json;
 
 	// Use our JSONReader to parse json into a list of AdhocServerListEntry.
@@ -147,6 +149,7 @@ bool ParseServerListEntriesJSON(std::string_view json) {
 		entry.location = server.getStringOr("location", "");
 		entry.description = server.getStringOr("description", "");
 		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+		entry.statusUrl = server.getStringOr("status_url", "");
 
 		if (entry.host.empty()) {
 			// Skipping invalid entry.
@@ -174,9 +177,10 @@ static void LoadFallbackServerList() {
 		return;
 	}
 	ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+	g_serverListLoaded = true;
 }
 
-void AdhocLoadServerList() {
+void AdhocLoadServerList(AdhocLoadListMode loadMode) {
 	{
 		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 		if (!g_proAdhocServerList.empty()) {
@@ -188,8 +192,21 @@ void AdhocLoadServerList() {
 	// There's currently no file:// support, as far as I remember.
 
 	if (startsWith(g_Config.sAdhocServerListUrl, "http")) {
+		if (loadMode == AdhocLoadListMode::CacheOnlySync) {
+			std::string json;
+			if (g_DownloadManager.ReadFileFromCache(g_Config.sAdhocServerListUrl, &json)) {
+				if (ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
+					g_serverListLoaded = true;
+					return;
+				}
+			}
+			ERROR_LOG(Log::sceNet, "Failed to load cached adhoc server list %s from cache, falling back.", g_Config.sAdhocServerListUrl.c_str());
+			LoadFallbackServerList();
+			return;
+		}
+
 		// Download the list.
-		g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
+		auto dl = g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
 			if (request.Failed()) {
 				ERROR_LOG(Log::sceNet, "Failed to download adhoc server list from %s, falling back.", url.c_str());
 				LoadFallbackServerList();
@@ -202,8 +219,10 @@ void AdhocLoadServerList() {
 			request.buffer().TakeAll(&json);
 			if (!ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
 				LoadFallbackServerList();
+				return;
 			}
 		});
+		g_serverListLoaded = true;
 	} else if (!g_Config.sAdhocServerListUrl.empty()) {
 		// Try to read local file.
 		std::string json;
@@ -221,17 +240,37 @@ void AdhocLoadServerList() {
 	}
 }
 
-std::vector<AdhocServerListEntry> AdhocGetServerList() {
+std::vector<AdhocServerListEntry> AdhocGetServerList(AdhocLoadListMode loadMode) {
+	if (!g_serverListLoaded) {
+		// We're probably in-game - so we don't want to do a download and risk blocking.
+		// Instead we read out of cache, it should be good enough.
+		AdhocLoadServerList(loadMode);
+	}
+
 	std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 	return g_proAdhocServerList;
 }
 
 static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
-	std::vector<AdhocServerListEntry> list = AdhocGetServerList();
+	std::vector<AdhocServerListEntry> list = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
 	for (const auto &item : list) {
 		if (equals(server, item.host)) {
 			INFO_LOG(Log::sceNet, "server %.*s is in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(item.mode));
 			return item.mode;
+		}
+	}
+
+	for (const auto &item : g_Config.vCustomAdhocServerList) {
+		if (equals(server, item)) {
+			INFO_LOG(Log::sceNet, "server %.*s is in custom list without relay, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::P2P));
+			return AdhocDataMode::P2P;
+		}
+	}
+
+	for (const auto &item : g_Config.vCustomAdhocServerListWithRelay) {
+		if (equals(server, item)) {
+			INFO_LOG(Log::sceNet, "server %.*s is in custom list with relay, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::AemuPostoffice));
+			return AdhocDataMode::AemuPostoffice;
 		}
 	}
 
@@ -612,9 +651,9 @@ static void handle_relay_connect_failure() {
 	}
 	int been_failing_since_sec = (std::chrono::steady_clock::now() - relayLastFailure) / std::chrono::seconds(1);
 	if (been_failing_since_sec < RELAY_FAILURE_DISABLE_THRESHOLD_SEC) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 5.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 4.0f, "relay_status");
 	} else {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server for extended period, relay disabled"), 30.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, ApplySafeSubstitutions(n->T("Failed connecting to relay server for %1 seconds, relay disabled"), RELAY_FAILURE_DISABLE_THRESHOLD_SEC), 10.0f, "relay_status");
 		relayDisabled = true;
 	}
 }
@@ -622,10 +661,10 @@ static void handle_relay_connect_failure() {
 static void handle_relay_connect_success() {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (trackingRelayFailure) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connection to relay has recovered"), 5.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connection to relay has recovered"), 2.0f, "relay_status");
 	}
 	if (relayFirstConnect) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connected to relay"), 5.0f, "relay_status");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connected to relay"), 2.0f, "relay_status");
 		relayFirstConnect = false;
 	}
 	trackingRelayFailure = false;

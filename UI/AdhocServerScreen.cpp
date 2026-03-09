@@ -134,7 +134,13 @@ AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &e
 	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
 	lines->SetSpacing(0.0f);
 	lines->Add(new TextView(entry.name));
-	lines->Add(new TextView(entry.host))->SetTextSize(TextSize::Small)->SetWordWrap();
+
+	std::string secondLine = entry.host;
+	if (!entry.location.empty()) {
+		secondLine += ": " + entry.location;
+	}
+
+	lines->Add(new TextView(secondLine))->SetTextSize(TextSize::Small)->SetWordWrap();
 
 	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
 
@@ -158,7 +164,7 @@ AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 		thiz->ResolverThread();
 	}, this);
 	editValue_ = *value;
-	AdhocLoadServerList();
+	AdhocLoadServerList(AdhocLoadListMode::AllSourcesAsync);
 }
 
 AdhocServerScreen::~AdhocServerScreen() {
@@ -182,7 +188,9 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	auto listItems = AdhocGetServerList();
+	// We already kicked off loading the server list in the constructor, so by now it should be either loaded or in the process of loading.
+	// We can get the cached list immediately, and then update it when the async load finishes.
+	auto listItems = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
 
 	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 450, screenManager()));
 	parent->Add(new Spacer(5.0f));
