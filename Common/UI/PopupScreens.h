@@ -43,6 +43,7 @@ public:
 		notificationLevel_ = noticeLevel;
 		notificationString_ = str;
 	}
+	virtual UI::Margins RootMargins() const { return UI::Margins(24); }
 
 protected:
 	virtual bool FillVertical() const { return false; }
