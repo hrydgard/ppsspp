@@ -164,7 +164,7 @@ AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 		thiz->ResolverThread();
 	}, this);
 	editValue_ = *value;
-	AdhocLoadServerList();
+	AdhocLoadServerList(AdhocLoadListMode::AllSourcesAsync);
 }
 
 AdhocServerScreen::~AdhocServerScreen() {
@@ -188,7 +188,9 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	auto listItems = AdhocGetServerList();
+	// We already kicked off loading the server list in the constructor, so by now it should be either loaded or in the process of loading.
+	// We can get the cached list immediately, and then update it when the async load finishes.
+	auto listItems = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
 
 	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 450, screenManager()));
 	parent->Add(new Spacer(5.0f));

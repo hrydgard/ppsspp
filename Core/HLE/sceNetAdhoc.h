@@ -111,11 +111,17 @@ struct AdhocServerListEntry {
 	std::string discord;
 	std::string location;
 	std::string description;
+	std::string statusUrl;  // Usually empty or /data.json.
 	AdhocDataMode mode = AdhocDataMode::P2P;
 };
 
-void AdhocLoadServerList(bool sync = false);
-std::vector<AdhocServerListEntry> AdhocGetServerList(bool sync = false);
+enum class AdhocLoadListMode {
+	CacheOnlySync,
+	AllSourcesAsync,
+};
+
+void AdhocLoadServerList(AdhocLoadListMode loadMode);
+std::vector<AdhocServerListEntry> AdhocGetServerList(AdhocLoadListMode loadMode);
 
 class PointerWrap;
 
