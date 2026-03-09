@@ -16,7 +16,7 @@ public:
 		auto ni = GetI18NCategory(I18NCat::NETWORKING);
 
 		PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, ni->T("Hostname"), "", 450, screenManager()));
-		parent->Add(new CheckBox(&hasRelay_, ni->T("Use relay server")));
+		parent->Add(new CheckBox(&hasRelay_, ni->T("Relay server mode")));
 	}
 
 	virtual void OnCompleted(DialogResult result) {
@@ -87,8 +87,13 @@ protected:
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		Margins contentMargins(10, 0);
-
-		content->Add(new InfoItem(entry_.host, ""));
+		content->SetSpacing(0.0f);
+		LinearLayout *hostLine = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0))));
+		hostLine->Add(new TextView(entry_.host, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
+		hostLine->Add(new Spacer(0, new LinearLayoutParams(1.0f)));
+		hostLine->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
+			System_CopyStringToClipboard(host);
+		});
 		if (!entry_.ip.empty()) {
 			content->Add(new InfoItem(entry_.ip, ""));
 		}
@@ -123,7 +128,7 @@ public:
 		dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
 		if (*value_ == entry_.host) {
 			// TODO: Make this highlight themable
-			dc.FillRect(UI::Drawable(0x30FFFFFF), GetBounds());
+			dc.FillRect(UI::Drawable(0x48FFFFFF), GetBounds());
 		}
 		LinearLayout::Draw(dc);
 	}
@@ -349,8 +354,6 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			std::string value = e.v->Tag();
 			if (!value.empty()) {
 				editValue_ = value;
-				// TODO: Let's change this to an actual button later.
-				System_CopyStringToClipboard(value);
 			}
 		});
 		row->SetTag(entry.host);
