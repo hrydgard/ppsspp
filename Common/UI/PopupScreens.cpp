@@ -35,7 +35,6 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 	}
 
 	alpha_ = 0.0f;  // inherited
-	ignoreInsets_ = true;  // for layout purposes.
 }
 
 void PopupScreen::touch(const TouchInput &touch) {
@@ -140,7 +139,7 @@ void PopupScreen::CreateViews() {
 
 	const float ySize = FillVertical() ? dc.GetLayoutBounds().h - 30 : WRAP_CONTENT;
 
-	int y = dc.GetBounds().centerY() + offsetY_;
+	int y = (dc.GetLayoutBounds().h - RootMargins().vert()) * 0.5f + offsetY_;
 	Centering vCentering = Centering::Vertical;
 	if (alignTop_) {
 		if (GetDeviceOrientation() == DeviceOrientation::Landscape) {
@@ -161,7 +160,7 @@ void PopupScreen::CreateViews() {
 			10, y, 10, NONE, vCentering);
 	} else {
 		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
-			dc.GetBounds().centerX(), y, NONE, NONE, vCentering | Centering::Horizontal);
+			(dc.GetLayoutBounds().w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);

@@ -834,6 +834,8 @@ public:
 	void SetRightText(std::string_view text) {
 		rightText_ = text;
 	}
+protected:
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const;
 
 private:
 	std::string text_;

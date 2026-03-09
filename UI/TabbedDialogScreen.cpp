@@ -54,8 +54,6 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 	filterNotice_ = new TextView("(filter notice, you shouldn't see this text", new LinearLayoutParams(Margins(20, 5)));
 	filterNotice_->SetVisibility(V_GONE);
@@ -81,7 +79,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		if (!(flags_ & TabDialogFlags::ContextMenuInPortrait)) {
 			CreateExtraButtons(verticalLayout, 0);
 		}
-		root_->Add(verticalLayout);
+		root_ = verticalLayout;
 	} else {
 		TabHolderFlags tabHolderFlags = TabHolderFlags::Default;
 		if (flags_ & TabDialogFlags::VerticalShowIcons) {
@@ -90,7 +88,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, filterNotice_, nullptr, new AnchorLayoutParams(10, 0, 0, 0));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
-		root_->Add(tabHolder_);
+		root_ = tabHolder_;
 	}
 
 	tabHolder_->SetTag(tag());  // take the tag from the screen.

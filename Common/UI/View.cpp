@@ -386,7 +386,7 @@ void StickyChoice::FocusChanged(int focusFlags) {
 Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
 	if (!layoutParams) {
 		layoutParams_->width = FILL_PARENT;
-		layoutParams_->height = ITEM_HEIGHT;
+		layoutParams_->height = WRAP_CONTENT;
 	}
 }
 
@@ -545,6 +545,22 @@ InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutPara
 	// We set the colors later once we have a UIContext.
 }
 
+void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	float w1, h1, w2, h2;
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);
+
+	if (horiz.type == MeasureSpecType::AT_MOST) {
+		float availableWidth = horiz.size - w1 - 24;
+		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, rightText_, availableWidth, &w2, &h2, FLAG_WRAP_TEXT);
+	} else {
+		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, rightText_, &w2, &h2, 0);
+	}
+
+	// TODO: Make this more exact.
+	w = 24 + w1 + w2;
+	h = std::max(std::max(h1, h2), ITEM_HEIGHT);
+}
+
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
@@ -573,7 +589,7 @@ std::string InfoItem::DescribeText() const {
 ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text) {
 	layoutParams_->width = FILL_PARENT;
-	layoutParams_->height = 40;
+	layoutParams_->height = 44;
 }
 
 void ItemHeader::Draw(UIContext &dc) {
