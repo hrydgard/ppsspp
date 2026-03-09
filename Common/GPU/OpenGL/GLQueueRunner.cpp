@@ -75,9 +75,12 @@ void GLQueueRunner::CreateDeviceObjects() {
 #if !PPSSPP_ARCH(X86)  // Doesn't work on AMD for some reason. See issue #17787
 	useDebugGroups_ = !gl_extensions.IsGLES && gl_extensions.VersionGEThan(4, 3);
 #endif
+
+	profiler_.Init();
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
+	profiler_.Shutdown();
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (gl_extensions.ARB_vertex_array_object) {
 		glDeleteVertexArrays(1, &globalVAO_);
@@ -667,6 +670,12 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		}
 	}
 
+	// GPU timestamp profiling - read results from previous frame and prepare for new queries
+	if (frameData.profile.enabled) {
+		profiler_.SetEnabledPtr(&frameData.profile.enabled);
+	}
+	profiler_.BeginFrame();
+
 	CHECK_GL_ERROR_IF_DEBUG();
 	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -680,24 +689,34 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
 			renderCount++;
+			profiler_.Begin("RenderPass %s", step.tag);
 			if (IsVREnabled()) {
 				PreprocessStepVR(&step);
 				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			} else {
 				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			}
+			profiler_.End();
 			break;
 		case GLRStepType::COPY:
+			profiler_.Begin("Copy");
 			PerformCopy(step);
+			profiler_.End();
 			break;
 		case GLRStepType::BLIT:
+			profiler_.Begin("Blit");
 			PerformBlit(step);
+			profiler_.End();
 			break;
 		case GLRStepType::READBACK:
+			profiler_.Begin("Readback");
 			PerformReadback(step);
+			profiler_.End();
 			break;
 		case GLRStepType::READBACK_IMAGE:
+			profiler_.Begin("ReadbackImage");
 			PerformReadbackImage(step);
+			profiler_.End();
 			break;
 		case GLRStepType::RENDER_SKIP:
 			break;
