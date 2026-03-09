@@ -26,6 +26,9 @@ protected:
 
 	void sendMessage(UIMessage message, const char *value) override;
 
+	void dialogFinished(const Screen *screen, DialogResult result) override {
+		RecreateViews();
+	}
 private:
 	void ResolverThread();
 

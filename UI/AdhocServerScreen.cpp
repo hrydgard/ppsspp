@@ -1,9 +1,42 @@
+#include <algorithm>
 #include "AdhocServerScreen.h"
 
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceNetAdhoc.h"
+
+class AdhocAddServerPopupScreen : public UI::PopupScreen {
+public:
+	AdhocAddServerPopupScreen() : PopupScreen(T(I18NCat::NETWORKING, "Add server"), T(I18NCat::DIALOG, "Add"), T(I18NCat::DIALOG, "Cancel")) {
+	}
+
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		using namespace UI;
+		auto ni = GetI18NCategory(I18NCat::NETWORKING);
+
+		PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, ni->T("Hostname"), "", 450, screenManager()));
+		parent->Add(new CheckBox(&hasRelay_, ni->T("Use relay server")));
+	}
+
+	virtual void OnCompleted(DialogResult result) {
+		if (result == DialogResult::DR_OK) {
+			if (hasRelay_) {
+				// Insert at the start of the vector.
+				g_Config.vCustomAdhocServerListWithRelay.insert(g_Config.vCustomAdhocServerListWithRelay.begin(), editValue_);
+			} else {
+				g_Config.vCustomAdhocServerList.insert(g_Config.vCustomAdhocServerList.begin(), editValue_);
+			}
+		}
+	}
+	virtual bool CanComplete(DialogResult result) { return result == DR_OK ? !editValue_.empty() : true; }
+
+	const char *tag() const override { return "AdhocAddServerPopup"; }
+
+private:
+	std::string editValue_;
+	bool hasRelay_ = true;
+};
 
 static UI::View *CreateLinkButton(std::string url) {
 	using namespace UI;
@@ -73,13 +106,14 @@ protected:
 		scroll->Add(content);
 		parent->Add(scroll);
 	}
+
 private:
 	AdhocServerListEntry entry_;
 };
 
 class AdhocServerRow : public UI::LinearLayout {
 public:
-	AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+	AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, bool showDeleteButton, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500; h = 90;
@@ -125,7 +159,7 @@ private:
 	AdhocServerListEntry entry_;
 };
 
-AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
+AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, bool showDeleteButton, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
 	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(value), entry_(entry) {
 	using namespace UI;
 
@@ -146,6 +180,29 @@ AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &e
 
 	if (entry.mode == AdhocDataMode::AemuPostoffice) {
 		TextView *relay = Add(new TextView("Relay", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+	}
+	if (showDeleteButton) {
+		Choice *deleteButton = Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
+		deleteButton->OnClick.Add([host = entry.host, screenManager](UI::EventParams &e) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1"), host);
+			screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host](bool confirmed) {
+				if (confirmed) {
+					auto f = std::find(g_Config.vCustomAdhocServerList.begin(), g_Config.vCustomAdhocServerList.end(), host);
+					if (f != g_Config.vCustomAdhocServerList.end()) {
+						g_Config.vCustomAdhocServerList.erase(f);
+					}
+					f = std::find(g_Config.vCustomAdhocServerListWithRelay.begin(), g_Config.vCustomAdhocServerListWithRelay.end(), host);
+					if (f != g_Config.vCustomAdhocServerListWithRelay.end()) {
+						g_Config.vCustomAdhocServerListWithRelay.erase(f);
+					}
+					if (g_Config.sProAdhocServer == host) {
+						// Reset to socom.cc, which will always be in a list.
+						g_Config.sProAdhocServer = DefaultProAdhocServer();
+					}
+				}
+			}));
+		});
 	}
 
 	if (!entry.description.empty()) {
@@ -190,9 +247,14 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	// We already kicked off loading the server list in the constructor, so by now it should be either loaded or in the process of loading.
 	// We can get the cached list immediately, and then update it when the async load finishes.
-	auto listItems = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
+	std::vector<AdhocServerListEntry> listItems = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
 
-	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 450, screenManager()));
+	Choice *addServer = parent->Add(new Choice(n->T("Add server"), ImageID("I_PLUS")));
+	addServer->OnClick.Add([this](UI::EventParams &e) {
+		AdhocAddServerPopupScreen *addScreen = new AdhocAddServerPopupScreen();
+		screenManager()->push(addScreen);
+	});
+
 	parent->Add(new Spacer(5.0f));
 
 	// editValue_ has the currently selected server. On closing the dialog, we copy that to settings.
@@ -201,6 +263,14 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	std::vector<AdhocServerListEntry> entries = listItems;
 	std::vector<AdhocServerListEntry> localEntries;
 	std::vector<AdhocServerListEntry> customEntries;
+
+	bool currentServerFound = false;  // If the current server is not found, we'll have to add it to one of the lists.
+
+	for (const auto &iter : entries) {
+		if (iter.host == editValue_) {
+			currentServerFound = true;
+		}
+	}
 
 	// Add localhost and local IPs, since those are common ones to connect to.
 	{
@@ -220,6 +290,10 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			entry.name = ipAddress;
 			entry.host = ipAddress;
 			localEntries.push_back(entry);
+
+			if (ipAddress == editValue_) {
+				currentServerFound = true;
+			}
 		}
 	}
 
@@ -242,6 +316,10 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		entry.host = host;
 		entry.mode = AdhocDataMode::AemuPostoffice;
 		customEntries.push_back(entry);
+
+		if (host == editValue_) {
+			currentServerFound = true;
+		}
 	}
 
 	for (const auto &host : g_Config.vCustomAdhocServerList) {
@@ -254,14 +332,18 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		entry.host = host;
 		entry.mode = AdhocDataMode::P2P;
 		customEntries.push_back(entry);
+
+		if (host == editValue_) {
+			currentServerFound = true;
+		}
 	}
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	LinearLayout *innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	innerView->SetSpacing(5.0f);
 
-	auto AddButtonFromEntry = [this](UI::ViewGroup *parent, const AdhocServerListEntry &entry) {
-		AdhocServerRow *row = new AdhocServerRow(&editValue_, entry, screenManager());
+	auto AddButtonFromEntry = [this](UI::ViewGroup *parent, const AdhocServerListEntry &entry, bool showDeleteButton) {
+		AdhocServerRow *row = new AdhocServerRow(&editValue_, entry, showDeleteButton, screenManager());
 		parent->Add(row);
 		row->OnSelected.Add([this](UI::EventParams &e) {
 			std::string value = e.v->Tag();
@@ -276,19 +358,30 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (!customEntries.empty()) {
 		CollapsibleSection *customSection = innerView->Add(new CollapsibleSection(n->T("Custom server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+		if (!currentServerFound) {
+			// Add a virtual entry.
+			AdhocServerListEntry entry;
+			entry.name = editValue_;
+			entry.host = editValue_;
+			// Let's do a heuristic, we don't have a good value here..
+			entry.mode = (AdhocServerRelayMode)g_Config.iAdhocServerRelayMode == AdhocServerRelayMode::AlwaysOn ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+			AddButtonFromEntry(customSection, entry, true);
+		}
+
 		for (const auto &entry : customEntries) {
-			AddButtonFromEntry(customSection, entry);
+			AddButtonFromEntry(customSection, entry, true);
 		}
 	}
 
 	CollapsibleSection *publicSection = innerView->Add(new CollapsibleSection(n->T("Public server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	for (const auto &entry : entries) {
-		AddButtonFromEntry(publicSection, entry);
+		AddButtonFromEntry(publicSection, entry, false);
 	}
 
 	CollapsibleSection *localSection = innerView->Add(new CollapsibleSection(n->T("Local network addresses"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	for (const auto &entry : localEntries) {
-		AddButtonFromEntry(localSection, entry);
+		AddButtonFromEntry(localSection, entry, false);
 	}
 
 	scrollView->Add(innerView);

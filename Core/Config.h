@@ -778,6 +778,7 @@ private:
 };
 
 std::string CreateRandMAC();
+std::string DefaultProAdhocServer();
 
 // TODO: Find a better place for this.
 extern http::RequestManager g_DownloadManager;
