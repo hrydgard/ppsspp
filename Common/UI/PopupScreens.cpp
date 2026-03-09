@@ -23,9 +23,15 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 	// Auto-assign images. A bit hack to have this here.
 	if (button1 == di->T("Delete") || button1 == di->T("Move to trash")) {
 		button1Image_ = ImageID("I_TRASHCAN");
-	}
-	if (button1 == di->T("Back")) {
+	} else if (button1 == di->T("Back")) {
 		button1Image_ = ImageID("I_NAVIGATE_BACK");
+	} else if (button1 == di->T("Add")) {
+		button1Image_ = ImageID("I_PLUS");
+	} else if (button1 == di->T("OK")) {
+		button1Image_ = ImageID("I_CHECKMARK");
+	}
+	if (button2 == di->T("Cancel")) {
+		button2Image_ = ImageID("I_NAVIGATE_BACK");
 	}
 
 	alpha_ = 0.0f;  // inherited
@@ -194,11 +200,11 @@ void PopupScreen::CreateViews() {
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
 		} else {
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
