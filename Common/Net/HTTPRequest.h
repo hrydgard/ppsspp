@@ -132,6 +132,7 @@ public:
 	}
 
 	Path UrlToCachePath(const std::string_view url);
+	bool ReadFileFromCache(std::string_view url, std::string *data);
 
 private:
 	std::vector<std::shared_ptr<Request>> downloads_;
