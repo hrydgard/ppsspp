@@ -70,11 +70,11 @@ static UI::View *CreateLinkButton(std::string url) {
 		icon = ImageID("I_LOGO_DISCORD");
 		title = cr->T("Discord");
 	} else {
-		icon = ImageID("I_WEB_BROWSER");
+		icon = ImageID("I_LINK_OUT");
 		title = st->T("Website");
 	}
 
-	Choice *choice = new Choice(title, icon, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(12, 0)));
+	Choice *choice = new Choice(title, icon, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	choice->OnClick.Add([url](UI::EventParams &) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
 	});
@@ -106,7 +106,7 @@ protected:
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		Margins contentMargins(10, 0);
 		content->SetSpacing(0.0f);
-		LinearLayout *hostLine = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0))));
+		LinearLayout *hostLine = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 		hostLine->Add(new TextView(entry_.host, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
 		hostLine->Add(new Spacer(0, new LinearLayoutParams(1.0f)));
 		hostLine->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
@@ -117,15 +117,21 @@ protected:
 		}
 		content->Add(new InfoItem(entry_.location, ""));
 		content->Add(new InfoItem(ni->T("Relay server mode"), entry_.mode == AdhocDataMode::AemuPostoffice ? di->T("Yes") : di->T("No")));
-		TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10))));
+		TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12))));
 		desc->SetTextSize(TextSize::Small);
 		desc->SetWordWrap();
-		if (!entry_.web.empty()) {
-			content->Add(CreateLinkButton(entry_.web));
+
+		if (!entry_.web.empty() || !entry_.discord.empty()) {
+			LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12))));
+			buttonStrip->SetSpacing(8);
+			if (!entry_.web.empty()) {
+				buttonStrip->Add(CreateLinkButton(entry_.web));
+			}
+			if (!entry_.discord.empty()) {
+				buttonStrip->Add(CreateLinkButton(entry_.discord));
+			}
 		}
-		if (!entry_.discord.empty()) {
-			content->Add(CreateLinkButton(entry_.discord));
-		}
+
 		scroll->Add(content);
 		parent->Add(scroll);
 	}
