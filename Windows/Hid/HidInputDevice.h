@@ -68,6 +68,6 @@ private:
 	int inReportSize_ = 0;
 	int outReportSize_ = 0;
 	enum {
-		POLL_FREQ = 283,  // a prime number.
+		POLL_FREQ = 709,  // a prime number.
 	};
 };

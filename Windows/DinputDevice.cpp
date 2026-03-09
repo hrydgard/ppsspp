@@ -417,7 +417,7 @@ DInputMetaDevice::DInputMetaDevice() {
 }
 
 int DInputMetaDevice::UpdateState() {
-	static const int CHECK_FREQUENCY = 71;  // Just an arbitrary prime to try to not collide with other periodic checks.
+	constexpr int CHECK_FREQUENCY = 787;  // Just an arbitrary prime to try to not collide with other periodic checks.
 	if (checkCounter_++ > CHECK_FREQUENCY) {
 		const size_t newCount = DinputDevice::getNumPads();
 		if (newCount > numDinputDevices_) {

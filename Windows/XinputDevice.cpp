@@ -201,9 +201,8 @@ int XinputDevice::UpdateState() {
 		}
 	}
 
-	// If we get XInput, skip the others. This might not actually be a good idea,
-	// and was done to avoid conflicts between DirectInput and XInput.
-	return 0; // anySuccess ? UPDATESTATE_SKIP_PAD : 0;
+	// Previously we returned SKIP_PAD here but it wasn't a good idea.
+	return UPDATESTATE_NORMAL;
 }
 
 void XinputDevice::ReleaseAllKeys(int pad) {
