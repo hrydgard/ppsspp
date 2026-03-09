@@ -812,6 +812,10 @@ static int DefaultGamePreviewVolume() {
 	return g_Config.iUIVolume;
 }
 
+std::string DefaultProAdhocServer() {
+	return "socom.cc";
+}
+
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", SETTING(g_Config, bEnableSound), true, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", SETTING(g_Config, bExtraAudioBuffering), false, CfgFlag::DEFAULT),
@@ -1032,7 +1036,7 @@ static const std::vector<std::string_view> emptyList;
 static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", SETTING(g_Config, bEnableWlan), false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
-	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), "socom.cc", CfgFlag::PER_GAME),
+	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), &DefaultProAdhocServer, CfgFlag::PER_GAME),
 	ConfigSetting("AdhocServerRelayMode", SETTING(g_Config, iAdhocServerRelayMode), (int)AdhocServerRelayMode::Auto, CfgFlag::PER_GAME),
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
