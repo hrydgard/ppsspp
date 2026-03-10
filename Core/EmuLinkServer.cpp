@@ -8,7 +8,10 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/MemMap.h"
+#include "Core/RetroAchievements.h"
 #include "Core/System.h"
+
+#include "ext/rcheevos/include/rc_client.h"
 
 static constexpr int EMULINK_PORT = 55355;
 static constexpr u32 MAX_PAYLOAD = 1024;
@@ -137,6 +140,11 @@ void EmuLinkServer::ServerLoop() {
 				auto lock = Memory::Lock();
 				if (write_size > 0 && Memory::IsValidRange(address, write_size)) {
 					Memory::MemcpyUnchecked(address, packet_buffer + 8, write_size);
+					// RA rules: memory tampering disqualifies hardcore
+					if (Achievements::HardcoreModeActive()) {
+						rc_client_set_hardcore_enabled(Achievements::GetClient(), 0);
+						INFO_LOG(Log::System, "EmuLinkServer: Hardcore mode disabled by memory write.");
+					}
 				}
 			}
 		} else {
