@@ -1022,6 +1022,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -1037,22 +1038,20 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		wlanChannelChoice->HideChoice(i + 7);
 	}
 
-	if (Discord::IsAvailable()) {
-		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
-	}
-
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
+
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
+	});
+	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
 
 	static const char *relayModes[] = {"Auto", "Yes", "No"};
 	PopupMultiChoice *relayModePopup = networkingSettings->Add(new PopupMultiChoice(&g_Config.iAdhocServerRelayMode, n->T("Try to use server-provided packet relay"), relayModes, 0, ARRAY_SIZE(relayModes), I18NCat::DIALOG, screenManager()));
 	relayModePopup->SetEnabled(!PSP_IsInited());
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower.")));
 
-	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc server")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
-	});
-	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
+	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
+
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
@@ -1083,7 +1082,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
 	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 
-#if (!defined(MOBILE_DEVICE) && !defined(USING_QT_UI)) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) // Missing only iOS?
+#if (!defined(MOBILE_DEVICE) && !defined(USING_QT_UI)) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) // Missing only iOS?
 	networkingSettings->Add(new ItemHeader(n->T("QuickChat", "Quick Chat")));
 	CheckBox *qc = networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("EnableQuickChat", "Enable Quick Chat")));
 	qc->SetEnabledPtr(&g_Config.bEnableNetworkChat);
@@ -1132,6 +1131,9 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
+	if (Discord::IsAvailable()) {
+		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
+	}
 }
 
 void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
