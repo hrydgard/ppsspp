@@ -1389,9 +1389,12 @@ elseif(IOS AND NOT LIBRETRO)
 		Common/Battery/AppleBatteryClient.m
 	)
 
-	list(APPEND nativeExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface" )
+	list(APPEND nativeExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		list(APPEND nativeExtraLibs "-weak_framework GameController")
+	endif()
+	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
+		list(APPEND nativeExtraLibs "-weak_framework PhotosUI")
 	endif()
 
 	if(NOT ICONV_LIBRARY)

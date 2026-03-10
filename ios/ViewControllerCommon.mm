@@ -2,6 +2,8 @@
 #import "ios/ViewControllerCommon.h"
 #import "ios/Controls.h"
 #import "ios/IAPManager.h"
+#import <Photos/Photos.h>
+#import <objc/runtime.h>
 #include "Common/System/Request.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
@@ -13,8 +15,6 @@
 #include "Core/Config.h"
 
 @interface PPSSPPBaseViewController () {
-	int imageRequestId;
-	NSString *imageFilename;
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
 	ICadeTracker g_iCadeTracker;
@@ -29,6 +29,35 @@
 
 @implementation PPSSPPBaseViewController {
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+}
+
+// Strange idiom for generating unique IDs (within the process, at least).
+static const void *kPickerFilenameKey = &kPickerFilenameKey;
+static const void *kPickerRequestIdKey = &kPickerRequestIdKey;
+
+static void SetPickerContext(id picker, NSString *filename, int requestId) {
+	objc_setAssociatedObject(picker, kPickerFilenameKey, filename, OBJC_ASSOCIATION_COPY_NONATOMIC);
+	objc_setAssociatedObject(picker, kPickerRequestIdKey, @(requestId), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+static NSString *GetPickerFilename(id picker) {
+	return (NSString *)objc_getAssociatedObject(picker, kPickerFilenameKey);
+}
+
+static int GetPickerRequestId(id picker) {
+	NSNumber *requestIdNumber = (NSNumber *)objc_getAssociatedObject(picker, kPickerRequestIdKey);
+	return requestIdNumber ? requestIdNumber.intValue : -1;
+}
+
+- (void)savePickedImage:(UIImage *)image toFilename:(NSString *)targetFilename requestId:(int)requestId {
+	NSData *jpegData = UIImageJPEGRepresentation(image, 0.9);
+	if (jpegData) {
+		[jpegData writeToFile:targetFilename atomically:YES];
+		NSLog(@"Saved JPEG image to %@", targetFilename);
+		g_requestManager.PostSystemSuccess(requestId, "", 1);
+	} else {
+		g_requestManager.PostSystemFailure(requestId);
+	}
 }
 
 - (id)init {
@@ -182,31 +211,71 @@
 }
 
 - (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId {
-	imageRequestId = requestId;
-	imageFilename = saveFilename;
 	NSLog(@"Picking photo to save to %@ (id: %d)", saveFilename, requestId);
+	NSString *targetFilename = [saveFilename copy];
+
+	if (@available(iOS 14.0, *)) {
+		PHPickerConfiguration *config = [[PHPickerConfiguration alloc] initWithPhotoLibrary:PHPhotoLibrary.sharedPhotoLibrary];
+		config.selectionLimit = 1;
+		config.filter = [PHPickerFilter imagesFilter];
+
+		PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config];
+		picker.delegate = self;
+		SetPickerContext(picker, targetFilename, requestId);
+		[self presentViewController:picker animated:YES completion:nil];
+		return;
+	}
 
 	UIImagePickerController *picker = [[UIImagePickerController alloc] init];
 	picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+	// Images only keeps the picker from doing extra video-related setup.
+	picker.mediaTypes = @[@"public.image"];
 	picker.delegate = self;
+	SetPickerContext(picker, targetFilename, requestId);
 	[self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results API_AVAILABLE(ios(14.0)) {
+	NSString *targetFilename = GetPickerFilename(picker);
+	int requestId = GetPickerRequestId(picker);
+
+	[picker dismissViewControllerAnimated:YES completion:nil];
+
+	if (results.count == 0) {
+		NSLog(@"User cancelled photo picker");
+		g_requestManager.PostSystemFailure(requestId);
+		[self hideKeyboard];
+		return;
+	}
+
+	NSItemProvider *itemProvider = results.firstObject.itemProvider;
+	if (![itemProvider canLoadObjectOfClass:[UIImage class]]) {
+		NSLog(@"Photo picker result does not provide UIImage");
+		g_requestManager.PostSystemFailure(requestId);
+		[self hideKeyboard];
+		return;
+	}
+
+	[itemProvider loadObjectOfClass:[UIImage class] completionHandler:^(UIImage *image, NSError *error) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (error || !image) {
+				NSLog(@"Failed loading picked image: %@", error);
+				g_requestManager.PostSystemFailure(requestId);
+			} else {
+				[self savePickedImage:image toFilename:targetFilename requestId:requestId];
+			}
+			[self hideKeyboard];
+		});
+	}];
 }
 
 - (void)imagePickerController:(UIImagePickerController *)picker
 		didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info {
+	NSString *targetFilename = GetPickerFilename(picker);
+	int requestId = GetPickerRequestId(picker);
 
 	UIImage *image = info[UIImagePickerControllerOriginalImage];
-
-	// Convert to JPEG with 90% quality
-	NSData *jpegData = UIImageJPEGRepresentation(image, 0.9);
-	if (jpegData) {
-		// Do something with the JPEG data (e.g., save to file)
-		[jpegData writeToFile:imageFilename atomically:YES];
-		NSLog(@"Saved JPEG image to %@", imageFilename);
-		g_requestManager.PostSystemSuccess(imageRequestId, "", 1);
-	} else {
-		g_requestManager.PostSystemFailure(imageRequestId);
-	}
+	[self savePickedImage:image toFilename:targetFilename requestId:requestId];
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
 
@@ -215,11 +284,12 @@
 
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
 	NSLog(@"User cancelled image picker");
+	int requestId = GetPickerRequestId(picker);
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
 
 	// You can also call your custom callback or use the requestId here
-	g_requestManager.PostSystemFailure(imageRequestId);
+	g_requestManager.PostSystemFailure(requestId);
 	[self hideKeyboard];
 }
 
