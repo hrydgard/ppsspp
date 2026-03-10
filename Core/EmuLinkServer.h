@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <string>
 #include <thread>
 #include "Common/Net/SocketCompat.h"
 
@@ -18,4 +19,5 @@ private:
 	std::atomic<bool> m_running{false};
 	std::thread m_thread;
 	SOCKET m_socket = INVALID_SOCKET;
+	std::string m_gameHash;
 };
