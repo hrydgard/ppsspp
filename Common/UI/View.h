@@ -1139,15 +1139,18 @@ private:
 class ImageView : public InertView {
 public:
 	ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams = nullptr);
+	ImageView(std::function<ImageID()> func, LayoutParams *layoutParams = nullptr);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return text_; }
 	void SetScale(float s) { scale_ = s; }  // Only used for measuring.
+	void SetFunc(std::function<ImageID()> func) { func_ = func; }
 
 private:
 	std::string text_;
 	ImageID atlasImage_;
 	float scale_ = 1.0f;
+	std::function<ImageID()> func_;
 };
 
 class ProgressBar : public InertView {

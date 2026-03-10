@@ -1024,19 +1024,24 @@ void RadioButton::Draw(UIContext &dc) {
 ImageView::ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams)
 	: InertView(layoutParams), text_(text), atlasImage_(atlasImage) {}
 
+ImageView::ImageView(std::function<ImageID()> func, LayoutParams *layoutParams)
+	: InertView(layoutParams), func_(func) {}
+
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.Draw()->GetAtlas()->measureImage(atlasImage_, &w, &h);
+	ImageID id = func_ ? func_() : atlasImage_;
+	dc.Draw()->GetAtlas()->measureImage(id, &w, &h);
 	w *= scale_;
 	h *= scale_;
 	// TODO: involve sizemode
 }
 
 void ImageView::Draw(UIContext &dc) {
-	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(atlasImage_);
+	ImageID id = func_ ? func_() : atlasImage_;
+	const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(id);
 	if (img) {
 		// TODO: involve sizemode
 		float scale = bounds_.w / img->w;
-		dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
+		dc.Draw()->DrawImage(id, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
 	}
 }
 

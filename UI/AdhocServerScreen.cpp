@@ -193,7 +193,11 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(editValue), entry_(entry) {
 	using namespace UI;
 
+	SetSpacing(5.0f);
+	// Show as radio button to make it really clear that selection actually is the choice.
 	int number = 0;
+	Add(new ImageView([editValue, host = entry.host]() { return host == *editValue ? ImageID("I_RADIO_SELECTED") : ImageID("I_RADIO_EMPTY"); },
+		new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(5, 0, 0, 0))));
 
 	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
 	lines->SetSpacing(0.0f);
