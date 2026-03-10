@@ -5,6 +5,7 @@
 #include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "UI/MiscViews.h"
 
 class AdhocAddServerPopupScreen : public UI::PopupScreen {
 public:
@@ -199,6 +200,11 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	lines->Add(new TextView(entry.name));
 
 	std::string secondLine = entry.host;
+	if (entry.host == "localhost") {
+		// Special case this to add a hint.
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		secondLine = n->T("Change proAdhocServer address hint");
+	}
 	if (!entry.location.empty()) {
 		secondLine += ": " + entry.location;
 	}

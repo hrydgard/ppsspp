@@ -112,23 +112,6 @@ void SetMemStickDirDarwin(int requesterToken) {
 }
 #endif
 
-class SettingHint : public UI::TextView {
-public:
-	SettingHint(std::string_view text)
-		: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)) {
-		SetTextSize(UI::TextSize::Tiny);
-		SetPadding(UI::Margins(14, 0, 12, 8));
-		SetAlign(FLAG_WRAP_TEXT);
-	}
-
-	void Draw(UIContext &dc) override {
-		UI::Style style = dc.GetTheme().itemStyle;
-		SetTextColor(style.fgColor);  // bit hacky but works
-		dc.FillRect(style.background, bounds_);
-		UI::TextView::Draw(dc);
-	}
-};
-
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
@@ -1043,7 +1026,6 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
 	});
-	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
 
 	static const char *relayModes[] = {"Auto", "Yes", "No"};
 	PopupMultiChoice *relayModePopup = networkingSettings->Add(new PopupMultiChoice(&g_Config.iAdhocServerRelayMode, n->T("Try to use server-provided packet relay"), relayModes, 0, ARRAY_SIZE(relayModes), I18NCat::DIALOG, screenManager()));

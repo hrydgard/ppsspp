@@ -291,3 +291,17 @@ void GameInfoBGView::Draw(UIContext &dc) {
 		}
 	}
 }
+
+SettingHint::SettingHint(std::string_view text)
+	: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)) {
+	SetTextSize(UI::TextSize::Tiny);
+	SetPadding(UI::Margins(14, 0, 12, 8));
+	SetAlign(FLAG_WRAP_TEXT);
+}
+
+void SettingHint::Draw(UIContext &dc) {
+	UI::Style style = dc.GetTheme().itemStyle;
+	SetTextColor(style.fgColor);  // bit hacky but works
+	dc.FillRect(style.background, bounds_);
+	UI::TextView::Draw(dc);
+}
