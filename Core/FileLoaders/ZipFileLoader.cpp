@@ -79,7 +79,7 @@ bool ZipFileLoader::Initialize(int fileIndex) {
 
 	data_ = (u8 *)malloc(dataFileSize_);
 	if (!data_) {
-		ERROR_LOG(Log::IO, "Failed to allocate %lld bytes for ZIP file data", dataFileSize_);
+		ERROR_LOG(Log::IO, "Failed to allocate %lld bytes for ZIP file data", (long long)dataFileSize_);
 		zip_fclose(dataFile_);
 		dataFile_ = nullptr;
 		return false;
@@ -104,11 +104,11 @@ size_t ZipFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags fl
 		}
 		zip_int64_t retval = zip_fread(dataFile_, data_ + dataReadPos_, remaining);
 		if (retval < 0) {
-			ERROR_LOG(Log::IO, "zip_fread failed with error code %lld", retval);
+			ERROR_LOG(Log::IO, "zip_fread failed with error code %lld", (long long)retval);
 			return 0;
 		}
 		if (retval != remaining) {
-			ERROR_LOG(Log::IO, "zip_fread: expected %d bytes, got %lld", remaining, retval);
+			ERROR_LOG(Log::IO, "zip_fread: expected %d bytes, got %lld", remaining, (long long)retval);
 			return 0;
 		}
 		dataReadPos_ += retval;

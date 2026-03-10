@@ -359,7 +359,7 @@ bool ScreenshotNotifyEndOfFrame(Draw::DrawContext *draw) {
 			return false;
 		}
 	}
-	_dbg_assert_msg_(buf.IsBackBuffer(), "buf isn't backbuffer?? rotation: %d", g_display.rotation);
+	_dbg_assert_msg_(buf.IsBackBuffer(), "buf isn't backbuffer?? rotation: %d", (int)g_display.rotation);
 	const int w = buf.GetStride();
 	const int h = buf.GetHeight();
 	SaveScreenshotAsync(std::move(buf), w, h, g_pendingScreenshot.maxRes);

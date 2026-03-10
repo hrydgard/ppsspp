@@ -302,7 +302,7 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 	std::vector<std::string_view> lines;
 	SplitString(str, '\n', lines);
 
-	INFO_LOG(Log::G3D, "Measuring string %.*s", STR_VIEW(str));
+	// INFO_LOG(Log::G3D, "Measuring string %.*s", STR_VIEW(str));
 
 	int extW = 0, extH = 0;
 	std::string temp;

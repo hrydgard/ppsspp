@@ -556,6 +556,9 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 #endif
 		// INFO_LOG(Log::System, "LaunchUrlType::LOCAL_FILE not implemented on this platform");
 		break;
+	default:
+		INFO_LOG(Log::System, "Unhandled LaunchUrlType %d", (int)urlType);
+		break;
 	}
 }
 
