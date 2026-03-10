@@ -1,18 +1,17 @@
 #include <algorithm>
 #include <cstring>
 
+#include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/EmuLinkServer.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 
 static constexpr int EMULINK_PORT = 55355;
 static constexpr u32 MAX_PAYLOAD = 1024;
-
-// Disc ID written here for EmuLnk game detection (end of scratchpad RAM).
-static constexpr u32 EMULINK_ID_ADDR = 0x00013FF0;
 
 EmuLinkServer &EmuLinkServer::Instance() {
 	static EmuLinkServer instance;
@@ -55,15 +54,17 @@ bool EmuLinkServer::Start() {
 		return false;
 	}
 
+	// Hash EBOOT.BIN for EMLKV2 handshake (partial hash — executable only, not full ISO)
 	{
-		auto lock = Memory::Lock();
-		std::string discID = g_paramSFO.GetDiscID();
-		if (!discID.empty() && Memory::IsValidRange(EMULINK_ID_ADDR, 16)) {
-			u8 idBuf[16] = {};
-			size_t len = std::min(discID.size(), (size_t)15);
-			std::memcpy(idBuf, discID.c_str(), len);
-			Memory::MemcpyUnchecked(EMULINK_ID_ADDR, idBuf, 16);
-			INFO_LOG(Log::System, "EmuLinkServer: Wrote disc ID '%s' at 0x%08X", discID.c_str(), EMULINK_ID_ADDR);
+		std::vector<u8> ebootData;
+		if (pspFileSystem.ReadEntireFile("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN", ebootData, true) >= 0 && !ebootData.empty()) {
+			unsigned char digest[16];
+			ppsspp_md5(ebootData.data(), (int)ebootData.size(), digest);
+			char hex[33];
+			for (int i = 0; i < 16; i++)
+				snprintf(hex + i * 2, 3, "%02x", digest[i]);
+			m_gameHash = hex;
+			INFO_LOG(Log::System, "EmuLinkServer: EBOOT.BIN hash: %s (%zu bytes)", m_gameHash.c_str(), ebootData.size());
 		}
 	}
 
@@ -87,6 +88,8 @@ void EmuLinkServer::Stop() {
 	if (m_thread.joinable())
 		m_thread.join();
 
+	m_gameHash.clear();
+
 	INFO_LOG(Log::System, "EmuLinkServer: Stopped");
 }
 
@@ -100,12 +103,15 @@ void EmuLinkServer::ServerLoop() {
 		int received = recvfrom(m_socket, (char *)packet_buffer, sizeof(packet_buffer),
 		                        0, (sockaddr *)&sender, &senderLen);
 
-		// IDENTIFY handshake: 4-byte "EMLK" magic → respond with emulator name
-		if (received == 4 &&
-		    packet_buffer[0] == 'E' && packet_buffer[1] == 'M' &&
-		    packet_buffer[2] == 'L' && packet_buffer[3] == 'K') {
-			const char *id = "ppsspp";
-			sendto(m_socket, id, 6, 0, (sockaddr *)&sender, senderLen);
+		// EMLKV2 handshake
+		if (received == 6 && std::memcmp(packet_buffer, "EMLKV2", 6) == 0) {
+			char json[512];
+			std::string discID = g_paramSFO.GetDiscID();
+			snprintf(json, sizeof(json),
+				"{\"emulator\":\"ppsspp\",\"game_id\":\"%s\",\"game_hash\":\"%s\",\"platform\":\"PSP\"}",
+				discID.c_str(), m_gameHash.c_str());
+			sendto(m_socket, json, strlen(json), 0, (sockaddr *)&sender, senderLen);
+			INFO_LOG(Log::System, "EmuLinkServer: V2 handshake: %s", json);
 			continue;
 		}
 
