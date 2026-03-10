@@ -5,10 +5,11 @@
 #include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "UI/MiscViews.h"
 
 class AdhocAddServerPopupScreen : public UI::PopupScreen {
 public:
-	AdhocAddServerPopupScreen() : PopupScreen(T(I18NCat::NETWORKING, "Add server"), T(I18NCat::DIALOG, "Add"), T(I18NCat::DIALOG, "Cancel")) {
+	AdhocAddServerPopupScreen(std::string *outEditValue) : PopupScreen(T(I18NCat::NETWORKING, "Add server"), T(I18NCat::DIALOG, "Add"), T(I18NCat::DIALOG, "Cancel")), outEditValue_(outEditValue) {
 	}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
@@ -16,17 +17,35 @@ public:
 		auto ni = GetI18NCategory(I18NCat::NETWORKING);
 
 		PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, ni->T("Hostname"), "", 450, screenManager()));
+		textInputChoice->SetShadowText(ni->T("Hostname"));
 		parent->Add(new CheckBox(&hasRelay_, ni->T("Relay server mode")));
 	}
 
 	virtual void OnCompleted(DialogResult result) {
 		if (result == DialogResult::DR_OK) {
-			if (hasRelay_) {
-				// Insert at the start of the vector.
-				g_Config.vCustomAdhocServerListWithRelay.insert(g_Config.vCustomAdhocServerListWithRelay.begin(), editValue_);
-			} else {
-				g_Config.vCustomAdhocServerList.insert(g_Config.vCustomAdhocServerList.begin(), editValue_);
+			std::vector<AdhocServerListEntry> servers = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
+			bool preset = false;
+			for (auto &iter : servers) {
+				if (equalsNoCase(editValue_, iter.host)) {
+					// We have this predefined.
+					preset = true;
+				}
 			}
+			if (!preset) {
+				if (hasRelay_) {
+					// Insert at the start of the vector.
+					if (!ContainsNoCase(g_Config.vCustomAdhocServerListWithRelay, editValue_) &&
+						!ContainsNoCase(g_Config.vCustomAdhocServerList, editValue_)) {
+						g_Config.vCustomAdhocServerListWithRelay.insert(g_Config.vCustomAdhocServerListWithRelay.begin(), editValue_);
+					}
+				} else {
+					if (!ContainsNoCase(g_Config.vCustomAdhocServerList, editValue_) &&
+						!ContainsNoCase(g_Config.vCustomAdhocServerListWithRelay, editValue_)) {
+						g_Config.vCustomAdhocServerList.insert(g_Config.vCustomAdhocServerList.begin(), editValue_);
+					}
+				}
+			}
+			*outEditValue_ = editValue_;
 		}
 	}
 	virtual bool CanComplete(DialogResult result) { return result == DR_OK ? !editValue_.empty() : true; }
@@ -35,6 +54,7 @@ public:
 
 private:
 	std::string editValue_;
+	std::string *outEditValue_;
 	bool hasRelay_ = true;
 };
 
@@ -52,11 +72,11 @@ static UI::View *CreateLinkButton(std::string url) {
 		icon = ImageID("I_LOGO_DISCORD");
 		title = cr->T("Discord");
 	} else {
-		icon = ImageID("I_WEB_BROWSER");
+		icon = ImageID("I_LINK_OUT");
 		title = st->T("Website");
 	}
 
-	Choice *choice = new Choice(title, icon, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(12, 0)));
+	Choice *choice = new Choice(title, icon, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	choice->OnClick.Add([url](UI::EventParams &) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
 	});
@@ -88,7 +108,7 @@ protected:
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		Margins contentMargins(10, 0);
 		content->SetSpacing(0.0f);
-		LinearLayout *hostLine = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0))));
+		LinearLayout *hostLine = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 		hostLine->Add(new TextView(entry_.host, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
 		hostLine->Add(new Spacer(0, new LinearLayoutParams(1.0f)));
 		hostLine->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
@@ -99,15 +119,21 @@ protected:
 		}
 		content->Add(new InfoItem(entry_.location, ""));
 		content->Add(new InfoItem(ni->T("Relay server mode"), entry_.mode == AdhocDataMode::AemuPostoffice ? di->T("Yes") : di->T("No")));
-		TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10))));
+		TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12))));
 		desc->SetTextSize(TextSize::Small);
 		desc->SetWordWrap();
-		if (!entry_.web.empty()) {
-			content->Add(CreateLinkButton(entry_.web));
+
+		if (!entry_.web.empty() || !entry_.discord.empty()) {
+			LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12))));
+			buttonStrip->SetSpacing(8);
+			if (!entry_.web.empty()) {
+				buttonStrip->Add(CreateLinkButton(entry_.web));
+			}
+			if (!entry_.discord.empty()) {
+				buttonStrip->Add(CreateLinkButton(entry_.discord));
+			}
 		}
-		if (!entry_.discord.empty()) {
-			content->Add(CreateLinkButton(entry_.discord));
-		}
+
 		scroll->Add(content);
 		parent->Add(scroll);
 	}
@@ -164,17 +190,26 @@ private:
 	AdhocServerListEntry entry_;
 };
 
-AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &entry, bool showDeleteButton, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
-	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(value), entry_(entry) {
+AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntry &entry, bool showDeleteButton, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
+	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(editValue), entry_(entry) {
 	using namespace UI;
 
+	SetSpacing(5.0f);
+	// Show as radio button to make it really clear that selection actually is the choice.
 	int number = 0;
+	Add(new ImageView([editValue, host = entry.host]() { return host == *editValue ? ImageID("I_RADIO_SELECTED") : ImageID("I_RADIO_EMPTY"); },
+		new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(5, 0, 0, 0))));
 
 	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
 	lines->SetSpacing(0.0f);
 	lines->Add(new TextView(entry.name));
 
 	std::string secondLine = entry.host;
+	if (entry.host == "localhost") {
+		// Special case this to add a hint.
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		secondLine = n->T("Change proAdhocServer address hint");
+	}
 	if (!entry.location.empty()) {
 		secondLine += ": " + entry.location;
 	}
@@ -188,22 +223,17 @@ AdhocServerRow::AdhocServerRow(std::string *value, const AdhocServerListEntry &e
 	}
 	if (showDeleteButton) {
 		Choice *deleteButton = Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
-		deleteButton->OnClick.Add([host = entry.host, screenManager](UI::EventParams &e) {
+		deleteButton->OnClick.Add([host = entry.host, screenManager, editValue](UI::EventParams &e) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
-			std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1"), host);
-			screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host](bool confirmed) {
+			const std::string quotedHost = "\"" + host + "\"";
+			const std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1?"), quotedHost);
+			screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host, editValue](bool confirmed) {
 				if (confirmed) {
-					auto f = std::find(g_Config.vCustomAdhocServerList.begin(), g_Config.vCustomAdhocServerList.end(), host);
-					if (f != g_Config.vCustomAdhocServerList.end()) {
-						g_Config.vCustomAdhocServerList.erase(f);
-					}
-					f = std::find(g_Config.vCustomAdhocServerListWithRelay.begin(), g_Config.vCustomAdhocServerListWithRelay.end(), host);
-					if (f != g_Config.vCustomAdhocServerListWithRelay.end()) {
-						g_Config.vCustomAdhocServerListWithRelay.erase(f);
-					}
-					if (g_Config.sProAdhocServer == host) {
+					RemoveNoCase(g_Config.vCustomAdhocServerList, host);
+					RemoveNoCase(g_Config.vCustomAdhocServerListWithRelay, host);
+					if (*editValue == host) {
 						// Reset to socom.cc, which will always be in a list.
-						g_Config.sProAdhocServer = DefaultProAdhocServer();
+						*editValue = DefaultProAdhocServer();
 					}
 				}
 			}));
@@ -256,7 +286,7 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	Choice *addServer = parent->Add(new Choice(n->T("Add server"), ImageID("I_PLUS")));
 	addServer->OnClick.Add([this](UI::EventParams &e) {
-		AdhocAddServerPopupScreen *addScreen = new AdhocAddServerPopupScreen();
+		AdhocAddServerPopupScreen *addScreen = new AdhocAddServerPopupScreen(&editValue_);
 		screenManager()->push(addScreen);
 	});
 

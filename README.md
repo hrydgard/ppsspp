@@ -25,8 +25,24 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.20.2
+--------------------
+
+- Improved server list for ad hoc multiplayer, dynamically updated and you can now add/remove entries ([#21326], [#21389], [#21351])
+- Fix broken multitouch on iOS with OpenGL ([#21350])
+- Ad hoc relay connection improvements ([#21352])
+- Fix a lot of minor UI issues ([#21400], [#21362])
+- Fix background image selection on Android and iOS ([#21345], [#21384], [#21371])
+- Fix file permission issue on iOS ([#21374])
+- Add a "hold" version of axis swap toggle ([#21357])
+- Fix regression in Gripshift ([#21377])
+- Fix crash on audio device switch on Windows ([#21341])
+- Fix timing glitches in gamepad input on Windows ([#21393])
+- And other assorted fixes.
+
 What's new in 1.20
 ------------------
+
 - User interface
   - New feature: Proper support for Portrait Mode UI - you can now rotate your phone to vertical mode, and things will mostly work fine! ([#21185], [#21044]...)
   - New feature: Separate touch controls and display layout configs for landscape/portrait, new default touch control layout for portrait mode
@@ -401,3 +417,18 @@ See [history.md](history.md).
 [#21042]: https://github.com/hrydgard/ppsspp/issues/21042 "Setting out of game UI confirmation button to O makes both O and X into UI confirmation buttons"
 [#21325]: https://github.com/hrydgard/ppsspp/issues/21325 "Controls: Add a setting for the threshold used to map analog stick inputs to digital buttons"
 [#21306]: https://github.com/hrydgard/ppsspp/issues/21306 "Server list update, add virtual keyboard to PopupTextInputChoice"
+[#21326]: https://github.com/hrydgard/ppsspp/issues/21326 "Adhoc server list: Show metadata"
+[#21389]: https://github.com/hrydgard/ppsspp/issues/21389 "Adhoc server list work, add missing translations"
+[#21351]: https://github.com/hrydgard/ppsspp/issues/21351 "Ad hoc server list refactor: Parse the server list from a json file"
+[#21350]: https://github.com/hrydgard/ppsspp/issues/21350 "Fix multitouch in OpenGL mode on iOS. Oops."
+[#21352]: https://github.com/hrydgard/ppsspp/issues/21352 "Handle adhoc relay connection a bit better"
+[#21400]: https://github.com/hrydgard/ppsspp/issues/21400 "Fix minor UI centering issues and similar"
+[#21362]: https://github.com/hrydgard/ppsspp/issues/21362 "More UI-related fixes"
+[#21345]: https://github.com/hrydgard/ppsspp/issues/21345 "Fix image picker on Android, plus smoother fullscreen startup on Windows"
+[#21384]: https://github.com/hrydgard/ppsspp/issues/21384 "Android background image selection: Scale down selected background image when too large"
+[#21371]: https://github.com/hrydgard/ppsspp/issues/21371 "Various cleanups, iCloud fix"
+[#21374]: https://github.com/hrydgard/ppsspp/issues/21374 "iOS: Preserve permissions to access files across runs"
+[#21357]: https://github.com/hrydgard/ppsspp/issues/21357 "Add a \"hold\" version of the axis swap toggle. Often more convenient."
+[#21377]: https://github.com/hrydgard/ppsspp/issues/21377 "Windows audio fix, Gripshift glitch workaround"
+[#21341]: https://github.com/hrydgard/ppsspp/issues/21341 "Fix crash on audio device switch in Windows"
+[#21393]: https://github.com/hrydgard/ppsspp/issues/21393 "Windows input optimizations"
