@@ -859,7 +859,7 @@ public:
 	}
 
 protected:
-	virtual std::string ValueText() const = 0;
+	virtual std::string ValueText(bool *shadow) const = 0;
 	virtual ImageID ValueImage() const { return ImageID::invalid(); }
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
@@ -872,7 +872,8 @@ public:
 	ChoiceWithCallbackValueDisplay(std::string_view text, std::function<std::string()> valueFunc, LayoutParams *layoutParams = nullptr)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), valueFunc_(valueFunc) {}
 protected:
-	std::string ValueText() const override {
+	std::string ValueText(bool *shadow) const override {
+		*shadow = false;
 		return valueFunc_();
 	}
 	std::function<std::string()> valueFunc_;

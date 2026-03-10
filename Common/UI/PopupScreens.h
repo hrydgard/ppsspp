@@ -330,7 +330,7 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 	ImageID ValueImage() const override {
 		auto iter = icons_.find(*value_);
 		if (iter != icons_.end()) {
@@ -445,7 +445,7 @@ public:
 	Event OnChange;
 
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 private:
 	void HandleClick(EventParams &e);
@@ -486,7 +486,7 @@ public:
 	Event OnChange;
 
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 private:
 	void HandleClick(EventParams &e);
@@ -517,8 +517,12 @@ public:
 		minLen_ = minLength;
 	}
 
+	void SetShadowText(std::string_view text) {
+		shadowText_ = text;
+	}
+
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 private:
 	void HandleClick(EventParams &e);
@@ -527,6 +531,7 @@ private:
 	std::string *value_;
 	std::string placeHolder_;
 	std::string defaultText_;
+	std::string shadowText_;
 	int maxLen_;
 	int minLen_ = 0;
 	bool restoreFocus_ = false;
@@ -545,7 +550,7 @@ public:
 		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {}
 
 private:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 	std::string *sValue_ = nullptr;
 	int *iValue_ = nullptr;
@@ -560,7 +565,7 @@ enum class FileChooserFileType {
 class FileChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
 	FileChooserChoice(RequesterToken token, std::string *value, std::string_view title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 	Event OnChange;
 
@@ -571,7 +576,7 @@ private:
 class FolderChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
 	FolderChooserChoice(RequesterToken token, std::string *value, std::string_view title, LayoutParams *layoutParams = nullptr);
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 	Event OnChange;
 
