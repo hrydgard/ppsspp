@@ -166,6 +166,20 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		screenManager()->push(new LogConfigScreen());
 	});
 	list->Add(new CheckBox(&g_Config.bEnableFileLogging, dev->T("Log to file")))->SetEnabledPtr(&g_Config.bEnableLogging);
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+		list->Add(new Choice(dev->T("Show log file in folder")))->OnClick.Add([](UI::EventParams &e) {
+			Path logFilePath = g_logManager.GetLogFilePath();
+			if (logFilePath.empty()) {
+				ERROR_LOG(Log::System, "No log file path configured.");
+				return;
+			}
+			if (File::Exists(logFilePath)) {
+				System_ShowFileInFolder(logFilePath);
+			} else {
+				System_LaunchUrl(LaunchUrlType::LOCAL_FILE, logFilePath.NavigateUp().ToString());
+			}
+		});
+	}
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
