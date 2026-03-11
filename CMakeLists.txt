@@ -202,9 +202,12 @@ option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+option(USE_SYSTEM_FREETYPE "Dynamically link against system freetype" ${USE_SYSTEM_FREETYPE})
+option(USE_SYSTEM_LIBCHDR "Dynamically link against system libchdr" ${USE_SYSTEM_LIBCHDR})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ${DEFAULT_USE_SYSTEM_LIBSDL2})
 option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
+option(USE_SYSTEM_RAPIDJSON "Build using system rapidjson" ${USE_SYSTEM_RAPIDJSON})
 option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
 option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SYSTEM_MINIUPNPC})
 option(USE_ASAN "Use address sanitizer" OFF)
@@ -216,6 +219,10 @@ option(GOLD "Gold build" OFF)
 
 if(USE_CCACHE)
 	include(ccache)
+endif()
+
+if(USE_SYSTEM_RAPIDJSON)
+	add_compile_definitions(SYSTEM_RAPIDJSON)
 endif()
 
 if(WEBOS)
@@ -2077,7 +2084,7 @@ if(WIN32)
 	)
 endif()
 
-if(LINUX OR ANDROID OR MACOSX OR IOS)
+if(LINUX OR ANDROID OR MACOSX OR IOS OR BSD)
 	list(APPEND aemu_postoffice
 		ext/aemu_postoffice/client/sock_impl_linux.c
 	)
@@ -2577,7 +2584,14 @@ else()
 	include_directories(ext/zstd/lib)
 endif()
 
-include_directories(ext/libchdr/include)
+if(USE_SYSTEM_LIBCHDR)
+	find_package(PkgConfig)
+	if(PkgConfig_FOUND)
+		pkg_check_modules(libchdr_PKGCONFIG IMPORTED_TARGET libchdr)
+	endif()
+else()
+	include_directories(ext/libchdr/include)
+endif()
 
 target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
@@ -2952,7 +2966,13 @@ if(UNITTEST)
 endif()
 
 if(ATLAS_TOOL)
-	include_directories(ext/freetype/include)
+	if(USE_SYSTEM_FREETYPE)
+		find_package(Freetype REQUIRED)
+		include_directories(${FREETYPE_INCLUDE_DIRS})
+		add_compile_definitions(SYSTEM_FREETYPE)
+	else()
+		include_directories(ext/freetype/include)
+	endif()
 
 	set(AtlasToolSource
 		ext/native/tools/atlastool.cpp

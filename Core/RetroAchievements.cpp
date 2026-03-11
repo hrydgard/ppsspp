@@ -25,7 +25,11 @@
 #include "ext/rcheevos/include/rc_api_request.h"
 #include "ext/rcheevos/include/rc_api_runtime.h"
 
+#ifdef SYSTEM_RAPIDJSON
+#include <rapidjson/document.h>
+#else
 #include "ext/rapidjson/include/rapidjson/document.h"
+#endif
 
 #include "Common/Crypto/md5.h"
 #include "Common/Log.h"
