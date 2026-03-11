@@ -835,7 +835,7 @@ public:
 		rightText_ = text;
 	}
 protected:
-	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 private:
 	std::string text_;
@@ -1085,7 +1085,7 @@ class ClickableTextView : public TextView {
 public:
 	ClickableTextView(std::string_view text, LayoutParams *layoutParams = 0)
 		: TextView(text, layoutParams) {}
-	bool Touch(const TouchInput &input);
+	bool Touch(const TouchInput &input) override;
 	Event OnClick;
 
 private:

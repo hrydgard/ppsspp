@@ -199,13 +199,14 @@ void LogManager::SetFileLogPath(const Path &filename) {
 		fclose(fp_);
 	}
 
-	if (!filename.empty() && (outputs_ & LogOutput::File)) {
-		logFilename_ = Path(filename);
+	logFilename_ = Path(filename);
+
+	if (outputs_ & LogOutput::File) {
 		File::CreateFullPath(logFilename_.NavigateUp());
 		fp_ = File::OpenCFile(logFilename_, "at");
 		logFileOpenFailed_ = fp_ == nullptr;
 		if (logFileOpenFailed_) {
-			printf("Failed to open log file %s\n", filename.c_str());
+			printf("Failed to open log file %s\n", logFilename_.c_str());
 		}
 	}
 }

@@ -104,6 +104,8 @@ What's new in 1.20
   - Linux
     - Loongarch improvements by KatyushaScarlet ([#20683], [#20644], [#20599], [#20594]), text rendering improvements ([#21163])
     - SDL fullscreen problems fixed ([#21300], more)
+  - UWP
+    - Migrate code base to C++/WinRT ([#21100])
 
 - Debugger
   - ImDebugger improvements ([#20861], [#20779], [#20657], [#20637], [#20550], [#20523])
@@ -432,3 +434,4 @@ See [history.md](history.md).
 [#21377]: https://github.com/hrydgard/ppsspp/issues/21377 "Windows audio fix, Gripshift glitch workaround"
 [#21341]: https://github.com/hrydgard/ppsspp/issues/21341 "Fix crash on audio device switch in Windows"
 [#21393]: https://github.com/hrydgard/ppsspp/issues/21393 "Windows input optimizations"
+[#21100]: https://github.com/hrydgard/ppsspp/issues/21100 "UWP: Migrate from C++/CX to C++/WinRT"

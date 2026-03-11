@@ -12,6 +12,7 @@
 #include "Common/GPU/thin3d_create.h"
 
 #include "Common/Common.h"
+#include "Common/OSVersion.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
@@ -316,6 +317,50 @@ void UWPGraphicsContext::Shutdown() {
 	delete draw_;
 }
 
+bool IsXBox() {
+	auto deviceInfo = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo();
+	return deviceInfo.DeviceFamily() == L"Windows.Xbox";
+}
+
+bool IsMobile() {
+	auto deviceInfo = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo();
+	return deviceInfo.DeviceFamily() == L"Windows.Mobile";
+}
+
+void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
+	winrt::hstring deviceFamilyVersion = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo().DeviceFamilyVersion();
+	uint64_t version = std::stoull(std::wstring(deviceFamilyVersion));
+
+	major = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
+	minor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
+	build = static_cast<uint32_t>((version & 0x00000000FFFF0000L) >> 16);
+	revision = static_cast<uint32_t>(version & 0x000000000000FFFFL);
+}
+
+std::string GetSystemName() {
+	std::string osName = "Microsoft Windows 10";
+
+	if (IsXBox()) {
+		osName = "Xbox OS";
+	} else {
+		uint32_t major = 0, minor = 0, build = 0, revision = 0;
+		GetVersionInfo(major, minor, build, revision);
+
+		if (build >= 22000) {
+			osName = "Microsoft Windows 11";
+		}
+	}
+	return osName + " " + GetWindowsSystemArchitecture();
+}
+
+std::string GetWindowsBuild() {
+	uint32_t major = 0, minor = 0, build = 0, revision = 0;
+	GetVersionInfo(major, minor, build, revision);
+
+	char buffer[50];
+	sprintf_s(buffer, sizeof(buffer), "%u.%u.%u (rev. %u)", major, minor, build, revision);
+	return std::string(buffer);
+}
 std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
