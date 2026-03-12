@@ -1011,11 +1011,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
-	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
-	wiki->OnClick.Add([](EventParams &e) {
+	Choice *quickstart = networkingSettings->Add(new Choice(n->T("Quick start guide for multiplayer"), ImageID("I_LINK_OUT")));
+	quickstart->OnClick.Add([](EventParams &e) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
+		std::string url(n->T("MultiplayerQuickStartURL", "https://www.ppsspp.org/docs/multiplayer/quickstart/"));
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
 	});
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
@@ -1109,6 +1109,12 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 #endif
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
+	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
+	wiki->OnClick.Add([](EventParams &e) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
+	});
 	static const char *wlanChannels[] = {"Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
 	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
 	for (int i = 0; i < 4; i++) {
