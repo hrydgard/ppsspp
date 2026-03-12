@@ -656,6 +656,8 @@ static std::string QueryConfig(std::string_view query) {
 		}
 		// Otherwise, some devices prefer the Java init so play it safe.
 		return "true";
+	} else if (query == "audioMixWithOthers") {
+		return g_Config.bAudioMixWithOthers ? "1" : "0";
 	} else {
 		return "";
 	}
@@ -1117,6 +1119,9 @@ void System_Notify(SystemNotification notification) {
 		break;
 	case SystemNotification::TEST_JAVA_EXCEPTION:
 		PushCommand("testException", "This is a test exception");
+		break;
+	case SystemNotification::AUDIO_MODE_CHANGED:
+		PushCommand("audio_mode_changed", "");
 		break;
 	default:
 		break;
