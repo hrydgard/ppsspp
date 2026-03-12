@@ -872,13 +872,20 @@ void GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 void GamePauseScreen::OnCreateConfig(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-		std::string gameId = info->id;
-		g_Config.CreateGameConfig(gameId);
-		g_Config.SaveGameConfig(gameId, info->GetTitle());
-		if (info) {
-			info->hasConfig = true;
-		}
-		RecreateViews();
+		auto ga = GetI18NCategory(I18NCat::GAME);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		screenManager()->push(new UI::MessagePopupScreen(info->GetTitle(), ga->T("Are you sure you want to create a game-specific config?"), di->T("Yes"), di->T("No"),
+			[this, info](bool result) {
+			if (result) {
+				std::string gameId = info->id;
+				g_Config.CreateGameConfig(gameId);
+				g_Config.SaveGameConfig(gameId, info->GetTitle());
+				if (info) {
+					info->hasConfig = true;
+				}
+				RecreateViews();
+			}
+		}));
 	}
 }
 
@@ -886,6 +893,7 @@ void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	screenManager()->push(
+		// TODO: This string should be changed to better match the one in OnCreateConfig.
 		new UI::MessagePopupScreen(di->T("Delete"), di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"),
 			trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [this](bool yes) {
 		if (!yes) {
