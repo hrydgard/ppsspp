@@ -1019,13 +1019,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	});
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
-	static const char *wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
-	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
-	for (int i = 0; i < 4; i++) {
-		wlanChannelChoice->HideChoice(i + 2);
-		wlanChannelChoice->HideChoice(i + 7);
-	}
+	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change MAC address"), screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
 
@@ -1115,7 +1109,14 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 #endif
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
-	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
+	static const char *wlanChannels[] = {"Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
+	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
+	for (int i = 0; i < 4; i++) {
+		wlanChannelChoice->HideChoice(i + 2);
+		wlanChannelChoice->HideChoice(i + 7);
+	}
+	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset"), 100, screenManager()));
+	networkingSettings->Add(new SettingHint(n->T("PortOffsetHint")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
