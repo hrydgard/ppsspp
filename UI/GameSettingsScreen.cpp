@@ -1019,7 +1019,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	});
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change MAC address"), screenManager()));
+	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("MAC address"), screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
 
