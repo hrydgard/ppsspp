@@ -140,7 +140,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	// NOTE: This is not necessarily the same as the actual present mode.
 	snprintf(statBuf, sizeof(statBuf),
-		"Presentation mode: %s Needs skip: %s\n"
+		"Presentation mode: %s Needs skip for ff: %s\n"
 		"Actual presentation mode: %s",
 		Draw::PresentModeToString(g_frameTiming.PresentMode()),
 		g_frameTiming.FastForwardNeedsSkipFlip() ? "true" : "false",
