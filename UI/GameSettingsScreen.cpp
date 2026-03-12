@@ -809,7 +809,9 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	if (!micList.empty()) {
 		audioSettings->Add(new ItemHeader(a->T("Microphone")));
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, I18NCat::NONE, screenManager()));
-		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
+		MicChoice->OnChoice.Add([](UI::EventParams &e) {
+			Microphone::onMicDeviceChange();
+		});
 	}
 }
 
@@ -1009,17 +1011,15 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
-	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
-	wiki->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
+	Choice *quickstart = networkingSettings->Add(new Choice(n->T("Quick start guide for multiplayer"), ImageID("I_LINK_OUT")));
+	quickstart->OnClick.Add([](EventParams &e) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		std::string url(n->T("MultiplayerQuickStartURL", "https://www.ppsspp.org/docs/multiplayer/quickstart/"));
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
+	});
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
-	static const char *wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
-	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
-	for (int i = 0; i < 4; i++) {
-		wlanChannelChoice->HideChoice(i + 2);
-		wlanChannelChoice->HideChoice(i + 7);
-	}
+	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("MAC address"), screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
 
@@ -1034,7 +1034,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
 
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")));
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
@@ -1109,7 +1109,20 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 #endif
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
-	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
+	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
+	wiki->OnClick.Add([](EventParams &e) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
+	});
+	static const char *wlanChannels[] = {"Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
+	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
+	for (int i = 0; i < 4; i++) {
+		wlanChannelChoice->HideChoice(i + 2);
+		wlanChannelChoice->HideChoice(i + 7);
+	}
+	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset"), 100, screenManager()));
+	networkingSettings->Add(new SettingHint(n->T("PortOffsetHint")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
@@ -1440,7 +1453,9 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	if (cameraList.size() >= 1) {
 		systemSettings->Add(new ItemHeader(gr->T("Camera")));
 		PopupMultiChoiceDynamic *cameraChoice = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, I18NCat::NONE, screenManager()));
-		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
+		cameraChoice->OnChoice.Add([](UI::EventParams &e) {
+			Camera::onCameraDeviceChange();
+		});
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 		systemSettings->Add(new CheckBox(&g_Config.bCameraMirrorHorizontal, gr->T("Mirror camera image")));
 #endif
@@ -1514,12 +1529,6 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	PopupSliderChoiceFloat* vrHudScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, 0.3f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
 	vrHudScale->SetEnabledPtr(&g_Config.bRescaleHUD);
 	vrSettings->Add(new CheckBox(&g_Config.bManualForceVR, vr->T("Manual switching between flat screen and VR using SCREEN key")));
-}
-
-void GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 }
 
 void GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
@@ -1783,14 +1792,6 @@ void GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 			g_Config.iInflightFrames = prevInflightFrames_;
 		});
 	}
-}
-
-void GameSettingsScreen::OnCameraDeviceChange(UI::EventParams& e) {
-	Camera::onCameraDeviceChange();
-}
-
-void GameSettingsScreen::OnMicDeviceChange(UI::EventParams& e) {
-	Microphone::onMicDeviceChange();
 }
 
 void GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {

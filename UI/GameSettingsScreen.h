@@ -81,8 +81,6 @@ private:
 	void OnRenderingBackend(UI::EventParams &e);
 	void OnRenderingDevice(UI::EventParams &e);
 	void OnInflightFramesChoice(UI::EventParams &e);
-	void OnCameraDeviceChange(UI::EventParams& e);
-	void OnMicDeviceChange(UI::EventParams& e);
 	void OnAudioDevice(UI::EventParams &e);
 	void OnJitAffectingSetting(UI::EventParams &e);
 	void OnShowMemstickScreen(UI::EventParams &e);
@@ -92,8 +90,6 @@ private:
 #endif
 	void OnImmersiveModeChange(UI::EventParams &e);
 	void OnSustainedPerformanceModeChange(UI::EventParams &e);
-
-	void OnAdhocGuides(UI::EventParams &e);
 
 	void TriggerRestartOrDo(std::function<void()> callback);
 
