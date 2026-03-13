@@ -114,7 +114,7 @@ protected:
 		if (undoEnabled || hasUndo) {
 			// Show the undo button if state undo is enabled in settings, OR one is available. We can load it
 			// even if making new undo states is not enabled.
-			Choice *undoButton = new Choice(pa->T("Undo last save"));
+			undoButton = new Choice(pa->T("Undo last save"));
 			undoButton->SetEnabled(hasUndo);
 		}
 
