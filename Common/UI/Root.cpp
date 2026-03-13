@@ -19,6 +19,34 @@ bool focusForced;
 
 static std::function<void(UISound)> soundCallback;
 
+// Repeat key handling below.
+// TODO: Figure out where this should really live.
+// Simple simulation of key repeat on platforms and for gamepads where we don't
+// automatically get it.
+
+static int frameCount;
+
+// Ignore deviceId when checking for matches. Turns out that Ouya for example sends
+// completely broken input where the original keypresses have deviceId = 10 and the repeats
+// have deviceId = 0.
+struct HeldKey {
+	InputKeyCode key;
+	InputDeviceID deviceId;
+	double triggerTime;
+
+	// Ignores startTime
+	bool operator <(const HeldKey &other) const {
+		if (key < other.key) return true;
+		return false;
+	}
+	bool operator ==(const HeldKey &other) const { return key == other.key; }
+};
+
+static std::set<HeldKey> heldKeys;
+
+const double repeatDelay = 15 * (1.0 / 60.0f);  // 15 frames like before.
+const double repeatInterval = 5 * (1.0 / 60.0f);  // 5 frames like before.
+
 struct DispatchQueueItem {
 	Event *e;
 	EventParams params;
@@ -93,6 +121,8 @@ void EnableFocusMovement(bool enable) {
 		if (focusedView) {
 			focusedView->FocusChanged(FF_LOSTFOCUS);
 		}
+		focusMoves.clear();
+		heldKeys.clear();
 		focusedView = nullptr;
 	}
 }
@@ -144,33 +174,6 @@ void PlayUISound(UISound sound) {
 		soundCallback(sound);
 	}
 }
-
-// TODO: Figure out where this should really live.
-// Simple simulation of key repeat on platforms and for gamepads where we don't
-// automatically get it.
-
-static int frameCount;
-
-// Ignore deviceId when checking for matches. Turns out that Ouya for example sends
-// completely broken input where the original keypresses have deviceId = 10 and the repeats
-// have deviceId = 0.
-struct HeldKey {
-	InputKeyCode key;
-	InputDeviceID deviceId;
-	double triggerTime;
-
-	// Ignores startTime
-	bool operator <(const HeldKey &other) const {
-		if (key < other.key) return true;
-		return false;
-	}
-	bool operator ==(const HeldKey &other) const { return key == other.key; }
-};
-
-static std::set<HeldKey> heldKeys;
-
-const double repeatDelay = 15 * (1.0 / 60.0f);  // 15 frames like before.
-const double repeatInterval = 5 * (1.0 / 60.0f);  // 5 frames like before.
 
 bool IsScrollKey(const KeyInput &input) {
 	switch (input.keyCode) {
