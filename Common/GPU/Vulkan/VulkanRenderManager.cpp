@@ -446,8 +446,8 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	if (useRenderThread_) {
-		_dbg_assert_(renderThread_.joinable());
+	_dbg_assert_(renderThread_.joinable());
+	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
 		task->frame = vulkan_->GetCurFrame();
@@ -470,10 +470,12 @@ void VulkanRenderManager::StopThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
 		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
-		_assert_(compileThread_.joinable());
+		_dbg_assert_(compileThread_.joinable());
 		compileCond_.notify_one();
 	}
-	compileThread_.join();
+	if (compileThread_.joinable()) {
+		compileThread_.join();
+	}
 
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
