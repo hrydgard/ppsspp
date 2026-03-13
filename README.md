@@ -25,6 +25,18 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.20.3
+--------------------
+
+- Fix issue preventing ad hoc relay servers from working when RetroAchievements are enabled on Windows ([#21420])
+- Fix crash/failure setting the background on iOS ([#21409])
+- Fix logging to file ([#21412])
+- Networking settings cleanup ([#21418])
+- Some fixes for assorted rare crashes ([#21422])
+- Fix issues when unpausing using a controller binding ([#21424]), DualSense Edge detection on Windows ([#21426])
+- Fix missing savestate undo button ([#21425])
+- MMPX texture upscaling algorithm has been restored, the new one has been improved ([#21376]) and renamed MMPX Advanced ([#21421])
+
 What's new in 1.20.2
 --------------------
 
@@ -32,7 +44,7 @@ What's new in 1.20.2
 - Fix broken multitouch on iOS with OpenGL ([#21350])
 - Ad hoc relay connection improvements ([#21352])
 - Fix a lot of minor UI issues ([#21400], [#21362])
-- Fix background image selection on Android and iOS ([#21345], [#21384], [#21371])
+- Fix background image selection on Android ~~and iOS~~ ([#21345], [#21384], [#21371])
 - Fix file permission issue on iOS ([#21374])
 - Add a "hold" version of axis swap toggle ([#21357])
 - Fix regression in Gripshift ([#21377])
@@ -435,3 +447,13 @@ See [history.md](history.md).
 [#21341]: https://github.com/hrydgard/ppsspp/issues/21341 "Fix crash on audio device switch in Windows"
 [#21393]: https://github.com/hrydgard/ppsspp/issues/21393 "Windows input optimizations"
 [#21100]: https://github.com/hrydgard/ppsspp/issues/21100 "UWP: Migrate from C++/CX to C++/WinRT"
+[#21420]: https://github.com/hrydgard/ppsspp/issues/21420 "Misc: Update aemu_postoffice, add confirmation dialog when creating game configs"
+[#21409]: https://github.com/hrydgard/ppsspp/issues/21409 "Image picker on iOS: Fix crash, use a newer method that opens a lot quicker"
+[#21412]: https://github.com/hrydgard/ppsspp/issues/21412 "Fix logging to file, assorted minor fixes"
+[#21418]: https://github.com/hrydgard/ppsspp/issues/21418 "Networking settings: Some reordering and naming cleanup, link to quickstart guide"
+[#21422]: https://github.com/hrydgard/ppsspp/issues/21422 "Fixes for some rarer crashes from Play reports"
+[#21424]: https://github.com/hrydgard/ppsspp/issues/21424 "Fix control input issues when toggling the pause menu using a controller"
+[#21425]: https://github.com/hrydgard/ppsspp/issues/21425 "Fix accidentally missing undo button on the savestate popup."
+[#21376]: https://github.com/hrydgard/ppsspp/issues/21376 "enhance MMPX algorithm bug fixes and logic optimizations"
+[#21421]: https://github.com/hrydgard/ppsspp/issues/21421 "Split MMPX texture upscaling shader into regular and advanced"
+[#21426]: https://github.com/hrydgard/ppsspp/issues/21426 "Add detection of Dualsense Edge controllers on Windows, update README.md"
