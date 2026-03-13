@@ -417,6 +417,54 @@ bool TestTruncateCpy() {
 	len = truncate_cat(catBuf, sizeof(catBuf), "", 0, "", 0);
 	EXPECT_EQ_INT((int)len, 0);
 	EXPECT_EQ_INT((int)catBuf[0], 0);
+	return true;
+}
+
+bool TestUtf8() {
+	// Valid multi-byte UTF-8 (ASCII + 2-byte 'é' + 3-byte '€') round-trips unchanged.
+	const std::string valid = "abc \xC3\xA9 \xE2\x82\xAC";
+	EXPECT_TRUE(SanitizeUTF8(valid) == valid);
+
+	// u8_nextchar must stop at the end of the buffer instead of reading past a
+	// truncated multi-byte sequence (a lead byte with no continuation bytes).
+	{
+		std::string s = "abc";
+		s += (char)0xF4;
+		int index = 3;
+		int size = (int)s.size();
+		uint32_t c = u8_nextchar(s.data(), &index, size);
+		EXPECT_EQ_INT(index, size);
+		EXPECT_EQ_INT((int)c, 0xF4);
+	}
+
+	// A long run of stray continuation bytes must not walk off the end of the
+	// internal offsetsFromUTF8 table (used to read arbitrarily far out of bounds).
+	{
+		std::string s(32, (char)0x80);
+		int index = 0;
+		int size = (int)s.size();
+		uint32_t c = u8_nextchar(s.data(), &index, size);
+		EXPECT_TRUE(index > 0 && index <= size);
+	}
+
+	// SanitizeUTF8 on a string that ends mid-sequence must not read or write past
+	// the buffer, and must preserve the well-formed leading portion.
+	{
+		std::string truncated = "abc";
+		truncated += (char)0xF4;
+		std::string sanitized = SanitizeUTF8(truncated);
+		EXPECT_TRUE(sanitized.substr(0, 3) == "abc");
+	}
+
+	// ConvertUTF8ToJavaModifiedUTF8 must simply drop an incomplete trailing
+	// sequence rather than asserting or crashing.
+	{
+		std::string input = "abc";
+		input += (char)0xF0;
+		std::string output;
+		ConvertUTF8ToJavaModifiedUTF8(&output, input);
+		EXPECT_TRUE(output == "abc");
+	}
 
 	return true;
 }
@@ -1518,6 +1566,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(Utf8),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
 	TEST_ITEM(VFPUMatrixTranspose),
