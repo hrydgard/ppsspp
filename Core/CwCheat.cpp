@@ -1064,6 +1064,8 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 						if ((line.part1 >> 28) == 0x3) {
 							walkOffset = -walkOffset;
 						}
+						// TODO: I've seen crashes here. Presumably an unaligned pointer just off the edge of memory.
+						// We should probably check pointer validity and invalidate the cheat if this happens.
 						base = Memory::Read_U32(base + walkOffset);
 						switch (line.part2 >> 28) {
 						case 0x2:
