@@ -114,7 +114,7 @@ protected:
 		if (undoEnabled || hasUndo) {
 			// Show the undo button if state undo is enabled in settings, OR one is available. We can load it
 			// even if making new undo states is not enabled.
-			Choice *undoButton = new Choice(pa->T("Undo last save"));
+			undoButton = new Choice(pa->T("Undo last save"));
 			undoButton->SetEnabled(hasUndo);
 		}
 
@@ -780,6 +780,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 			finishNextFrame_ = true;
 		} else if (dr != DR_CANCEL && dr != DR_BACK) {
 			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.
+			SaveState::Rescan(saveStatePrefix_);
 			RecreateViews();
 		}
 	} else {
@@ -788,6 +789,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 		} else if (tag != "MessagePopupScreen" && tag != "Prompt" && tag != "ContextMenuPopup" && tag != "ContextMenuCallbackPopup" && tag != "Report" && tag != "listpopup") {
 			// Maybe should invert the logic here, so many cases..
 			// There may have been changes to our savestates, so let's recreate.
+			SaveState::Rescan(saveStatePrefix_);
 			RecreateViews();
 		}
 	}
