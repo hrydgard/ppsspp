@@ -19,6 +19,10 @@ public:
 
 	const char *tag() const override { return "AdhocServer"; }
 
+	bool RecreateParent() const {
+		return recreateParent_;
+	}
+
 protected:
 	void OnCompleted(DialogResult result) override;
 	bool CanComplete(DialogResult result) override;
@@ -52,6 +56,7 @@ private:
 	bool toResolveResult_ = false;
 	std::string lastResolved_ = "";
 	bool lastResolvedResult_ = false;
+	bool recreateParent_ = false;
 };
 
 void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager);
