@@ -47,6 +47,7 @@ import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -58,6 +59,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
+import androidx.core.view.DisplayCutoutCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -900,26 +902,23 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private void setInsetsListener(SurfaceView surfaceView) {
 		ViewCompat.setOnApplyWindowInsetsListener(surfaceView, (v, insets) -> {
-			if (Build.VERSION.SDK_INT >= 28) {
-				int orientation = getResources().getConfiguration().orientation;
-				updateInsets(insets, orientation);  // replace your updateInsets() to support WindowInsetsCompat
-			}
+			updateInsets(insets);  // replace your updateInsets() to support WindowInsetsCompat
 			return insets;               // or WindowInsetsCompat.CONSUMED if you want to stop propagation
 		});
 	}
 
-	@RequiresApi(Build.VERSION_CODES.P)
-	private void updateInsets(WindowInsetsCompat insetCompat, int orientation) {
+	private void updateInsets(WindowInsetsCompat insetCompat) {
 		if (insetCompat == null) {
 			return;
 		}
-
+		DisplayCutoutCompat cutout = insetCompat.getDisplayCutout();
+		boolean hasCameraCutout = cutout != null && !cutout.getBoundingRects().isEmpty();
 		Insets insets = insetCompat.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
 		int left = insets.left;
 		int right = insets.right;
 		int top = insets.top;
 		int bottom = insets.bottom;
-		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom);
+		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom + ":" + (hasCameraCutout ? 1 : 0));
 	}
 
 	public void notifySurface(Surface surface) {

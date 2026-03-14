@@ -147,6 +147,8 @@ Bounds UIContext::GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode)
 	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
 
+	const bool hasCameraCutout = System_GetPropertyBool(SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT);
+
 	switch (layoutMode) {
 	case ViewLayoutMode::ApplyInsets:
 		// Nothing to do
@@ -163,7 +165,11 @@ Bounds UIContext::GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode)
 	}
 
 	if (immersiveMode) {
-		if (left > 0 && right > 0) {
+		if (!hasCameraCutout) {
+			// No cutout, so if the nav bar is hidden, we can use the full width of the screen.
+			left = 0.0f;
+			right = 0.0f;
+		} else if (left > 0 && right > 0) {
 			// Navigation bar is available, so insets leave space for it
 			// even if it's hidden.
 			int smallestNonZero = std::min(right, left);
