@@ -900,16 +900,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private void setInsetsListener(SurfaceView surfaceView) {
 		ViewCompat.setOnApplyWindowInsetsListener(surfaceView, (v, insets) -> {
-			if (Build.VERSION.SDK_INT >= 28) {
-				int orientation = getResources().getConfiguration().orientation;
-				updateInsets(insets, orientation);  // replace your updateInsets() to support WindowInsetsCompat
-			}
+			updateInsets(insets);  // replace your updateInsets() to support WindowInsetsCompat
 			return insets;               // or WindowInsetsCompat.CONSUMED if you want to stop propagation
 		});
 	}
 
-	@RequiresApi(Build.VERSION_CODES.P)
-	private void updateInsets(WindowInsetsCompat insetCompat, int orientation) {
+	private void updateInsets(WindowInsetsCompat insetCompat) {
 		if (insetCompat == null) {
 			return;
 		}
