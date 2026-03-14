@@ -430,19 +430,21 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	const int frameSkipNum = g_Config.iFrameSkip;
 	if (autoFrameSkip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			*skipFrame = true;
 		}
-	} else if (frameSkipNum >= 1) {
-		// fixed frameskip
-		if (numSkippedFrames >= frameSkipNum)
-			*skipFrame = false;
-		else
-			*skipFrame = true;
+	} else {
+		const int frameSkipNum = g_Config.iFrameSkip;
+		if (frameSkipNum >= 1) {
+			// fixed frameskip
+			if (numSkippedFrames >= frameSkipNum)
+				*skipFrame = false;
+			else
+				*skipFrame = true;
+		}
 	}
 
 	if (curFrameTime < nextFrameTime && throttle) {

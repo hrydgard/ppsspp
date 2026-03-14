@@ -299,6 +299,7 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 // This is called when launching a new executable. We do clear vblankListeners here, they will get
 // set up again if needed. However we can't clear fliplisteners, that is used for RetroAchievements updates.
 void DisplayHWReset() {
+	std::lock_guard<std::mutex> guard(listenersLock);
 	vblankListeners.clear();
 }
 

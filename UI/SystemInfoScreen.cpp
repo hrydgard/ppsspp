@@ -77,12 +77,11 @@ void SystemInfoScreen::CreateTabs() {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	AddTab("Storage", si->T("Storage"), [this](UI::LinearLayout *parent) {
-		CreateStorageTab(parent);
-	});
-
 	AddTab("Device Info", si->T("Device Info"), [this](UI::LinearLayout *parent) {
 		CreateDeviceInfoTab(parent);
+	});
+	AddTab("Storage", si->T("Storage"), [this](UI::LinearLayout *parent) {
+		CreateStorageTab(parent);
 	});
 	AddTab("DevSystemInfoBuildConfig", si->T("Build Config"), [this](UI::LinearLayout *parent) {
 		CreateBuildConfigTab(parent);

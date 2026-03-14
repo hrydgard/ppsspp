@@ -650,6 +650,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (fileToLog) {
+		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
 		g_logManager.SetFileLogPath(Path(fileToLog));
 	} else {

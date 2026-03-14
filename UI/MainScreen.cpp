@@ -1459,18 +1459,19 @@ void MainScreen::CreateViews() {
 		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		rightColumnItems->SetSpacing(0.0f);
 		ViewGroup *logo = new LogoView(false, new LinearLayoutParams(FILL_PARENT, 80.0f));
-#if !defined(MOBILE_DEVICE)
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		Button *fullscreenButton = logo->Add(new Button("", ImageID(), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
-		fullscreenButton->SetIgnoreText(true);
-		fullscreenButton->OnClick.Add([](UI::EventParams &e) {
-			g_Config.bFullScreen = !g_Config.bFullScreen;
-			System_ApplyFullscreenState();
-		});
-		fullscreenButton->SetImageIDFunc([]() {
-			return g_Config.bFullScreen ? ImageID("I_RESTORE") : ImageID("I_FULLSCREEN");
-		});
-#endif
+
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+			Button *fullscreenButton = logo->Add(new Button("", ImageID(), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
+			fullscreenButton->SetIgnoreText(true);
+			fullscreenButton->OnClick.Add([](UI::EventParams &e) {
+				g_Config.bFullScreen = !g_Config.bFullScreen;
+				System_ApplyFullscreenState();
+			});
+			fullscreenButton->SetImageIDFunc([]() {
+				return g_Config.bFullScreen ? ImageID("I_RESTORE") : ImageID("I_FULLSCREEN");
+			});
+		}
 		rightColumnItems->Add(logo);
 
 		LinearLayout *rightColumnChoices = rightColumnItems;

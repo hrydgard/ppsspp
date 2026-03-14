@@ -43,7 +43,7 @@ set(FT_REQUIRE_PNG OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_HARFBUZZ OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BROTLI OFF CACHE BOOL "" FORCE)
 if(NOT LIBRETRO AND NOT USE_SYSTEM_FREETYPE)
-    add_subdirectory(freetype)
+    add_subdirectory(freetype freetype-build)
 endif()
 
 if(NOT LIBRETRO)
