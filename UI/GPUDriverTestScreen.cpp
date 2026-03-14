@@ -235,6 +235,7 @@ static_assert(Draw::SEM_TEXCOORD0 == 3, "Semantic shader hardcoded in glsl above
 
 GPUDriverTestScreen::GPUDriverTestScreen() {
 	using namespace Draw;
+	ignoreBottomInset_ = false;
 }
 
 GPUDriverTestScreen::~GPUDriverTestScreen() {
@@ -466,7 +467,7 @@ void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 
 	// If everything is OK, both the background and the text should be OK.
 
-	Bounds layoutBounds = dc.GetLayoutBounds();
+	Bounds layoutBounds = GetLayoutBounds(dc);
 
 	dc.Begin();
 	dc.SetFontScale(1.0f, 1.0f);
@@ -572,7 +573,7 @@ void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 		rasterNoCull->Release();
 	}
 
-	Bounds layoutBounds = dc.GetLayoutBounds();
+	Bounds layoutBounds = GetLayoutBounds(dc);
 
 	dc.Begin();
 	dc.SetFontScale(1.0f, 1.0f);

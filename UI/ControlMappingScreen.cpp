@@ -900,7 +900,8 @@ void VisualMappingScreen::CreateViews() {
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
 
-	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
+	// TODO: Properly use layout instead of querying bounds.
+	Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
 	// Account for left side.
 	bounds.w -= leftColumnWidth + 10.0f;
 
@@ -1024,7 +1025,7 @@ void VisualMappingScreen::MapNext(bool successive) {
 		HandleKeyMapping(mapping);
 	}, I18NCat::KEYMAPPING);
 
-	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
+	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds(false);
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
 	dialog->SetDelay(successive ? 0.5f : 0.1f);
 	screenManager()->push(dialog);

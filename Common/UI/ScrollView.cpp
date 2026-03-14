@@ -295,7 +295,7 @@ void ScrollView::Draw(UIContext &dc) {
 	}
 
 	// Same at the bottom.
-	const float y2 = dc.GetLayoutBounds().y2();
+	const float y2 = dc.GetLayoutBounds(false).y2();
 	if (shadows_ && bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 

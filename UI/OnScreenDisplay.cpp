@@ -410,8 +410,7 @@ void OSDOverlayScreen::DrawForeground(UIContext &ui) {
 
 	// Special case control for now, since it uses the control mapper that's owned by EmuScreen.
 	if (debugOverlay != DebugOverlay::OFF && debugOverlay != DebugOverlay::CONTROL) {
-		UIContext *uiContext = screenManager()->getUIContext();
-		DrawDebugOverlay(uiContext, uiContext->GetLayoutBounds(), debugOverlay);
+		DrawDebugOverlay(&ui, GetLayoutBounds(ui), debugOverlay);
 	}
 }
 

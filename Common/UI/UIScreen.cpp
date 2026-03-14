@@ -200,6 +200,10 @@ void UIScreen::deviceRestored(Draw::DrawContext *draw) {
 		root_->DeviceRestored(draw);
 }
 
+Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
+	return dc.GetLayoutBounds(ignoreBottomInset_);
+}
+
 ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 	DoRecreateViews();
 

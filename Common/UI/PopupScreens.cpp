@@ -137,9 +137,10 @@ void PopupScreen::CreateViews() {
 	anchor->Overflow(false);
 	root_ = anchor;
 
-	const float ySize = FillVertical() ? dc.GetLayoutBounds().h - 30 : WRAP_CONTENT;
+	const Bounds layoutBounds = GetLayoutBounds(dc);
+	const float ySize = FillVertical() ? layoutBounds.h - 30 : WRAP_CONTENT;
 
-	int y = (dc.GetLayoutBounds().h - RootMargins().vert()) * 0.5f + offsetY_;
+	int y = (layoutBounds.h - RootMargins().vert()) * 0.5f + offsetY_;
 	Centering vCentering = Centering::Vertical;
 	if (alignTop_) {
 		if (GetDeviceOrientation() == DeviceOrientation::Landscape) {
@@ -155,12 +156,12 @@ void PopupScreen::CreateViews() {
 
 	AnchorLayoutParams *anchorParams;
 	// NOTE: We purely use the popup width here to decide the type of layout, instead of the device orientation.
-	if (dc.GetLayoutBounds().w < popupWidth + 50) {
+	if (layoutBounds.w < popupWidth + 50) {
 		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
 			10, y, 10, NONE, vCentering);
 	} else {
 		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
-			(dc.GetLayoutBounds().w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
+			(layoutBounds.w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);

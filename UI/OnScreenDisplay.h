@@ -50,4 +50,3 @@ public:
 private:
 	OnScreenMessagesView *osmView_ = nullptr;
 };
-

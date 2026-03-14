@@ -419,7 +419,7 @@ void LogoScreen::touch(const TouchInput &touch) {
 void LogoScreen::DrawForeground(UIContext &dc) {
 	using namespace Draw;
 
-	const Bounds &bounds = dc.GetLayoutBounds();
+	const Bounds &bounds = GetLayoutBounds(dc);
 
 	dc.Begin();
 
