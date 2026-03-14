@@ -749,6 +749,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Initialize retro achievements runtime.
 	Achievements::Initialize();
 
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(X86) && !PPSSPP_PLATFORM(UWP)
+	if (cpu_info.OS64bit) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Running 32-bit PPSSPP on a 64-bit system.", "For the optimal experience, use 'PPSSPPWindows64.exe'.", 10.0f);
+	}
+#endif
+
 	// Must be done restarting by now.
 	restarting = false;
 }
