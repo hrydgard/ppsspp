@@ -46,7 +46,7 @@ val major = versionParts.getOrElse(0) { 0 }
 val minor = versionParts.getOrElse(1) { 0 }
 val patch = versionParts.getOrElse(2) { 0 }
 
-val gitVersionName = buildString {
+val gitVersionName = if (commitsSinceTag == 0) gitTag else buildString {
 	append(gitTag)
 	append("-")
 	append(commitsSinceTag)
