@@ -70,6 +70,12 @@ enum class ScreenRenderRole {
 };
 ENUM_CLASS_BITOPS(ScreenRenderRole);
 
+enum class ViewLayoutMode {
+	ApplyInsets = 0,   // For gameplay, option #1
+	IgnoreInsets,  // For gameplay, option #2
+	IgnoreBottomInset,
+};
+
 class Screen {
 public:
 	Screen() = default;

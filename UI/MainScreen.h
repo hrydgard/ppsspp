@@ -137,6 +137,8 @@ public:
 	bool key(const KeyInput &touch) override;
 
 protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::IgnoreBottomInset; }
+
 	void CreateViews() override;
 	void CreateRecentTab();
 	GameBrowser *CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos);

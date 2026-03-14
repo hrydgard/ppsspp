@@ -425,6 +425,11 @@ void OSDOverlayScreen::update() {
 	DoRecreateViews();
 }
 
+ViewLayoutMode OSDOverlayScreen::LayoutMode() const {
+	// Need the full insets to avoid notifications appearing out of any bounds.
+	return ViewLayoutMode::ApplyInsets;
+}
+
 void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
 	float layoutWidth = layoutParams_->width;
 	if (layoutWidth < 0) {

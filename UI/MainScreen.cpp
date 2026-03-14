@@ -1150,7 +1150,6 @@ void GameBrowser::OnHomebrewStore(UI::EventParams &e) {
 
 MainScreen::MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
-	ignoreBottomInset_ = true;
 }
 
 MainScreen::~MainScreen() {

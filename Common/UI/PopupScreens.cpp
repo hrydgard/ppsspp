@@ -17,21 +17,31 @@
 
 namespace UI {
 
+static void TextToImage(std::string_view buttonText, ImageID *image) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	if (buttonText == di->T("Delete") || buttonText == di->T("Move to trash")) {
+		*image = ImageID("I_TRASHCAN");
+	} else if (buttonText == di->T("Back")) {
+		*image = ImageID("I_NAVIGATE_BACK");
+	} else if (buttonText == di->T("Add")) {
+		*image = ImageID("I_PLUS");
+	} else if (buttonText == di->T("OK")) {
+		*image = ImageID("I_CHECKMARK");
+	} else if (buttonText == di->T("Cancel")) {
+		*image = ImageID("I_NAVIGATE_BACK");
+	} else if (buttonText == di->T("Exit")) {
+		*image = ImageID("I_EXIT");
+	}
+}
+
 PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
 	: title_(title), button1_(button1), button2_(button2) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	// Auto-assign images. A bit hack to have this here.
-	if (button1 == di->T("Delete") || button1 == di->T("Move to trash")) {
-		button1Image_ = ImageID("I_TRASHCAN");
-	} else if (button1 == di->T("Back")) {
-		button1Image_ = ImageID("I_NAVIGATE_BACK");
-	} else if (button1 == di->T("Add")) {
-		button1Image_ = ImageID("I_PLUS");
-	} else if (button1 == di->T("OK")) {
-		button1Image_ = ImageID("I_CHECKMARK");
+	if (!button1.empty()) {
+		TextToImage(button1, &button1Image_);
 	}
-	if (button2 == di->T("Cancel")) {
-		button2Image_ = ImageID("I_NAVIGATE_BACK");
+	if (!button2.empty()) {
+		TextToImage(button2, &button2Image_);
 	}
 
 	alpha_ = 0.0f;  // inherited

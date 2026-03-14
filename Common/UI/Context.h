@@ -56,6 +56,8 @@ struct AtlasData {
 
 typedef std::function<AtlasData(Draw::DrawContext *, AtlasChoice, float dpiScale, bool invalidate)> UIAtlasProviderFunc;
 
+enum class ViewLayoutMode;
+
 class UIContext {
 public:
 	UIContext();
@@ -113,7 +115,7 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Bounds GetLayoutBounds(bool ignoreBottomInset) const;
+	Bounds GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode) const;
 	Draw::DrawContext *GetDrawContext() const { return draw_; }
 	const UI::Theme &GetTheme() const {
 		return *theme;

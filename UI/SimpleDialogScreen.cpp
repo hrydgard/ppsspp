@@ -4,11 +4,12 @@
 #include "Common/UI/PopupScreens.h"
 #include "UI/MiscViews.h"
 
+ViewLayoutMode UISimpleBaseDialogScreen::LayoutMode() const {
+	return (flags_ & SimpleDialogFlags::ContentsCanScroll) ? ViewLayoutMode::IgnoreBottomInset : ViewLayoutMode::ApplyInsets;
+}
+
 void UISimpleBaseDialogScreen::CreateViews() {
 	using namespace UI;
-
-	const bool canScroll = flags_ & SimpleDialogFlags::ContentsCanScroll;
-	ignoreBottomInset_ = canScroll;
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
@@ -29,7 +30,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 		});
 	}
 
-	if (canScroll) {
+	if (flags_ & SimpleDialogFlags::ContentsCanScroll) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, 8, 0)));
 		contents->SetSpacing(0);
@@ -38,6 +39,19 @@ void UISimpleBaseDialogScreen::CreateViews() {
 		root_->Add(scroll);
 	} else {
 		CreateDialogViews(root_);
+	}
+}
+
+ViewLayoutMode UITwoPaneBaseDialogScreen::LayoutMode() const {
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	if (portrait) {
+		if (flags_ & TwoPaneFlags::SettingsCanScroll) {
+			return ViewLayoutMode::IgnoreBottomInset;
+		} else {
+			return ViewLayoutMode::ApplyInsets;
+		}
+	} else {
+		return ViewLayoutMode::ApplyInsets;
 	}
 }
 
@@ -72,9 +86,6 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 	if (portrait) {
 		// Portrait layout is just a vertical stack.
-		if (flags_ & TwoPaneFlags::SettingsCanScroll) {
-			ignoreBottomInset_ = true;
-		}
 		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 		TopBarFlags topBarFlags = TopBarFlags::Portrait;
@@ -114,7 +125,6 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		}
 		root_ = root;
 	} else {
-		ignoreBottomInset_ = false;
 		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		std::string title(GetTitle());
 		TopBarFlags topBarFlags = portrait ? TopBarFlags::Portrait : TopBarFlags::Default;

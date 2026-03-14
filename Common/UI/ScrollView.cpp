@@ -294,8 +294,8 @@ void ScrollView::Draw(UIContext &dc) {
 		dc.DrawRectDropShadow(shadowBounds, radius, fade);
 	}
 
-	// Same at the bottom.
-	const float y2 = dc.GetLayoutBounds(false).y2();
+	// Same at the bottom. (we check against the common UI layout mode)
+	const float y2 = dc.GetLayoutBounds(ViewLayoutMode::IgnoreBottomInset, false).y2();
 	if (shadows_ && bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
