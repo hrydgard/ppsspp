@@ -12,6 +12,7 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "WASAPIContext.h"
 
@@ -136,6 +137,19 @@ void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool 
 	}
 }
 
+// Also logs.
+void WASAPIContext::SetErrorString(std::string_view str, HRESULT hr) {
+	std::string temp = StringFromFormat("%s (HRESULT: %08lx)", str.data(), hr);
+	ERROR_LOG(Log::Audio, "%s", temp.c_str());
+	std::lock_guard<std::mutex> guard(errorLock_);
+	errorString_ = temp;
+}
+
+void WASAPIContext::ClearErrorString() {
+	std::lock_guard<std::mutex> guard(errorLock_);
+	errorString_.clear();
+}
+
 bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *revertedToDefault) {
 	Stop();
 
@@ -144,17 +158,22 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	ComPtr<IMMDevice> device;
 	if (uniqueId.empty()) {
 		// Use the default device.
-		if (FAILED(enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device))) {
+		HRESULT hr = enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+		if (FAILED(hr)) {
+			SetErrorString("Failed to get the default endpoint", hr);
 			return false;
 		}
 	} else {
 		// Use whatever device.
 		std::wstring wId = ConvertUTF8ToWString(uniqueId);
-		if (FAILED(enumerator_->GetDevice(wId.c_str(), &device))) {
+		HRESULT hr = enumerator_->GetDevice(wId.c_str(), &device);
+		if (FAILED(hr)) {
 			// Fallback to default device
 			INFO_LOG(Log::Audio, "Falling back to default device...\n");
 			*revertedToDefault = true;
-			if (FAILED(enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device))) {
+			hr = enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+			if (FAILED(hr)) {
+				SetErrorString("Failed to fallback", hr);
 				return false;
 			}
 		}
@@ -162,11 +181,12 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	AudioDeviceDesc desc{};
 	GetDeviceDesc(device.Get(), &desc);
-	INFO_LOG(Log::Audio, "Activating audio device: %s", desc.name.c_str());
+	INFO_LOG(Log::Audio, "Activating audio device: %s : %s", desc.name.c_str(), desc.uniqueId.c_str());
 
 	{
 		std::lock_guard<std::mutex> guard(deviceLock_);
-		curDeviceId_ = uniqueId;
+		curDeviceId_ = desc.uniqueId;
+		curDeviceName_ = desc.name;
 	}
 
 	HRESULT hr = E_FAIL;
@@ -179,17 +199,33 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	tempBuf_.reset();
 
 	if (SUCCEEDED(hr)) {
-		audioClient3_->GetMixFormat(&format_);
+		hr = audioClient3_->GetMixFormat(&format_);
+		if (FAILED(hr)) {
+			audioClient3_.Reset();
+			SetErrorString("AudioClient3 GetMixFormat failed", hr);
+			return false;
+		}
 		curSamplesPerSec_ = format_->nSamplesPerSec;
 
 		// We only use AudioClient3 if we got the format we wanted (stereo float).
 		if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
 			// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
 			// AudioClient3 with low latency audio with AUTOCONVERTPCM, you get the error 0x88890021.
+			INFO_LOG(Log::Audio, "AudioClient3: Got %d channels or non-float format, falling back to AudioClient", format_->nChannels);
 			audioClient3_.Reset();
+			// Free the format before falling through - AudioClient will allocate a new one
+			CoTaskMemFree(format_);
+			format_ = nullptr;
 			// Fall through to AudioClient creation below.
 		} else {
-			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
+			hr = audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
+			if (FAILED(hr)) {
+				audioClient3_.Reset();
+				CoTaskMemFree(format_);
+				format_ = nullptr;
+				SetErrorString("AudioClient3 GetSharedModeEnginePeriod failed", hr);
+				return false;
+			}
 
 			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames_, (int)fundamentalPeriodFrames_, (int)minPeriodFrames_, (int)maxPeriodFrames_);
 			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames_, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames_, format_->nSamplesPerSec));
@@ -204,13 +240,39 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 			if (FAILED(result)) {
 				WARN_LOG(Log::Audio, "Error initializing AudioClient3 shared audio stream: %08lx", result);
 				audioClient3_.Reset();
+				CoTaskMemFree(format_);
+				format_ = nullptr;
+				SetErrorString("AudioClient3 init failed", hr);
 				return false;
 			}
 			actualPeriodFrames_ = minPeriodFrames_;
 
-			audioClient3_->GetBufferSize(&reportedBufferSize_);
-			audioClient3_->SetEventHandle(audioEvent_);
-			audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
+			hr = audioClient3_->GetBufferSize(&reportedBufferSize_);
+			if (FAILED(hr)) {
+				audioClient3_.Reset();
+				CoTaskMemFree(format_);
+				format_ = nullptr;
+				SetErrorString("AudioClient3 GetBufferSize failed", hr);
+				return false;
+			}
+
+			hr = audioClient3_->SetEventHandle(audioEvent_);
+			if (FAILED(hr)) {
+				audioClient3_.Reset();
+				CoTaskMemFree(format_);
+				format_ = nullptr;
+				SetErrorString("AudioClient3 SetEventHandle failed", hr);
+				return false;
+			}
+
+			hr = audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
+			if (FAILED(hr)) {
+				audioClient3_.Reset();
+				CoTaskMemFree(format_);
+				format_ = nullptr;
+				SetErrorString("AudioClient3 GetService failed", hr);
+				return false;
+			}
 		}
 	}
 
@@ -218,7 +280,7 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		// Fallback to IAudioClient (older OS)
 		HRESULT hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
 		if (FAILED(hr)) {
-			ERROR_LOG(Log::Audio, "Failed to activate audio device: %08lx", hr);
+			SetErrorString("Failed to activate audio device", hr);
 			return false;
 		}
 
@@ -290,15 +352,40 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 		);
 
 		if (FAILED(hr)) {
-			WARN_LOG(Log::Audio, "ERROR: Failed to initialize audio with all attempted buffer sizes\n");
 			audioClient_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient init failed", hr);
 			return false;
 		}
 
-		audioClient_->GetBufferSize(&reportedBufferSize_);
+		hr = audioClient_->GetBufferSize(&reportedBufferSize_);
+		if (FAILED(hr)) {
+			audioClient_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient GetBufferSize failed", hr);
+			return false;
+		}
 		actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
-		audioClient_->SetEventHandle(audioEvent_);
-		audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
+
+		hr = audioClient_->SetEventHandle(audioEvent_);
+		if (FAILED(hr)) {
+			audioClient_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient SetEventHandle failed", hr);
+			return false;
+		}
+
+		hr = audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
+		if (FAILED(hr)) {
+			audioClient_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient GetService failed", hr);
+			return false;
+		}
 
 		if (createBuffer) {
 			tempBuf_ = std::make_unique<float[]>(reportedBufferSize_ * 2);
@@ -345,6 +432,7 @@ void WASAPIContext::Stop() {
 	{
 		std::lock_guard<std::mutex> guard(deviceLock_);
 		curDeviceId_.clear();
+		curDeviceName_.clear();
 	}
 }
 
@@ -385,15 +473,34 @@ void WASAPIContext::AudioLoop() {
 	}
 
 	UINT32 available;
+	HRESULT hr;
 	if (audioClient3_) {
-		audioClient3_->Start();
-		audioClient3_->GetBufferSize(&available);
+		hr = audioClient3_->Start();
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient3::Start failed", hr);
+			return;
+		}
+		hr = audioClient3_->GetBufferSize(&available);
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient3::GetBufferSize failed", hr);
+			audioClient3_->Stop();
+			return;
+		}
 	} else if (audioClient_) {
-		audioClient_->Start();
-		audioClient_->GetBufferSize(&available);
+		hr = audioClient_->Start();
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient::Start failed", hr);
+			return;
+		}
+		hr = audioClient_->GetBufferSize(&available);
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient::GetBufferSize failed", hr);
+			audioClient_->Stop();
+			return;
+		}
 	} else {
 		// No audio client, nothing to do.
-		WARN_LOG(Log::Audio, "No audio client");
+		SetErrorString("No audio client in AudioLoop", 0);
 		return;
 	}
 
@@ -404,6 +511,8 @@ void WASAPIContext::AudioLoop() {
 
 	const AudioFormat format = Classify(format_);
 	const int nChannels = format_->nChannels;
+
+	ClearErrorString();
 
 	while (running_) {
 		const DWORD waitResult = WaitForSingleObject(audioEvent_, INFINITE);

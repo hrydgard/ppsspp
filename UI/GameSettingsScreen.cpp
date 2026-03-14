@@ -1684,6 +1684,14 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 	}
 
 	bool recreate = false;
+
+	if (equals(dialog->tag(), "AdhocServer")) {
+		const AdhocServerScreen *scr = dynamic_cast<const AdhocServerScreen *>(dialog);
+		if (scr && scr->RecreateParent()) {
+			recreate = true;
+		}
+	}
+
 	if (result == DialogResult::DR_OK) {
 		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
 		g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;

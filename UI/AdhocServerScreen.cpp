@@ -394,12 +394,18 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		CollapsibleSection *customSection = innerView->Add(new CollapsibleSection(n->T("Custom server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 		if (!currentServerFound) {
-			// Add a virtual entry.
+			// Add the entry to one of the lists.
 			AdhocServerListEntry entry;
 			entry.name = editValue_;
 			entry.host = editValue_;
 			// Let's do a heuristic, we don't have a good value here..
 			entry.mode = (AdhocServerRelayMode)g_Config.iAdhocServerRelayMode == AdhocServerRelayMode::AlwaysOn ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+			if (entry.mode == AdhocDataMode::AemuPostoffice) {
+				g_Config.vCustomAdhocServerListWithRelay.insert(g_Config.vCustomAdhocServerListWithRelay.begin(), editValue_);
+			} else {
+				g_Config.vCustomAdhocServerList.insert(g_Config.vCustomAdhocServerList.begin(), editValue_);
+			}
+			recreateParent_ = true;
 			AddButtonFromEntry(customSection, entry, true);
 		}
 
