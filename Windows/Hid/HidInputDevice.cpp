@@ -301,7 +301,7 @@ int HidInputDevice::UpdateState() {
 			prevState_ = state;
 			return UPDATESTATE_NO_SLEEP;  // The ReadFile sleeps for us, effectively.
 		} else {
-			WARN_LOG(Log::System, "Failed to read controller - assuming disconnected.");
+			INFO_LOG(Log::System, "Failed to read controller - assuming disconnected.");
 			// might have been disconnected. retry later.
 			KeyMap::NotifyPadDisconnected(deviceID);
 			ReleaseAllKeys(buttonMappings, (int)buttonMappingsSize);

@@ -33,5 +33,6 @@ public:
 	virtual int PeriodFrames() const = 0;
 	virtual void DescribeOutputFormat(char *buffer, size_t bufferSize) const { buffer[0] = '-'; buffer[1] = '\0'; }
 	virtual std::string GetCurrentDeviceName() const { return ""; }
+	virtual	std::string GetErrorString() const { return ""; }
 	virtual void FrameUpdate(bool allowAutoChange) {}
 };
