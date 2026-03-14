@@ -114,7 +114,7 @@ What's new in 1.20
   - iOS
     - Add support for screen rotation
   - Linux
-    - Loongarch improvements by KatyushaScarlet ([#20683], [#20644], [#20599], [#20594]), text rendering improvements ([#21163])
+    - Loongarch improvements by lrzlin ([#20683], [#20644]) and KatyushaScarlet ([#20599], [#20594]), text rendering improvements ([#21163])
     - SDL fullscreen problems fixed ([#21300], more)
   - UWP
     - Migrate code base to C++/WinRT ([#21100])
