@@ -131,8 +131,8 @@ bool IsFocusMovementEnabled() {
 	return focusMovementEnabled;
 }
 
-void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset) {
-	Bounds rootBounds = ignoreInsets ? dc.GetBounds() : dc.GetLayoutBounds(ignoreBottomInset);
+void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode) {
+	Bounds rootBounds = dc.GetLayoutBounds(layoutMode, immersiveMode);
 
 	MeasureSpec horiz(EXACTLY, rootBounds.w - (rootMargins.left + rootMargins.right));
 	MeasureSpec vert(EXACTLY, rootBounds.h - (rootMargins.top + rootMargins.bottom));

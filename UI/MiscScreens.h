@@ -109,6 +109,10 @@ public:
 
 	const char *tag() const override { return "Logo"; }
 
+protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
+	bool UseImmersiveMode() const override { return true; }
+
 private:
 	void Next();
 	int frames_ = 0;
@@ -123,6 +127,7 @@ public:
 	void update() override;
 
 protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
 	std::string_view GetTitle() const override;
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;

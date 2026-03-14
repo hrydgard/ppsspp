@@ -235,7 +235,6 @@ static_assert(Draw::SEM_TEXCOORD0 == 3, "Semantic shader hardcoded in glsl above
 
 GPUDriverTestScreen::GPUDriverTestScreen() {
 	using namespace Draw;
-	ignoreBottomInset_ = false;
 }
 
 GPUDriverTestScreen::~GPUDriverTestScreen() {

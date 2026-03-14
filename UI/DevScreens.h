@@ -179,6 +179,10 @@ public:
 	const char *tag() const override { return "TouchTest"; }
 
 protected:
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
+
 	struct TrackedTouch {
 		int id;
 		float x;

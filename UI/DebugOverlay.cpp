@@ -220,13 +220,14 @@ void DrawFramebufferList(UIContext *ctx, GPUDebugInterface *gpu, const Bounds &b
 }
 
 void DrawControlMapperOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper &controlMapper) {
-	DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds(false));
+	DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds(ViewLayoutMode::ApplyInsets, false));
 }
 
 void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay) {
 	bool inGame = GetUIState() == UISTATE_INGAME;
 
-	const Bounds layoutBounds = ctx->GetLayoutBounds(false);
+	const Bounds layoutBounds = ctx->GetLayoutBounds(ViewLayoutMode::ApplyInsets, false);
+
 	switch (overlay) {
 	case DebugOverlay::DEBUG_STATS:
 		if (inGame)
@@ -256,7 +257,7 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 #endif
 	case DebugOverlay::FRAMEBUFFER_LIST:
 		if (inGame)
-			DrawFramebufferList(ctx, gpu, bounds);
+			DrawFramebufferList(ctx, gpu, layoutBounds);
 		break;
 	default:
 		break;

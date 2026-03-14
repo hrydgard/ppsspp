@@ -30,9 +30,7 @@ ENUM_CLASS_BITOPS(TabFlags);
 
 class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	UITabbedBaseDialogScreen(const Path &gamePath, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), flags_(flags) {
-		ignoreBottomInset_ = true;
-	}
+	UITabbedBaseDialogScreen(const Path &gamePath, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), flags_(flags) {}
 
 	void AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
 	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default) {

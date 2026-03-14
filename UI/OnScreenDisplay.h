@@ -36,9 +36,6 @@ private:
 
 class OSDOverlayScreen : public UIScreen {
 public:
-	OSDOverlayScreen() {
-		ignoreInsets_ = false;
-	}
 	const char *tag() const override { return "OSDOverlayScreen"; }
 
 	bool UnsyncTouch(const TouchInput &touch) override;
@@ -47,6 +44,8 @@ public:
 	void DrawForeground(UIContext &ui) override;
 	void update() override;
 
+protected:
+	ViewLayoutMode LayoutMode() const override;
 private:
 	OnScreenMessagesView *osmView_ = nullptr;
 };

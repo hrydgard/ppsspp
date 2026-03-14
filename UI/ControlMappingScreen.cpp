@@ -1025,7 +1025,7 @@ void VisualMappingScreen::MapNext(bool successive) {
 		HandleKeyMapping(mapping);
 	}, I18NCat::KEYMAPPING);
 
-	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds(false);
+	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds(LayoutMode(), false);
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
 	dialog->SetDelay(successive ? 0.5f : 0.1f);
 	screenManager()->push(dialog);

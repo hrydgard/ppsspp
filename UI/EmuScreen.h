@@ -77,6 +77,7 @@ protected:
 	void OnVKeyAnalog(VirtKey virtualKeyCode, float value) override;
 	void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) override;
 	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
+	ViewLayoutMode LayoutMode() const override;
 
 private:
 	void CreateViews() override;

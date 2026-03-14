@@ -919,19 +919,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		int right = insets.right;
 		int top = insets.top;
 		int bottom = insets.bottom;
-
-		// Log.w(TAG, "updateInsets: " + left + ", " + right + ", " + top + ", " + bottom);
-
-		// Hack to make things symmetrical in landscape. Needed on Poco F1, for example.
-		if (orientation == Configuration.ORIENTATION_LANDSCAPE && useImmersive()) {
-			if (left > 0 && right > 0) {
-				int smallestNonZero = Math.min(right, left);
-				// Log.i(TAG, "Both left and right insets but not equal: " + left + " != " + right + " : Equalizing to " + smallest);
-				left = smallestNonZero;
-				right = smallestNonZero;
-			}
-		}
-
 		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom);
 	}
 

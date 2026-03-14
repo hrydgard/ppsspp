@@ -24,7 +24,7 @@ DialogResult DispatchEvents();
 
 class ViewGroup;
 
-void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset);
+void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode);
 DialogResult UpdateViewHierarchy(ViewGroup *root);
 
 enum class KeyEventResult {

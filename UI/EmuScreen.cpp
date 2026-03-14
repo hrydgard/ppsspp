@@ -1268,6 +1268,7 @@ void EmuScreen::CreateViews() {
 	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation);
 
 	const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
+
 	InitPadLayout(&touch, deviceOrientation, bounds.w, bounds.h);
 
 	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, &g_controlMapper);
@@ -1428,6 +1429,10 @@ void EmuScreen::OnChat(UI::EventParams &params) {
 
 // To avoid including proAdhoc.h, which includes a lot of stuff.
 int GetChatMessageCount();
+
+ViewLayoutMode EmuScreen::LayoutMode() const {
+	return ViewLayoutMode::ApplyInsets;
+}
 
 void EmuScreen::update() {
 	using namespace UI;
@@ -1963,7 +1968,7 @@ void EmuScreen::renderUI() {
 	ctx->Begin();
 
 	if (root_) {
-		UI::LayoutViewHierarchy(*ctx, RootMargins(), root_, false, false);
+		UI::LayoutViewHierarchy(*ctx, RootMargins(), root_, LayoutMode(), UseImmersiveMode());
 		root_->Draw(*ctx);
 	}
 

@@ -406,11 +406,27 @@ float System_GetPropertyFloat(SystemProperty prop) {
 		return ScreenRefreshRateHz();
 	case SYSPROP_DISPLAY_DPI:
 		return ScreenDPI();
+#if 0
+	// Simulate something like Android landscape mode for testing
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return 45.0f;
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return 100.0f;
 	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return 0.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return 80.0f;
+#else
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return 0.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return 0.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return 0.0f;
 	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
 		return 0.0f;
+
+#endif
 	default:
 		return -1;
 	}

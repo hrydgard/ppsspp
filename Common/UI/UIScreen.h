@@ -10,6 +10,8 @@
 
 using namespace Lin;
 
+enum class ViewLayoutMode;
+
 class I18NCategory;
 namespace Draw {
 	class DrawContext;
@@ -67,13 +69,13 @@ protected:
 	void RecreateViews() override { recreateViews_ = true; }
 	DeviceOrientation GetDeviceOrientation() const;
 	bool IsOnTop() const;
+	virtual ViewLayoutMode LayoutMode() const { return ViewLayoutMode::ApplyInsets; }
+	virtual bool UseImmersiveMode() const { return false; }
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);
 	Vec3 scale_ = Vec3(1.0f);
 	float alpha_ = 1.0f;
-	bool ignoreInsets_ = false;
-	bool ignoreBottomInset_ = false;
 	bool ignoreInput_ = false;
 
 protected:
