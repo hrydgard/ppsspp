@@ -29,6 +29,7 @@ What's new in 1.20.3
 --------------------
 
 - Fix issue preventing ad hoc relay servers from working when RetroAchievements are enabled on Windows ([#21420])
+- Some ad hoc UI improvements ([#21432], [#21433])
 - Fix crash/failure setting the background on iOS ([#21409])
 - Fix logging to file ([#21412])
 - Networking settings cleanup ([#21418])
@@ -36,6 +37,8 @@ What's new in 1.20.3
 - Fix issues when unpausing using a controller binding ([#21424]), DualSense Edge detection on Windows ([#21426])
 - Fix missing savestate undo button ([#21425])
 - MMPX texture upscaling algorithm has been restored, the new one has been improved ([#21376]) and renamed MMPX Advanced ([#21421])
+- Fix support for custom game config for homebrew apps ([#21434])
+- Improve insets handling on Android ([#21437])
 
 What's new in 1.20.2
 --------------------
@@ -457,3 +460,7 @@ See [history.md](history.md).
 [#21376]: https://github.com/hrydgard/ppsspp/issues/21376 "enhance MMPX algorithm bug fixes and logic optimizations"
 [#21421]: https://github.com/hrydgard/ppsspp/issues/21421 "Split MMPX texture upscaling shader into regular and advanced"
 [#21426]: https://github.com/hrydgard/ppsspp/issues/21426 "Add detection of Dualsense Edge controllers on Windows, update README.md"
+[#21432]: https://github.com/hrydgard/ppsspp/issues/21432 "Rename \"Hostname\" to \"Hostname or IP\" in adhoc server settings"
+[#21433]: https://github.com/hrydgard/ppsspp/issues/21433 "Add a \"quick-edit\" button for the current server host/ip, if it's custom"
+[#21434]: https://github.com/hrydgard/ppsspp/issues/21434 "Fix support for custom game configs for homebrews"
+[#21437]: https://github.com/hrydgard/ppsspp/issues/21437 "Android: Handle inset adjustments on the C++ side, handle them better in the UI."
