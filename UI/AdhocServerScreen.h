@@ -54,3 +54,5 @@ private:
 	bool lastResolvedResult_ = false;
 };
 
+void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager);
+bool AdhocServerNameIsCustom();
