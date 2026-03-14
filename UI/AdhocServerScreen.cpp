@@ -3,6 +3,7 @@
 
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/StringUtils.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "UI/MiscViews.h"
@@ -506,4 +507,57 @@ void AdhocServerScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = StripSpaces(editValue_);
 	}
+}
+
+bool AdhocServerNameIsCustom() {
+	for (auto iter : g_Config.vCustomAdhocServerList) {
+		if (iter == g_Config.sProAdhocServer) {
+			return true;
+		}
+	}
+	for (auto iter : g_Config.vCustomAdhocServerListWithRelay) {
+		if (iter == g_Config.sProAdhocServer) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static void EditServerName(std::string_view newServerName) {
+	newServerName = StripSpaces(newServerName);
+	if (newServerName != g_Config.sProAdhocServer) {
+		for (auto &name : g_Config.vCustomAdhocServerList) {
+			if (name == g_Config.sProAdhocServer) {
+				name = newServerName;
+			}
+		}
+		for (auto &name : g_Config.vCustomAdhocServerListWithRelay) {
+			if (name == g_Config.sProAdhocServer) {
+				name = newServerName;
+			}
+		}
+		g_Config.sProAdhocServer = newServerName;
+	}
+}
+
+void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager) {
+	using namespace UI;
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+
+	// Choose method depending on platform capabilities.
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(requestToken, n->T("Change proAdhocServer Address"), g_Config.sProAdhocServer, false, [](const std::string &enteredValue, int) {
+			EditServerName(enteredValue);
+		});
+		return;
+	}
+	static std::string editText = g_Config.sProAdhocServer;
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&editText, editText, n->T("Change proAdhocServer Address"), 256);
+	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
+		popupScreen->SetAlignTop(true);
+	}
+	popupScreen->OnChange.Add([](EventParams &e) {
+		EditServerName(editText);
+	});
+	screenManager->push(popupScreen);
 }
