@@ -736,7 +736,7 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 }
 
 void TouchTestScreen::DrawForeground(UIContext &dc) {
-	Bounds bounds = dc.GetLayoutBounds();
+	Bounds bounds = GetLayoutBounds(dc);
 
 	double now = dc.FrameStartTime();
 	double delta = now - lastFrameTime_;

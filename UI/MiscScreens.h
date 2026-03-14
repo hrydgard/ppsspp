@@ -96,7 +96,7 @@ enum class AfterLogoScreen {
 	MEMSTICK_SCREEN_INITIAL_SETUP,
 };
 
-class LogoScreen : public UIScreen {
+class LogoScreen : public UIBaseScreen {
 public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
