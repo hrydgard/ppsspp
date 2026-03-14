@@ -16,8 +16,8 @@ public:
 		using namespace UI;
 		auto ni = GetI18NCategory(I18NCat::NETWORKING);
 
-		PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, ni->T("Hostname"), "", 450, screenManager()));
-		textInputChoice->SetShadowText(ni->T("Hostname"));
+		PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, ni->T("Hostname or IP"), "", 450, screenManager()));
+		textInputChoice->SetShadowText(ni->T("Hostname or IP"));
 		parent->Add(new CheckBox(&hasRelay_, ni->T("Relay server mode")));
 	}
 
