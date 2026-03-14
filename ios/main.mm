@@ -358,6 +358,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
+			return true;
 		case SYSPROP_HAS_FILE_BROWSER:
 			return true;
 		case SYSPROP_HAS_FOLDER_BROWSER:

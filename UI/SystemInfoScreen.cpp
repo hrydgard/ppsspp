@@ -264,8 +264,9 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT),
 		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM),
 	};
+	bool hasCameraCutout = System_GetPropertyBool(SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT);
 	if (insets[0] != 0.0f || insets[1] != 0.0f || insets[2] != 0.0f || insets[3] != 0.0f) {
-		displayInfo->Add(new InfoItem(si->T("Screen notch insets"), StringFromFormat("%0.1f %0.1f %0.1f %0.1f", insets[0], insets[1], insets[2], insets[3])));
+		displayInfo->Add(new InfoItem(si->T("Screen notch insets"), StringFromFormat("%0.1f %0.1f %0.1f %0.1f : cutout=%d", insets[0], insets[1], insets[2], insets[3], hasCameraCutout)));
 	}
 
 	// Don't show on Windows, since it's always treated as 60 there.
