@@ -122,6 +122,12 @@ private:
 
 class RemoteISOBrowseScreen;
 
+struct HighlightedBackground {
+	Path gamePath;
+	double startTime;
+	double endTime;
+};
+
 class MainScreen : public UIBaseScreen {
 public:
 	MainScreen();
@@ -149,7 +155,7 @@ protected:
 	void sendMessage(UIMessage message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);
+	void DrawBackgroundFor(UIContext &dc, const Path &gamePath, float alpha);
 
 	void OnGameSelected(UI::EventParams &e);
 	void OnGameSelectedInstant(UI::EventParams &e);
@@ -168,10 +174,9 @@ protected:
 	Path restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;
 
+	std::vector<HighlightedBackground> highlightedBackgrounds_;
 	Path highlightedGamePath_;
-	Path prevHighlightedGamePath_;
-	float highlightProgress_ = 0.0f;
-	float prevHighlightProgress_ = 0.0f;
+
 	bool backFromStore_ = false;
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_ = false;
@@ -181,6 +186,8 @@ protected:
 	std::string searchFilter_;
 
 	friend class RemoteISOBrowseScreen;
+private:
+	void InstantHighlight(const Path &path);
 };
 
 class UmdReplaceScreen : public UIBaseDialogScreen {

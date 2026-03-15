@@ -52,15 +52,11 @@ protected:
 
 private:
 	// Event handlers
-	void OnPlay(UI::EventParams &e);
 	void OnGameSettings(UI::EventParams &e);
 	void OnDeleteSaveData(UI::EventParams &e);
 	void OnDeleteGame(UI::EventParams &e);
-	void OnSwitchBack(UI::EventParams &e);
-	void OnRemoveFromRecent(UI::EventParams &e);
 	void OnCreateConfig(UI::EventParams &e);
 	void OnDeleteConfig(UI::EventParams &e);
-	void OnCwCheat(UI::EventParams &e);
 	void OnSetBackground(UI::EventParams &e);
 
 	std::string CRC32string;
