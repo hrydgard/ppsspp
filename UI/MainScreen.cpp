@@ -1623,7 +1623,7 @@ void MainScreen::DrawBackground(UIContext &dc) {
 		return;
 	}
 
-	constexpr float fadeTime = 0.5f;  // 
+	constexpr float fadeTime = 0.25f;
 
 	double now = time_now_d();
 
@@ -1682,16 +1682,22 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 
 	Path path(e.s);
 
-	if (path == highlightedGamePath_) {
+	if (path == highlightedGamePath_ && e.a == FF_GOTFOCUS) {
 		// Already highlighted, nothing to do.
 		return;
 	}
 
-	// Trigger fadeouts on any active highlights.
-	for (auto &iter : highlightedBackgrounds_) {
-		if (iter.endTime < 0.0) {
-			iter.endTime = time_now_d();
+	if (e.a == FF_LOSTFOCUS) {
+		// Lost focus, so we want to fade out the background.
+
+		// Trigger fadeouts on any active highlights.
+		for (auto &iter : highlightedBackgrounds_) {
+			if (iter.endTime < 0.0) {
+				iter.endTime = time_now_d();
+			}
 		}
+		highlightedGamePath_.clear();
+		return;
 	}
 
 	highlightedGamePath_ = path;
