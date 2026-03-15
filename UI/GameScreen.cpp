@@ -554,6 +554,9 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		Choice *removeButton = parent->Add(new Choice(ga->T("Remove From Recent"), ImageID("I_UNPIN")));
 		removeButton->OnClick.Add([this](UI::EventParams &e) {
 			g_recentFiles.Remove(gamePath_.ToString());
+			System_PostUIMessage(UIMessage::GAME_SELECTED, "");
+			// TODO: We should be able to do TriggerFinish here, but unfortunately
+			// the screen manager still considers the popup dialog the current dialog.
 			screenManager()->switchScreen(new MainScreen());
 		});
 	}
