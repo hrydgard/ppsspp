@@ -500,7 +500,9 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	rightColumn->Add(rightColumnItems);
 
 	if (!inGame_ && FileTypeIsPlayable(info_->fileType)) {
-		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Handle(this, &GameScreen::OnPlay);
+		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->switchScreen(new EmuScreen(gamePath_));
+		});
 	}
 
 	if (!info_->id.empty() && !inGame_) {
@@ -520,7 +522,9 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 
 	if (g_Config.bEnableCheats) {
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
-		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Handle(this, &GameScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new CwCheatScreen(gamePath_));
+		});
 	}
 
 	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
@@ -548,7 +552,10 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 	// TODO: This is synchronous, bad!
 	if (!inGame_ && g_recentFiles.ContainsFile(gamePath_.ToString())) {
 		Choice *removeButton = parent->Add(new Choice(ga->T("Remove From Recent"), ImageID("I_UNPIN")));
-		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
+		removeButton->OnClick.Add([this](UI::EventParams &e) {
+			g_recentFiles.Remove(gamePath_.ToString());
+			screenManager()->switchScreen(new MainScreen());
+		});
 	}
 
 	if (info_->saveDataSize) {
@@ -625,18 +632,6 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 	}));
 }
 
-void GameScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen(gamePath_));
-}
-
-void GameScreen::OnSwitchBack(UI::EventParams &e) {
-	TriggerFinish(DR_OK);
-}
-
-void GameScreen::OnPlay(UI::EventParams &e) {
-	screenManager()->switchScreen(new EmuScreen(gamePath_));
-}
-
 void GameScreen::OnGameSettings(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info_ && info_->Ready(GameInfoFlags::PARAM_SFO)) {
@@ -693,11 +688,6 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 			}
 		}));
 	}
-}
-
-void GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
-	g_recentFiles.Remove(gamePath_.ToString());
-	screenManager()->switchScreen(new MainScreen());
 }
 
 void GameScreen::OnSetBackground(UI::EventParams &e) {
