@@ -1201,6 +1201,36 @@ bool ClickableTextView::Touch(const TouchInput &input) {
 	return contains;
 }
 
+bool ClickableTextView::Key(const KeyInput &key) {
+	if (!HasFocus() && key.deviceId != DEVICE_ID_MOUSE) {
+		down_ = false;
+		return false;
+	}
+	// TODO: Replace most of Update with this.
+
+	bool ret = false;
+	if (key.flags & KeyInputFlags::DOWN) {
+		if (IsAcceptKey(key)) {
+			down_ = true;
+			ret = true;
+		}
+	}
+	if (key.flags & KeyInputFlags::UP) {
+		if (IsAcceptKey(key)) {
+			if (down_) {
+				EventParams e{};
+				e.v = this;
+				OnClick.Trigger(e);
+				down_ = false;
+				ret = true;
+			}
+		} else if (down_ && IsEscapeKey(key)) {
+			down_ = false;
+		}
+	}
+	return ret;
+}
+
 TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_view placeholderText, LayoutParams *layoutParams)
   : View(layoutParams), text_(text), title_(title), undo_(text), placeholderText_(placeholderText),
     textColor_(0xFFFFFFFF), maxLen_(255) {

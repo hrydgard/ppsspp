@@ -38,6 +38,10 @@ protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	std::string_view GetTitle() const override;
 
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::IgnoreBottomInset;
+	}
+
 private:
 	void saveArray();
 
