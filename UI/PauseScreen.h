@@ -41,7 +41,9 @@ protected:
 	void CreateViews() override;
 	void update() override;
 	UI::Margins RootMargins() const override;
-
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
 	// For processing of certain mapped keys.
 	bool UnsyncKey(const KeyInput &key) override;
 	void UnsyncAxis(const AxisInput *axes, size_t count) override;
