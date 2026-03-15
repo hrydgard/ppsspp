@@ -29,6 +29,7 @@
 #include "UI/JoystickHistoryView.h"
 #include "UI/GamepadEmu.h"
 #include "UI/TiltAnalogSettingsScreen.h"
+#include "UI/MiscViews.h"
 
 const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 const size_t g_numTiltTypes = ARRAY_SIZE(g_tiltTypes);
@@ -113,15 +114,12 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 		});
 	typeChoice->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	settings->Add(new ItemHeader(co->T("Calibration")));
-	TextView *calibrationInfo = new TextView(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
-	calibrationInfo->SetSmall(true);
-	calibrationInfo->SetPadding(Margins(5));
-	calibrationInfo->SetAlign(FLAG_WRAP_TEXT);
-	settings->Add(calibrationInfo);
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
 	calibrate->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	settings->Add(calibrate);
+	SettingHint *calibrationInfo = new SettingHint(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."), calibrate);
+	settings->Add(calibrationInfo);
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
 	if (g_Config.iTiltInputType == 1) {

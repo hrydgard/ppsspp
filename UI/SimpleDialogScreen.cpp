@@ -32,7 +32,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 
 	if (flags_ & SimpleDialogFlags::ContentsCanScroll) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, 8, 0)));
+		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, portrait ? 0 : 8, 0)));
 		contents->SetSpacing(0);
 		CreateDialogViews(contents);
 		scroll->Add(contents);
@@ -45,7 +45,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 ViewLayoutMode UITwoPaneBaseDialogScreen::LayoutMode() const {
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 	if (portrait) {
-		if (flags_ & TwoPaneFlags::SettingsCanScroll) {
+		if ((flags_ & TwoPaneFlags::SettingsCanScroll) || (flags_ & TwoPaneFlags::ContentsCanScroll)) {
 			return ViewLayoutMode::IgnoreBottomInset;
 		} else {
 			return ViewLayoutMode::ApplyInsets;
@@ -111,9 +111,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (!(flags_ & TwoPaneFlags::SettingsInContextMenu)) {
 			LinearLayout *settingsPane;
 			if (flags_ & TwoPaneFlags::SettingsCanScroll) {
-				settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+				settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8)));
 				settingsPane->SetSpacing(0.0f);
-				ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(8)));
+				ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 				settingsScroll->Add(settingsPane);
 				root->Add(settingsScroll);
 			} else {
