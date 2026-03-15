@@ -1086,6 +1086,8 @@ public:
 	ClickableTextView(std::string_view text, LayoutParams *layoutParams = 0)
 		: TextView(text, layoutParams) {}
 	bool Touch(const TouchInput &input) override;
+	bool Key(const KeyInput &input) override;
+
 	Event OnClick;
 
 private:

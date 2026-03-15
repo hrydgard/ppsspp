@@ -223,7 +223,13 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 
 	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
 	lines->SetSpacing(0.0f);
-	lines->Add(new TextView(entry.name));
+	ClickableTextView *name = lines->Add(new ClickableTextView(entry.name));
+	name->SetFocusable(true);
+	name->OnClick.Add([this](UI::EventParams &e) {
+		EventParams e2;
+		e2.v = this;
+		OnSelected.Trigger(e2);
+	});
 
 	std::string secondLine = entry.host;
 	if (entry.host == "localhost") {
