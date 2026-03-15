@@ -191,6 +191,26 @@ private:
 	AdhocServerListEntry entry_;
 };
 
+void AddDeleteButton(std::string *editValue, ScreenManager *screenManager, UI::ViewGroup *viewGroup, const AdhocServerListEntry &entry) {
+	using namespace UI;
+	Choice *deleteButton = viewGroup->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
+	deleteButton->OnClick.Add([host = entry.host, screenManager, editValue](UI::EventParams &e) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		const std::string quotedHost = "\"" + host + "\"";
+		const std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1?"), quotedHost);
+		screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host, editValue](bool confirmed) {
+			if (confirmed) {
+				RemoveNoCase(g_Config.vCustomAdhocServerList, host);
+				RemoveNoCase(g_Config.vCustomAdhocServerListWithRelay, host);
+				if (*editValue == host) {
+					// Reset to socom.cc, which will always be in a list.
+					*editValue = DefaultProAdhocServer();
+				}
+			}
+		}));
+	});
+}
+
 AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntry &entry, bool showDeleteButton, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
 	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(editValue), entry_(entry) {
 	using namespace UI;
@@ -223,22 +243,7 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 		TextView *relay = Add(new TextView("Relay", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
 	}
 	if (showDeleteButton) {
-		Choice *deleteButton = Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
-		deleteButton->OnClick.Add([host = entry.host, screenManager, editValue](UI::EventParams &e) {
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			const std::string quotedHost = "\"" + host + "\"";
-			const std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1?"), quotedHost);
-			screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host, editValue](bool confirmed) {
-				if (confirmed) {
-					RemoveNoCase(g_Config.vCustomAdhocServerList, host);
-					RemoveNoCase(g_Config.vCustomAdhocServerListWithRelay, host);
-					if (*editValue == host) {
-						// Reset to socom.cc, which will always be in a list.
-						*editValue = DefaultProAdhocServer();
-					}
-				}
-			}));
-		});
+		AddDeleteButton(editValue, screenManager, this, entry);
 	}
 
 	if (!entry.description.empty()) {
@@ -342,36 +347,44 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		return false;
 	};
 
-	for (const auto &host : g_Config.vCustomAdhocServerListWithRelay) {
+	for (auto iter = g_Config.vCustomAdhocServerListWithRelay.begin(); iter != g_Config.vCustomAdhocServerListWithRelay.end();) {
 		// If the host is already in the public list, skip it. We don't want duplicates.
-		if (hostInEntries(host) || host.empty()) {
+		if (hostInEntries(*iter) || iter->empty()) {
+			// Remove things that duplicate the public list, or that are empty (probably added by mistake).
+			iter = g_Config.vCustomAdhocServerListWithRelay.erase(iter);
+			recreateParent_ = true;
 			continue;
 		}
 		AdhocServerListEntry entry;
-		entry.name = host;
-		entry.host = host;
+		entry.name = *iter;
+		entry.host = *iter;
 		entry.mode = AdhocDataMode::AemuPostoffice;
 		customEntries.push_back(entry);
 
-		if (host == editValue_) {
+		if (*iter == editValue_) {
 			currentServerFound = true;
 		}
+		iter++;
 	}
 
-	for (const auto &host : g_Config.vCustomAdhocServerList) {
+	for (auto iter = g_Config.vCustomAdhocServerList.begin(); iter != g_Config.vCustomAdhocServerList.end();) {
 		// If the host is already in the public list, skip it. We don't want duplicates.
-		if (hostInEntries(host) || host.empty()) {
+		if (hostInEntries(*iter) || iter->empty()) {
+			// Remove things that duplicate the public list, or that are empty (probably added by mistake).
+			iter = g_Config.vCustomAdhocServerList.erase(iter);
+			recreateParent_ = true;
 			continue;
 		}
 		AdhocServerListEntry entry;
-		entry.name = host;
-		entry.host = host;
+		entry.name = *iter;
+		entry.host = *iter;
 		entry.mode = AdhocDataMode::P2P;
 		customEntries.push_back(entry);
 
-		if (host == editValue_) {
+		if (*iter == editValue_) {
 			currentServerFound = true;
 		}
+		iter++;
 	}
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
