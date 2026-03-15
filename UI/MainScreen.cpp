@@ -1619,14 +1619,21 @@ void MainScreen::OnLoadFile(UI::EventParams &e) {
 }
 
 void MainScreen::DrawBackground(UIContext &dc) {
+	if (highlightedBackgrounds_.empty()) {
+		return;
+	}
+
 	constexpr float fadeTime = 0.5f;  // 
 
 	double now = time_now_d();
 
 	for (auto iter = highlightedBackgrounds_.begin(); iter != highlightedBackgrounds_.end(); ) {
-		float timeSinceStart = float(now - iter->startTime);
+		std::shared_ptr<GameInfo> ginfo;
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), iter->gamePath, GameInfoFlags::PIC1);
+		float timeSinceStart = float(now - std::max(iter->startTime, ginfo->pic1.timeLoaded));
 		float alpha = std::clamp(timeSinceStart / fadeTime, 0.0f, 1.0f);
 		if (iter->endTime > 0.0) {
+			// TODO: Consider only fading out if it's the last one in the list, to avoid background shine-through.
 			float fadeOutAlpha = std::max(0.0f, float(now - iter->endTime) / fadeTime);
 			if (fadeOutAlpha > 1.0f) {
 				iter = highlightedBackgrounds_.erase(iter);
@@ -1634,8 +1641,13 @@ void MainScreen::DrawBackground(UIContext &dc) {
 			}
 			alpha *= 1.0f - fadeOutAlpha;
 		}
-		DrawBackgroundFor(dc, iter->gamePath, alpha);
 		iter++;
+
+		if (!ginfo->pic1.texture) {
+			continue;
+		}
+
+		DrawBackgroundTexture(dc, ginfo->pic1.texture, Lin::Vec3(0.0f, 0.0f, 0.0f), alpha);
 	}
 }
 
