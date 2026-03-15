@@ -1619,27 +1619,28 @@ void MainScreen::OnLoadFile(UI::EventParams &e) {
 }
 
 void MainScreen::DrawBackground(UIContext &dc) {
-	if (highlightedGamePath_.empty() && prevHighlightedGamePath_.empty()) {
-		return;
-	}
+	constexpr float fadeTime = 0.5f;  // 
 
-	if (DrawBackgroundFor(dc, prevHighlightedGamePath_, 1.0f - prevHighlightProgress_)) {
-		if (prevHighlightProgress_ < 1.0f) {
-			prevHighlightProgress_ += 1.0f / 20.0f;
-		}
-	}
-	if (!highlightedGamePath_.empty()) {
-		if (DrawBackgroundFor(dc, highlightedGamePath_, highlightProgress_)) {
-			if (highlightProgress_ < 1.0f) {
-				highlightProgress_ += 1.0f / 20.0f;
+	double now = time_now_d();
+
+	for (auto iter = highlightedBackgrounds_.begin(); iter != highlightedBackgrounds_.end(); ) {
+		float timeSinceStart = float(now - iter->startTime);
+		float alpha = std::clamp(timeSinceStart / fadeTime, 0.0f, 1.0f);
+		if (iter->endTime > 0.0) {
+			float fadeOutAlpha = std::max(0.0f, float(now - iter->endTime) / fadeTime);
+			if (fadeOutAlpha > 1.0f) {
+				iter = highlightedBackgrounds_.erase(iter);
+				continue;
 			}
+			alpha *= 1.0f - fadeOutAlpha;
 		}
+		DrawBackgroundFor(dc, iter->gamePath, alpha);
+		iter++;
 	}
 }
 
-bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress) {
-	::DrawGameBackground(dc, gamePath, Lin::Vec3(0.f, 0.f, 0.f), progress);
-	return true;
+void MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float alpha) {
+	::DrawGameBackground(dc, gamePath, Lin::Vec3(0.f, 0.f, 0.f), alpha);
 }
 
 void MainScreen::OnGameSelected(UI::EventParams &e) {
@@ -1658,26 +1659,40 @@ void MainScreen::OnGameSelected(UI::EventParams &e) {
 	screenManager()->push(new GameScreen(path, false));
 }
 
+void MainScreen::InstantHighlight(const Path &path) {
+	// Clear the previous highlight immediately, so we don't have multiple at once.
+	highlightedBackgrounds_.clear();
+	highlightedBackgrounds_.push_back({path, 0.0f, -1.0});
+}
+
 void MainScreen::OnGameHighlight(UI::EventParams &e) {
 	using namespace UI;
 
 	Path path(e.s);
 
-	// Don't change when re-highlighting what's already highlighted.
-	if (path != highlightedGamePath_ || e.a == FF_LOSTFOCUS) {
-		if (!highlightedGamePath_.empty()) {
-			if (prevHighlightedGamePath_.empty() || prevHighlightProgress_ >= 0.75f) {
-				prevHighlightedGamePath_ = highlightedGamePath_;
-				prevHighlightProgress_ = 1.0 - highlightProgress_;
-			}
-			highlightedGamePath_.clear();
-		}
-		if (e.a == FF_GOTFOCUS) {
-			highlightedGamePath_ = path;
-			highlightProgress_ = 0.0f;
+	if (path == highlightedGamePath_) {
+		// Already highlighted, nothing to do.
+		return;
+	}
+
+	// Trigger fadeouts on any active highlights.
+	for (auto &iter : highlightedBackgrounds_) {
+		if (iter.endTime < 0.0) {
+			iter.endTime = time_now_d();
 		}
 	}
 
+	highlightedGamePath_ = path;
+
+	_dbg_assert_(!path.empty());
+
+	if (path.empty()) {
+		// Nothing highlighed? Exit.
+		return;
+	}
+
+	// Add a new entry to the highlight list.
+	highlightedBackgrounds_.push_back({path, time_now_d(), -1.0});
 	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_) {
 		g_BackgroundAudio.SetGame(highlightedGamePath_);
 	}
@@ -1733,8 +1748,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	} else if (tag == "Game") {
 		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
-			highlightedGamePath_ = restoreFocusGamePath_;
-			highlightProgress_ = 1.0f;
+			InstantHighlight(restoreFocusGamePath_);
 
 			// Refocus the game button itself.
 			int tab = tabHolder_->GetCurrentTab();

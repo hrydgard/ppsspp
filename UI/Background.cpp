@@ -455,6 +455,54 @@ enum class BackgroundFillMode {
 	FitToScreen = 2,
 };
 
+void DrawBackgroundTexture(UIContext &dc, Draw::Texture *texture, Lin::Vec3 focus, float alpha) {
+	dc.GetDrawContext()->BindTexture(0, texture);
+	uint32_t color = whiteAlpha(std::clamp(alpha, 0.0f, 1.0f)) & 0xFFc0c0c0;
+
+	// TODO: Make this configurable?
+	const BackgroundFillMode mode = BackgroundFillMode::AdaptiveCropToScreen;
+
+	const Bounds screenBounds = dc.GetBounds();
+	float imageW = screenBounds.w;
+	float imageH = screenBounds.h;
+	float imageAspect = (float)texture->Width() / (float)texture->Height();
+
+	float squash = imageAspect / screenBounds.AspectRatio();
+
+	// Allow a lot of leeway for the image aspect - let it stretch a bit, and only then start cropping.
+	const float aspectLeeway = 0.5f;
+	if (mode == BackgroundFillMode::AdaptiveCropToScreen && squash >= 0.6f && squash < 1.7f) {
+		imageAspect = screenBounds.AspectRatio();
+	}
+
+	// Fit the image into the screen bounds according to the fill mode.
+	if (imageAspect > screenBounds.AspectRatio()) {
+		// Image is wider than screen.
+		if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
+			// Crop width.
+			imageW = screenBounds.h * imageAspect;
+		} else if (mode == BackgroundFillMode::FitToScreen) {
+			// Fit height.
+			imageH = screenBounds.w / imageAspect;
+		}
+	} else {
+		// Image is taller than screen.
+		if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
+			// Crop height.
+			imageH = screenBounds.w / imageAspect;
+		} else if (mode == BackgroundFillMode::FitToScreen) {
+			// Fit width.
+			imageW = screenBounds.h / imageAspect;
+		}
+	}
+
+	Bounds finalImageBounds = Bounds::FromCenterWH(screenBounds.centerX(), screenBounds.centerY(), imageW, imageH);
+
+	dc.Draw()->DrawTexRect(finalImageBounds, 0, 0, 1, 1, color);
+	dc.Flush();
+	dc.RebindTexture();
+}
+
 void DrawGameBackground(UIContext &dc, const Path &gamePath, Lin::Vec3 focus, float alpha) {
 	using namespace Draw;
 	using namespace UI;
@@ -467,51 +515,8 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, Lin::Vec3 focus, fl
 
 	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::PIC1)) ? ginfo->GetPIC1() : nullptr;
 	if (pic && pic->texture) {
-		dc.GetDrawContext()->BindTexture(0, pic->texture);
-		uint32_t color = whiteAlpha(std::clamp(ease((time_now_d() - pic->timeLoaded) * 3.0f) * alpha, 0.0f, 1.0f)) & 0xFFc0c0c0;
-
-		// TODO: Make this configurable?
-		const BackgroundFillMode mode = BackgroundFillMode::AdaptiveCropToScreen;
-
-		const Bounds screenBounds = dc.GetBounds();
-		float imageW = screenBounds.w;
-		float imageH = screenBounds.h;
-		float imageAspect = (float)pic->texture->Width() / (float)pic->texture->Height();
-
-		float squash = imageAspect / screenBounds.AspectRatio();
-
-		// Allow a lot of leeway for the image aspect - let it stretch a bit, and only then start cropping.
-		const float aspectLeeway = 0.5f;
-		if (mode == BackgroundFillMode::AdaptiveCropToScreen && squash >= 0.6f && squash < 1.7f) {
-			imageAspect = screenBounds.AspectRatio();
-		}
-
-		// Fit the image into the screen bounds according to the fill mode.
-		if (imageAspect > screenBounds.AspectRatio()) {
-			// Image is wider than screen.
-			if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
-				// Crop width.
-				imageW = screenBounds.h * imageAspect;
-			} else if (mode == BackgroundFillMode::FitToScreen) {
-				// Fit height.
-				imageH = screenBounds.w / imageAspect;
-			}
-		} else {
-			// Image is taller than screen.
-			if (mode == BackgroundFillMode::AdaptiveCropToScreen) {
-				// Crop height.
-				imageH = screenBounds.w / imageAspect;
-			} else if (mode == BackgroundFillMode::FitToScreen) {
-				// Fit width.
-				imageW = screenBounds.h / imageAspect;
-			}
-		}
-
-		Bounds finalImageBounds = Bounds::FromCenterWH(screenBounds.centerX(), screenBounds.centerY(), imageW, imageH);
-
-		dc.Draw()->DrawTexRect(finalImageBounds, 0, 0, 1, 1, color);
-		dc.Flush();
-		dc.RebindTexture();
+		float alphaMul = ease((time_now_d() - pic->timeLoaded) * 3.0f);
+		DrawBackgroundTexture(dc, pic->texture, focus, alpha * alphaMul);
 	} else {
 		::DrawBackground(dc, 1.0f, focus);
 		dc.RebindTexture();
