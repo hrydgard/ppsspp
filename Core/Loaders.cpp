@@ -82,22 +82,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 	std::string extension = fileLoader->GetFileExtension();
 
-	bool isDiscImage = false;
-
-	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
-		isDiscImage = true;
-	} else if (extension == ".ppst") {
-		return IdentifiedFileType::PPSSPP_SAVESTATE;
-	} else if (extension == ".ppdmp") {
-		char data[8]{};
-		fileLoader->ReadAt(0, 8, data);
-		if (memcmp(data, "PPSSPPGE", 8) == 0) {
-			return IdentifiedFileType::PPSSPP_GE_DUMP;
-		}
-	}
-
 	// First, check if it's a directory with an EBOOT.PBP in it.
-	if (!isDiscImage && fileLoader->IsDirectory()) {
+	if (fileLoader->IsDirectory()) {
 		Path filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
@@ -117,6 +103,19 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		}
 
 		return IdentifiedFileType::NORMAL_DIRECTORY;
+	}
+
+	bool isDiscImage = false;
+	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
+		isDiscImage = true;
+	} else if (extension == ".ppst") {
+		return IdentifiedFileType::PPSSPP_SAVESTATE;
+	} else if (extension == ".ppdmp") {
+		char data[8]{};
+		fileLoader->ReadAt(0, 8, data);
+		if (memcmp(data, "PPSSPPGE", 8) == 0) {
+			return IdentifiedFileType::PPSSPP_GE_DUMP;
+		}
 	}
 
 	// OK, quick methods of identification for common types failed. Moving on to more expensive methods,
