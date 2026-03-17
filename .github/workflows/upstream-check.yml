@@ -1,0 +1,176 @@
+name: Upstream Release Check
+
+on:
+  schedule:
+    - cron: '20 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+env:
+  UPSTREAM_REPO: hrydgard/ppsspp
+  FORK_BRANCH: master
+  LABEL: upstream-release
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest upstream release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          response=$(gh api "repos/${UPSTREAM_REPO}/releases/latest" 2>&1) || {
+            echo "No releases found (or API error). Exiting gracefully."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          tag=$(echo "$response" | jq -r '.tag_name')
+          name=$(echo "$response" | jq -r '.name')
+          url=$(echo "$response" | jq -r '.html_url')
+          body=$(echo "$response" | jq -r '.body // ""')
+          published=$(echo "$response" | jq -r '.published_at')
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+
+          echo "$body" > /tmp/release_body.txt
+
+      - name: Check for existing tracking issue
+        if: steps.release.outputs.found == 'true'
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          issues=$(gh issue list --label "$LABEL" --state open --json title,number)
+          match=$(echo "$issues" | jq -r --arg tag "$TAG" '.[] | select(.title == "Upstream release: \($tag)") | .number')
+
+          if [ -n "$match" ]; then
+            echo "Issue #$match already tracks $TAG. Nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Close stale issues and PRs
+        if: steps.release.outputs.found == 'true' && steps.existing.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          stale_issues=$(gh issue list --label "$LABEL" --state open --json number --jq '.[].number')
+          for issue in $stale_issues; do
+            gh issue close "$issue" --comment "Superseded by newer release $TAG"
+          done
+
+          stale_prs=$(gh pr list --label "$LABEL" --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
+          while IFS=' ' read -r pr_number branch_name; do
+            [ -z "$pr_number" ] && continue
+            gh pr close "$pr_number" --comment "Superseded by newer release $TAG" --delete-branch || true
+          done <<< "$stale_prs"
+
+      - name: Checkout fork
+        if: steps.release.outputs.found == 'true' && steps.existing.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FORK_BRANCH }}
+          fetch-depth: 0
+
+      - name: Attempt merge
+        if: steps.release.outputs.found == 'true' && steps.existing.outputs.skip == 'false'
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          branch="upstream-release/${TAG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream tag "$TAG" --no-tags
+
+          git checkout -b "$branch"
+
+          if git merge "$TAG" --no-edit; then
+            git push origin "$branch"
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR
+        if: steps.release.outputs.found == 'true' && steps.existing.outputs.skip == 'false' && steps.merge.outputs.conflict == 'false'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          MERGE_BRANCH: ${{ steps.merge.outputs.branch }}
+        run: |
+          pr_url=$(gh pr create \
+            --base "$FORK_BRANCH" \
+            --head "$MERGE_BRANCH" \
+            --title "Merge upstream release ${TAG}" \
+            --label "$LABEL" \
+            --assignee mis0suppe \
+            --body "Automated merge of upstream release [\`${TAG}\`](${RELEASE_URL}) from \`${UPSTREAM_REPO}\`.")
+
+          echo "pr_url=$pr_url" >> "$GITHUB_OUTPUT"
+
+      - name: Create tracking issue
+        if: steps.release.outputs.found == 'true' && steps.existing.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_NAME: ${{ steps.release.outputs.name }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          PUBLISHED: ${{ steps.release.outputs.published }}
+          CONFLICT: ${{ steps.merge.outputs.conflict }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+        run: |
+          release_body=$(cat /tmp/release_body.txt 2>/dev/null || echo "_No release notes provided._")
+
+          if [ "$CONFLICT" == "true" ]; then
+            status="**Merge conflicts detected** — manual merge required."
+          else
+            status="Auto-merge PR: $PR_URL"
+          fi
+
+          body=$(cat <<EOF
+          ## Upstream Release: ${TAG}
+
+          **Repo:** \`${UPSTREAM_REPO}\`
+          **Release:** [${RELEASE_NAME}](${RELEASE_URL})
+          **Published:** ${PUBLISHED}
+
+          ### Status
+          ${status}
+
+          ### Release Notes
+          <details>
+          <summary>Expand release notes</summary>
+
+          ${release_body}
+
+          </details>
+          EOF
+          )
+
+          gh issue create \
+            --title "Upstream release: ${TAG}" \
+            --label "$LABEL" \
+            --assignee mis0suppe \
+            --body "$body"
