@@ -1128,3 +1128,19 @@ s64 MediaEngine::getLastTimeStamp() {
 		return 0;
 	return m_lastTimeStamp - m_firstTimeStamp;
 }
+
+std::string GetFFMPEGVersion() {
+#ifdef USE_FFMPEG
+	std::string comment = "";
+	if (LIBAVFORMAT_VERSION_MAJOR == 57 && LIBAVFORMAT_VERSION_MINOR == 25 && LIBAVFORMAT_VERSION_MICRO == 100) {
+		// This is the bundled version.
+		comment = " (bundled)";
+	} else {
+		comment = " (system)";
+	}
+	return StringFromFormat("%d.%d.%d (%s)%s",
+		LIBAVFORMAT_VERSION_MAJOR, LIBAVFORMAT_VERSION_MINOR, LIBAVFORMAT_VERSION_MICRO, av_version_info(), comment.c_str());
+#else
+	return "N/A";
+#endif
+}

@@ -113,6 +113,10 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 		return UIInterfaceOrientationMaskLandscapeRight;
 	case ROTATION_LOCKED_VERTICAL:
 	case ROTATION_LOCKED_VERTICAL180:
+		if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+			// iPad supports both portrait orientations, so allow them.
+			return UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskPortraitUpsideDown;
+		}
 		// We do not support reverse portrait on iOS.
 		return UIInterfaceOrientationMaskPortrait;
 	case ROTATION_LOCKED_HORIZONTAL180:

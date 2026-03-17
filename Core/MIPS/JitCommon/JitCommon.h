@@ -120,6 +120,7 @@ namespace MIPSComp {
 	public:
 		virtual ~JitInterface() {}
 
+		virtual const u8 *GetCodeBase() const = 0;  // Just for displaying in the debugger.
 		virtual bool CodeInRange(const u8 *ptr) const = 0;
 		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 		virtual bool IsAtDispatchFetch(const u8 *ptr) const {

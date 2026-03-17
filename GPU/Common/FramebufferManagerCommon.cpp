@@ -1196,7 +1196,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
-	DrawTextureFlags flags;
+	DrawTextureFlags flags = DrawTextureFlags::DRAWTEX_DEFAULT;
 	if (useBufferedRendering_ && vfb) {
 		_dbg_assert_(vfb->fbo);
 		if (vfb->fbo) {
@@ -1747,6 +1747,8 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 	fbosToDelete_.clear();
 
+	const bool persistentFramebuffers = PSP_CoreParameter().compat.flags().PersistentFramebuffers;
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
@@ -1760,7 +1762,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		UpdateFramebufUsage(vfb);
 
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
-			if (age > FBO_OLD_AGE) {
+			if (age > FBO_OLD_AGE && !persistentFramebuffers) {
 				INFO_LOG(Log::FrameBuf, "Decimating FBO for %08x (%ix%i %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
@@ -1770,7 +1772,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
 		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
-		if (age > FBO_OLD_AGE) {
+		if (age > FBO_OLD_AGE && !persistentFramebuffers) {
 			it->second.fbo->Release();
 			it = tempFBOs_.erase(it);
 		} else {
@@ -1782,7 +1784,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
-		if (age > FBO_OLD_AGE) {
+		if (age > FBO_OLD_AGE && !persistentFramebuffers) {
 			INFO_LOG(Log::FrameBuf, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
@@ -2102,10 +2104,10 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	// For now fill in these old variables from the candidates to reduce the initial diff.
 	VirtualFramebuffer *dstBuffer = nullptr;
 	VirtualFramebuffer *srcBuffer = nullptr;
-	int srcY;
-	int srcH;
-	int dstY;
-	int dstH;
+	int srcY = 0;
+	int srcH = 0;
+	int dstY = 0;
+	int dstH = 0;
 
 	const CopyCandidate *bestSrc = GetBestCopyCandidate(srcCandidates, src, channel);
 	if (bestSrc) {
@@ -2199,6 +2201,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// awkward visual artefacts.
 		const u8 *srcBase = Memory::GetPointerUnchecked(src);
 		GEBufferFormat srcFormat = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : dstBuffer->fb_format;
+		// TODO: srcStride here looks suspicious! Actually the whole calculation does...
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
 		DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
@@ -2872,7 +2875,7 @@ void FramebufferManagerCommon::NotifyRenderResized(const DisplayLayoutConfig &co
 	PSP_CoreParameter().renderHeight = h;
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
-	if (UpdateRenderSize(msaaLevel)) {
+	if (draw_ && UpdateRenderSize(msaaLevel)) {
 		draw_->StopThreads();
 		DestroyAllFBOs();
 		draw_->StartThreads();

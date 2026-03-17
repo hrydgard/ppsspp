@@ -63,22 +63,21 @@ bool JitBlock::ContainsAddress(u32 address) const {
 	return address >= originalAddress && address < originalAddress + 4 * originalSize;
 }
 
-void JitBlock::DoIntegrityCheck(u32 em_address, int blockNum) const {
-	_assert_msg_(sentinel == SENTINEL_VAL, "Block %d sentinel got corrupted: %08x (origAddr: %08x)", blockNum, sentinel, originalAddress);
-	_assert_msg_(originalAddress == em_address, "Block %d address got corrupted: %08x != %08x", blockNum, em_address, originalAddress);
+void JitBlock::DoIntegrityCheck(u32 emAddress, int num, const char *reason) const {
+	_assert_msg_(emAddress == originalAddress, "%s: Bad orig %08x (expected: %08x, snt: %08x) in block %d (b.num: %d) sz: %d", reason, originalAddress, emAddress, sentinel, num, blockNum, codeSize);
+	// Also alert just if the sentinel got corrupted.
+	_assert_msg_(sentinel == SENTINEL_VAL, "%s: Block %d(%d) sentinel got corrupted: %08x != %08x (origAddr: %08x)", reason, num, blockNum, sentinel, SENTINEL_VAL, originalAddress);
 }
 
-JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
-	codeBlock_(codeBlock) {
-}
+JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) : codeBlock_(codeBlock) {}
 
 JitBlockCache::~JitBlockCache() {
 	Shutdown();
 }
 
 bool JitBlockCache::IsFull() const {
-	// Subtract some amount to safely leave space for some proxy blocks, which we don't check before we allocate (not ideal, but should be enough).
-	return num_blocks_ >= MAX_NUM_BLOCKS - 512;
+	// Subtract some amount to safely leave space for some proxy blocks (now obsolete, but let's still have some extra margin).
+	return num_blocks_ >= MAX_NUM_BLOCKS - 64;
 }
 
 void JitBlockCache::Init() {
@@ -101,7 +100,6 @@ void JitBlockCache::Clear() {
 	for (int i = 0; i < num_blocks_; i++) {
 		DestroyBlock(i, DestroyType::CLEAR);
 	}
-	proxyBlockMap_.clear();
 	links_to_.clear();
 	num_blocks_ = 0;
 
@@ -118,23 +116,9 @@ void JitBlockCache::Reset() {
 int JitBlockCache::AllocateBlock(u32 startAddress) {
 	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
 
-	JitBlock &b = blocks_[num_blocks_];
+	const int numBlocks = num_blocks_;
 
-	b.proxyFor = 0;
-	// If there's an existing pure proxy block at the address, we need to ditch it and create a new one,
-	// taking over the proxied blocks.
-	int num = GetBlockNumberFromStartAddress(startAddress, false);
-	if (num >= 0) {
-		if (blocks_[num].IsPureProxy()) {
-			RemoveBlockMap(num);
-			blocks_[num].invalid = true;
-			b.proxyFor = new std::vector<u32>();
-			*b.proxyFor = *blocks_[num].proxyFor;
-			blocks_[num].proxyFor->clear();
-			delete blocks_[num].proxyFor;
-			blocks_[num].proxyFor = 0;
-		}
-	}
+	JitBlock &b = blocks_[numBlocks];
 
 	b.invalid = false;
 	b.originalAddress = startAddress;
@@ -143,47 +127,11 @@ int JitBlockCache::AllocateBlock(u32 startAddress) {
 		b.exitPtrs[i] = 0;
 		b.linkStatus[i] = false;
 	}
-	b.blockNum = num_blocks_;
+	b.blockNum = numBlocks;
 	b.sentinel = SENTINEL_VAL;
-	num_blocks_++; //commit the current block
-	return num_blocks_ - 1;
-}
 
-void JitBlockCache::CreateProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
-	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
-
-	// If there's an existing block at the startAddress, add rootAddress as a proxy root of that block
-	// instead of creating a new block.
-	int num = GetBlockNumberFromStartAddress(startAddress, false);
-	if (num != -1) {
-		DEBUG_LOG(Log::HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
-		if (!blocks_[num].proxyFor) {
-			blocks_[num].proxyFor = new std::vector<u32>();
-		}
-		blocks_[num].proxyFor->push_back(rootAddress);
-	}
-
-	JitBlock &b = blocks_[num_blocks_];
-	b.invalid = false;
-	b.originalAddress = startAddress;
-	b.originalSize = size;
-	for (int i = 0; i < MAX_JIT_BLOCK_EXITS; ++i) {
-		b.exitAddress[i] = INVALID_EXIT;
-		b.exitPtrs[i] = 0;
-		b.linkStatus[i] = false;
-	}
-	b.exitAddress[0] = rootAddress;
-	b.blockNum = num_blocks_;
-	b.proxyFor = new std::vector<u32>();
-	b.SetPureProxy();  // flag as pure proxy block.
-
-	// Make binary searches and stuff work ok
-	b.normalEntry = codePtr;
-	b.checkedEntry = codePtr;
-	proxyBlockMap_.emplace(startAddress, num_blocks_);
-	AddBlockMap(num_blocks_);
-
-	num_blocks_++; //commit the current block
+	num_blocks_ = numBlocks + 1; //commit the current block
+	return numBlocks;
 }
 
 void JitBlockCache::AddBlockMap(int block_num) {
@@ -223,7 +171,6 @@ static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
 
 void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	JitBlock &b = blocks_[block_num];
-	_assert_msg_(Memory::IsValidAddress(b.originalAddress), "FinalizeBlock: Bad originalAddress %08x in block %d (b.num: %d) proxy: %s sz: %d", b.originalAddress, block_num, b.blockNum, b.proxyFor ? "y" : "n", b.codeSize);
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);
@@ -307,22 +254,13 @@ MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
 	return MIPSOpcode(MIPS_EMUHACK_OPCODE | off);
 }
 
-int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly) const {
+int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr) const {
 	if (!blocks_ || !Memory::IsValidAddress(addr))
 		return -1;
 
 	MIPSOpcode inst = MIPSOpcode(Memory::Read_U32(addr));
 	int bl = GetBlockNumberFromEmuHackOp(inst);
 	if (bl < 0) {
-		if (!realBlocksOnly) {
-			// Wasn't an emu hack op, look through proxyBlockMap_.
-			auto range = proxyBlockMap_.equal_range(addr);
-			for (auto it = range.first; it != range.second; ++it) {
-				const int blockIndex = it->second;
-				if (blocks_[blockIndex].originalAddress == addr && !blocks_[blockIndex].proxyFor && !blocks_[blockIndex].invalid)
-					return blockIndex;
-			}
-		}
 		return -1;
 	}
 
@@ -374,14 +312,10 @@ void JitBlockCache::LinkBlockExits(int i) {
 		// This block is dead. Don't relink it.
 		return;
 	}
-	if (b.IsPureProxy()) {
-		// Pure proxies can't link, since they don't have code.
-		return;
-	}
 
 	for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 		if (b.exitAddress[e] != INVALID_EXIT && !b.linkStatus[e]) {
-			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e], true);
+			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
 			if (destinationBlock == -1) {
 				continue;
 			}
@@ -477,32 +411,6 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	// No point it being in there anymore.
 	RemoveBlockMap(block_num);
 
-	// Pure proxy blocks always point directly to a real block, there should be no chains of
-	// proxy-only blocks pointing to proxy-only blocks.
-	// Follow a block proxy chain.
-	// Destroy the block that transitively has this as a proxy. Likely the root block once inlined
-	// this block or its 'parent', so now that this block has changed, the root block must be destroyed.
-	if (b->proxyFor) {
-		for (size_t i = 0; i < b->proxyFor->size(); i++) {
-			int proxied_blocknum = GetBlockNumberFromStartAddress((*b->proxyFor)[i], false);
-			// If it was already cleared, we don't know which to destroy.
-			if (proxied_blocknum != -1) {
-				DestroyBlock(proxied_blocknum, type);
-			}
-		}
-		b->proxyFor->clear();
-		delete b->proxyFor;
-		b->proxyFor = 0;
-	}
-	auto range = proxyBlockMap_.equal_range(b->originalAddress);
-	for (auto it = range.first; it != range.second; ++it) {
-		if (it->second == block_num) {
-			// Found it.  Delete and bail.
-			proxyBlockMap_.erase(it);
-			break;
-		}
-	}
-
 	// TODO: Handle the case when there's a proxy block and a regular JIT block at the same location.
 	// In this case we probably "leak" the proxy block currently (no memory leak but it'll stay enabled).
 
@@ -513,20 +421,20 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	}
 
 	b->invalid = true;
-	if (!b->IsPureProxy()) {
-		if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding)
-			Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
+
+	if (!Memory::IsValid4AlignedAddress(b->originalAddress)) {
+		_dbg_assert_msg_(false, "Destroying block with invalid original address: %08x (block num: %d)", b->originalAddress, block_num);
+		return;
+	}
+
+	if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding) {
+		Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
 	}
 
 	// It's not safe to set normalEntry to 0 here, since we use a binary search
 	// that looks at that later to find blocks. Marking it invalid is enough.
 
 	UnlinkBlock(block_num);
-
-	// Don't change the jit code when invalidating a pure proxy block.
-	if (b->IsPureProxy()) {
-		return;
-	}
 
 	if (b->checkedEntry) {
 		// We can skip this if we're clearing anyway, which cuts down on protect back and forth on WX exclusive.
@@ -579,7 +487,7 @@ void JitBlockCache::InvalidateChangedBlocks() {
 	// The primary goal of this is to make sure block linking is cleared up.
 	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
 		JitBlock &b = blocks_[block_num];
-		if (b.invalid || b.IsPureProxy())
+		if (b.invalid)
 			continue;
 
 		bool changed = false;

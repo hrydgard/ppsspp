@@ -92,6 +92,25 @@ static u32 GetButtonColor() {
 
 GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
+static void rotateTouchHelper(float &dx, float &dy) {
+	// rotates dx and dy depending on rotation count
+	// modified from controlmapper.cpp
+	if (!g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+		return;
+	}
+	int rotations = 0;
+	switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
+	case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
+	case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
+	}
+	for (int i = 0; i < rotations; i ++) {
+		float tempVal = dx;
+		dx = - dy;
+		dy = tempVal;
+	}
+}
+
 std::string GamepadComponent::DescribeText() const {
 	return key_;
 }
@@ -158,7 +177,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		return;
 
 	float scale = scale_;
-	if (IsDown()) {
+	if (IsDownVisually()) {
 		if (g_Config.iTouchButtonStyle == 2) {
 			opacity *= 1.35f;
 		} else {
@@ -171,7 +190,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	uint32_t downBg = colorAlpha(0xFFFFFF, opacity * 0.5f);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
-	if (IsDown() && g_Config.iTouchButtonStyle == 2) {
+	if (IsDownVisually() && g_Config.iTouchButtonStyle == 2) {
 		if (bgImg_ != bgDownImg_)
 			dc.Draw()->DrawImageRotated(bgDownImg_, bounds_.centerX(), bounds_.centerY(), scale, bgAngle_ * (M_PI * 2 / 360.0f), downBg, flipImageH_);
 	}
@@ -218,19 +237,23 @@ bool PSPButton::Touch(const TouchInput &input) {
 	return retval;
 }
 
-bool CustomButton::IsDown() const {
+bool CustomButton::IsDownVisually() const {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
 }
 
-bool CustomButton::IsDownForFadeoutCheck() const {
+bool CustomButton::IsDownByTouch() const {
 	// This check is due to a stupid mistake, see the header.
 #ifdef MOBILE_DEVICE
 	constexpr int bitNumber = 36;
 #else
 	constexpr int bitNumber = 38;
 #endif
-	const bool down = IsDown() && !(pspButtonBit_ & (1ULL << bitNumber));  // VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
-	return down;
+	if (pspButtonBit_ & (1ULL << bitNumber)) {
+		return false;
+	}
+	// VIRTKEY_TOGGLE_TOUCH_CONTROLS from g_customKeyList
+
+	return !toggle_ && pointerDownMask_ != 0;
 }
 
 void CustomButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -303,7 +326,7 @@ void CustomButton::Update() {
 	}
 }
 
-bool PSPButton::IsDown() const {
+bool PSPButton::IsDownVisually() const {
 	return (__CtrlPeekButtonsVisual() & pspButtonBit_) != 0;
 }
 
@@ -368,6 +391,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down, bool ignorePress) {
 	float dx = (x - bounds_.centerX()) * inv_stick_size;
 	float dy = (y - bounds_.centerY()) * inv_stick_size;
 	float rad = sqrtf(dx * dx + dy * dy);
+	rotateTouchHelper(dx, dy);
 	if (!g_Config.bStickyTouchDPad && (rad < deadzone || fabs(dx) > 0.5f || fabs(dy) > 0.5))
 		down = false;
 
@@ -423,15 +447,27 @@ void PSPDpad::Draw(UIContext &dc) {
 	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
-
+	// from control mapper.cpp
+	int rotations = 0;
+	if (g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+		switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+		case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
+		case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
+		case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
+		}
+	}
 	static const float xoff[4] = {1, 0, -1, 0};
 	static const float yoff[4] = {0, 1, 0, -1};
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
+	// shitfs right by amount of rotations (accounts for overflow)
+	int rotatedDir[4];
+	for (int i = 0; i < 4; i ++) {
+		rotatedDir[i] = dir[(i+rotations)%4];
+	}
 	int buttons = __CtrlPeekButtons();
 	float r = D_pad_Radius * spacing_;
 	for (int i = 0; i < 4; i++) {
-		bool isDown = (buttons & dir[i]) != 0;
-
+		bool isDown = (buttons & rotatedDir[i]) != 0;
 		float x = bounds_.centerX() + xoff[i] * r;
 		float y = bounds_.centerY() + yoff[i] * r;
 		float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
@@ -491,6 +527,7 @@ void PSPStick::Draw(UIContext &dc) {
 
 	float dx, dy;
 	__CtrlPeekAnalog(stick_, &dx, &dy);
+	rotateTouchHelper(dx, dy);
 
 	const TouchControlConfig &config = g_Config.GetTouchControlsConfig(g_display.GetDeviceOrientation());
 
@@ -557,6 +594,7 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 
 		float dx = (x - centerX_) * inv_stick_size;
 		float dy = (y - centerY_) * inv_stick_size;
+		rotateTouchHelper(dx, dy);
 		// Do not clamp to a circle! The PSP has nearly square range!
 
 		// Old code to clamp to a circle
@@ -786,7 +824,8 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	const float scale = globalScale;
 	const int halfW = xres / 2;
 
-	const float screenBottom = orientation == DeviceOrientation::Portrait ? (yres - yres * 0.13f) : yres;
+	const bool portrait = orientation == DeviceOrientation::Portrait;
+	const float screenBottom = portrait ? (yres - yres * 0.13f) : yres;
 
 	auto initTouchPos = [=](ConfigTouchPos *touch, float x, float y, float extraScale = 1.0f) {
 		if (touch->x == -1.0f || touch->y == -1.0f) {
@@ -825,6 +864,8 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	int Action_button_center_Y = screenBottom - Action_button_spacing * 2;
 	if (config->touchRightAnalogStick.show) {
 		Action_button_center_Y -= 150 * scale;
+	} else if (portrait) {
+		Action_button_center_Y -= 120 * scale;
 	}
 	initTouchPos(&config->touchActionButtonCenter, Action_button_center_X, Action_button_center_Y);
 
@@ -1060,7 +1101,7 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 
 	// Add the two gesture zones.
 	for (int i = 0; i < 2; i++) {
-		if (g_Config.gestureControls[i].bGestureControlEnabled) {
+		if (g_Config.gestureControls[i].bGestureControlEnabled || g_Config.gestureControls[i].bAnalogGesture) {
 			// We have them both cover the whole surface, then limit in the touch handler.
 			// This is because there's no easy way to do "half the screen" in AnchorLayout.
 			// We can do more complex layout combinations, but meh.
@@ -1076,8 +1117,8 @@ void GamepadEmuView::Update() {
 	bool anyDown = false;
 	for (auto view : views_) {
 		GamepadComponent *component = dynamic_cast<GamepadComponent *>(view);
-		if (component && component->IsDownForFadeoutCheck()) {
-			// INFO_LOG(Log::System, "GamepadEmuView::Update: component is down for fadeout check: %s", component->DescribeText().c_str());
+		if (component && component->IsDownByTouch()) {
+			// INFO_LOG(Log::System, "GamepadEmuView::Update: component is down by touch: %s", component->DescribeText().c_str());
 			anyDown = true;
 		}
 	}
@@ -1198,6 +1239,14 @@ void GestureGamepad::Update() {
 	const float th = 1.0f;
 	float dx = deltaX_ * g_display.dpi_scale_x * GetZone().fSwipeSensitivity;
 	float dy = deltaY_ * g_display.dpi_scale_y * GetZone().fSwipeSensitivity;
+	const float smoothing = GetZone().fSwipeSmoothing;
+	deltaX_ *= smoothing;
+	deltaY_ *= smoothing;
+
+	if (!GetZone().bGestureControlEnabled) {
+		return;
+	}
+
 	if (GetZone().iSwipeRight != 0) {
 		if (dx > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight - 1], KeyInputFlags::DOWN);
@@ -1234,7 +1283,4 @@ void GestureGamepad::Update() {
 			swipeDownReleased_ = true;
 		}
 	}
-	const float smoothing = GetZone().fSwipeSmoothing;
-	deltaX_ *= smoothing;
-	deltaY_ *= smoothing;
 }

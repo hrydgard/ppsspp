@@ -457,7 +457,7 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address, SymbolType symmask) {
 
 std::string SymbolMap::GetDescription(unsigned int address) {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
-	const char *labelName = nullptr;
+	std::string labelName;
 
 	u32 funcStart = GetFunctionStart(address);
 	if (funcStart != INVALID_ADDRESS) {
@@ -468,7 +468,7 @@ std::string SymbolMap::GetDescription(unsigned int address) {
 			labelName = GetLabelName(dataStart);
 	}
 
-	if (labelName)
+	if (!labelName.empty())
 		return labelName;
 
 	char descriptionTemp[32];

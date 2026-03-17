@@ -1775,6 +1775,11 @@ void GLQueueRunner::fbo_unbind() {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
+std::string GLQueueRunner::GetGLString(int name) const {
+	auto it = glStrings_.find(name);
+	return it != glStrings_.end() ? it->second : "";
+}
+
 GLRFramebuffer::~GLRFramebuffer() {
 	if (handle == 0 && z_stencil_buffer == 0 && z_buffer == 0 && stencil_buffer == 0)
 		return;

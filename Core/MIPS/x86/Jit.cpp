@@ -300,13 +300,14 @@ void Jit::EatInstruction(MIPSOpcode op) {
 
 void Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
-	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
-		ClearCache();
-	}
 
-	if (!Memory::IsValidAddress(em_address) || (em_address & 3) != 0) {
+	if (!Memory::IsValid4AlignedAddress(em_address)) {
 		Core_ExecException(em_address, em_address, ExecExceptionType::JUMP);
 		return;
+	}
+
+	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
+		ClearCache();
 	}
 
 	// Sometimes we compile fairly large blocks, although it's uncommon.
@@ -314,9 +315,12 @@ void Jit::Compile(u32 em_address) {
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeJit");
 	DoJit(em_address, b);
-	b->DoIntegrityCheck(em_address, block_num);
+	b->DoIntegrityCheck(em_address, block_num, "BeforeFinalize");
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
+	_dbg_assert_(js.nextExit <= 2);
 
 	EndWrite();
 
@@ -429,22 +433,7 @@ void Jit::DoJit(u32 em_address, JitBlock *b) {
 	NOP();
 	AlignCode4();
 
-	if (js.lastContinuedPC == 0) {
-		b->originalSize = js.numInstructions;
-	} else {
-		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
-		b->originalSize = js.initialBlockSize;
-	}
-}
-
-void Jit::AddContinuedBlock(u32 dest) {
-	// The first block is the root block.  When we continue, we create proxy blocks after that.
-	if (js.lastContinuedPC == 0)
-		js.initialBlockSize = js.numInstructions;
-	else
-		blocks.CreateProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
-	js.lastContinuedPC = dest;
+	b->originalSize = js.numInstructions;
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
@@ -537,51 +526,6 @@ void Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_EXEC);
 	}
 }
-
-bool Jit::ReplaceJalTo(u32 dest) {
-	const ReplacementTableEntry *entry = nullptr;
-	u32 funcSize = 0;
-	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
-		return false;
-	}
-
-	// Warning - this might be bad if the code at the destination changes...
-	if (entry->flags & REPFLAG_ALLOWINLINE) {
-		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
-
-		// First, compile the delay slot. It's unconditional so no issues.
-		CompileDelaySlot(DELAYSLOT_NICE);
-		// Technically, we should write the unused return address to RA, but meh.
-		MIPSReplaceFunc repl = entry->jitReplaceFunc;
-		int cycles = (this->*repl)();
-		js.downcountAmount += cycles;
-	} else {
-		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
-		CompileDelaySlot(DELAYSLOT_NICE);
-		FlushAll();
-		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
-		RestoreRoundingMode();
-		ABI_CallFunction(entry->replaceFunc);
-		SUB(32, MIPSSTATE_VAR(downcount), R(EAX));
-		ApplyRoundingMode();
-	}
-
-	js.compilerPC += 4;
-	// No writing exits, keep going!
-
-	if (g_breakpoints.HasMemChecks()) {
-		// We could modify coreState, so we need to write PC and check.
-		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
-		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
-		js.afterOp |= JitState::AFTER_CORE_STATE;
-	}
-
-	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.CreateProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
-	return true;
-}
-
-
 
 void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 	// We get here if we execute the first instruction of a replaced function. This means

@@ -120,6 +120,9 @@ struct CompatFlags {
 	bool NullPageValid;
 	bool DetectDestBlendSquared;
 	bool BoostExactFramebufferMatch;
+	bool PersistentFramebuffers;
+	bool FileCreatedTimeHack;
+	bool FastEmulatedGPU;
 };
 
 struct VRCompat {

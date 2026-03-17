@@ -125,9 +125,8 @@ static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 AndroidAudioState *g_audioState;
 
 struct FrameCommand {
-	FrameCommand() {}
-	FrameCommand(std::string cmd, std::string prm) : command(cmd), params(prm) {}
-
+	FrameCommand() = default;
+	FrameCommand(std::string_view cmd, std::string_view param) : command(cmd), params(param) {}
 	std::string command;
 	std::string params;
 };
@@ -175,6 +174,7 @@ static float g_safeInsetLeft = 0.0;
 static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
+static bool g_hasCameraCutout = false;
 
 static jmethodID postCommand;
 static jmethodID getDebugString;
@@ -312,7 +312,7 @@ static void EmuThreadFunc() {
 			ERROR_LOG(Log::System, "No activity, clearing commands");
 			while (!frameCommands.empty())
 				frameCommands.pop();
-			return;
+			break;
 		}
 		// Still under lock here.
 		ProcessFrameCommands(env);
@@ -354,7 +354,7 @@ static void PushCommand(std::string_view cmd, std::string_view param) {
 
 // Android implementation of callbacks to the Java part of the app
 void System_Toast(std::string_view text) {
-	PushCommand("toast", std::string(text));
+	PushCommand("toast", text);
 }
 
 void System_ShowKeyboard() {
@@ -372,6 +372,9 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
 	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
 	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
+	// Can't really support the below well on Android...
+	case LaunchUrlType::LOCAL_FOLDER: break;
+	case LaunchUrlType::LOCAL_FILE: break;
 	}
 }
 
@@ -524,6 +527,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return deviceType == DEVICE_TYPE_MOBILE;
 	case SYSPROP_CAN_CREATE_SHORTCUT:
 		return false;  // We can't create shortcuts directly from game code, but we can from the Android UI.
+	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
+		return g_hasCameraCutout;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
@@ -845,6 +850,7 @@ retry:
 			INFO_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL");
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend(GPUBackend::OPENGL);
+			delete ctx;
 			goto retry;
 		} else {
 			graphicsContext = ctx;
@@ -1448,12 +1454,13 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "safe_insets") {
 		// INFO_LOG(Log::System, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
-		int left, right, top, bottom;
-		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
+		int left, right, top, bottom, cutout;
+		if (5 == sscanf(prm.c_str(), "%d:%d:%d:%d:%d", &left, &right, &top, &bottom, &cutout)) {
 			g_safeInsetLeft = (float)left;
 			g_safeInsetRight = (float)right;
 			g_safeInsetTop = (float)top;
 			g_safeInsetBottom = (float)bottom;
+			g_hasCameraCutout = cutout != 0;
 		}
 	} else if (msg == "inputDeviceConnectedID") {
 		nextInputDeviceID = (InputDeviceID)parseLong(prm);
@@ -1633,9 +1640,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 // Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
 	while (!frameCommands.empty()) {
-		FrameCommand frameCmd;
-		frameCmd = frameCommands.front();
-		frameCommands.pop();
+		const FrameCommand &frameCmd = frameCommands.front();
 
 		DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
@@ -1644,6 +1649,8 @@ static void ProcessFrameCommands(JNIEnv *env) {
 		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd);
 		env->DeleteLocalRef(param);
+
+		frameCommands.pop();
 	}
 }
 
@@ -1691,6 +1698,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanR
 }
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
+// This function must release the window reference.
 static void VulkanEmuThread(ANativeWindow *wnd) {
 	SetCurrentThreadName("EmuThread");
 
@@ -1701,6 +1709,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1708,6 +1717,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1727,6 +1737,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		delete graphicsContext;
 		graphicsContext = nullptr;
 		renderLoopRunning = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1762,6 +1773,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
+	ANativeWindow_release(wnd);
 
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
@@ -1796,15 +1808,15 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	if (info) {
 		INFO_LOG(Log::System, "GetInfo successful, waiting");
 
-		// Wait for both name and icon
-		int attempts = 1000;
+		// Wait for both name and icon for a second.
+		int attempts = 100;
 		while ((!info->Ready(GameInfoFlags::PARAM_SFO) || !info->Ready(GameInfoFlags::ICON)) && attempts > 0) {
-			sleep_ms(1, "info-icon-poll");
+			sleep_ms(10, "info-icon-poll");
 			attempts--;
 		}
 		INFO_LOG(Log::System, "Done waiting");
 
-		if (info->fileType != IdentifiedFileType::UNKNOWN) {
+		if (attempts > 0 && info->fileType != IdentifiedFileType::UNKNOWN) {
 			// Get the game title
 			gameName = info->GetTitle();
 			if (gameName.length() > strlen("The ") && startsWithNoCase(gameName, "The ")) {

@@ -170,6 +170,59 @@ impl Section {
         }
     }
 
+    fn capitalize_first_letter(s: &str) -> String {
+        if let Some(first_char) = s.chars().next() {
+            if first_char.is_ascii_alphabetic() {
+                let mut c = first_char.to_ascii_uppercase().to_string();
+                c.push_str(&s[first_char.len_utf8()..]);
+                return c;
+            }
+        }
+        s.to_string()
+    }
+
+    // split_key should take a line like:
+    // KeyName (KeyDescription) = TranslatedKeyName (TranslatedKeyDescription)
+    //  and split it into:
+    // KeyName = TranslatedKeyName
+    // KeyDescription = TranslatedKeyDescription
+    // (Note: the first letter ONLY of description gets capitalized).
+    // Additional note, this must handle utf-8 unicode characters. Chinese characters for example
+    // can't be capitalized so we shouldn't do that to them. Also, parentheses around description shouldn't come
+    // along for the ride - get rid of them.
+    pub fn split_key(&mut self, key: &str) {
+        let prefix = key.to_owned() + " =";
+        let mut found_index = None;
+        for (index, line) in self.lines.iter().enumerate() {
+            if line.starts_with(&prefix) {
+                found_index = Some(index);
+            }
+        }
+        if let Some(index) = found_index {
+            let line = self.lines.remove(index);
+            let right_part = line.strip_prefix(&prefix).unwrap().to_string();
+            if let Some(pos) = key.find('(') {
+                let key_name = key[0..pos].trim();
+                let key_desc = key[pos+1..key.len()-1].trim();
+                if let Some(pos) = right_part.find('(') {
+                    let value_name = right_part[0..pos].trim();
+                    let value_desc = right_part[pos+1..right_part.len()-1].trim();
+                    self.insert_line_if_missing(&format!("{} = {}", key_name, value_name));
+                    self.insert_line_if_missing(&format!("{} = {}", Self::capitalize_first_letter(key_desc), Self::capitalize_first_letter(value_desc)));
+                } else {
+                    println!("split_key: didn't find '(' in the value part {right_part} for key {key}. Leaving description untranslated.");
+                    self.insert_line_if_missing(&format!("{} = {}", key_name, right_part.trim()));
+                    self.insert_line_if_missing(&format!("{} = {}", Self::capitalize_first_letter(key_desc), Self::capitalize_first_letter(key_desc)));
+                }
+            } else {
+                println!("split_key: didn't find '(' in the key {key}");
+            }
+        } else {
+            let name = &self.name;
+            println!("split_key: didn't find a line starting with {prefix} in section {name}");
+        }
+    }
+
     pub fn dupe_key(&mut self, old: &str, new: &str) {
         let prefix = old.to_owned() + " =";
         let mut found_index = None;

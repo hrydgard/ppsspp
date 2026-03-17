@@ -176,16 +176,12 @@ ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
 			File::CreateDir(path);
 		}
 		screenshotFilename_ = screenshotPath;
-		ScheduleScreenshot(screenshotFilename_, ScreenshotFormat::JPG, ScreenshotType::Display, 4, [this](ScreenshotResult result) {
+		ScheduleScreenshot(screenshotFilename_, ScreenshotFormat::JPG, ScreenshotType::Display, 4, [](ScreenshotResult result) {
 			if (result == ScreenshotResult::Success) {
 				// Redo the views already, now with a screenshot included.
-				RecreateViews();
-			} else {
-				// Good news (?), the views are good as-is without a screenshot.
-				screenshotFilename_.clear();
+				System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 			}
 		});
-
 		tookScreenshot_ = true;
 	} else if (g_Config.bSkipBufferEffects && !tookScreenshot_) {
 		// Delete a leftover screenshot if we didn't take one now.
@@ -193,7 +189,6 @@ ScreenRenderFlags ReportScreen::PreRender(ScreenRenderMode mode) {
 		tookScreenshot_ = true;
 		screenshotFilename_.clear();
 	}
-
 	return ScreenRenderFlags::NONE;
 }
 

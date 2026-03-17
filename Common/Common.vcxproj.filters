@@ -26,7 +26,6 @@
     <ClInclude Include="Crypto\sha256.h">
       <Filter>Crypto</Filter>
     </ClInclude>
-    <ClInclude Include="MipsEmitter.h" />
     <ClInclude Include="Arm64Emitter.h" />
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="BitSet.h" />
@@ -733,7 +732,6 @@
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="FakeCPUDetect.cpp" />
-    <ClCompile Include="MipsCPUDetect.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thunk.cpp" />
@@ -750,7 +748,6 @@
     <ClCompile Include="Crypto\sha256.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
-    <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="MemArenaPosix.cpp" />
     <ClCompile Include="MemArenaWin32.cpp" />

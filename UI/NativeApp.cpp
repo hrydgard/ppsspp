@@ -155,9 +155,7 @@
 #include <mach-o/dyld.h>
 #endif
 
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "UI/DarwinFileSystemServices.h"
-#endif
+#include "Core/Util/DarwinFileSystemServices.h"
 
 #if !defined(__LIBRETRO__)
 #include "Core/Util/GameDB.h"
@@ -242,16 +240,7 @@ void PostLoadConfig() {
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
-
-	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
-	// test new languages without recompiling the entire app, which is a hassle).
-	const Path langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) / "lang";
-
-	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
-	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
-		g_i18nrepo.LoadIni(g_Config.sLanguageIni);
-	else
-		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+	g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 
 #if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
 	CreateSysDirectories();
@@ -661,6 +650,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (fileToLog) {
+		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
 		g_logManager.SetFileLogPath(Path(fileToLog));
 	} else {
@@ -941,6 +931,10 @@ void NativeShutdownGraphics() {
 	}
 #endif
 
+#if PPSSPP_PLATFORM(IOS)
+	DarwinFileSystemServices::terminate();
+#endif
+
 	if (g_audioBackend) {
 		delete g_audioBackend;
 		g_audioBackend = nullptr;
@@ -1026,7 +1020,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	if (g_audioBackend) {
-		g_audioBackend->FrameUpdate(g_Config.bAutoAudioDevice);
+		g_audioBackend->FrameUpdate(g_Config.bAutoSwitchAudioDevice);
 	}
 
 	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.

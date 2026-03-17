@@ -125,11 +125,12 @@ public:
 		size_ += count;
 	}
 
+	// Adds this number of new T to the end, and returns the pointer to them.
 	T *extend_uninitialized(size_t count) {
-		size_t sz = size_;
+		const size_t prevSize = size_;
 		if (size_ + count <= capacity_) {
 			size_ += count;
-			return &data_[sz];
+			return data_ + prevSize;
 		} else {
 			size_t newCapacity = size_ + count * 2;  // Leave some extra room when growing in all cases
 			if (newCapacity < capacity_ * 2) {
@@ -138,7 +139,7 @@ public:
 			}
 			IncreaseCapacityTo(newCapacity);
 			size_ += count;
-			return &data_[sz];
+			return data_ + prevSize;
 		}
 	}
 

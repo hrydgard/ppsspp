@@ -318,6 +318,7 @@
     <ClInclude Include="..\..\Core\Util\PathUtil.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\Util\RecentFiles.h" />
+    <ClInclude Include="..\..\Core\Util\VideoPlayer.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
     <ClInclude Include="..\..\Core\Util\BlockAllocator.h" />
@@ -624,6 +625,7 @@
     <ClCompile Include="..\..\Core\Util\PathUtil.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\Util\RecentFiles.cpp" />
+    <ClCompile Include="..\..\Core\Util\VideoPlayer.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />
     <ClCompile Include="..\..\Core\Util\BlockAllocator.cpp" />

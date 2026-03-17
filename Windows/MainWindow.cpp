@@ -335,13 +335,12 @@ namespace MainWindow {
 				g_Config.iWindowY = wp.rcNormalPosition.top;
 				g_Config.iWindowWidth = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
 				g_Config.iWindowHeight = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
-				wp.showCmd = SW_SHOW;
 			}
 
 			if (g_Config.bFullScreenMulti) {
 				SetMenu(hWnd, NULL);
 				// Strip all decorations
-				SetWindowLong(hWnd, GWL_STYLE, prevStyle & ~WS_OVERLAPPEDWINDOW);
+				SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_OVERLAPPEDWINDOW) | WS_POPUP);
 				// Maximize isn't enough to display on all monitors.
 				// Remember that negative coordinates may be valid.
 				const int totalX = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -352,12 +351,13 @@ namespace MainWindow {
 					totalX, totalY,
 					totalWidth, totalHeight,
 					SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+				ShowWindow(hWnd, SW_SHOW);
 			} else {
 				MONITORINFO mi = {sizeof(mi)};
 				if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
 					SetMenu(hWnd, NULL);
 					// Strip all decorations
-					SetWindowLong(hWnd, GWL_STYLE, prevStyle & ~WS_OVERLAPPEDWINDOW);
+					SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_OVERLAPPEDWINDOW) | WS_POPUP);
 
 					SetWindowPos(hWnd, HWND_TOP,
 						mi.rcMonitor.left, mi.rcMonitor.top,
@@ -365,6 +365,7 @@ namespace MainWindow {
 						mi.rcMonitor.bottom - mi.rcMonitor.top,
 						SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 				}
+				ShowWindow(hWnd, SW_SHOW);
 			}
 		} else if (!goFullscreen && isCurrentlyFullscreen) {
 			INFO_LOG(Log::System, "ApplyFullscreenState: Exiting fullscreen to %s mode at %dx%d+%d+%d",
@@ -373,7 +374,7 @@ namespace MainWindow {
 				g_Config.iWindowX, g_Config.iWindowY);
 
 			// Transitioning to Windowed
-			SetWindowLong(hWnd, GWL_STYLE, prevStyle | WS_OVERLAPPEDWINDOW);
+			SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
 			SetMenu(hWnd, g_hMenu);
 
 			WINDOWPLACEMENT wp = {sizeof(WINDOWPLACEMENT)};
@@ -502,7 +503,7 @@ namespace MainWindow {
 
 		g_hMenu = GetMenu(hwndMain);
 
-		WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+		WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
 		if ((g_Config.iWindowX == -1 && g_Config.iWindowY == -1) || g_Config.iWindowWidth < 20 || g_Config.iWindowHeight < 20) {
 			RECT rc = DetermineDefaultWindowRectangle();
 			// Should be a first boot, or just bad parameters. Reset.
@@ -513,7 +514,8 @@ namespace MainWindow {
 			g_Config.iWindowHeight = rc.bottom - rc.top;
 		}
 
-		placement.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
+		// Start as hidden in fullscreen mode. Makes for a nicer transition.
+		placement.showCmd = g_Config.bFullScreen ? SW_HIDE : WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
 		placement.rcNormalPosition.left = g_Config.iWindowX;
 		placement.rcNormalPosition.top = g_Config.iWindowY;
 		placement.rcNormalPosition.right = g_Config.iWindowX + g_Config.iWindowWidth;
@@ -525,6 +527,7 @@ namespace MainWindow {
 
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
 		MainMenuInit(hwndMain, g_hMenu);
 
@@ -533,8 +536,6 @@ namespace MainWindow {
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-
-		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -902,8 +903,8 @@ namespace MainWindow {
 				if (g_Config.bFullScreen && !g_inForcedResize) {
 					MONITORINFO mi = {sizeof(mi)};
 					if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
-						int monWidth = mi.rcMonitor.right - mi.rcMonitor.left;
-						int monHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
+						const int monWidth = mi.rcMonitor.right - mi.rcMonitor.left;
+						const int monHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
 
 						// If the new size is no longer the full monitor size, drop FS state (put back the menu
 						// and recalculate window decorations without actually changing the size of the window).
@@ -912,9 +913,9 @@ namespace MainWindow {
 							if (GetMenu(hWnd) == NULL) {
 								SetMenu(hWnd, g_hMenu);
 							}
-							DWORD style = GetWindowLong(hWnd, GWL_STYLE);
+							const DWORD style = GetWindowLong(hWnd, GWL_STYLE);
 							if (!(style & WS_CAPTION)) {
-								SetWindowLong(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+								SetWindowLong(hWnd, GWL_STYLE, (style & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
 								SetWindowPos(hWnd, NULL, 0, 0, 0, 0,
 									SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
 							}

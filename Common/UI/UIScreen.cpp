@@ -12,7 +12,7 @@
 #include "Common/UI/Root.h"
 #include "Common/Render/DrawBuffer.h"
 
-static const bool ClickDebug = false;
+static constexpr bool ClickDebug = false;
 
 UIScreen::UIScreen() : Screen() {
 	lastOrientation_ = GetDeviceOrientation();
@@ -55,7 +55,7 @@ void UIScreen::DoRecreateViews() {
 
 		// Update layout and refocus so things scroll into view.
 		// This is for resizing down, when focused on something now offscreen.
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), RootMargins(), root_, ignoreInsets_, ignoreBottomInset_);
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), RootMargins(), root_, LayoutMode(), UseImmersiveMode());
 		UI::View *focused = UI::GetFocusedView();
 		if (focused) {
 			root_->SubviewFocused(focused);
@@ -200,12 +200,16 @@ void UIScreen::deviceRestored(Draw::DrawContext *draw) {
 		root_->DeviceRestored(draw);
 }
 
+Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
+	return dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode());
+}
+
 ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 	DoRecreateViews();
 
 	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {
-		UI::LayoutViewHierarchy(uiContext, RootMargins(), root_, ignoreInsets_, ignoreBottomInset_);
+		UI::LayoutViewHierarchy(uiContext, RootMargins(), root_, LayoutMode(), UseImmersiveMode());
 	}
 
 	uiContext.PushTransform({translation_, scale_, alpha_});
@@ -262,6 +266,14 @@ void UIDialogScreen::sendMessage(UIMessage message, const char *value) {
 	if (screen) {
 		screen->sendMessage(message, value);
 	}
+}
+
+UIDialogScreen::~UIDialogScreen() {
+	System_NotifyUIEvent(UIEventNotification::DIALOG_CLOSED);
+}
+
+bool UIScreen::IsOnTop() const {
+	return screenManager()->topScreen() == this;
 }
 
 void UIScreen::OnBack(UI::EventParams &e) {

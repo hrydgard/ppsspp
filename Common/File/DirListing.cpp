@@ -53,12 +53,43 @@ constexpr bool LOG_IO = false;
 namespace File {
 
 #if PPSSPP_PLATFORM(WINDOWS)
-static uint64_t FiletimeToStatTime(FILETIME ft) {
-	const int windowsTickResolution = 10000000;
-	const int64_t secToUnixEpoch = 11644473600LL;
-	int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
-	return (int64_t)(ticks / windowsTickResolution - secToUnixEpoch);
-};
+static uint64_t FiletimeToStatTime(FILETIME ft, int* out_usec) {
+	constexpr int64_t windowsTickResolution = 10000000;
+	constexpr int64_t secToUnixEpoch = 11644473600LL;
+
+	const int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+
+	if (out_usec) {
+		// The remainder will be between 0 and 9,999,999 ticks.
+		// Dividing by 10 gives 0 to 999,999 microseconds.
+		*out_usec = (int)((ticks % windowsTickResolution) / 10);
+	}
+
+	return (uint64_t)(ticks / windowsTickResolution - secToUnixEpoch);
+}
+
+// This is used for both WIN32_FILE_ATTRIBUTE_DATA and WIN32_FIND_DATA, which have the same time and size fields.
+template<class T>
+void ReadFileAttributes(FileInfo *fileInfo, const T &attrs) {
+	fileInfo->atime = FiletimeToStatTime(attrs.ftLastAccessTime, &fileInfo->atimeUs);
+	fileInfo->mtime = FiletimeToStatTime(attrs.ftLastWriteTime, &fileInfo->mtimeUs);
+	fileInfo->ctime = FiletimeToStatTime(attrs.ftCreationTime, &fileInfo->ctimeUs);
+
+	fileInfo->exists = true;
+	fileInfo->size = ((uint64_t)attrs.nFileSizeHigh << 32) | attrs.nFileSizeLow;
+	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
+
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+		fileInfo->access = 0444;  // Read
+	} else {
+		fileInfo->access = 0666;  // Read/Write
+	}
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+		fileInfo->access |= 0111;  // Execute
+	}
+}
+
 #endif
 
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
@@ -93,21 +124,9 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 		fileInfo->exists = false;
 		return false;
 	}
-	fileInfo->size = (uint64_t)attrs.nFileSizeLow | ((uint64_t)attrs.nFileSizeHigh << 32);
-	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
-	fileInfo->exists = true;
-	fileInfo->atime = FiletimeToStatTime(attrs.ftLastAccessTime);
-	fileInfo->mtime = FiletimeToStatTime(attrs.ftLastWriteTime);
-	fileInfo->ctime = FiletimeToStatTime(attrs.ftCreationTime);
-	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-		fileInfo->access = 0444;  // Read
-	} else {
-		fileInfo->access = 0666;  // Read/Write
-	}
-	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-		fileInfo->access |= 0111;  // Execute
-	}
+
+	ReadFileAttributes(fileInfo, attrs);
+
 #else
 
 #if (defined __ANDROID__) && (__ANDROID_API__ < 21)
@@ -129,10 +148,17 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	fileInfo->atime = file_info.st_atime;
 	fileInfo->mtime = file_info.st_mtime;
 	fileInfo->ctime = file_info.st_ctime;
+
+	// TODO: Use statx to provide higher precision timestamps on Linux.
+	fileInfo->atimeUs = 0;
+	fileInfo->mtimeUs = 0;
+	fileInfo->ctimeUs = 0;
+
 	fileInfo->access = file_info.st_mode & 0x1ff;
 	// HACK: approximation
-	if (file_info.st_mode & 0200)
+	if (file_info.st_mode & 0200) {
 		fileInfo->isWritable = true;
+	}
 #endif
 	return true;
 }
@@ -218,7 +244,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		int beforeFilter = (int)fileList.size();
 		*files = ApplyFilter(fileList, filter, prefix);
 		std::sort(files->begin(), files->end());
-		DEBUG_LOG(Log::IO, "GetFilesInDir: Found %d entries (%d before filter)", (int)files->size(), beforeFilter);
+		DEBUG_LOG(Log::IO, "GetFilesInDir: Found %d entries (%d before filter). Path: %s", (int)files->size(), beforeFilter, directory.ToVisualString().c_str());
 		return exists;
 	}
 
@@ -298,21 +324,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		FileInfo info;
 		info.name = virtualName;
 		info.fullName = directory / virtualName;
-		info.exists = true;
-		info.size = ((uint64_t)ffd.nFileSizeHigh << 32) | ffd.nFileSizeLow;
-		info.isDirectory = (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-		info.isWritable = (ffd.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
-		info.atime = FiletimeToStatTime(ffd.ftLastAccessTime);
-		info.mtime = FiletimeToStatTime(ffd.ftLastWriteTime);
-		info.ctime = FiletimeToStatTime(ffd.ftCreationTime);
-		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-			info.access = 0444;  // Read
-		} else {
-			info.access = 0666;  // Read/Write
-		}
-		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-			info.access |= 0111;  // Execute
-		}
+
+		ReadFileAttributes(&info, ffd);
+
 		if (!info.isDirectory) {
 			std::string ext = info.fullName.GetFileExtension();
 			if (!ext.empty()) {

@@ -28,12 +28,12 @@ static InputAxis GetCoAxis(InputAxis axis) {
 	case JOYSTICK_AXIS_Y: return JOYSTICK_AXIS_X;
 
 		// This looks weird, but it's simply how XInput axes are mapped.
-	case JOYSTICK_AXIS_Z: return JOYSTICK_AXIS_RZ;
-	case JOYSTICK_AXIS_RZ: return JOYSTICK_AXIS_Z;
+	case JOYSTICK_AXIS_Z: return JOYSTICK_AXIS_RX;
+	case JOYSTICK_AXIS_RX: return JOYSTICK_AXIS_Z;
 
 		// Not sure if these two are used.
-	case JOYSTICK_AXIS_RX: return JOYSTICK_AXIS_RY;
-	case JOYSTICK_AXIS_RY: return JOYSTICK_AXIS_RX;
+	case JOYSTICK_AXIS_RY: return JOYSTICK_AXIS_RZ;
+	case JOYSTICK_AXIS_RZ: return JOYSTICK_AXIS_RY;
 
 	default:
 		return JOYSTICK_AXIS_MAX; // invalid
@@ -51,18 +51,19 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 		case KeyMap::AxisType::STICK:
 		{
 			// Co-axis processing, see GetCoAxes comment.
-			InputAxis axis = (InputAxis)mapping.Axis(nullptr);
-			InputAxis coAxis = GetCoAxis(axis);
+			const InputAxis axis = (InputAxis)mapping.Axis(nullptr);
+			const InputAxis coAxis = GetCoAxis(axis);
 			if (coAxis != JOYSTICK_AXIS_MAX) {
-				float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
+				const float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
-					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.35f);
+					const float biasedThreshold = g_Config.fAnalogStickThreshold * (1.0f - absCoValue * 0.35f);
 					// INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
 			}
-			break;
+			// Non-adjusted threshold.
+			return g_Config.fAnalogStickThreshold;
 		}
 		default:
 			break;
@@ -283,7 +284,7 @@ float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &map
 		// If a signed axis is mapped to an unsigned mapping,
 		// convert it. This happens when mapping DirectInput triggers to analog speed,
 		// for example.
-		int direction;
+		int direction = 0;
 		if (IsSignedAxis(mapping.Axis(&direction))) {
 			// The value has been split up into two curInput values, so we need to go fetch the other
 			// and put them back together again. Kind of awkward, but at least makes the regular case simple...
@@ -324,7 +325,7 @@ static bool IsSwappableVKey(uint32_t vkey) {
 }
 
 void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
-	if (swapAxes_) {
+	if (swapAxes_ || IsVirtKeyOn(VIRTKEY_AXIS_SWAP_HOLD)) {
 		switch (*vkey) {
 		case CTRL_UP: *vkey = VIRTKEY_AXIS_Y_MAX; break;
 		case VIRTKEY_AXIS_Y_MAX: *vkey = CTRL_UP; break;
@@ -382,7 +383,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			// Check if all inputs are "on".
 			bool all = true;
 			double curTime = 0.0;
-			for (auto mapping : multiMapping.mappings) {
+			for (const auto &mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
 				if (iter == curInput_.end()) {
 					all = false;
@@ -508,6 +509,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
 				updateAnalogSticks = true;
+			} else if (vkId == VIRTKEY_AXIS_SWAP_HOLD) {
+				UpdateSwapAxes();
 			}
 		} else if (bPrevValue && !bValue) {
 			// INFO_LOG(Log::G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
@@ -516,6 +519,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
 				updateAnalogSticks = true;
+			} else if (vkId == VIRTKEY_AXIS_SWAP_HOLD) {
+				UpdateSwapAxes();
 			}
 		}
 	}
@@ -530,11 +535,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 }
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
-	if (key.flags & KeyInputFlags::IS_REPEAT) {
-		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
-		return true;
-	}
-
 	double now = time_now_d();
 	InputMapping mapping(key.deviceId, key.keyCode);
 
@@ -568,9 +568,12 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 
 void ControlMapper::ToggleSwapAxes() {
 	// Note: The lock is already locked here.
-
 	swapAxes_ = !swapAxes_;
 
+	UpdateSwapAxes();
+}
+
+void ControlMapper::UpdateSwapAxes() {
 	for (auto listener : listeners_) {
 		listener->UpdatePSPButtons(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
 	}

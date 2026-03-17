@@ -191,6 +191,10 @@ static std::string RemotePathForRecent(const std::string &filename) {
 }
 
 static Path LocalFromRemotePath(std::string_view path) {
+	// This happens for some reason...
+	if (startsWith(path, "//")) {
+		path.remove_prefix(1);
+	}
 	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 	case RemoteISOShareType::RECENT:
 		for (const std::string &filename : g_recentFiles.GetRecentFiles()) {

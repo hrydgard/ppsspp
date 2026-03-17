@@ -118,9 +118,9 @@ struct PSPFileInfo {
 	bool exists = false;
 	FileType type = FILETYPE_NORMAL;
 
-	tm atime{};
-	tm ctime{};
-	tm mtime{};
+	tm atime{}; int atimeUs = 0;
+	tm ctime{}; int ctimeUs = 0;
+	tm mtime{}; int mtimeUs = 0;
 
 	bool isOnSectorSystem = false;
 	u32 startSector = 0;
@@ -134,7 +134,7 @@ public:
 	virtual ~IFileSystem() {}
 
 	virtual void DoState(PointerWrap &p) = 0;
-	virtual std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) = 0;
+	virtual std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) = 0;
 	virtual int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size) = 0;
@@ -161,7 +161,7 @@ public:
 class EmptyFileSystem : public IFileSystem {
 public:
 	void DoState(PointerWrap &p) override {}
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override {
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override {
 		if (exists)
 			*exists = false;
 		std::vector<PSPFileInfo> vec;

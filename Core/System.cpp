@@ -376,7 +376,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew get fake disc IDs assigned to the global paramSFO, so they shouldn't clash with real games.
-	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
+
+	std::string discId = g_paramSFO.GetDiscID();
+	g_CoreParameter.compat.Load(discId);
 	ShowCompatWarnings(g_CoreParameter.compat);
 
 	// This must be before Memory::Init because plugins can override the memory size.
@@ -451,7 +453,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			dir = ResolvePBPDirectory(Path(dir)).ToString();
 			pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
 		}
-		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+		if (!Load_PSP_ELF_PBP(fileLoader, discId, errorString)) {
 			return false;
 		}
 		break;
@@ -462,7 +464,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ELF:
 	{
 		INFO_LOG(Log::Loader, "File is an ELF or loose PBP %s", fileLoader->GetPath().c_str());
-		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+		if (!Load_PSP_ELF_PBP(fileLoader, discId, errorString)) {
 			ERROR_LOG(Log::Loader, "Failed to load ELF or loose PBP: %s", errorString->c_str());
 			return false;
 		}
@@ -599,6 +601,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_CoreParameter.graphicsContext == nullptr) {
 		g_CoreParameter.graphicsContext = temp;
 	}
+
 	g_CoreParameter.errorString.clear();
 
 	std::string *errorString = &g_CoreParameter.errorString;
@@ -634,6 +637,9 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 				}
 			}
 		}
+
+		// Use this to test exit-during-boot and other exceptional cases.
+		// sleep_ms(6000, "test");
 
 		g_CoreParameter.fileType = fileType;
 
@@ -717,6 +723,10 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		}
 		sleep_ms(5, "psp-init-poll");
 	}
+}
+
+BootState PollBootState() {
+	return g_bootState;
 }
 
 void PSP_Shutdown(bool success) {

@@ -195,6 +195,9 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 void GPU_GLES::BuildReportingInfo() {
 	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	if (!render) {
+		return;
+	}
 
 	std::string glVendor = render->GetGLString(GL_VENDOR);
 	std::string glRenderer = render->GetGLString(GL_RENDERER);

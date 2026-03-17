@@ -1083,7 +1083,7 @@ void actOnDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * deadkid = findPeer(context, &mac);
 
-	if (deadkid->state != PSP_ADHOC_MATCHING_PEER_CHILD) {
+	if (deadkid == NULL || deadkid->state != PSP_ADHOC_MATCHING_PEER_CHILD) {
 		// Invalid Sibling
 		return;
 	}

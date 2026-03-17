@@ -5,7 +5,7 @@ set -euo pipefail
 # === CONFIGURATION ===
 
 APP_NAME="PPSSPP"  # Name of your app bundle (no .app extension)
-DSYM_PATH="build-ios/Release-iphoneos/${APP_NAME}.app.dSYM"
+DSYM_PATH="build-ios/RelWithDebInfo-iphoneos/${APP_NAME}.app.dSYM"
 
 # === Find latest .xcarchive ===
 

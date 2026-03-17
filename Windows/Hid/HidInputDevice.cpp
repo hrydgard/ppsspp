@@ -63,6 +63,7 @@ static const HIDControllerInfo g_psInfos[] = {
 	{SONY_VID, 0x05C4, HIDControllerType::DualShock, "DS4 v.1"},
 	{SONY_VID, 0x09CC, HIDControllerType::DualShock, "DS4 v.2"},
 	{SONY_VID, 0x0CE6, HIDControllerType::DualSense, "DualSense"},
+	{SONY_VID, 0x0DF2, HIDControllerType::DualSense, "DualSense Edge"},
 	{SONY_VID, PS_CLASSIC, HIDControllerType::DualShock, "PS Classic"},
 	{NINTENDO_VID, SWITCH_PRO_PID, HIDControllerType::SwitchPro, "Switch Pro"},
 	// {PSSubType::DS4, DS4_WIRELESS},
@@ -70,11 +71,7 @@ static const HIDControllerInfo g_psInfos[] = {
 	// {PSSubType::DS5, DUALSENSE_EDGE_WIRELESS},
 };
 
-static const HIDControllerInfo *GetGamepadInfo(HANDLE handle) {
-	HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
-	if (!HidD_GetAttributes(handle, &attr)) {
-		return nullptr;
-	}
+static const HIDControllerInfo *GetGamepadInfo(const HIDD_ATTRIBUTES &attr) {
 	for (const auto &info : g_psInfos) {
 		if (attr.VendorID == info.vendorId && attr.ProductID == info.productId) {
 			return &info;
@@ -102,50 +99,61 @@ static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize
 		auto* detailData = reinterpret_cast<PSP_DEVICE_INTERFACE_DETAIL_DATA>(buffer.data());
 		detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 
-		if (SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &interfaceData, detailData, requiredSize, nullptr, nullptr)) {
-			HANDLE handle = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE,
-				FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-			if (handle != INVALID_HANDLE_VALUE) {
-				const HIDControllerInfo *info = GetGamepadInfo(handle);
-				*outInfo = info;
-				if (info) {
-					*subType = info->type;
-					INFO_LOG(Log::UI, "Found supported gamepad. PID: %04x", info->productId);
-					HIDP_CAPS caps;
-					PHIDP_PREPARSED_DATA preparsedData;
-
-					HidD_GetPreparsedData(handle, &preparsedData);
-					HidP_GetCaps(preparsedData, &caps);
-					HidD_FreePreparsedData(preparsedData);
-
-					*reportSize = caps.InputReportByteLength;
-					*outReportSize = caps.OutputReportByteLength;
-
-					INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", *outReportSize);
-					bool result;
-					switch (*subType) {
-					case HIDControllerType::DualSense:
-						result = InitializeDualSense(handle, *outReportSize);
-						break;
-					case HIDControllerType::DualShock:
-						result = InitializeDualShock(handle, *outReportSize);
-						break;
-					case HIDControllerType::SwitchPro:
-						result = InitializeSwitchPro(handle);
-						break;
-					}
-
-					if (!result) {
-						ERROR_LOG(Log::UI, "Controller initialization failed");
-					}
-
-					SetupDiDestroyDeviceInfoList(deviceInfoSet);
-
-					return handle;
-				}
-				CloseHandle(handle);
-			}
+		if (!SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &interfaceData, detailData, requiredSize, nullptr, nullptr)) {
+			continue;
 		}
+
+		HANDLE handle = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (handle == INVALID_HANDLE_VALUE) {
+			continue;
+		}
+
+		HIDD_ATTRIBUTES attr{sizeof(HIDD_ATTRIBUTES)};
+		if (!HidD_GetAttributes(handle, &attr)) {
+			CloseHandle(handle);
+			continue;
+		}
+
+		const HIDControllerInfo *info = GetGamepadInfo(attr);
+		*outInfo = info;
+		if (!info) {
+			CloseHandle(handle);
+			continue;
+		}
+
+		*subType = info->type;
+		INFO_LOG(Log::UI, "Found supported gamepad. PID: %04x", info->productId);
+		HIDP_CAPS caps;
+		PHIDP_PREPARSED_DATA preparsedData;
+
+		HidD_GetPreparsedData(handle, &preparsedData);
+		HidP_GetCaps(preparsedData, &caps);
+		HidD_FreePreparsedData(preparsedData);
+
+		*reportSize = caps.InputReportByteLength;
+		*outReportSize = caps.OutputReportByteLength;
+
+		INFO_LOG(Log::UI, "Initializing gamepad. out report size=%d", *outReportSize);
+		bool result;
+		switch (*subType) {
+		case HIDControllerType::DualSense:
+			result = InitializeDualSense(handle, *outReportSize);
+			break;
+		case HIDControllerType::DualShock:
+			result = InitializeDualShock(handle, *outReportSize);
+			break;
+		case HIDControllerType::SwitchPro:
+			result = InitializeSwitchPro(handle);
+			break;
+		}
+
+		if (!result) {
+			ERROR_LOG(Log::UI, "Controller initialization failed");
+		}
+
+		SetupDiDestroyDeviceInfoList(deviceInfoSet);
+		return handle;
 	}
 	SetupDiDestroyDeviceInfoList(deviceInfoSet);
 	return nullptr;
@@ -293,7 +301,7 @@ int HidInputDevice::UpdateState() {
 			prevState_ = state;
 			return UPDATESTATE_NO_SLEEP;  // The ReadFile sleeps for us, effectively.
 		} else {
-			WARN_LOG(Log::System, "Failed to read controller - assuming disconnected.");
+			INFO_LOG(Log::System, "Failed to read controller - assuming disconnected.");
 			// might have been disconnected. retry later.
 			KeyMap::NotifyPadDisconnected(deviceID);
 			ReleaseAllKeys(buttonMappings, (int)buttonMappingsSize);

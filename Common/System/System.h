@@ -49,6 +49,7 @@ enum class LaunchUrlType {
 	EMAIL_ADDRESS,
 	LOCAL_FILE,
 	LOCAL_FOLDER,  // Shows the folder. Not supported on all systems of course.
+	AUTO,
 };
 
 void System_Vibrate(int length_ms);
@@ -61,6 +62,7 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url);
 enum class UIEventNotification {
 	MENU_RETURN,
 	POPUP_CLOSED,
+	DIALOG_CLOSED,
 	TEXT_GOTFOCUS,
 	TEXT_LOSTFOCUS,
 };
@@ -189,6 +191,7 @@ enum SystemProperty {
 	SYSPROP_DISPLAY_SAFE_INSET_RIGHT,
 	SYSPROP_DISPLAY_SAFE_INSET_TOP,
 	SYSPROP_DISPLAY_SAFE_INSET_BOTTOM,
+	SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT,
 
 	SYSPROP_DEVICE_TYPE,
 	SYSPROP_APP_GOLD,  // To avoid having #ifdef GOLD other than in main.cpp and similar.
@@ -304,6 +307,7 @@ enum class UIMessage {
 	RESTART_GRAPHICS,
 	RECENT_FILES_CHANGED,
 	SAVE_FRAME_DUMP,
+	ADHOC_SERVER_LIST_CHANGED,
 };
 
 std::string System_GetProperty(SystemProperty prop);

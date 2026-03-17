@@ -406,11 +406,27 @@ float System_GetPropertyFloat(SystemProperty prop) {
 		return ScreenRefreshRateHz();
 	case SYSPROP_DISPLAY_DPI:
 		return ScreenDPI();
+#if 0
+	// Simulate something like Android landscape mode for testing
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return 45.0f;
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return 100.0f;
 	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return 0.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return 80.0f;
+#else
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return 0.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return 0.0f;
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return 0.0f;
 	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
 		return 0.0f;
+
+#endif
 	default:
 		return -1;
 	}
@@ -463,7 +479,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_ACCELEROMETER:
 		return g_InputManager.AnyAccelerometer();
 	case SYSPROP_USE_IAP:
-		return false;
+		return false;  // This should never be set to true on Windows. Only for testing/dev.
 	case SYSPROP_USE_APP_STORE:
 		return false;
 	default:
@@ -623,7 +639,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		restartArgs = param1;
 		if (!restartArgs.empty())
 			AddDebugRestartArgs();
-		if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
+		if (false) {  // This doesn't really work anymore: System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
 			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;
@@ -686,7 +702,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::thread([=] {
 			SetCurrentThreadName("BrowseForImage");
 			std::string out;
-			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, nullptr,
 				FinalizeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
@@ -699,16 +715,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		const BrowseFileType browseType = (BrowseFileType)param3;
 		std::wstring filter = MakeWindowsFilter(browseType);
-		std::wstring initialFilename = ConvertUTF8ToWString(param2);  // TODO: Plumb through
+		std::string initialFilename = param2;
 		if (filter.empty()) {
 			// Unsupported.
 			return false;
 		}
 		const bool load = type == SystemRequestType::BROWSE_FOR_FILE;
-		std::thread([=] {
+		std::thread([load, param1, initialFilename, filter, requestId] {
 			SetCurrentThreadName("BrowseForFile");
-			std::string out;
-			if (W32Util::BrowseForFileName(load, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
+			std::string out = initialFilename;
+			std::wstring wInitial = ConvertUTF8ToWString(initialFilename);
+			if (W32Util::BrowseForFileName(load, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, wInitial.c_str(), filter.c_str(), L"", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
@@ -1093,6 +1110,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				break;
 			}
 
+			// NOTE: We need to parse --fullscreen early, before we create the window.
+			if (!wcscmp(wideArgs[i].c_str(), L"--fullscreen")) {
+				g_Config.bFullScreen = true;
+				g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+			} else if (!wcscmp(wideArgs[i].c_str(), L"--windowed")) {
+				g_Config.bFullScreen = false;
+				g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+			}
+
 			if (wideArgs[i].find(gpuBackend) != std::wstring::npos && wideArgs[i].size() > gpuBackend.size()) {
 				const std::wstring restOfOption = wideArgs[i].substr(gpuBackend.size());
 
@@ -1115,6 +1141,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				}
 			}
 		}
+
 	}
 #ifdef _DEBUG
 	g_Config.bEnableLogging = true;

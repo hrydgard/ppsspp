@@ -28,6 +28,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
 extern "C"
@@ -88,7 +89,7 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 void BlockDevice::NotifyReadError() {
 	if (!reportedError_) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), fileLoader_->GetPath().ToVisualString(), 6.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), GetFriendlyPath(fileLoader_->GetPath()), 6.0f);
 		reportedError_ = true;
 	}
 }
@@ -153,6 +154,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader)
 {
 	// CISO format is fairly simple, but most tools do not write the header_size.
+	// NOTE: CSOv2 isn't actually a thing. It was partially implemented in maxcso but it has never been in active use.
 
 	CISO_H hdr;
 	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
@@ -321,7 +323,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	}
 
 	const u32 lastBlock = std::min(minBlock + count, numBlocks) - 1;
-	const u32 missingBlocks = (lastBlock + 1 - minBlock) - count;
+	const u32 missingBlocks = count - (lastBlock + 1 - minBlock);
 	if (lastBlock < minBlock + count) {
 		memset(outPtr + GetBlockSize() * (count - missingBlocks), 0, GetBlockSize() * missingBlocks);
 	}
@@ -366,7 +368,12 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 		}
 
 		u8 *rawBuffer = &readBuffer[frameReadPos - readBufferStart];
-		const int plain = idx & 0x80000000;
+		bool plain = (idx & 0x80000000) != 0;
+		if (ver_ >= 2) {
+			// CSO v2+ requires blocks be uncompressed if large enough to be.  High bit means other things.
+			plain = frameReadSize >= frameSize;
+		}
+
 		if (plain) {
 			memcpy(outPtr, rawBuffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
 		} else {
@@ -410,9 +417,22 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	u32 tableOffset_, tableSize_;
 
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
+	if (psarOffset >= fileLoader_->FileSize() - 256) {
+		errorString_ = "Unexpected psarOffset";
+		return;
+	}
+
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
-	if (readSize != 256){
+	if (readSize != 256) {
 		errorString_ = "Invalid NPUMDIMG header!";
+		return;
+	}
+
+	// Check np_header
+	if (memcmp(np_header, "NPUMDIMG", 8) != 0) {
+		// This is not something we can deal with here. Might be an oversized/misdetected
+		// regular PBP.
+		errorString_ = "Not a NPDRM PBP ISO";
 		return;
 	}
 
@@ -446,10 +466,10 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
 	u32 lbaEnd   = *(u32*)(np_header+0x64); // LBA end
-	lbaSize_     = (lbaEnd-lbaStart+1);     // LBA size of ISO
+	lbaSize_     = (lbaEnd - lbaStart + 1); // LBA size of ISO
 	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
-	char psarStr[5] = {};
+	char psarStr[5]{};
 	memcpy(psarStr, &psar_id, 4);
 
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
@@ -457,17 +477,21 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	// When we remove the above assert, let's just try to survive.
 	if (blockLBAs_ > 4096) {
-		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, GetFriendlyPath(fileLoader->GetPath()).c_str(), psarStr);
 		return;
 	}
 
 	blockSize_ = blockLBAs_ * 2048;
-	numBlocks_ = (lbaSize_ + blockLBAs_-1) / blockLBAs_; // total blocks;
+	numBlocks_ = (lbaSize_ + blockLBAs_ - 1) / blockLBAs_; // total blocks;
 
 	blockBuf_ = new u8[blockSize_];
 	tempBuf_  = new u8[blockSize_];
 
-	tableOffset_ = *(u32*)(np_header+0x6c); // table offset
+	tableOffset_ = *(u32*)(np_header + 0x6c); // table offset
+	if (tableOffset_ > fileLoader_->FileSize()) {
+		errorString_ = "Invalid table offset";
+		return;
+	}
 
 	tableSize_ = numBlocks_ * 32;
 	table_ = new table_info[numBlocks_];
@@ -480,7 +504,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 *p = (u32*)table_;
 	u32 i, k0, k1, k2, k3;
-	for (i=0; i<numBlocks_; i++){
+	for (i = 0; i < numBlocks_; i++){
 		k0 = p[0]^p[1];
 		k1 = p[1]^p[2];
 		k2 = p[0]^p[3];
@@ -569,8 +593,6 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	return true;
 }
 
-// static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
-
 struct CHDImpl {
 	chd_file *chd = nullptr;
 	const chd_header *header = nullptr;
@@ -642,6 +664,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
+	// static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
 	if (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0) {
 		chd_header parentHeader;
 
@@ -680,7 +703,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	chd_file *file = nullptr;
 	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
 	if (err != CHDERR_NONE) {
-		errorString_ = StringFromFormat("CHD error: %s", paths[depth].c_str(), chd_error_string(err));
+		errorString_ = StringFromFormat("CHD error: %s: %s", paths[depth].c_str(), chd_error_string(err));
 		return;
 	}
 

@@ -298,7 +298,8 @@ static void server_call_callback(const rc_api_request_t *request,
 			callback(&response, callback_data);
 		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
-		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
+		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(std::string(request->url), Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
+			ac->T("Contacting RetroAchievements server..."),
 			[callback, callback_data](http::Request &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
@@ -307,7 +308,7 @@ static void server_call_callback(const rc_api_request_t *request,
 			response.body_length = buffer.size();
 			response.http_status_code = download.ResultCode();
 			callback(&response, callback_data);
-		}, ac->T("Contacting RetroAchievements server..."));
+		});
 	}
 }
 
@@ -623,8 +624,14 @@ static void load_integration_callback(int result, const char *error_message, rc_
 
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
-		_dbg_assert_(!g_rcClient);
 		INFO_LOG(Log::Achievements, "Achievements are disabled, not initializing.");
+		if (g_rcClient) {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+			rc_client_unload_raintegration(g_rcClient);
+#endif
+			rc_client_destroy(g_rcClient);
+			g_rcClient = nullptr;
+		}
 		return;
 	}
 	if (g_rcClient) {
@@ -903,7 +910,7 @@ bool HasAchievementsOrLeaderboards() {
 void DownloadImageIfMissing(std::string_view url) {
 	if (g_iconCache.MarkPending(url)) {
 		INFO_LOG(Log::Achievements, "Downloading image: %.*s", STR_VIEW(url));
-		g_DownloadManager.StartDownloadWithCallback(url, Path(), http::RequestFlags::Default, [](http::Request &download) {
+		g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::Default, nullptr, "", [](http::Request &download) {
 			if (download.ResultCode() != 200)
 				return;
 			std::string data;

@@ -27,4 +27,4 @@ void ReloadAllThemeInfo();
 
 std::vector<std::string> GetThemeInfoNames();
 void UpdateTheme();
-UI::Theme *GetTheme();
+const UI::Theme *GetTheme();

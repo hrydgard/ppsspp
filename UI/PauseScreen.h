@@ -41,7 +41,9 @@ protected:
 	void CreateViews() override;
 	void update() override;
 	UI::Margins RootMargins() const override;
-
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
 	// For processing of certain mapped keys.
 	bool UnsyncKey(const KeyInput &key) override;
 	void UnsyncAxis(const AxisInput *axes, size_t count) override;
@@ -49,15 +51,11 @@ protected:
 	void OnVKey(VirtKey virtualKeyCode, bool down) override;
 
 private:
-	void CreateSavestateControls(UI::LinearLayout *viewGroup);
+	void CreateSavestateControls(UI::LinearLayout *viewGroup, UI::LinearLayout **extraRow);
 
 	void OnGameSettings(UI::EventParams &e);
 	void OnExit(UI::EventParams &e);
 	void OnReportFeedback(UI::EventParams &e);
-
-	void OnRewind(UI::EventParams &e);
-	void OnLoadUndo(UI::EventParams &e);
-	void OnLastSaveUndo(UI::EventParams &e);
 
 	void OnCreateConfig(UI::EventParams &e);
 	void OnDeleteConfig(UI::EventParams &e);

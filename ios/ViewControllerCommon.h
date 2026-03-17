@@ -1,6 +1,7 @@
 #pragma once
 
 #import <UIKit/UIKit.h>
+#import <PhotosUI/PhotosUI.h>
 
 #import <GameController/GameController.h>
 
@@ -10,6 +11,7 @@
 
 @interface PPSSPPBaseViewController : UIViewController<
 	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
+	PHPickerViewControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate, UIKeyInput,
 	UIGestureRecognizerDelegate, iCadeEventDelegate>
 

@@ -512,7 +512,6 @@
     <ClInclude Include="MachineContext.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
-    <ClInclude Include="MipsEmitter.h" />
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Serialize\SerializeSet.h" />
     <ClInclude Include="StringUtils.h" />
@@ -947,14 +946,6 @@
     <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="Log\ConsoleListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
-    <ClCompile Include="MipsCPUDetect.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="FakeCPUDetect.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -973,7 +964,6 @@
     <ClCompile Include="MemArenaWin32.cpp" />
     <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
-    <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="SysError.cpp" />
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />

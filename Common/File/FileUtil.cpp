@@ -317,7 +317,7 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		return -1;
 	}
 
-	INFO_LOG(Log::IO, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
+	DEBUG_LOG(Log::IO, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
 	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
 	if (descriptor < 0) {
 		// File probably just doesn't exist. No biggie.
@@ -1156,8 +1156,7 @@ const Path GetCurDirectory() {
 	return Path(curDir);
 #else
 	char temp[4096]{};
-	getcwd(temp, 4096);
-	return Path(temp);
+	return Path(getcwd(temp, 4096));
 #endif
 }
 
@@ -1496,6 +1495,12 @@ bool IsProbablyInDownloadsFolder(const Path &filename) {
 	default:
 		break;
 	}
+#if PPSSPP_PLATFORM(IOS)
+	if (filename.FilePathContainsNoCase("com~apple~CloudDocs")) {
+		return true;
+	}
+#endif
+
 	return filename.FilePathContainsNoCase("download");
 }
 

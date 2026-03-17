@@ -1,9 +1,7 @@
 package org.ppsspp.ppsspp;
 
 import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.graphics.Point;
-import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -11,10 +9,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import androidx.annotation.RequiresApi;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 public class SizeManager implements SurfaceHolder.Callback {
 	private static final String TAG = "PPSSPPSizeManager";
@@ -106,7 +100,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder);
 		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
 			// We have called setFixedSize which will trigger another surfaceChanged after the initial
-			// one. This one is the original one and we don't care about it.
+			// one. This one is the original one, and we don't care about it.
 			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
 
 			// TODO: Should we still set earlySurface here, to be sure?
@@ -171,18 +165,15 @@ public class SizeManager implements SurfaceHolder.Callback {
 	}
 
 	public void setupSystemUiCallback(final View view) {
-		view.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
-			@Override
-			public void onSystemUiVisibilityChange(int visibility) {
-				// Called when the system UI's visibility changes, regardless of
-				// whether it's because of our or system actions.
-				// We will try to force it to follow our preference but will not stupidly
-				// act as if it's visible if it's not.
-				navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
-				// TODO: Check here if it's the state we want.
-				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden + " decorView: " + view.getWidth() + "x" + view.getHeight());
-				checkDisplayMeasurements();
-			}
+		view.setOnSystemUiVisibilityChangeListener(visibility -> {
+			// Called when the system UI's visibility changes, regardless of
+			// whether it's because of our or system actions.
+			// We will try to force it to follow our preference but will not stupidly
+			// act as if it's visible if it's not.
+			navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
+			// TODO: Check here if it's the state we want.
+			Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden + " decorView: " + view.getWidth() + "x" + view.getHeight());
+			checkDisplayMeasurements();
 		});
 	}
 

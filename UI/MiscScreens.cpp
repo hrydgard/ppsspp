@@ -419,7 +419,7 @@ void LogoScreen::touch(const TouchInput &touch) {
 void LogoScreen::DrawForeground(UIContext &dc) {
 	using namespace Draw;
 
-	const Bounds &bounds = dc.GetLayoutBounds();
+	const Bounds &bounds = GetLayoutBounds(dc);
 
 	dc.Begin();
 
@@ -505,8 +505,6 @@ std::string_view CreditsScreen::GetTitle() const {
 
 void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
-
-	ignoreBottomInset_ = false;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
@@ -746,8 +744,8 @@ void CreditsScroller::Draw(UIContext &dc) {
 
 	dc.Begin();
 
-	const Bounds &bounds = bounds_;
-	bounds.Inset(10.f, 10.f);
+	Bounds &bounds = bounds_;
+	bounds = bounds.Inset(10.f, 10.f);
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
 	int contentsHeight = numItems * itemHeight + bounds.h + 200;

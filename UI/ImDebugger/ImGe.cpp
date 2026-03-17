@@ -1220,14 +1220,18 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("Total bytes to transfer: %d", gstate.getTransferWidth() * gstate.getTransferHeight() * gstate.getTransferBpp());
 		} else {
 			// Visualize prim by default (even if we're not directly on a prim instruction).
-			VirtualFramebuffer *vfb = rbViewer_.GetVFB(gpuDebug->GetFramebufferManagerCommon());
-			if (vfb) {
-				if (vfb->fbo) {
-					ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
-				} else {
-					ImGui::Text("Framebuffer");
+			FramebufferManagerCommon *fbMan = gpuDebug->GetFramebufferManagerCommon();
+			VirtualFramebuffer *vfb = nullptr;
+			if (fbMan) {
+				vfb = rbViewer_.GetVFB(fbMan);
+				if (vfb) {
+					if (vfb->fbo) {
+						ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
+					} else {
+						ImGui::Text("Framebuffer");
+					}
+					ImGui::SameLine();
 				}
-				ImGui::SameLine();
 			}
 			ImGui::SetNextItemWidth(200.0f);
 			ImGui::SliderFloat("Zoom", &previewZoom_, 0.125f, 2.f, "%.3f", ImGuiSliderFlags_Logarithmic);

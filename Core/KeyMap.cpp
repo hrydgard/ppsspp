@@ -76,6 +76,10 @@ void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mapping
 	InputMappingsFromPspButton(btn, &multiMappings, ignoreMouse);
 	mappings->clear();
 	for (auto &mapping : multiMappings) {
+		// Ignore combos
+		if (mapping.mappings.size() > 1) {
+			continue;
+		}
 		if (!mapping.empty()) {
 			mappings->push_back(mapping.mappings[0]);
 		} else {
@@ -87,6 +91,28 @@ void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mapping
 static void InsertIntoVector(std::vector<InputMapping> *vec, const InputMapping &mapping) {
 	if (std::find(vec->begin(), vec->end(), mapping) == vec->end())
 		vec->push_back(mapping);
+}
+
+// Used to avoid multiple main buttons both being mapped to cancel or confirm.
+bool HasMainButtonMapping(const std::vector<InputMapping> &mappings) {
+	for (auto mapping : mappings) {
+		switch (mapping.keyCode) {
+			case NKCODE_BUTTON_A:
+			case NKCODE_BUTTON_B:
+			case NKCODE_BUTTON_C:
+			case NKCODE_BUTTON_X:
+			case NKCODE_BUTTON_Y:
+			case NKCODE_BUTTON_Z:
+			case NKCODE_BUTTON_1:
+			case NKCODE_BUTTON_2:
+			case NKCODE_BUTTON_3:
+			case NKCODE_BUTTON_4:
+			case NKCODE_BUTTON_5:
+			case NKCODE_BUTTON_6:
+				return true;
+		}
+	}
+	return false;
 }
 
 // TODO: This is such a mess...
@@ -125,7 +151,6 @@ void UpdateNativeMenuKeys() {
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_NUMPAD_ENTER),
-		InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_A : NKCODE_BUTTON_B),
 		InputMapping(DEVICE_ID_PAD_0, NKCODE_DPAD_CENTER),  // A number of old obscure Android devices need this.
 	};
 
@@ -133,16 +158,21 @@ void UpdateNativeMenuKeys() {
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedConfirmKeys); i++) {
 		InsertIntoVector(&confirmKeys, hardcodedConfirmKeys[i]);
 	}
+	if (!HasMainButtonMapping(confirmKeys)) {
+		confirmKeys.push_back(InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_A : NKCODE_BUTTON_B));
+	}
 
 	const InputMapping hardcodedCancelKeys[] = {
 		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
 		InputMapping(DEVICE_ID_ANY, NKCODE_BACK),
-		InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_B : NKCODE_BUTTON_A),
 		InputMapping(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
 		InsertIntoVector(&cancelKeys, hardcodedCancelKeys[i]);
+	}
+	if (!HasMainButtonMapping(cancelKeys)) {
+		confirmKeys.push_back(InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_A : NKCODE_BUTTON_B));
 	}
 
 	const InputMapping hardcodedInfoKeys[] = {
@@ -430,7 +460,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
 	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
-	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
+	{VIRTKEY_AXIS_SWAP_HOLD, "Axis swap (hold)"},
+	{VIRTKEY_AXIS_SWAP_TOGGLE, "Axis swap (toggle)"},
 
 	{VIRTKEY_FASTFORWARD, "Fast-forward"},
 	{VIRTKEY_PAUSE, "Pause"},

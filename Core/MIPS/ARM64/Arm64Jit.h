@@ -193,6 +193,8 @@ public:
 	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
+	const u8 *GetCodeBase() const override { return GetCodePtr(); }
+
 private:
 	void GenerateFixedCode(const JitOptions &jo);
 	void FlushAll();
@@ -201,7 +203,6 @@ private:
 	u32 GetCompilerPC();
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteDownCount(int offset = 0, bool updateFlags = true);
@@ -211,8 +212,6 @@ private:
 	void UpdateRoundingMode(u32 fcr31 = -1);
 	void MovFromPC(Arm64Gen::ARM64Reg r);
 	void MovToPC(Arm64Gen::ARM64Reg r);
-
-	bool ReplaceJalTo(u32 dest);
 
 	// Clobbers SCRATCH2.
 	void SaveStaticRegisters();

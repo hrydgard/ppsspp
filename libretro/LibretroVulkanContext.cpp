@@ -12,6 +12,7 @@
 #include "libretro/LibretroVulkanContext.h"
 #include <libretro_vulkan.h>
 #include <GPU/Vulkan/VulkanRenderManager.h>
+#include "ext/glslang/OGLCompilersDLL/InitializeDll.h"
 
 #undef fflush
 
@@ -124,8 +125,10 @@ void LibretroVulkanContext::ContextReset() {
 
 void LibretroVulkanContext::ContextDestroy() {
    INFO_LOG(Log::G3D, "LibretroVulkanContext::ContextDestroy()");
-   vk->WaitUntilQueueIdle();
-   LibretroHWRenderContext::ContextDestroy();
+   if (vk) {
+      vk->WaitUntilQueueIdle();
+      LibretroHWRenderContext::ContextDestroy();
+   }
 }
 
 void LibretroVulkanContext::CreateDrawContext() {
@@ -167,6 +170,7 @@ void LibretroVulkanContext::Shutdown() {
    vk = nullptr;
 
    finalize_glslang();
+   glslang::DetachProcess();
    vk_libretro_shutdown();
 }
 

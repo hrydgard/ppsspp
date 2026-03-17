@@ -155,3 +155,5 @@ private:
 	int m_mpegheaderReadPos = 0;
 	int m_mpegheaderSize = 0;
 };
+
+std::string GetFFMPEGVersion();

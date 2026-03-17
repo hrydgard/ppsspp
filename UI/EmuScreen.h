@@ -77,6 +77,7 @@ protected:
 	void OnVKeyAnalog(VirtKey virtualKeyCode, float value) override;
 	void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) override;
 	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
+	ViewLayoutMode LayoutMode() const override;
 
 private:
 	void CreateViews() override;
@@ -166,7 +167,7 @@ private:
 	bool readyToFinishBoot_ = false;
 	bool skipBufferEffects_ = false;  // cached state, fetched once per frame.
 
-	bool isOnTop_ = true;
+	uint32_t clearColor_ = 0;
 };
 
 bool MustRunBehind();

@@ -97,7 +97,7 @@ jobs:
       run: cp Windows/Release/*.exe ppsspp/
 
     - name: Upload build
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
@@ -151,7 +151,7 @@ jobs:
       run: git submodule update --init pspautotests assets/lang
 
     - name: Download build
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: Windows x64 build
         path: ppsspp/
@@ -271,7 +271,7 @@ jobs:
         version: 5.15.2
 
     - name: Setup Android NDK
-      uses: nttld/setup-ndk@afb4c9964b521afb97c864b7d40b11e6911bd410 # v1.5.0
+      uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
@@ -372,14 +372,14 @@ jobs:
         fi
 
     - name: Upload build
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: matrix.extra == 'test'
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
     - name: Upload iOS build
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: matrix.id == 'ios'
       with:
         name: ${{ matrix.id }} build
@@ -437,7 +437,7 @@ jobs:
         git submodule update --init SDL/macOS
 
     - name: Download build
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/

@@ -21,6 +21,7 @@
 #include <string_view>
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -409,7 +410,7 @@ public:
 
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
-	bool bAutoAudioDevice;
+	bool bAutoSwitchAudioDevice;
 	bool bUseOldAtrac;
 
 	// iOS only for now
@@ -514,8 +515,9 @@ public:
 	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;
 
-	// Trigger configuration
+	// Thresholds for triggers and stick when mapped to digital button inputs.
 	float fAnalogTriggerThreshold;
+	float fAnalogStickThreshold;
 
 	// Sets whether combo mapping is enabled.
 	bool bAllowMappingCombos;
@@ -552,8 +554,7 @@ public:
 	// Networking
 	bool bEnableAdhocServer;
 	std::string sProAdhocServer;
-	bool bUseServerRelay;
-	std::vector<std::string> proAdhocServerList;
+	int iAdhocServerRelayMode;
 	std::string sInfrastructureDNSServer;
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
 	bool bInfrastructureAutoDNS;
@@ -561,6 +562,11 @@ public:
 	bool bAllowSpeedControlWhileConnected;  // Useful in some games but not recommended.
 
 	bool bEnableEmuLink;
+
+	std::string sAdhocServerListUrl;
+	std::vector<std::string> vCustomAdhocServerList;
+	std::vector<std::string> vCustomAdhocServerListWithRelay;
+
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias;  // Local DNS database stored in ini file
 	bool bEnableUPnP;
@@ -618,7 +624,6 @@ public:
 	int iConsoleWindowY;
 	int iFontWidth;
 	int iFontHeight;
-	bool bDisplayStatusBar;
 	bool bShowBottomTabTitles;
 	bool bShowDeveloperMenu;
 
@@ -685,6 +690,9 @@ public:
 	bool Save(const char *saveReason);
 	void Reload();
 	void RestoreDefaults(RestoreSettingsBits whatToRestore, bool log = false);
+
+	// For bug reporting
+	std::string GetConfigAsString();
 
 	// Note: This doesn't switch to the config, just creates it.
 	bool CreateGameConfig(std::string_view gameId);
@@ -772,8 +780,8 @@ private:
 };
 
 std::string CreateRandMAC();
+std::string DefaultProAdhocServer();
 
 // TODO: Find a better place for this.
 extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
-

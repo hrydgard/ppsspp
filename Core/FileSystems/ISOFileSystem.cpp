@@ -22,6 +22,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
@@ -33,11 +34,11 @@ bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize) {
 	// The format of this is: "/sce_lbn" "0x"? HEX* ANY* "_size" "0x"? HEX* ANY*
 	// That means that "/sce_lbn/_size1/" is perfectly valid.
 	// Most commonly, it looks like /sce_lbn0x10_size0x100 or /sce_lbn10_size100 (always hex.)
-
 	// If it doesn't starts with /sce_lbn or doesn't have _size, look for a file instead.
-	if (filename.compare(0, sizeof("/sce_lbn") - 1, "/sce_lbn") != 0)
+	if (!startsWith(filename, "/sce_lbn"))
 		return false;
-	size_t size_pos = filename.find("_size");
+
+	const size_t size_pos = filename.find("_size");
 	if (size_pos == filename.npos)
 		return false;
 
@@ -658,7 +659,7 @@ PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
 	return x;
 }
 
-std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 	const TreeEntry *entry = GetFromPath(path);
 	if (!entry) {

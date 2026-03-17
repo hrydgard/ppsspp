@@ -63,6 +63,7 @@
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/MiscViews.h"
+#include "UI/AdhocServerScreen.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -81,7 +82,7 @@
 #include "GPU/GPU.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #endif
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -110,22 +111,6 @@ void SetMemStickDirDarwin(int requesterToken) {
 	});
 }
 #endif
-
-class SettingHint : public UI::TextView {
-public:
-	SettingHint(std::string_view text)
-		: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)) {
-		SetTextSize(UI::TextSize::Tiny);
-		SetPadding(UI::Margins(14, 0, 0, 8));
-		SetAlign(FLAG_WRAP_TEXT);
-	}
-
-	void Draw(UIContext &dc) override {
-		UI::Style style = dc.GetTheme().itemStyle;
-		dc.FillRect(style.background, bounds_);
-		UI::TextView::Draw(dc);
-	}
-};
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
@@ -303,6 +288,9 @@ void GameSettingsScreen::CreateTabs() {
 	}
 }
 
+// TODO: Make this generic
+extern int DefaultDepthRaster();
+
 // Graphics
 void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -434,14 +422,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			});
 		}
 #endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-		// Hide Immersive Mode on pre-kitkat Android
-		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
-			// Let's reuse the Fullscreen translation string from desktop.
-			graphicsSettings->Add(new CheckBox(&config.bImmersiveMode, sy->T("Hide navigation bar")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
-		}
-#endif
 		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
 		Choice *displayEditor = graphicsSettings->Add(new Choice(gr->T("Display layout & effects")));
 		displayEditor->OnClick.Add([&](UI::EventParams &) -> void {
@@ -501,7 +481,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new ItemHeader(gr->T("Speed Hacks", "Speed Hacks (can cause rendering errors!)")));
 
 	CheckBox *skipBufferEffects = graphicsSettings->Add(new CheckBox(&g_Config.bSkipBufferEffects, gr->T("Skip Buffer Effects")));
-	graphicsSettings->Add(new SettingHint(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games")));
+	graphicsSettings->Add(new SettingHint(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), skipBufferEffects));
 	skipBufferEffects->OnClick.Add([=](EventParams &e) {
 		if (g_Config.bSkipBufferEffects) {
 			g_Config.bAutoFrameSkip = false;
@@ -514,38 +494,49 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *disableCulling = graphicsSettings->Add(new CheckBox(&g_Config.bDisableRangeCulling, gr->T("Disable culling")));
 	disableCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *skipGpuReadbackModes[] = { "No (default)", "Skip", "Copy to texture" };
+	static const char *skipGpuReadbackModes[] = { "No", "Skip", "Copy to texture" };
 
 	PopupMultiChoice *skipGPUReadbacks = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSkipGPUReadbackMode, gr->T("Skip GPU Readbacks"), skipGpuReadbackModes, 0, ARRAY_SIZE(skipGpuReadbackModes), I18NCat::GRAPHICS, screenManager()));
 	skipGPUReadbacks->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	skipGPUReadbacks->SetDefault(0);
 
-	static const char *depthRasterModes[] = { "Auto (default)", "Low", "Off", "Always on" };
+	static const char *depthRasterModes[] = { "Auto", "Low", "Off", "Always on" };
 
 	PopupMultiChoice *depthRasterMode = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iDepthRasterMode, gr->T("Lens flare occlusion"), depthRasterModes, 0, ARRAY_SIZE(depthRasterModes), I18NCat::GRAPHICS, screenManager()));
 	depthRasterMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
+	depthRasterMode->SetDefault(DefaultDepthRaster());
 	if (g_Config.iDepthRasterMode != 3)
 		depthRasterMode->HideChoice(3);
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games")));
+	graphicsSettings->Add(new SettingHint(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), texBackoff));
 
 	static const char *quality[] = { "Low", "Medium", "High" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), I18NCat::GRAPHICS, screenManager()));
-	graphicsSettings->Add(new SettingHint(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves")));
+	PopupMultiChoice *bezierQuality = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), I18NCat::GRAPHICS, screenManager()));
+	bezierQuality->SetDefault(2);
+	graphicsSettings->Add(new SettingHint(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), bezierQuality));
+
+	static const char *bloomHackOptions[] = {"Off", "Safe", "Balanced", "Aggressive"};
+	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), I18NCat::GRAPHICS, screenManager()));
+	bloomHack->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
+	});
+	graphicsSettings->Add(new SettingHint(gr->T("Reduces artifacts"), bloomHack));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
 	frameDuplication->SetEnabledFunc([] {
 		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
 	});
-	graphicsSettings->Add(new SettingHint(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates")));
+	graphicsSettings->Add(new SettingHint(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), frameDuplication));
 
 	if (draw->GetDeviceCaps().setMaxFrameLatencySupported) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
-		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), I18NCat::GRAPHICS, screenManager()));
+		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), I18NCat::GRAPHICS, screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
+		graphicsSettings->Add(new SettingHint(gr->T("Faster, input lag"), inflightChoice));  // TODO: This hint could use improvement.
 	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -564,14 +555,14 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games")));
+	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), swSkin));
 
 	if (DoesBackendSupportHWTess()) {
 		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 		tessellationHW->SetEnabledFunc([]() {
 			return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 		});
-		graphicsSettings->Add(new SettingHint(gr->T("HardwareTessellation Tip", "Uses hardware to make curves")));
+		graphicsSettings->Add(new SettingHint(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), tessellationHW));
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
@@ -610,7 +601,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		texScalingChoice->HideChoice(3); // 3x
 		texScalingChoice->HideChoice(5); // 5x
 	}
-	graphicsSettings->Add(new SettingHint(gr->T("UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter")));
+	graphicsSettings->Add(new SettingHint(gr->T("UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter"), texScalingChoice));
 
 	texScalingChoice->SetEnabledFunc([]() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
@@ -620,7 +611,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	deposterize->SetEnabledFunc([]() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
-	graphicsSettings->Add(new SettingHint(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures")));
+	graphicsSettings->Add(new SettingHint(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), deposterize));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
@@ -650,24 +641,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
 		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
 	}
-
-	std::vector<std::string> cameraList = Camera::getDeviceList();
-	if (cameraList.size() >= 1) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
-		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, I18NCat::NONE, screenManager()));
-		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-		graphicsSettings->Add(new CheckBox(&g_Config.bCameraMirrorHorizontal, gr->T("Mirror camera image")));
-#endif
-	}
-
-	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
-
-	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
-	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), I18NCat::GRAPHICS, screenManager()));
-	bloomHack->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
-	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
@@ -774,7 +747,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	static const int bufferSizes[] = {128, 256, 512, 1024, 2048};
 	PopupSliderChoice *bufferSize = audioSettings->Add(new PopupSliderChoice(&g_Config.iSDLAudioBufferSize, 0, 2048, 256, a->T("Buffer size"), screenManager()));
 	bufferSize->RestrictChoices(bufferSizes, ARRAY_SIZE(bufferSizes));
-	audioSettings->Add(new SettingHint(di->T("This change will not take effect until PPSSPP is restarted.")));
+	audioSettings->Add(new SettingHint(di->T("This change will not take effect until PPSSPP is restarted."), bufferSize));
 #endif
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -806,7 +779,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 				WARN_LOG(Log::Audio, "InitOutputDevice failed");
 			}
 		});
-		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
 		autoAudio->SetEnabledFunc([]()->bool {
 			return g_Config.sAudioDevice.empty();
 		});
@@ -815,10 +788,10 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	const bool isWindows = true;
 #else
 	const bool isWindows = false;
-	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
-
 	if (sdlAudio) {
-		audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Use new audio devices automatically")));
+		audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
+	} else {
+		audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -836,7 +809,9 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	if (!micList.empty()) {
 		audioSettings->Add(new ItemHeader(a->T("Microphone")));
 		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, I18NCat::NONE, screenManager()));
-		MicChoice->OnChoice.Handle(this, &GameSettingsScreen::OnMicDeviceChange);
+		MicChoice->OnChoice.Add([](UI::EventParams &e) {
+			Microphone::onMicDeviceChange();
+		});
 	}
 }
 
@@ -856,7 +831,6 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	controlsSettings->Add(new Choice(co->T("Calibrate analog stick")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new AnalogCalibrationScreen(gamePath_));
 	});
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
 
 #if defined(USING_WIN_UI) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
@@ -882,6 +856,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {  // TODO: This seems like a regression
 		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	}
+
+	controlsSettings->Add(new ItemHeader(co->T("Analog to digital mapping")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogTriggerThreshold, 0.02f, 0.98f, 0.75f, co->T("Analog trigger threshold"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogStickThreshold, 0.2f, 0.98f, 0.75f, co->T("Analog stick threshold"), screenManager()));
 
 	// TVs don't have touch control, at least not yet.
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
@@ -921,8 +899,9 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// Sticky D-pad.
-		CheckBox *stickyDpad = controlsSettings->Add(new CheckBox(&g_Config.bStickyTouchDPad, co->T("Sticky D-Pad (easier sweeping movements)")));
+		CheckBox *stickyDpad = controlsSettings->Add(new CheckBox(&g_Config.bStickyTouchDPad, co->T("Sticky D-Pad")));
 		stickyDpad->SetEnabledPtr(&g_Config.bShowTouchControls);
+		controlsSettings->Add(new SettingHint(co->T("Easier sweeping movements"), stickyDpad));
 
 		// Re-centers itself to the touch location on touch-down.
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
@@ -943,9 +922,9 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 #if defined(USING_WIN_UI)
 		controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
 #endif // #if defined(USING_WIN_UI)
-		auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, 0.6f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
+		PopupSliderChoiceFloat *analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, 0.6f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
 		controlsSettings->Add(analogLimiter);
-		controlsSettings->Add(new SettingHint(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed")));
+		controlsSettings->Add(new SettingHint(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), analogLimiter));
 		controlsSettings->Add(new PopupSliderChoice(&g_Config.iRapidFireInterval, 1, 10, 5, co->T("Rapid fire interval"), screenManager(), "frames"));
 #if defined(USING_WIN_UI) || defined(SDL) || PPSSPP_PLATFORM(ANDROID)
 		bool enableMouseSettings = true;
@@ -964,7 +943,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			wheelUpDelaySlider->SetFormat(di->T("%d ms"));
 
 			CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
-			controlsSettings->Add(new SettingHint(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon.")));
+			controlsSettings->Add(new SettingHint(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), mouseControl));
 
 #if !PPSSPP_PLATFORM(ANDROID)
 			controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
@@ -1028,35 +1007,41 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
-	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
-	wiki->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
+	Choice *quickstart = networkingSettings->Add(new Choice(n->T("Quick start guide for multiplayer"), ImageID("I_LINK_OUT")));
+	quickstart->OnClick.Add([](EventParams &e) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		std::string url(n->T("MultiplayerQuickStartURL", "https://www.ppsspp.org/docs/multiplayer/quickstart/"));
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
+	});
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
-	static const char *wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
-	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
-	for (int i = 0; i < 4; i++) {
-		wlanChannelChoice->HideChoice(i + 2);
-		wlanChannelChoice->HideChoice(i + 7);
-	}
-
-	if (Discord::IsAvailable()) {
-		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
-	}
+	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("MAC address"), screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
-	networkingSettings->Add(new CheckBox(&g_Config.bUseServerRelay, n->T("Try to use server-provided packet relay")))->SetEnabled(!PSP_IsInited());
-	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower.")));
 
-	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc server")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new HostnameSelectScreen(&g_Config.sProAdhocServer, &g_Config.proAdhocServerList, n->T("proAdhocServer Address:")));
+	LinearLayout *serverRow = networkingSettings->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	serverRow->SetSpacing(0.0f);
+	serverRow->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE, new LinearLayoutParams(1.0f)))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
 	});
-	networkingSettings->Add(new SettingHint(n->T("Change proAdhocServer address hint")));
+	if (AdhocServerNameIsCustom()) {
+		serverRow->Add(new Choice(ImageID("I_EDIT_TEXT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([this](UI::EventParams &) {
+			AskToEditCurrentServer(GetRequesterToken(), screenManager());
+		});
+	}
+
+	static const char *relayModes[] = {"Auto", "Yes", "No"};
+	PopupMultiChoice *relayModePopup = networkingSettings->Add(new PopupMultiChoice(&g_Config.iAdhocServerRelayMode, n->T("Try to use server-provided packet relay"), relayModes, 0, ARRAY_SIZE(relayModes), I18NCat::DIALOG, screenManager()));
+	relayModePopup->SetEnabled(!PSP_IsInited());
+	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower."), relayModePopup));
+
+	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
+
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")));
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
@@ -1077,19 +1062,19 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
-	auto useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
-	networkingSettings->Add(new SettingHint(n->T("UseOriginalPort Tip", "May not work for all devices or games, see wiki.")));
+	auto *useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
+	networkingSettings->Add(new SettingHint(n->T("UseOriginalPort Tip", "May not work for all devices or games, see wiki."), useOriPort));
 
 	useOriPort->SetEnabledPtr(&g_Config.bEnableUPnP);
 
 	networkingSettings->Add(new ItemHeader(n->T("Chat")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat")));
 	static const char *chatButtonPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
 	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
 	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 
-#if (!defined(MOBILE_DEVICE) && !defined(USING_QT_UI)) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) // Missing only iOS?
+#if (!defined(MOBILE_DEVICE) && !defined(USING_QT_UI)) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) // Missing only iOS?
 	networkingSettings->Add(new ItemHeader(n->T("QuickChat", "Quick Chat")));
 	CheckBox *qc = networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("EnableQuickChat", "Enable Quick Chat")));
 	qc->SetEnabledPtr(&g_Config.bEnableNetworkChat);
@@ -1134,10 +1119,26 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 #endif
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
-	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
+	Choice *wiki = networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page"), ImageID("I_LINK_OUT")));
+	wiki->OnClick.Add([](EventParams &e) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
+	});
+	static const char *wlanChannels[] = {"Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
+	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
+	for (int i = 0; i < 4; i++) {
+		wlanChannelChoice->HideChoice(i + 2);
+		wlanChannelChoice->HideChoice(i + 7);
+	}
+	PopupSliderChoice *portOffset = networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset"), 100, screenManager()));
+	networkingSettings->Add(new SettingHint(n->T("PortOffsetHint"), portOffset));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
+	if (Discord::IsAvailable()) {
+		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
+	}
 }
 
 void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
@@ -1213,6 +1214,14 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	switchMode->OnChoice.Add([](EventParams &e) {
 		System_Notify(SystemNotification::APP_SWITCH_MODE_CHANGED);
 	});
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+	// Hide Immersive Mode on pre-kitkat Android
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		systemSettings->Add(new CheckBox(&config.bImmersiveMode, sy->T("Hide navigation bar")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+	}
 #endif
 
 	PopupSliderChoice *uiScale = systemSettings->Add(new PopupSliderChoice(&g_Config.iUIScaleFactor, -8, 8, 0, sy->T("UI size adjustment (DPI)"), screenManager()));
@@ -1448,6 +1457,19 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new CheckBox(&g_Config.bPauseOnLostFocus, sy->T("Pause when not focused")));
 #endif
 
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
+		systemSettings->Add(new ItemHeader(gr->T("Camera")));
+		PopupMultiChoiceDynamic *cameraChoice = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, I18NCat::NONE, screenManager()));
+		cameraChoice->OnChoice.Add([](UI::EventParams &e) {
+			Camera::onCameraDeviceChange();
+		});
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+		systemSettings->Add(new CheckBox(&g_Config.bCameraMirrorHorizontal, gr->T("Mirror camera image")));
+#endif
+	}
+
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnablePlugins, sy->T("Enable plugins")));
@@ -1516,12 +1538,6 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	PopupSliderChoiceFloat* vrHudScale = vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fHeadUpDisplayScale, 0.0f, 1.5f, 0.3f, vr->T("Heads-up display scale"), 0.1f, screenManager(), ""));
 	vrHudScale->SetEnabledPtr(&g_Config.bRescaleHUD);
 	vrSettings->Add(new CheckBox(&g_Config.bManualForceVR, vr->T("Manual switching between flat screen and VR using SCREEN key")));
-}
-
-void GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 }
 
 void GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
@@ -1645,8 +1661,13 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 			}
 
 			if (!filename.empty()) {
+				Path src(value);
 				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-				File::Copy(Path(value), dest);
+				File::Copy(src, dest);
+				if (src.FilePathContainsNoCase("temp_import.jpg")) {
+					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(src).c_str());
+					File::Delete(src);
+				}
 			} else {
 				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
 			}
@@ -1660,7 +1681,20 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (equals(dialog->tag(), "NewLanguage") && result == DR_OK) {
+		screenManager()->RecreateAllViews();
+		return;
+	}
+
 	bool recreate = false;
+
+	if (equals(dialog->tag(), "AdhocServer")) {
+		const AdhocServerScreen *scr = dynamic_cast<const AdhocServerScreen *>(dialog);
+		if (scr && scr->RecreateParent()) {
+			recreate = true;
+		}
+	}
+
 	if (result == DialogResult::DR_OK) {
 		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
 		g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
@@ -1723,9 +1757,19 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	System_RestartApp(param);
 }
 
+// From PauseScreen
+std::string GetConfirmExitMessage();
+
 void GameSettingsScreen::TriggerRestartOrDo(std::function<void()> callback) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+
+	std::string confirmExitMessage = GetConfirmExitMessage();
+	if (!confirmExitMessage.empty()) {
+		confirmExitMessage = "\n\n" + confirmExitMessage;
+	}
+	confirmExitMessage = std::string(di->T("Changing this setting requires PPSSPP to restart.")) + confirmExitMessage;
+
+	screenManager()->push(new UI::MessagePopupScreen(di->T("Restart"), confirmExitMessage, di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 		if (yes) {
 			TriggerRestart("GameSettingsScreen::RenderingBackendYes", editGameSpecificThenRestore_, gamePath_);
 		} else {
@@ -1765,14 +1809,6 @@ void GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 			g_Config.iInflightFrames = prevInflightFrames_;
 		});
 	}
-}
-
-void GameSettingsScreen::OnCameraDeviceChange(UI::EventParams& e) {
-	Camera::onCameraDeviceChange();
-}
-
-void GameSettingsScreen::OnMicDeviceChange(UI::EventParams& e) {
-	Microphone::onMicDeviceChange();
 }
 
 void GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
@@ -1840,209 +1876,6 @@ void GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	}
 }
 
-void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
-	using namespace UI;
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-
-	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
-
-	addrView_ = new TextEdit(*value_, n->T("Hostname"), "");
-	addrView_->SetTextAlign(FLAG_DYNAMIC_ASCII);
-	valueRow->Add(addrView_);
-	parent->Add(valueRow);
-
-	LinearLayout *buttonsRow1 = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	LinearLayout *buttonsRow2 = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	parent->Add(buttonsRow1);
-	parent->Add(buttonsRow2);
-
-	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_LEFT)));
-	for (char c = '0'; c <= '9'; ++c) {
-		char label[] = { c, '\0' };
-		auto button = buttonsRow1->Add(new Button(label));
-		button->OnClick.Handle(this, &HostnameSelectScreen::OnNumberClick);
-		button->SetTag(label);
-	}
-	buttonsRow1->Add(new Button("."))->OnClick.Handle(this, &HostnameSelectScreen::OnPointClick);
-	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
-
-	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_LEFT)));
-	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		buttonsRow2->Add(new Button(di->T("Edit")))->OnClick.Handle(this, &HostnameSelectScreen::OnEditClick);
-	}
-	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
-	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
-	buttonsRow2->Add(new Button(di->T("Toggle List")))->OnClick.Handle(this, &HostnameSelectScreen::OnShowIPListClick);
-	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, Gravity::G_RIGHT)));
-
-	std::vector<std::string> listIP;
-	if (listItems_) {
-		listIP = *listItems_;
-	}
-	// Add non-editable items
-	listIP.push_back("localhost");
-	net::GetLocalIP4List(listIP);
-
-	ipRows_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-	ScrollView* scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	LinearLayout* innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	if (listIP.size() > 0) {
-		for (const auto& label : listIP) {
-			// Filter out IP prefixed with "127." and "169.254." also "0." since they can be rendundant or unusable
-			if (label.find("127.") != 0 && label.find("169.254.") != 0 && label.find("0.") != 0) {
-				auto button = innerView->Add(new Button(label, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-				button->OnClick.Handle(this, &HostnameSelectScreen::OnIPClick);
-				button->SetTag(label);
-			}
-		}
-	}
-	scrollView->Add(innerView);
-	ipRows_->Add(scrollView);
-	ipRows_->SetVisibility(V_GONE);
-	parent->Add(ipRows_);
-	listIP.clear(); listIP.shrink_to_fit();
-
-	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 5, 0, 0))));
-	progressView_->SetVisibility(UI::V_GONE);
-}
-
-void HostnameSelectScreen::SendEditKey(InputKeyCode keyCode, KeyInputFlags flags) {
-	auto oldView = UI::GetFocusedView();
-	UI::SetFocusedView(addrView_);
-	KeyInput fakeKey{ DEVICE_ID_KEYBOARD, keyCode, KeyInputFlags::DOWN | flags };
-	addrView_->Key(fakeKey);
-	UI::SetFocusedView(oldView);
-}
-
-void HostnameSelectScreen::OnNumberClick(UI::EventParams &e) {
-	std::string text = e.v ? e.v->Tag() : "";
-	if (text.length() == 1 && text[0] >= '0' && text[0] <= '9') {
-		SendEditKey((InputKeyCode)text[0], KeyInputFlags::CHAR);  // ASCII for digits match keycodes.
-	}
-}
-
-void HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
-	SendEditKey((InputKeyCode)'.', KeyInputFlags::CHAR);
-}
-
-void HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {
-	SendEditKey(NKCODE_DEL);
-}
-
-void HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
-	addrView_->SetText("");
-}
-
-void HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("proAdhocServer Address:"), addrView_->GetText(), false, [this](const std::string& value, int) {
-		addrView_->SetText(value);
-	});
-}
-
-void HostnameSelectScreen::OnShowIPListClick(UI::EventParams& e) {
-	if (ipRows_->GetVisibility() == UI::V_GONE) {
-		ipRows_->SetVisibility(UI::V_VISIBLE);
-	}
-	else {
-		ipRows_->SetVisibility(UI::V_GONE);
-	}
-}
-
-void HostnameSelectScreen::OnIPClick(UI::EventParams& e) {
-	std::string text = e.v ? e.v->Tag() : "";
-	if (text.length() > 0) {
-		addrView_->SetText(text);
-		// Copy the IP to clipboard for the host to easily share their IP through chatting apps.
-		System_CopyStringToClipboard(text);
-	}
-}
-
-void HostnameSelectScreen::ResolverThread() {
-	std::unique_lock<std::mutex> guard(resolverLock_);
-
-	while (resolverState_ != ResolverState::QUIT) {
-		resolverCond_.wait(guard);
-
-		if (resolverState_ == ResolverState::QUEUED) {
-			resolverState_ = ResolverState::PROGRESS;
-
-			addrinfo *resolved = nullptr;
-			std::string err;
-			toResolveResult_ = net::DNSResolve(toResolve_, "80", &resolved, err);
-			if (resolved)
-				net::DNSResolveFree(resolved);
-
-			resolverState_ = ResolverState::READY;
-		}
-	}
-}
-
-bool HostnameSelectScreen::CanComplete(DialogResult result) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-
-	if (result != DR_OK)
-		return true;
-
-	std::string value = addrView_->GetText();
-	if (lastResolved_ == value) {
-		return true;
-	}
-
-	// Currently running.
-	if (resolverState_ == ResolverState::PROGRESS)
-		return false;
-
-	std::lock_guard<std::mutex> guard(resolverLock_);
-	switch (resolverState_) {
-	case ResolverState::PROGRESS:
-	case ResolverState::QUIT:
-		return false;
-
-	case ResolverState::QUEUED:
-	case ResolverState::WAITING:
-		break;
-
-	case ResolverState::READY:
-		if (toResolve_ == value) {
-			// Reset the state, nothing there now.
-			resolverState_ = ResolverState::WAITING;
-			toResolve_.clear();
-			lastResolved_ = value;
-			lastResolvedResult_ = toResolveResult_;
-
-			if (lastResolvedResult_) {
-				progressView_->SetVisibility(UI::V_GONE);
-			} else {
-				progressView_->SetText(n->T("Invalid IP or hostname"));
-				progressView_->SetTextColor(0xFF3030FF);
-				progressView_->SetVisibility(UI::V_VISIBLE);
-			}
-			return true;
-		}
-
-		// Throw away that last result, it was for a different value.
-		break;
-	}
-
-	resolverState_ = ResolverState::QUEUED;
-	toResolve_ = value;
-	resolverCond_.notify_one();
-
-	progressView_->SetText(n->T("Validating address..."));
-	progressView_->SetTextColor(0xFFFFFFFF);
-	progressView_->SetVisibility(UI::V_VISIBLE);
-
-	return false;
-}
-
-void HostnameSelectScreen::OnCompleted(DialogResult result) {
-	if (result == DR_OK)
-		*value_ = StripSpaces(addrView_->GetText());
-}
-
 void GestureMappingScreen::CreateTabs() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	AddTab("Gesture", di->T("Left side"), [this](UI::LinearLayout *parent) { CreateGestureTab(parent, 0, GetDeviceOrientation() == DeviceOrientation::Portrait); });
@@ -2079,7 +1912,7 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 	vert->Add(new PopupSliderChoiceFloat(&zone.fSwipeSmoothing, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&zone.bGestureControlEnabled);
 
 	vert->Add(new ItemHeader(co->T("Double tap")));
-	vert->Add(new PopupMultiChoice(&zone.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&zone.bGestureControlEnabled);
+	vert->Add(new PopupMultiChoice(&zone.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()));
 
 	vert->Add(new ItemHeader(co->T("Analog Stick")));
 	vert->Add(new CheckBox(&zone.bAnalogGesture, co->T("Enable analog stick gesture")));
@@ -2087,7 +1920,7 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)
-	: PopupScreen(title, "OK", "Cancel") {}
+	: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")) {}
 
 void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

@@ -31,7 +31,7 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 
 		if (dialogFlags & TabDialogFlags::AddAutoTitles) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
-			contents->Add(new PaneTitleBar(gamePath, cachedTitle, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			contents->Add(new PaneTitleBar(gamePath, cachedTitle, ""));
 		}
 
 		createCallback(contents);
@@ -53,8 +53,6 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	// Back button to the bottom left.
 	// Scrolling action menu to the right.
 	using namespace UI;
-
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 	filterNotice_ = new TextView("(filter notice, you shouldn't see this text", new LinearLayoutParams(Margins(20, 5)));
@@ -81,7 +79,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		if (!(flags_ & TabDialogFlags::ContextMenuInPortrait)) {
 			CreateExtraButtons(verticalLayout, 0);
 		}
-		root_->Add(verticalLayout);
+		root_ = verticalLayout;
 	} else {
 		TabHolderFlags tabHolderFlags = TabHolderFlags::Default;
 		if (flags_ & TabDialogFlags::VerticalShowIcons) {
@@ -90,7 +88,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, filterNotice_, nullptr, new AnchorLayoutParams(10, 0, 0, 0));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
-		root_->Add(tabHolder_);
+		root_ = tabHolder_;
 	}
 
 	tabHolder_->SetTag(tag());  // take the tag from the screen.

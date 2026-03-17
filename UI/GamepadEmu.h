@@ -43,9 +43,8 @@ public:
 		return false;
 	}
 	std::string DescribeText() const override;
-	virtual bool IsDown() const = 0;
-	virtual bool IsDownForFadeoutCheck() const {
-		return IsDown();
+	virtual bool IsDownByTouch() const {
+		return false;
 	}
 
 protected:
@@ -61,7 +60,8 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	bool IsDown() const override { return pointerDownMask_ != 0; }
+	virtual bool IsDownVisually() const { return false; }
+	bool IsDownByTouch() const override { return pointerDownMask_ != 0; }
 
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
@@ -91,7 +91,7 @@ public:
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), value_(value) {
 	}
 	bool Touch(const TouchInput &input) override;
-	bool IsDown() const override { return *value_; }
+	bool IsDownVisually() const override { return *value_; }
 
 	UI::Event OnChange;
 
@@ -105,7 +105,7 @@ public:
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
 	}
 	bool Touch(const TouchInput &input) override;
-	bool IsDown() const override;
+	bool IsDownVisually() const override;
 
 private:
 	int pspButtonBit_;
@@ -118,7 +118,7 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	bool IsDown() const override { return down_ != 0; }
+	bool IsDownByTouch() const override { return down_ != 0; }
 
 private:
 	void ProcessTouch(float x, float y, bool down, bool ignorePress);
@@ -140,7 +140,7 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	bool IsDown() const override { return dragPointerId_ != -1; }
+	bool IsDownByTouch() const override { return dragPointerId_ != -1; }
 
 protected:
 	int dragPointerId_ = -1;
@@ -191,8 +191,8 @@ public:
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
 
-	bool IsDown() const override;  // For visual purpose
-	bool IsDownForFadeoutCheck() const override;
+	bool IsDownVisually() const override;  // For visual purpose
+	bool IsDownByTouch() const override;
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:

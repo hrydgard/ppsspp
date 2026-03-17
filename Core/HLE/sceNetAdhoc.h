@@ -18,6 +18,7 @@
 #pragma once
 
 #include <deque>
+#include <string>
 #include "Core/HLE/proAdhoc.h"
 
 #ifdef _MSC_VER
@@ -97,6 +98,30 @@ enum AdhocDiscoverResult : int
 	NET_ADHOC_DISCOVER_RESULT_ABORTED = 3, // Internal Error occured?
 };
 
+enum class AdhocDataMode {
+	P2P = 0,
+	AemuPostoffice,
+};
+
+struct AdhocServerListEntry {
+	std::string name;
+	std::string host;
+	std::string web;
+	std::string ip;  // could be used as a fallback if DNS resolution fails. Currently unused.
+	std::string discord;
+	std::string location;
+	std::string description;
+	std::string statusUrl;  // Usually empty or /data.json.
+	AdhocDataMode mode = AdhocDataMode::P2P;
+};
+
+enum class AdhocLoadListMode {
+	CacheOnlySync,
+	AllSourcesAsync,
+};
+
+void AdhocLoadServerList(AdhocLoadListMode loadMode);
+std::vector<AdhocServerListEntry> AdhocGetServerList(AdhocLoadListMode loadMode);
 
 class PointerWrap;
 

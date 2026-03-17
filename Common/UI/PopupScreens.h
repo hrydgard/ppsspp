@@ -43,6 +43,7 @@ public:
 		notificationLevel_ = noticeLevel;
 		notificationString_ = str;
 	}
+	virtual UI::Margins RootMargins() const override { return UI::Margins(12, 24); }
 
 protected:
 	virtual bool FillVertical() const { return false; }
@@ -58,6 +59,7 @@ private:
 	UI::LinearLayout *box_ = nullptr;
 	UI::Choice *defaultButton_ = nullptr;
 	ImageID button1Image_;
+	ImageID button2Image_;
 	std::string title_;
 	std::string button1_;
 	std::string button2_;
@@ -103,6 +105,9 @@ public:
 	void SetChoiceIcons(const std::map<int, ImageID> &icons) {
 		icons_ = icons;
 	}
+	void SetDefault(int defaultChoice) {
+		adaptor_.SetDefault(defaultChoice);
+	}
 	const char *tag() const override { return "listpopup"; }
 
 	UI::Event OnChoice;
@@ -146,7 +151,7 @@ private:
 class SliderPopupScreen : public PopupScreen {
 public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, int defaultValue, std::string_view title, int step, std::string_view units, bool liveUpdate)
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	void SetNegativeDisable(const std::string &str) {
@@ -189,7 +194,7 @@ private:
 class SliderFloatPopupScreen : public PopupScreen {
 public:
 	SliderFloatPopupScreen(float *value, float minValue, float maxValue, float defaultValue, std::string_view title, float step = 1.0f, std::string_view units = "", bool liveUpdate = false)
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), units_(units), value_(value), originalValue_(*value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "SliderFloatPopup"; }
@@ -217,10 +222,12 @@ private:
 	bool liveUpdate_;
 };
 
+LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase);
+
 class TextEditPopupScreen : public PopupScreen {
 public:
 	TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
-		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	const char *tag() const override { return "TextEditPopup"; }
@@ -232,12 +239,17 @@ public:
 	Event OnChange;
 
 private:
+	virtual UI::Size PopupWidth() const override { return 600; }
+
 	void OnCompleted(DialogResult result) override;
 	TextEdit *edit_ = nullptr;
+	LinearLayout *keyboard_ = nullptr;
+	Choice *showKeyboardChoice_ = nullptr;
 	std::string *value_;
 	std::string textEditValue_;
 	std::string placeholder_;
 	int maxLen_;
+	bool upperCase_ = false;
 	bool passwordMasking_ = false;
 };
 
@@ -311,11 +323,14 @@ public:
 	void SetChoiceIcons(std::map<int, ImageID> icons) {
 		icons_ = icons;
 	}
+	void SetDefault(int defaultChoice) {
+		default_ = defaultChoice;
+	}
 
 	UI::Event OnChoice;
 
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 	ImageID ValueImage() const override {
 		auto iter = icons_.find(*value_);
 		if (iter != icons_.end()) {
@@ -345,6 +360,7 @@ private:
 
 	std::function<void(PopupMultiChoice *)> preOpenCallback_;
 	bool callbackExecuted_ = false;
+	int default_ = -99;
 };
 
 // Allows passing in a dynamic vector of strings. Saves the string.
@@ -429,7 +445,7 @@ public:
 	Event OnChange;
 
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 private:
 	void HandleClick(EventParams &e);
@@ -470,7 +486,7 @@ public:
 	Event OnChange;
 
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 private:
 	void HandleClick(EventParams &e);
@@ -501,8 +517,12 @@ public:
 		minLen_ = minLength;
 	}
 
+	void SetShadowText(std::string_view text) {
+		shadowText_ = text;
+	}
+
 protected:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 private:
 	void HandleClick(EventParams &e);
@@ -511,6 +531,7 @@ private:
 	std::string *value_;
 	std::string placeHolder_;
 	std::string defaultText_;
+	std::string shadowText_;
 	int maxLen_;
 	int minLen_ = 0;
 	bool restoreFocus_ = false;
@@ -529,7 +550,7 @@ public:
 		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {}
 
 private:
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 	std::string *sValue_ = nullptr;
 	int *iValue_ = nullptr;
@@ -544,7 +565,7 @@ enum class FileChooserFileType {
 class FileChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
 	FileChooserChoice(RequesterToken token, std::string *value, std::string_view title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 	Event OnChange;
 
@@ -555,7 +576,7 @@ private:
 class FolderChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
 	FolderChooserChoice(RequesterToken token, std::string *value, std::string_view title, LayoutParams *layoutParams = nullptr);
-	std::string ValueText() const override;
+	std::string ValueText(bool *shadow) const override;
 
 	Event OnChange;
 

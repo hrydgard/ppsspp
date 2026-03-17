@@ -108,7 +108,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	inputAssembly.topology = desc->topology;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-#if PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	if (vulkan->GetWindowSystem() == WindowSystem::WINDOWSYSTEM_METAL_EXT) {
 		if (desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP ||
 		    desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN ||
@@ -446,8 +446,8 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	if (useRenderThread_) {
-		_dbg_assert_(renderThread_.joinable());
+	_dbg_assert_(renderThread_.joinable());
+	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
 		task->frame = vulkan_->GetCurFrame();
@@ -470,10 +470,12 @@ void VulkanRenderManager::StopThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
 		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
-		_assert_(compileThread_.joinable());
+		_dbg_assert_(compileThread_.joinable());
 		compileCond_.notify_one();
 	}
-	compileThread_.join();
+	if (compileThread_.joinable()) {
+		compileThread_.join();
+	}
 
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
@@ -1603,6 +1605,11 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 				outOfDateFrames_++;
 			} else if (res == VK_SUBOPTIMAL_KHR) {
 				outOfDateFrames_++;
+			} else if (res == VK_ERROR_SURFACE_LOST_KHR) {
+				_dbg_assert_msg_(false, "vkQueuePresentKHR failed with VK_ERROR_SURFACE_LOST_KHR! result=%s", VulkanResultToString(res));
+				// Can't really do anything about this here, but let's try to continue anyway, maybe the app is in the process of being switched
+				// away from on Android or something.
+				outOfDateFrames_++;
 			} else if (res != VK_SUCCESS) {
 				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
 			} else {
@@ -1955,7 +1962,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
-				bufferInfo[numBuffers].offset = 0;
+				bufferInfo[numBuffers].offset = 0;  // This is supplied by the dynamic offset.
 				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
 				writes[numWrites].pImageInfo = nullptr;

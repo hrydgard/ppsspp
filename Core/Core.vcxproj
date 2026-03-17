@@ -932,6 +932,7 @@
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">AnySuitable</InlineFunctionExpansion>
     </ClCompile>
     <ClCompile Include="Util\RecentFiles.cpp" />
+    <ClCompile Include="Util\VideoPlayer.cpp" />
     <ClCompile Include="WaveFile.cpp" />
     <ClCompile Include="WebServer.cpp" />
     <ClCompile Include="MIPS\x86\X64IRRegCache.cpp" />
@@ -1266,6 +1267,7 @@
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="Util\RecentFiles.h" />
+    <ClInclude Include="Util\VideoPlayer.h" />
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="WebServer.h" />
     <ClInclude Include="MIPS\x86\X64IRRegCache.h" />

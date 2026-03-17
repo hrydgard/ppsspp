@@ -44,6 +44,8 @@ NoticeLevel GetNoticeLevel(OSDType type) {
 	}
 }
 
+constexpr float m = 4.0f;
+
 // Align only matters here for the ASCII-only flag.
 void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float maxWidth, float *width, float *height, float *height1) {
 	float iconW = 0.0f;
@@ -63,7 +65,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 		}
 	}
 
-	float chromeWidth = iconW + 5.0f + 12.0f;
+	float chromeWidth = iconW + m * 2.0f + 12.0f;
 	float availableWidth = maxWidth - chromeWidth;
 
 	// OK, now that we have figured out how much space we have for the text, we can measure it (with wrapping if needed).
@@ -84,9 +86,11 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 	*width += chromeWidth;
 	if (height2 == 0.0f && iconH < 2.0f * *height1) {
 		// Center vertically using the icon.
-		*height1 = std::max(*height1, iconH + 2.0f);
+		*height1 = std::max(*height1, iconH + m * 2.0f);
 	}
-	*height = std::max(*height1 + height2 + 8.0f, iconH + 5.0f);
+
+	float heightSum = *height1 + (height2 > 0.0f ? height2 + 8.0f : 0.0f);
+	*height = std::max(heightSum, iconH + m);
 }
 
 void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
@@ -110,7 +114,7 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 		if (texture) {
 			iconW = texture->Width();
 			iconH = texture->Height();
-			dc.Draw()->DrawTexRect(Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + m, bounds.y + m, iconW, iconH), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
 			dc.Flush();
 			dc.RebindTexture();
 		}
@@ -121,7 +125,7 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 			// Atlas icon.
 			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
 			if (!iconName.empty()) {
-				Bounds iconBounds = Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH);
+				Bounds iconBounds = Bounds(bounds.x + m, bounds.y + m, iconW, iconH);
 				// HACK: The RA icon needs some background.
 				if (equals(iconName, "I_RETROACHIEVEMENTS_LOGO")) {
 					dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
@@ -130,16 +134,16 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 
 			if (flags & (OSDMessageFlags::SpinLeft | OSDMessageFlags::SpinRight)) {
 				const float direction = (flags & OSDMessageFlags::SpinLeft) ? -1.5f : 1.5f;
-				dc.DrawImageRotated(iconID, bounds.x + 2.5f + iconW * 0.5f, bounds.y + 2.5f + iconW * 0.5f, 1.0f, direction * timeVal, foreGround, false);
+				dc.DrawImageRotated(iconID, bounds.x + m + iconW * 0.5f, bounds.y + m + iconW * 0.5f, 1.0f, direction * timeVal, foreGround, false);
 			} else {
-				dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH));
+				dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + m, bounds.y + m, iconW, iconH));
 			}
 		}
 	}
 
 	// Make room
-	bounds.x += iconW + 5.0f;
-	bounds.w -= iconW + 5.0f;
+	bounds.x += iconW + m * 2.0f;
+	bounds.w -= iconW + m * 2.0f;
 
 	Bounds primaryBounds = bounds;
 	primaryBounds.h = height1;

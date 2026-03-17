@@ -568,7 +568,7 @@
     <ClInclude Include="..\UI\PSPNSApplicationDelegate.h">
       <Filter>Other Platforms\Mac</Filter>
     </ClInclude>
-    <ClInclude Include="..\UI\DarwinFileSystemServices.h">
+    <ClInclude Include="..\Core\Util\DarwinFileSystemServices.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
     <ClInclude Include="..\ios\ViewControllerCommon.h">
@@ -821,7 +821,7 @@
     <None Include="..\UI\PSPNSApplicationDelegate.mm">
       <Filter>Other Platforms\Mac</Filter>
     </None>
-    <None Include="..\UI\DarwinFileSystemServices.mm">
+    <None Include="..\Core\Util\DarwinFileSystemServices.mm">
       <Filter>Other Platforms\iOS</Filter>
     </None>
     <None Include="..\ios\ViewControllerMetal.mm">

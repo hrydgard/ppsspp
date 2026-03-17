@@ -345,6 +345,10 @@ std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 }
 
 GameRegion DetectGameRegionFromID(std::string_view id_full) {
+	if (id_full == "MSTKUPDATE") {
+		return GameRegion::FIRMWARE;
+	}
+
 	// DISC_ID format consists of a 4-letter categorization followed by a 5-digit catalog number.
 	if (id_full.size() == 9 || (id_full.size() == 10 && id_full[4] == '-')) {
 		std::string_view id_letters = id_full.substr(0, 4);
@@ -416,6 +420,7 @@ std::string_view GameRegionToString(GameRegion region) {
 	case GameRegion::INTERNAL: return "Internal";
 	case GameRegion::TEST: return "Test disc";
 	case GameRegion::DIAGNOSTIC: return "Diagnostic tool";
+	case GameRegion::FIRMWARE: return "Firmware update";
 	default: return "unknown region";
 	}
 }

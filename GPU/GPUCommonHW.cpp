@@ -798,6 +798,8 @@ void GPUCommonHW::InvalidateCache(u32 addr, int size, GPUInvalidationType type) 
 }
 
 bool GPUCommonHW::FramebufferDirty() {
+	if (!framebufferManager_)
+		return true;
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -808,6 +810,8 @@ bool GPUCommonHW::FramebufferDirty() {
 }
 
 bool GPUCommonHW::FramebufferReallyDirty() {
+	if (!framebufferManager_)
+		return true;
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
@@ -1290,7 +1294,10 @@ bail:
 
 	int cycles = vertexCost_ * totalVertCount;
 	gpuStats.vertexGPUCycles += cycles;
-	cyclesExecuted += cycles;
+
+	if (!PSP_CoreParameter().compat.flags().FastEmulatedGPU) {
+		cyclesExecuted += cycles;
+	}
 }
 
 void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {

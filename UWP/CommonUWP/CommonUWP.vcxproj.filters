@@ -130,8 +130,6 @@
     <ClCompile Include="..\..\Common\MemArenaPosix.cpp" />
     <ClCompile Include="..\..\Common\MemArenaWin32.cpp" />
     <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
-    <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
-    <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
     <ClCompile Include="..\..\Common\RiscVEmitter.cpp" />
     <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
@@ -538,15 +536,13 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_psp.c">
-      <Filter>ext\aemu_postoffice</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\UI\Notice.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_stdc.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -574,7 +570,6 @@
     <ClInclude Include="..\..\Common\LogReporting.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
-    <ClInclude Include="..\..\Common\MipsEmitter.h" />
     <ClInclude Include="..\..\Common\RiscVEmitter.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
@@ -1047,6 +1042,7 @@
     <ClInclude Include="..\..\Common\UI\Notice.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />

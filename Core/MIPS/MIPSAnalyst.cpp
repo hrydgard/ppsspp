@@ -1350,7 +1350,7 @@ skip:
 			for (auto iter = range.first; iter != range.second; ++iter) {
 				AnalyzedFunction &f = *iter->second;
 				if (f.hash == mf->hash && f.size == mf->size) {
-					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
+					truncate_cpy(f.name, mf->name);
 
 					std::string existingLabel = g_symbolMap->GetLabelString(f.start);
 					char defaultLabel[256];

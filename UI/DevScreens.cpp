@@ -98,7 +98,7 @@ static const char *g_debugOverlayList[] = {
 	"Audio Debug",
 	"GPU Profile",
 	"GPU Allocator Viewer",
-	"Framebuffer List",
+	"Framebuffer list",
 };
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
@@ -132,6 +132,8 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
+
+	items->SetSpacing(0.0f);
 
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Add([this](UI::EventParams & e) {
 		UpdateUIState(UISTATE_PAUSEMENU);
@@ -734,7 +736,7 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 }
 
 void TouchTestScreen::DrawForeground(UIContext &dc) {
-	Bounds bounds = dc.GetLayoutBounds();
+	Bounds bounds = GetLayoutBounds(dc);
 
 	double now = dc.FrameStartTime();
 	double delta = now - lastFrameTime_;

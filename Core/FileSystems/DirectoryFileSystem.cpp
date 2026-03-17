@@ -776,6 +776,10 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	localtime_r((time_t*)&ctime, &x.ctime);
 	localtime_r((time_t*)&mtime, &x.mtime);
 
+	x.atimeUs = info.atimeUs;
+	x.ctimeUs = info.ctimeUs;
+	x.mtimeUs = info.mtimeUs;
+
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
 
@@ -869,7 +873,7 @@ bool DirectoryFileSystem::ComputeRecursiveDirSizeIfFast(const std::string &path,
 	}
 }
 
-std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 
 	std::vector<File::FileInfo> files;
@@ -880,7 +884,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 	if (this->flags & FileSystemFlags::CASE_SENSITIVE) {
 		if (!success) {
 			// TODO: Case sensitivity should be checked on a file system basis, right?
-			std::string fixedPath = path;
+			std::string fixedPath(path);
 			if (FixPathCase(basePath, fixedPath, FPC_FILE_MUST_EXIST)) {
 				// May have failed due to case sensitivity, try again
 				localPath = GetLocalPath(fixedPath);
@@ -1200,7 +1204,7 @@ size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	}
 }
 
-std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 	// TODO
 	if (exists)

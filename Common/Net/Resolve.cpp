@@ -98,6 +98,11 @@ bool HostPortExists(const std::string &host, int port, int timeout_ms) {
 		unsigned long mode = 1;
 		ioctlsocket((SOCKET)sockfd, FIONBIO, &mode);
 #else
+		// On non-Windows, check if fd is too large for select()
+		if (sockfd >= FD_SETSIZE) {
+			close(sockfd);
+			continue;
+		}
 		int flags = fcntl(sockfd, F_GETFL, 0);
 		if (flags == -1) flags = 0;
 		fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
@@ -588,7 +593,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	// Create UDP socket
 	if (sockfd < 0) {
 		ERROR_LOG(Log::sceNet, "Socket creation for direct DNS failed");
-		return 1;
+		return false;
 	}
 
 	struct sockaddr_in server_addr{};
@@ -598,7 +603,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if (net::inet_pton(AF_INET, dns_server_ip, &server_addr.sin_addr) <= 0) {
 		ERROR_LOG(Log::sceNet,"Invalid DNS server IP address %s", dns_server_ip);
 		closesocket(sockfd);
-		return 1;
+		return false;
 	}
 
 	// Build DNS query
@@ -620,7 +625,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		ERROR_LOG(Log::sceNet, "Failed to send DNS query");
 		closesocket(sockfd);
-		return 1;
+		return false;
 	}
 
 	// Receive DNS response
@@ -629,7 +634,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if ((response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len)) < 0) {
 		ERROR_LOG(Log::sceNet, "Failed to receive DNS response");
 		closesocket(sockfd);
-		return 1;
+		return false;
 	}
 
 	// Close socket

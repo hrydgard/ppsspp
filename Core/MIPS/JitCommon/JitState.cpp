@@ -28,7 +28,6 @@ void JitState::Begin(JitBlock *block) {
 	cancel = false;
 	blockStart = block->originalAddress;
 	compilerPC = block->originalAddress;
-	lastContinuedPC = 0;
 	initialBlockSize = 0;
 	nextExit = 0;
 	downcountAmount = 0;
@@ -65,10 +64,6 @@ void JitState::Begin(JitBlock *block) {
 #else
 		enableBlocklink = !Disabled(JitDisable::BLOCKLINK);
 #endif
-		immBranches = false;
-		continueJumps = false;
-		continueMaxInstructions = 300;
-
 		useStaticAlloc = false;
 		enablePointerify = false;
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)

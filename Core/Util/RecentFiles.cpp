@@ -10,6 +10,7 @@
 #include "Core/Loaders.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/Config.h"
 
 RecentFilesManager g_recentFiles;

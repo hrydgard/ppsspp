@@ -370,10 +370,7 @@ public:
 		return sawOutOfMemory_;
 	}
 
-	std::string GetGLString(int name) const {
-		auto it = glStrings_.find(name);
-		return it != glStrings_.end() ? it->second : "";
-	}
+	std::string GetGLString(int name) const;
 
 private:
 	void InitCreateFramebuffer(const GLRInitStep &step);

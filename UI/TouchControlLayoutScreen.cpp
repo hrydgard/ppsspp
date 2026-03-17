@@ -49,7 +49,7 @@ public:
 		scale_ = theScale_;
 	}
 
-	bool IsDown() const override {
+	bool IsDownVisually() const override {
 		// Don't want the button to enlarge and throw the user's perspective
 		// of button size off whack. Also, the other purpose of IsDown is to prevent auto-hide,
 		// but it's not relevant here.

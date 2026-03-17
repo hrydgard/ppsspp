@@ -614,6 +614,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		WARN_LOG(Log::G3D, "CheckLayers for device %d failed", physical_device);
 	}
 
+	queue_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	_dbg_assert_(queue_count >= 1);
 
@@ -1250,13 +1251,14 @@ VkResult VulkanContext::ReinitSurface() {
 
 	// Query presentation modes. We need to know which ones are available for InitSwapchain().
 	availablePresentModes_.clear();
-	uint32_t presentModeCount;
+	uint32_t presentModeCount = 0;
 	VkResult res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
-	availablePresentModes_.resize(presentModeCount);
 	_dbg_assert_(res == VK_SUCCESS);
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
-	_dbg_assert_(res == VK_SUCCESS);
-
+	if (res == VK_SUCCESS) {
+		availablePresentModes_.resize(presentModeCount);
+		res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
+		_dbg_assert_(res == VK_SUCCESS);
+	}
 	return VK_SUCCESS;
 }
 

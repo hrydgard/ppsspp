@@ -240,6 +240,9 @@ void ControlMappingScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
 		parent->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
+	parent->Add(new Choice(km->T("Show PSP")))->OnClick.Add([this](UI::EventParams &params) {
+		screenManager()->push(new VisualMappingScreen(gamePath_));
+	});
 	parent->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
 	parent->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
 }
@@ -416,7 +419,7 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 
 // Only used during the bind process. In other places, it's configurable for some types of axis, like trigger.
 const float AXIS_BIND_THRESHOLD = 0.75f;
-const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
+const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably (hysteresis).
 
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (time_now_d() < delayUntil_)
@@ -897,7 +900,8 @@ void VisualMappingScreen::CreateViews() {
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
 
-	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
+	// TODO: Properly use layout instead of querying bounds.
+	Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
 	// Account for left side.
 	bounds.w -= leftColumnWidth + 10.0f;
 
@@ -1021,7 +1025,7 @@ void VisualMappingScreen::MapNext(bool successive) {
 		HandleKeyMapping(mapping);
 	}, I18NCat::KEYMAPPING);
 
-	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
+	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds(LayoutMode(), false);
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
 	dialog->SetDelay(successive ? 0.5f : 0.1f);
 	screenManager()->push(dialog);

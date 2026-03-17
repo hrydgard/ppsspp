@@ -410,8 +410,7 @@ void OSDOverlayScreen::DrawForeground(UIContext &ui) {
 
 	// Special case control for now, since it uses the control mapper that's owned by EmuScreen.
 	if (debugOverlay != DebugOverlay::OFF && debugOverlay != DebugOverlay::CONTROL) {
-		UIContext *uiContext = screenManager()->getUIContext();
-		DrawDebugOverlay(uiContext, uiContext->GetLayoutBounds(), debugOverlay);
+		DrawDebugOverlay(&ui, GetLayoutBounds(ui), debugOverlay);
 	}
 }
 
@@ -424,6 +423,11 @@ void OSDOverlayScreen::update() {
 	}
 
 	DoRecreateViews();
+}
+
+ViewLayoutMode OSDOverlayScreen::LayoutMode() const {
+	// Need the full insets to avoid notifications appearing out of any bounds.
+	return ViewLayoutMode::ApplyInsets;
 }
 
 void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {

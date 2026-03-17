@@ -5,6 +5,7 @@
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 namespace UI {
 
@@ -54,6 +55,9 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			if (layoutParams_->height == WRAP_CONTENT)
 				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		}
+
+		// The below seems misguided and leads to wrong sized scrollviews. Need to investigate if it's needed somewhere...
+		/*
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
 			float bestHeight = std::max(views_[0]->GetMeasuredHeight(), views_[0]->GetBounds().h);
 			if (vert.type == AT_MOST)
@@ -62,7 +66,7 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			if (measuredHeight_ < bestHeight && layoutParams_->height < 0.0f) {
 				measuredHeight_ = bestHeight;
 			}
-		}
+		}*/
 	}
 }
 
@@ -142,6 +146,16 @@ const float friction = 0.92f;
 const float stop_threshold = 0.1f;
 
 bool ScrollView::Touch(const TouchInput &input) {
+	if (input.flags & TouchInputFlags::MOUSE) {
+		// Kinda hacky, we should make a proper hover mechanism.
+		mouseHover_ = bounds_.Contains(input.x, input.y);
+	}
+
+	// Ignore buttons other than the left one.
+	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
+		return false;
+	}
+
 	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();
@@ -166,11 +180,6 @@ bool ScrollView::Touch(const TouchInput &input) {
 		}
 		scrollTouchId_ = -1;
 		draggingBob_ = false;
-	}
-
-	if (input.flags & TouchInputFlags::MOUSE) {
-		// Kinda hacky, we should make a proper hover mechanism.
-		mouseHover_ = bounds_.Contains(input.x, input.y);
 	}
 
 	// We modify the input2 we send to children, so we can cancel drags if we start scrolling, and stuff like that.
@@ -270,8 +279,8 @@ void ScrollView::Draw(UIContext &dc) {
 	// If not anchored at the top of the screen exactly, and not scrolled to the top,
 	// draw a subtle drop shadow to indicate scrollability.
 
-	const float darkness = 0.4f;
-	if (bounds_.y > 0.0f && orientation_ == ORIENT_VERTICAL) {
+	constexpr float darkness = 0.4f;
+	if (shadows_ && bounds_.y > 0.0f && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
 		Bounds shadowBounds = bounds_;
@@ -285,9 +294,9 @@ void ScrollView::Draw(UIContext &dc) {
 		dc.DrawRectDropShadow(shadowBounds, radius, fade);
 	}
 
-	// Same at the bottom.
-	float y2 = dc.GetLayoutBounds().y2();
-	if (bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
+	// Same at the bottom. (we check against the common UI layout mode)
+	const float y2 = dc.GetLayoutBounds(ViewLayoutMode::IgnoreBottomInset, false).y2();
+	if (shadows_ && bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
 		Bounds shadowBounds = bounds_;
@@ -477,10 +486,10 @@ float ScrollView::ClampedScrollPos(float pos) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
 			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
-			pull_ = -(sqrt(dist) * maxPull);
+			pull_ = -(sqrtf(dist) * maxPull);
 		} else if (pos > scrollMax) {
 			float dist = std::min((pos - scrollMax) * (1.0f / bounds_.h), 1.0f);
-			pull_ = sqrt(dist) * maxPull;
+			pull_ = sqrtf(dist) * maxPull;
 		} else {
 			pull_ = 0.0f;
 		}
@@ -613,10 +622,17 @@ void ListView::OnItemCallback(int num, EventParams &e) {
 
 View *ChoiceListAdaptor::CreateItemView(int index, bool selected, ImageID *optionalImageID) {
 	Choice *choice;
+
+	std::string title = items_[index];
+	if (default_ == index) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		title = ApplySafeSubstitutions("%1 (%2)", title, di->T("Default"));
+	}
+
 	if (optionalImageID) {
-		choice = new Choice(items_[index], *optionalImageID);
+		choice = new Choice(title, *optionalImageID);
 	} else {
-		choice = new Choice(items_[index]);
+		choice = new Choice(title);
 	}
 	if (selected) {
 		choice->SetSelectedIndicator(true);
@@ -632,7 +648,12 @@ void ChoiceListAdaptor::AddEventCallback(View *view, std::function<void(EventPar
 }
 
 View *StringVectorListAdaptor::CreateItemView(int index, bool selected, ImageID *optionalImageID) {
-	Choice *choice = new Choice(items_[index], optionalImageID ? *optionalImageID : ImageID());
+	std::string title = items_[index];
+	if (index == default_) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		title = ApplySafeSubstitutions("%1 (%2)", title, di->T("Default"));
+	}
+	Choice *choice = new Choice(title, optionalImageID ? *optionalImageID : ImageID());
 	if (selected) {
 		choice->SetSelectedIndicator(true);
 	}

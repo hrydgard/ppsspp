@@ -47,7 +47,9 @@ import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -57,6 +59,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
+import androidx.core.view.DisplayCutoutCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -570,6 +573,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@SuppressLint("SourceLockedOrientationActivity")
 	private void updateScreenRotation(String cause) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			if (isInMultiWindowMode()) {
+				// Do not try to enforce rotation! This can result in re-init loops.
+				return;
+			}
+		}
+
 		// Query the native application on the desired rotation.
 		int rot;
 		String rotString = NativeApp.queryConfig("screenRotation");
@@ -611,13 +621,23 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@SuppressLint("InlinedApi")
 	private void updateSystemUiVisibility() {
 		Window window = getWindow();
-
-		window.setStatusBarColor(Color.TRANSPARENT);
-		window.setNavigationBarColor(0x80000000);
-
 		int orientation = getResources().getConfiguration().orientation;
 
 		WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			// Tell Android to use light icons on the bars.
+			controller.setAppearanceLightStatusBars(false);
+			controller.setAppearanceLightNavigationBars(false);
+		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+			// This tells Android to not add any automatic shadows.
+			window.setStatusBarContrastEnforced(false);
+			window.setNavigationBarContrastEnforced(true);  // we do want this on the nav bar, for now.
+		}
+
+		window.setStatusBarColor(Color.TRANSPARENT);
+		window.setNavigationBarColor(0x80000000);
 
 		controller.setSystemBarsBehavior(
 			WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -882,39 +902,23 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private void setInsetsListener(SurfaceView surfaceView) {
 		ViewCompat.setOnApplyWindowInsetsListener(surfaceView, (v, insets) -> {
-			if (Build.VERSION.SDK_INT >= 28) {
-				int orientation = getResources().getConfiguration().orientation;
-				updateInsets(insets, orientation);  // replace your updateInsets() to support WindowInsetsCompat
-			}
+			updateInsets(insets);  // replace your updateInsets() to support WindowInsetsCompat
 			return insets;               // or WindowInsetsCompat.CONSUMED if you want to stop propagation
 		});
 	}
 
-	@RequiresApi(Build.VERSION_CODES.P)
-	private void updateInsets(WindowInsetsCompat insetCompat, int orientation) {
+	private void updateInsets(WindowInsetsCompat insetCompat) {
 		if (insetCompat == null) {
 			return;
 		}
-
+		DisplayCutoutCompat cutout = insetCompat.getDisplayCutout();
+		boolean hasCameraCutout = cutout != null && !cutout.getBoundingRects().isEmpty();
 		Insets insets = insetCompat.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
 		int left = insets.left;
 		int right = insets.right;
 		int top = insets.top;
 		int bottom = insets.bottom;
-
-		// Log.w(TAG, "updateInsets: " + left + ", " + right + ", " + top + ", " + bottom);
-
-		// Hack to make things symmetrical in landscape. Needed on Poco F1, for example.
-		if (orientation == Configuration.ORIENTATION_LANDSCAPE && useImmersive()) {
-			if (left > 0 && right > 0) {
-				int smallestNonZero = Math.min(right, left);
-				// Log.i(TAG, "Both left and right insets but not equal: " + left + " != " + right + " : Equalizing to " + smallest);
-				left = smallestNonZero;
-				right = smallestNonZero;
-			}
-		}
-
-		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom);
+		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom + ":" + (hasCameraCutout ? 1 : 0));
 	}
 
 	public void notifySurface(Surface surface) {
@@ -1239,8 +1243,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 						char c = (char) unicode;
 						Log.i(TAG, "Key char event " + unicode);
 						// Handle alphanumeric character
-						NativeApp.keyChar(NativeApp.DEVICE_ID_KEYBOARD, (int)c);
-						return true;
+						NativeApp.keyChar(NativeApp.DEVICE_ID_KEYBOARD, c);
+						// Note: We also want to generate a KeyDown event with keycode.
 					}
 
 					// Log.i(TAG, "KeyEvent Down");
@@ -1266,7 +1270,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@RequiresApi(Build.VERSION_CODES.N)
 	void sendMouseDelta(float dx, float dy) {
 		// Ignore zero deltas.
-		if (Math.abs(dx) > 0.001 || Math.abs(dx) > 0.001) {
+		if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
 			NativeApp.mouseDelta(dx, dy);
 		}
 	}
@@ -1501,26 +1505,24 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
-		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
-		return bld;
+		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 	}
 
 	@RequiresApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
-		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
-		bld.setOnDismissListener(dialog -> updateSystemUiVisibility());
-		return bld;
+		return new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
+	}
+
+	private AlertDialog.Builder createDialogBuilder() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			return createDialogBuilderNew();
+		} else {
+			return createDialogBuilderWithDeviceThemeAndUiVisibility();
+		}
 	}
 
 	// The return value is sent to C++ via requestID.
 	public void inputBox(final int requestId, final String title, String defaultText, String defaultAction) {
-		// Workaround for issue #13363 to fix Split/Second game start
-		if (isVRDevice()) {
-			NativeApp.sendRequestResult(requestId, false, defaultText, 0);
-			return;
-		}
-
 		final FrameLayout fl = new FrameLayout(this);
 		final EditText input = new EditText(this);
 		input.setGravity(Gravity.CENTER);
@@ -1530,39 +1532,49 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		fl.addView(input, editBoxLayout);
 
 		input.setInputType(InputType.TYPE_CLASS_TEXT);
+		input.setImeOptions(EditorInfo.IME_ACTION_DONE);
 		input.setText(defaultText);
+		input.setFocusableInTouchMode(true);
+		input.requestFocus();
 		input.selectAll();
+		//input.setSelection(input.getText().length());
 
-		AlertDialog.Builder bld;
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			bld = createDialogBuilderNew();
-		} else {
-			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
-		}
-
-		AlertDialog.Builder builder = bld
+		AlertDialog.Builder builder = createDialogBuilder()
 			.setView(fl)
 			.setTitle(title)
 			.setPositiveButton(defaultAction, (d, which) -> {
 				Log.i(TAG, "input box successful");
 				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
-				d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
+				// Dismiss happens automatically.
 			})
-			.setNegativeButton("Cancel", (d, which) -> {
-				Log.i(TAG, "input box cancelled");
-				NativeApp.sendRequestResult(requestId, false, "", 0);
-				d.cancel();
-			});
-		builder.setOnDismissListener(d -> {
+			.setNegativeButton("Cancel", (d, which) -> d.cancel());
+		builder.setOnDismissListener(	d -> {
 			Log.i(TAG, "input box dismissed");
+			// This will be ignored if we already sent a success.
 			NativeApp.sendRequestResult(requestId, false, "", 0);
 			updateSystemUiVisibility();
 		});
-		AlertDialog dlg = builder.create();
 
+		AlertDialog dlg = builder.create();
+		input.setOnEditorActionListener((v, actionId, event) -> {
+			if (actionId == EditorInfo.IME_ACTION_DONE) {
+				Log.i(TAG, "input box successful via Keyboard Done");
+				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
+
+				// We must dismiss the dialog manually here
+				dlg.dismiss();
+				return true; // Consume the event
+			}
+			return false;
+		});
 		dlg.setCancelable(true);
+		Window wnd = dlg.getWindow();
+		if (wnd != null) {
+			wnd.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+		}
 		try {
 			dlg.show();
+			input.requestFocus();
 		} catch (Exception e) {
 			NativeApp.reportException(e, "AlertDialog");
 		}
@@ -1617,9 +1629,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			try {
 				int requestId = Integer.parseInt(params);
 				int packedResultCode = packResultCode(RESULT_LOAD_IMAGE, requestId);
+				// 1. To Launch the picker:
+				Intent picker = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+				Intent proxy = new Intent(this, ImageResultProxyActivity.class);
+				proxy.putExtra("picker_intent", picker);
+				proxy.putExtra("request_id", requestId);
 				Log.i(TAG, "image request ID: " + requestId + " packed: " + packedResultCode);
-				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-				startActivityForResult(i, packedResultCode);
+				startActivity(proxy);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				NativeApp.reportException(e, params);
@@ -1711,6 +1727,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				title = param[1];
 			if (param.length > 2)
 				defString = param[2];
+			// Workaround for issue #13363 to fix Split/Second game start - it requires text input
+			// but we don't support it on VR devices.
+			if (isVRDevice()) {
+				NativeApp.sendRequestResult(requestID, false, defString, 0);
+				return true;
+			}
 			Log.i(TAG, "Launching inputbox: #" + requestID + " " + title + " " + defString);
 			inputBox(requestID, title, defString, "OK");
 			return true;
@@ -1731,19 +1753,23 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// Note that these three do not require the VIBRATE Android
 			// permission.
 			if (surfView != null) {
-				switch (milliseconds) {
-					case -1:
-						surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					case -2:
-						surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					case -3:
-						surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					default:
-						// Requires the vibrate permission, which we don't have, so disabled.
-						break;
+				try {
+					switch (milliseconds) {
+						case -1:
+							surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							break;
+						case -2:
+							surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							break;
+						case -3:
+							surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							break;
+						default:
+							// Requires the vibrate permission, which we don't have, so disabled.
+							break;
+					}
+				} catch (Exception e) {
+					// Ignore. Seen these in reporting but don't understand how.
 				}
 			} else {
 				Log.e(TAG, "Can't vibrate, no surface view");
@@ -1909,16 +1935,57 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
+	public static void logIntentExtras(Intent intent) {
+		if (intent == null) {
+			Log.i(TAG, "Intent is null");
+			return;
+		}
+		Bundle bundle = intent.getExtras();
+		if (bundle != null) {
+			for (String key : bundle.keySet()) {
+				Object value = bundle.get(key);
+				String type = (value != null) ? value.getClass().getSimpleName() : "null";
+				Log.i(TAG, String.format("Extra Key: %s | Value: %s | Type: %s", key, value, type));
+			}
+		} else {
+			Log.i(TAG, "Intent has no extras.");
+		}
+	}
+
 	@Override
 	public void onNewIntent(Intent intent) {
 		super.onNewIntent(intent);
-		setIntent(intent);
-		String value = parseIntent(intent);
-		if (value != null) {
-			// TODO: Actually send a command to the native code to launch the new game.
-			Log.i(TAG, "NEW INTENT AT RUNTIME: " + value);
-			Log.i(TAG, "Posting a 'shortcutParam' message to the C++ code.");
-			NativeApp.sendMessageFromJava("shortcutParam", value);
+
+		Log.i(TAG, "onNewIntent: " + intent.toString());
+
+		if (intent.hasExtra("request_id")) {
+			logIntentExtras(intent);
+			// This was a proxied image request.
+			int requestId = intent.getIntExtra("request_id", -1);
+			int resultCode = intent.getIntExtra("result_code", RESULT_CANCELED);
+			String path = intent.getStringExtra("result_path");
+
+			if (path != null) {
+				Log.i(TAG, "Received valid intent: " + path);
+				Log.i(TAG, "requestId: " + requestId + " resultCode: " + resultCode);
+
+				// Now you can call your native method
+				NativeApp.sendRequestResult(requestId, (resultCode == RESULT_OK), path, resultCode);
+			} else {
+				Log.i(TAG, "Received failed intent");
+				Log.i(TAG, "requestId: " + requestId + " resultCode: " + resultCode);
+				NativeApp.sendRequestResult(requestId, false,"", resultCode);
+			}
+		} else {
+			// Someone launched a shortcut while we were running....
+			setIntent(intent);
+			String value = parseIntent(intent);
+			if (value != null) {
+				// TODO: Actually send a command to the native code to launch the new game.
+				Log.i(TAG, "NEW INTENT AT RUNTIME: " + value);
+				Log.i(TAG, "Posting a 'shortcutParam' message to the C++ code.");
+				NativeApp.sendMessageFromJava("shortcutParam", value);
+			}
 		}
 	}
 
@@ -1929,12 +1996,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void postCommand(String command, String parameter) {
 		final String cmd = command;
 		final String param = parameter;
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (!processCommand(cmd, param)) {
-					Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
-				}
+		runOnUiThread(() -> {
+			if (!processCommand(cmd, param)) {
+				Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
 			}
 		});
 	}

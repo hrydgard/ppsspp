@@ -24,13 +24,18 @@
 #include <string>
 
 #include "Common/Net/SocketCompat.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/Net/HTTPRequest.h"
 
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
@@ -86,11 +91,192 @@ std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 bool serverHasRelay = false;
+std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
+bool trackingRelayFailure = false;
+bool relayDisabled = false;
+bool relayFirstConnect = true;
+bool g_serverListLoaded = false;
 
 int gameModeNotifyEvent = -1;
 
 #define AEMU_POSTOFFICE_PORT 27313
 #define AEMU_POSTOFFICE_ID_BASE 2048
+#define RELAY_FAILURE_DISABLE_THRESHOLD_SEC 15
+
+static const char *AdhocDataModeToString(AdhocDataMode mode) {
+	switch (mode) {
+	case AdhocDataMode::P2P:
+		return "AdhocDataMode::P2P";
+	case AdhocDataMode::AemuPostoffice:
+		return "AdhocDataMode::AemuPostoffice";
+	default:
+		break;
+	}
+	return "unknown";
+}
+
+// We download the list and cache it on disk.
+// The URL can also be a local file path, in which case the download doesn't happen. This is only
+// for power users / debugging.
+std::mutex g_proAdhocServerListMutex;
+std::vector<AdhocServerListEntry> g_proAdhocServerList;
+
+static bool ParseServerListEntriesJSON(std::string_view json) {
+	using namespace json;
+
+	// Use our JSONReader to parse json into a list of AdhocServerListEntry.
+	json::JsonReader reader(json.data(), json.length());
+
+	if (!reader.ok() || !reader.root()) {
+		ERROR_LOG(Log::IO, "Error parsing adhoc server list JSON");
+		return false;
+	}
+
+	const JsonGet root = reader.root();
+
+	const JsonNode *servers = root.getArray("servers");
+
+	std::vector<AdhocServerListEntry> newList;
+
+	for (const JsonNode *iter : servers->value) {
+		JsonGet server = iter->value;
+		AdhocServerListEntry entry;
+		entry.name = server.getStringOr("name", "");
+		entry.discord = server.getStringOr("discord", "");
+		entry.host = server.getStringOr("host", "");
+		entry.web = server.getStringOr("web", "");
+		entry.ip = server.getStringOr("ip", "");
+		entry.location = server.getStringOr("location", "");
+		entry.description = server.getStringOr("description", "");
+		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+		entry.statusUrl = server.getStringOr("status_url", "");
+
+		if (entry.host.empty()) {
+			// Skipping invalid entry.
+			continue;
+		}
+		newList.push_back(entry);
+	}
+
+	{
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+		g_proAdhocServerList = newList;
+	}
+	System_PostUIMessage(UIMessage::ADHOC_SERVER_LIST_CHANGED);
+	return true;
+}
+
+static void LoadFallbackServerList() {
+	// Fall back to the asset file. Don't bother doing it on a thread.
+	size_t jsonSize;
+	std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("adhoc-servers.json", &jsonSize));
+	if (!jsonStr) {
+		ERROR_LOG(Log::sceNet, "Failed to load adhoc server list from assets! Something is badly wrong.");
+		_dbg_assert_(false);
+		// Something went wrong. This shouldn't happen.
+		return;
+	}
+	ParseServerListEntriesJSON(std::string_view((char*)jsonStr.get(), jsonSize));
+	g_serverListLoaded = true;
+}
+
+void AdhocLoadServerList(AdhocLoadListMode loadMode) {
+	{
+		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+		if (!g_proAdhocServerList.empty()) {
+			return;
+		}
+	}
+
+	// NOTE: If you want to load from a local file, set g_Config.sAdhocServerListUrl directly to the local path.
+	// There's currently no file:// support, as far as I remember.
+
+	if (startsWith(g_Config.sAdhocServerListUrl, "http")) {
+		if (loadMode == AdhocLoadListMode::CacheOnlySync) {
+			std::string json;
+			if (g_DownloadManager.ReadFileFromCache(g_Config.sAdhocServerListUrl, &json)) {
+				if (ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
+					g_serverListLoaded = true;
+					return;
+				}
+			}
+			ERROR_LOG(Log::sceNet, "Failed to load cached adhoc server list %s from cache, falling back.", g_Config.sAdhocServerListUrl.c_str());
+			LoadFallbackServerList();
+			return;
+		}
+
+		// Download the list.
+		auto dl = g_DownloadManager.StartDownload(g_Config.sAdhocServerListUrl, Path(), http::RequestFlags::Cached24H, nullptr, "adhoc-servers", [url = g_Config.sAdhocServerListUrl](http::Request &request) {
+			if (request.Failed()) {
+				ERROR_LOG(Log::sceNet, "Failed to download adhoc server list from %s, falling back.", url.c_str());
+				LoadFallbackServerList();
+				return;
+			}
+
+			INFO_LOG(Log::sceNet, "Successfully downloaded adhoc server list from %s", url.c_str());
+
+			std::string json;
+			request.buffer().TakeAll(&json);
+			if (!ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
+				LoadFallbackServerList();
+				return;
+			}
+		});
+		g_serverListLoaded = true;
+	} else if (!g_Config.sAdhocServerListUrl.empty()) {
+		// Try to read local file.
+		std::string json;
+		Path path(g_Config.sAdhocServerListUrl);
+		if (!File::ReadTextFileToString(path, &json)) {
+			ERROR_LOG(Log::sceNet, "Failed to load list from %s, falling back.", path.ToVisualString().c_str());
+			LoadFallbackServerList();
+			return;
+		}
+		if (!ParseServerListEntriesJSON(std::string_view(json.data(), json.size()))) {
+			LoadFallbackServerList();
+		}
+	} else {
+		LoadFallbackServerList();
+	}
+}
+
+std::vector<AdhocServerListEntry> AdhocGetServerList(AdhocLoadListMode loadMode) {
+	if (!g_serverListLoaded) {
+		// We're probably in-game - so we don't want to do a download and risk blocking.
+		// Instead we read out of cache, it should be good enough.
+		AdhocLoadServerList(loadMode);
+	}
+
+	std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
+	return g_proAdhocServerList;
+}
+
+static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
+	std::vector<AdhocServerListEntry> list = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
+	for (const auto &item : list) {
+		if (equals(server, item.host)) {
+			INFO_LOG(Log::sceNet, "server %.*s is in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(item.mode));
+			return item.mode;
+		}
+	}
+
+	for (const auto &item : g_Config.vCustomAdhocServerList) {
+		if (equals(server, item)) {
+			INFO_LOG(Log::sceNet, "server %.*s is in custom list without relay, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::P2P));
+			return AdhocDataMode::P2P;
+		}
+	}
+
+	for (const auto &item : g_Config.vCustomAdhocServerListWithRelay) {
+		if (equals(server, item)) {
+			INFO_LOG(Log::sceNet, "server %.*s is in custom list with relay, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::AemuPostoffice));
+			return AdhocDataMode::AemuPostoffice;
+		}
+	}
+
+	INFO_LOG(Log::sceNet, "server %.*s is not in known list, using data mode %s", STR_VIEW(server), AdhocDataModeToString(AdhocDataMode::P2P));
+	return AdhocDataMode::P2P;
+}
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
@@ -457,7 +643,38 @@ static uint16_t reverse_port_simple(uint16_t port) {
 	return port - portOffset;
 }
 
+static void handle_relay_connect_failure() {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	if (!trackingRelayFailure) {
+		trackingRelayFailure = true;
+		relayLastFailure = std::chrono::steady_clock::now();
+	}
+	int been_failing_since_sec = (std::chrono::steady_clock::now() - relayLastFailure) / std::chrono::seconds(1);
+	if (been_failing_since_sec < RELAY_FAILURE_DISABLE_THRESHOLD_SEC) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Failed connecting to relay server"), 4.0f, "relay_status");
+	} else {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, ApplySafeSubstitutions(n->T("Failed connecting to relay server for %1 seconds, relay disabled"), RELAY_FAILURE_DISABLE_THRESHOLD_SEC), 10.0f, "relay_status");
+		relayDisabled = true;
+	}
+}
+
+static void handle_relay_connect_success() {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	if (trackingRelayFailure) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connection to relay has recovered"), 2.0f, "relay_status");
+	}
+	if (relayFirstConnect) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Connected to relay"), 2.0f, "relay_status");
+		relayFirstConnect = false;
+	}
+	trackingRelayFailure = false;
+}
+
 static void *pdp_postoffice_recover(int idx) {
+	if (relayDisabled) {
+		return NULL;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
 		return internal->postofficeHandle;
@@ -476,6 +693,9 @@ static void *pdp_postoffice_recover(int idx) {
 	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
+		handle_relay_connect_failure();
+	} else {
+		handle_relay_connect_success();
 	}
 
 	INFO_LOG(Log::sceNet, "%s: pdp recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
@@ -517,6 +737,7 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 
 	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
@@ -573,6 +794,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 			if (next_size > *req.length) {
 				// next is larger than current buffer
 				result = SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
+				*req.length = next_size;
 				return 0;
 			}
 			ret = pdp_recv_postoffice(req.id - 1, req.remoteMAC, req.remotePort, req.buffer, req.length);
@@ -699,6 +921,7 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 
 	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, offset_port_simple(dport), (char *)data, len, true);
 	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
@@ -778,6 +1001,10 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 }
 
 static int ptp_send_postoffice(int idx, const void *data, int *len) {
+	if (relayDisabled) {
+		return SOCKET_ERROR;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 
 	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
@@ -788,6 +1015,8 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
+		// this is not necessarily a relay failure, could simply be the other side disconnecting
+		//handle_relay_connect_failure();
 		return SOCKET_ERROR;
 	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
@@ -874,6 +1103,10 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 }
 
 static int ptp_recv_postoffice(int idx, void *data, int *len) {
+	if (relayDisabled) {
+		return SOCKET_ERROR;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 
 	int len_copy = *len;
@@ -887,6 +1120,8 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
+		// this is not necessarily a relay failure, could simply be the other side disconnecting
+		//handle_relay_connect_failure();
 		return SOCKET_ERROR;
 	}
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
@@ -980,6 +1215,10 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 }
 
 static void *ptp_listen_postoffice_recover(int idx) {
+	if (relayDisabled) {
+		return NULL;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
 		return internal->postofficeHandle;
@@ -996,6 +1235,9 @@ static void *ptp_listen_postoffice_recover(int idx) {
 
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed recovering ptp listen socket, %d", __func__, state);
+		handle_relay_connect_failure();
+	} else {
+		handle_relay_connect_success();
 	}
 
 	INFO_LOG(Log::sceNet, "%s: ptp listen recovery for id %d: %p", __func__, idx + 1, internal->postofficeHandle);
@@ -1016,6 +1258,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			handle_relay_connect_failure();
 			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
 			adhocSockets[idx]->postofficeHandle = NULL;
 			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
@@ -1028,7 +1271,8 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
-    // we have a new socket
+	// we have a new socket
+	handle_relay_connect_success();
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: critical: ran out of heap memory while accepting new connection", __func__);
@@ -1140,6 +1384,10 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 }
 
 static int ptp_connect_postoffice(int idx, const char *caller) {
+	if (relayDisabled) {
+		return SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 
 	struct aemu_post_office_sock_addr addr;
@@ -1166,9 +1414,13 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
+				// do not count ptp connect failure as relay failure, since it could be the other client not accepting the connection
+				//handle_relay_connect_failure();
 				internal->connectThreadDone = true;
 				return;
 			}
+			// see above, ptp connect result is not used for checking if relay is working
+			//handle_relay_connect_success();
 			internal->postofficeHandle = ptp_socket;
 			internal->connectThreadResult = 0;
 			INFO_LOG(Log::sceNet, "%s: connected ptp socket with id %d %p", __func__, idx + 1, internal->postofficeHandle);
@@ -1648,11 +1900,35 @@ u32 sceNetAdhocInit() {
 		// Since we are deleting GameMode Master here, we should probably need to make sure GameMode resources all cleared too.
 		deleteAllGMB();
 
-		serverHasRelay = g_Config.bUseServerRelay;
+		switch ((AdhocServerRelayMode)g_Config.iAdhocServerRelayMode) {
+		case AdhocServerRelayMode::Auto:
+			serverHasRelay = false;
+			// Fetch data mode from server list
+			if (AdhocGetServerDataMode(g_Config.sProAdhocServer) == AdhocDataMode::AemuPostoffice) {
+				serverHasRelay = true;
+				trackingRelayFailure = false;
+				relayDisabled = false;
+				relayFirstConnect = true;
+			}
+			break;
+		case AdhocServerRelayMode::AlwaysOn:
+			serverHasRelay = true;
+			trackingRelayFailure = false;
+			relayDisabled = false;
+			relayFirstConnect = true;
+			break;
+		default:
+			serverHasRelay = false;
+			break;
+		}
 
 		if (serverHasRelay) {
 			aemu_post_office_init();
 		}
+
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", n->T("Ad Hoc multiplayer"), modeStr), 0.0f, "adhoc started");
 
 		// Return Success
 		return hleLogInfo(Log::sceNet, 0, "at %08x", currentMIPS->pc);
@@ -1728,6 +2004,10 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 }
 
 static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize) {
+	if (relayDisabled) {
+		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "relay disabled");
+	}
+
 	AdhocSocket *internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "net no space");
@@ -2301,6 +2581,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 						}
 						if (next_size > *len) {
 							// next is larger than current buffer
+							*len = next_size;
 							return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
 						}
 						received = pdp_recv_postoffice(id - 1, saddr, sport, buf, len);
@@ -4594,6 +4875,10 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 }
 
 static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize) {
+	if (relayDisabled) {
+		return ERROR_NET_NO_SPACE;
+	}
+
 	// server connect delegated to accept
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {

@@ -141,15 +141,52 @@ Bounds UIContext::GetScissorBounds() {
 		return bounds_;
 }
 
-Bounds UIContext::GetLayoutBounds(bool ignoreBottomInset) const {
-	Bounds bounds = GetBounds();
-
+Bounds UIContext::GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode) const {
 	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
 	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
-	if (ignoreBottomInset) {
+
+	const bool hasCameraCutout = System_GetPropertyBool(SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT);
+
+	switch (layoutMode) {
+	case ViewLayoutMode::ApplyInsets:
+		// Nothing to do
+		break;
+	case ViewLayoutMode::IgnoreInsets:
+		left = 0.0f;
+		top = 0.0f;
+		right = 0.0f;
 		bottom = 0.0f;
+		break;
+	case ViewLayoutMode::IgnoreBottomInset:
+		bottom = 0.0f;
+		break;
+	}
+
+	if (immersiveMode) {
+		if (!hasCameraCutout) {
+			// No cutout, so if the nav bar is hidden, we can use the full width of the screen.
+			left = 0.0f;
+			right = 0.0f;
+		} else if (left > 0 && right > 0) {
+			// Navigation bar is available, so insets leave space for it
+			// even if it's hidden.
+			int smallestNonZero = std::min(right, left);
+			left = smallestNonZero;
+			right = smallestNonZero;
+		} else {
+			int sideWidth = std::max(left, right);
+			left = sideWidth;
+			right = sideWidth;
+		}
+	} else {
+		if ((left > 0) != (right > 0)) {
+			// Only one side has a cutout (surely the camera, which is usually smaller than the nav bar), so use the larger of the two for both sides.
+			int sideWidth = std::max(left, right);
+			left = sideWidth;
+			right = sideWidth;
+		}
 	}
 
 	// Note that we ignore bottom here, to let lists etc. extend to the bottom of the screen.
@@ -157,6 +194,7 @@ Bounds UIContext::GetLayoutBounds(bool ignoreBottomInset) const {
 	// touch things below the safe inset.
 
 	// Adjust left edge to compensate for cutouts (notches) if any.
+	Bounds bounds = GetBounds();
 	bounds.x += left;
 	bounds.w -= (left + right);
 	bounds.y += top;

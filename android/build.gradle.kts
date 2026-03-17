@@ -36,12 +36,17 @@ val isDirty = providers.git("status", "--porcelain")
 	.lineSequence()
 	.any { it.isNotBlank() && !it.startsWith("??") } // untrackedIsDirty = false
 
-val (major, minor, patch) = gitTag
+val versionParts = gitTag
 	.removePrefix("v")
 	.split(".")
-	.map { it.toInt() }
+	.mapNotNull { it.toIntOrNull() }
 
-val gitVersionName = buildString {
+// Ensure we have at least 3 components by padding with 0
+val major = versionParts.getOrElse(0) { 0 }
+val minor = versionParts.getOrElse(1) { 0 }
+val patch = versionParts.getOrElse(2) { 0 }
+
+val gitVersionName = if (commitsSinceTag == 0) gitTag else buildString {
 	append(gitTag)
 	append("-")
 	append(commitsSinceTag)
@@ -50,11 +55,11 @@ val gitVersionName = buildString {
 	if (isDirty) append("-dirty")
 }
 
-val gitVersionCode = maxOf(1,
+val gitVersionCode =
 	major * 100_000_000 +
 		minor * 1000_000 +
 		patch * 10_000 +
-		commitsSinceTag)
+		commitsSinceTag
 
 dependencies {
 	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
@@ -62,7 +67,7 @@ dependencies {
 	// Will replace with a different plugin soon.
 	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
-	implementation("com.google.protobuf:protobuf-javalite:4.33.4")
+	implementation("com.google.protobuf:protobuf-javalite:4.33.5")
 }
 
 protobuf {
@@ -292,3 +297,12 @@ afterEvaluate {
 		println(it)
 	}
 }*/
+
+// Use the below to get a lot of deprecation warnings.
+// Not really useful to fix most of them though, as the old paths are often needed to support
+// old Android versions.
+/*
+tasks.withType<JavaCompile> {
+	options.compilerArgs.addAll(listOf("-Xlint:deprecation"))
+}
+*/

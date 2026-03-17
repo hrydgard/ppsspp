@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -77,23 +78,37 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 	}
 #endif
 
+
 #if defined(HAVE_LIBRETRO_VFS)
 	file_ = File::OpenCFile(filename, "rb");
 	if (!file_) {
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader: failed to open file: '%s'", filename.c_str());
 		return;
 	}
 	filesize_ = File::GetFileSize(file_);
+#elif PPSSPP_PLATFORM(IOS)
+	if (!File::Exists(filename)) {
+		// Try to "unlock" the path before the file loader hits it
+		Path newFilename = DarwinFileSystemServices::reauthorizeBookmarkByPath(filename);
+		if (!newFilename.empty()) {
+			filename_ = newFilename;
+		}
+	}
+	fd_ = open(filename_.c_str(), O_RDONLY | O_CLOEXEC);
+	if (fd_ == -1) {
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader: failed to open file: '%s'", filename_.c_str());
+		return;
+	}
+	DetectSizeFd();
 #elif !defined(_WIN32)
-
 	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
 	if (fd_ == -1) {
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader: failed to open file: '%s'", filename.c_str());
 		return;
 	}
 
 	DetectSizeFd();
-
 #else // _WIN32
-
 	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
 #if PPSSPP_PLATFORM(UWP)
 	handle_ = CreateFile2FromAppW(filename.ToWString().c_str(), access, share, mode, nullptr);
@@ -121,6 +136,9 @@ LocalFileLoader::~LocalFileLoader() {
 	if (file_ != nullptr) {
 		fclose(file_);
 	}
+#elif PPSSPP_PLATFORM(IOS)
+	close(fd_);
+	DarwinFileSystemServices::stopAccessingPath(filename_);
 #elif !defined(_WIN32)
 	if (fd_ != -1) {
 		close(fd_);

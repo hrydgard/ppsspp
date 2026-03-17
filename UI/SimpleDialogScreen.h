@@ -26,6 +26,9 @@ public:
 	virtual void CreateContextMenu(UI::ViewGroup *parent) {}  // only called if CustomContextMenu is set in flags.
 	virtual std::string_view GetTitle() const { return ""; }
 
+protected:
+	ViewLayoutMode LayoutMode() const override;
+
 private:
 	void CreateViews() override;
 	SimpleDialogFlags flags_;
@@ -60,6 +63,9 @@ public:
 	virtual void CreateContextMenu(UI::ViewGroup *parent) {}  // only called if CustomContextMenu is set in flags.
 	virtual std::string_view GetTitle() const { return ""; }
 	virtual float SettingsWidth() const { return 350.0f; }
+
+protected:
+	ViewLayoutMode LayoutMode() const override;
 
 private:
 	void CreateViews() override;

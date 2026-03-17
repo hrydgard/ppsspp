@@ -96,7 +96,7 @@ enum class AfterLogoScreen {
 	MEMSTICK_SCREEN_INITIAL_SETUP,
 };
 
-class LogoScreen : public UIScreen {
+class LogoScreen : public UIBaseScreen {
 public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
@@ -108,6 +108,10 @@ public:
 	void CreateViews() override {}
 
 	const char *tag() const override { return "Logo"; }
+
+protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
+	bool UseImmersiveMode() const override { return true; }
 
 private:
 	void Next();
@@ -123,6 +127,7 @@ public:
 	void update() override;
 
 protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
 	std::string_view GetTitle() const override;
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;

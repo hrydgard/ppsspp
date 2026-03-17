@@ -122,6 +122,12 @@ private:
 
 class RemoteISOBrowseScreen;
 
+struct HighlightedBackground {
+	Path gamePath;
+	double startTime;
+	double endTime;
+};
+
 class MainScreen : public UIBaseScreen {
 public:
 	MainScreen();
@@ -137,6 +143,8 @@ public:
 	bool key(const KeyInput &touch) override;
 
 protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::IgnoreBottomInset; }
+
 	void CreateViews() override;
 	void CreateRecentTab();
 	GameBrowser *CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos);
@@ -147,7 +155,7 @@ protected:
 	void sendMessage(UIMessage message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);
+	void DrawBackgroundFor(UIContext &dc, const Path &gamePath, float alpha);
 
 	void OnGameSelected(UI::EventParams &e);
 	void OnGameSelectedInstant(UI::EventParams &e);
@@ -158,21 +166,17 @@ protected:
 	void OnCredits(UI::EventParams &e);
 	void OnPPSSPPOrg(UI::EventParams &e);
 	void OnForums(UI::EventParams &e);
-	void OnExit(UI::EventParams &e);
 	void OnDownloadUpgrade(UI::EventParams &e);
 	void OnAllowStorage(UI::EventParams &e);
 
-	UI::LinearLayout *upgradeBar_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
-	UI::Button *fullscreenButton_ = nullptr;
 
 	Path restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;
 
+	std::vector<HighlightedBackground> highlightedBackgrounds_;
 	Path highlightedGamePath_;
-	Path prevHighlightedGamePath_;
-	float highlightProgress_ = 0.0f;
-	float prevHighlightProgress_ = 0.0f;
+
 	bool backFromStore_ = false;
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_ = false;
@@ -182,6 +186,8 @@ protected:
 	std::string searchFilter_;
 
 	friend class RemoteISOBrowseScreen;
+private:
+	void InstantHighlight(const Path &path);
 };
 
 class UmdReplaceScreen : public UIBaseDialogScreen {

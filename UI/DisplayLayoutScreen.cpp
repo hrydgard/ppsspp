@@ -34,6 +34,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/Background.h"
+#include "UI/MiscViews.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
@@ -236,9 +237,9 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
 
-	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"));
+	Choice *back = rightColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumn->Add(back);
+	rightColumn->Add(new Spacer(12.0f));
 
 	LinearLayout *bottomControls;
 	if (portrait) {
@@ -274,8 +275,6 @@ void DisplayLayoutScreen::CreateViews() {
 
 		rightColumn->Add(new CheckBox(&config.bDisplayIntegerScale, gr->T("Integer scale factor")));
 
-		rightColumn->Add(new Spacer(12.0f));
-
 		bool supportsInsets = false;
 #if PPSSPP_PLATFORM(ANDROID)
 		supportsInsets = System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28;
@@ -283,13 +282,24 @@ void DisplayLayoutScreen::CreateViews() {
 		supportsInsets = true;
 #endif
 		// Hide insets option if no insets, or OS too old.
+		float insetLeft = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+		float insetRight = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
+		float insetTop = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+		float insetBottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
 		if (supportsInsets && (
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
+			insetLeft != 0.0f ||
+			insetTop != 0.0f ||
+			insetRight != 0.0f ||
+			insetBottom != 0.0f) && (insetLeft != insetTop || insetRight != insetBottom)) {
 			rightColumn->Add(new CheckBox(&config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 		}
+
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+			rightColumn->Add(new Spacer(12.0f));
+			AddRotationPicker(screenManager(), rightColumn, true);
+		}
+
+		rightColumn->Add(new ItemHeader(gr->T("PSP display rotation")));
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 		auto rotation = new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager());
@@ -302,7 +312,7 @@ void DisplayLayoutScreen::CreateViews() {
 		});
 		rotation->SetHideTitle(true);
 
-		rightColumn->Add(new ItemHeader(gr->T("Display rotation")));
+
 		rightColumn->Add(rotation);
 		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
 			return (!g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering) && config.iInternalScreenRotation != 1;

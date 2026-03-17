@@ -75,6 +75,9 @@ BootState PSP_InitUpdate(std::string *error_string);
 // Returns either BootState::Complete or BootState::Failed.
 BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 
+// The main thread needs to block on this in some situations, like losing the surface.
+BootState PollBootState();
+
 void PSP_Shutdown(bool success);
 
 FileLoader *PSP_LoadedFile();

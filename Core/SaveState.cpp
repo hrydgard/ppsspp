@@ -261,7 +261,7 @@ int g_screenshotFailures;
 
 	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {
 		char slotChar = 0;
-		auto detectSlot = [&](const std::string &ext) {
+		auto detectSlot = [&slotChar, filename](const std::string &ext) {
 			if (!endsWith(filename, std::string(".") + ext)) {
 				return false;
 			}
@@ -413,11 +413,12 @@ int g_screenshotFailures;
 			if (g_Config.bEnableStateUndo) {
 				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
 				
-				auto saveCallback = [=](Status status, std::string_view message) {
+				std::string prefix(gamePrefix);
+				auto saveCallback = [prefix, fn, backup, slot, callback](Status status, std::string_view message) {
 					if (status != Status::FAILURE) {
 						DeleteIfExists(backup);
 						File::Rename(backup.WithExtraExtension(".tmp"), backup);
-						g_Config.sStateLoadUndoGame = gamePrefix;
+						g_Config.sStateLoadUndoGame = prefix;
 						g_Config.Save("Saving config for savestate last load undo");
 					} else {
 						ERROR_LOG(Log::SaveState, "Saving load undo state failed: %.*s", (int)message.size(), message.data());
@@ -477,12 +478,14 @@ int g_screenshotFailures;
 		Path fnUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
 			Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
-			auto renameCallback = [=](Status status, std::string_view message) {
+
+			std::string prefix(gamePrefix);
+			auto renameCallback = [fn, fnUndo, prefix, slot, callback](Status status, std::string_view message) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
 						RenameIfExists(fn, fnUndo);
-						g_Config.sStateUndoLastSaveGame = gamePrefix;
+						g_Config.sStateUndoLastSaveGame = prefix;
 						g_Config.iStateUndoLastSaveSlot = slot;
 						g_Config.Save("Saving config for savestate last save undo");
 					} else {

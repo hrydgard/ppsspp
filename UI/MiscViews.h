@@ -90,4 +90,12 @@ protected:
 	uint32_t color_ = 0xFFC0C0C0;
 };
 
+class SettingHint : public UI::TextView {
+public:
+	SettingHint(std::string_view text, UI::View *setting);
+	void Draw(UIContext &dc) override;
+private:
+	UI::View *setting_;
+};
+
 void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text);

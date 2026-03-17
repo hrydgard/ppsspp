@@ -135,6 +135,9 @@
     </ClCompile>
     <ClCompile Include="..\..\UI\Background.cpp" />
     <ClCompile Include="..\..\UI\BaseScreens.cpp" />
+    <ClCompile Include="..\..\UI\AdhocServerScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -268,6 +271,9 @@
     </ClInclude>
     <ClInclude Include="..\..\UI\Background.h" />
     <ClInclude Include="..\..\UI\BaseScreens.h" />
+    <ClInclude Include="..\..\UI\AdhocServerScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">

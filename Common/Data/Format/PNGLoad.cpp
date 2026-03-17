@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 #include <png.h>
 
 #include "Common/Data/Format/PNGLoad.h"
@@ -42,6 +43,12 @@ void pngWarningHandler(png_structp png_ptr, png_const_charp warning_msg) {
 	DEBUG_LOG(Log::System, "libpng warning: %s\n", warning_msg);
 }
 
+struct PngReadContext {
+	const unsigned char *ptr;
+	size_t remaining;
+};
+
+
 int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr) {
 	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
 	if (!png) {
@@ -70,16 +77,22 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 		return 0;
 	}
 
-	png_set_read_fn(png, (png_voidp)&input_ptr, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
-		const unsigned char **input = (const unsigned char **)png_get_io_ptr(png_ptr);
-		memcpy(outBytes, *input, byteCountToRead);
-		*input += byteCountToRead;
+	PngReadContext readContext = {input_ptr, input_len};
+
+	png_set_read_fn(png, &readContext, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
+		PngReadContext *ctx = (PngReadContext *)png_get_io_ptr(png_ptr);
+		if (byteCountToRead > ctx->remaining) {
+			// This triggers the longjmp to your pngErrorHandler
+			png_error(png_ptr, "Read past end of buffer");
+			return;
+		}
+
+		memcpy(outBytes, ctx->ptr, byteCountToRead);
+		ctx->ptr += byteCountToRead;
+		ctx->remaining -= byteCountToRead;
 	});
 
 	png_read_info(png, info);
-
-	*pwidth = png_get_image_width(png, info);
-	*pheight = png_get_image_height(png, info);
 
 	const int color_type = png_get_color_type(png, info);
 	png_set_strip_16(png);
@@ -102,22 +115,22 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	png_read_update_info(png, info);
 
-	size_t row_bytes = png_get_rowbytes(png, info);
-	size_t size = row_bytes * (*pheight);
+	*pwidth = png_get_image_width(png, info);
+	*pheight = png_get_image_height(png, info);
 
-	*image_data_ptr = (unsigned char *)malloc(size);
+	size_t row_bytes = png_get_rowbytes(png, info);
+	*image_data_ptr = (unsigned char *)malloc(row_bytes * (*pheight));
 	if (!*image_data_ptr) {
 		png_destroy_read_struct(&png, &info, NULL);
 		return 0;
 	}
 
-	png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * (*pheight));
+	std::vector<png_bytep> row_pointers(*pheight);
 	for (int y = 0; y < *pheight; y++) {
 		row_pointers[y] = *image_data_ptr + y * row_bytes;
 	}
 
-	png_read_image(png, row_pointers);
-	free(row_pointers);
+	png_read_image(png, row_pointers.data());
 	png_destroy_read_struct(&png, &info, NULL);
 	return 1;
 }

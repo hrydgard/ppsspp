@@ -1611,7 +1611,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
 	{ "strcmp", &Replace_strcmp, 0, REPFLAG_DISABLED },
 	{ "strncmp", &Replace_strncmp, 0, REPFLAG_DISABLED },
-	{ "fabsf", &Replace_fabsf, JITFUNC(Replace_fabsf), REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
+	{ "fabsf", &Replace_fabsf, JITFUNC(Replace_fabsf), REPFLAG_DISABLED },
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED }, // &MIPSComp::Jit::Replace_dl_write_matrix, REPFLAG_DISABLED },
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED },
 	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, REPFLAG_DISABLED },
@@ -1872,36 +1872,4 @@ bool GetReplacedOpAt(u32 address, u32 *op) {
 		}
 	}
 	return false;
-}
-
-bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSize) {
-	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
-	if (!MIPS_IS_REPLACEMENT(op.encoding))
-		return false;
-
-	// Make sure we don't replace if there are any breakpoints inside.
-	*funcSize = g_symbolMap->GetFunctionSize(dest);
-	if (*funcSize == SymbolMap::INVALID_ADDRESS) {
-		if (g_breakpoints.IsAddressBreakPoint(dest)) {
-			return false;
-		}
-		*funcSize = (u32)sizeof(u32);
-	} else {
-		if (g_breakpoints.RangeContainsBreakPoint(dest, *funcSize)) {
-			return false;
-		}
-	}
-
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
-	*entry = GetReplacementFunc(index);
-	if (!*entry) {
-		ERROR_LOG(Log::HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
-		return false;
-	}
-
-	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED | REPFLAG_SLICED)) {
-		// If it's a hook, we can't replace the jal, we have to go inside the func.
-		return false;
-	}
-	return true;
 }

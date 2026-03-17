@@ -136,10 +136,6 @@ void FakeJit::DoJit(u32 em_address, JitBlock *b) {
 	_assert_(false);
 }
 
-void FakeJit::AddContinuedBlock(u32 dest)
-{
-}
-
 bool FakeJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 {
 	// TODO: Not used by anything yet.

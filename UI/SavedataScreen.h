@@ -67,6 +67,25 @@ private:
 	bool searchPending_ = false;
 };
 
+class SavedataView;
+
+class SavedataPopupScreen : public UI::PopupScreen {
+public:
+	SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title);
+
+	const char *tag() const override { return "SavedataPopup"; }
+	void update() override;
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+
+protected:
+	UI::Size PopupWidth() const override { return 600; }
+
+private:
+	SavedataView *savedataView_ = nullptr;
+	Path savePath_;
+	Path gamePath_;
+};
+
 class SavedataScreen : public UITabbedBaseDialogScreen {
 public:
 	// gamePath can be empty, in that case this screen will show all savedata in the save directory.

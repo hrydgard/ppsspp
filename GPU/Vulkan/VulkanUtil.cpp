@@ -24,7 +24,9 @@
 #include "Core/FrameTiming.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-#ifdef _DEBUG
+// Disable this on x64 android, causes problems.
+
+#if defined(_DEBUG) && !(PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(AMD64))
 static const bool g_Validate = true;
 #else
 static const bool g_Validate = false;
@@ -54,6 +56,7 @@ VkPresentModeKHR ConfigPresentModeToVulkan(Draw::DrawContext *draw) {
 // TODO: Share this between backends.
 static VulkanInitFlags VulkanInitFlagsFromConfig() {
 	VulkanInitFlags flags = (VulkanInitFlags)0;
+
 	if (g_Validate) {
 		flags |= VulkanInitFlags::VALIDATE;
 	}

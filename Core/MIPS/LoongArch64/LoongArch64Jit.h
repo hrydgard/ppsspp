@@ -130,7 +130,7 @@ private:
 	int logBlocks_ = 0;
 };
 
-class LoongArch64Jit : public IRNativeJit{
+class LoongArch64Jit : public IRNativeJit {
 public:
     LoongArch64Jit(MIPSState *mipsState) : IRNativeJit(mipsState), la64Backend_(jo, blocks_) {
         Init(la64Backend_);

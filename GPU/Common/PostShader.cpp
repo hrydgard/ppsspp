@@ -37,6 +37,33 @@ static std::vector<ShaderInfo> shaderInfo;
 // Okay, not really "post" shaders, but related.
 static std::vector<TextureShaderInfo> textureShaderInfo;
 
+static Draw::GPUVendor VendorFromString(const std::string &vendor) {
+	Draw::GPUVendor::VENDOR_UNKNOWN;
+	// TODO: This should probably be a function somewhere.
+	if (vendor == "ARM") {
+		return Draw::GPUVendor::VENDOR_ARM;
+	} else if (vendor == "Qualcomm") {
+		return Draw::GPUVendor::VENDOR_QUALCOMM;
+	} else if (vendor == "IMGTEC") {
+		return Draw::GPUVendor::VENDOR_IMGTEC;
+	} else if (vendor == "NVIDIA") {
+		return Draw::GPUVendor::VENDOR_NVIDIA;
+	} else if (vendor == "AMD") {
+		return Draw::GPUVendor::VENDOR_AMD;
+	} else if (vendor == "Broadcom") {
+		return Draw::GPUVendor::VENDOR_BROADCOM;
+	} else if (vendor == "Apple") {
+		return Draw::GPUVendor::VENDOR_APPLE;
+	} else if (vendor == "Intel") {
+		return Draw::GPUVendor::VENDOR_INTEL;
+	} else if (vendor == "Mesa") {
+		return Draw::GPUVendor::VENDOR_MESA;
+	} else if (vendor == "Vivante") {
+		return Draw::GPUVendor::VENDOR_VIVANTE;
+	}
+	return Draw::GPUVendor::VENDOR_UNKNOWN;
+}
+
 // Scans the directories for shader ini files and collects info about all the shaders found.
 
 void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &directories) {
@@ -106,33 +133,12 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 				section.Get("VendorBlacklist", &vendorBlacklist);
 				bool skipped = false;
 				for (auto &item : vendorBlacklist) {
-					Draw::GPUVendor blacklistedVendor = Draw::GPUVendor::VENDOR_UNKNOWN;
-					// TODO: This should probably be a function somewhere.
-					if (item == "ARM") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_ARM;
-					} else if (item == "Qualcomm") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_QUALCOMM;
-					} else if (item == "IMGTEC") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_IMGTEC;
-					} else if (item == "NVIDIA") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_NVIDIA;
-					} else if (item == "AMD") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_AMD;
-					} else if (item == "Broadcom") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_BROADCOM;
-					} else if (item == "Apple") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_APPLE;
-					} else if (item == "Intel") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_INTEL;
-					} else if (item == "Mesa") {
-						blacklistedVendor = Draw::GPUVendor::VENDOR_MESA;
-					}
+					const Draw::GPUVendor blacklistedVendor = VendorFromString(item);
 					if (blacklistedVendor == gpuVendor && blacklistedVendor != Draw::GPUVendor::VENDOR_UNKNOWN) {
 						skipped = true;
 						break;
 					}
 				}
-
 				if (skipped) {
 					continue;
 				}

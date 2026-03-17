@@ -54,7 +54,7 @@ void SetOverrideScreenFrame(const Bounds *bounds) {
 	}
 }
 
-FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
+FRect GetScreenFrame(bool ignoreScreenInsets, float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
 		0.0f,
 		0.0f,
@@ -62,21 +62,7 @@ FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
 		pixelHeight,
 	};
 
-	const bool applyInset = !ignoreInsets;
-
-	if (applyInset) {
-		// Remove the DPI scale to get back to pixels.
-		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
-		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
-		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
-		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
-
-		// Adjust left edge to compensate for cutouts (notches) if any.
-		rc.x += left;
-		rc.w -= (left + right);
-		rc.y += top;
-		rc.h -= (top + bottom);
-	}
+	const bool applyInset = !ignoreScreenInsets;
 
 	if (g_overrideScreenBounds) {
 		// Set rectangle to match central node. Here we ignore bIgnoreScreenInsets.
@@ -84,6 +70,23 @@ FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
 		rc.y = g_screenBounds.y;
 		rc.w = g_screenBounds.w;
 		rc.h = g_screenBounds.h;
+	} else if (applyInset) {
+		// Remove the DPI scale to get back to pixels.
+		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
+		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
+		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
+		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
+
+		// NOTE: Similarly to what we do in UI, we disregard any bottom inset when in landscape mode.
+		if (g_display.GetDeviceOrientation() == DeviceOrientation::Landscape) {
+			bottom = 0.0f;
+		}
+
+		// Adjust left edge to compensate for cutouts (notches) if any.
+		rc.x += left;
+		rc.w -= (left + right);
+		rc.y += top;
+		rc.h -= (top + bottom);
 	}
 
 	return rc;

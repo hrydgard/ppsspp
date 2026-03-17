@@ -308,6 +308,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	options->Get("reduceHash", &reduceHash_);
 	options->Get("ignoreMipmap", &ignoreMipmap_);
 	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
+	options->Get("skipLastDXT1Blocks128x128", &skipLastDXT1Blocks128x128_);
 	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -539,6 +540,9 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64) {
 			// Skip the last few blocks as specified.
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x64_;
+		}
+		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128) {
+			sizeInRAM -= 8 * skipLastDXT1Blocks128x128_;
 		}
 
 		switch (hash_) {

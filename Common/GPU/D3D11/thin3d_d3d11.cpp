@@ -1452,6 +1452,9 @@ void D3D11DrawContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCo
 				break;
 			}
 			context_->PSSetShaderResources(0, 1, view.GetAddressOf());
+		} else if (draws[i].bindNativeTexture) {
+			ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)draws[i].bindNativeTexture;
+			context_->PSSetShaderResources(0, 1, &view);
 		}
 		ComPtr<ID3D11SamplerState> sstate = ((D3D11SamplerState *)draws[i].samplerState)->ss;
 		context_->PSSetSamplers(0, 1, sstate.GetAddressOf());

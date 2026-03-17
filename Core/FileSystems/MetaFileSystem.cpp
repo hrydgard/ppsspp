@@ -364,7 +364,7 @@ PSPFileInfo MetaFileSystem::GetFileInfoByHandle(u32 handle) {
 	return PSPFileInfo();
 }
 
-std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;

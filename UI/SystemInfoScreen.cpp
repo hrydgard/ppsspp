@@ -68,7 +68,7 @@ static void CopySummaryToClipboard(Draw::DrawContext *draw) {
 	System_CopyStringToClipboard(summary);
 	delete[] summary;
 
-	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")));
+	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")), 0.0f, "copyToClip");
 }
 
 void SystemInfoScreen::CreateTabs() {
@@ -76,9 +76,13 @@ void SystemInfoScreen::CreateTabs() {
 	using namespace UI;
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	AddTab("Device Info", si->T("Device Info"), [this](UI::LinearLayout *parent) {
 		CreateDeviceInfoTab(parent);
+	});
+	AddTab("Audio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
+		CreateAudioInfoTab(parent);
 	});
 	AddTab("Storage", si->T("Storage"), [this](UI::LinearLayout *parent) {
 		CreateStorageTab(parent);
@@ -215,24 +219,6 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 #endif
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
 
-	CollapsibleSection *audioInformation = deviceSpecs->Add(new CollapsibleSection(si->T("Audio Information")));
-	extern AudioBackend *g_audioBackend;
-	if (g_audioBackend) {
-		char fmtStr[256];
-		g_audioBackend->DescribeOutputFormat(fmtStr, sizeof(fmtStr));
-		audioInformation->Add(new InfoItem(si->T("Stream format"), fmtStr));
-	} else {
-		audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
-	}
-	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
-	if (framesPerBuffer > 0) {
-		audioInformation->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
-	}
-#if PPSSPP_PLATFORM(ANDROID)
-	audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
-	audioInformation->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
-#endif
-
 	CollapsibleSection *displayInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Display Information")));
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
 	displayInfo->Add(new InfoItem(si->T("Native resolution"), StringFromFormat("%dx%d",
@@ -264,8 +250,9 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT),
 		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM),
 	};
+	bool hasCameraCutout = System_GetPropertyBool(SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT);
 	if (insets[0] != 0.0f || insets[1] != 0.0f || insets[2] != 0.0f || insets[3] != 0.0f) {
-		displayInfo->Add(new InfoItem(si->T("Screen notch insets"), StringFromFormat("%0.1f %0.1f %0.1f %0.1f", insets[0], insets[1], insets[2], insets[3])));
+		displayInfo->Add(new InfoItem(si->T("Screen notch insets"), StringFromFormat("%0.1f %0.1f %0.1f %0.1f : cutout=%d", insets[0], insets[1], insets[2], insets[3], hasCameraCutout)));
 	}
 
 	// Don't show on Windows, since it's always treated as 60 there.
@@ -331,6 +318,9 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	}
 }
 
+// From MediaEngine.cpp.
+std::string GetFFMPEGVersion();
+
 void SystemInfoScreen::CreateStorageTab(UI::LinearLayout *storage) {
 	using namespace UI;
 
@@ -361,39 +351,56 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
+	std::string installerName = System_GetProperty(SYSPROP_INSTALLER_NAME);
+	if (installerName.empty()) {
+		installerName = "N/A";
+	}
+	std::vector<std::pair<std::string, std::string>> buildConfigItems = {
+		{"GIT_VERSION", PPSSPP_GIT_VERSION},
 #ifdef ANDROID_LEGACY
-	buildConfig->Add(new InfoItem("ANDROID_LEGACY", ""));
+		{"ANDROID_LEGACY", ""},
 #endif
 #ifdef _DEBUG
-	buildConfig->Add(new InfoItem("_DEBUG", ""));
+		{"_DEBUG", ""},
 #else
-	buildConfig->Add(new InfoItem("NDEBUG", ""));
+		{"NDEBUG", ""},
 #endif
 #ifdef USE_ASAN
-	buildConfig->Add(new InfoItem("USE_ASAN", ""));
+		{"USE_ASAN", ""},
 #endif
 #ifdef USING_GLES2
-	buildConfig->Add(new InfoItem("USING_GLES2", ""));
+		{"USING_GLES2", ""},
 #endif
 #ifdef MOBILE_DEVICE
-	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
+		{"MOBILE_DEVICE", ""},
 #endif
 #if PPSSPP_ARCH(ARMV7S)
-	buildConfig->Add(new InfoItem("ARMV7S", ""));
+		{"ARMV7S", ""},
 #endif
+		{std::string(si->T("ABI")), GetCompilerABI()},
 #if PPSSPP_ARCH(ARM_NEON)
-	buildConfig->Add(new InfoItem("ARM_NEON", ""));
+		{"ARM_NEON", ""},
 #endif
 #ifdef _M_SSE
-	buildConfig->Add(new InfoItem("_M_SSE", StringFromFormat("0x%x", _M_SSE)));
+		{"_M_SSE", StringFromFormat("0x%x", _M_SSE)},
 #endif
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		buildConfig->Add(new InfoItem("GOLD", ""));
-	}
+		{"FFMPEG", GetFFMPEGVersion()},
+		{std::string(si->T("Installer")), installerName},
+	};
 
-	// Not really build config, but similar.
-	std::string installerName = System_GetProperty(SYSPROP_INSTALLER_NAME);
-	buildConfig->Add(new InfoItem(si->T("Installer"), installerName));
+	buildConfig->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([buildConfigItems](UI::EventParams &e) {
+		std::string buildConfigStr;
+		for (auto &item : buildConfigItems) {
+			buildConfigStr += item.first + ": " + item.second + "\n";
+		}
+		System_CopyStringToClipboard(buildConfigStr.c_str());
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), di->T("Build Configuration")), 0.0f, "copyToClip");
+	});
+
+	for (auto &item : buildConfigItems) {
+		buildConfig->Add(new InfoItem(item.first, item.second));
+	}
 }
 
 void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
@@ -405,6 +412,36 @@ void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
 	std::vector<std::string> exts = cpu_info.Features();
 	for (std::string &ext : exts) {
 		cpuExtensions->Add(new TextView(ext, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+}
+
+void SystemInfoScreen::CreateAudioInfoTab(UI::LinearLayout *audio) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto a = GetI18NCategory(I18NCat::AUDIO);
+
+	CollapsibleSection *audioInformation = audio->Add(new CollapsibleSection(si->T("Audio Information")));
+	extern AudioBackend *g_audioBackend;
+
+	if (g_audioBackend) {
+		audioInformation->Add(new InfoItem(a->T("Device"), g_audioBackend->GetCurrentDeviceName()));
+		char fmtStr[256];
+		g_audioBackend->DescribeOutputFormat(fmtStr, sizeof(fmtStr));
+		audioInformation->Add(new InfoItem(si->T("Stream format"), fmtStr));
+		std::string error = g_audioBackend->GetErrorString();
+		audioInformation->Add(new InfoItem(a->T("Audio Error"), error.empty() ? di->T("None") : error));
+	} else {
+		audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	}
+	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
+	if (framesPerBuffer > 0) {
+		audioInformation->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
+	}
+	if (System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE) > 0) {
+		audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
+		audioInformation->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
 	}
 }
 

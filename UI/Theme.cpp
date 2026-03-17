@@ -88,29 +88,32 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 		themeInfos.push_back(info);
 	};
 
-	for (size_t d = 0; d < directories.size(); d++) {
+	for (const auto &d : directories) {
 		std::vector<File::FileInfo> fileInfo;
-		g_VFS.GetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+		g_VFS.GetFileListing(d.c_str(), &fileInfo, "ini:");
 
 		if (fileInfo.empty()) {
-			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
+			File::GetFilesInDir(d, &fileInfo, "ini:");
 		}
 
-		for (size_t f = 0; f < fileInfo.size(); f++) {
+		for (const auto &f : fileInfo) {
 			IniFile ini;
 			bool success = false;
-			if (fileInfo[f].isDirectory)
+			if (f.isDirectory) {
 				continue;
+			}
 
-			Path name = fileInfo[f].fullName;
-			Path path = directories[d];
+			Path name(f.fullName);
+			Path path = d;
 			// Hack around Android VFS path bug. really need to redesign this.
-			if (name.ToString().substr(0, 7) == "assets/")
+			if (name.ToString().substr(0, 7) == "assets/") {
 				name = Path(name.ToString().substr(7));
-			if (path.ToString().substr(0, 7) == "assets/")
+			}
+			if (path.ToString().substr(0, 7) == "assets/") {
 				path = Path(path.ToString().substr(7));
+			}
 
-			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(f.fullName)) {
 				success = true;
 			}
 
@@ -245,7 +248,7 @@ void UpdateTheme() {
 	ui_theme.popupSliderFocusedColor = themeInfo.uPopupSliderFocusedColor;
 }
 
-UI::Theme *GetTheme() {
+const UI::Theme *GetTheme() {
 	return &ui_theme;
 }
 

@@ -11,5 +11,6 @@ void UIBackgroundInit(UIContext &dc);
 void UIBackgroundShutdown();
 void DrawGameBackground(UIContext &dc, const Path &gamePath, Lin::Vec3 focus, float alpha);
 void DrawBackground(UIContext &dc, float alpha, Lin::Vec3 focus);
+void DrawBackgroundTexture(UIContext &dc, Draw::Texture *texture, Lin::Vec3 focus, float alpha);
 
 uint32_t GetBackgroundColorWithAlpha(const UIContext &dc);

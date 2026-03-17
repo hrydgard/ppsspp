@@ -142,7 +142,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
 
 	// TODO: Less hacky layout work
-	const Bounds layoutBounds = screenManager()->getUIContext()->GetLayoutBounds();
+	const Bounds layoutBounds = GetLayoutBounds(*screenManager()->getUIContext());
 	leftColumn->Add(new ButtonPreview(g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg->shape].i : customKeyShapes[cfg->shape].l, 
 			customKeyImages[cfg->image].i, customKeyImages[cfg->image].r, customKeyShapes[cfg->shape].f, customKeyShapes[cfg->shape].r, layoutBounds.x + 62, layoutBounds.y + 102));
 

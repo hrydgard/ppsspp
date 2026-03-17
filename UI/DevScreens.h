@@ -107,7 +107,7 @@ private:
 
 class GPIGPOScreen : public UI::PopupScreen {
 public:
-	GPIGPOScreen(std::string_view title) : PopupScreen(title, "OK") {}
+	GPIGPOScreen(std::string_view title) : PopupScreen(title, T(I18NCat::DIALOG, "OK")) {}
 	const char *tag() const override { return "GPIGPO"; }
 
 protected:
@@ -179,6 +179,10 @@ public:
 	const char *tag() const override { return "TouchTest"; }
 
 protected:
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
+
 	struct TrackedTouch {
 		int id;
 		float x;

@@ -136,6 +136,11 @@ inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
 }
 
+template<size_t Count>
+inline std::string_view StringViewFromFixedSizeField(const char(&field)[Count]) {
+	return std::string_view(field, strnlen(field, Count));
+}
+
 inline std::string join(std::string_view a, std::string_view b) {
 	std::string result;
 	result.reserve(a.size() + b.size());
@@ -179,3 +184,33 @@ size_t SplitSearch(std::string_view needle, std::string_view part1, std::string_
 // For mixes of strings and ints, manually convert the ints to strings.
 std::string ApplySafeSubstitutions(std::string_view format, std::string_view string1, std::string_view string2 = "", std::string_view string3 = "", std::string_view string4 = "");
 std::string ApplySafeSubstitutions(std::string_view format, int i1, int i2 = 0, int i3 = 0, int i4 = 0);
+
+// Not really a string util.
+template<class T>
+bool Contains(const std::vector<T> &vec, const T &needle) {
+	for (const auto &item : vec) {
+		if (item == needle) {
+			return true;
+		}
+	}
+	return false;
+}
+
+inline bool ContainsNoCase(const std::vector<std::string> &vec, std::string_view needle) {
+	for (const auto &item : vec) {
+		if (equalsNoCase(item, needle)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+inline bool RemoveNoCase(std::vector<std::string> &vec, std::string_view needle) {
+	for (auto it = vec.begin(); it != vec.end(); ++it) {
+		if (equalsNoCase(*it, needle)) {
+			vec.erase(it);
+			return true;
+		}
+	}
+	return false;
+}
