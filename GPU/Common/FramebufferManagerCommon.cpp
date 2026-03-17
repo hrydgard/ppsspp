@@ -2296,7 +2296,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 		// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
 
 		// If it's outside the vfb by a single pixel, we currently disregard it.
-		if (memYOffset > vfb->bufferHeight - h) {
+		if (memYOffset + y + h > vfb->bufferHeight) {
 			continue;
 		}
 
@@ -2642,14 +2642,14 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					// No info left - just fall back to something. But this is definitely split pixel tricks.
 					ramFormat = GE_FORMAT_5551;
 				}
-				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, ramFormat);
+				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, dstX + width, dstY + height, dstStride, ramFormat);
 				dstRect.x_bytes = bpp * dstX;
 				dstRect.y = dstY;
 				dstRect.w_bytes = bpp * width;
 				dstRect.h = height;
 				dstRect.channel = RASTER_COLOR;
 			} else {
-				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, width, height, dstStride, GE_FORMAT_DEPTH16);
+				dstRect.vfb = CreateRAMFramebuffer(dstBasePtr, dstX + width, dstY + height, dstStride, GE_FORMAT_DEPTH16);
 				dstRect.x_bytes = 0;
 				dstRect.w_bytes = 2 * width;  // 2 = depth bpp
 				dstRect.y = 0;
