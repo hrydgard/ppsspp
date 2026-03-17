@@ -34,7 +34,8 @@ const char * const hlsl_preamble_fs =
 "#define mediump\n"
 "#define highp\n"
 "#define fract frac\n"
-"#define mod(x, y) fmod(x, y)\n";
+"#define mod(x, y) fmod(x, y)\n"
+"#define inversesqrt rsqrt\n";
 
 static const char * const hlsl_d3d11_preamble_fs =
 "#define DISCARD discard\n"
@@ -61,6 +62,7 @@ static const char * const hlsl_preamble_gs =
 "#define lowp\n"
 "#define mediump\n"
 "#define highp\n"
+"#define inversesqrt rsqrt\n"
 "\n";
 
 static const char * const vulkan_glsl_preamble_gs =
@@ -84,6 +86,7 @@ static const char * const hlsl_preamble_vs =
 "#define lowp\n"
 "#define mediump\n"
 "#define highp\n"
+"#define inversesqrt rsqrt\n"
 "\n";
 
 static const char * const semanticNames[] = {

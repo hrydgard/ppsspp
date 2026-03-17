@@ -923,6 +923,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 			if (distanceNeeded) {
 				WRITE(p, "  float distance;\n");
+				WRITE(p, "  float distSq;\n");
+				WRITE(p, "  float invDist;\n");
 				WRITE(p, "  lowp float lightScale;\n");
 			}
 			WRITE(p, "  mediump float ldot;\n");
@@ -961,9 +963,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("    toLight = u_lightpos%s;\n", iStr);
 				p.C("    if (type != 0x0u) {\n");  // GE_LIGHTTYPE_DIRECTIONAL
 				p.F("      toLight -= worldpos;\n");
-				p.F("      distance = length(toLight);\n");
-				p.F("      toLight /= distance;\n");
-				p.F("      attenuation = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
+				p.F("      float distSq = dot(toLight, toLight);\n");
+				p.F("      float invDist = inversesqrt(distSq);\n");
+				p.F("      distance = distSq * invDist;\n");
+				p.F("      toLight *= invDist;\n");
+				p.F("      attenuation = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distSq)), 0.0, 1.0);\n", iStr);
 				p.C("      if (type == 0x01u) {\n"); // GE_LIGHTTYPE_POINT
 				p.C("        lightScale = attenuation;\n");
 				p.C("      } else {\n");  // type must be 0x02 - GE_LIGHTTYPE_SPOT
@@ -984,8 +988,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				p.C("    if (comp == 0x1u && ldot >= 0.0) {\n");  // do specular. note - must allow for the >= case, since the u_matspecular.a <= 0.0 case relies on it.
 				p.C("      if (u_matspecular.a > 0.0) {\n");
-				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
-				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				p.C("        vec3 halfVec = toLight + vec3(0.0, 0.0, 1.0);\n");
+				p.C("        float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
+				p.C("        ldot = pow(max(dot(halfVec, worldnormal) * halfInvLen, 0.0), u_matspecular.a);\n");
 				p.C("      } else {\n");
 				p.C("        ldot = 1.0;\n");
 				p.C("      }\n");
@@ -1013,8 +1018,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					p.F("  toLight = u_lightpos%s;\n", iStr);
 				} else {
 					p.F("  toLight = u_lightpos%s - worldpos;\n", iStr);
-					p.C("  distance = length(toLight);\n");
-					p.C("  toLight /= distance;\n");
+					// Use inversesqrt() for better performance on mobile GPUs.
+					// distance = sqrt(distSq), and toLight * inversesqrt(distSq) normalizes it.
+					p.C("  distSq = dot(toLight, toLight);\n");
+					p.C("  invDist = inversesqrt(distSq);\n");
+					p.C("  distance = distSq * invDist;\n");
+					p.C("  toLight *= invDist;\n");
 				}
 
 				bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
@@ -1039,13 +1048,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					timesLightScale = "";
 					break;
 				case GE_LIGHTTYPE_POINT:
-					p.F("  lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", iStr);
+					p.F("  lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distSq)), 0.0, 1.0);\n", iStr);
 					break;
 				case GE_LIGHTTYPE_SPOT:
 				case GE_LIGHTTYPE_UNKNOWN:
 					p.F("  angle = dot(u_lightdir%s, toLight);\n", iStr, iStr);
 					p.F("  if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
-					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(max(angle, 0.0), u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
+					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distSq)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(max(angle, 0.0), u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 					p.C("  } else {\n");
 					p.C("    lightScale = 0.0;\n");
 					p.C("  }\n");
@@ -1059,8 +1068,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
 					p.C("    if (u_matspecular.a > 0.0) {\n");
-					p.C("      ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
-					p.C("      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+					p.C("      vec3 halfVec = toLight + vec3(0.0, 0.0, 1.0);\n");
+					p.C("      float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
+					p.C("      ldot = pow(max(dot(halfVec, worldnormal) * halfInvLen, 0.0), u_matspecular.a);\n");
 					p.C("    } else {\n");
 					p.C("      ldot = 1.0;\n");
 					p.C("    }\n");
