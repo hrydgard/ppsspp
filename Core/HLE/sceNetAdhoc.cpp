@@ -724,8 +724,8 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 		return SOCKET_ERROR;
 	}
 
-	int sport_copy;
-	SceNetEtherAddr saddr_copy;
+	int sport_copy = 0;
+	SceNetEtherAddr saddr_copy = {0};
 	int len_copy = *len;
 
 	if (len_copy > AEMU_POSTOFFICE_PDP_BLOCK_MAX) {
@@ -919,7 +919,10 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 		return SOCKET_ERROR;
 	}
 
-	int pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, offset_port_simple(dport), (char *)data, len, true);
+	SceNetEtherAddr fixed_daddr = *daddr;
+	fixGameMac(&fixed_daddr);
+
+	int pdp_send_status = pdp_send(pdp_sock, (const char *)&fixed_daddr, offset_port_simple(dport), (char *)data, len, true);
 	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
@@ -1252,9 +1255,9 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
-	int state;
-	int port_cpy;
-	SceNetEtherAddr mac_cpy;
+	int state = 0;
+	int port_cpy = 0;
+	SceNetEtherAddr mac_cpy = {0};
 	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
@@ -1410,7 +1413,9 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 
 		internal->connectThread = new std::thread([internal, addr, idx] {
 			int state;
-			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&internal->data.ptp.paddr, offset_port_simple(internal->data.ptp.pport), &state);
+			SceNetEtherAddr fixed_daddr = internal->data.ptp.paddr;
+			fixGameMac(&fixed_daddr);
+			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), &state);
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
