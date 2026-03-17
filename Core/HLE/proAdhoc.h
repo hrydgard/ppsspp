@@ -1323,6 +1323,12 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
 
 /**
+ * Fix mac address if the game messed with the first byte
+ * @param mac Peer MAC Address
+ */
+void fixGameMac(SceNetEtherAddr *mac);
+
+/**
  * Check whether Network Name contains only valid symbols
  * @param group_name To-be-checked Network Name
  * @return 1 if valid or... 0

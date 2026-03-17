@@ -2333,6 +2333,24 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	return false;
 }
 
+void fixGameMac(SceNetEtherAddr *mac) {
+	SceNetEtherAddr localMac;
+	getLocalMac(&localMac);
+	if (isMacMatch(&localMac, mac)) {
+		*mac = localMac;
+		return;
+	}
+
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+	SceNetAdhocctlPeerInfo * peer = friends;
+	for (; peer != NULL; peer = peer->next) {
+		if (isMacMatch(&peer->mac_addr, mac)) {
+			*mac = peer->mac_addr;
+			return;
+		}
+	}
+}
+
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset) {
 	// Get Local MAC Address
 	SceNetEtherAddr localMac;
