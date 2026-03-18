@@ -261,6 +261,9 @@
     <ClInclude Include="GPU\OpenGL\GLQueueRunner.h">
       <Filter>GPU\OpenGL</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLProfiler.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
     <ClInclude Include="GPU\OpenGL\GLRenderManager.h">
       <Filter>GPU\OpenGL</Filter>
     </ClInclude>
@@ -964,6 +967,9 @@
       <Filter>GPU\OpenGL</Filter>
     </ClCompile>
     <ClCompile Include="GPU\OpenGL\GLQueueRunner.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLProfiler.cpp">
       <Filter>GPU\OpenGL</Filter>
     </ClCompile>
     <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp">

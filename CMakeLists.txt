@@ -771,6 +771,8 @@ add_library(Common STATIC
 	Common/GPU/OpenGL/GLRenderManager.h
 	Common/GPU/OpenGL/GLQueueRunner.cpp
 	Common/GPU/OpenGL/GLQueueRunner.h
+	Common/GPU/OpenGL/GLProfiler.cpp
+	Common/GPU/OpenGL/GLProfiler.h
 	Common/GPU/OpenGL/DataFormatGL.cpp
 	Common/GPU/OpenGL/DataFormatGL.h
 	Common/GPU/Vulkan/VulkanBarrier.cpp

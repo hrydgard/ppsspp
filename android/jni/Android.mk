@@ -115,6 +115,7 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLMemory.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLProfiler.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
 
 VULKAN_FILES := \
