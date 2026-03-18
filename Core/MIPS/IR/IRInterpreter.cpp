@@ -521,7 +521,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// Used in Tekken 6
 			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
-			mips->fi[inst->dest] = val | (mips->fi[(u32)inst->src1 + 1] << 1) & 0xFFFF0000;
+			mips->fi[inst->dest] = val | ((mips->fi[(u32)inst->src1 + 1] << 1) & 0xFFFF0000);
 			break;
 		}
 
@@ -538,12 +538,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			// Extract the lower 32 bits (which now contains our 4 bytes)
 			mips->fi[inst->dest] = (u32)_mm_cvtsi128_si32(src);
 #elif PPSSPP_ARCH(ARM_NEON)
+			// 1. Load 4x32-bit lanes
 			uint32x4_t src = vld1q_u32(&mips->fi[inst->src1]);
-			// 2. Shift right by 24 bits and then narrow to 16-bit lanes (d0). Can't do it in one go - vshrn_n_u32 is limited to 16.
-			uint16x4_t narrow_16 = vmovn_u32(vshrq_n_u32(src, 24));
-			// 3. Narrow from 16-bit lanes to 8-bit lanes (resulting in 4 bytes)
-			uint8x8_t narrow_8 = vshrn_n_u16(vcombine_u16(narrow_16, narrow_16), 0);
-			// 4. Extract the result as a single u32
+			// 2. Manual shift right by 24 (this is allowed on full 128-bit vectors. vshrn can't shift by more than 16.
+			uint32x4_t shifted = vshrq_n_u32(src, 24);
+			// 3. Narrow from 32-bit to 16-bit (vmovn works on the bottom 64 bits)
+			uint16x4_t narrow_16 = vmovn_u32(shifted);
+			// 4. Narrow from 16-bit to 8-bit
+			// We combine the 64-bit result with itself to keep the 128-bit logic happy
+			uint8x8_t narrow_8 = vmovn_u16(vcombine_u16(narrow_16, narrow_16));
+			// 5. Extract the result as a single u32
 			mips->fi[inst->dest] = vget_lane_u32(vreinterpret_u32_u8(narrow_8), 0);
 #else
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
