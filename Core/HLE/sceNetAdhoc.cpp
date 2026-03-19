@@ -1010,6 +1010,11 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 
 	AdhocSocket *internal = adhocSockets[idx];
 
+	if (internal->postofficeHandle == NULL) {
+		// this should only happen on ptp_open sockets, where ptp_connect is still in progress on another thread
+		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
+
 	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
 		// force fragmentation for giant sends
 		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
@@ -1053,12 +1058,21 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 		ret = ptp_send_postoffice(req.id - 1, req.buffer, req.length);
 		if (ret == 0) {
 			// sent
+			// Set to Established on successful Send when an attempt to Connect was initiated
+			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+				ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+
+			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", req.id, ptpsocket.lport, ret, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
+
 			result = 0;
 			return 0;
 		}
 		if (ret == SOCKET_ERROR) {
 			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 			result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
+
+			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i]: Socket Error (%i)", req.id, sockerr);
+
 			return 0;
 		}
 		// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
@@ -1111,6 +1125,11 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	}
 
 	AdhocSocket *internal = adhocSockets[idx];
+
+	if (internal->postofficeHandle == NULL) {
+		// this should only happen on ptp_open sockets, where ptp_connect is still in progress on another thread
+		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
 
 	int len_copy = *len;
 	if (len_copy > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
@@ -1529,7 +1548,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		// Done
 		result = 0;
 	}
-	else if (connectInProgress(sockerr) /* || sockerr == 0*/) {
+	else if (serverHasRelay || connectInProgress(sockerr) /* || sockerr == 0*/) {
 		ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 	}
 	// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
@@ -4232,6 +4251,10 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 
 	*slot = internal;
 	INFO_LOG(Log::sceNet, "%s: created ptp socket with id %d", __func__, i + 1);
+
+	// Initiate PtpConnect (ie. The Warriors seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
+	NetAdhocPtp_Connect(i + 1, 0, 1, false);
+
 	return i + 1;
 }
 
@@ -4381,7 +4404,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(tcpsocket, 1);
 
-								// Initiate PtpConnect (ie. The Warrior seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
+								// Initiate PtpConnect (ie. The Warriors seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
 								// TODO: Need to handle ECONNREFUSED better on non-Windows, if there are games that never called PtpConnect and only relies on [blocking?] PtpOpen to get connected
 								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
@@ -5284,12 +5307,14 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						received = ptp_recv_postoffice(id - 1, buf, len);
 						if (received == 0) {
 							// we got data
+							DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
 							hleEatMicro(50);
 							return 0;
 						}
 						if (received == SOCKET_ERROR) {
 							// the socket died, let the game know
 							ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+							DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
 							return SCE_NET_ADHOC_ERROR_DISCONNECTED;
 						}
 						// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
@@ -5366,6 +5391,11 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 }
 
 int FlushPtpSocket(int socketId) {
+	if (serverHasRelay) {
+		// there's no manual flushing in the relay library, it's by default no delay there
+		return 0;
+	}
+
 	// Get original Nagle algo value
 	int n = getSockNoDelay(socketId);
 
