@@ -134,7 +134,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				// It's a valid DVD-style ISO file. Let's see which type.
 				if (!memcmp(pvd.systemId, "PSP GAME", 8) || !memcmp(pvd.systemId, "\"PSP GAME\"", 10)) {
 					// Yes, a known proper PSP game, let's get it going.
-					return IdentifiedFileType::PSP_ISO;
+					return bd->IsDisc() ? IdentifiedFileType::PSP_ISO : IdentifiedFileType::PSP_ISO_NP;
 				} else if (!memcmp(pvd.systemId, "UMD VIDEO", 9) || !memcmp(pvd.systemId, "UMD AUDIO", 9)) {
 					// This is rare so being slightly slow here shouldn't be a problem. Let's go check for the presence of
 					// actual game data.
@@ -165,7 +165,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "PSP ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
-						return IdentifiedFileType::PSP_ISO;
+						return bd->IsDisc() ? IdentifiedFileType::PSP_ISO : IdentifiedFileType::PSP_ISO_NP;
 					}
 
 					INFO_LOG(Log::Loader, "Unknown ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
@@ -239,8 +239,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				paramSFO.ReadSFO(sfoData);
 				// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
 				// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
-				if (paramSFO.GetValueString("CATEGORY") == "ME")
+				if (paramSFO.GetValueString("CATEGORY") == "ME") {
 					return IdentifiedFileType::PSP_PS1_PBP;
+				}
 			}
 		}
 
