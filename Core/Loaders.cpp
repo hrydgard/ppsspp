@@ -82,22 +82,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 	std::string extension = fileLoader->GetFileExtension();
 
-	bool isDiscImage = false;
-
-	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
-		isDiscImage = true;
-	} else if (extension == ".ppst") {
-		return IdentifiedFileType::PPSSPP_SAVESTATE;
-	} else if (extension == ".ppdmp") {
-		char data[8]{};
-		fileLoader->ReadAt(0, 8, data);
-		if (memcmp(data, "PPSSPPGE", 8) == 0) {
-			return IdentifiedFileType::PPSSPP_GE_DUMP;
-		}
-	}
-
 	// First, check if it's a directory with an EBOOT.PBP in it.
-	if (!isDiscImage && fileLoader->IsDirectory()) {
+	if (fileLoader->IsDirectory()) {
 		Path filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
@@ -119,13 +105,26 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::NORMAL_DIRECTORY;
 	}
 
+	bool isDiscImage = false;
+	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
+		isDiscImage = true;
+	} else if (extension == ".ppst") {
+		return IdentifiedFileType::PPSSPP_SAVESTATE;
+	} else if (extension == ".ppdmp") {
+		char data[8]{};
+		fileLoader->ReadAt(0, 8, data);
+		if (memcmp(data, "PPSSPPGE", 8) == 0) {
+			return IdentifiedFileType::PPSSPP_GE_DUMP;
+		}
+	}
+
 	// OK, quick methods of identification for common types failed. Moving on to more expensive methods,
 	// starting by reading the first few bytes.
 	// This can be necessary for weird Android content storage path types, see issue #17462
 	if (isDiscImage || fileLoader->FileSize() >= 0x8800) {
 		// Do the quick check for PSP ISOs here.
 		std::string bdError;
-		std::unique_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &bdError));
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &bdError));
 		if (bd) {
 			u8 block16[2048]{};
 			bd->ReadBlock(16, (u8 *)block16);
@@ -135,12 +134,12 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				// It's a valid DVD-style ISO file. Let's see which type.
 				if (!memcmp(pvd.systemId, "PSP GAME", 8) || !memcmp(pvd.systemId, "\"PSP GAME\"", 10)) {
 					// Yes, a known proper PSP game, let's get it going.
-					return IdentifiedFileType::PSP_ISO;
+					return bd->IsDisc() ? IdentifiedFileType::PSP_ISO : IdentifiedFileType::PSP_ISO_NP;
 				} else if (!memcmp(pvd.systemId, "UMD VIDEO", 9) || !memcmp(pvd.systemId, "UMD AUDIO", 9)) {
 					// This is rare so being slightly slow here shouldn't be a problem. Let's go check for the presence of
 					// actual game data.
 					SequentialHandleAllocator hAlloc;
-					ISOFileSystem umd(&hAlloc, bd.release());
+					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "Found an UMD VIDEO disc with game data. Treating as game.");
 						*errorString = "UMD Video with PSP GAME data";
@@ -163,10 +162,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				} else {
 					// Let's go check for PSP game data.
 					SequentialHandleAllocator hAlloc;
-					ISOFileSystem umd(&hAlloc, bd.release());
+					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "PSP ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
-						return IdentifiedFileType::PSP_ISO;
+						return bd->IsDisc() ? IdentifiedFileType::PSP_ISO : IdentifiedFileType::PSP_ISO_NP;
 					}
 
 					INFO_LOG(Log::Loader, "Unknown ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
@@ -240,8 +239,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				paramSFO.ReadSFO(sfoData);
 				// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
 				// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
-				if (paramSFO.GetValueString("CATEGORY") == "ME")
+				if (paramSFO.GetValueString("CATEGORY") == "ME") {
 					return IdentifiedFileType::PSP_PS1_PBP;
+				}
 			}
 		}
 

@@ -56,7 +56,7 @@ public:
 private:
 	std::string editValue_;
 	std::string *outEditValue_;
-	bool hasRelay_ = true;
+	bool hasRelay_ = false;
 };
 
 static UI::View *CreateLinkButton(std::string url) {

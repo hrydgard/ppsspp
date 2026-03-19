@@ -28,7 +28,7 @@ bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize);
 
 class ISOFileSystem : public IFileSystem {
 public:
-	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
+	ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice);
 	~ISOFileSystem();
 
 	void DoState(PointerWrap &p) override;
@@ -57,6 +57,7 @@ public:
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "ISO"); }  // TODO: Ask the fileLoader about the origins
 
+	std::shared_ptr<BlockDevice> GetBlockDevice() override { return blockDevice; }
 private:
 	struct TreeEntry {
 		~TreeEntry();
@@ -92,7 +93,7 @@ private:
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
-	BlockDevice *blockDevice;
+	std::shared_ptr<BlockDevice> blockDevice;
 	mutable u32 lastReadBlock_;
 
 	TreeEntry entireISO;
@@ -166,6 +167,7 @@ public:
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "ISOBlock"); }
+	std::shared_ptr<BlockDevice> GetBlockDevice() { return isoFileSystem_->GetBlockDevice(); }
 
 private:
 	std::shared_ptr<IFileSystem> isoFileSystem_;

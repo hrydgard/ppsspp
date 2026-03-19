@@ -140,7 +140,7 @@ struct VolDescriptor {
 
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) {
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice) {
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 
@@ -173,7 +173,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 }
 
 ISOFileSystem::~ISOFileSystem() {
-	delete blockDevice;
 	delete treeroot;
 }
 

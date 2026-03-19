@@ -224,6 +224,7 @@ enum class DumpFileType {
 	EBOOT = (1 << 0),
 	PRX = (1 << 1),
 	Atrac3 = (1 << 2),
+	PBP_ISO = (1 << 3),
 };
 ENUM_CLASS_BITOPS(DumpFileType);
 

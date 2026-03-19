@@ -26,11 +26,14 @@
 #include <cstring>
 #include <cstdint>
 #include <ctime>
+#include <memory>
 
 #include "Common.h"
 #include "Common/File/Path.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/ErrorCodes.h"
+
+class BlockDevice;
 
 enum FileAccess {
 	FILEACCESS_NONE     = 0,
@@ -155,6 +158,7 @@ public:
 	virtual u64      FreeDiskSpace(const std::string &path) = 0;
 	virtual bool     ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) = 0;
 	virtual void     Describe(char *buf, size_t size) const = 0;
+	virtual std::shared_ptr<BlockDevice> GetBlockDevice() { return std::shared_ptr<BlockDevice>(); }
 };
 
 

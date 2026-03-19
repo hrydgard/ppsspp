@@ -66,6 +66,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Core/Util/RecentFiles.h"
@@ -302,7 +303,20 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		if (LoadParamSFOFromDisc()) {
 			InitMemorySizeForGame();
 		}
-		if (type == IdentifiedFileType::PSP_DISC_DIRECTORY) {
+
+		if (type == IdentifiedFileType::PSP_ISO_NP && ((DumpFileType)g_Config.iDumpFileTypes & DumpFileType::PBP_ISO)) {
+			// We have to fetch the block device again, because we want to do this after loading PARAM.SFO.
+			std::string title = SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::AlphaNumDashUnderscore, 0, 100);
+			std::string filename = title + "-" + g_paramSFO.GetDiscID() + ".iso";
+			Path path = GetSysDirectory(DIRECTORY_DUMP) / filename;
+			IFileSystem *fs = pspFileSystem.GetSystem("umd0:");
+			if (fs) {
+				std::shared_ptr<BlockDevice> bd = fs->GetBlockDevice();
+				if (bd) {
+					DumpBlockDeviceAsync(bd, path, title);
+				}
+			}
+		} else if (type == IdentifiedFileType::PSP_DISC_DIRECTORY) {
 			// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
 			// TODO: Better would be to check that it was loaded successfully.
 			if (!File::Exists(g_CoreParameter.fileToStart / INDEX_FILENAME)) {
