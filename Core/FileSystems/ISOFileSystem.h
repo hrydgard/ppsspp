@@ -28,7 +28,7 @@ bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize);
 
 class ISOFileSystem : public IFileSystem {
 public:
-	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
+	ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice);
 	~ISOFileSystem();
 
 	void DoState(PointerWrap &p) override;
@@ -92,7 +92,7 @@ private:
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
-	BlockDevice *blockDevice;
+	std::shared_ptr<BlockDevice> blockDevice;
 	mutable u32 lastReadBlock_;
 
 	TreeEntry entireISO;

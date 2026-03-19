@@ -78,7 +78,6 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 	}
 #endif
 
-
 #if defined(HAVE_LIBRETRO_VFS)
 	file_ = File::OpenCFile(filename, "rb");
 	if (!file_) {

@@ -66,8 +66,9 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
-		if (size == 4 && psarOffset < fileLoader->FileSize())
+		if (size == 4 && psarOffset < fileLoader->FileSize()) {
 			device = new NPDRMDemoBlockDevice(fileLoader);
+		}
 	} else if (!memcmp(buffer, "MComprHD", 8)) {
 		device = new CHDFileBlockDevice(fileLoader);
 	}

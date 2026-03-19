@@ -92,7 +92,7 @@ static std::string FormatRCheevosMD5(uint8_t digest[16]) {
 
 // Consumes the blockDevice.
 // If failed, returns an empty string, otherwise a 32-character string with the hash in hex format.
-static std::string ComputePSPISOHash(BlockDevice *blockDevice) {
+static std::string ComputePSPISOHash(std::shared_ptr<BlockDevice> blockDevice) {
 	md5_context md5;
 	ppsspp_md5_starts(&md5);
 
@@ -1064,7 +1064,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here,
 		// we need a temporary blockdevice anyway since it gets consumed by ComputePSPISOHash.
 		std::string errorString;
-		BlockDevice *blockDevice(ConstructBlockDevice(fileLoader, &errorString));
+		std::shared_ptr<BlockDevice> blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 		if (!blockDevice) {
 			ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 			g_isIdentifying = false;
@@ -1128,7 +1128,7 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 	}
 
 	std::string errorString;
-	BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
+	std::shared_ptr<BlockDevice> blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 	if (!blockDevice) {
 		ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 		return;

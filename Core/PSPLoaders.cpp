@@ -68,7 +68,7 @@ bool MountGameISO(FileLoader *fileLoader, std::string *errorString) {
 		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
-		auto bd = ConstructBlockDevice(fileLoader, errorString);
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, errorString));
 		if (!bd) {
 			// Can only fail if the ISO is bad.
 			return false;
@@ -302,7 +302,7 @@ static Path NormalizePath(const Path &path) {
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
-		auto bd = ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string);
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string));
 		if (bd) {
 			auto umd2 = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
 			auto blockSystem = std::make_shared<ISOBlockSystem>(umd2);

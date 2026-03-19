@@ -124,7 +124,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	if (isDiscImage || fileLoader->FileSize() >= 0x8800) {
 		// Do the quick check for PSP ISOs here.
 		std::string bdError;
-		std::unique_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &bdError));
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &bdError));
 		if (bd) {
 			u8 block16[2048]{};
 			bd->ReadBlock(16, (u8 *)block16);
@@ -139,7 +139,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					// This is rare so being slightly slow here shouldn't be a problem. Let's go check for the presence of
 					// actual game data.
 					SequentialHandleAllocator hAlloc;
-					ISOFileSystem umd(&hAlloc, bd.release());
+					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "Found an UMD VIDEO disc with game data. Treating as game.");
 						*errorString = "UMD Video with PSP GAME data";
@@ -162,7 +162,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				} else {
 					// Let's go check for PSP game data.
 					SequentialHandleAllocator hAlloc;
-					ISOFileSystem umd(&hAlloc, bd.release());
+					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "PSP ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
 						return IdentifiedFileType::PSP_ISO;

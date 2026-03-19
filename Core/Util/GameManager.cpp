@@ -448,7 +448,7 @@ std::string GameManager::GetPBPGameID(FileLoader *loader) const {
 std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	SequentialHandleAllocator handles;
 	std::string errorString;
-	BlockDevice *bd = ConstructBlockDevice(loader, &errorString);
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(loader, &errorString));
 	if (!bd) {
 		return "";
 	}
