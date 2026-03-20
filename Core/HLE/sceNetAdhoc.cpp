@@ -121,6 +121,7 @@ static const char *AdhocDataModeToString(AdhocDataMode mode) {
 std::mutex g_proAdhocServerListMutex;
 std::vector<AdhocServerListEntry> g_proAdhocServerList;
 
+// TODO: Should convert this to use rapidjson
 static bool ParseServerListEntriesJSON(std::string_view json) {
 	using namespace json;
 
@@ -149,7 +150,7 @@ static bool ParseServerListEntriesJSON(std::string_view json) {
 		entry.location = server.getStringOr("location", "");
 		entry.description = server.getStringOr("description", "");
 		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
-		entry.statusUrl = server.getStringOr("status_url", "");
+		entry.statusUrl = server.getStringOr("status_data_json", "");
 
 		if (entry.host.empty()) {
 			// Skipping invalid entry.

@@ -1,12 +1,94 @@
 #include <algorithm>
+
+#undef new
+#include "ext/rapidjson/include/rapidjson/document.h"
+#include "Common/DbgNew.h"
+//#include "rapidjson/document.h"
+
 #include "AdhocServerScreen.h"
+#include "Core/Util/GameDB.h"
 
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/StringUtils.h"
+#include "Common/Net/HTTPClient.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "UI/MiscViews.h"
+
+struct User {
+	std::string name;
+	std::vector<int> pdp_ports;
+	std::vector<int> ptp_ports;
+};
+
+struct Group {
+	std::string name;
+	int usercount;
+	std::vector<User> users;
+};
+
+struct Game {
+	std::string name;
+	int usercount;
+	std::vector<Group> groups;
+	std::vector<std::string> game_ids;
+};
+
+static void UpgradeName(std::string *str) {
+	if (str->size() == 9) {  // TODO: Make a better check
+		// It's probably a game ID. Convert it to a name using the database.
+		std::vector<GameDBInfo> infos;
+		if (g_gameDB.GetGameInfos(*str, &infos)) {
+			*str = infos[0].title;
+		}
+	}
+}
+
+std::vector<Game> ParseDataJson(std::string_view json) {
+	rapidjson::Document d;
+	d.Parse(json.data(), json.size());
+
+	std::vector<Game> gameList;
+
+	if (d.HasParseError() || !d.HasMember("games")) return gameList;
+
+	const auto& gamesArray = d["games"];
+	for (auto& g : gamesArray.GetArray()) {
+		Game game;
+		game.name = g["name"].GetString();
+		UpgradeName(&game.name);
+
+		// Handle string-to-int conversion for usercount
+		game.usercount = std::stoi(g["usercount"].GetString());
+
+		if (g.HasMember("groups")) {
+			for (auto& grp : g["groups"].GetArray()) {
+				Group group;
+				group.name = grp["name"].GetString();
+				group.usercount = std::stoi(grp["usercount"].GetString());
+
+				if (grp.HasMember("users")) {
+					for (auto& u : grp["users"].GetArray()) {
+						User user;
+						user.name = u["name"].GetString();
+
+						for (auto& p : u["pdp_ports"].GetArray())
+							user.pdp_ports.push_back(p.GetInt());
+
+						for (auto& p : u["ptp_ports"].GetArray())
+							user.ptp_ports.push_back(p.GetInt());
+
+						group.users.push_back(user);
+					}
+				}
+				game.groups.push_back(group);
+			}
+		}
+		gameList.push_back(game);
+	}
+	return gameList;
+}
 
 class AdhocAddServerPopupScreen : public UI::PopupScreen {
 public:
@@ -90,6 +172,10 @@ class AdhocServerInfoScreen : public UI::PopupScreen {
 public:
 	AdhocServerInfoScreen(const AdhocServerListEntry &entry)
 		: PopupScreen(entry.name, T(I18NCat::DIALOG, "Back")), entry_(entry) {
+
+		if (!entry.statusUrl.empty()) {
+			statusRequest_ = g_DownloadManager.StartDownload(entry.statusUrl, Path(), http::RequestFlags::KeepInMemory | http::RequestFlags::Cached24H, nullptr, "status");
+		}
 	}   // PopupScreen will translate Back on its own
 
 	const char *tag() const override { return "AdhocServerInfo"; }
@@ -135,12 +221,38 @@ protected:
 			}
 		}
 
+		if (entry_.statusUrl.empty()) {
+			content->Add(new TextView("This server has no data.json status page."));
+		} else {
+			if (games_.empty()) {
+				content->Add(new TextView("No games are currently being played on this server."));
+			} else {
+				// TODO: Do something more sophisticated here, like showing groups and users. For now, just show game names.
+				for (const auto &game : games_) {
+					content->Add(new TextView(game.name));
+				}
+			}
+		}
+
 		scroll->Add(content);
 		parent->Add(scroll);
 	}
 
+	void update() override {
+		UI::PopupScreen::update();
+		if (statusRequest_ && statusRequest_->Done()) {
+			std::string json;
+			statusRequest_->buffer().TakeAll(&json);
+			games_ = ParseDataJson(json);
+			statusRequest_.reset();
+			RecreateViews();
+		}
+	}
+
 private:
 	AdhocServerListEntry entry_;
+	std::vector<Game> games_;
+	std::shared_ptr<http::Request> statusRequest_;
 };
 
 class AdhocServerRow : public UI::LinearLayout {

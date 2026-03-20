@@ -25,7 +25,8 @@
 			"web": "",
 			"location": "France",
 			"description": "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "https://adhoc.eahub.eu/data.json"
 		},
 		{
 			"name": "Psi-Hate",
@@ -34,7 +35,8 @@
 			"web": "",
 			"location": "Minnesota USA",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://psi-hate.com:27315/data.json"
 		},
 		{
 			"name": "Relay Brasileiro",
