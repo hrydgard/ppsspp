@@ -86,6 +86,8 @@ struct GLExtensions {
 	bool KHR_texture_compression_astc_ldr;
 
 	// EXT
+	bool EXT_disjoint_timer_query;
+	bool ARB_timer_query;
 	bool EXT_texture_compression_s3tc;
 	bool EXT_swap_control_tear;
 	bool EXT_discard_framebuffer;

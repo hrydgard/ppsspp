@@ -38,6 +38,10 @@ GLboolean gl3stubInit() {
     FIND_PROC(glEndQuery);
     FIND_PROC(glGetQueryiv);
     FIND_PROC(glGetQueryObjectuiv);
+    // GL_EXT_disjoint_timer_query - load EXT suffix versions into non-suffix pointers
+    glQueryCounter = (void*)eglGetProcAddress("glQueryCounterEXT");
+    glGetQueryObjecti64v = (void*)eglGetProcAddress("glGetQueryObjecti64vEXT");
+    glGetQueryObjectui64v = (void*)eglGetProcAddress("glGetQueryObjectui64vEXT");
     FIND_PROC(glUnmapBuffer);
     FIND_PROC(glGetBufferPointerv);
     FIND_PROC(glDrawBuffers);
@@ -271,6 +275,10 @@ GL_APICALL void           (* GL_APIENTRY glBeginQuery) (GLenum target, GLuint id
 GL_APICALL void           (* GL_APIENTRY glEndQuery) (GLenum target);
 GL_APICALL void           (* GL_APIENTRY glGetQueryiv) (GLenum target, GLenum pname, GLint* params);
 GL_APICALL void           (* GL_APIENTRY glGetQueryObjectuiv) (GLuint id, GLenum pname, GLuint* params);
+// GL_EXT_disjoint_timer_query / GL_ARB_timer_query
+GL_APICALL void           (* GL_APIENTRY glQueryCounter) (GLuint id, GLenum target);
+GL_APICALL void           (* GL_APIENTRY glGetQueryObjecti64v) (GLuint id, GLenum pname, GLint64* params);
+GL_APICALL void           (* GL_APIENTRY glGetQueryObjectui64v) (GLuint id, GLenum pname, GLuint64* params);
 GL_APICALL GLboolean      (* GL_APIENTRY glUnmapBuffer) (GLenum target);
 GL_APICALL void           (* GL_APIENTRY glGetBufferPointerv) (GLenum target, GLenum pname, GLvoid** params);
 GL_APICALL void           (* GL_APIENTRY glDrawBuffers) (GLsizei n, const GLenum* bufs);

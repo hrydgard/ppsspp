@@ -409,6 +409,10 @@ extern GL_APICALL void           (* GL_APIENTRY glBeginQuery) (GLenum target, GL
 extern GL_APICALL void           (* GL_APIENTRY glEndQuery) (GLenum target);
 extern GL_APICALL void           (* GL_APIENTRY glGetQueryiv) (GLenum target, GLenum pname, GLint* params);
 extern GL_APICALL void           (* GL_APIENTRY glGetQueryObjectuiv) (GLuint id, GLenum pname, GLuint* params);
+// GL_EXT_disjoint_timer_query / GL_ARB_timer_query
+extern GL_APICALL void           (* GL_APIENTRY glQueryCounter) (GLuint id, GLenum target);
+extern GL_APICALL void           (* GL_APIENTRY glGetQueryObjecti64v) (GLuint id, GLenum pname, GLint64* params);
+extern GL_APICALL void           (* GL_APIENTRY glGetQueryObjectui64v) (GLuint id, GLenum pname, GLuint64* params);
 extern GL_APICALL GLboolean      (* GL_APIENTRY glUnmapBuffer) (GLenum target);
 extern GL_APICALL void           (* GL_APIENTRY glGetBufferPointerv) (GLenum target, GLenum pname, GLvoid** params);
 extern GL_APICALL void           (* GL_APIENTRY glDrawBuffers) (GLsizei n, const GLenum* bufs);

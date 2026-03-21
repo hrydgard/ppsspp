@@ -7,6 +7,7 @@
 
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFrameData.h"
+#include "Common/GPU/OpenGL/GLProfiler.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
@@ -416,6 +417,8 @@ private:
 
 	bool sawOutOfMemory_ = false;
 	bool useDebugGroups_ = false;
+
+	GLProfiler profiler_;
 
 	ErrorCallbackFn errorCallback_ = nullptr;
 	void *errorCallbackUserData_ = nullptr;
