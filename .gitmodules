@@ -69,3 +69,6 @@
 	path = ext/aemu_postoffice
 	url = https://github.com/Kethen/aemu_postoffice.git
 	branch = ppsspp
+[submodule "ext/mimalloc"]
+	path = ext/mimalloc
+	url = https://github.com/microsoft/mimalloc.git

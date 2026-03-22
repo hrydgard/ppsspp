@@ -213,12 +213,18 @@ option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SY
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 option(USE_CCACHE "Use ccache if detected" ON)
+option(USE_MIMALLOC "Use mimalloc allocator" OFF)
 option(USE_NO_MMAP "Disable mmap usage" OFF)
 option(USE_IAP "IAP enabled" OFF)
 option(GOLD "Gold build" OFF)
 
 if(USE_CCACHE)
 	include(ccache)
+endif()
+
+if(USE_MIMALLOC)
+	add_subdirectory(ext/mimalloc)
+	add_compile_definitions(USE_MIMALLOC)
 endif()
 
 if(USE_SYSTEM_RAPIDJSON)
@@ -2602,6 +2608,10 @@ target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 
 # Winsock
 if(WIN32)
 	target_link_libraries(${CoreLibName} ws2_32)
+endif()
+
+if(USE_MIMALLOC)
+	target_link_libraries(${CoreLibName} mimalloc)
 endif()
 
 if(NOT HTTPS_NOT_AVAILABLE)

@@ -235,7 +235,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 	}
 	if (g_Config.bCompressSymbols) {
 		uInt out_size = 4096;
-		Bytef *out_data = (Bytef *)std::malloc(out_size);
+		Bytef *out_data = (Bytef *)malloc(out_size);
 		if (out_data == nullptr) {
 			fclose(file);
 			return false;
@@ -245,7 +245,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 		strm.zfree = nullptr;
 		strm.opaque = nullptr;
 		if (deflateInit2(&strm, Z_BEST_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-			std::free(out_data);
+			free(out_data);
 			fclose(file);
 			return false;
 		}
@@ -265,7 +265,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 					break;
 				case Z_BUF_ERROR:
 					{
-						std::free(out_data);
+						free(out_data);
 						uInt new_out_size = 2 * out_size;
 						if (new_out_size < out_size) {
 							deflateEnd(&strm);
@@ -273,7 +273,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 							return false;
 						}
 						out_size = new_out_size;
-						out_data = (Bytef *)std::malloc(out_size);
+						out_data = (Bytef *)malloc(out_size);
 						if (out_data == nullptr) {
 							deflateEnd(&strm);
 							fclose(file);
@@ -283,7 +283,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 					break;
 				default:
 					deflateEnd(&strm);
-					std::free(out_data);
+					free(out_data);
 					fclose(file);
 					return false;
 			}
@@ -297,7 +297,7 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 			strm.avail_out = out_size;
 		}
 		deflateEnd(&strm);
-		std::free(out_data);
+		free(out_data);
 	} else {
 		// Just plain write it.
 		fwrite(data.data(), 1, data.size(), file);

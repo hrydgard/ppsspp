@@ -78,6 +78,18 @@
 
 #endif
 
+#ifdef USE_MIMALLOC
+#include "mimalloc.h"
+#define malloc mi_malloc
+#define calloc mi_calloc
+#define realloc mi_realloc
+#define free mi_free
+#define strdup mi_strdup
+#define wcsdup mi_wcsdup
+#define expand mi_expand
+#define malloc_usable_size mi_malloc_usable_size
+#endif
+
 // Windows compatibility
 #ifndef _WIN32
 #include <limits.h>
