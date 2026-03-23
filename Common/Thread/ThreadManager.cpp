@@ -20,7 +20,6 @@
 // * For some tasks, splitting the input values up linearly between the threads
 //   is not fair. However, we ignore that for now.
 
-const int MAX_CORES_TO_USE = 16;
 const int MIN_IO_BLOCKING_THREADS = 4;
 static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
 
@@ -219,8 +218,8 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	if (IsInitialized()) {
 		Teardown();
 	}
-
-	numComputeThreads_ = std::min(numRealCores * numLogicalCoresPerCpu, MAX_CORES_TO_USE);
+	
+	numComputeThreads_ = numRealCores * numLogicalCoresPerCpu;
 	// Double it for the IO blocking threads.
 	int numThreads = numComputeThreads_ + std::max(MIN_IO_BLOCKING_THREADS, numComputeThreads_);
 	numThreads_ = numThreads;
