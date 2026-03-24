@@ -300,9 +300,6 @@ void GameButton::Draw(UIContext &dc) {
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
 	}
-	if (startsWith(ginfo->GetTitle(), "Nddemo")) {
-		style = style;
-	}
 
 	// Some types we just draw a default icon for.
 	ImageID imageIcon = ImageID::invalid();
