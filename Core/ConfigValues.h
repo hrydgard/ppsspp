@@ -93,7 +93,7 @@ enum {
 	ROTATION_LOCKED_VERTICAL = 2,
 	ROTATION_LOCKED_HORIZONTAL180 = 3,
 	ROTATION_LOCKED_VERTICAL180 = 4,  // Deprecated
-	ROTATION_AUTO_HORIZONTAL = 5,     // Deprecated
+	ROTATION_AUTO_HORIZONTAL = 5,     // Un-deprecated again
 };
 
 enum TextureFiltering {

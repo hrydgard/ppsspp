@@ -237,12 +237,13 @@ void GameImageView::Draw(UIContext &dc) {
 
 void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text) {
 	using namespace UI;
-	static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed" };
+	static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed", "N/A", "Landscape Auto"};
 	static const std::map<int, ImageID> screenRotationIcons{
 		{ROTATION_AUTO, ImageID("I_DEVICE_ROTATION_AUTO")},
 		{ROTATION_LOCKED_HORIZONTAL, ImageID("I_DEVICE_ROTATION_LANDSCAPE")},
 		{ROTATION_LOCKED_VERTICAL, ImageID("I_DEVICE_ROTATION_PORTRAIT")},
 		{ROTATION_LOCKED_HORIZONTAL180, ImageID("I_DEVICE_ROTATION_LANDSCAPE_REV")},
+		{ROTATION_AUTO_HORIZONTAL, ImageID("I_DEVICE_ROTATION_LANDSCAPE_AUT")},
 	};
 
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
@@ -256,7 +257,7 @@ void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool
 
 	// Portrait Reversed is not recommended on iPhone (and we also ban it in the plist).
 	// However it's recommended to support it on iPad, so maybe we will in the future.
-	rot->HideChoice(4);
+	rot->HideChoice(ROTATION_LOCKED_VERTICAL180);
 	rot->OnChoice.Add([](UI::EventParams &) {
 		INFO_LOG(Log::System, "New display rotation: %d", g_Config.iScreenRotation);
 		System_Notify(SystemNotification::ROTATE_UPDATED);

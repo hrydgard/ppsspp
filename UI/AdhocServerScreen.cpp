@@ -49,7 +49,7 @@ public:
 			*outEditValue_ = editValue_;
 		}
 	}
-	virtual bool CanComplete(DialogResult result) { return result == DR_OK ? !editValue_.empty() : true; }
+	virtual bool CanComplete(DialogResult result) override { return result == DR_OK ? !editValue_.empty() : true; }
 
 	const char *tag() const override { return "AdhocAddServerPopup"; }
 

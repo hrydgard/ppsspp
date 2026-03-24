@@ -167,7 +167,7 @@ public:
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "ISOBlock"); }
-	std::shared_ptr<BlockDevice> GetBlockDevice() { return isoFileSystem_->GetBlockDevice(); }
+	std::shared_ptr<BlockDevice> GetBlockDevice() override { return isoFileSystem_->GetBlockDevice(); }
 
 private:
 	std::shared_ptr<IFileSystem> isoFileSystem_;
