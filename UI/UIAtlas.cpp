@@ -172,6 +172,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_DEVICE_ROTATION_AUTO", false},
 	{"I_DEVICE_ROTATION_LANDSCAPE", false},
 	{"I_DEVICE_ROTATION_PORTRAIT", false},
+	{"I_DEVICE_ROTATION_LANDSCAPE_AUT", false},
 	{"I_MOVE", false},
 	{"I_RESIZE", false},
 	{"I_LINK_OUT_QUESTION", false},

@@ -1590,9 +1590,7 @@ void Config::PostLoadCleanup() {
 	}
 
 	// Squash unsupported screen rotations.
-	if (g_Config.iScreenRotation == ROTATION_AUTO_HORIZONTAL) {
-		g_Config.iScreenRotation = ROTATION_LOCKED_HORIZONTAL;
-	} else if (g_Config.iScreenRotation == ROTATION_LOCKED_VERTICAL180) {
+	if (g_Config.iScreenRotation == ROTATION_LOCKED_VERTICAL180) {
 		g_Config.iScreenRotation = ROTATION_LOCKED_VERTICAL;
 	}
 
