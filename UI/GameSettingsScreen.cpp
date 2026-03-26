@@ -1025,7 +1025,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	LinearLayout *serverRow = networkingSettings->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	serverRow->SetSpacing(0.0f);
-	serverRow->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Change proAdhocServer Address"), I18NCat::NONE, new LinearLayoutParams(1.0f)))->OnClick.Add([=](UI::EventParams &) {
+	serverRow->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Ad hoc server address"), I18NCat::NONE, new LinearLayoutParams(1.0f)))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
 	});
 	if (AdhocServerNameIsCustom()) {
@@ -1039,7 +1039,14 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	relayModePopup->SetEnabled(!PSP_IsInited());
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower."), relayModePopup));
 
-	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
+	PopupTextInputChoice *nickname = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Nickname"), "", 32, screenManager()));
+	if (g_Config.sNickName == "PPSSPP") {
+		nickname->SetIconRight(ImageID("I_WARNING"));
+	}
+	nickname->OnChange.Add([this](UI::EventParams &e) {
+		RecreateViews();
+	});
+	networkingSettings->Add(new SettingHint(n->T("Try to pick a unique nickname for ad hoc play"), nullptr));
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")));
 
@@ -1443,7 +1450,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
-	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()))->OnChange.Add([](UI::EventParams &e) {
+	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Nickname"), "", 32, screenManager()))->OnChange.Add([](UI::EventParams &e) {
 		// Copy to infrastructure name if valid and not already set.
 		if (g_Config.sInfrastructureUsername.empty()) {
 			if (g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {

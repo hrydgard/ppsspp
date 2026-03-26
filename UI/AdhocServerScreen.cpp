@@ -232,10 +232,10 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	});
 
 	std::string secondLine = entry.host;
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (entry.host == "localhost") {
 		// Special case this to add a hint.
-		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		secondLine = n->T("Change proAdhocServer address hint");
+		secondLine = n->T("Ad hoc server address hint");
 	}
 	if (!entry.location.empty()) {
 		secondLine += ": " + entry.location;
@@ -246,7 +246,7 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
 
 	if (entry.mode == AdhocDataMode::AemuPostoffice) {
-		TextView *relay = Add(new TextView("Relay", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+		TextView *relay = Add(new TextView(n->T("Relay"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
 	}
 	if (showDeleteButton) {
 		AddDeleteButton(editValue, screenManager, this, entry);
@@ -571,13 +571,13 @@ void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(requestToken, n->T("Change proAdhocServer Address"), g_Config.sProAdhocServer, false, [](const std::string &enteredValue, int) {
+		System_InputBoxGetString(requestToken, n->T("Ad hoc server address"), g_Config.sProAdhocServer, false, [](const std::string &enteredValue, int) {
 			EditServerName(enteredValue);
 		});
 		return;
 	}
 	static std::string editText = g_Config.sProAdhocServer;
-	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&editText, editText, n->T("Change proAdhocServer Address"), 256);
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&editText, editText, n->T("Ad hoc server address"), 256);
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);
 	}
