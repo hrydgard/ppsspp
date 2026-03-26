@@ -172,7 +172,10 @@ ParsedIniLine::ParsedIniLine(std::string_view line) {
 		value.clear();
 		comment = line;
 	} else {
-		ParseLine(line, &key, &value, &comment);
+		if (!ParseLine(line, &key, &value, &comment)) {
+			// Preserve bogus input but turn it into comments.
+			comment = "# " + std::string(line);
+		}
 	}
 }
 
@@ -473,7 +476,7 @@ bool IniFile::Load(std::istream &in) {
 	std::string linebuf;
 
 	while (std::getline(in, linebuf)) {
-		std::string_view line = StripSpaces(std::string_view(linebuf));
+		std::string_view line = std::string_view(linebuf);
 		// Remove UTF-8 byte order marks.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
 			line = line.substr(3);
