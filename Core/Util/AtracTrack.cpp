@@ -349,7 +349,7 @@ static inline int RoundUpToEven(int size) {
 	return (size + 1) & ~1;
 }
 
-int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
+int ParseWaveAT3(const u8 *data, u32 dataLength, TrackInfo *track) {
 	_assert_(data != nullptr);
 	track->loopStart = 0xFFFFFFFF;
 	track->loopEnd = 0xFFFFFFFF;
@@ -571,7 +571,7 @@ static u32 Parse4BytesBE(const u8 *data, int *offset) {
 	return value;
 }
 
-static u32 ParseAA3Headers(int readSize, AA3Info *info, int fileSize, const u8 *aa3Data) {
+static u32 ParseAA3Headers(u32 readSize, AA3Info *info, u32 fileSize, const u8 *aa3Data) {
 	if ((u32)readSize < 9) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
@@ -666,7 +666,7 @@ static int ConvertAA3InfoToTrackInfo(const AA3Info *in, TrackInfo *out) {
 	}
 }
 
-int ParseAA3(const u8 *buffer, int readSize, int fileSize, TrackInfo *track) {
+int ParseAA3(const u8 *buffer, u32 readSize, u32 fileSize, TrackInfo *track) {
 	AA3Info info;
 	int retval = ParseAA3Headers(readSize, &info, fileSize, buffer);
 	if (retval < 0) {
