@@ -578,6 +578,12 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 		// it's appropriate, but the event lets the frontend do things like enable/disable rewind or cheats.
 		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
 		break;
+	case RC_CLIENT_RAINTEGRATION_EVENT_MENU_CHANGED:
+		System_RunCallbackInWndProc([](void *vhWnd, void *userdata) {
+			HWND hWnd = reinterpret_cast<HWND>(vhWnd);
+			rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		}, nullptr);
+		break;
 	default:
 		ERROR_LOG(Log::Achievements, "Unsupported RAIntegration event %u\n", event->type);
 		break;
