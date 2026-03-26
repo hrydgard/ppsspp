@@ -232,9 +232,9 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	});
 
 	std::string secondLine = entry.host;
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (entry.host == "localhost") {
 		// Special case this to add a hint.
-		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		secondLine = n->T("Ad hoc server address hint");
 	}
 	if (!entry.location.empty()) {
@@ -246,7 +246,7 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
 
 	if (entry.mode == AdhocDataMode::AemuPostoffice) {
-		TextView *relay = Add(new TextView("Relay", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+		TextView *relay = Add(new TextView(n->T("Relay"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
 	}
 	if (showDeleteButton) {
 		AddDeleteButton(editValue, screenManager, this, entry);
