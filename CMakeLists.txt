@@ -977,9 +977,10 @@ endif()
 if(ARM64)
 	if(ANDROID)
 		target_link_libraries(Common adrenotools)
-		target_compile_definitions(Common PRIVATE Z7_CRC_NUM_TABLES=1)
 	endif()
 endif()
+
+target_compile_definitions(Common PRIVATE Z7_CRC_NUM_TABLES=1)
 
 if(TARGET Ext::GLEW)
 	target_link_libraries(Common Ext::GLEW)

@@ -1,8 +1,13 @@
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <set>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #define NOMINMAX  // 7z includes windows.h for some reason.
 #include "ext/lzma-sdk/7z.h"
@@ -23,6 +28,51 @@ static constexpr size_t SEVENZIP_SKIPBUF_SIZE = 1 << 15;
 static constexpr UInt32 SEVENZIP_METHOD_COPY = 0;
 static constexpr UInt32 SEVENZIP_METHOD_LZMA = 0x30101;
 static constexpr UInt32 SEVENZIP_METHOD_LZMA2 = 0x21;
+
+static WRes OpenArchiveStreamForRead(CFileInStream *stream, const Path &archivePath) {
+	#ifdef USE_WINDOWS_FILE
+	return InFile_OpenW(&stream->file, archivePath.ToWString().c_str());
+	#else
+	#if defined(HAVE_LIBRETRO_VFS)
+	#if PPSSPP_PLATFORM(ANDROID)
+	if (archivePath.Type() == PathType::CONTENT_URI) {
+		int fd = File::OpenFD(archivePath, File::OPEN_READ);
+		if (fd < 0) {
+			return 1;
+		}
+		stream->file.fd = fd;
+		return 0;
+	}
+	#endif
+	return InFile_Open(&stream->file, archivePath.ToString().c_str());
+	#else
+	FILE *file = File::OpenCFile(archivePath, "rb");
+	if (!file) {
+		return 1;
+	}
+
+	#if defined(USE_FOPEN)
+	stream->file.file = file;
+	return 0;
+	#else
+	const int openedFd = fileno(file);
+	if (openedFd < 0) {
+		fclose(file);
+		return 1;
+	}
+
+	const int fd = dup(openedFd);
+	fclose(file);
+	if (fd < 0) {
+		return 1;
+	}
+
+	stream->file.fd = fd;
+	return 0;
+	#endif
+	#endif
+	#endif
+}
 
 class SevenZipFileReference : public VFSFileReference {
 public:
@@ -174,11 +224,7 @@ static bool InitStreamingOpenFile(
 	openFile->hasFileCRC = SzBitWithVals_Check(&db.CRCs, fileIndex);
 	openFile->expectedFileCRC = openFile->hasFileCRC ? db.CRCs.Vals[fileIndex] : 0;
 
-#ifdef _WIN32
-	if (InFile_OpenW(&openFile->archiveStream_.file, archivePath.ToWString().c_str()) != 0) {
-#else
-	if (InFile_Open(&openFile->archiveStream_.file, archivePath.ToString().c_str()) != 0) {
-#endif
+	if (OpenArchiveStreamForRead(&openFile->archiveStream_, archivePath) != 0) {
 		return false;
 	}
 	openFile->streamOpened_ = true;
@@ -364,11 +410,7 @@ bool SevenZipFileReader::OpenArchive(bool logErrors) {
 		crcTableGenerated = true;
 	}
 
-#ifdef _WIN32
-	if (InFile_OpenW(&archiveStream_.file, archivePath_.ToWString().c_str()) != 0) {
-#else
-	if (InFile_Open(&archiveStream_.file, archivePath_.ToString().c_str()) != 0) {
-#endif
+	if (OpenArchiveStreamForRead(&archiveStream_, archivePath_) != 0) {
 		if (logErrors) {
 			ERROR_LOG(Log::IO, "Failed to open %s as a 7z file", archivePath_.c_str());
 		}

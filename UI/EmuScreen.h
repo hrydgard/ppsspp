@@ -143,7 +143,7 @@ private:
 
 	std::string extraAssertInfoStr_;
 
-	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
+	std::unique_ptr<ImDebugger> imDebugger_;
 	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 
 	bool imguiInited_ = false;
