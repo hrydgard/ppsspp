@@ -247,7 +247,7 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 	}
 
 	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
+		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit!\n\nIf this happens again, switch Graphics Backend away from Vulkan");
 	} else {
 		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
 	}

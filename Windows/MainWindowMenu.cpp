@@ -980,8 +980,8 @@ namespace MainWindow {
 			break;
 
 		default:
-			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				if (wmId >= ID_FILE_SAVESTATE_SLOT_BASE && wmId < ID_FILE_SAVESTATE_SLOT_BASE + g_Config.iSaveStateSlotCount) {
+			if (wmId >= ID_FILE_SAVESTATE_SLOT_BASE && wmId < ID_FILE_SAVESTATE_SLOT_BASE + g_Config.iSaveStateSlotCount) {
+				if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 					g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_BASE;
 				}
 				break;
