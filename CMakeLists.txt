@@ -724,6 +724,14 @@ add_library(Common STATIC
 	Common/File/VFS/ZipFileReader.h
 	Common/File/VFS/DirectoryReader.cpp
 	Common/File/VFS/DirectoryReader.h
+	ext/lzma-sdk/7zArcIn.c
+	ext/lzma-sdk/7zBuf.c
+	ext/lzma-sdk/7zCrc.c
+	ext/lzma-sdk/7zDec.c
+	ext/lzma-sdk/7zFile.c
+	ext/lzma-sdk/7zStream.c
+	ext/lzma-sdk/Bcj2.c
+	ext/lzma-sdk/Lzma2Dec.c
 	Common/File/AndroidStorage.h
 	Common/File/AndroidStorage.cpp
 	Common/File/AndroidContentURI.h
