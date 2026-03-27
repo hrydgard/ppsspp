@@ -162,6 +162,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
 
+enum class ArchiveType {
+	ZIP,
+	SevenZ,
+};
 
 enum class ZipFileContents {
 	NOT_A_ZIP_FILE = 0,
@@ -176,7 +180,9 @@ enum class ZipFileContents {
 	PRX_PLUGIN,
 };
 
+// TODO: Rename to ArchiveContentsInfo or something.
 struct ZipFileInfo {
+	ArchiveType archiveType;
 	ZipFileContents contents = ZipFileContents::NOT_A_ZIP_FILE;
 	int numFiles = 0;
 	int stripChars = 0;  // for PSP game - how much to strip from the path.
@@ -189,6 +195,7 @@ struct ZipFileInfo {
 	std::string savedataDir;
 	std::string mTime;
 	std::string iniContents;
+	std::string isoFilename; // Used by SevenZ only right now.
 	s64 totalFileSize = 0;
 
 	std::string contentName;
@@ -197,5 +204,5 @@ struct ZipFileInfo {
 ZipContainer ZipOpenPath(const Path &fileName);
 void ZipClose(ZipContainer &z);
 
-bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
 void DetectZipFileContents(zip_t *z, ZipFileInfo *info);
+bool DetectArchiveContents(VFSInterface *vfs, ZipFileInfo *info);

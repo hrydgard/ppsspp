@@ -40,6 +40,8 @@
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/SevenZipFileReader.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
@@ -252,6 +254,25 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 			File::Delete(task.fileName);
 		}
 		g_OSD.RemoveProgressBar("install", success, 0.5f);
+		installProgress_ = 1.0f;
+		InstallDone();
+		return;
+	}
+
+	// Check for 7z. We don't support very many scenarios here yet, but we do support ISO install.
+	if (task.zipFileInfo->archiveType == ArchiveType::SevenZ) {
+		Path destPath = task.destination;
+		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
+		VFSInterface *reader = SevenZipFileReader::Create(task.fileName, "", true);
+		// TODO: We need streaming reads here.
+		size_t size;
+		u8 *data = reader->ReadFile(task.zipFileInfo->isoFilename, &size);
+
+		Path fn(task.zipFileInfo->isoFilename);
+		Path destFile = destPath / fn.GetFilename();
+
+		File::WriteDataToFile(false, data, size, destFile);
+		g_OSD.RemoveProgressBar("install", true, 0.5f);
 		installProgress_ = 1.0f;
 		InstallDone();
 		return;
@@ -739,7 +760,9 @@ bool GameManager::InstallZipOnThread(ZipFileTask task) {
 		return false;
 	}
 
-	installThread_ = std::thread(std::bind(&GameManager::InstallZipContents, this, task));
+	installThread_ = std::thread([this, task]() {
+		InstallZipContents(task);
+	});
 	return true;
 }
 
@@ -751,7 +774,9 @@ bool GameManager::UninstallGameOnThread(const std::string &name) {
 	if (InstallInProgress() || installDonePending_ || curDownload_.get() != nullptr) {
 		return false;
 	}
-	installThread_ = std::thread(std::bind(&GameManager::UninstallGame, this, name));
+	installThread_ = std::thread([this, name]() {
+		UninstallGame(name);
+	});
 	return true;
 }
 

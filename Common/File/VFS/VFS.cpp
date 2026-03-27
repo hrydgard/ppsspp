@@ -36,6 +36,8 @@ static bool IsLocalAbsolutePath(std::string_view path) {
 	return isUnixLocal || isWindowsLocal || isContentURI;
 }
 
+// This allows empty prefixes for multiple systems, which effectively becomes a union mount.
+// Which is useful for PPSSPP's asset files, but not much else. We should use prefixes for everything.
 template<class RetType, class Func>
 inline RetType RouteVFSOperation(const std::vector<VFSEntry> &entries, std::string_view filename, Func func) {
 	const int fn_len = (int)filename.length();

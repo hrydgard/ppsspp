@@ -24,6 +24,8 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/SevenZipFileReader.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -40,15 +42,25 @@
 
 InstallZipScreen::InstallZipScreen(const Path &zipPath) : UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll), zipPath_(zipPath) {
 	g_GameManager.ResetInstallError();
-	ZipContainer zipFile = ZipOpenPath(zipPath_);
-	if (zipFile) {
-		DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
-		ZipClose(zipFile);
+
+	if (zipPath.GetFileExtension() == ".7z") {
+		SevenZipFileReader *sevenZipFile = SevenZipFileReader::Create(zipPath, "");
+		DetectArchiveContents(sevenZipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+		delete sevenZipFile;
+	} else {
+		ZipContainer zipFile = ZipOpenPath(zipPath_);
+		if (zipFile) {
+			DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+			ZipClose(zipFile);
+		}
 	}
 }
 
 std::string_view InstallZipScreen::GetTitle() const {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+	if (zipFileInfo_.archiveType == ArchiveType::SevenZ) {
+		return iz->T("7z file");
+	}
 	return iz->T("ZIP file");
 }
 
