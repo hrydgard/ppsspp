@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef _WIN32
+
 #if defined(_MSC_VER) && _MSC_VER < 1700
 #error You need a newer version of Visual Studio
 #else
@@ -12,7 +14,6 @@
 #undef _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
 #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
 
-#ifdef _WIN32
 #pragma warning(disable:4091)
 
 #ifndef WIN32_LEAN_AND_MEAN

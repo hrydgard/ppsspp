@@ -7,6 +7,8 @@
 #include <string_view>
 #include <vector>
 
+#include "Common/CommonWindows.h"
+
 #include "ext/lzma-sdk/7z.h"
 #include "ext/lzma-sdk/7zFile.h"
 
