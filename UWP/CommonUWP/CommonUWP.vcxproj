@@ -95,6 +95,7 @@
     <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h" />
     <ClInclude Include="..\..\Common\File\AndroidContentURI.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
+    <ClInclude Include="..\..\Common\File\VFS\SevenZipFileReader.h" />
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\CrossSIMD.h" />
@@ -275,6 +276,21 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7z.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zBuf.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zCrc.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zFile.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zTypes.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zWindows.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Bcj2.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Bra.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Compiler.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\CpuArch.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Delta.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Lzma2Dec.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\LzmaDec.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Precomp.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\RotateDefs.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
@@ -289,6 +305,7 @@
     <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\SevenZipFileReader.cpp" />
     <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />
@@ -443,6 +460,18 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zArcIn.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zBuf.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrc.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrcOpt.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zDec.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zFile.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zStream.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Delta.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Lzma2Dec.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
   </ItemGroup>

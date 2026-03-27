@@ -109,6 +109,9 @@
     <Filter Include="ext\aemu_postoffice">
       <UniqueIdentifier>{e3871672-2a90-49d9-abb1-43fe75d73f8b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\lzma-sdk">
+      <UniqueIdentifier>{32412196-7280-4118-ad20-4ee3f6ad18ef}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -543,6 +546,45 @@
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_stdc.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zArcIn.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\7zBuf.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrc.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrcOpt.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\7zDec.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\7zFile.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\7zStream.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Delta.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Lzma2Dec.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\LzmaDec.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\SevenZipFileReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -1043,6 +1085,54 @@
       <Filter>UI</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Math\fast\fast_matrix.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7z.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\7zBuf.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\7zCrc.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\7zFile.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\7zTypes.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\7zWindows.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\Bcj2.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\Bra.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\Compiler.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\CpuArch.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\Delta.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\Lzma2Dec.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\LzmaDec.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\Precomp.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\lzma-sdk\RotateDefs.h">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\SevenZipFileReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />

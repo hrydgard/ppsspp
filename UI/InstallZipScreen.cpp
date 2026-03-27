@@ -45,8 +45,10 @@ InstallZipScreen::InstallZipScreen(const Path &zipPath) : UITwoPaneBaseDialogScr
 
 	if (zipPath.GetFileExtension() == ".7z") {
 		SevenZipFileReader *sevenZipFile = SevenZipFileReader::Create(zipPath, "");
-		DetectArchiveContents(sevenZipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
-		delete sevenZipFile;
+		if (sevenZipFile) {
+			DetectArchiveContents(sevenZipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+			delete sevenZipFile;
+		}
 	} else {
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
 		if (zipFile) {
