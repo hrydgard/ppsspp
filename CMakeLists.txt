@@ -722,6 +722,8 @@ add_library(Common STATIC
 	Common/File/VFS/VFS.cpp
 	Common/File/VFS/ZipFileReader.cpp
 	Common/File/VFS/ZipFileReader.h
+	Common/File/VFS/SevenZipFileReader.cpp
+	Common/File/VFS/SevenZipFileReader.h
 	Common/File/VFS/DirectoryReader.cpp
 	Common/File/VFS/DirectoryReader.h
 	ext/lzma-sdk/7zArcIn.c

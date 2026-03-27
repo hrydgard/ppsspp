@@ -1425,9 +1425,6 @@
     <ClCompile Include="..\ext\lzma-sdk\Bcj2.c">
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\lzma-sdk\Bra.c">
-      <Filter>ext\lzma-sdk</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\lzma-sdk\CpuArch.c">
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>

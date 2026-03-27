@@ -420,6 +420,7 @@
     <ClInclude Include="File\Path.h" />
     <ClInclude Include="File\PathBrowser.h" />
     <ClInclude Include="File\VFS\DirectoryReader.h" />
+    <ClInclude Include="File\VFS\SevenZipFileReader.h" />
     <ClInclude Include="File\VFS\VFS.h" />
     <ClInclude Include="File\VFS\ZipFileReader.h" />
     <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
@@ -854,7 +855,6 @@
     <ClCompile Include="..\ext\lzma-sdk\7zFile.c" />
     <ClCompile Include="..\ext\lzma-sdk\7zStream.c" />
     <ClCompile Include="..\ext\lzma-sdk\Bcj2.c" />
-    <ClCompile Include="..\ext\lzma-sdk\Bra.c" />
     <ClCompile Include="..\ext\lzma-sdk\CpuArch.c" />
     <ClCompile Include="..\ext\lzma-sdk\Delta.c" />
     <ClCompile Include="..\ext\lzma-sdk\Lzma2Dec.c" />
@@ -902,6 +902,7 @@
     <ClCompile Include="File\Path.cpp" />
     <ClCompile Include="File\PathBrowser.cpp" />
     <ClCompile Include="File\VFS\DirectoryReader.cpp" />
+    <ClCompile Include="File\VFS\SevenZipFileReader.cpp" />
     <ClCompile Include="File\VFS\VFS.cpp" />
     <ClCompile Include="File\VFS\ZipFileReader.cpp" />
     <ClCompile Include="GPU\D3D11\D3D11Loader.cpp" />
