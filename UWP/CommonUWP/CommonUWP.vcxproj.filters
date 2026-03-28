@@ -112,6 +112,9 @@
     <Filter Include="ext\lzma-sdk">
       <UniqueIdentifier>{32412196-7280-4118-ad20-4ee3f6ad18ef}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\pugixml">
+      <UniqueIdentifier>{a9ae3474-1d81-486c-919e-82b62224172f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -584,6 +587,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\File\VFS\SevenZipFileReader.cpp">
       <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\pugixml\pugixml.cpp">
+      <Filter>ext\pugixml</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1132,6 +1138,12 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\File\VFS\SevenZipFileReader.h">
       <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\pugixml\pugiconfig.hpp">
+      <Filter>ext\pugixml</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\pugixml\pugixml.hpp">
+      <Filter>ext\pugixml</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
