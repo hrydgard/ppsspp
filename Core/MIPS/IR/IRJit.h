@@ -25,7 +25,6 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/IR/IRRegCache.h"
-#include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
@@ -42,6 +41,8 @@
 #if defined(IR_PROFILING) && defined(GOLD)
 #error
 #endif
+
+struct IRInst;
 
 namespace MIPSComp {
 

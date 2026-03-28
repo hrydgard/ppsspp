@@ -28,13 +28,15 @@
 #include "Common/UI/Tween.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
-
-#include "UI/ImDebugger/ImDebugger.h"
+#include "UI/ImDebugger/ImCommand.h"
 
 struct AxisInput;
 
 class AsyncImageFileView;
 class ChatMenu;
+class ImDebugger;
+struct ImCommand;
+struct ImGuiContext;
 
 class EmuScreen : public UIScreen, protected ControlListener {
 public:
@@ -141,7 +143,7 @@ private:
 
 	std::string extraAssertInfoStr_;
 
-	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
+	std::unique_ptr<ImDebugger> imDebugger_;
 	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 
 	bool imguiInited_ = false;

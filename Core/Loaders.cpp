@@ -451,7 +451,26 @@ static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *da
 	}
 }
 
+// TODO: Make this generic and handle all the things.
+// For now, it'll just handle unpacking ISOs.
+bool DetectArchiveContents(VFSInterface *vfs, ZipFileInfo *info) {
+	info->archiveType = ArchiveType::SevenZ;
+	info->contents = ZipFileContents::UNKNOWN;
+	std::vector<File::FileInfo> listing;
+	vfs->GetFileListing("", &listing, nullptr);
+	for (auto &file : listing) {
+		std::string ext = file.fullName.GetFileExtension();  // always lowercase
+		if (ext == ".iso" || ext == ".cso") {
+			info->contents = ZipFileContents::ISO_FILE;
+			info->isoFilename = file.fullName.ToString();
+			return true;
+		}
+	}
+	return false;
+}
+
 void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
+	info->archiveType = ArchiveType::ZIP;
 	int numFiles = zip_get_num_files(z);
 	if (numFiles < 0) {
 		// Broken zip archive?

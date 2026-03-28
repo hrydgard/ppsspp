@@ -22,7 +22,7 @@ public:
 		parent->Add(new CheckBox(&hasRelay_, ni->T("Relay server mode")));
 	}
 
-	virtual void OnCompleted(DialogResult result) {
+	virtual void OnCompleted(DialogResult result) override {
 		if (result == DialogResult::DR_OK) {
 			std::vector<AdhocServerListEntry> servers = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
 			bool preset = false;

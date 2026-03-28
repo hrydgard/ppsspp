@@ -267,7 +267,15 @@ EXT_FILES := \
   $(SRC)/ext/cpu_features/src/impl_x86_macos.c \
   $(SRC)/ext/cpu_features/src/impl_x86_windows.c \
   $(SRC)/ext/cpu_features/src/stack_line_reader.c \
-  $(SRC)/ext/cpu_features/src/string_view.c
+  $(SRC)/ext/cpu_features/src/string_view.c \
+  $(SRC)/ext/lzma-sdk/7zArcIn.c \
+  $(SRC)/ext/lzma-sdk/7zBuf.c \
+  $(SRC)/ext/lzma-sdk/7zCrc.c \
+  $(SRC)/ext/lzma-sdk/7zDec.c \
+  $(SRC)/ext/lzma-sdk/7zFile.c \
+  $(SRC)/ext/lzma-sdk/7zStream.c \
+  $(SRC)/ext/lzma-sdk/Bcj2.c \
+  $(SRC)/ext/lzma-sdk/Lzma2Dec.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -312,6 +320,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/VFS/VFS.cpp \
   $(SRC)/Common/File/VFS/ZipFileReader.cpp \
   $(SRC)/Common/File/VFS/DirectoryReader.cpp \
+  $(SRC)/Common/File/VFS/SevenZipFileReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
   $(SRC)/Common/File/Path.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \

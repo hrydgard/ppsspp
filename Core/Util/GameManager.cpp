@@ -40,6 +40,8 @@
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/SevenZipFileReader.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
@@ -253,6 +255,91 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		}
 		g_OSD.RemoveProgressBar("install", success, 0.5f);
 		installProgress_ = 1.0f;
+		InstallDone();
+		return;
+	}
+
+	// Check for 7z. We don't support very many scenarios here yet, but we do support ISO install.
+	if (task.zipFileInfo->archiveType == ArchiveType::SevenZ) {
+		Path destPath = task.destination;
+		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
+		Path fn(task.zipFileInfo->isoFilename);
+		Path destFile = destPath / fn.GetFilename();
+		const size_t blockSize = 1024 * 128;
+
+		SevenZipFileReader *reader = SevenZipFileReader::Create(task.fileName, "", true);
+		VFSFileReference *vfsRef = nullptr;
+		VFSOpenFile *vfsFile = nullptr;
+		FILE *f = nullptr;
+		bool success = false;
+		bool writeFailed = false;
+		bool readFailed = false;
+		size_t totalSize = 0;
+		size_t bytesCopied = 0;
+
+		if (reader) {
+			vfsRef = reader->GetFile(task.zipFileInfo->isoFilename);
+		}
+		if (vfsRef) {
+			vfsFile = reader->OpenFileForRead(vfsRef, &totalSize);
+		}
+		if (vfsFile) {
+			f = File::OpenCFile(destFile, "wb");
+		}
+
+		if (f) {
+			std::vector<u8> buffer(blockSize);
+			while (bytesCopied < totalSize) {
+				size_t readSize = std::min(blockSize, totalSize - bytesCopied);
+				size_t bytesRead = reader->Read(vfsFile, buffer.data(), readSize);
+				if (bytesRead == 0) {
+					ERROR_LOG(Log::HLE, "Failed to stream extract 7z ISO '%s'", task.zipFileInfo->isoFilename.c_str());
+					readFailed = true;
+					break;
+				}
+
+				size_t written = fwrite(buffer.data(), 1, bytesRead, f);
+				if (written != bytesRead) {
+					ERROR_LOG(Log::HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bytesRead);
+					writeFailed = true;
+					break;
+				}
+
+				bytesCopied += bytesRead;
+				installProgress_ = totalSize > 0 ? (float)bytesCopied / (float)totalSize : 1.0f;
+				g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, installProgress_, 0.1f);
+			}
+
+			success = bytesCopied == totalSize;
+			fclose(f);
+			f = nullptr;
+		}
+
+		if (vfsFile) {
+			reader->CloseFile(vfsFile);
+		}
+		if (vfsRef) {
+			reader->ReleaseFile(vfsRef);
+		}
+		delete reader;
+
+		if (!success) {
+			File::Delete(destFile);
+			if (writeFailed) {
+				SetInstallError(sy->T("Storage full"));
+			} else if (readFailed) {
+				auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+				SetInstallError(iz->T("Zip archive corrupt"));
+			} else {
+				SetInstallError(sy->T("Unable to open zip file"));
+			}
+		}
+
+		g_OSD.RemoveProgressBar("install", success, 0.5f);
+		installProgress_ = 1.0f;
+		if (success) {
+			ResetInstallError();
+		}
 		InstallDone();
 		return;
 	}
@@ -739,7 +826,9 @@ bool GameManager::InstallZipOnThread(ZipFileTask task) {
 		return false;
 	}
 
-	installThread_ = std::thread(std::bind(&GameManager::InstallZipContents, this, task));
+	installThread_ = std::thread([this, task]() {
+		InstallZipContents(task);
+	});
 	return true;
 }
 
@@ -751,7 +840,9 @@ bool GameManager::UninstallGameOnThread(const std::string &name) {
 	if (InstallInProgress() || installDonePending_ || curDownload_.get() != nullptr) {
 		return false;
 	}
-	installThread_ = std::thread(std::bind(&GameManager::UninstallGame, this, name));
+	installThread_ = std::thread([this, name]() {
+		UninstallGame(name);
+	});
 	return true;
 }
 

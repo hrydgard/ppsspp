@@ -24,6 +24,8 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/SevenZipFileReader.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -40,15 +42,27 @@
 
 InstallZipScreen::InstallZipScreen(const Path &zipPath) : UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll), zipPath_(zipPath) {
 	g_GameManager.ResetInstallError();
-	ZipContainer zipFile = ZipOpenPath(zipPath_);
-	if (zipFile) {
-		DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
-		ZipClose(zipFile);
+
+	if (zipPath.GetFileExtension() == ".7z") {
+		SevenZipFileReader *sevenZipFile = SevenZipFileReader::Create(zipPath, "");
+		if (sevenZipFile) {
+			DetectArchiveContents(sevenZipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+			delete sevenZipFile;
+		}
+	} else {
+		ZipContainer zipFile = ZipOpenPath(zipPath_);
+		if (zipFile) {
+			DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+			ZipClose(zipFile);
+		}
 	}
 }
 
 std::string_view InstallZipScreen::GetTitle() const {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+	if (zipFileInfo_.archiveType == ArchiveType::SevenZ) {
+		return iz->T("7z file");
+	}
 	return iz->T("ZIP file");
 }
 
@@ -78,7 +92,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 
 		// NOTE: We detect PBP isos (like demos) as game dirs currently. Can't play them directly.
-		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE && zipFileInfo_.archiveType == ArchiveType::ZIP) {
 			playChoice_ = parent->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
 			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
 		}
@@ -365,6 +379,11 @@ void InstallZipScreen::update() {
 		} else if (installStarted_) {
 			if (doneView_) {
 				doneView_->SetText(iz->T("Installed!"));
+			}
+			if (playChoice_) {
+				// Encourage the user to back out and play directly from the main screen,
+				// instead of unpacking into memory.
+				playChoice_->SetEnabled(false);
 			}
 			MainScreen::showHomebrewTab = returnToHomebrew_;
 		}
