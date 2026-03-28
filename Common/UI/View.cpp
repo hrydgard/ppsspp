@@ -451,7 +451,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		float scale = dc.CalculateTextScale(text_, availWidth);
 		float textW = 0.0f, textH = 0.0f;
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
-		textW += 2;  // We need a small fudge factor here, not sure why yet.
+		textW += 4;  // We need a small fudge factor here, not sure why yet.
 		totalH = std::max(totalH, textH);
 		totalW += textW;
 		if (image_.isValid()) {

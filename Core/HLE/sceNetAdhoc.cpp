@@ -150,7 +150,9 @@ static bool ParseServerListEntriesJSON(std::string_view json) {
 		entry.location = server.getStringOr("location", "");
 		entry.description = server.getStringOr("description", "");
 		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
-		entry.statusUrl = server.getStringOr("status_data_json", "");
+		entry.dataJsonUrl = server.getStringOr("status_data_json", "");
+		entry.statusXmlUrl = server.getStringOr("status_xml", "");
+		entry.statusWebUrl = server.getStringOr("status_web", "");
 
 		if (entry.host.empty()) {
 			// Skipping invalid entry.
@@ -250,6 +252,17 @@ std::vector<AdhocServerListEntry> AdhocGetServerList(AdhocLoadListMode loadMode)
 
 	std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 	return g_proAdhocServerList;
+}
+
+bool AdhocGetServerByHost(std::string_view host, AdhocServerListEntry *dest) {
+	std::vector<AdhocServerListEntry> entries = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
+	for (auto &entry : entries) {
+		if (equals(host, entry.host)) {
+			*dest = entry;
+			return true;
+		}
+	}
+	return false;
 }
 
 static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {

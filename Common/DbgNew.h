@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef _WIN32
+
 #include <winapifamily.h>
 
 // Utility file for using the MS CRT's memory tracking.
@@ -21,3 +23,5 @@
 #endif  // _DEBUG
 
 #endif
+
+#endif  // _WIN32

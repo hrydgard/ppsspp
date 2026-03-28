@@ -284,6 +284,7 @@ public:
 
 	void Update() override;
 
+	// If you call this at creation, call it AFTER adding the subviews!
 	void SetOpen(bool open) {
 		_dbg_assert_(open_);
 		*open_ = open;
