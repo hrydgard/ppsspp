@@ -1032,6 +1032,15 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		serverRow->Add(new Choice(ImageID("I_EDIT_TEXT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([this](UI::EventParams &) {
 			AskToEditCurrentServer(GetRequesterToken(), screenManager());
 		});
+	} else if (!g_Config.sProAdhocServer.empty()) {
+		AdhocServerListEntry entry;
+		if (AdhocGetServerByHost(g_Config.sProAdhocServer, &entry)) {
+			Choice *status = networkingSettings->Add(new Choice(ApplySafeSubstitutions(n->T("Server status: %1"), g_Config.sProAdhocServer)));
+			status->SetIconLeft(ImageID("I_INFO"));
+			status->OnClick.Add([this, entry](UI::EventParams &) {
+				screenManager()->push(new AdhocServerInfoScreen(entry));
+			});
+		}
 	}
 
 	static const char *relayModes[] = {"Auto", "Yes", "No"};

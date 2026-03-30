@@ -7,7 +7,8 @@
 			"web": "",
 			"location": "France",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_xml": "https://www.socom.cc/status.xml"
 		},
 		{
 			"name": "Madness Gaming Network",
@@ -25,7 +26,8 @@
 			"web": "",
 			"location": "France",
 			"description": "Mostly for Medal of Honor Heros 2 & Need For Speed Most Wanted players, but can be used for other games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "https://adhoc.eahub.eu/data.json"
 		},
 		{
 			"name": "Psi-Hate",
@@ -34,7 +36,8 @@
 			"web": "",
 			"location": "Minnesota USA",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://psi-hate.com:27315/data.json"
 		},
 		{
 			"name": "Relay Brasileiro",
@@ -43,7 +46,8 @@
 			"web": "https://jpa36a7.glddns.com",
 			"location": "São Paulo Brazil",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_xml": "https://jpa36a7.glddns.com/"
 		},
 		{
 			"name": "ArenaAnywhere SA",
@@ -101,7 +105,8 @@
 			"web": "https://adhoc.gamesnexus.ovh",
 			"location": "Milan Italy",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_web": "https://adhoc.gamesnexus.ovh"
 		},
 		{
 			"name": "Sony PSP & PSVita Fans",
@@ -113,13 +118,13 @@
 			"data_mode": "P2P"
 		},
 		{
-		    "name": "CVN-Play",
-		    "host": "cvn-play.top",
-		    "discord": "",
-		    "web": "https://game.cvn-play.top/emu",
-		    "location": "China",
-		    "description": "For players looking to play any games",
-		    "data_mode": "AemuPostoffice"
+			"name": "CVN-Play",
+			"host": "cvn-play.top",
+			"discord": "",
+			"web": "https://game.cvn-play.top/emu",
+			"location": "China",
+			"description": "For players looking to play any games",
+			"data_mode": "AemuPostoffice"
 		}
 	]
 }
