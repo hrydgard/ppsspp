@@ -761,6 +761,7 @@ static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, v
 	static int16_t *buffer;
 	static int bufSize;
 	if (bufSize < framesToWrite * 2) {
+		// This one leaks on exit. Oh well.
 		buffer = new int16_t[framesToWrite * 2];
 		bufSize = framesToWrite * 2;
 	}
