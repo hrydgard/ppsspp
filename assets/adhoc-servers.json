@@ -8,7 +8,8 @@
 			"location": "France",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
-			"status_xml": "https://www.socom.cc/status.xml"
+			"status_xml": "https://www.socom.cc/status.xml",
+			"icon":  "/favicon.ico"
 		},
 		{
 			"name": "Madness Gaming Network",
@@ -47,7 +48,8 @@
 			"location": "São Paulo Brazil",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
-			"status_xml": "https://jpa36a7.glddns.com/"
+			"status_xml": "https://jpa36a7.glddns.com/",
+			"icon": "/favicon.ico"
 		},
 		{
 			"name": "ArenaAnywhere SA",
@@ -106,6 +108,7 @@
 			"location": "Milan Italy",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
+			"status_data_json": "https://adhoc.gamesnexus.ovh/data.json",
 			"status_web": "https://adhoc.gamesnexus.ovh"
 		},
 		{

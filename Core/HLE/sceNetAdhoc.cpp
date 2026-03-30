@@ -148,6 +148,9 @@ static bool ParseServerListEntriesJSON(std::string_view json) {
 		entry.web = server.getStringOr("web", "");
 		entry.ip = server.getStringOr("ip", "");
 		entry.location = server.getStringOr("location", "");
+		if (entry.location == "Unknown") {
+			entry.location.clear();
+		}
 		entry.description = server.getStringOr("description", "");
 		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
 		entry.dataJsonUrl = server.getStringOr("status_data_json", "");
@@ -184,7 +187,7 @@ static void LoadFallbackServerList() {
 }
 
 void AdhocLoadServerList(AdhocLoadListMode loadMode) {
-	{
+	if (loadMode == AdhocLoadListMode::CacheOnlySync) {
 		std::lock_guard<std::mutex> guard(g_proAdhocServerListMutex);
 		if (!g_proAdhocServerList.empty()) {
 			return;
@@ -203,7 +206,7 @@ void AdhocLoadServerList(AdhocLoadListMode loadMode) {
 					return;
 				}
 			}
-			ERROR_LOG(Log::sceNet, "Failed to load cached adhoc server list %s from cache, falling back.", g_Config.sAdhocServerListUrl.c_str());
+			INFO_LOG(Log::sceNet, "Failed to load cached adhoc server list %s from cache, falling back.", g_Config.sAdhocServerListUrl.c_str());
 			LoadFallbackServerList();
 			return;
 		}
