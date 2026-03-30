@@ -47,7 +47,6 @@ import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -195,7 +194,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		try {
 			optimalFramesPerBuffer = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));
 		} catch (NumberFormatException e) {
-			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
+			// Ignore, if we can't parse it, it's bogus and zero is a fine value (means we couldn't detect it).
 		}
 		try {
 			optimalSampleRate = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
@@ -576,6 +575,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (isInMultiWindowMode()) {
 				// Do not try to enforce rotation! This can result in re-init loops.
+				Log.e(TAG, "Multi window mode, not setting orientation");
 				return;
 			}
 		}
@@ -589,27 +589,36 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.e(TAG, "Invalid rotation: " + rotString);
 			return;
 		}
-		Log.i(TAG, "Setting requested rotation: " + rot + " ('" + rotString + "') (" + cause + ")");
 
+		// WARNING: when adding new modes here, check SizeManager's workaround in surfaceCreated.j
+
+		int nativeRotation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 		switch (rot) {
 			case 0:
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+				nativeRotation = ActivityInfo.SCREEN_ORIENTATION_SENSOR;
 				break;
 			case 1:
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+				nativeRotation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 				break;
 			case 2:
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+				nativeRotation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
 				break;
 			case 3:
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
+				nativeRotation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
 				break;
 			case 4:
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);
+				nativeRotation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 				break;
 			case 5:
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+				nativeRotation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
 				break;
+		}
+
+		if (getRequestedOrientation() != nativeRotation) {
+			Log.i(TAG, "Changing requested rotation to " + rot + " ('" + rotString + "') (" + cause + ")");
+			setRequestedOrientation(nativeRotation);
+		} else {
+			Log.i(TAG, "Rotation already set.");
 		}
 	}
 
@@ -775,7 +784,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			sizeManager.setSurfaceView(mSurfaceView);
 			setInsetsListener(mSurfaceView);
 			setContentView(mSurfaceView);
-			startRenderLoopThread();
+
+			// render loop thread will be started once we get a surface.
 		}
 
 		if (shortcutParam != null && !shortcutParam.isEmpty()) {
@@ -922,12 +932,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	public void notifySurface(Surface surface) {
-		Log.i(TAG, "notifySurface begin");
 		mSurface = surface;
 
 		if (!javaGL) {
 			if (!initialized) {
-				Log.e(TAG, "notifySurface end: Saving surface, but can't start/stop threads while not initialized");
+				Log.e(TAG, "notifySurface: Saving surface, but can't start/stop threads while not initialized");
 				return;
 			}
 
@@ -935,16 +944,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// NOTE: We do not try to join the thread here
 			if (mSurface != null) {
 				// applyFramerate is called in here.
+				Log.i(TAG, "notifySurface: got surface, starting thread.");
 				startRenderLoopThread();
 			} else {
-				Log.i(TAG, "Notified surface is null, not starting thread.");
+				Log.i(TAG, "notifySurface: Notified surface is null, not starting thread.");
 			}
 		} else if (mSurface != null) {
 			// JavaGL path.
+			Log.i(TAG, "notifySurface: Applying framerate.");
 			applyFrameRate(mSurface, 60.0f);
 		}
 		updateSustainedPerformanceMode();
-		Log.i(TAG, "notifySurface end");
 	}
 
 	// The render loop thread (EmuThread) is now spawned from the native side.
@@ -1125,8 +1135,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@Override
 	public void onConfigurationChanged(@NonNull Configuration newConfig) {
-		Log.i(TAG, "onConfigurationChanged");
 		super.onConfigurationChanged(newConfig);
+		Log.i(TAG, "onConfigurationChanged");
 		updateSystemUiVisibility();
 		sizeManager.updateDpi((float)newConfig.densityDpi);
 	}

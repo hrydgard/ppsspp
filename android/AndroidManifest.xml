@@ -56,7 +56,6 @@
             android:theme="@style/ppsspp_style"
 			android:launchMode="singleInstance"
             android:exported="true">
-            <!-- android:screenOrientation="landscape" -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
