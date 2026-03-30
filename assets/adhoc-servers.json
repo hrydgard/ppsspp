@@ -46,7 +46,8 @@
 			"web": "https://jpa36a7.glddns.com",
 			"location": "São Paulo Brazil",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_xml": "https://jpa36a7.glddns.com/"
 		},
 		{
 			"name": "ArenaAnywhere SA",
@@ -104,7 +105,8 @@
 			"web": "https://adhoc.gamesnexus.ovh",
 			"location": "Milan Italy",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
+			"status_web": "https://adhoc.gamesnexus.ovh"
 		},
 		{
 			"name": "Sony PSP & PSVita Fans",
@@ -116,13 +118,13 @@
 			"data_mode": "P2P"
 		},
 		{
-		    "name": "CVN-Play",
-		    "host": "cvn-play.top",
-		    "discord": "",
-		    "web": "https://game.cvn-play.top/emu",
-		    "location": "China",
-		    "description": "For players looking to play any games",
-		    "data_mode": "AemuPostoffice"
+			"name": "CVN-Play",
+			"host": "cvn-play.top",
+			"discord": "",
+			"web": "https://game.cvn-play.top/emu",
+			"location": "China",
+			"description": "For players looking to play any games",
+			"data_mode": "AemuPostoffice"
 		}
 	]
 }

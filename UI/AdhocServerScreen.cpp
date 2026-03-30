@@ -254,7 +254,11 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	} else {
 		if (games_.empty()) {
-			content->Add(new TextView(ni->T("No games in progress on this server")));
+			if (statusRequest_) {
+				// Still loading. TODO: Show a spinner or something.
+			} else {
+				content->Add(new TextView(ni->T("No games in progress on this server")));
+			}
 		} else {
 			for (const AdhocGame &game : games_) {
 				std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
