@@ -128,6 +128,14 @@
 			"location": "China",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice"
+		},
+		{
+			"name": "NT Arena Brasil",
+			"host": "ntarena.duckdns.org",
+			"discord": "https://discord.gg/g9sNF5CdEg",
+			"location": "Brazil",
+			"description": "Relay for the Brazilian Dissidia 012 community, access managed through Discord, focused on organized lobbies",
+			"data_mode": "AemuPostoffice"
 		}
 	]
 }
