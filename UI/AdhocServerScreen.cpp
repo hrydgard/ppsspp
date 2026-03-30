@@ -231,9 +231,9 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	desc->SetTextSize(TextSize::Small);
 	desc->SetWordWrap();
 
+	LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
+	buttonStrip->SetSpacing(8);
 	if (!entry_.web.empty() || !entry_.discord.empty()) {
-		LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		buttonStrip->SetSpacing(8);
 		if (!entry_.web.empty()) {
 			buttonStrip->Add(CreateLinkButton(entry_.web));
 		}
@@ -247,23 +247,24 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/multiplayer/adhoc-server-status/");
 		}));
 		if (!entry_.statusWebUrl.empty()) {
-			content->Add(CreateLinkButton(entry_.statusWebUrl, ni->T("Status on web")));
+			buttonStrip->Add(CreateLinkButton(entry_.statusWebUrl, ni->T("Status")));
 		}
 		if (!entry_.statusXmlUrl.empty()) {
-			content->Add(CreateLinkButton(entry_.statusXmlUrl, ni->T("Status on web")));
+			buttonStrip->Add(CreateLinkButton(entry_.statusXmlUrl, ni->T("Status")));
 		}
 	} else {
 		if (games_.empty()) {
 			content->Add(new TextView(ni->T("No games in progress on this server")));
 		} else {
 			for (const AdhocGame &game : games_) {
-				CollapsibleSection *gameSection = content->Add(new CollapsibleSection(StringFromFormat("%s (players: %d groups: %d)", game.name.c_str(), game.usercount, (int)game.groups.size())));
+				std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
+				CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
 				for (const AdhocGroup &group : game.groups) {
 					if (group.usercount == 1 && group.name == "Groupless") {
 						gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
 						continue;
 					}
-					gameSection->Add(new TextView(StringFromFormat("  %s (players: %d)", group.name.c_str(), group.usercount)))->SetTextSize(TextSize::Small);
+					gameSection->Add(new TextView("  " + group.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
 					for (const AdhocUser &user : group.users) {
 						std::string portInfo;
 						if (!user.pdp_ports.empty()) {
@@ -278,7 +279,7 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 								portInfo += std::to_string(port) + " ";
 							}
 						}
-						gameSection->Add(new TextView(StringFromFormat("    %s %s", user.name.c_str(), portInfo.c_str())))->SetTextSize(TextSize::Tiny);
+						gameSection->Add(new TextView("    " + user.name + " " + portInfo))->SetTextSize(TextSize::Tiny);
 					}
 				}
 				gameSection->SetOpen(false);  // NOTE: Must be last!
