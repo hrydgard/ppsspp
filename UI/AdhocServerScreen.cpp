@@ -259,6 +259,10 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			for (const AdhocGame &game : games_) {
 				CollapsibleSection *gameSection = content->Add(new CollapsibleSection(StringFromFormat("%s (players: %d groups: %d)", game.name.c_str(), game.usercount, (int)game.groups.size())));
 				for (const AdhocGroup &group : game.groups) {
+					if (group.usercount == 1 && group.name == "Groupless") {
+						gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+						continue;
+					}
 					gameSection->Add(new TextView(StringFromFormat("  %s (players: %d)", group.name.c_str(), group.usercount)))->SetTextSize(TextSize::Small);
 					for (const AdhocUser &user : group.users) {
 						std::string portInfo;
