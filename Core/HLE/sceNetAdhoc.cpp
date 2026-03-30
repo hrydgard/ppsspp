@@ -206,7 +206,7 @@ void AdhocLoadServerList(AdhocLoadListMode loadMode) {
 					return;
 				}
 			}
-			ERROR_LOG(Log::sceNet, "Failed to load cached adhoc server list %s from cache, falling back.", g_Config.sAdhocServerListUrl.c_str());
+			INFO_LOG(Log::sceNet, "Failed to load cached adhoc server list %s from cache, falling back.", g_Config.sAdhocServerListUrl.c_str());
 			LoadFallbackServerList();
 			return;
 		}
