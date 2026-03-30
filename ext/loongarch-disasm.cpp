@@ -9927,3 +9927,77 @@ void print_disasm(uint32_t opcode)
     sprint_disasm(opcode, msg);
     puts(msg);
 }
+
+// Currently only support instructions which JIT could generate.
+bool LoongArch64AnalyzeLoadStore(uint64_t addr, uint32_t opcode, LoongArch64LSInstructionInfo *info)
+{
+    if (opcode >> 26 == 0b001010) {
+        switch (opcode >> 24 & 3) {
+        // ld.b/ld.h/ld.w/ld.d
+        case 0:
+            info->isIntegerLoadStore = true;
+            info->size = 1 << ((opcode >> 22) & 3);
+            break;
+        // st.b/st.h/st.w/st.d
+        case 1:
+            info->isIntegerLoadStore = true;
+            info->isMemoryWrite = true;
+            info->size = 1 << ((opcode >> 22) & 3);
+            break;
+        // ld.bu/ld.hu/ld.wu/preld
+        case 2:
+            info->isIntegerLoadStore = true;
+            info->size = 1 << ((opcode >> 22) & 3);
+            break;
+        // fld.s/fst.s/fld.d/fld.d
+        case 3:
+            info->isFPLoadStore = true;
+            switch (opcode >> 22 & 3) {
+                case 0:
+                    info->size = 4;
+                    break;
+                case 1:
+                    info->isMemoryWrite = true;
+                    info->size = 4;
+                    break;
+                case 2:
+                    info->size = 8;
+                    break;
+                case 3:
+                    info->isMemoryWrite = true;
+                    info->size = 8;
+                    break;
+            }
+            break;
+        }
+    }
+
+    if (opcode >> 26 == 0b001011) {
+        switch (opcode >> 22 & 15) {
+        // vld
+        case 0:
+            info->isFPLoadStore = true;
+            info->size = 16;
+            break;
+        // vst
+        case 1:
+            info->isFPLoadStore = true;
+            info->isMemoryWrite = true;
+            info->size = 16;
+            break;
+        }
+    }
+
+    if (opcode >> 26 == 0b001100) {
+        if (((opcode >> 20) & 63) == 0b000010) {
+            // vldrepl.w
+            info->isFPLoadStore = true;
+            info->size = 4;
+        }
+    }
+
+    if (info->isIntegerLoadStore || info->isFPLoadStore)
+        return true;
+    else
+        return false;
+}

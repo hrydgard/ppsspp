@@ -32,6 +32,8 @@
 #include "Core/Util/DisArm64.h"
 #elif PPSSPP_ARCH(ARM)
 #include "ext/disarm.h"
+#elif PPSSPP_ARCH(LOONGARCH64)
+#include "ext/loongarch-disasm.h"
 #endif
 
 #include "Common/Log.h"
@@ -242,6 +244,16 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		}
 		break;
 	}
+#elif PPSSPP_ARCH(LOONGARCH64)
+	uint32_t word;
+	memcpy(&word, codePtr, 4);
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
+	LoongArch64LSInstructionInfo info{};
+	success = LoongArch64AnalyzeLoadStore((uint64_t)codePtr, word, &info);
+	if (success)
+		instructionSize = info.instructionSize;
+	// It's quite pointless to ignore bad memory access on LoongArch because we could not handle it correctly.
+	success = false;
 #endif
 
 	if (MIPSComp::jit && MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
