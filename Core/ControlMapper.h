@@ -25,7 +25,8 @@ public:
 // Main use is of course from EmuScreen.cpp, but also useful from control settings etc.
 class ControlMapper {
 public:
-	void Update(const DisplayLayoutConfig &config, double now);
+	void UpdateConfig(const DisplayLayoutConfig &config);
+	void UpdateAutoMovements(double now);
 
 	// Inputs to the table-based mapping
 	// These functions are free-threaded.
