@@ -189,6 +189,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_RADIO_EMPTY", false},
 	{"I_RADIO_SELECTED", false},
 	{"I_EDIT_TEXT", false},
+	{"I_SEND", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
