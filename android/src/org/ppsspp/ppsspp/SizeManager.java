@@ -63,10 +63,11 @@ public class SizeManager implements SurfaceHolder.Callback {
 		int pixelHeight = holder.getSurfaceFrame().height();
 
 		// Workaround for terrible bug when locking and unlocking the screen in landscape mode on Nexus 5X.
+		// TODO: Look into removing this.
 		int requestedOr = activity.getRequestedOrientation();
 		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 		boolean detectedPortrait = pixelHeight > pixelWidth;
-		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED && requestedOr != ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE && requestedOr != ActivityInfo.SCREEN_ORIENTATION_SENSOR) {
 			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
 			badOrientationCount++;
 			activity.recreate();
