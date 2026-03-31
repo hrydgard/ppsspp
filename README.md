@@ -217,7 +217,7 @@ What's new in 1.19
 	- As usual a lot of tweaks, perf fixes, and fixes for hangs and crashes ([#20343], [#20332], [#20305], [#20303], [#20299], [#20163], [#20152], [#20143], [#20079], [#20137], [#20374])
 	- Two new color themes ([#20334], [#20335]), related themability fixes ([#19984], [#19995], [#20308])
 	- Improvements and bug fixes in the savedata manager ([#19771], [#20170])
-	- Add "Move to trash" deletion funcionality to multiple platforms ([#20230], [#20261])
+	- Add "Move to trash" deletion functionality to multiple platforms ([#20230], [#20261])
 	- Add ability to take "raw" screenshots of gameplay ([#20029])
 	- More files can be loaded directly from ZIP ([#20243])
 	- Developer Settings are now tabbed for easier access ([#20228])
