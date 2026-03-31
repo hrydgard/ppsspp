@@ -414,6 +414,7 @@ public:
 
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }
+	virtual bool CanMoveFocus(FocusDirection dir) const { return true; }
 
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
@@ -1111,6 +1112,8 @@ public:
 	}
 
 	void FocusChanged(int focusFlags) override;
+
+	bool CanMoveFocus(FocusDirection dir) const { return dir != FocusDirection::FOCUS_LEFT && dir != FocusDirection::FOCUS_RIGHT; }
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
