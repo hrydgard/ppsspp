@@ -1334,11 +1334,13 @@ static std::string FirstLine(const std::string &text) {
 
 bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
-		Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
-		if (textBounds.Contains(touch.x, touch.y)) {
+		if (bounds_.Contains(touch.x, touch.y)) {
 			SetFocusedView(this, true);
-			int relativeX = touch.x - textBounds.x + scrollPos_;
-			selectAtX_ = relativeX;
+			Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
+			if (textBounds.Contains(touch.x, touch.y)) {
+				int relativeX = touch.x - textBounds.x + scrollPos_;
+				selectAtX_ = relativeX;
+			}
 			return true;
 		}
 	}
