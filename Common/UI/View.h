@@ -1123,6 +1123,7 @@ public:
 	Event OnEnter;
 
 private:
+	Margins padding_;
 	std::string text_;
 	std::string title_;
 	std::string undo_;

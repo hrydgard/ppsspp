@@ -1233,7 +1233,7 @@ bool ClickableTextView::Key(const KeyInput &key) {
 
 TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_view placeholderText, LayoutParams *layoutParams)
   : View(layoutParams), text_(text), title_(title), undo_(text), placeholderText_(placeholderText),
-    textColor_(0xFFFFFFFF), maxLen_(255) {
+    textColor_(0xFFFFFFFF), maxLen_(255), padding_(8, 8) {
 	caret_ = (int)text_.size();
 }
 
@@ -1247,17 +1247,18 @@ void TextEdit::FocusChanged(int focusFlags) {
 }
 
 void TextEdit::Draw(UIContext &dc) {
-	dc.PushScissor(bounds_);
+	Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
+
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	// TODO: make background themeable?
 	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
-
+	dc.PushScissor(textBounds);
+	Bounds origTextBounds = textBounds;
 	uint32_t textColor = popupStyle_ ? dc.GetTheme().popupStyle.fgColor : dc.GetTheme().infoStyle.fgColor;
-	float textX = bounds_.x;
+	float textX = textBounds.x;
 	float w, h;
 
-	Bounds textBounds = bounds_;
 	textBounds.x = textX - scrollPos_;
 
 	std::string textToDisplay = text_;
@@ -1270,7 +1271,7 @@ void TextEdit::Draw(UIContext &dc) {
 	if (text_.empty()) {
 		if (placeholderText_.size()) {
 			uint32_t c = textColor & 0x50FFFFFF;
-			dc.DrawTextRect(placeholderText_, bounds_, c, ALIGN_CENTER);
+			dc.DrawTextRect(placeholderText_, origTextBounds, c, ALIGN_CENTER);
 		}
 	} else {
 		dc.DrawTextRect(textToDisplay, textBounds, textColor, ALIGN_VCENTER | ALIGN_LEFT | align_);
@@ -1279,14 +1280,14 @@ void TextEdit::Draw(UIContext &dc) {
 	// Hack to find the caret position. Might want to find a better way...
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, caret_), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
 	float caretX = w - scrollPos_;
-	if (caretX > bounds_.w) {
-		scrollPos_ += caretX - bounds_.w;
+	if (caretX > origTextBounds.w) {
+		scrollPos_ += caretX - origTextBounds.w;
 	}
 	if (caretX < 0) {
 		scrollPos_ += caretX;
 	}
 	caretX += textX;
-	dc.FillRect(UI::Drawable(textColor), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+	dc.FillRect(UI::Drawable(textColor), Bounds(caretX - 1, origTextBounds.y, 3, origTextBounds.h));
 
 	if (selectAtX_ >= 0) {
 		caret_ = -1;
@@ -1309,8 +1310,8 @@ void TextEdit::Draw(UIContext &dc) {
 
 void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, !text_.empty() ? text_ : "Wj", &w, &h, align_);
-	w += 2;
-	h += 2;
+	w += padding_.horiz();
+	h += padding_.vert();
 }
 
 std::string TextEdit::DescribeText() const {
@@ -1333,9 +1334,10 @@ static std::string FirstLine(const std::string &text) {
 
 bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
-		if (bounds_.Contains(touch.x, touch.y)) {
+		Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
+		if (textBounds.Contains(touch.x, touch.y)) {
 			SetFocusedView(this, true);
-			int relativeX = touch.x - bounds_.x + scrollPos_;
+			int relativeX = touch.x - textBounds.x + scrollPos_;
 			selectAtX_ = relativeX;
 			return true;
 		}
