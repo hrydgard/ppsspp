@@ -1106,6 +1106,9 @@ public:
 	void SetPasswordMasking(bool masking) {
 		passwordMasking_ = masking;
 	}
+	void SetPadding(Margins padding) {
+		padding_ = padding;
+	}
 
 	void FocusChanged(int focusFlags) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;

@@ -30,7 +30,11 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		// We have direct keyboard input.
-		chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
+		chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0, Gravity::G_VCENTER)));
+		chatEdit_->SetPadding(Margins(12, 16));
+		Choice *send = bottom->Add(new Choice(ImageID("I_SEND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		send->OnClick.Handle(this, &ChatMenu::OnSubmitMessage);
+		send->SetImageScale(0.8f);
 		chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmitMessage);
 	} else {
 		// If we have a native input box, like on Android, or at least we can do a popup text input with our UI...
