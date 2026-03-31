@@ -38,7 +38,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 		chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmitMessage);
 	} else {
 		// If we have a native input box, like on Android, or at least we can do a popup text input with our UI...
-		chatButton_ = bottom->Add(new Button(n->T("Chat message"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		chatButton_ = bottom->Add(new Choice(n->T("Chat message"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		chatButton_->OnClick.Handle(this, &ChatMenu::OnAskForChatMessage);
 	}
 

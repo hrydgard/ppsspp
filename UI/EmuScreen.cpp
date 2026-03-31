@@ -1318,7 +1318,9 @@ void EmuScreen::CreateViews() {
 			AnchorLayoutParams *layoutParams = AnchorInCorner(bounds, g_Config.iChatButtonPosition, 80.0f, 50.0f);
 			chatButton_ = root_->Add(new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams));
 			chatButton_->OnClick.Add([this](UI::EventParams &e) {
-				OpenChat(false);
+				// Really, the check here should be "has a hard keyboard".
+				bool focus = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP;
+				OpenChat(focus);
 			});
 		}
 		chatMenu_ = root_->Add(new ChatMenu(GetRequesterToken(), screenManager()->getUIContext()->GetBounds(), screenManager(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
