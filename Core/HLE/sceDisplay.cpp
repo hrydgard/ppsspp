@@ -53,6 +53,7 @@
 #include "Core/HW/Display.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/RetroAchievements.h"
+#include "Core/ControlMapper.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -540,6 +541,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	if (wokeThreads) {
 		__KernelReSchedule("entered vblank");
 	}
+
+	// We use the emulation timebase here, for auto movements to be smooth as seen from the game.
+	g_controlMapper.UpdateAutoMovements(CoreTiming::GetGlobalTimeUs() / 1000000.0);
 
 	numVBlanksSinceFlip++;
 

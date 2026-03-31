@@ -1495,7 +1495,7 @@ void EmuScreen::update() {
 	double now = time_now_d();
 
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-	g_controlMapper.Update(config, now);
+	g_controlMapper.UpdateConfig(config);
 
 	if (saveStatePreview_ && !bootPending_) {
 		int currentSlot = SaveState::GetCurrentSlot();

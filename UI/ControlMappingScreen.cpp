@@ -501,7 +501,7 @@ void AnalogCalibrationScreen::SetRawAnalog(int stick, float x, float y) {
 }
 
 void AnalogCalibrationScreen::update() {
-	g_controlMapper.Update(g_Config.GetDisplayLayoutConfig(GetDeviceOrientation()), time_now_d());
+	g_controlMapper.UpdateConfig(g_Config.GetDisplayLayoutConfig(GetDeviceOrientation()));
 	// We ignore the secondary stick for now and just use the two views
 	// for raw and psp input.
 	if (stickView_[0]) {
