@@ -99,6 +99,13 @@ libretro-build-linux-i686:
     - .core-defs
     - .cmake-defs
 
+# Linux 64-bit (ARM)
+libretro-build-linux-aarch64:
+  extends:
+    - .libretro-linux-cmake-aarch64
+    - .core-defs
+    - .cmake-defs
+
 # MacOS 64-bit
 libretro-build-osx-x64:
   variables:
