@@ -833,8 +833,10 @@ std::string PopupTextInputChoice::ValueText(bool *shadow) const {
 	}
 }
 
-LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
-	LinearLayout *keyboard = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
+	ScrollView *scrollView = new ScrollView(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+
+	LinearLayout *keyboard = scrollView->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 	// TODO: Make something a bit more international... Although we don't need that for domain names.
 	static struct {
 		std::string_view v; const char *tag;
@@ -911,7 +913,7 @@ LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 			break;
 		}
 	}
-	return keyboard;
+	return scrollView;
 }
 
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {

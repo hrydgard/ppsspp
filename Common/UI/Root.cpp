@@ -414,6 +414,7 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 				case NKCODE_PAGE_DOWN: MoveFocus(root, FOCUS_NEXT_PAGE); break;
 				case NKCODE_MOVE_HOME: MoveFocus(root, FOCUS_FIRST); break;
 				case NKCODE_MOVE_END: MoveFocus(root, FOCUS_LAST); break;
+				case NKCODE_TAB: MoveFocus(root, FOCUS_NEXT); break;
 				}
 			}
 		}

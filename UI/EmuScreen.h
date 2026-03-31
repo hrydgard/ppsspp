@@ -85,7 +85,7 @@ private:
 	void CreateViews() override;
 	ScreenRenderFlags RunEmulation(bool skipBufferEffects);
 	void OnDevTools(UI::EventParams &params);
-	void OnChat(UI::EventParams &params);
+	void OpenChat(bool focus);
 
 	void HandleFlip();
 	void ProcessGameBoot(const Path &filename);
@@ -106,7 +106,6 @@ private:
 	bool ShouldRunEmulation(ScreenRenderMode mode) const;
 
 	UI::Event OnDevMenu;
-	UI::Event OnChatMenu;
 	bool bootPending_ = true;
 	bool bootIsReset_ = false;
 	Path gamePath_;
@@ -136,7 +135,7 @@ private:
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;
-	UI::View *chatButton_ = nullptr;
+	UI::Clickable *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
