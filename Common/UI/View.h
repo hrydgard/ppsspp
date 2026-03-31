@@ -414,6 +414,7 @@ public:
 
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }
+	virtual bool CanMoveFocus(FocusDirection dir) const { return true; }
 
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
@@ -1106,8 +1107,13 @@ public:
 	void SetPasswordMasking(bool masking) {
 		passwordMasking_ = masking;
 	}
+	void SetPadding(Margins padding) {
+		padding_ = padding;
+	}
 
 	void FocusChanged(int focusFlags) override;
+
+	bool CanMoveFocus(FocusDirection dir) const { return dir != FocusDirection::FOCUS_LEFT && dir != FocusDirection::FOCUS_RIGHT; }
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -1123,6 +1129,7 @@ public:
 	Event OnEnter;
 
 private:
+	Margins padding_;
 	std::string text_;
 	std::string title_;
 	std::string undo_;

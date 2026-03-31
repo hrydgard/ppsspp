@@ -156,10 +156,16 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 		return;
 	}
 
+	if (!focusedView->CanMoveFocus(direction)) {
+		return;
+	}
+
 	NeighborResult neigh = root->FindNeighbor(focusedView, direction, NeighborResult());
 	if (neigh.view) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);
+
+		// INFO_LOG(Log::UI, "Focus moved from %s to %s", focusedView->DescribeText().c_str(), neigh.view->DescribeText().c_str());
 
 		PlayUISound(UISound::SELECT);
 	}
@@ -408,6 +414,7 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 				case NKCODE_PAGE_DOWN: MoveFocus(root, FOCUS_NEXT_PAGE); break;
 				case NKCODE_MOVE_HOME: MoveFocus(root, FOCUS_FIRST); break;
 				case NKCODE_MOVE_END: MoveFocus(root, FOCUS_LAST); break;
+				case NKCODE_TAB: MoveFocus(root, FOCUS_NEXT); break;
 				}
 			}
 		}
