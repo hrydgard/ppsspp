@@ -1141,7 +1141,6 @@ void DrawEngineCommon::FlushQueuedDepth() {
 
 	const bool collectStats = coreCollectDebugStats;
 	const bool lowQ = g_Config.iDepthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
-
 	for (const auto &draw : depthDraws_) {
 		int *tx = depthScreenVerts_;
 		int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
@@ -1168,9 +1167,13 @@ void DrawEngineCommon::FlushQueuedDepth() {
 				break;
 			}
 		}
-		{
+		if (outVertCount > 0) {
 			TimeCollector collectStat(&gpuStats.msRasterizeDepth, collectStats);
-			DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(draw.depthAddr), draw.depthStride, tx, ty, tz, outVertCount, draw, tileScissor, lowQ);
+			if (!Memory::IsValid4AlignedAddress(draw.depthAddr)) {
+				continue;
+			}
+			u16 *depthPtr = (uint16_t *)Memory::GetPointerWriteUnchecked(draw.depthAddr);
+			DepthRasterScreenVerts(depthPtr, draw.depthStride, tx, ty, tz, outVertCount, draw, tileScissor, lowQ);
 		}
 	}
 
