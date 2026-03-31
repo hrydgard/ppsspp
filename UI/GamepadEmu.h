@@ -46,6 +46,7 @@ public:
 	virtual bool IsDownByTouch() const {
 		return false;
 	}
+	bool CanBeFocused() const override { return false; }
 
 protected:
 	std::string key_;

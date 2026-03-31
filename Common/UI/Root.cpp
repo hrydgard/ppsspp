@@ -165,6 +165,8 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);
 
+		// INFO_LOG(Log::UI, "Focus moved from %s to %s", focusedView->DescribeText().c_str(), neigh.view->DescribeText().c_str());
+
 		PlayUISound(UISound::SELECT);
 	}
 }
