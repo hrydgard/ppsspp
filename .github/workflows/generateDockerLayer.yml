@@ -22,7 +22,7 @@ jobs:
         fi
 
     - name: Login to GitHub registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
