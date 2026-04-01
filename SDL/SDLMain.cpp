@@ -997,6 +997,22 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		}
 
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+		{
+			if (g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
+				Core_Break(BreakReason::UIFocus, 0);
+			}
+		}
+		break;
+
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+		{
+			if (Core_BreakReason() == BreakReason::UIFocus) {
+				Core_Resume();
+			}
+		}
+		break;
+
 		case SDL_WINDOWEVENT_MINIMIZED:
 		case SDL_WINDOWEVENT_HIDDEN:
 			Native_NotifyWindowHidden(true);
