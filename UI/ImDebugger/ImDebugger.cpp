@@ -1344,6 +1344,9 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 					if (ctx->BufferState() == ATRAC_STATUS_ALL_DATA_LOADED) {
 						if (ImGui::Button("Save to disk...")) {
 							System_BrowseForFileSave(cfg.requesterToken, "Save AT3 file", "song.at3", BrowseFileType::ATRAC3, [=](const std::string &filename, int) {
+								if (!Memory::IsValidRange(info.buffer, info.bufferByte)) {
+									return;
+								}
 								const u8 *data = Memory::GetPointerRange(info.buffer, info.bufferByte);
 								if (!data) {
 									return;
