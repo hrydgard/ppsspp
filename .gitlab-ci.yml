@@ -60,6 +60,9 @@ include:
   ################################## CONSOLES ################################
   
   #################################### MISC ##################################
+  # webOS (LGTV)
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/webos-cmake.yml'
 
 # Stages for building
 stages:
@@ -164,3 +167,10 @@ libretro-build-tvos-arm64:
     - .cmake-defs
   variables:
     CORE_ARGS: -DIOS_PLATFORM=TVOS -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
+
+#################################### MISC ####################################
+# webOS
+libretro-build-webos-armv7a:
+  extends:
+    - .libretro-webos-armv7a-cmake
+    - .core-defs
