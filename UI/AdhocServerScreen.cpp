@@ -37,28 +37,51 @@ std::vector<AdhocGame> ParseDataJson(std::string_view json) {
 	const auto& gamesArray = d["games"];
 	for (auto& g : gamesArray.GetArray()) {
 		AdhocGame game;
+		if (!g.HasMember("name"))
+			continue;
 		game.name = g["name"].GetString();
 		UpgradeGameName(&game.name);
 
-		// Handle string-to-int conversion for usercount
-		game.usercount = std::stoi(g["usercount"].GetString());
-
+		// Handle string-to-int conversion for usercount if needed.
+		if (g.HasMember("usercount")) {
+			if (g["usercount"].IsString()) {
+				game.usercount = std::stoi(g["usercount"].GetString());
+			} else if (g["usercount"].IsInt()) {
+				game.usercount = g["usercount"].GetInt();
+			}
+		} else {
+			game.usercount = 0;
+		}
 		if (g.HasMember("groups")) {
 			for (auto& grp : g["groups"].GetArray()) {
 				AdhocGroup group;
+				if (!grp.HasMember("name"))
+					continue;
 				group.name = grp["name"].GetString();
-				group.usercount = std::stoi(grp["usercount"].GetString());
+				if (grp.HasMember("usercount")) {
+					if (grp["usercount"].IsString()) {
+						group.usercount = std::stoi(grp["usercount"].GetString());
+					} else if (grp["usercount"].IsInt()) {
+						group.usercount = grp["usercount"].GetInt();
+					}
+				} else {
+					group.usercount = 0;
+				}
 
 				if (grp.HasMember("users")) {
 					for (auto& u : grp["users"].GetArray()) {
 						AdhocUser user;
 						user.name = u["name"].GetString();
 
-						for (auto& p : u["pdp_ports"].GetArray())
-							user.pdp_ports.push_back(p.GetInt());
+						if (u.HasMember("pdp_ports")) {
+							for (auto& p : u["pdp_ports"].GetArray())
+								user.pdp_ports.push_back(p.GetInt());
+						}
 
-						for (auto& p : u["ptp_ports"].GetArray())
-							user.ptp_ports.push_back(p.GetInt());
+						if (u.HasMember("ptp_ports")) {
+							for (auto& p : u["ptp_ports"].GetArray())
+								user.ptp_ports.push_back(p.GetInt());
+						}
 
 						group.users.push_back(user);
 					}

@@ -154,6 +154,11 @@ static bool ParseServerListEntriesJSON(std::string_view json) {
 		entry.description = server.getStringOr("description", "");
 		entry.mode = equals(server.getStringOr("data_mode", ""), "AemuPostoffice") ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
 		entry.dataJsonUrl = server.getStringOr("status_data_json", "");
+		if (entry.dataJsonUrl.empty()) {
+			// This second field has a different name because it's more tolerant of int vs string in the json.
+			// Allowing these to get into old clients causes a crash. This will be removed after a while.
+			entry.dataJsonUrl = server.getStringOr("status_data_json_2", "");
+		}
 		entry.statusXmlUrl = server.getStringOr("status_xml", "");
 		entry.statusWebUrl = server.getStringOr("status_web", "");
 
