@@ -318,6 +318,9 @@ static const ConfigSetting generalSettings[] = {
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", SETTING(g_Config, bTopMost), false, CfgFlag::DEFAULT),
+#endif
+
+#if defined(USING_WIN_UI) || (defined (SDL) && !defined(MOBILE_DEVICE))
 	ConfigSetting("PauseOnLostFocus", SETTING(g_Config, bPauseOnLostFocus), false, CfgFlag::PER_GAME),
 #endif
 

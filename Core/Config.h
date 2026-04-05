@@ -195,9 +195,9 @@ public:
 	int iLogOutputTypes;  // enum class LogOutput
 	int iDumpFileTypes;  // DumpFileType bitflag enum
 	bool bFullscreenOnDoubleclick;
-
-	// These four are Win UI only
 	bool bPauseOnLostFocus;
+
+	// These are Win UI only
 	bool bTopMost;
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
