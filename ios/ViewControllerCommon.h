@@ -1,6 +1,7 @@
 #pragma once
 
 #import <UIKit/UIKit.h>
+#import <PhotosUI/PhotosUI.h>
 
 #import <GameController/GameController.h>
 
@@ -10,6 +11,7 @@
 
 @interface PPSSPPBaseViewController : UIViewController<
 	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
+	PHPickerViewControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate, UIKeyInput,
 	UIGestureRecognizerDelegate, iCadeEventDelegate>
 
@@ -32,6 +34,7 @@
 
 - (void)uiStateChanged;
 - (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId;
+- (void)updateResolutionWithView:(UIView *)view;
 
 @end
 

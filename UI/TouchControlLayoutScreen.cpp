@@ -49,9 +49,10 @@ public:
 		scale_ = theScale_;
 	}
 
-	bool IsDown() override {
+	bool IsDownVisually() const override {
 		// Don't want the button to enlarge and throw the user's perspective
-		// of button size off whack.
+		// of button size off whack. Also, the other purpose of IsDown is to prevent auto-hide,
+		// but it's not relevant here.
 		return false;
 	};
 
@@ -386,7 +387,7 @@ static Point2D ClampTo(const Point2D &p, const Bounds &b) {
 bool ControlLayoutView::Touch(const TouchInput &touch) {
 	using namespace UI;
 
-	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
+	if ((touch.flags & TouchInputFlags::MOVE) && pickedControl_ != nullptr) {
 		if (mode_ == 0) {
 
 			// Allow placing the control halfway outside the play area.
@@ -435,7 +436,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			pickedControl_->SetScale(newScale);
 		}
 	}
-	if ((touch.flags & TOUCH_DOWN) && pickedControl_ == 0) {
+	if ((touch.flags & TouchInputFlags::DOWN) && pickedControl_ == 0) {
 		pickedControl_ = getPickedControl(touch.x, touch.y);
 		if (pickedControl_) {
 			startDragX_ = touch.x;
@@ -448,7 +449,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			startScale_ = pickedControl_->GetScale();
 		}
 	}
-	if ((touch.flags & TOUCH_UP) && pickedControl_ != 0) {
+	if ((touch.flags & TouchInputFlags::UP) && pickedControl_ != 0) {
 		pickedControl_->SavePosition();
 		pickedControl_ = 0;
 	}
@@ -486,6 +487,7 @@ void ControlLayoutView::CreateViews() {
 	}
 
 	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
+	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
 	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
@@ -503,12 +505,12 @@ void ControlLayoutView::CreateViews() {
 		controls_.push_back(new PSPDPadButtons(touch.touchDpad, "D-pad", touch.fDpadSpacing, bounds));
 	}
 
+	addDragDropButton(touch.touchPauseKey, "Pause button", roundImage, ImageID("I_HAMBURGER"));
+
 	addDragDropButton(touch.touchSelectKey, "Select button", rectImage, ImageID("I_SELECT"));
 	addDragDropButton(touch.touchStartKey, "Start button", rectImage, ImageID("I_START"));
 
-	if (auto *fastForward = addDragDropButton(touch.touchFastForwardKey, "Fast-forward button", rectImage, ImageID("I_ARROW"))) {
-		fastForward->SetAngle(180.0f);
-	}
+	addDragDropButton(touch.touchFastForwardKey, "Fast-forward button", rectImage, ImageID("I_FAST_FORWARD_LINE"));
 	addDragDropButton(touch.touchLKey, "Left shoulder button", shoulderImage, ImageID("I_L"));
 	if (auto *rbutton = addDragDropButton(touch.touchRKey, "Right shoulder button", shoulderImage, ImageID("I_R"))) {
 		rbutton->FlipImageH(true);
@@ -524,8 +526,6 @@ void ControlLayoutView::CreateViews() {
 	auto addDragCustomKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
 		DragDropButton *b = nullptr;
 		if (pos.show) {
-
-
 			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyImages[cfg.image].i, bounds);
 			b->FlipImageH(customKeyShapes[cfg.shape].f);
 			b->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
@@ -585,10 +585,6 @@ void TouchControlLayoutScreen::resized() {
 
 void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save("TouchControlLayoutScreen::onFinish");
-}
-
-void TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
-	screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
 }
 
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
@@ -660,8 +656,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(12.0f, 0.0f))));
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
-	mode_->AddChoice(di->T("Move"));
-	mode_->AddChoice(di->T("Resize"));
+	mode_->AddChoice(di->T("Move"), ImageID("I_MOVE"));
+	mode_->AddChoice(di->T("Resize"), ImageID("I_RESIZE"));
 	mode_->SetSelection(0, false);
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
@@ -670,7 +666,9 @@ void TouchControlLayoutScreen::CreateViews() {
 	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
 	leftColumn->Add(mode_);
-	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
+	});
 	leftColumn->Add(snap);
 	leftColumn->Add(gridSize);
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
@@ -679,7 +677,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Spacer(0.0f));
 
 	LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
-	rightColumn->Add(new TextView(co->T(DeviceOrientationToString(orientation))));
+	rightColumn->Add(new TextView(co->T(DeviceOrientationToString(orientation))))->SetTextSize(TextSize::Small);
 	rightColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	float previewHeight = bounds.h * layoutAreaScale;
 	layoutView_ = rightColumn->Add(new ControlLayoutView(GetDeviceOrientation(), new LinearLayoutParams(FILL_PARENT, previewHeight)));

@@ -36,6 +36,7 @@
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/WebServer.h"
@@ -190,6 +191,10 @@ static std::string RemotePathForRecent(const std::string &filename) {
 }
 
 static Path LocalFromRemotePath(std::string_view path) {
+	// This happens for some reason...
+	if (startsWith(path, "//")) {
+		path.remove_prefix(1);
+	}
 	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
 	case RemoteISOShareType::RECENT:
 		for (const std::string &filename : g_recentFiles.GetRecentFiles()) {
@@ -249,7 +254,7 @@ static void DiscHandler(const http::ServerRequest &request, const Path &filename
 		}
 
 		FILE *fp = File::OpenCFile(filename, "rb");
-		if (!fp || fseek(fp, begin, SEEK_SET) != 0) {
+		if (!fp || File::Fseek(fp, begin, SEEK_SET) != 0) {
 			request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");
 			request.Out()->Push("File access failed.");
 			if (fp) {
@@ -407,7 +412,7 @@ static bool ServeAssetFile(const http::ServerRequest &request) {
 	// This is a gross, gross hack to have here in ServeAssetFile, but oh well.
 	if (mimeType == "text/html") {
 		if (html.find("<!--upload-->") != std::string::npos) {
-			std::string uploadPath = g_uploadPath.ToVisualString();
+			std::string uploadPath = GetFriendlyPath(g_uploadPath);
 			std::string deviceName = System_GetProperty(SYSPROP_NAME);
 			std::string computerName = System_GetProperty(SYSPROP_COMPUTER_NAME);
 			if (!computerName.empty()) {

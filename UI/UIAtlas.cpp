@@ -21,6 +21,7 @@
 #include "ext/nanosvg/src/nanosvgrast.h"
 
 constexpr bool SAVE_DEBUG_IMAGES = false;
+constexpr bool SAVE_DEBUG_ATLAS = false;
 
 static Atlas ui_atlas;
 static Atlas font_atlas;
@@ -79,6 +80,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_UP_DIRECTORY", false},
 	{"I_GEAR", false},
 	{"I_GEAR_SMALL", true},
+	{"I_GEAR_STAR", false},
 	{"I_1", true},
 	{"I_2", true},
 	{"I_3", true},
@@ -106,6 +108,7 @@ static const ImageMeta imageIDs[] = {
 	{"I_WARNING", false},
 	{"I_TRASHCAN", false},
 	{"I_PLUS", false},
+	{"I_MINUS", false},
 	{"I_ROTATE_LEFT", true},
 	{"I_ROTATE_RIGHT", true},
 	{"I_ARROW_LEFT", true},
@@ -116,11 +119,15 @@ static const ImageMeta imageIDs[] = {
 	{"I_THREE_DOTS", true},
 	{"I_INFO", false},
 	{"I_RETROACHIEVEMENTS_LOGO", false},
+	{"I_ACHIEVEMENT", false},
 	{"I_CHECKMARK", false},
 	{"I_PLAY", false},
-	{"I_STOP", false},
 	{"I_PAUSE", false},
+	{"I_STOP", false},
+	{"I_PLAY_LINE", false},
+	{"I_PAUSE_LINE", false},
 	{"I_FAST_FORWARD", false},
+	{"I_FAST_FORWARD_LINE", true},
 	{"I_RECORD", false},
 	{"I_SPEAKER", false},
 	{"I_SPEAKER_MAX", false},
@@ -157,6 +164,32 @@ static const ImageMeta imageIDs[] = {
 	{"I_PSP", false},
 	{"I_HOMEBREW_STORE", false},
 	{"I_CHAT", false},
+	{"I_UMD", false},
+	{"I_EXIT", false},
+	{"I_CHEAT", false},
+	{"I_HAMBURGER", true},
+	{"I_DEVICE_ROTATION_LANDSCAPE_REV", false},
+	{"I_DEVICE_ROTATION_AUTO", false},
+	{"I_DEVICE_ROTATION_LANDSCAPE", false},
+	{"I_DEVICE_ROTATION_PORTRAIT", false},
+	{"I_DEVICE_ROTATION_LANDSCAPE_AUT", false},
+	{"I_MOVE", false},
+	{"I_RESIZE", false},
+	{"I_LINK_OUT_QUESTION", false},
+	{"I_PSX_ISO", false},
+	{"I_PS2_ISO", false},
+	{"I_PS3_ISO", false},
+	{"I_UNKNOWN_ISO", false},
+	{"I_UMD_VIDEO_ISO", false},
+	{"I_APP", false},
+	{"I_SHORTCUT", false},
+	{"I_KEYBOARD", false},
+	{"I_MOUSE", false},
+	{"I_FILE_SAVE", false},
+	{"I_RADIO_EMPTY", false},
+	{"I_RADIO_SELECTED", false},
+	{"I_EDIT_TEXT", false},
+	{"I_SEND", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -184,6 +217,12 @@ static bool IsImageID(std::string_view id) {
 
 static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize) {
 	Bucket bucket;
+
+#ifdef _DEBUG
+	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+		_dbg_assert_(imageIDs[i].id.size() < 32);
+	}
+#endif
 
 	// Script fully read, now read images and rasterize the fonts.
 	std::vector<Image> images(ARRAY_SIZE(imageIDs));
@@ -306,7 +345,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 			shapeCount = (int)usedShapes.size();
 
-			if (SAVE_DEBUG_IMAGES) {
+			if (SAVE_DEBUG_ATLAS) {
 				WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
 				pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
 			}
@@ -388,7 +427,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	int imageWidth = RoundToNextPowerOf2((int)sqrtf(area));
 
 	Instant bucketStart = Instant::Now();
-	bucket.Pack(imageWidth);
+	bucket.Pack2(imageWidth);
 	INFO_LOG(Log::G3D, " - Packed in %.2f ms (image size: %dx%d)", bucketStart.ElapsedMs(), bucket.w, bucket.h);
 
 	Instant resolveStart = Instant::Now();
@@ -409,7 +448,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	atlas->num_images = (int)genAtlasImages.size();
 
 	// For debug, write out the atlas.
-	if (SAVE_DEBUG_IMAGES) {
+	if (SAVE_DEBUG_ATLAS) {
 		WARN_LOG(Log::G3D, "Writing debug image ui_atlas_gen.png");
 		dest->SavePNG("../ui_atlas_gen.png");
 	}
@@ -423,12 +462,16 @@ static float g_cachedDpiScale = 0.0f;
 // The caller must cache the Atlas.
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale, bool invalidate) {
 	if (g_cachedUIAtlasImage.IsEmpty() || dpiScale != g_cachedDpiScale || invalidate) {
+		INFO_LOG(Log::G3D, "Regenerating atlas (empty: %s). Dpi scale (changed: %s): %0.2f (invalidate=%d)",
+			g_cachedUIAtlasImage.IsEmpty() ? "true" : "false", dpiScale != g_cachedDpiScale ? "true" : "false", dpiScale, invalidate);
+
 		g_cachedUIAtlasImage.clear();
 		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize)) {
 			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
 			return nullptr;
 		}
 	}
+
 	g_cachedDpiScale = dpiScale;
 
 	// Create the texture.

@@ -29,6 +29,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -469,6 +470,7 @@ void DrawEngineVulkan::Flush() {
 		if (result.action == SW_DRAW_INDEXED) {
 			if (textureNeedsApply) {
 				gstate_c.pixelMapped = result.pixelMapped;
+				gstate_c.dstSquared = false;
 				textureCache_->ApplyTexture();
 				gstate_c.pixelMapped = false;
 				textureCache_->GetVulkanHandles(imageView, sampler);
@@ -476,6 +478,9 @@ void DrawEngineVulkan::Flush() {
 					imageView = (VkImageView)draw_->GetNativeObject(gstate_c.textureIsArray ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
+				if (gstate_c.dstSquared) {
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			}
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
@@ -532,10 +537,13 @@ void DrawEngineVulkan::Flush() {
 			descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 			descriptors[3].buffer.buffer = baseBuf;
 			descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+			descriptors[3].buffer.offset = 0;
 			descriptors[4].buffer.buffer = lightBuf;
 			descriptors[4].buffer.range = sizeof(UB_VS_Lights);
+			descriptors[4].buffer.offset = 0;
 			descriptors[5].buffer.buffer = boneBuf;
 			descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+			descriptors[5].buffer.offset = 0;
 
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,

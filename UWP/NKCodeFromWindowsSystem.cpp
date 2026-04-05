@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "NKCodeFromWindowsSystem.h"
 
-using namespace Windows::System;
+using namespace winrt::Windows::System;
 
-std::map<Windows::System::VirtualKey, InputKeyCode> virtualKeyCodeToNKCode{
+std::map<winrt::Windows::System::VirtualKey, InputKeyCode> virtualKeyCodeToNKCode{
 	{ VirtualKey::A, NKCODE_A },
 	{ VirtualKey::B, NKCODE_B },
 	{ VirtualKey::C, NKCODE_C },

@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.os.Environment;
+import android.widget.Toast;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,7 +56,11 @@ public class SimpleFileChooser {
 			for (File file : fileList) {
 				r.add(file.getName());
 			}
+		} else {
+			// BUG FIX: Notify user if directory is inaccessible
+			Toast.makeText(mActivity, "Cannot read directory", Toast.LENGTH_SHORT).show();
 		}
+		// Strange syntax but correct.
 		mFileList = r.toArray(new String[0]);
 	}
 
@@ -68,19 +74,17 @@ public class SimpleFileChooser {
 
 	// Comparator for Arrays.sort(). Separate folders from files, order
 	// alphabetically, ignore case.
-	private final Comparator<File> fileArrayComparator = new Comparator<>() {
-		public int compare(File file1, File file2) {
-			if (file1 == null || file2 == null) // if either null, assume equal
-				return 0;
-			// put folder first before file
-			else if (file1.isDirectory() && (!file2.isDirectory()))
-				return -1;
-			else if (file2.isDirectory() && (!file1.isDirectory()))
-				return 1;
-			else
-				// when both are folders or both are files, sort by name
-				return file1.getName().toUpperCase(Locale.ROOT).compareTo(file2.getName().toUpperCase(Locale.ROOT));
-		}
+	private final Comparator<File> fileArrayComparator = (file1, file2) -> {
+		if (file1 == null || file2 == null) // if either null, assume equal
+			return 0;
+		// put folder first before file
+		else if (file1.isDirectory() && (!file2.isDirectory()))
+			return -1;
+		else if (file2.isDirectory() && (!file1.isDirectory()))
+			return 1;
+		else
+			// when both are folders or both are files, sort by name
+			return file1.getName().toUpperCase(Locale.ROOT).compareTo(file2.getName().toUpperCase(Locale.ROOT));
 	};
 
 	// Event when user click item on dialog

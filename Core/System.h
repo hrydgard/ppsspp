@@ -22,6 +22,7 @@
 #include "Common/File/Path.h"
 #include "Core/CoreParameter.h"
 #include "Core/ConfigValues.h"
+#include "Core/Util/PathUtil.h"
 
 class MetaFileSystem;
 class ParamSFOData;
@@ -37,30 +38,6 @@ enum GlobalUIState {
 	UISTATE_INGAME,
 	UISTATE_EXIT,
 	UISTATE_EXCEPTION,
-};
-
-// Use these in conjunction with GetSysDirectory.
-enum PSPDirectories {
-	DIRECTORY_PSP,
-	DIRECTORY_CHEATS,
-	DIRECTORY_SCREENSHOT,
-	DIRECTORY_SYSTEM,
-	DIRECTORY_GAME,
-	DIRECTORY_SAVEDATA,
-	DIRECTORY_PAUTH,
-	DIRECTORY_DUMP,
-	DIRECTORY_SAVESTATE,
-	DIRECTORY_CACHE,
-	DIRECTORY_TEXTURES,
-	DIRECTORY_PLUGINS,
-	DIRECTORY_APP_CACHE,  // Use the OS app cache if available
-	DIRECTORY_VIDEO,
-	DIRECTORY_AUDIO,
-	DIRECTORY_MEMSTICK_ROOT,
-	DIRECTORY_EXDATA,
-	DIRECTORY_CUSTOM_SHADERS,
-	DIRECTORY_CUSTOM_THEMES,
-	COUNT,
 };
 
 class GraphicsContext;
@@ -98,8 +75,10 @@ BootState PSP_InitUpdate(std::string *error_string);
 // Returns either BootState::Complete or BootState::Failed.
 BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 
+// The main thread needs to block on this in some situations, like losing the surface.
+BootState PollBootState();
+
 void PSP_Shutdown(bool success);
-BootState PSP_Reboot(std::string *error_string);
 
 FileLoader *PSP_LoadedFile();
 

@@ -20,6 +20,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Render/AtlasGen.h"
 
@@ -74,7 +75,7 @@ void Image::SaveZIM(const char *zim_name, int zim_format) {
 	for (int y = 0; y < height(); y++) {
 		memcpy(image_data + y * width() * 4, (dat.data() + y * w), width() * 4);
 	}
-	FILE *f = fopen(zim_name, "wb");
+	FILE *f = File::OpenCFile(Path(zim_name), "wb");
 	// SaveZIM takes ownership over image_data, there's no leak.
 	::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
 	fclose(f);
@@ -174,7 +175,7 @@ void Bucket::Pack2(int image_width) {
 	// These are just temporary storage (the API is allocation-free otherwise).
 	// About one node is needed for each horizontal unit of width.
 	std::vector<stbrp_node> nodes(image_width * 2);
-	stbrp_init_target(&context, image_width, image_width * 2, nodes.data(), nodes.size());
+	stbrp_init_target(&context, image_width, image_width * 2, nodes.data(), (int)nodes.size());
 	// Transfer the rectangles to the rect_pack structs from Data.
 	std::vector<stbrp_rect> rects(data.size());
 	for (int i = 0; i < data.size(); i++) {
@@ -183,7 +184,7 @@ void Bucket::Pack2(int image_width) {
 		rects[i].id = i;
 	}
 	{
-		stbrp_pack_rects(&context, rects.data(), rects.size());
+		stbrp_pack_rects(&context, rects.data(), (int)rects.size());
 	}
 	for (int i = 0; i < (int)data.size(); i++) {
 		int index = rects[i].id;

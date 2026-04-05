@@ -25,6 +25,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -313,7 +314,11 @@ void DrawEngineD3D11::Flush() {
 		}
 
 		if (textureNeedsApply) {
+			gstate_c.dstSquared = false;
 			textureCache_->ApplyTexture();
+			if (gstate_c.dstSquared) {
+				gstate_c.Dirty(DIRTY_BLEND_STATE);
+			}
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.

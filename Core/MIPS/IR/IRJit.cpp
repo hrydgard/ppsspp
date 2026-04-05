@@ -511,7 +511,7 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 	bcStats.avgBloat = totalBloat / (double)blocks_.size();
 }
 
-int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
+int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address) const {
 	u32 page = AddressToPage(em_address);
 
 	const auto iter = byPage_.find(page);

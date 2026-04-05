@@ -67,7 +67,11 @@ void VulkanBarrierBatch::TransitionColorImageAuto(
 		break;
 	case VK_IMAGE_LAYOUT_GENERAL:
 		// We came from the Mali workaround, and are transitioning back to COLOR_ATTACHMENT_OPTIMAL.
-		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		// Alternatively, we're doing an intra-buffer copy. Let's cover both bases if needed.
+		srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+		srcStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		// TODO: Add a check for the mali bug presence.
+		srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		srcStageMask_ |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
@@ -84,7 +88,10 @@ void VulkanBarrierBatch::TransitionColorImageAuto(
 		srcStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_assert_msg_(false, "Unexpected oldLayout: %s", VulkanImageLayoutToString(*imageLayout));
+		_dbg_assert_msg_(false, "Unexpected oldLayout: %s", VulkanImageLayoutToString(*imageLayout));
+		// Sync hard.
+		srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+		srcStageMask_ = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		break;
 	}
 
@@ -105,8 +112,16 @@ void VulkanBarrierBatch::TransitionColorImageAuto(
 		dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 		dstStageMask_ |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		break;
+	case VK_IMAGE_LAYOUT_GENERAL:
+		// Used in intra-buffer framebuffer copies. We should add some better metadata...
+		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
 	default:
-		_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
+		_dbg_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
+		// Sync hard.
+		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+		dstStageMask_ = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		break;
 	}
 
@@ -158,7 +173,10 @@ void VulkanBarrierBatch::TransitionDepthStencilImageAuto(
 		srcStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_assert_msg_(false, "Unexpected oldLayout: %s", VulkanImageLayoutToString(*imageLayout));
+		_dbg_assert_msg_(false, "Unexpected oldLayout: %s", VulkanImageLayoutToString(*imageLayout));
+		// Sync hard.
+		srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+		srcStageMask_ = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		break;
 	}
 
@@ -180,7 +198,10 @@ void VulkanBarrierBatch::TransitionDepthStencilImageAuto(
 		dstStageMask_ |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		break;
 	default:
-		_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
+		_dbg_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
+		// Sync hard.
+		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+		dstStageMask_ = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		break;
 	}
 

@@ -292,6 +292,11 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 
 VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
 	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
+	if (isBackbuffer) {
+		_dbg_assert_(key.colorLoadAction != VKRRenderPassLoadAction::KEEP);
+		_dbg_assert_(key.depthLoadAction != VKRRenderPassLoadAction::KEEP);
+		_dbg_assert_(key.stencilLoadAction != VKRRenderPassLoadAction::KEEP);
+	}
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	bool multiview = RenderPassTypeHasMultiView(rpType);
 	bool multisample = RenderPassTypeHasMultisample(rpType);

@@ -37,11 +37,6 @@
 #include <fileapifromapp.h>
 #endif
 
-#if PPSSPP_PLATFORM(SWITCH)
-// Far from optimal, but I guess it works...
-#define fseeko fseek
-#endif
-
 static const char * const CACHEFILE_MAGIC = "ppssppDC";
 static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
 // Aim to allow this many files cached at once.
@@ -203,7 +198,7 @@ void DiskCachingFileLoaderCache::InitCache(const Path &filename) {
 void DiskCachingFileLoaderCache::ShutdownCache() {
 	if (f_) {
 		bool failed = false;
-		if (fseek(f_, sizeof(FileHeader), SEEK_SET) != 0) {
+		if (File::Fseek(f_, sizeof(FileHeader), SEEK_SET) != 0) {
 			failed = true;
 		} else if (fwrite(&index_[0], sizeof(BlockInfo), indexCount_, f_) != indexCount_) {
 			failed = true;
@@ -460,19 +455,11 @@ bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t
 	fflush(f_);
 
 	bool failed = false;
-#ifdef __ANDROID__
-	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
-		failed = true;
-	} else if (read(fd_, dest + offset, size) != (ssize_t)size) {
-		failed = true;
-	}
-#else
-	if (fseeko(f_, blockOffset, SEEK_SET) != 0) {
+	if (File::Fseek(f_, blockOffset, SEEK_SET) != 0) {
 		failed = true;
 	} else if (fread(dest + offset, size, 1, f_) != 1) {
 		failed = true;
 	}
-#endif
 
 	if (failed) {
 		ERROR_LOG(Log::Loader, "Unable to read disk cache data entry.");
@@ -488,19 +475,11 @@ void DiskCachingFileLoaderCache::WriteBlockData(BlockInfo &info, const u8 *src) 
 	s64 blockOffset = GetBlockOffset(info.block);
 
 	bool failed = false;
-#ifdef __ANDROID__
-	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
-		failed = true;
-	} else if (write(fd_, src, blockSize_) != (ssize_t)blockSize_) {
-		failed = true;
-	}
-#else
-	if (fseeko(f_, blockOffset, SEEK_SET) != 0) {
+	if (File::Fseek(f_, blockOffset, SEEK_SET) != 0) {
 		failed = true;
 	} else if (fwrite(src, blockSize_, 1, f_) != 1) {
 		failed = true;
 	}
-#endif
 
 	if (failed) {
 		ERROR_LOG(Log::Loader, "Unable to write disk cache data entry.");
@@ -516,7 +495,7 @@ void DiskCachingFileLoaderCache::WriteIndexData(u32 indexPos, BlockInfo &info) {
 	u32 offset = (u32)sizeof(FileHeader) + indexPos * (u32)sizeof(BlockInfo);
 
 	bool failed = false;
-	if (fseek(f_, offset, SEEK_SET) != 0) {
+	if (File::Fseek(f_, offset, SEEK_SET) != 0) {
 		failed = true;
 	} else if (fwrite(&info, sizeof(BlockInfo), 1, f_) != 1) {
 		failed = true;
@@ -553,11 +532,6 @@ bool DiskCachingFileLoaderCache::LoadCacheFile(const Path &path) {
 	if (valid) {
 		f_ = fp;
 
-#ifdef __ANDROID__
-		// Android NDK does not support 64-bit file I/O using C streams
-		fd_ = fileno(f_);
-#endif
-
 		// Now let's load the index.
 		blockSize_ = header.blockSize;
 		maxBlocks_ = header.maxBlocks;
@@ -572,7 +546,7 @@ bool DiskCachingFileLoaderCache::LoadCacheFile(const Path &path) {
 }
 
 void DiskCachingFileLoaderCache::LoadCacheIndex() {
-	if (fseek(f_, sizeof(FileHeader), SEEK_SET) != 0) {
+	if (File::Fseek(f_, sizeof(FileHeader), SEEK_SET) != 0) {
 		CloseFileHandle();
 		return;
 	}
@@ -631,10 +605,6 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const Path &path) {
 		ERROR_LOG(Log::Loader, "Could not create disk cache file");
 		return;
 	}
-#ifdef __ANDROID__
-	// Android NDK does not support 64-bit file I/O using C streams
-	fd_ = fileno(f_);
-#endif
 
 	blockSize_ = DEFAULT_BLOCK_SIZE;
 
@@ -677,7 +647,7 @@ bool DiskCachingFileLoaderCache::LockCacheFile(bool lockStatus) {
 	u32 offset = (u32)offsetof(FileHeader, flags);
 
 	bool failed = false;
-	if (fseek(f_, offset, SEEK_SET) != 0) {
+	if (File::Fseek(f_, offset, SEEK_SET) != 0) {
 		failed = true;
 	} else if (fread(&flags_, sizeof(u32), 1, f_) != 1) {
 		failed = true;
@@ -704,7 +674,7 @@ bool DiskCachingFileLoaderCache::LockCacheFile(bool lockStatus) {
 		flags_ &= ~FLAG_LOCKED;
 	}
 
-	if (fseek(f_, offset, SEEK_SET) != 0) {
+	if (File::Fseek(f_, offset, SEEK_SET) != 0) {
 		failed = true;
 	} else if (fwrite(&flags_, sizeof(u32), 1, f_) != 1) {
 		failed = true;

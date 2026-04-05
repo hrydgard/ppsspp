@@ -20,7 +20,6 @@
 // * For some tasks, splitting the input values up linearly between the threads
 //   is not fair. However, we ignore that for now.
 
-const int MAX_CORES_TO_USE = 16;
 const int MIN_IO_BLOCKING_THREADS = 4;
 static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
 
@@ -68,7 +67,7 @@ void ThreadManager::Teardown() {
 
 	// Purge any cancellable tasks while the threads shut down.
 	if (global_->compute_queue_size > 0 || global_->io_queue_size > 0) {
-		auto drainQueue = [&](std::deque<Task *> queue[TASK_PRIORITY_COUNT], std::atomic<int> &size) {
+		auto drainQueue = [this](std::deque<Task *> queue[TASK_PRIORITY_COUNT], std::atomic<int> &size) {
 			for (size_t i = 0; i < TASK_PRIORITY_COUNT; ++i) {
 				for (auto it = queue[i].begin(); it != queue[i].end(); ++it) {
 					if (TeardownTask(*it, false)) {
@@ -219,8 +218,8 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	if (IsInitialized()) {
 		Teardown();
 	}
-
-	numComputeThreads_ = std::min(numRealCores * numLogicalCoresPerCpu, MAX_CORES_TO_USE);
+	
+	numComputeThreads_ = numRealCores * numLogicalCoresPerCpu;
 	// Double it for the IO blocking threads.
 	int numThreads = numComputeThreads_ + std::max(MIN_IO_BLOCKING_THREADS, numComputeThreads_);
 	numThreads_ = numThreads;

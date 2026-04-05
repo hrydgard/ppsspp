@@ -106,6 +106,19 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.topology = desc->topology;
+	inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	if (vulkan->GetWindowSystem() == WindowSystem::WINDOWSYSTEM_METAL_EXT) {
+		if (desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP ||
+		    desc->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN ||
+			desc->topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP) {
+			// Metal requires primitive restart to be on to not warn - having it off
+			// simply isn't supported.
+			inputAssembly.primitiveRestartEnable = VK_TRUE;
+		}
+	}
+#endif
 
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;
@@ -433,8 +446,8 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	if (useRenderThread_) {
-		_dbg_assert_(renderThread_.joinable());
+	_dbg_assert_(renderThread_.joinable());
+	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
 		task->frame = vulkan_->GetCurFrame();
@@ -457,10 +470,12 @@ void VulkanRenderManager::StopThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
 		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
-		_assert_(compileThread_.joinable());
+		_dbg_assert_(compileThread_.joinable());
 		compileCond_.notify_one();
 	}
-	compileThread_.join();
+	if (compileThread_.joinable()) {
+		compileThread_.join();
+	}
 
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
@@ -982,20 +997,27 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curPipelineFlags_ = (PipelineFlags)0;
 }
 
-void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
+void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction colorLoad, VKRRenderPassLoadAction depthLoad, VKRRenderPassLoadAction stencilLoad, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
+	if (!fb) {
+		// Backbuffer render passes have some requirements.
+		_dbg_assert_(colorLoad != VKRRenderPassLoadAction::KEEP);
+		_dbg_assert_(depthLoad != VKRRenderPassLoadAction::KEEP);
+		_dbg_assert_(stencilLoad != VKRRenderPassLoadAction::KEEP);
+	}
 
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
-		if (color == VKRRenderPassLoadAction::CLEAR) {
+		if (colorLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_COLOR_BIT;
 		}
-		if (depth == VKRRenderPassLoadAction::CLEAR) {
+		if (depthLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
-		if (stencil == VKRRenderPassLoadAction::CLEAR) {
+		if (stencilLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
 		}
@@ -1057,25 +1079,25 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
 	// TODO: Determine which versions and do this only where necessary.
 	u32 lateClearMask = 0;
-	if (depth != stencil && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_ARM) {
-		if (stencil == VKRRenderPassLoadAction::DONT_CARE) {
-			stencil = depth;
-		} else if (depth == VKRRenderPassLoadAction::DONT_CARE) {
-			depth = stencil;
-		} else if (stencil == VKRRenderPassLoadAction::CLEAR) {
-			depth = stencil;
+	if (depthLoad != stencilLoad && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_ARM) {
+		if (stencilLoad == VKRRenderPassLoadAction::DONT_CARE) {
+			stencilLoad = depthLoad;
+		} else if (depthLoad == VKRRenderPassLoadAction::DONT_CARE) {
+			depthLoad = stencilLoad;
+		} else if (stencilLoad == VKRRenderPassLoadAction::CLEAR) {
+			depthLoad = stencilLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		} else if (depth == VKRRenderPassLoadAction::CLEAR) {
-			stencil = depth;
+		} else if (depthLoad == VKRRenderPassLoadAction::CLEAR) {
+			stencilLoad = depthLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 		}
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
 	step->render.framebuffer = fb;
-	step->render.colorLoad = color;
-	step->render.depthLoad = depth;
-	step->render.stencilLoad = stencil;
+	step->render.colorLoad = colorLoad;
+	step->render.depthLoad = depthLoad;
+	step->render.stencilLoad = stencilLoad;
 	step->render.colorStore = VKRRenderPassStoreAction::STORE;
 	step->render.depthStore = VKRRenderPassStoreAction::STORE;
 	step->render.stencilStore = VKRRenderPassStoreAction::STORE;
@@ -1092,7 +1114,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 
 	if (fb) {
 		// If there's a KEEP, we naturally read from the framebuffer.
-		if (color == VKRRenderPassLoadAction::KEEP || depth == VKRRenderPassLoadAction::KEEP || stencil == VKRRenderPassLoadAction::KEEP) {
+		if (colorLoad == VKRRenderPassLoadAction::KEEP || depthLoad == VKRRenderPassLoadAction::KEEP || stencilLoad == VKRRenderPassLoadAction::KEEP) {
 			step->dependencies.insert(fb);
 		}
 	}
@@ -1118,7 +1140,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 	}
 
-	if (color == VKRRenderPassLoadAction::CLEAR || depth == VKRRenderPassLoadAction::CLEAR || stencil == VKRRenderPassLoadAction::CLEAR) {
+	if (colorLoad == VKRRenderPassLoadAction::CLEAR || depthLoad == VKRRenderPassLoadAction::CLEAR || stencilLoad == VKRRenderPassLoadAction::CLEAR) {
 		curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 	}
 
@@ -1327,6 +1349,10 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 #ifdef _DEBUG
 	SanityCheckPassesOnAdd();
 #endif
+	// _dbg_assert_msg_(src != dst, "Can't copy within the same buffer");
+	if (src == dst) {
+		// TODO: Check for rectangle self-overlap.
+	}
 
 	_dbg_assert_msg_(srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
 	_dbg_assert_msg_(srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
@@ -1341,35 +1367,44 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
 	_dbg_assert_msg_(dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
 
+	VkImageLayout finalSrcLayoutBeforeCopy = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	if (src == dst) {
+		// We only use the first loop before, and transition to VK_IMAGE_LAYOUT_GENERAL.
+		finalSrcLayoutBeforeCopy = VK_IMAGE_LAYOUT_GENERAL;
+	}
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+					steps_[i]->render.finalColorLayout = finalSrcLayoutBeforeCopy;
 				}
 			}
 			if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+					steps_[i]->render.finalDepthStencilLayout = finalSrcLayoutBeforeCopy;
 				}
 			}
 			steps_[i]->render.numReads++;
 			break;
 		}
 	}
-	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
-		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == dst) {
-			if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+	if (src != dst) {
+		for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+			if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == dst) {
+				if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+					if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+						steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+					}
 				}
-			}
-			if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-				if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-					steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+				if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+					if (steps_[i]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+						steps_[i]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+					}
 				}
+				break;
 			}
-			break;
 		}
 	}
 
@@ -1569,6 +1604,11 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 				// Do the increment.
 				outOfDateFrames_++;
 			} else if (res == VK_SUBOPTIMAL_KHR) {
+				outOfDateFrames_++;
+			} else if (res == VK_ERROR_SURFACE_LOST_KHR) {
+				_dbg_assert_msg_(false, "vkQueuePresentKHR failed with VK_ERROR_SURFACE_LOST_KHR! result=%s", VulkanResultToString(res));
+				// Can't really do anything about this here, but let's try to continue anyway, maybe the app is in the process of being switched
+				// away from on Android or something.
 				outOfDateFrames_++;
 			} else if (res != VK_SUCCESS) {
 				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
@@ -1922,7 +1962,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
-				bufferInfo[numBuffers].offset = 0;
+				bufferInfo[numBuffers].offset = 0;  // This is supplied by the dynamic offset.
 				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
 				writes[numWrites].pImageInfo = nullptr;

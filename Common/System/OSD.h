@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 #include <mutex>
+#include <functional>
 
 #include "Common/Common.h"
 
@@ -49,8 +50,6 @@ ENUM_CLASS_BITOPS(OSDMessageFlags);
 // Data holder for on-screen messages.
 class OnScreenDisplay {
 public:
-	~OnScreenDisplay();
-
 	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
 	void Show(OSDType type, std::string_view text, float duration_s = 0.0f, const char *id = nullptr) {
 		Show(type, text, "", duration_s, id);
@@ -61,6 +60,7 @@ public:
 	void Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s = 0.0f, const char *id = nullptr);
 
 	void ShowOnOff(std::string_view message, bool on, float duration_s = 0.0f);
+	void CancelById(std::string_view id);
 
 	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
 
@@ -89,8 +89,8 @@ public:
 	void ClearAchievementStuff();
 
 	// Can't add an infinite number of "Show" functions, so starting to offer post-modification.
-	void SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata);
-	void SetFlags(const char *id, OSDMessageFlags flag);
+	void SetFlags(std::string_view id, OSDMessageFlags flag);
+	void SetClickCallback(std::string_view id, std::function<void()> callback);
 
 	struct Entry {
 		OSDType type;
@@ -101,9 +101,7 @@ public:
 		std::string id;
 		OSDMessageFlags flags;
 
-		// We could use std::function, but prefer to do it the oldschool way.
-		void (*clickCallback)(bool, void *);
-		void *clickUserData;
+		std::function<void()> clickCallback;
 
 		int instanceID;
 		double startTime;

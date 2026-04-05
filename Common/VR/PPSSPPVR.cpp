@@ -236,7 +236,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 
 			//fill KeyInput structure
 			bool pressed = status & m.ovr;
-			keyInput.flags = pressed ? KEY_DOWN : KEY_UP;
+			keyInput.flags = pressed ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 			keyInput.keyCode = m.keycode;
 			keyInput.deviceId = controllerIds[j];
 
@@ -250,7 +250,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
-				keyInput.flags |= KEY_IS_REPEAT;
+				keyInput.flags |= KeyInputFlags::IS_REPEAT;
 				cbNativeKey(keyInput);
 				m.repeat = 0;
 			} else {
@@ -332,9 +332,9 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {
-				touch.flags = TOUCH_DOWN;
+				touch.flags = TouchInputFlags::DOWN;
 				cbNativeTouch(touch);
-				touch.flags = TOUCH_UP;
+				touch.flags = TouchInputFlags::UP;
 				cbNativeTouch(touch);
 			}
 			mousePressed = pressed;
@@ -345,10 +345,10 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		for (int j = 0; j < 2; j++) {
 			keyInput.deviceId = controllerIds[j];
 			float scroll = -IN_VRGetJoystickState(j).y;
-			keyInput.flags = scroll < -0.5f ? KEY_DOWN : KEY_UP;
+			keyInput.flags = scroll < -0.5f ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 			cbNativeKey(keyInput);
-			keyInput.flags = scroll > 0.5f ? KEY_DOWN : KEY_UP;
+			keyInput.flags = scroll > 0.5f ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
 			cbNativeKey(keyInput);
 		}
@@ -375,7 +375,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 	if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &nativeKeys)) {
 		for (int& nativeKey : nativeKeys) {
-			pspKeys[nativeKey] = key.flags & KEY_DOWN;
+			pspKeys[nativeKey] = key.flags & KeyInputFlags::DOWN;
 		}
 	}
 
@@ -406,7 +406,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 	if (!wasCameraAdjustOn && pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
 		KeyInput keyUp;
 		keyUp.deviceId = key.deviceId;
-		keyUp.flags = KEY_UP;
+		keyUp.flags = KeyInputFlags::UP;
 
 		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = false;
 		for (auto& pspKey : pspKeys) {

@@ -13,6 +13,7 @@
 #if PPSSPP_PLATFORM(ANDROID)
 
 std::string Android_GetInputDeviceDebugString();
+std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries);
 
 #if !defined(__LIBRETRO__)
 
@@ -26,6 +27,7 @@ JNIEnv* getEnv();
 #else
 
 inline std::string Android_GetInputDeviceDebugString() { return ""; }
+inline std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) { return {}; }
 
 #endif
 

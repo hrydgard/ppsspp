@@ -41,27 +41,22 @@ public:
 
 	void update() override;
 
-	ScreenRenderFlags render(ScreenRenderMode mode) override;
-
 	const char *tag() const override { return "Game"; }
 
 protected:
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContextMenu(UI::ViewGroup *parent) override;
 
 	std::string_view GetTitle() const override;
 
 private:
 	// Event handlers
-	void OnPlay(UI::EventParams &e);
 	void OnGameSettings(UI::EventParams &e);
 	void OnDeleteSaveData(UI::EventParams &e);
 	void OnDeleteGame(UI::EventParams &e);
-	void OnSwitchBack(UI::EventParams &e);
-	void OnRemoveFromRecent(UI::EventParams &e);
 	void OnCreateConfig(UI::EventParams &e);
 	void OnDeleteConfig(UI::EventParams &e);
-	void OnCwCheat(UI::EventParams &e);
 	void OnSetBackground(UI::EventParams &e);
 
 	std::string CRC32string;

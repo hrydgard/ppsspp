@@ -19,6 +19,7 @@ import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.UUID;
 
 public class ContentUri {
@@ -57,15 +58,7 @@ public class ContentUri {
 		}
 	}
 
-	private static final String[] columns = new String[] {
-		DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-		DocumentsContract.Document.COLUMN_SIZE,
-		DocumentsContract.Document.COLUMN_FLAGS,
-		DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
-		DocumentsContract.Document.COLUMN_LAST_MODIFIED
-	};
-
-	private static String cursorToString(Cursor c) {
+	private static String cursorToString(Cursor c, String prefixLowercase) {
 		final int flags = c.getInt(2);
 		// Filter out any virtual or partial nonsense.
 		// There's a bunch of potentially-interesting flags here btw,
@@ -74,9 +67,16 @@ public class ContentUri {
 		if ((flags & (DocumentsContract.Document.FLAG_PARTIAL | DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT)) != 0) {
 			return null;
 		}
+		final String documentName = c.getString(0);
+		if (prefixLowercase != null && !prefixLowercase.isEmpty()) {
+			// Filter by prefix, case insensitive.
+			if (!documentName.toLowerCase(Locale.ROOT).startsWith(prefixLowercase)) {
+				return null;
+			}
+		}
+
 		final String mimeType = c.getString(3);
 		final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
-		final String documentName = c.getString(0);
 		final long size = isDirectory ? 0 : c.getLong(1);
 		final long lastModified = c.getLong(4);
 
@@ -120,8 +120,8 @@ public class ContentUri {
 					}
 				}
 				c.close();
+				c = null;
 			}
-			c = null;
 
 			for (Uri childUri : childDirs) {
 				long dirSize = directorySizeRecursion(activity, childUri);
@@ -160,7 +160,7 @@ public class ContentUri {
 	// uestions/42186820/documentfile-is-very-slow
 	@Keep
 	@SuppressWarnings("unused")
-	public static String[] listContentUriDir(Activity activity, String uriString) {
+	public static String[] listContentUriDir(Activity activity, String uriString, String prefix) {
 		try {
 			Uri uri = Uri.parse(uriString);
 			final ContentResolver resolver = activity.getContentResolver();
@@ -176,12 +176,16 @@ public class ContentUri {
 				DocumentsContract.Document.COLUMN_LAST_MODIFIED   // index 4
 			};
 
+			if (prefix != null) {
+				prefix = prefix.toLowerCase(Locale.ROOT);
+			}
+
 			try (Cursor c = resolver.query(childrenUri, projection, null, null, null)) {
 				if (c == null) {
 					return new String[]{"X"};
 				}
 				while (c.moveToNext()) {
-					String str = cursorToString(c);
+					String str = cursorToString(c, prefix);
 					if (str != null) {
 						listing.add(str);
 					}
@@ -354,7 +358,7 @@ public class ContentUri {
 
 		try (Cursor c = activity.getContentResolver().query(Uri.parse(fileName), projection, null, null, null)) {
 			if (c != null && c.moveToFirst()) {
-				return cursorToString(c);
+				return cursorToString(c, null);
 			} else {
 				return null;
 			}

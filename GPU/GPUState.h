@@ -431,8 +431,8 @@ struct GPUgstate {
 
 bool vertTypeIsSkinningEnabled(u32 vertType);
 
-inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
-inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
+inline constexpr int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
+inline constexpr int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
 
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
@@ -656,6 +656,9 @@ public:
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
 
+	// DST squared, used in Brave Story
+	bool dstSquared;
+
 	// U/V is 1:1 to pixels. Can influence texture sampling.
 	bool pixelMapped;
 
@@ -682,7 +685,10 @@ public:
 	ShaderDepalMode shaderDepalMode;
 	GEBufferFormat depalFramebufferFormat;
 
-	u32 getRelativeAddress(u32 data) const;
+	u32 getRelativeAddress(u32 data) const {
+		u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
+		return (offsetAddr + baseExtended) & 0x0FFFFFFF;
+	}
 	static void Reset();
 	void DoState(PointerWrap &p);
 };
@@ -692,7 +698,3 @@ class GPUDebugInterface;
 
 extern GPUStateCache gstate_c;
 
-inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
-	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
-	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
-}

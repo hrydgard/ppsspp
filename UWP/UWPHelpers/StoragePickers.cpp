@@ -20,67 +20,60 @@
 #include "StorageAsync.h"
 #include "StorageAccess.h"
 
-using namespace Platform;
-using namespace Windows::Storage;
-using namespace Windows::Foundation;
-
-extern void AddItemToFutureList(IStorageItem^ folder);
+using namespace winrt;
+using namespace winrt::Windows::Storage;
+using namespace winrt::Windows::Storage::Pickers;
+using namespace winrt::Windows::Foundation;
 
 // Call folder picker (the selected folder will be added to future list)
-concurrency::task<Platform::String^> PickSingleFolder()
+std::string PickSingleFolder()
 {
-	auto folderPicker = ref new Windows::Storage::Pickers::FolderPicker();
-	folderPicker->SuggestedStartLocation = Windows::Storage::Pickers::PickerLocationId::Desktop;
-	folderPicker->FileTypeFilter->Append("*");
+	FolderPicker folderPicker;
+	folderPicker.SuggestedStartLocation(PickerLocationId::Desktop);
+	folderPicker.FileTypeFilter().Append(L"*");
 
-	return concurrency::create_task(folderPicker->PickSingleFolderAsync()).then([](StorageFolder^ folder) {
-		auto path = ref new Platform::String();
-		if (folder != nullptr)
-		{
-			AddItemToFutureList(folder);
-			path = folder->Path;
-		}
-		return path;
-	});
+	StorageFolder folder{ nullptr };
+	ExecuteTask(folder, folderPicker.PickSingleFolderAsync());
+
+	std::string path;
+	if (folder) {
+		AddItemToFutureList(folder);
+		path = winrt::to_string(folder.Path());
+	}
+	return path;
 }
 
 // Call file picker (the selected file will be added to future list)
-concurrency::task<Platform::String^> PickSingleFile(std::vector<std::string> exts)
+std::string PickSingleFile(std::vector<std::string> exts)
 {
-	auto filePicker = ref new Windows::Storage::Pickers::FileOpenPicker();
-	filePicker->SuggestedStartLocation = Windows::Storage::Pickers::PickerLocationId::Desktop;
-	filePicker->ViewMode = Pickers::PickerViewMode::List;
+	FileOpenPicker filePicker;
+	filePicker.SuggestedStartLocation(PickerLocationId::Desktop);
+	filePicker.ViewMode(PickerViewMode::List);
 
-	if (exts.size() > 0) {
-		for each (auto ext in exts) {
-			filePicker->FileTypeFilter->Append(ToPlatformString(ext));
+	if (!exts.empty()) {
+		for (const auto& ext : exts) {
+			filePicker.FileTypeFilter().Append(winrt::to_hstring(ext));
 		}
 	}
-	else
-	{
-		filePicker->FileTypeFilter->Append("*");
+	else {
+		filePicker.FileTypeFilter().Append(L"*");
 	}
-	return concurrency::create_task(filePicker->PickSingleFileAsync()).then([](StorageFile^ file) {
-		auto path = ref new Platform::String();
-		if (file != nullptr)
-		{
-			AddItemToFutureList(file);
-			path = file->Path;
-		}
-		return path;
-	});
+
+	StorageFile file{ nullptr };
+	ExecuteTask(file, filePicker.PickSingleFileAsync());
+
+	std::string path;
+	if (file) {
+		AddItemToFutureList(file);
+		path = winrt::to_string(file.Path());
+	}
+	return path;
 }
 
-
-concurrency::task<std::string> ChooseFile(std::vector<std::string> exts) {
-	return PickSingleFile(exts).then([](Platform::String^ filePath) {
-		return FromPlatformString(filePath);
-	});
+std::string ChooseFile(std::vector<std::string> exts) {
+	return PickSingleFile(exts);
 }
 
-concurrency::task<std::string> ChooseFolder() {
-	return PickSingleFolder().then([](Platform::String^ folderPath) {
-		return FromPlatformString(folderPath);
-	});
-
+std::string ChooseFolder() {
+	return PickSingleFolder();
 }

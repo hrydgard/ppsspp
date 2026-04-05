@@ -54,8 +54,6 @@ public:
 		options_ = {};
 		delete dec_;
 		dec_ = nullptr;
-		indexLowerBound_ = 0;
-		indexUpperBound_ = 0;
 		srcPos_ = 0;
 		dstPos_ = 0;
 		needsReset_ = false;
@@ -68,27 +66,20 @@ public:
 		options_ = opts;
 	}
 
-	void SetIndexLowerBound(const int lower) {
-		if (needsReset_) {
-			Reset();
-		}
-		indexLowerBound_ = lower;
-	}
-
-	void Execute(int vtype, int indexUpperBound, bool useJit) {
+	void Execute(int vtype, int count, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
+		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, count);
 	}
 
-	double ExecuteTimed(int vtype, int indexUpperBound, bool useJit) {
+	double ExecuteTimed(int vtype, int count, bool useJit) {
 		SetupExecute(vtype, useJit);
 
 		int total = 0;
 		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
+				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, count);
 				++total;
 			}
 		} while (time_now_d() - st < 0.5);
@@ -300,7 +291,7 @@ static bool TestVertex8() {
 	dec.Add8(127, 0, 128);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.AssertFloat("TestVertex8-TC", 127.0f / 128.0f, 1.0f);
 		dec.Assert8("TestVertex8-Nrm", 127, 0, 128);
 		dec.Skip(1);
@@ -319,7 +310,7 @@ static bool TestVertex16() {
 	dec.Add16(32767, 0, 32768);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.AssertFloat("TestVertex16-TC", 32767.0f / 32768.0f, 1.0f);
 		dec.Assert16("TestVertex16-Nrm", 32767, 0, 32768);
 		dec.Skip(2);
@@ -338,7 +329,7 @@ static bool TestVertexFloat() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.AssertFloat("TestVertexFloat-TC", 1.0f, -1.0f);
 		dec.AssertFloat("TestVertexFloat-Nrm", 1.0f, 0.5f, -1.0f);
 		dec.AssertFloat("TestVertexFloat-Pos", 1.0f, 0.5f, -1.0f);
@@ -356,7 +347,7 @@ static bool TestVertex8Through() {
 	dec.Add8(127, 0, 128);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		// Note: this is correct, even in through.
 		dec.AssertFloat("TestVertex8Through-TC", 127.0f / 128.0f, 1.0f);
 		dec.Assert8("TestVertex8Through-Nrm", 127, 0, 128);
@@ -375,7 +366,7 @@ static bool TestVertex16Through() {
 	dec.Add16(32767, 0, 32768);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.AssertFloat("TestVertex16Through-TC", 32767.0f, 32768.0f);
 		dec.Assert16("TestVertex16Through-Nrm", 32767, 0, 32768);
 		dec.Skip(2);
@@ -394,7 +385,7 @@ static bool TestVertexFloatThrough() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.AssertFloat("TestVertexFloatThrough-TC", 1.0f, -1.0f);
 		dec.AssertFloat("TestVertexFloatThrough-Nrm", 1.0f, 0.5f, -1.0f);
 		dec.AssertFloat("TestVertexFloatThrough-Pos", 1.0f, 0.5f, 0.0f);
@@ -413,7 +404,7 @@ static bool TestVertexColor8888() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor8888-Col", 1, 2, 3, 4);
 		dec.AssertFloat("TestVertexColor8888-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -428,7 +419,7 @@ static bool TestVertexColor8888() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor8888-Col", 255, 255, 255, 255);
 		dec.AssertFloat("TestVertexColor8888-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -451,7 +442,7 @@ static bool TestVertexColor4444() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor4444-Col", 0x44, 0x33, 0x22, 0x11);
 		dec.AssertFloat("TestVertexColor4444-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -466,7 +457,7 @@ static bool TestVertexColor4444() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor4444-Col", 255, 255, 255, 255);
 		dec.AssertFloat("TestVertexColor4444-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -489,7 +480,7 @@ static bool TestVertexColor5551() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor5551-Col", 0x18, 0x10, 0x8, 0x0);
 		dec.AssertFloat("TestVertexColor5551-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -504,7 +495,7 @@ static bool TestVertexColor5551() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor5551-Col", 255, 255, 255, 255);
 		dec.AssertFloat("TestVertexColor5551-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -527,7 +518,7 @@ static bool TestVertexColor565() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		gstate_c.vertexFullAlpha = true;
-		dec.Execute(vtype, 0, jit == 1);
+		dec.Execute(vtype, 1, jit == 1);
 		dec.Assert8("TestVertexColor565-Col", 0x18, 0x8, 0x8, 255);
 		dec.AssertFloat("TestVertexColor565-Pos", 1.0f, 0.5f, -1.0f);
 
@@ -564,7 +555,7 @@ static bool TestVertex8Skin() {
 	dec.Add8(127, 0, 128);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vertTypeID, 0, jit == 1);
+		dec.Execute(vertTypeID, 1, jit == 1);
 		dec.AssertFloat("TestVertex8Skin-Nrm", (2.0f * 1.5f + 1.0f * 0.5f) * 127.0f / 128.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 		dec.AssertFloat("TestVertex8Skin-Pos", (2.0f * 1.5f + 1.0f * 0.5f) * 127.0f / 128.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 	}
@@ -596,7 +587,7 @@ static bool TestVertex16Skin() {
 	dec.Add16(32767, 0, 32768);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vertTypeID, 0, jit == 1);
+		dec.Execute(vertTypeID, 1, jit == 1);
 		dec.AssertFloat("TestVertex16Skin-Nrm", (2.0f * 1.5f + 1.0f * 0.5f) * 32767.0f / 32768.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 		dec.AssertFloat("TestVertex16Skin-Pos", (2.0f * 1.5f + 1.0f * 0.5f) * 32767.0f / 32768.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 	}
@@ -628,7 +619,7 @@ static bool TestVertexFloatSkin() {
 	dec.AddFloat(1.0f, 0, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		dec.Execute(vertTypeID, 0, jit == 1);
+		dec.Execute(vertTypeID, 1, jit == 1);
 		dec.AssertFloat("TestVertexFloatSkin-Nrm", (2.0f * 1.5f + 1.0f * 0.5f) * 1.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 		dec.AssertFloat("TestVertexFloatSkin-Pos", (2.0f * 1.5f + 1.0f * 0.5f) * 1.0f, 0.0f, 2.0f * 5.0f * -1.0f);
 	}

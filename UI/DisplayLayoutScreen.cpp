@@ -34,9 +34,11 @@
 #include "Common/Data/Text/I18n.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/Background.h"
+#include "UI/MiscViews.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 
@@ -67,7 +69,7 @@ public:
 
 		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(orientation_);
 
-		if ((touch.flags & TOUCH_MOVE) != 0 && dragging_) {
+		if ((touch.flags & TouchInputFlags::MOVE) != 0 && dragging_) {
 			float relativeTouchX = touch.x - startX_;
 			float relativeTouchY = touch.y - startY_;
 
@@ -86,7 +88,7 @@ public:
 			}
 		}
 
-		if ((touch.flags & TOUCH_DOWN) != 0 && !dragging_) {
+		if ((touch.flags & TouchInputFlags::DOWN) != 0 && !dragging_) {
 			// Check that we're in the central 80% of the screen.
 			// If outside, it may be a drag from displaying the back button on phones
 			// where you have to drag from the side, etc.
@@ -101,7 +103,7 @@ public:
 			}
 		}
 
-		if ((touch.flags & TOUCH_UP) != 0 && dragging_) {
+		if ((touch.flags & TouchInputFlags::UP) != 0 && dragging_) {
 			dragging_ = false;
 		}
 
@@ -201,6 +203,7 @@ void DisplayLayoutScreen::CreateViews() {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -211,7 +214,7 @@ void DisplayLayoutScreen::CreateViews() {
 	root_->SetExclusiveTouch(true);
 
 	// Add indicator of the current mode we're editing. Not sure why these strings are in Controls.
-	root_->Add(new TextView(portrait ? co->T("Portrait") : co->T("Landscape"), new AnchorLayoutParams(portrait ? 10.0f : NONE, 10.0f, NONE, NONE)));
+	root_->Add(new TextView(portrait ? co->T("Portrait") : co->T("Landscape"), new AnchorLayoutParams(portrait ? 10.0f : NONE, 10.0f, NONE, NONE)))->SetSmall(true);
 
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
 	bool internalPortrait = config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180;
@@ -229,9 +232,14 @@ void DisplayLayoutScreen::CreateViews() {
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f));
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->padding.SetAll(8.0f);
+	rightColumn->SetSpacing(0.0f);
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
 	root_->Add(rightScrollView);
+
+	Choice *back = rightColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumn->Add(new Spacer(12.0f));
 
 	LinearLayout *bottomControls;
 	if (portrait) {
@@ -274,20 +282,24 @@ void DisplayLayoutScreen::CreateViews() {
 		supportsInsets = true;
 #endif
 		// Hide insets option if no insets, or OS too old.
+		float insetLeft = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+		float insetRight = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
+		float insetTop = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+		float insetBottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
 		if (supportsInsets && (
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
+			insetLeft != 0.0f ||
+			insetTop != 0.0f ||
+			insetRight != 0.0f ||
+			insetBottom != 0.0f) && (insetLeft != insetTop || insetRight != insetBottom)) {
 			rightColumn->Add(new CheckBox(&config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 		}
 
-		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-		mode_->AddChoice(di->T("Inactive"));
-		mode_->AddChoice(di->T("Move"));
-		mode_->AddChoice(di->T("Resize"));
-		mode_->SetSelection(0, false);
-		bottomControls->Add(mode_);
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+			rightColumn->Add(new Spacer(12.0f));
+			AddRotationPicker(screenManager(), rightColumn, true);
+		}
+
+		rightColumn->Add(new ItemHeader(gr->T("PSP display rotation")));
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 		auto rotation = new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager());
@@ -299,23 +311,29 @@ void DisplayLayoutScreen::CreateViews() {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
 		rotation->SetHideTitle(true);
+
+
 		rightColumn->Add(rotation);
+		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
+			return (!g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering) && config.iInternalScreenRotation != 1;
+		});
+
+		rightColumn->Add(new Spacer(12.0f));
 
 		Choice *center = new Choice(di->T("Reset"));
-		center->OnClick.Add([&config](UI::EventParams &) {
-			config.fDisplayAspectRatio = 1.0f;
-			config.fDisplayScale = 1.0f;
-			config.fDisplayOffsetX = 0.5f;
-			config.fDisplayOffsetY = 0.5f;
+		center->OnClick.Add([&config, portrait](UI::EventParams &) {
+			// Hm, not really ideal to have to use strings here.
+			config.ResetToDefault(portrait ? "DisplayLayout.Portrait" : "DisplayLayout.Landscape");
 		});
 		rightColumn->Add(center);
 
-		rightColumn->Add(new Spacer(12.0f));
+		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		mode_->AddChoice(sy->T("Off"));
+		mode_->AddChoice(ImageID("I_MOVE"));
+		mode_->AddChoice(ImageID("I_RESIZE"));
+		mode_->SetSelection(0, false);
+		bottomControls->Add(mode_);
 	}
-
-	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"));
-	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumn->Add(back);
 
 	if (portrait) {
 		leftColumn->Add(new Spacer(24.0f));

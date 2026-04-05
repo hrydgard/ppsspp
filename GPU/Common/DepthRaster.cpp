@@ -409,6 +409,8 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		return true;
 	};
 
+	const bool cullDisabled = !draw.cullEnabled;
+
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
 		const float *v0 = transformed + indexBuffer[i] * 4;
@@ -420,6 +422,14 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			verts[collected] = v0;
 			verts[collected + 1] = v1;
 			verts[collected + 2] = v2;
+			if (cullDisabled) {
+				collected += 3;
+				// Add the reverse triangle too. We could alternatively handle culling later in the pipeline, but mainly
+				// Syphon Filter needs this (issue #21498) and this simplifies things.
+				verts[collected] = v0;
+				verts[collected + 1] = v2;
+				verts[collected + 2] = v1;
+			}
 			collected += 3;
 		} else {
 			planeCulled++;
@@ -433,12 +443,12 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			collected = 12;
 		}
 
-		if (collected != 12) {
+		if (collected < 12) {
 			// Fetch more!
 			continue;
 		}
 
-		collected = 0;
+		collected -= 12;
 
 		// These names are wrong .. until we transpose.
 		Vec4F32 x0 = Vec4F32::Load(verts[0]);
@@ -505,7 +515,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		x2 &= inGuardBand;
 
 		// Floating point double triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
-		// Still good for culling early and pretty cheap to compute.
+		// Still good for backface culling early and pretty cheap to compute.
 		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)(MIN_TWICE_TRI_AREA));
 		if (!AnyZeroSignBit(doubleTriArea)) {
 			gpuStats.numDepthRasterEarlySize += 4;

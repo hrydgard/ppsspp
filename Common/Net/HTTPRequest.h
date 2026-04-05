@@ -46,6 +46,7 @@ public:
 		if (callback_) {
 			callback_(*this);
 		}
+		hasRunCallback_ = true;
 	}
 
 	virtual void Start() = 0;
@@ -53,6 +54,8 @@ public:
 
 	virtual bool Done() = 0;
 	virtual bool Failed() const = 0;
+
+	virtual bool HasRunCallback() { return Done() && hasRunCallback_; }
 
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_.progress; }
@@ -87,6 +90,7 @@ protected:
 	Buffer buffer_;
 	bool cancelled_ = false;
 	int resultCode_ = 0;
+	bool hasRunCallback_ = false;
 	std::vector<std::string> responseHeaders_;
 
 	net::RequestProgress progress_;
@@ -105,15 +109,7 @@ public:
 	}
 
 	// NOTE: This is the only version that supports the cache flag (for now).
-	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime = nullptr);
-
-	std::shared_ptr<Request> StartDownloadWithCallback(
-		std::string_view url,
-		const Path &outfile,
-		RequestFlags flags,
-		std::function<void(Request &)> callback,
-		std::string_view name = "",
-		const char *acceptMime = nullptr);
+	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime = nullptr, std::string_view name = "", std::function<void(Request &)> callback = {});
 
 	std::shared_ptr<Request> AsyncPostWithCallback(
 		std::string_view url,
@@ -136,6 +132,7 @@ public:
 	}
 
 	Path UrlToCachePath(const std::string_view url);
+	bool ReadFileFromCache(std::string_view url, std::string *data);
 
 private:
 	std::vector<std::shared_ptr<Request>> downloads_;

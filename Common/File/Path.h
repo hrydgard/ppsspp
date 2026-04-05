@@ -5,6 +5,10 @@
 #include <string>
 #include <string_view>
 
+#ifdef HAVE_LIBRETRO_VFS
+#include "libretro/LibretroFileStreamTransforms.h"
+#endif
+
 #if defined(__APPLE__)
 
 #if TARGET_OS_IPHONE

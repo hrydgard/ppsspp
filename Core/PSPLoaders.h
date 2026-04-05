@@ -18,14 +18,17 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
 class FileLoader;
+class BlockDevice;
 
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string);
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string);
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::string *error_string);
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string);
 
 bool MountGameISO(FileLoader *fileLoader, std::string *errorString);
 bool LoadParamSFOFromDisc();
 bool LoadParamSFOFromPBP(FileLoader *fileLoader);
 void InitMemorySizeForGame();
+void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, Path destPath, std::string title);

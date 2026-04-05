@@ -20,7 +20,7 @@ void DumpMemoryWindow::HandleBrowseClick(HWND hwnd) {
 	GetWindowTextW(filenameWnd, &buffer[0], (int)buffer.size());
 	std::string fn = ConvertWStringToUTF8(buffer);
 
-	bool result = W32Util::BrowseForFileName(false, hwnd, L"Select filename", NULL, NULL, NULL, fn);
+	bool result = W32Util::BrowseForFileName(false, hwnd, L"Select filename", nullptr, L"dump.bin", nullptr, nullptr, fn);
 	if (result) {
 		filenameChosen_ = true;
 		buffer = ConvertUTF8ToWString(fn);
@@ -129,7 +129,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 			EndDialog(hwnd,false);
 			break;
 		}
-
+		break;
 	case WM_KEYDOWN:
 
 		break;

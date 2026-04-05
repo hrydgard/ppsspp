@@ -108,7 +108,8 @@ namespace MIPSAnalyst {
 	void FinalizeScan(bool insertSymbols);
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 
-	void SetHashMapFilename(const std::string& filename = "");
+	bool GetAnalyzedFunctionAt(u32 addr, AnalyzedFunction *out);
+
 	void LoadBuiltinHashMap();
 	void LoadHashMap(const Path &filename);
 	void StoreHashMap(Path filename = Path());

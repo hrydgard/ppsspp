@@ -8,7 +8,7 @@
 #import <Cocoa/Cocoa.h>
 #import "PPSSPPAboutViewController.h"
 
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "UI/PSPNSApplicationDelegate.h"
 
 #include "Core/Debugger/SymbolMap.h"
@@ -170,7 +170,7 @@ void OSXOpenURL(const char *url) {
             {
                 GlobalUIState state = GetUIState();
                 item.enabled = state == UISTATE_INGAME ? YES : NO;
-                printf("Setting enabled state to %d\n", (int)item.enabled);
+                // printf("Setting enabled state to %d\n", (int)item.enabled);
                 break;
             }
             default:
@@ -549,7 +549,7 @@ TOGGLE_METHOD_INVERSE(BreakOnLoad, g_Config.bAutoRun)
 TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
-TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3, 0))
+TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, g_Config.bFullScreen = !g_Config.bFullScreen, System_ApplyFullscreenState());
 // TOGGLE_METHOD(VSync, g_Config.bVSync)
 #undef TOGGLE_METHOD
 

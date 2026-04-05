@@ -53,6 +53,12 @@ enum DrawableType {
 	DRAW_STRETCH_IMAGE,
 };
 
+enum ImageSizeMode {
+	IS_DEFAULT,
+	IS_FIXED,
+	IS_KEEP_ASPECT,
+};
+
 enum Visibility {
 	V_VISIBLE,
 	V_INVISIBLE,  // Keeps position, not drawn or interacted with
@@ -237,7 +243,7 @@ typedef std::function<void(EventParams &)> EventCallback;
 
 class Event {
 public:
-	Event() {}
+	Event() = default;
 	~Event();
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
@@ -408,6 +414,7 @@ public:
 
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }
+	virtual bool CanMoveFocus(FocusDirection dir) const { return true; }
 
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
@@ -462,7 +469,7 @@ public:
 		return t;
 	}
 
-	virtual void Recurse(void (*func)(View *view)) {}
+	virtual void Recurse(std::function<void(View *)> func) {}
 	virtual void SetAutoResult(DialogResult result) {
 		hasAutoResult_ = true;
 		autoResult_ = result;
@@ -556,6 +563,9 @@ public:
 	void SetImageID(ImageID imageID) {
 		imageID_ = imageID;
 	}
+	void SetImageIDFunc(std::function<ImageID()> func) {
+		imageFunc_ = func;
+	}
 	void SetIgnoreText(bool ignore) {
 		ignoreText_ = ignore;
 	}
@@ -568,6 +578,7 @@ private:
 	Style style_;
 	std::string text_;
 	ImageID imageID_;
+	std::function<ImageID()> imageFunc_{};
 	int paddingW_ = 16;
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
@@ -706,10 +717,10 @@ public:
 class Choice : public ClickableItem {
 public:
 	Choice(std::string_view text, LayoutParams *layoutParams = nullptr)
-		: Choice(text, "", false, layoutParams) { }
+		: ClickableItem(layoutParams), text_(text) { }
 	Choice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), image_(image) {}
-	Choice(std::string_view text, std::string_view smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
+	Choice(std::string_view text, std::string_view smallText, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
@@ -725,7 +736,10 @@ public:
 	void SetDrawTextFlags(u32 flags) {
 		drawTextFlags_ = flags;
 	}
-	void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
+	void SetIconLeft(ImageID iconImage) {
+		image_ = iconImage;
+	}
+	void SetIconRight(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
 		rightIconKeepColor_ = keepColor;
 		rightIconScale_ = scale;
 		rightIconRot_ = rot;
@@ -744,6 +758,12 @@ public:
 	}
 	void SetText(std::string_view text) {
 		text_ = text;
+	}
+	void SetIconOnly(bool iconOnly) {
+		iconOnly_ = iconOnly;
+	}
+	void SetSelectedIndicator(bool selected) {
+		selected_ = selected;
 	}
 
 protected:
@@ -767,6 +787,7 @@ protected:
 	u32 drawTextFlags_ = 0;
 	bool hideTitle_ = false;
 	float shine_ = false;
+	bool iconOnly_ = false;
 
 private:
 	bool selected_ = false;
@@ -776,7 +797,7 @@ private:
 class StickyChoice : public Choice {
 public:
 	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
-		: Choice(text, smallText, false, layoutParams) {}
+		: Choice(text, smallText, layoutParams) {}
 	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = nullptr)
 		: Choice(buttonImage, layoutParams) {}
 	StickyChoice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
@@ -814,6 +835,8 @@ public:
 	void SetRightText(std::string_view text) {
 		rightText_ = text;
 	}
+protected:
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 private:
 	std::string text_;
@@ -835,8 +858,10 @@ public:
 	void SetPasswordDisplay() {
 		passwordMasking_ = true;
 	}
+
 protected:
-	virtual std::string ValueText() const = 0;
+	virtual std::string ValueText(bool *shadow) const = 0;
+	virtual ImageID ValueImage() const { return ImageID::invalid(); }
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 
@@ -848,7 +873,8 @@ public:
 	ChoiceWithCallbackValueDisplay(std::string_view text, std::function<std::string()> valueFunc, LayoutParams *layoutParams = nullptr)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), valueFunc_(valueFunc) {}
 protected:
-	std::string ValueText() const override {
+	std::string ValueText(bool *shadow) const override {
+		*shadow = false;
 		return valueFunc_();
 	}
 	std::function<std::string()> valueFunc_;
@@ -1001,19 +1027,26 @@ public:
 	void Draw(UIContext &dc) override;
 
 private:
-	FontStyle ComputeStyle(const UIContext &dc) const;
+	const FontStyle *ComputeStyle(const UIContext &dc) const;
 	std::string text_;
 	bool small_ = false;
 	bool big_ = false;
 };
 
+enum class TextSize {
+	Tiny,
+	Small,
+	Normal,
+	Big,
+};
+
 class TextView : public InertView {
 public:
 	TextView(std::string_view text, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false) {}
+		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF) {}
 
 	TextView(std::string_view text, int textAlign, bool small, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small) {}
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), textSize_(small ? TextSize::Small : TextSize::Normal) {}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -1021,15 +1054,17 @@ public:
 	void SetText(std::string_view text) { text_ = text; }
 	const std::string &GetText() const { return text_; }
 	std::string DescribeText() const override { return GetText(); }
-	void SetSmall(bool small) { small_ = small; }
-	void SetBig(bool big) { big_ = big; }
+	void SetSmall(bool small) { textSize_ = TextSize::Small; }
+	void SetBig(bool big) { textSize_ = TextSize::Big; }
+	TextView *SetTextSize(TextSize size) { textSize_ = size; return this; }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
 	void SetClip(bool clip) { clip_ = clip; }
 	void SetBullet(bool bullet) { bullet_ = bullet; }
-	void SetPadding(float pad) { pad_ = pad; }
+	void SetPadding(Margins padding) { pad_ = padding; }
 	void SetAlign(int align) { textAlign_ = align; }
+	TextView *SetWordWrap();
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -1038,13 +1073,12 @@ private:
 	int textAlign_;
 	uint32_t textColor_;
 	bool hasTextColor_ = false;
-	bool small_ = false;
-	bool big_ = false;
+	TextSize textSize_ = TextSize::Normal;
 	bool shadow_ = false;
 	bool focusable_ = false;
 	bool clip_ = true;
 	bool bullet_ = false;
-	float pad_ = 0.0f;
+	Margins pad_{};
 };
 
 // Quick hack for clickable version number
@@ -1052,7 +1086,9 @@ class ClickableTextView : public TextView {
 public:
 	ClickableTextView(std::string_view text, LayoutParams *layoutParams = 0)
 		: TextView(text, layoutParams) {}
-	bool Touch(const TouchInput &input);
+	bool Touch(const TouchInput &input) override;
+	bool Key(const KeyInput &input) override;
+
 	Event OnClick;
 
 private:
@@ -1071,20 +1107,29 @@ public:
 	void SetPasswordMasking(bool masking) {
 		passwordMasking_ = masking;
 	}
+	void SetPadding(Margins padding) {
+		padding_ = padding;
+	}
 
 	void FocusChanged(int focusFlags) override;
+
+	bool CanMoveFocus(FocusDirection dir) const { return dir != FocusDirection::FOCUS_LEFT && dir != FocusDirection::FOCUS_RIGHT; }
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &touch) override;
 
+	bool Backspace();
+	void MoveLeft();
+	void MoveRight();
+	void InsertAtCaret(const char *text);
+
 	Event OnTextChange;
 	Event OnEnter;
 
 private:
-	void InsertAtCaret(const char *text);
-
+	Margins padding_;
 	std::string text_;
 	std::string title_;
 	std::string undo_;
@@ -1097,28 +1142,25 @@ private:
 	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
 	bool passwordMasking_ = false;
 	int align_ = 0;
+	int selectAtX_ = -1;  // on next draw, will select the character closest to this X coordinate. Used for touch selection.
 	// TODO: Selections
-};
-
-enum ImageSizeMode {
-	IS_DEFAULT,
-	IS_FIXED,
-	IS_KEEP_ASPECT,
 };
 
 class ImageView : public InertView {
 public:
-	ImageView(ImageID atlasImage, const std::string &text, ImageSizeMode sizeMode, LayoutParams *layoutParams = nullptr);
+	ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams = nullptr);
+	ImageView(std::function<ImageID()> func, LayoutParams *layoutParams = nullptr);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return text_; }
 	void SetScale(float s) { scale_ = s; }  // Only used for measuring.
+	void SetFunc(std::function<ImageID()> func) { func_ = func; }
 
 private:
 	std::string text_;
 	ImageID atlasImage_;
-	ImageSizeMode sizeMode_;  // TODO: Not actually used yet.
 	float scale_ = 1.0f;
+	std::function<ImageID()> func_;
 };
 
 class ProgressBar : public InertView {
@@ -1164,6 +1206,7 @@ private:
 };
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
+void ApplyBoundBySpec(float &bound, MeasureSpec spec);
 void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert);
 
 bool IsDPadKey(const KeyInput &key);
@@ -1175,5 +1218,6 @@ bool IsTabRightKey(const KeyInput &key);
 
 // TODO: Doesn't really belong here.
 void DrawIconShine(UIContext &dc, const Bounds &bounds, float shine, bool animated);
+const FontStyle *GetTextStyle(const UIContext &dc, TextSize size);
 
 }  // namespace

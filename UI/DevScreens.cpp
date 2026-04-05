@@ -98,7 +98,7 @@ static const char *g_debugOverlayList[] = {
 	"Audio Debug",
 	"GPU Profile",
 	"GPU Allocator Viewer",
-	"Framebuffer List",
+	"Framebuffer list",
 };
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
@@ -120,7 +120,7 @@ void SaveFrameDump() {
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			System_ShowFileInFolder(dumpPath);
 		} else {
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, dumpPath.ToVisualString(), 7.0f);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f);
 		}
 	});
 }
@@ -132,6 +132,8 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
+
+	items->SetSpacing(0.0f);
 
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Add([this](UI::EventParams & e) {
 		UpdateUIState(UISTATE_PAUSEMENU);
@@ -278,33 +280,34 @@ void LogViewScreen::CreateViews() {
 	UpdateLog();
 }
 
-void LogConfigScreen::CreateViews() {
+std::string_view LogConfigScreen::GetTitle() const {
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	return dev->T("Logging Channels");
+}
+
+void LogConfigScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
+	parent->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	parent->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
+	parent->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
+	parent->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+}
 
-	LinearLayout *vert = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	vert->SetSpacing(0);
+void LogConfigScreen::CreateContentViews(UI::ViewGroup *parent) {
+	using namespace UI;
 
-	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
-	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
-	topbar->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
-	topbar->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	vert->Add(topbar);
-
-	vert->Add(new ItemHeader(dev->T("Logging Channels")));
-
-	int cellSize = 400;
+	int cellSize = 350;
 
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
 	gridsettings.fillCells = true;
-	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	GridLayout *grid = parent->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		Log type = (Log)i;
@@ -520,7 +523,7 @@ void ShaderViewScreen::CreateViews() {
 }
 
 bool ShaderViewScreen::key(const KeyInput &ki) {
-	if (ki.flags & KEY_CHAR) {
+	if (ki.flags & KeyInputFlags::CHAR) {
 		if (ki.unicodeChar == 'C' || ki.unicodeChar == 'c') {
 			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 		}
@@ -604,7 +607,7 @@ void FrameDumpTestScreen::update() {
 
 void TouchTestScreen::touch(const TouchInput &touch) {
 	UIBaseDialogScreen::touch(touch);
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -625,7 +628,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 	}
-	if (touch.flags & TOUCH_MOVE) {
+	if (touch.flags & TouchInputFlags::MOVE) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -638,7 +641,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			WARN_LOG(Log::System, "Move with buttons %d without touch down: %d", touch.buttons, touch.id);
 		}
 	}
-	if (touch.flags & TOUCH_UP) {
+	if (touch.flags & TouchInputFlags::UP) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
@@ -706,10 +709,10 @@ bool TouchTestScreen::key(const KeyInput &key) {
 	UIScreen::key(key);
 	char buf[512];
 	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
-		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
-		(key.flags & KEY_UP) ? "UP" : "",
-		(key.flags & KEY_DOWN) ? "DOWN" : "",
-		(key.flags & KEY_CHAR) ? "CHAR" : "");
+		(key.flags & KeyInputFlags::IS_REPEAT) ? "REP" : "",
+		(key.flags & KeyInputFlags::UP) ? "UP" : "",
+		(key.flags & KeyInputFlags::DOWN) ? "DOWN" : "",
+		(key.flags & KeyInputFlags::CHAR) ? "CHAR" : "");
 	keyEventLog_.push_back(buf);
 	UpdateLogView();
 	return true;
@@ -733,7 +736,7 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 }
 
 void TouchTestScreen::DrawForeground(UIContext &dc) {
-	Bounds bounds = dc.GetLayoutBounds();
+	Bounds bounds = GetLayoutBounds(dc);
 
 	double now = dc.FrameStartTime();
 	double delta = now - lastFrameTime_;

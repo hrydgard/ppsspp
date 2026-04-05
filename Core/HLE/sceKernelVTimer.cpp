@@ -65,11 +65,11 @@ struct VTimer : public KernelObject {
 		}
 	}
 
-	NativeVTimer nvt;
+	NativeVTimer nvt{};
 };
 
 KernelObject *__KernelVTimerObject() {
-	return new VTimer;
+	return new VTimer();
 }
 
 static u64 __getVTimerRunningTime(const VTimer *vt) {

@@ -58,7 +58,7 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
-	const u8 *DoJit(u32 em_address, JitBlock *b);
+	void DoJit(u32 em_address, JitBlock *b);
 
 	const u8 *GetCrashHandler() const override { return crashHandler; }
 	bool CodeInRange(const u8 *ptr) const override { return IsInSpace(ptr); }
@@ -180,6 +180,8 @@ public:
 	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
+	const u8 *GetCodeBase() const override { return GetCodePtr(); }
+
 private:
 	void GenerateFixedCode(JitOptions &jo);
 	void GetStateAndFlushAll(RegCacheState &state);
@@ -187,7 +189,6 @@ private:
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
-	bool ReplaceJalTo(u32 dest);
 
 	u32 GetCompilerPC();
 	// See CompileDelaySlotFlags for flags.
@@ -196,7 +197,6 @@ private:
 		CompileDelaySlot(flags, &state);
 	}
 	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteExit(u32 destination, int exit_num);
@@ -268,36 +268,6 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
-	bool CanContinueBranch(u32 targetAddr) {
-		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		// Need at least 2 exits left over.
-		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 2) {
-			return false;
-		}
-		// Sometimes we predict wrong and get into impossible conditions where games have jumps to 0.
-		if (!targetAddr) {
-			return false;
-		}
-		return true;
-	}
-	bool CanContinueJump(u32 targetAddr) {
-		if (!jo.continueJumps || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		if (!targetAddr) {
-			return false;
-		}
-		return true;
-	}
-	bool CanContinueImmBranch(u32 targetAddr) {
-		if (!jo.immBranches || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		return true;
-	}
-
 	bool IsAtDispatchFetch(const u8 *codePtr) const override {
 		return codePtr == dispatcherFetch;
 	}
@@ -339,4 +309,3 @@ private:
 };
 
 }	// namespace MIPSComp
-

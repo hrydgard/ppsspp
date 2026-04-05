@@ -33,11 +33,16 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 		return;
 	}
 
-	ImGui::BeginTable("framebuffers", 4);
+	ImGui::Text("Cur frame: %d seq: %d", gpuStats.numFlips, framebufferManager->PeekBindSeqCount());
+
+	ImGui::BeginTable("framebuffers", 7);
 	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
 	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
 	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
 	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("BindSeq", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("LastRender", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("LastUse", ImGuiTableColumnFlags_WidthFixed);
 
 	ImGui::TableHeadersRow();
 
@@ -69,6 +74,12 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 			ImGui::Text("Framebuffer: %s", tag);
 			ImGui::EndPopup();
 		}
+		ImGui::TableNextColumn();
+		ImGui::Text("%d/%d", vfb->colorBindSeq, vfb->depthBindSeq);
+		ImGui::TableNextColumn();
+		ImGui::Text("%d/%d", vfb->last_frame_render, vfb->last_frame_depth_updated);
+		ImGui::TableNextColumn();
+		ImGui::Text("%d/%d", vfb->last_frame_used, vfb->last_frame_depth_render);
 		ImGui::PopID();
 	}
 	ImGui::EndTable();
@@ -79,10 +90,12 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 	}
 
 	if (cfg.selectedFramebuffer != -1) {
+		ImGui::SliderFloat("Scale", &cfg.fbViewerZoom, 0.5f, 16.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+
 		// Now, draw the image of the selected framebuffer.
 		Draw::Framebuffer *fb = vfbs[cfg.selectedFramebuffer]->fbo;
 		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
+		ImGui::Image(texId, ImVec2(fb->Width() * cfg.fbViewerZoom, fb->Height() * cfg.fbViewerZoom));
 	}
 
 	ImGui::End();
@@ -413,31 +426,34 @@ bool ImGePixelViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) con
 	// Go look directly in RAM.
 	int bpp = BufferFormatBytesPerPixel(format);
 	u32 pixelAddr = addr + (y * stride + x) * bpp;
+	if (!Memory::IsValidAddress(pixelAddr)) {
+		return false;
+	}
 	switch (format) {
 	case GE_FORMAT_8888:
-		snprintf(buf, bufSize, "%08x", Memory::Read_U32(pixelAddr));
+		snprintf(buf, bufSize, "%08x", Memory::ReadUnchecked_U32(pixelAddr));
 		break;
 	case GE_FORMAT_4444:
 	{
-		u16 raw = Memory::Read_U16(pixelAddr);
+		u16 raw = Memory::ReadUnchecked_U16(pixelAddr);
 		snprintf(buf, bufSize, "%08x (raw: %04x)", RGBA4444ToRGBA8888(raw), raw);
 		break;
 	}
 	case GE_FORMAT_565:
 	{
-		u16 raw = Memory::Read_U16(pixelAddr);
+		u16 raw = Memory::ReadUnchecked_U16(pixelAddr);
 		snprintf(buf, bufSize, "%08x (raw: %04x)", RGB565ToRGBA8888(raw), raw);
 		break;
 	}
 	case GE_FORMAT_5551:
 	{
-		u16 raw = Memory::Read_U16(pixelAddr);
+		u16 raw = Memory::ReadUnchecked_U16(pixelAddr);
 		snprintf(buf, bufSize, "%08x (raw: %04x)", RGBA5551ToRGBA8888(raw), raw);
 		break;
 	}
 	case GE_FORMAT_DEPTH16:
 	{
-		u16 raw = Memory::Read_U16(pixelAddr);
+		u16 raw = Memory::ReadUnchecked_U16(pixelAddr);
 		snprintf(buf, bufSize, "%0.4f (raw: %04x / %d)", (float)raw / 65535.0f, raw, raw);
 		break;
 	}
@@ -464,7 +480,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 	if (stride > width) {
 		srcBytes -= stride - width;
 	}
-	if (Memory::ValidSize(addr, srcBytes) != srcBytes) {
+	if (Memory::ClampValidSizeAt(addr, srcBytes) != srcBytes) {
 		// TODO: Show a message that the address is out of bounds.
 		return;
 	}
@@ -499,7 +515,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 		case GE_FORMAT_5551:
 			if (showAlpha) {
 				uint32_t *dst32 = (uint32_t *)dst;
-				uint16_t *src16 = (uint16_t *)dst;
+				const uint16_t *src16 = (const uint16_t *)src;
 				for (int x = 0; x < width; x++) {
 					dst32[x] = (src16[x] >> 15) ? 0xFFFFFFFF : 0xFF000000;
 				}
@@ -512,7 +528,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 			break;
 		case GE_FORMAT_DEPTH16:
 		{
-			uint16_t *src16 = (uint16_t *)src;
+			const uint16_t *src16 = (const uint16_t *)src;
 			float scale = this->scale / 256.0f;
 			for (int x = 0; x < width; x++) {
 				// Just pick off the upper bits by adding 1 to the byte address
@@ -568,6 +584,10 @@ ImGeReadbackViewer::~ImGeReadbackViewer() {
 	delete[] data_;
 }
 
+VirtualFramebuffer *ImGeReadbackViewer::GetVFB(FramebufferManagerCommon *fbMan) const {
+	return fbMan->GetExactVFB(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.FrameBufFormat());
+}
+
 void ImGeReadbackViewer::DeviceLost() {
 	if (texture_) {
 		texture_->Release();
@@ -576,8 +596,10 @@ void ImGeReadbackViewer::DeviceLost() {
 }
 
 bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
-	FramebufferManagerCommon *fbmanager = gpuDebug->GetFramebufferManagerCommon();
-	if (!vfb || !vfb->fbo || !fbmanager) {
+	FramebufferManagerCommon *fbMan = gpuDebug->GetFramebufferManagerCommon();
+	VirtualFramebuffer *vfb = GetVFB(fbMan);
+
+	if (!vfb || !vfb->fbo || !fbMan) {
 		ImGui::TextUnformatted("(N/A)");
 		return false;
 	}
@@ -659,6 +681,8 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 }
 
 bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) const {
+	FramebufferManagerCommon *fbMan = gpuDebug->GetFramebufferManagerCommon();
+	VirtualFramebuffer *vfb = GetVFB(fbMan);
 	if (!vfb || !vfb->fbo || !data_) {
 		snprintf(buf, bufSize, "N/A");
 		return true;
@@ -758,7 +782,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 		if (Memory::IsValid4AlignedAddress(addr)) {
 			draw_list->AddText(lineStart, 0xFFC0C0C0, addrBuffer);
 
-			u32 opcode = Memory::Read_U32(addr);
+			u32 opcode = Memory::ReadUnchecked_U32(addr);
 			GPUDebugOp op = gpuDebug->DisassembleOp(addr, opcode);
 			u32 color = 0xFFFFFFFF;
 			char temp[16];
@@ -821,7 +845,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 			}
 		} else if (Memory::IsValid4AlignedAddress(dragAddr_)) {
 			char buffer[64];
-			u32 opcode = Memory::Read_U32(dragAddr_);
+			u32 opcode = Memory::ReadUnchecked_U32(dragAddr_);
 			GPUDebugOp op = gpuDebug->DisassembleOp(dragAddr_, opcode);
 			// affect dragAddr_?
 			if (ImGui::MenuItem("Copy Address", NULL, false)) {
@@ -988,7 +1012,9 @@ void ImGeDebuggerWindow::NotifyStep() {
 
 	FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
 	if (fbman) {
-		rbViewer_.vfb = fbman->GetExactVFB(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.FrameBufFormat());
+		rbViewer_.fbAddr = gstate.getFrameBufAddress();
+		rbViewer_.fbStride = gstate.FrameBufStride();
+		rbViewer_.fbFormat = gstate.FrameBufFormat();
 		rbViewer_.aspect = selectedAspect_;
 	}
 	rbViewer_.Snapshot();
@@ -1028,19 +1054,21 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN;
 
+	constexpr float fastRepeatRate = 0.025f;
+
 	if (disableStepButtons) {
 		ImGui::BeginDisabled();
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Tex")) {
+	if (ImGui::RepeatButtonShift("Tex", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::TEX);
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Prim")) {
+	if (ImGui::RepeatButtonShift("Prim", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::PRIM);
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Draw")) {
+	if (ImGui::RepeatButtonShift("Draw", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 	}
 	ImGui::SameLine();
@@ -1052,7 +1080,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
 	ImGui::SameLine();
-	if (ImGui::RepeatButtonShift("Single step")) {
+	if (ImGui::RepeatButtonShift("Single step", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
 	if (disableStepButtons) {
@@ -1157,7 +1185,8 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	DisplayList list;
 	bool isOnBlockTransfer = false;
 	if (gpuDebug->GetCurrentDisplayList(list)) {
-		op = Memory::Read_U32(list.pc);
+		_dbg_assert_(Memory::IsValid4AlignedAddress(list.pc));
+		op = Memory::ReadUnchecked_U32(list.pc);
 
 		// TODO: Also add support for block transfer previews!
 
@@ -1195,14 +1224,18 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("Total bytes to transfer: %d", gstate.getTransferWidth() * gstate.getTransferHeight() * gstate.getTransferBpp());
 		} else {
 			// Visualize prim by default (even if we're not directly on a prim instruction).
-			VirtualFramebuffer *vfb = rbViewer_.vfb;
-			if (vfb) {
-				if (vfb->fbo) {
-					ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
-				} else {
-					ImGui::Text("Framebuffer");
+			FramebufferManagerCommon *fbMan = gpuDebug->GetFramebufferManagerCommon();
+			VirtualFramebuffer *vfb = nullptr;
+			if (fbMan) {
+				vfb = rbViewer_.GetVFB(fbMan);
+				if (vfb) {
+					if (vfb->fbo) {
+						ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
+					} else {
+						ImGui::Text("Framebuffer");
+					}
+					ImGui::SameLine();
 				}
-				ImGui::SameLine();
 			}
 			ImGui::SetNextItemWidth(200.0f);
 			ImGui::SliderFloat("Zoom", &previewZoom_, 0.125f, 2.f, "%.3f", ImGuiSliderFlags_Logarithmic);

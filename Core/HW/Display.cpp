@@ -296,7 +296,16 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 	}), flipListeners.end());
 }
 
+// This is called when launching a new executable. We do clear vblankListeners here, they will get
+// set up again if needed. However we can't clear fliplisteners, that is used for RetroAchievements updates.
 void DisplayHWReset() {
+	std::lock_guard<std::mutex> guard(listenersLock);
+	vblankListeners.clear();
+}
+
+// This is called on game bootup.
+void DisplayHWInit() {
+	flipListeners.clear();
 	frameStartTicks = 0;
 	numVBlanks = 0;
 	isVblank = 0;
@@ -311,13 +320,13 @@ void DisplayHWReset() {
 
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
+	lastFpsTime = 0.0;
+	lastFpsFrame = 0;
 
 	frameTimeHistoryValid = 0;
 	frameTimeHistoryPos = 0;
 	lastFrameTimeHistory = 0.0;
 }
-
-void DisplayHWInit() {}
 
 void DisplayHWShutdown() {
 	std::lock_guard<std::mutex> guard(listenersLock);

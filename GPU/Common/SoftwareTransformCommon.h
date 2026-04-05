@@ -22,6 +22,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -86,6 +87,8 @@ protected:
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;
 };
+
+class DrawEngineCommon;
 
 // Slow. See description in the cpp file.
 u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const VertexDecoder *dec, u32 vertType);

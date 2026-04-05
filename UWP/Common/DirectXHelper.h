@@ -9,26 +9,25 @@ namespace DX
 		if (FAILED(hr))
 		{
 			// Set a breakpoint on this line to catch Win32 API errors.
-			throw Platform::Exception::CreateException(hr);
+			winrt::throw_hresult(hr);
 		}
 	}
 
 	// Function that reads from a binary file asynchronously.
-	inline Concurrency::task<std::vector<byte>> ReadDataAsync(const std::wstring& filename)
+	inline Concurrency::task<std::vector<uint8_t>> ReadDataAsync(const std::wstring& filename)
 	{
-		using namespace Windows::Storage;
 		using namespace Concurrency;
 
-		auto folder = Windows::ApplicationModel::Package::Current->InstalledLocation;
+		auto folder = winrt::Windows::ApplicationModel::Package::Current().InstalledLocation();
 
-		return create_task(folder->GetFileAsync(Platform::StringReference(filename.c_str()))).then([] (StorageFile^ file) 
-		{
-			return FileIO::ReadBufferAsync(file);
-		}).then([] (Streams::IBuffer^ fileBuffer) -> std::vector<byte> 
-		{
-			std::vector<byte> returnBuffer;
-			returnBuffer.resize(fileBuffer->Length);
-			Streams::DataReader::FromBuffer(fileBuffer)->ReadBytes(Platform::ArrayReference<byte>(returnBuffer.data(), fileBuffer->Length));
+		return create_task([folder, filename]() -> std::vector<uint8_t> {
+			auto file = folder.GetFileAsync(winrt::hstring(filename)).get();
+			auto buffer = winrt::Windows::Storage::FileIO::ReadBufferAsync(file).get();
+
+		
+			std::vector<uint8_t> returnBuffer(buffer.Length());
+			auto reader = winrt::Windows::Storage::Streams::DataReader::FromBuffer(buffer);
+			reader.ReadBytes(returnBuffer);
 			return returnBuffer;
 		});
 	}

@@ -53,10 +53,6 @@ TransformUnit::~TransformUnit() {
 	delete binner_;
 }
 
-bool TransformUnit::IsStarted() {
-	return binner_ && decoded_;
-}
-
 SoftwareDrawEngine::SoftwareDrawEngine() {
 	flushOnParams_ = false;
 }
@@ -486,8 +482,10 @@ public:
 
 		if (useIndices_)
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
-		if (vertex_count != 0)
-			vdecoder.DecodeVerts(base, vertices, &gstate_c.uv, lowerBound_, upperBound_);
+		if (vertex_count != 0) {
+			const int count = upperBound_ - lowerBound_ + 1;
+			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &gstate_c.uv, count);
+		}
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
 		// However, if we're reusing a lot of verts, we should read and cache them.

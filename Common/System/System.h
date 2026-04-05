@@ -47,6 +47,9 @@ enum class LaunchUrlType {
 	BROWSER_URL,
 	MARKET_URL,
 	EMAIL_ADDRESS,
+	LOCAL_FILE,
+	LOCAL_FOLDER,  // Shows the folder. Not supported on all systems of course.
+	AUTO,
 };
 
 void System_Vibrate(int length_ms);
@@ -59,6 +62,7 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url);
 enum class UIEventNotification {
 	MENU_RETURN,
 	POPUP_CLOSED,
+	DIALOG_CLOSED,
 	TEXT_GOTFOCUS,
 	TEXT_LOSTFOCUS,
 };
@@ -78,7 +82,7 @@ enum class SystemRequestType {
 	COPY_TO_CLIPBOARD,
 	SHARE_TEXT,
 	SET_WINDOW_TITLE,
-	TOGGLE_FULLSCREEN_STATE,
+	APPLY_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
 	CREATE_GAME_SHORTCUT,
 	SHOW_FILE_IN_FOLDER,
@@ -187,6 +191,7 @@ enum SystemProperty {
 	SYSPROP_DISPLAY_SAFE_INSET_RIGHT,
 	SYSPROP_DISPLAY_SAFE_INSET_TOP,
 	SYSPROP_DISPLAY_SAFE_INSET_BOTTOM,
+	SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT,
 
 	SYSPROP_DEVICE_TYPE,
 	SYSPROP_APP_GOLD,  // To avoid having #ifdef GOLD other than in main.cpp and similar.
@@ -234,7 +239,10 @@ enum SystemProperty {
 	SYSPROP_HAS_TRASH_BIN,
 
 	SYSPROP_USE_IAP,
+	SYSPROP_USE_APP_STORE,
 	SYSPROP_SUPPORTS_SHARE_TEXT,
+
+	SYSPROP_INSTALLER_NAME,  // Useful on Android to check if we were installed from the play store.
 };
 
 enum class SystemNotification {
@@ -259,6 +267,7 @@ enum class SystemNotification {
 	UI_STATE_CHANGED,
 	AUDIO_MODE_CHANGED,
 	APP_SWITCH_MODE_CHANGED,
+	PAD_STATE_CHANGED,
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of
@@ -298,6 +307,7 @@ enum class UIMessage {
 	RESTART_GRAPHICS,
 	RECENT_FILES_CHANGED,
 	SAVE_FRAME_DUMP,
+	ADHOC_SERVER_LIST_CHANGED,
 };
 
 std::string System_GetProperty(SystemProperty prop);

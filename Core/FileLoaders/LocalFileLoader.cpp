@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -56,20 +57,11 @@ void LocalFileLoader::DetectSizeFd() {
 #endif
 
 LocalFileLoader::LocalFileLoader(const Path &filename)
-	: filesize_(0), filename_(filename) {
+	: filename_(filename) {
 	if (filename.empty()) {
 		ERROR_LOG(Log::FileSystem, "LocalFileLoader can't load empty filenames");
 		return;
 	}
-
-#if HAVE_LIBRETRO_VFS
-    isOpenedByFd_ = false;
-    handle_ = filestream_open(filename.c_str(), RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
-    filestream_seek(handle_, 0, RETRO_VFS_SEEK_POSITION_END);
-    filesize_ = filestream_tell(handle_);
-    filestream_seek(handle_, 0, RETRO_VFS_SEEK_POSITION_START);
-    return;
-#endif
 
 #if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
 	if (filename.Type() == PathType::CONTENT_URI) {
@@ -87,18 +79,35 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 #endif
 
 #if defined(HAVE_LIBRETRO_VFS)
-    // Nothing to do here...
+	file_ = File::OpenCFile(filename, "rb");
+	if (!file_) {
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader: failed to open file: '%s'", filename.c_str());
+		return;
+	}
+	filesize_ = File::GetFileSize(file_);
+#elif PPSSPP_PLATFORM(IOS)
+	if (!File::Exists(filename)) {
+		// Try to "unlock" the path before the file loader hits it
+		Path newFilename = DarwinFileSystemServices::reauthorizeBookmarkByPath(filename);
+		if (!newFilename.empty()) {
+			filename_ = newFilename;
+		}
+	}
+	fd_ = open(filename_.c_str(), O_RDONLY | O_CLOEXEC);
+	if (fd_ == -1) {
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader: failed to open file: '%s'", filename_.c_str());
+		return;
+	}
+	DetectSizeFd();
 #elif !defined(_WIN32)
-
 	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
 	if (fd_ == -1) {
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader: failed to open file: '%s'", filename.c_str());
 		return;
 	}
 
 	DetectSizeFd();
-
 #else // _WIN32
-
 	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
 #if PPSSPP_PLATFORM(UWP)
 	handle_ = CreateFile2FromAppW(filename.ToWString().c_str(), access, share, mode, nullptr);
@@ -123,7 +132,12 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 
 LocalFileLoader::~LocalFileLoader() {
 #if defined(HAVE_LIBRETRO_VFS)
-    filestream_close(handle_);
+	if (file_ != nullptr) {
+		fclose(file_);
+	}
+#elif PPSSPP_PLATFORM(IOS)
+	close(fd_);
+	DarwinFileSystemServices::stopAccessingPath(filename_);
 #elif !defined(_WIN32)
 	if (fd_ != -1) {
 		close(fd_);
@@ -138,8 +152,7 @@ LocalFileLoader::~LocalFileLoader() {
 bool LocalFileLoader::Exists() {
 	// If we opened it for reading, it must exist.  Done.
 #if defined(HAVE_LIBRETRO_VFS)
-    return handle_ != 0;
-
+	return file_ != nullptr;
 #elif !defined(_WIN32)
 	if (isOpenedByFd_) {
 		// As an optimization, if we already tried and failed, quickly return.
@@ -178,9 +191,9 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 	}
 
 #if defined(HAVE_LIBRETRO_VFS)
-    std::lock_guard<std::mutex> guard(readLock_);
-	filestream_seek(handle_, absolutePos, RETRO_VFS_SEEK_POSITION_START);
-	return filestream_read(handle_, data, bytes * count) / bytes;
+	std::lock_guard<std::mutex> guard(readLock_);
+	File::Fseek(file_, absolutePos, SEEK_SET);
+	return fread(data, bytes, count, file_);
 #elif PPSSPP_PLATFORM(SWITCH)
 	// Toolchain has no fancy IO API.  We must lock.
 	std::lock_guard<std::mutex> guard(readLock_);

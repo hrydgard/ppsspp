@@ -9,7 +9,9 @@
 #include "Common/StringUtils.h"
 #include "UI/MiscViews.h"
 #include "UI/GameInfoCache.h"
+#include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"
+#include "GPU/Common/PresentationCommon.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
@@ -19,7 +21,7 @@ TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearL
 		layoutParams_->height = ITEM_HEIGHT;
 	}
 	if (imageID.isValid()) {
-		Add(new ImageView(imageID, "", UI::IS_DEFAULT, new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
+		Add(new ImageView(imageID, "", new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
 	}
 	Add(new TextView(text, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER)));
 }
@@ -32,7 +34,7 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 		layoutParams_->height = ITEM_HEIGHT;
 	}
 	if (imageID.isValid()) {
-		Add(new ImageView(imageID, "", UI::IS_DEFAULT, new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
+		Add(new ImageView(imageID, "", new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER)));
 	}
 	Add(new TextView(text, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER)))->SetBig(true);
 
@@ -42,94 +44,38 @@ CopyableText::CopyableText(ImageID imageID, std::string_view text, UI::LinearLay
 	});
 }
 
-TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), flags_(flags) {
+TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
 		layoutParams_->width = UI::FILL_PARENT;
-		layoutParams_->height = 64.0f;
+		layoutParams_->height = ITEM_HEIGHT;
 	}
 
-	auto dlg = GetI18NCategory(I18NCat::DIALOG);
-	backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
-	backButton_->OnClick.Add([](UI::EventParams &e) {
-		e.bubbleResult = DR_BACK;
-	});
+	if (!(flags & TopBarFlags::NoBackButton)) {
+		auto dlg = GetI18NCategory(I18NCat::DIALOG);
+		backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		backButton_->OnClick.Add([](UI::EventParams &e) {
+			e.bubbleResult = DR_BACK;
+		});
+	} else {
+		Add(new Spacer(4.0f));
+	}
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
-		titleView->SetTextColor(ctx.GetTheme().itemDownStyle.fgColor);
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
+		titleView->SetTextColor(ctx.GetTheme().itemStyle.fgColor);
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
 	}
 
 	if (flags & TopBarFlags::ContextMenuButton) {
-		Choice *menuButton = Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
-		menuButton->OnClick.Add([this](UI::EventParams &e) {
+		contextMenuButton_ = Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		contextMenuButton_->OnClick.Add([this](UI::EventParams &e) {
 			this->OnContextMenuClick.Trigger(e);
 		});
 	}
-}
-
-SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
-	: UI::LinearLayout(ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
-	using namespace UI;
-	SetSpacing(0.0f);
-	Add(new Spacer(10.0f));
-	text_ = Add(new TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
-	Add(new Spacer(10.0f));
-}
-
-void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {
-	if (refView) {
-		Bounds b = refView->GetBounds();
-		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (lp) {
-			if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
-				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->centering));
-			} else {
-				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->centering));
-			}
-		}
-	}
-	if (text_) {
-		text_->SetText(text);
-	}
-	timeShown_ = time_now_d();
-}
-
-void SettingInfoMessage::Draw(UIContext &dc) {
-	static const double FADE_TIME = 1.0;
-	static const float MAX_ALPHA = 0.9f;
-
-	// Let's show longer messages for more time (guesstimate at reading speed.)
-	// Note: this will give multibyte characters more time, but they often have shorter words anyway.
-	double timeToShow = std::max(1.5, text_->GetText().size() * 0.05);
-
-	double sinceShow = time_now_d() - timeShown_;
-	float alpha = MAX_ALPHA;
-	if (timeShown_ == 0.0 || sinceShow > timeToShow + FADE_TIME) {
-		alpha = 0.0f;
-	} else if (sinceShow > timeToShow) {
-		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
-	}
-
-	UI::Style style = dc.GetTheme().tooltipStyle;
-
-	if (alpha >= 0.001f) {
-		uint32_t bgColor = alphaMul(style.background.color, alpha);
-		dc.FillRect(UI::Drawable(bgColor), bounds_);
-	}
-
-	uint32_t textColor = alphaMul(style.fgColor, alpha);
-	text_->SetTextColor(textColor);
-	ViewGroup::Draw(dc);
-	showing_ = sinceShow <= timeToShow; // Don't consider fade time
-}
-
-std::string SettingInfoMessage::GetText() const {
-	return (showing_ && text_) ? text_->GetText() : "";
 }
 
 void ShinyIcon::Draw(UIContext &dc) {
@@ -182,7 +128,8 @@ private:
 	int textureHeight_ = 0;
 };
 
-PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
+PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) 
+	: UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
 	using namespace UI;
 	SetSpacing(10.0f);
 	if (!layoutParams) {
@@ -193,7 +140,7 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 
 	if (!title.empty()) {
-		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(10, 0, 20, 0))));
+		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(8, 0, 20, 0))));
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 	}
@@ -212,9 +159,151 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 		} else {
 			settingsUrl = join("https://www.ppsspp.org/docs/settings/", settingsCategory);
 		}
-		Choice *helpButton = Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams()));
+		Choice *helpButton = Add(new Choice(ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams()));
 		helpButton->OnClick.Add([settingsUrl](UI::EventParams &) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, settingsUrl);
 		});
 	}
+}
+
+void GameImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, image_);
+	GameInfoTex *tex = GetTex(info);
+	w = 0;
+	h = 0;
+	if (!tex || !tex->texture) {
+		// Not ready yet
+		return;
+	}
+	Draw::Texture *texture = tex->texture;
+	w = tex->texture->Width();
+	h = tex->texture->Height();
+}
+
+GameInfoTex *GameImageView::GetTex(std::shared_ptr<GameInfo> info) const {
+	GameInfoTex *tex = nullptr;
+	switch (image_) {
+	case GameInfoFlags::ICON:
+		tex = &info->icon;
+		break;
+	case GameInfoFlags::PIC0:
+		tex = &info->pic0;
+		break;
+	case GameInfoFlags::PIC1:
+		tex = &info->pic1;
+		break;
+	default:
+		break;
+	}
+	return tex;
+}
+
+void GameImageView::Draw(UIContext &dc) {
+	using namespace UI;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, image_);
+	if (!info->Ready(image_)) {
+		return;
+	}
+
+	GameInfoTex *tex = GetTex(info);
+	if (!tex || !tex->texture) {
+		return;
+	}
+
+	Draw::Texture *texture = tex->texture;
+
+	float textureWidth_ = texture->Width() * scale_;
+	float textureHeight_ = texture->Height() * scale_;
+
+	// Fade icon with the backgrounds.
+	double loadTime = info->icon.timeLoaded;
+	auto pic = info->GetPIC1();
+	if (pic) {
+		loadTime = std::max(loadTime, pic->timeLoaded);
+	}
+	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
+
+	// Adjust size so we don't stretch the image vertically or horizontally.
+	// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
+	int x = bounds_.x + (bounds_.w - nw) / 2.0f;
+
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, texture);
+	dc.Draw()->Rect(x, bounds_.y, nw, bounds_.h, color);
+	dc.Flush();
+	dc.RebindTexture();
+}
+
+void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text) {
+	using namespace UI;
+	static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed", "N/A", "Landscape Auto"};
+	static const std::map<int, ImageID> screenRotationIcons{
+		{ROTATION_AUTO, ImageID("I_DEVICE_ROTATION_AUTO")},
+		{ROTATION_LOCKED_HORIZONTAL, ImageID("I_DEVICE_ROTATION_LANDSCAPE")},
+		{ROTATION_LOCKED_VERTICAL, ImageID("I_DEVICE_ROTATION_PORTRAIT")},
+		{ROTATION_LOCKED_HORIZONTAL180, ImageID("I_DEVICE_ROTATION_LANDSCAPE_REV")},
+		{ROTATION_AUTO_HORIZONTAL, ImageID("I_DEVICE_ROTATION_LANDSCAPE_AUT")},
+	};
+
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+
+	PopupMultiChoice *rot = parent->Add(new PopupMultiChoice(&g_Config.iScreenRotation, text ? co->T("Screen Rotation") : "", screenRotation, 0, ARRAY_SIZE(screenRotation), I18NCat::CONTROLS, screenManager, text ? nullptr : new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+	if (!text) {
+		rot->SetHideTitle(true);
+		rot->SetIconOnly(true);
+	}
+	rot->SetChoiceIcons(screenRotationIcons);
+
+	// Portrait Reversed is not recommended on iPhone (and we also ban it in the plist).
+	// However it's recommended to support it on iPad, so maybe we will in the future.
+	rot->HideChoice(ROTATION_LOCKED_VERTICAL180);
+	rot->OnChoice.Add([](UI::EventParams &) {
+		INFO_LOG(Log::System, "New display rotation: %d", g_Config.iScreenRotation);
+		System_Notify(SystemNotification::ROTATE_UPDATED);
+	});
+}
+
+void GameInfoBGView::Draw(UIContext &dc) {
+	// Should only be called when visible.
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::PIC1);
+	dc.Flush();
+
+	// PIC1 is the loading image, so let's only draw if it's available.
+	if (ginfo->Ready(GameInfoFlags::PIC1) && ginfo->pic1.texture) {
+		Draw::Texture *texture = ginfo->pic1.texture;
+		if (texture) {
+			const DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+			// Similar to presentation, we want to put the game PIC1 in the same region of the screen.
+			FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
+			FRect rc;
+			CalculateDisplayOutputRect(config, &rc, texture->Width(), texture->Height(), frame, config.iInternalScreenRotation);
+
+			// Need to adjust for DPI here since we're still in the UI coordinate space here, not the pixel coordinate space used for in-game presentation.
+			Bounds bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y);
+
+			dc.GetDrawContext()->BindTexture(0, texture);
+
+			double loadTime = ginfo->pic1.timeLoaded;
+			uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
+			dc.Draw()->DrawTexRect(bounds, 0, 0, 1, 1, color);
+			dc.Flush();
+			dc.RebindTexture();
+		}
+	}
+}
+
+SettingHint::SettingHint(std::string_view text, UI::View *setting)
+	: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)), setting_(setting) {
+	SetTextSize(UI::TextSize::Tiny);
+	SetPadding(UI::Margins(14, 0, 12, 8));
+	SetAlign(FLAG_WRAP_TEXT);
+}
+
+void SettingHint::Draw(UIContext &dc) {
+	const bool enabled = setting_ ? setting_->IsEnabled() : true;
+	const UI::Style &style = enabled ? dc.GetTheme().itemStyle : dc.GetTheme().itemDisabledStyle;
+	SetTextColor(style.fgColor);  // bit hacky but works
+	dc.FillRect(style.background, bounds_);
+	UI::TextView::Draw(dc);
 }

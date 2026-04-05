@@ -1,23 +1,89 @@
+import com.google.protobuf.gradle.*
+import org.gradle.process.ExecOperations
+import java.io.ByteArrayOutputStream
+
 plugins {
 	id("com.android.application")
-	id("com.gladed.androidgitversion")
-	id("org.jetbrains.kotlin.android")
+	id("com.google.protobuf")
 }
 
-// Kotlin DSL syntax for configuring the extension
-configure<com.gladed.androidgitversion.AndroidGitVersionExtension> {
-	codeFormat = "MNNPPBBBB"
-	format = "%tag%%-count%%-branch%%-dirty%"
-	prefix = "v"  // Only tags beginning with v are considered.
-	untrackedIsDirty = false
+// Utility function used to get the git version
+// All the below replaces the following "gladed.androidgitversion" config:
+// configure<com.gladed.androidgitversion.AndroidGitVersionExtension> {
+//   codeFormat = "MNNPPBBBB"
+//   format = "%tag%%-count%%-branch%%-dirty%"
+//   prefix = "v"  // Only tags beginning with v are considered.
+//   untrackedIsDirty = false
+// }
+
+fun ProviderFactory.git(vararg args: String): String {
+	val result = exec {
+		commandLine("git", *args)
+		isIgnoreExitValue = true
+	}
+	return result.standardOutput.asText.get().trim()
 }
+
+val gitTag = providers.git("describe", "--tags", "--match", "v*", "--abbrev=0")
+	.ifEmpty { "v0.0.0" }
+val commitsSinceTag = providers.git(
+	"rev-list", "$gitTag..HEAD", "--count"
+).toIntOrNull() ?: 0
+val branchName = providers.git(
+	"rev-parse", "--abbrev-ref", "HEAD"
+).replace("/", "-")
+val isDirty = providers.git("status", "--porcelain")
+	.lineSequence()
+	.any { it.isNotBlank() && !it.startsWith("??") } // untrackedIsDirty = false
+
+val versionParts = gitTag
+	.removePrefix("v")
+	.split(".")
+	.mapNotNull { it.toIntOrNull() }
+
+// Ensure we have at least 3 components by padding with 0
+val major = versionParts.getOrElse(0) { 0 }
+val minor = versionParts.getOrElse(1) { 0 }
+val patch = versionParts.getOrElse(2) { 0 }
+
+val gitVersionName = if (commitsSinceTag == 0) gitTag else buildString {
+	append(gitTag)
+	append("-")
+	append(commitsSinceTag)
+	append("-")
+	append(branchName)
+	if (isDirty) append("-dirty")
+}
+
+val gitVersionCode =
+	major * 100_000_000 +
+		minor * 1000_000 +
+		patch * 10_000 +
+		commitsSinceTag
 
 dependencies {
 	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
 	// and also doesn't collide kotlin versions with com.gladed.androidgitversion.
 	// Will replace with a different plugin soon.
-	implementation("androidx.appcompat:appcompat:1.6.1")
+	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
+	implementation("com.google.protobuf:protobuf-javalite:4.33.5")
+}
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:3.25.3"
+	}
+
+	generateProtoTasks {
+		all().forEach { task ->
+			task.builtins {
+				register("java") {
+					option("lite")
+				}
+			}
+		}
+	}
 }
 
 android {
@@ -41,7 +107,7 @@ android {
 	}
 
 	compileSdk = 36
-	ndkVersion = "28.2.13676358"
+	ndkVersion = "29.0.14206865"
 
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_11
@@ -55,16 +121,15 @@ android {
 	defaultConfig {
 		applicationId = "org.ppsspp.ppsspp"
 		// Access the git version info via the extension
-		val gitVersion = extensions.getByType<com.gladed.androidgitversion.AndroidGitVersionExtension>()
-		if (gitVersion.name() != "unknown") {
-			println("Overriding Android Version Name, Code: " + gitVersion.name() + " " + gitVersion.code())
-			versionName = gitVersion.name()
-			versionCode = gitVersion.code()
+		if (gitVersionName != "unknown") {
+			println("INFO: Overriding Android Version Name, Code: $gitVersionName $gitVersionCode")
+			versionName = gitVersionName
+			versionCode = gitVersionCode
 		} else {
-			println("(not using these:) Android Version Name, Code: " + gitVersion.name() + " " + gitVersion.code())
+			println("(not using these:) Android Version Name, Code: $gitVersionName $gitVersionCode")
 		}
-		file("versionname.txt").writeText(gitVersion.name())
-		file("versioncode.txt").writeText(gitVersion.code().toString())
+		file("versionname.txt").writeText(gitVersionName)
+		file("versioncode.txt").writeText(gitVersionCode.toString())
 
 		minSdk = 21
 		targetSdk = 36
@@ -86,7 +151,11 @@ android {
 		}
 		getByName("release") {
 			isMinifyEnabled = false
-			signingConfig = signingConfigs.getByName("release")
+			if (project.hasProperty("RELEASE_STORE_FILE")) {
+				signingConfig = signingConfigs.getByName("release")
+			} else {
+				println("WARNING: RELEASE_STORE_FILE is missing. Release builds will be unusable.")
+			}
 		}
 	}
 	externalNativeBuild {
@@ -100,24 +169,24 @@ android {
 	sourceSets {
 		getByName("main") {
 			manifest.srcFile("AndroidManifest.xml")
-			res.setSrcDirs(listOf("res"))
-			java.setSrcDirs(listOf("src"))
-			aidl.setSrcDirs(listOf("src"))
-			resources.setSrcDirs(listOf("src"))
-			assets.setSrcDirs(listOf("../assets"))
+			res.directories.add("res")
+			java.directories.add("src")
+			aidl.directories.add("src")
+			resources.directories.add("src")
+			assets.directories.add("../assets")
 		}
 		create("normal") {
-			res.setSrcDirs(listOf("normal/res"))
+			res.directories.add("normal/res")
 		}
 		create("gold") {
-			res.setSrcDirs(listOf("gold/res"))
+			res.directories.add("gold/res")
 		}
 		create("vr") {
-			res.setSrcDirs(listOf("normal/res"))
+			res.directories.add("normal/res")
 			manifest.srcFile("VRManifest.xml")
 		}
 		create("legacy") {
-			res.setSrcDirs(listOf("legacy/res"))
+			res.directories.add("legacy/res")
 		}
 	}
 	productFlavors {
@@ -138,6 +207,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+				// debugSymbolLevel = "FULL"  // These don't actually help much in the Google Play crash report. We do still have symbols locally.
 			}
 		}
 		create("gold") {
@@ -157,6 +227,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+				// debugSymbolLevel = "FULL"
 			}
 		}
 		create("legacy") {
@@ -177,6 +248,7 @@ android {
 			}
 			ndk {
 				abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+				// debugSymbolLevel = "FULL"
 			}
 		}
 		create("vr") {
@@ -219,8 +291,18 @@ androidComponents {
 	}
 }
 
+/*
 afterEvaluate {
 	android.sourceSets.getByName("main").assets.srcDirs.forEach {
 		println(it)
 	}
+}*/
+
+// Use the below to get a lot of deprecation warnings.
+// Not really useful to fix most of them though, as the old paths are often needed to support
+// old Android versions.
+/*
+tasks.withType<JavaCompile> {
+	options.compilerArgs.addAll(listOf("-Xlint:deprecation"))
 }
+*/

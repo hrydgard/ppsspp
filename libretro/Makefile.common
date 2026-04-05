@@ -1,3 +1,5 @@
+HAVE_LIBRETRO_VFS ?= 1
+
 FFMPEGDIR		= $(CORE_DIR)/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
@@ -474,6 +476,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLMemory.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLProfiler.cpp \
 	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
@@ -519,12 +522,12 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/UI.cpp \
 	$(COMMONDIR)/UI/Context.cpp \
 	$(COMMONDIR)/UI/UIScreen.cpp \
+	$(COMMONDIR)/UI/Notice.cpp \
 	$(COMMONDIR)/UI/Tween.cpp \
 	$(COMMONDIR)/UI/IconCache.cpp \
 	$(COMMONDIR)/UI/View.cpp \
 	$(COMMONDIR)/UI/ViewGroup.cpp \
 	$(COMMONDIR)/UI/ScrollView.cpp \
-	$(COMMONDIR)/UI/PopupScreens.cpp \
 	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/System/Request.cpp \
 	$(COMMONDIR)/System/OSD.cpp \
@@ -539,7 +542,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
-	$(COMMONDIR)/MipsCPUDetect.cpp \
 	$(COMMONDIR)/RiscVCPUDetect.cpp \
 	$(COMMONDIR)/LogReporting.cpp \
 	$(COMMONDIR)/SysError.cpp \
@@ -555,9 +557,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/VR/VRInput.cpp \
 	$(COMMONDIR)/VR/VRRenderer.cpp
 
-SOURCES_C +=\
-	$(COMMONDIR)/GPU/OpenGL/gl3stub.c \
-	$(COMMONDIR)/Math/fast/fast_matrix.c
+SOURCES_C += \
+	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
 
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/Draw2D.cpp \
@@ -690,6 +691,23 @@ SOURCES_CXX += \
 	  $(EXTDIR)/libadrenotools/src/driver.cpp \
 	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
 	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
+endif
+
+SOURCES_C += \
+	       $(EXTDIR)/aemu_postoffice/client/postoffice.c \
+	       $(EXTDIR)/aemu_postoffice/client/postoffice_mem_stdc.c
+
+SOURCES_CXX += \
+	       $(EXTDIR)/aemu_postoffice/client/mutex_impl_cpp.cpp \
+	       $(EXTDIR)/aemu_postoffice/client/delay_impl_cpp.cpp \
+	       $(EXTDIR)/aemu_postoffice/client/log_impl_ppsspp.cpp \
+
+ifeq ($(PLATFORM_EXT), win32)
+SOURCES_C += \
+	       $(EXTDIR)/aemu_postoffice/client/sock_impl_windows.c
+else
+SOURCES_C += \
+	       $(EXTDIR)/aemu_postoffice/client/sock_impl_linux.c
 endif
 
 SOURCES_CXX += \
@@ -879,6 +897,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Reporting.cpp \
 	       $(COREDIR)/RetroAchievements.cpp \
 	       $(COREDIR)/SaveState.cpp \
+	       $(COREDIR)/SaveStateRewind.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
 	       $(COREDIR)/Util/AtracTrack.cpp \
@@ -887,7 +906,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/RecentFiles.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
+	       $(COREDIR)/Util/PathUtil.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
+	       $(COREDIR)/Util/GameDB.cpp \
 	       $(CORE_DIR)/UI/GameInfoCache.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
@@ -912,10 +933,6 @@ ifeq ($(WITH_DYNAREC),1)
 			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
 
 		ifeq ($(HAVE_NEON),1)
-			SOURCES_CXX   += \
-					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
-					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
-
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
 			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
@@ -944,16 +961,6 @@ ifeq ($(WITH_DYNAREC),1)
 		     $(COREDIR)/MIPS/ARM64/Arm64IRRegCache.cpp \
 		     $(COREDIR)/Util/DisArm64.cpp \
 		     $(GPUCOMMONDIR)/VertexDecoderArm64.cpp
-
-		ifeq ($(HAVE_NEON),1)
-			SOURCES_CXX   += \
-					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
-					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
-
-			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
-				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
-		endif
    else
 	ifneq (,$(findstring msvc,$(platform)))
 	ifeq (,$(findstring x64,$(platform)))
@@ -1118,19 +1125,21 @@ SOURCES_C += \
 endif
 
 ifeq ($(HAVE_LIBRETRO_VFS), 1)
-DEFINES += -DHAVE_LIBRETRO_VFS
-INCFLAGS += -I$(LIBRETROCOMMONDIR)/include
+COREFLAGS += -DHAVE_LIBRETRO_VFS
 SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
              $(LIBRETROCOMMONDIR)/compat/fopen_utf8.c \
-             $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \
              $(LIBRETROCOMMONDIR)/compat/compat_strl.c \
+             $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \
              $(LIBRETROCOMMONDIR)/file/file_path.c \
+             $(LIBRETROCOMMONDIR)/file/file_path_io.c \
              $(LIBRETROCOMMONDIR)/streams/file_stream.c \
              $(LIBRETROCOMMONDIR)/streams/file_stream_transforms.c \
              $(LIBRETROCOMMONDIR)/string/stdstring.c \
              $(LIBRETROCOMMONDIR)/time/rtime.c \
              $(LIBRETROCOMMONDIR)/vfs/vfs_implementation.c
 endif
+
+INCFLAGS += -I$(LIBRETROCOMMONDIR)/include
 
 GIT_VERSION_SRC = $(CORE_DIR)/git-version.cpp
 GIT_VERSION := $(shell git describe --always || echo v-1.unknown)

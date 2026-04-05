@@ -229,7 +229,7 @@ namespace MIPSComp {
 #else
 				u32 addr = offset + gpr.GetImm(rs);
 #endif
-				gpr.SetRegImm(SCRATCH1, addr);
+				MOVI2R(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
@@ -262,7 +262,7 @@ namespace MIPSComp {
 #else
 				u32 addr = offset + gpr.GetImm(rs);
 #endif
-				gpr.SetRegImm(SCRATCH1, addr);
+				MOVI2R(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
@@ -308,7 +308,7 @@ namespace MIPSComp {
 #else
 					u32 addr = imm + gpr.GetImm(rs);
 #endif
-					gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
+					MOVI2R(SCRATCH1_64, addr + (uintptr_t)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {
@@ -345,7 +345,7 @@ namespace MIPSComp {
 #else
 					u32 addr = imm + gpr.GetImm(rs);
 #endif
-					gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
+					MOVI2R(SCRATCH1_64, addr + (uintptr_t)Memory::base);
 				} else {
 					gpr.MapReg(rs);
 					if (g_Config.bFastMemory) {

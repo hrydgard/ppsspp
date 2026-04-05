@@ -58,6 +58,7 @@
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
@@ -65,6 +66,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Core/Util/RecentFiles.h"
@@ -228,11 +230,14 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 		break;
 
 	case IdentifiedFileType::ARCHIVE_7Z: *errorString = "7z file detected (Require 7-Zip)"; break;
-	case IdentifiedFileType::ISO_MODE2:  *errorString = "PSX game image detected."; break;
+	case IdentifiedFileType::PSX_ISO:  *errorString = "PSX game image detected."; break;
+	case IdentifiedFileType::PS2_ISO:  *errorString = "PS2 game image detected."; break;
+	case IdentifiedFileType::PS3_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::NORMAL_DIRECTORY: *errorString = "Just a directory."; break;
 	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;
 	case IdentifiedFileType::PSP_PS1_PBP: *errorString = "PS1 EBOOTs are not supported by PPSSPP."; break;
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: *errorString = "UMD Video ISOs are not supported by PPSSPP."; break;
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
 	case IdentifiedFileType::UNKNOWN_ISO:
@@ -248,17 +253,23 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 	// UI changes are best done after PSP_InitStart.
 	if (compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 10.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 10.0f, "bufreq");
+	} else {
+		g_OSD.CancelById("bufreq");
 	}
 
 	if (compat.flags().RequireBlockTransfer && g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BlockTransferRequired", "Warning: This game requires Skip GPU Readbacks be set to No."), 10.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BlockTransferRequired", "Warning: This game requires Skip GPU Readbacks be set to No."), 10.0f, "blockxfer");
+	} else {
+		g_OSD.CancelById("blockxfer");
 	}
 
 	if (compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f, "defaultclock");
+	} else {
+		g_OSD.CancelById("defaultclock");
 	}
 }
 
@@ -292,12 +303,25 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		if (LoadParamSFOFromDisc()) {
 			InitMemorySizeForGame();
 		}
-		if (type == IdentifiedFileType::PSP_DISC_DIRECTORY) {
+
+		if (type == IdentifiedFileType::PSP_ISO_NP && ((DumpFileType)g_Config.iDumpFileTypes & DumpFileType::PBP_ISO)) {
+			// We have to fetch the block device again, because we want to do this after loading PARAM.SFO.
+			std::string title = SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::AlphaNumDashUnderscore, 0, 100);
+			std::string filename = title + "-" + g_paramSFO.GetDiscID() + ".iso";
+			Path path = GetSysDirectory(DIRECTORY_DUMP) / filename;
+			IFileSystem *fs = pspFileSystem.GetSystem("umd0:");
+			if (fs) {
+				std::shared_ptr<BlockDevice> bd = fs->GetBlockDevice();
+				if (bd) {
+					DumpBlockDeviceAsync(bd, path, title);
+				}
+			}
+		} else if (type == IdentifiedFileType::PSP_DISC_DIRECTORY) {
 			// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
 			// TODO: Better would be to check that it was loaded successfully.
 			if (!File::Exists(g_CoreParameter.fileToStart / INDEX_FILENAME)) {
 				auto sc = GetI18NCategory(I18NCat::SCREEN);
-				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), g_CoreParameter.fileToStart.ToVisualString(), 7.0f);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), GetFriendlyPath(g_CoreParameter.fileToStart), 7.0f);
 			} else {
 				INFO_LOG(Log::Loader, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
 			}
@@ -325,12 +349,21 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			gameTitle = g_CoreParameter.fileToStart.GetFilename();
 		}
 		break;
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+	{
+		ERROR_LOG(Log::Loader, "PPSSPP doesn't support UMD Video.");
+		auto er = GetI18NCategory(I18NCat::ERRORS);
+		*errorString = er->T("PPSSPP doesn't support UMD Video.");
+		return false;
+	}
 	default:
 	{
 		// Trying to boot other things lands us here. We need to return a sensible error string.
 		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		*errorString = sy->T("Not a PSP game");  // best string we have.
+		if (errorString->empty()) {
+			*errorString = sy->T("Not a PSP game");
+		}
 		return false;
 	}
 	}
@@ -357,7 +390,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew get fake disc IDs assigned to the global paramSFO, so they shouldn't clash with real games.
-	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
+
+	std::string discId = g_paramSFO.GetDiscID();
+	g_CoreParameter.compat.Load(discId);
 	ShowCompatWarnings(g_CoreParameter.compat);
 
 	// This must be before Memory::Init because plugins can override the memory size.
@@ -365,8 +400,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		HLEPlugins::Init();
 	}
 
+	Memory::MemMapSetupFlags memMapFlags = Memory::MemMapSetupFlags::Default;
+	if (g_CoreParameter.compat.flags().NullPageValid) {
+		memMapFlags = Memory::MemMapSetupFlags::AllocNullPage;
+	}
+
 	// Initialize the memory map as early as possible (now that we've read the PARAM.SFO).
-	if (!Memory::Init()) {
+	if (!Memory::Init(memMapFlags)) {
 		// We're screwed.
 		*errorString = "Memory init failed";
 		return false;
@@ -379,22 +419,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	if ((g_logManager.GetOutputsEnabled() & LogOutput::File) && !g_logManager.GetLogFilePath().empty()) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-		std::string logPath = g_logManager.GetLogFilePath().ToString();
-
-		// TODO: Really need a cleaner way to make clickable path notifications.
-		char *path = new char[logPath.size() + 1];
-		strcpy(path, logPath.data());
+		Path logPath = g_logManager.GetLogFilePath();
 
 		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", dev->T("Log to file"), g_logManager.GetLogFilePath().ToVisualString()), 0.0f, "log_to_file");
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("log_to_file", [](bool clicked, void *userdata) {
-				char *path = (char *)userdata;
-				if (clicked) {
-					System_ShowFileInFolder(Path(path));
-				} else {
-					delete[] path;
-				}
-			}, path);
+			g_OSD.SetClickCallback("log_to_file", [logPath]() {
+				System_ShowFileInFolder(logPath);
+			});
 		}
 	}
 
@@ -436,7 +467,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			dir = ResolvePBPDirectory(Path(dir)).ToString();
 			pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
 		}
-		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+		if (!Load_PSP_ELF_PBP(fileLoader, discId, errorString)) {
 			return false;
 		}
 		break;
@@ -447,7 +478,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ELF:
 	{
 		INFO_LOG(Log::Loader, "File is an ELF or loose PBP %s", fileLoader->GetPath().c_str());
-		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+		if (!Load_PSP_ELF_PBP(fileLoader, discId, errorString)) {
 			ERROR_LOG(Log::Loader, "Failed to load ELF or loose PBP: %s", errorString->c_str());
 			return false;
 		}
@@ -487,6 +518,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);
+
 	return true;
 }
 
@@ -583,9 +615,10 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_CoreParameter.graphicsContext == nullptr) {
 		g_CoreParameter.graphicsContext = temp;
 	}
+
 	g_CoreParameter.errorString.clear();
 
-	std::string *error_string = &g_CoreParameter.errorString;
+	std::string *errorString = &g_CoreParameter.errorString;
 
 	INFO_LOG(Log::Loader, "Starting loader thread...");
 
@@ -593,7 +626,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 
-	g_loadingThread = std::thread([error_string]() {
+	g_loadingThread = std::thread([errorString]() {
 		SetCurrentThreadName("ExecLoader");
 
 		AndroidJNIThreadContext jniContext;
@@ -601,14 +634,13 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
 
 		Path filename = g_CoreParameter.fileToStart;
-		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 
-		IdentifiedFileType type = Identify_File(loadedFile, &g_CoreParameter.errorString);
-		g_CoreParameter.fileType = type;
+		IdentifiedFileType fileType;
+		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
 
 		if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
 			if (g_Config.bCacheFullIsoInRam) {
-				switch (g_CoreParameter.fileType) {
+				switch (fileType) {
 				case IdentifiedFileType::PSP_ISO:
 				case IdentifiedFileType::PSP_ISO_NP:
 					loadedFile = new RamCachingFileLoader(loadedFile);
@@ -620,14 +652,19 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			}
 		}
 
+		// Use this to test exit-during-boot and other exceptional cases.
+		// sleep_ms(6000, "test");
+
+		g_CoreParameter.fileType = fileType;
+
 		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
 		// it gets written to from the loader thread that gets spawned.
-		if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
+		if (!CPU_Init(loadedFile, fileType, &g_CoreParameter.errorString)) {
 			CPU_Shutdown(false);
 			g_CoreParameter.fileToStart.clear();
-			*error_string = g_CoreParameter.errorString;
-			if (error_string->empty()) {
-				*error_string = "Failed initializing CPU/Memory";
+			*errorString = g_CoreParameter.errorString;
+			if (errorString->empty()) {
+				*errorString = "Failed initializing CPU/Memory";
 			}
 			g_bootState = BootState::Failed;
 			return;
@@ -636,7 +673,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		// Initialize the GPU as far as we can here (do things like load cache files).
 		_dbg_assert_(!gpu);
 #ifndef __LIBRETRO__
-		InitGPU(error_string);
+		InitGPU(errorString);
 #endif
 		g_bootState = BootState::Complete;
 	});
@@ -702,6 +739,10 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	}
 }
 
+BootState PollBootState() {
+	return g_bootState;
+}
+
 void PSP_Shutdown(bool success) {
 	// Reduce the risk for weird races with the Windows GE debugger.
 	gpuDebug = nullptr;
@@ -735,7 +776,9 @@ void PSP_Shutdown(bool success) {
 
 	currentMIPS = nullptr;
 
-	g_Config.UnloadGameConfig();
+	if (g_Config.IsGameSpecific()) {
+		g_Config.UnloadGameConfig();
+	}
 
 	Core_NotifyLifecycle(CoreLifecycle::STOPPED);
 
@@ -744,19 +787,6 @@ void PSP_Shutdown(bool success) {
 	}
 
 	IncrementDebugCounter(DebugCounter::GAME_SHUTDOWN);
-}
-
-// Do not use. Currently only used from the websocket debugger
-BootState PSP_Reboot(std::string *error_string) {
-	if (g_bootState != BootState::Complete) {
-		return g_bootState;
-	}
-
-	Core_Stop();
-	Core_WaitInactive();
-	PSP_Shutdown(true);
-	std::string resetError;
-	return PSP_Init(PSP_CoreParameter(), error_string);
 }
 
 void PSP_RunLoopWhileState() {
@@ -770,105 +800,6 @@ void PSP_RunLoopWhileState() {
 
 void PSP_RunLoopFor(int cycles) {
 	Core_RunLoopUntil(CoreTiming::GetTicks() + cycles);
-}
-
-Path GetSysDirectory(PSPDirectories directoryType) {
-	const Path &memStickDirectory = g_Config.memStickDirectory;
-	Path pspDirectory;
-	if (!strcasecmp(memStickDirectory.GetFilename().c_str(), "PSP")) {
-		// Let's strip this off, to easily allow choosing a root directory named "PSP" on Android.
-		pspDirectory = memStickDirectory;
-	} else {
-		pspDirectory = memStickDirectory / "PSP";
-	}
-
-	switch (directoryType) {
-	case DIRECTORY_PSP:
-		return pspDirectory;
-	case DIRECTORY_CHEATS:
-		return pspDirectory / "Cheats";
-	case DIRECTORY_GAME:
-		return pspDirectory / "GAME";
-	case DIRECTORY_SAVEDATA:
-		return pspDirectory / "SAVEDATA";
-	case DIRECTORY_SCREENSHOT:
-		return pspDirectory / "SCREENSHOT";
-	case DIRECTORY_SYSTEM:
-		return pspDirectory / "SYSTEM";
-	case DIRECTORY_PAUTH:
-		return memStickDirectory / "PAUTH";  // This one's at the root...
-	case DIRECTORY_EXDATA:
-		return memStickDirectory / "EXDATA";  // This one's traditionally at the root...
-	case DIRECTORY_DUMP:
-		return pspDirectory / "SYSTEM/DUMP";
-	case DIRECTORY_SAVESTATE:
-		return pspDirectory / "PPSSPP_STATE";
-	case DIRECTORY_CACHE:
-		return pspDirectory / "SYSTEM/CACHE";
-	case DIRECTORY_TEXTURES:
-		return pspDirectory / "TEXTURES";
-	case DIRECTORY_PLUGINS:
-		return pspDirectory / "PLUGINS";
-	case DIRECTORY_APP_CACHE:
-		if (!g_Config.appCacheDirectory.empty()) {
-			return g_Config.appCacheDirectory;
-		}
-		return pspDirectory / "SYSTEM/CACHE";
-	case DIRECTORY_VIDEO:
-		return pspDirectory / "VIDEO";
-	case DIRECTORY_AUDIO:
-		return pspDirectory / "AUDIO";
-	case DIRECTORY_CUSTOM_SHADERS:
-		return pspDirectory / "shaders";
-	case DIRECTORY_CUSTOM_THEMES:
-		return pspDirectory / "themes";
-
-	case DIRECTORY_MEMSTICK_ROOT:
-		return g_Config.memStickDirectory;
-	// Just return the memory stick root if we run into some sort of problem.
-	default:
-		ERROR_LOG(Log::FileSystem, "Unknown directory type.");
-		return g_Config.memStickDirectory;
-	}
-}
-
-bool CreateSysDirectories() {
-#if PPSSPP_PLATFORM(ANDROID)
-	const bool createNoMedia = true;
-#else
-	const bool createNoMedia = false;
-#endif
-
-	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
-	INFO_LOG(Log::IO, "Creating '%s' and subdirs:", pspDir.c_str());
-	File::CreateFullPath(pspDir);
-	if (!File::Exists(pspDir)) {
-		INFO_LOG(Log::IO, "Not a workable memstick directory. Giving up");
-		return false;
-	}
-
-	// Create the default directories that a real PSP creates. Good for homebrew so they can
-	// expect a standard environment. Skipping THEME though, that's pointless.
-	static const PSPDirectories sysDirs[] = {
-		DIRECTORY_CHEATS,
-		DIRECTORY_SAVEDATA,
-		DIRECTORY_SAVESTATE,
-		DIRECTORY_GAME,
-		DIRECTORY_SYSTEM,
-		DIRECTORY_TEXTURES,
-		DIRECTORY_PLUGINS,
-		DIRECTORY_CACHE,
-	};
-
-	for (auto dir : sysDirs) {
-		Path path = GetSysDirectory(dir);
-		File::CreateFullPath(path);
-		if (createNoMedia) {
-			// Create a nomedia file in each specified subdirectory.
-			File::CreateEmptyFile(path / ".nomedia");
-		}
-	}
-	return true;
 }
 
 const char *DumpFileTypeToString(DumpFileType type) {
@@ -921,21 +852,11 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 	if (File::Exists(fullPath)) {
 		INFO_LOG(Log::sceModule, "%s already exists for this game, skipping dump.", filenameToDumpTo.c_str());
 
-		char *path = new char[strlen(fullPath.c_str()) + 1];
-		strcpy(path, fullPath.c_str());
-
-		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f, "file_dumped");
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("file_dumped", [](bool clicked, void *userdata) {
-				char *path = (char *)userdata;
-				if (clicked) {
-					System_ShowFileInFolder(Path(path));
-				} else {
-					delete[] path;
-				}
-			}, path);
-		} else {
-			delete[] path;
+			g_OSD.SetClickCallback("file_dumped", [fullPath]() {
+				System_ShowFileInFolder(fullPath);
+			});
 		}
 		return;
 	}
@@ -961,18 +882,11 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 
 	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", DumpFileTypeToString(type), fullPath.ToVisualString().c_str());
 
-	char *path = new char[strlen(fullPath.c_str()) + 1];
-	strcpy(path, fullPath.c_str());
-
-	// Re-suing the translation string here.
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f);
+	// Re-using the translation string here.
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f, "decr");
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
-			char *path = (char *)userdata;
-			if (clicked) {
-				System_ShowFileInFolder(Path(path));
-			}
-			delete[] path;
-		}, path);
+		g_OSD.SetClickCallback("decr", [fullPath]() {
+			System_ShowFileInFolder(fullPath);
+		});
 	}
 }

@@ -140,7 +140,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	// NOTE: This is not necessarily the same as the actual present mode.
 	snprintf(statBuf, sizeof(statBuf),
-		"Presentation mode: %s Needs skip: %s\n"
+		"Presentation mode: %s Needs skip for ff: %s\n"
 		"Actual presentation mode: %s",
 		Draw::PresentModeToString(g_frameTiming.PresentMode()),
 		g_frameTiming.FastForwardNeedsSkipFlip() ? "true" : "false",
@@ -220,26 +220,28 @@ void DrawFramebufferList(UIContext *ctx, GPUDebugInterface *gpu, const Bounds &b
 }
 
 void DrawControlMapperOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper &controlMapper) {
-	DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds());
+	DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds(ViewLayoutMode::ApplyInsets, false));
 }
 
 void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay) {
 	bool inGame = GetUIState() == UISTATE_INGAME;
 
+	const Bounds layoutBounds = ctx->GetLayoutBounds(ViewLayoutMode::ApplyInsets, false);
+
 	switch (overlay) {
 	case DebugOverlay::DEBUG_STATS:
 		if (inGame)
-			DrawDebugStats(ctx, ctx->GetLayoutBounds());
+			DrawDebugStats(ctx, layoutBounds);
 		break;
 	case DebugOverlay::FRAME_GRAPH:
 		if (inGame)
-			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+			DrawFrameTimes(ctx, layoutBounds);
 		break;
 	case DebugOverlay::FRAME_TIMING:
-		DrawFrameTiming(ctx, ctx->GetLayoutBounds());
+		DrawFrameTiming(ctx, layoutBounds);
 		break;
 	case DebugOverlay::Audio:
-		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
+		DrawAudioDebugStats(ctx, layoutBounds);
 		break;
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
 	case DebugOverlay::GPU_PROFILE:
@@ -255,13 +257,12 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 #endif
 	case DebugOverlay::FRAMEBUFFER_LIST:
 		if (inGame)
-			DrawFramebufferList(ctx, gpu, bounds);
+			DrawFramebufferList(ctx, gpu, layoutBounds);
 		break;
 	default:
 		break;
 	}
 }
-
 
 static const char *CPUCoreAsString(int core) {
 	switch (core) {
@@ -493,10 +494,15 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->Flush();
 
+	float offset = 10.0f;
+#ifdef MOBILE_DEVICE
+	offset += 10.0f;
+#endif
+
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.7f, 0.7f);
-	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 8, bounds.y + 10, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - 10, bounds.y + 8, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - offset, bounds.y + 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - offset - 2, bounds.y + 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();

@@ -4,6 +4,10 @@
 // It calls a set of methods defined in NativeApp.h. These should be implemented
 // by your game or app.
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+
 #include <cstdlib>
 #include <cstdint>
 
@@ -18,6 +22,8 @@
 #include <jni.h>
 #include <android/native_window_jni.h>
 #include <android/log.h>
+
+#include "Common/Render/Text/draw_text_android.h"
 
 #elif !defined(JNIEXPORT)
 // Just for better highlighting in MSVC if opening this file.
@@ -119,9 +125,8 @@ static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 AndroidAudioState *g_audioState;
 
 struct FrameCommand {
-	FrameCommand() {}
-	FrameCommand(std::string cmd, std::string prm) : command(cmd), params(prm) {}
-
+	FrameCommand() = default;
+	FrameCommand(std::string_view cmd, std::string_view param) : command(cmd), params(param) {}
 	std::string command;
 	std::string params;
 };
@@ -169,9 +174,11 @@ static float g_safeInsetLeft = 0.0;
 static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
+static bool g_hasCameraCutout = false;
 
 static jmethodID postCommand;
 static jmethodID getDebugString;
+static jmethodID getNativeCrashHistory;
 
 static jobject ppssppActivity;
 
@@ -180,6 +187,7 @@ static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 
 static bool sustainedPerfSupported = false;
+static std::string g_installerName;
 
 static std::map<SystemPermission, PermissionStatus> permissions;
 
@@ -304,7 +312,7 @@ static void EmuThreadFunc() {
 			ERROR_LOG(Log::System, "No activity, clearing commands");
 			while (!frameCommands.empty())
 				frameCommands.pop();
-			return;
+			break;
 		}
 		// Still under lock here.
 		ProcessFrameCommands(env);
@@ -346,7 +354,7 @@ static void PushCommand(std::string_view cmd, std::string_view param) {
 
 // Android implementation of callbacks to the Java part of the app
 void System_Toast(std::string_view text) {
-	PushCommand("toast", std::string(text));
+	PushCommand("toast", text);
 }
 
 void System_ShowKeyboard() {
@@ -364,6 +372,9 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
 	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
 	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
+	// Can't really support the below well on Android...
+	case LaunchUrlType::LOCAL_FOLDER: break;
+	case LaunchUrlType::LOCAL_FILE: break;
 	}
 }
 
@@ -379,6 +390,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return boardName;
 	case SYSPROP_BUILD_VERSION:
 		return PPSSPP_GIT_VERSION;
+	case SYSPROP_INSTALLER_NAME:
+		return g_installerName;
 	default:
 		return "";
 	}
@@ -482,6 +495,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
+	case SYSPROP_USE_IAP:
+		// Not yet implemented, we use a separate gold app on Android
+		return false;
+	case SYSPROP_USE_APP_STORE:
+		return true;
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_ANDROID_SCOPED_STORAGE:
@@ -509,6 +527,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return deviceType == DEVICE_TYPE_MOBILE;
 	case SYSPROP_CAN_CREATE_SHORTCUT:
 		return false;  // We can't create shortcuts directly from game code, but we can from the Android UI.
+	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
+		return g_hasCameraCutout;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
@@ -539,6 +559,34 @@ std::string Android_GetInputDeviceDebugString() {
 	return retVal;
 }
 
+std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
+	std::vector<std::string> crashHistory;
+	if (!ppssppActivity || !getNativeCrashHistory) {
+		return crashHistory;
+	}
+	auto env = getEnv();
+	jobject jlist = env->CallObjectMethod(ppssppActivity, getNativeCrashHistory, maxEntries);
+	if (!jlist) {
+		return crashHistory;
+	}
+	jclass arrayListClass = env->GetObjectClass(jlist);
+	jmethodID sizeMethod = env->GetMethodID(arrayListClass, "size", "()I");
+	jmethodID getMethod = env->GetMethodID(arrayListClass, "get", "(I)Ljava/lang/Object;");
+	jint listSize = env->CallIntMethod(jlist, sizeMethod);
+	for (jint i = 0; i < listSize; i++) {
+		jstring jstr = (jstring)env->CallObjectMethod(jlist, getMethod, i);
+		if (jstr) {
+			const char *charArray = env->GetStringUTFChars(jstr, nullptr);
+			crashHistory.emplace_back(charArray);
+			env->ReleaseStringUTFChars(jstr, charArray);
+			env->DeleteLocalRef(jstr);
+		}
+	}
+	env->DeleteLocalRef(arrayListClass);
+	env->DeleteLocalRef(jlist);
+	return crashHistory;
+}
+
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	if (!jstr)
 		return "";
@@ -550,10 +598,14 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 
 extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *env, jobject obj) {
 	ppssppActivity = env->NewGlobalRef(obj);
+	TextDrawerAndroid::SetActivity(ppssppActivity);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
+	getNativeCrashHistory = env->GetMethodID(env->GetObjectClass(obj), "getNativeCrashHistory", "(I)Ljava/util/ArrayList;");
+
 	_dbg_assert_(postCommand);
 	_dbg_assert_(getDebugString);
+	// It's OK if getNativeCrashHistory is missing.
 
 	Android_RegisterStorageCallbacks(env, obj);
 	Android_StorageSetActivity(ppssppActivity);
@@ -682,7 +734,8 @@ static bool bFirstResume = false;
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
+	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir,
+	jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam, jstring jInstallerName,
 	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
@@ -702,6 +755,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
+
+	g_installerName = GetJavaString(env, jInstallerName);
 
 	EARLY_LOG("NativeApp.init(): device name: '%s'", systemName.c_str());
 
@@ -795,6 +850,7 @@ retry:
 			INFO_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL");
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend(GPUBackend::OPENGL);
+			delete ctx;
 			goto retry;
 		} else {
 			graphicsContext = ctx;
@@ -1195,7 +1251,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.id = pointerId;
 	touch.x = x * display_scale_x * g_display.dpi_scale_x;
 	touch.y = y * display_scale_y * g_display.dpi_scale_y;
-	touch.flags = code;
+	touch.flags = (TouchInputFlags)code;
 	NativeTouch(touch);
 }
 
@@ -1211,9 +1267,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, j
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
-	keyInput.flags = KEY_DOWN;
+	keyInput.flags = KeyInputFlags::DOWN;
 	if (isRepeat) {
-		keyInput.flags |= KEY_IS_REPEAT;
+		keyInput.flags |= KeyInputFlags::IS_REPEAT;
 	}
 	return NativeKey(keyInput);
 }
@@ -1230,7 +1286,19 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
-	keyInput.flags = KEY_UP;
+	keyInput.flags = KeyInputFlags::UP;
+	return NativeKey(keyInput);
+}
+
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyChar(JNIEnv *, jclass, jint deviceId, jint unicodeChar) {
+	if (!renderer_inited) {
+		return false; // could probably return true here too..
+	}
+
+	KeyInput keyInput;
+	keyInput.deviceId = (InputDeviceID)deviceId;
+	keyInput.unicodeChar = unicodeChar;
+	keyInput.flags = KeyInputFlags::CHAR;
 	return NativeKey(keyInput);
 }
 
@@ -1257,10 +1325,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	env->ReleaseFloatArrayElements(values, valueBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
 }
 
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouse(
 	JNIEnv *env, jclass, jfloat x, jfloat y, int button, int action) {
 	if (!renderer_inited)
-		return false;
+		return;
 	TouchInput input{};
 
 	static float last_x = 0.0f;
@@ -1282,7 +1350,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 
 	if (button == 0) {
 		// It's a pure mouse move.
-		input.flags = TOUCH_MOUSE | TOUCH_MOVE;
+		input.flags = TouchInputFlags::MOUSE | TouchInputFlags::MOVE;
 		input.x = x;
 		input.y = y;
 		input.id = 0;
@@ -1292,10 +1360,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 		input.y = y;
 		switch (action) {
 		case 1:
-			input.flags = TOUCH_MOUSE | TOUCH_DOWN;
+			input.flags = TouchInputFlags::MOUSE | TouchInputFlags::DOWN;
 			break;
 		case 2:
-			input.flags = TOUCH_MOUSE | TOUCH_UP;
+			input.flags = TouchInputFlags::MOUSE | TouchInputFlags::UP;
 			break;
 		}
 		input.id = 0;
@@ -1305,20 +1373,19 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
 
 	// Also send mouse button key events, for binding.
 	if (button) {
-		KeyInput input{};
-		input.deviceId = DEVICE_ID_MOUSE;
+		KeyInput keyInput{};
+		keyInput.deviceId = DEVICE_ID_MOUSE;
 		switch (button) {
-		case 1: input.keyCode = NKCODE_EXT_MOUSEBUTTON_1; break;
-		case 2: input.keyCode = NKCODE_EXT_MOUSEBUTTON_2; break;
-		case 3: input.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
+		case 1: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_1; break;
+		case 2: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_2; break;
+		case 3: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
 		default: WARN_LOG(Log::System, "Unexpected mouse button %d", button);
 		}
-		input.flags = action == 1 ? KEY_DOWN : KEY_UP;
-		if (input.keyCode != 0) {
-			NativeKey(input);
+		keyInput.flags = action == 1 ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+		if (keyInput.keyCode != 0) {
+			NativeKey(keyInput);
 		}
 	}
-	return true;
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
@@ -1340,7 +1407,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	}
 	// There's no separate keyup event for mousewheel events,
 	// so we release it with a slight delay.
-	key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+	key.flags = (KeyInputFlags)((u32)KeyInputFlags::DOWN | (u32)KeyInputFlags::HAS_WHEEL_DELTA | (wheelDelta << 16));
 	NativeKey(key);
 	return true;
 }
@@ -1387,17 +1454,21 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "safe_insets") {
 		// INFO_LOG(Log::System, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
-		int left, right, top, bottom;
-		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
+		int left, right, top, bottom, cutout;
+		if (5 == sscanf(prm.c_str(), "%d:%d:%d:%d:%d", &left, &right, &top, &bottom, &cutout)) {
 			g_safeInsetLeft = (float)left;
 			g_safeInsetRight = (float)right;
 			g_safeInsetTop = (float)top;
 			g_safeInsetBottom = (float)bottom;
+			g_hasCameraCutout = cutout != 0;
 		}
 	} else if (msg == "inputDeviceConnectedID") {
 		nextInputDeviceID = (InputDeviceID)parseLong(prm);
 	} else if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, prm);
+	} else if (msg == "inputDeviceDisconnectedID") {
+		InputDeviceID disconnectedID = (InputDeviceID)parseLong(prm);
+		KeyMap::NotifyPadDisconnected(disconnectedID);
 	} else if (msg == "core_powerSaving") {
 		// Forward.
 		System_PostUIMessage(UIMessage::POWER_SAVING, prm);
@@ -1569,9 +1640,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 // Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
 	while (!frameCommands.empty()) {
-		FrameCommand frameCmd;
-		frameCmd = frameCommands.front();
-		frameCommands.pop();
+		const FrameCommand &frameCmd = frameCommands.front();
 
 		DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
@@ -1580,6 +1649,8 @@ static void ProcessFrameCommands(JNIEnv *env) {
 		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd);
 		env->DeleteLocalRef(param);
+
+		frameCommands.pop();
 	}
 }
 
@@ -1627,6 +1698,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanR
 }
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
+// This function must release the window reference.
 static void VulkanEmuThread(ANativeWindow *wnd) {
 	SetCurrentThreadName("EmuThread");
 
@@ -1637,6 +1709,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1644,6 +1717,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1663,6 +1737,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		delete graphicsContext;
 		graphicsContext = nullptr;
 		renderLoopRunning = false;
+		ANativeWindow_release(wnd);
 		return;
 	}
 
@@ -1698,6 +1773,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
+	ANativeWindow_release(wnd);
 
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
@@ -1732,15 +1808,15 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	if (info) {
 		INFO_LOG(Log::System, "GetInfo successful, waiting");
 
-		// Wait for both name and icon
-		int attempts = 1000;
+		// Wait for both name and icon for a second.
+		int attempts = 100;
 		while ((!info->Ready(GameInfoFlags::PARAM_SFO) || !info->Ready(GameInfoFlags::ICON)) && attempts > 0) {
-			sleep_ms(1, "info-icon-poll");
+			sleep_ms(10, "info-icon-poll");
 			attempts--;
 		}
 		INFO_LOG(Log::System, "Done waiting");
 
-		if (info->fileType != IdentifiedFileType::UNKNOWN) {
+		if (attempts > 0 && info->fileType != IdentifiedFileType::UNKNOWN) {
 			// Get the game title
 			gameName = info->GetTitle();
 			if (gameName.length() > strlen("The ") && startsWithNoCase(gameName, "The ")) {
@@ -1785,3 +1861,5 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	}
 	return result;
 }
+
+#endif

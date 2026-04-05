@@ -328,6 +328,10 @@ typedef struct AdhocSocket {
 		SceNetAdhocPdpStat pdp;
 		SceNetAdhocPtpStat ptp;
 	} data;
+	void *postofficeHandle; // aemu_postoffice mode handle
+	std::thread *connectThread;
+	bool connectThreadDone;
+	int connectThreadResult;
 } PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
@@ -1317,6 +1321,12 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  * @return true on success
  */
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
+
+/**
+ * Fix mac address if the game messed with the first byte
+ * @param mac Peer MAC Address
+ */
+void fixGameMac(SceNetEtherAddr *mac);
 
 /**
  * Check whether Network Name contains only valid symbols

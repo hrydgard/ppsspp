@@ -41,6 +41,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceUtility.h"
@@ -524,6 +525,9 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 			return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 		}
 	}
+
+	// TODO: In issue #19957, we're looking at NFL Street 3 which gets stuck. Possibly if a dialog is already open here,
+	// we should block until it's done?
 
 	ActivateDialog(UtilityDialogType::SAVEDATA);
 	return hleLogDebug(Log::sceUtility, saveDialog->Init(paramAddr));
@@ -1182,10 +1186,26 @@ static int sceUtilityGamedataInstallAbort() {
 	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Abort());
 }
 
+static const char *SystemParamToString(int param) {
+	switch (param) {
+	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME: return "STRING_NICKNAME";
+	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL: return "INT_ADHOC_CHANNEL";
+	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE: return "INT_WLAN_POWERSAVE";
+	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT: return "INT_DATE_FORMAT";
+	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT: return "INT_TIME_FORMAT";
+	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE: return "INT_TIMEZONE";
+	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS: return "INT_DAYLIGHTSAVINGS";
+	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE: return "INT_LANGUAGE";
+	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE: return "INT_BUTTON_PREFERENCE";
+	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL: return "INT_LOCK_PARENTAL_LEVEL";
+	default: return "N/A";
+	}
+}
+
 //TODO: should save to config file
 static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG_REPORT(Log::sceUtility, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
+	WARN_LOG_REPORT(Log::sceUtility, "sceUtilitySetSystemParamString(%s, %08x)", SystemParamToString(id), strPtr);
 	return 0;
 }
 
@@ -1194,7 +1214,6 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
 		// TODO: What error code?
 		return hleLogError(Log::sceUtility, -1);
 	}
-	DEBUG_LOG(Log::sceUtility, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destAddr, destSize);
 	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
@@ -1209,7 +1228,7 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
 
-	return hleLogDebug(Log::sceUtility, 0);
+	return hleLogDebug(Log::sceUtility, 0, "(%s)", SystemParamToString(id));
 }
 
 static u32 sceUtilitySetSystemParamInt(u32 id, u32 value) {
@@ -1226,7 +1245,7 @@ static u32 sceUtilitySetSystemParamInt(u32 id, u32 value) {
 		// PSP can only set above int parameters
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
-	return hleLogDebug(Log::sceUtility, 0);
+	return hleLogDebug(Log::sceUtility, 0, "(%s)", SystemParamToString(id));
 }
 
 static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
@@ -1281,10 +1300,33 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	}
 
 	Memory::Write_U32(param, destaddr);
-	return hleLogInfo(Log::sceUtility, 0, "param: %08x", param);
+	return hleLogInfo(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
 }
 
 static u32 sceUtilityLoadNetModule(u32 module) {
+	// Driver 76 actually checks using sceKernelGetModuleIdList, so we load the HLE module here for checking
+	std::vector<const char *> mod_list;
+
+	if (module == 1) {
+		// PSP_NET_MODULE_COMMON on pspsdk
+		mod_list.push_back("flash0:/kd/ifhandle.prx");
+		mod_list.push_back("flash0:/kd/pspnet.prx");
+	} else if (module == 2) {
+		// PSP_NET_MODULE_ADHOC on pspsdk
+		mod_list.push_back("flash0:/kd/pspnet_adhoc.prx");
+		mod_list.push_back("flash0:/kd/pspnet_adhocctl.prx");
+		mod_list.push_back("flash0:/kd/pspnet_adhoc_matching.prx");
+		mod_list.push_back("flash0:/kd/pspnet_adhoc_download.prx");
+		mod_list.push_back("flash0:/kd/pspnet_adhoc_discover.prx");
+	}
+
+	for (const char *mod_path : mod_list) {
+		u32 modid = hleCall(ModuleMgrForUser, u32, sceKernelLoadModule, mod_path, 0, 0);
+		if (modid >= 0) {
+			hleCall(ModuleMgrForUser, u32, sceKernelStartModule, modid, 0, 0, 0, 0);
+		}
+	}
+
 	return hleLogInfo(Log::sceUtility, 0, "FAKE");
 }
 

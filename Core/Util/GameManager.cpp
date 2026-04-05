@@ -36,8 +36,12 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/SevenZipFileReader.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
@@ -171,7 +175,7 @@ void GameManager::Update() {
 	}
 }
 
-bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
+bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
 	int numFiles = zip_get_num_files(z);
 	if (numFiles > maxOkFiles && maxOkFiles >= 0) {
 		// Ignore the check, just assume we can't.
@@ -190,6 +194,19 @@ bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxO
 		}
 	}
 	return true;
+}
+
+static std::string ZipReadFileByIndex(struct zip *z, int file_index) {
+	struct zip_stat zstat;
+	zip_stat_index(z, file_index, 0, &zstat);
+	std::string buffer;
+	buffer.resize(zstat.size);
+	zip_file *zf = zip_fopen_index(z, file_index, 0);
+	if (zip_fread(zf, &buffer[0], buffer.size()) != (zip_int64_t)zstat.size) {
+		return {};
+	}
+	zip_fclose(zf);
+	return buffer;
 }
 
 // Parameters need to be by value, since this is a thread func.
@@ -242,9 +259,94 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		return;
 	}
 
+	// Check for 7z. We don't support very many scenarios here yet, but we do support ISO install.
+	if (task.zipFileInfo->archiveType == ArchiveType::SevenZ) {
+		Path destPath = task.destination;
+		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
+		Path fn(task.zipFileInfo->isoFilename);
+		Path destFile = destPath / fn.GetFilename();
+		const size_t blockSize = 1024 * 128;
+
+		SevenZipFileReader *reader = SevenZipFileReader::Create(task.fileName, "", true);
+		VFSFileReference *vfsRef = nullptr;
+		VFSOpenFile *vfsFile = nullptr;
+		FILE *f = nullptr;
+		bool success = false;
+		bool writeFailed = false;
+		bool readFailed = false;
+		size_t totalSize = 0;
+		size_t bytesCopied = 0;
+
+		if (reader) {
+			vfsRef = reader->GetFile(task.zipFileInfo->isoFilename);
+		}
+		if (vfsRef) {
+			vfsFile = reader->OpenFileForRead(vfsRef, &totalSize);
+		}
+		if (vfsFile) {
+			f = File::OpenCFile(destFile, "wb");
+		}
+
+		if (f) {
+			std::vector<u8> buffer(blockSize);
+			while (bytesCopied < totalSize) {
+				size_t readSize = std::min(blockSize, totalSize - bytesCopied);
+				size_t bytesRead = reader->Read(vfsFile, buffer.data(), readSize);
+				if (bytesRead == 0) {
+					ERROR_LOG(Log::HLE, "Failed to stream extract 7z ISO '%s'", task.zipFileInfo->isoFilename.c_str());
+					readFailed = true;
+					break;
+				}
+
+				size_t written = fwrite(buffer.data(), 1, bytesRead, f);
+				if (written != bytesRead) {
+					ERROR_LOG(Log::HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bytesRead);
+					writeFailed = true;
+					break;
+				}
+
+				bytesCopied += bytesRead;
+				installProgress_ = totalSize > 0 ? (float)bytesCopied / (float)totalSize : 1.0f;
+				g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, installProgress_, 0.1f);
+			}
+
+			success = bytesCopied == totalSize;
+			fclose(f);
+			f = nullptr;
+		}
+
+		if (vfsFile) {
+			reader->CloseFile(vfsFile);
+		}
+		if (vfsRef) {
+			reader->ReleaseFile(vfsRef);
+		}
+		delete reader;
+
+		if (!success) {
+			File::Delete(destFile);
+			if (writeFailed) {
+				SetInstallError(sy->T("Storage full"));
+			} else if (readFailed) {
+				auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+				SetInstallError(iz->T("Zip archive corrupt"));
+			} else {
+				SetInstallError(sy->T("Unable to open zip file"));
+			}
+		}
+
+		g_OSD.RemoveProgressBar("install", success, 0.5f);
+		installProgress_ = 1.0f;
+		if (success) {
+			ResetInstallError();
+		}
+		InstallDone();
+		return;
+	}
+
 	int error = 0;
 
-	struct zip *z = ZipOpenPath(task.fileName);
+	ZipContainer z = ZipOpenPath(task.fileName);
 	if (!z) {
 		g_OSD.RemoveProgressBar("install", false, 1.5f);
 		SetInstallError(sy->T("Unable to open zip file"));
@@ -281,22 +383,18 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	}
 	case ZipFileContents::TEXTURE_PACK:
 	{
-		// InstallMemstickGame contains code to close z, and works for textures too.
 		Path dest;
 		if (DetectTexturePackDest(z, zipInfo.textureIniIndex, dest)) {
 			INFO_LOG(Log::HLE, "Installing texture pack '%s' into '%s'", task.fileName.c_str(), dest.c_str());
 			File::CreateFullPath(dest);
 			// Install as a zip file if textures.ini is in the root. Performs better on Android.
 			if (zipInfo.stripChars == 0) {
-				success = InstallMemstickZip(z, task.fileName, dest / "textures.zip", zipInfo);
+				success = InstallMemstickZip(task.fileName, dest / "textures.zip", zipInfo);
 			} else {
 				// TODO: Can probably remove this, as we now put .nomedia in /TEXTURES directly.
 				File::CreateEmptyFile(dest / ".nomedia");
 				success = ExtractZipContents(z, dest, zipInfo, true);
 			}
-		} else {
-			zip_close(z);
-			z = nullptr;
 		}
 		break;
 	}
@@ -306,17 +404,34 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		success = ExtractZipContents(z, pspSaveData, zipInfo, false);
 		break;
 	}
+	case ZipFileContents::SAVE_STATES:
+	{
+		Path pspSaveData = GetSysDirectory(DIRECTORY_SAVESTATE);
+		success = ExtractZipContents(z, pspSaveData, zipInfo, true);
+		break;
+	}
+	case ZipFileContents::PRX_PLUGIN:
+	{
+		Path pspPlugins = GetSysDirectory(DIRECTORY_PLUGINS);
+		success = ExtractZipContents(z, pspPlugins, zipInfo, true);
+		break;
+	}
 	default:
 		ERROR_LOG(Log::HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
-		zip_close(z);
-		z = nullptr;
 		break;
 	}
 
+	// Need to close before trying to delete.
+	z.close();
+
 	// Common functionality.
 	if (task.deleteAfter && success) {
-		File::Delete(task.fileName);
+		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+			System_MoveToTrash(task.fileName);
+		} else {
+			File::Delete(task.fileName);
+		}
 	}
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
 	installProgress_ = 1.0f;
@@ -337,10 +452,8 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 		return false;
 	}
 
-	std::string buffer;
-	buffer.resize(zstat.size);
-	zip_file *zf = zip_fopen_index(z, iniIndex, 0);
-	if (zip_fread(zf, &buffer[0], buffer.size()) != (zip_int64_t)zstat.size) {
+	std::string buffer = ZipReadFileByIndex(z, iniIndex);
+	if (buffer.empty()) {
 		SetInstallError(iz->T("Zip archive corrupt"));
 		return false;
 	}
@@ -422,7 +535,7 @@ std::string GameManager::GetPBPGameID(FileLoader *loader) const {
 std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	SequentialHandleAllocator handles;
 	std::string errorString;
-	BlockDevice *bd = ConstructBlockDevice(loader, &errorString);
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(loader, &errorString));
 	if (!bd) {
 		return "";
 	}
@@ -518,8 +631,10 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	auto fileAllowed = [&](const char *fn) {
-		if (!allowRoot && strchr(fn, '/') == 0)
+		if (!allowRoot && strchr(fn, '/') == 0) {
+			INFO_LOG(Log::HLE, "Skipping file %s in root of zip (allowRoot == false)", fn);
 			return false;
+		}
 
 		const char *basefn = strrchr(fn, '/');
 		basefn = basefn ? basefn + 1 : fn;
@@ -593,13 +708,10 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	}
 
 	INFO_LOG(Log::HLE, "Unzipped %d files (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
-	zip_close(z);
-	z = nullptr;
 	return true;
 
 bail:
 	// We end up here if disk is full or couldn't write to storage for some other reason.
-	zip_close(z);
 	// We don't delete the original in this case. Try to delete the files we created so far.
 	for (size_t i = 0; i < createdFiles.size(); i++) {
 		File::Delete(createdFiles[i]);
@@ -611,15 +723,11 @@ bail:
 	return false;
 }
 
-bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const Path &dest, const ZipFileInfo &info) {
+bool GameManager::InstallMemstickZip(const Path &zipfile, const Path &dest, const ZipFileInfo &info) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-
-	// We don't need the zip anymore, as we're going to copy it as-is.
-	zip_close(z);
-	z = nullptr;
 
 	// Not using File::Copy() so we can report progress.
 	FILE *inf = File::OpenCFile(zipfile, "rb");
@@ -705,10 +813,8 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		INFO_LOG(Log::IO, "Successfully unzipped ISO file to '%s'", outputISOFilename.c_str());
 		success = true;
 	}
-	zip_close(z);
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
 
-	z = 0;
 	installProgress_ = 1.0f;
 	InstallDone();
 	ResetInstallError();
@@ -720,7 +826,9 @@ bool GameManager::InstallZipOnThread(ZipFileTask task) {
 		return false;
 	}
 
-	installThread_ = std::thread(std::bind(&GameManager::InstallZipContents, this, task));
+	installThread_ = std::thread([this, task]() {
+		InstallZipContents(task);
+	});
 	return true;
 }
 
@@ -732,7 +840,9 @@ bool GameManager::UninstallGameOnThread(const std::string &name) {
 	if (InstallInProgress() || installDonePending_ || curDownload_.get() != nullptr) {
 		return false;
 	}
-	installThread_ = std::thread(std::bind(&GameManager::UninstallGame, this, name));
+	installThread_ = std::thread([this, name]() {
+		UninstallGame(name);
+	});
 	return true;
 }
 

@@ -132,25 +132,11 @@ inline void Uint8x3ToInt4(int i[4], uint32_t u) {
 	i[3] = 0;
 }
 
-inline void Uint8x3ToInt4_Alpha(int i[4], uint32_t u, uint8_t alpha) {
-	i[0] = ((u >> 0) & 0xFF);
-	i[1] = ((u >> 8) & 0xFF);
-	i[2] = ((u >> 16) & 0xFF);
-	i[3] = alpha;
-}
-
 inline void Uint8x3ToFloat4_Alpha(float f[4], uint32_t u, float alpha) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
 	f[2] = ((u >> 16) & 0xFF) * (1.0f / 255.0f);
 	f[3] = alpha;
-}
-
-inline void Uint8x1ToFloat4(float f[4], uint32_t u) {
-	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
-	f[1] = 0.0f;
-	f[2] = 0.0f;
-	f[3] = 0.0f;
 }
 
 // These are just for readability.
@@ -206,6 +192,7 @@ inline void CopyMatrix4x4(float dest[16], const float src[16]) {
 	memcpy(dest, src, sizeof(float) * 16);
 }
 
+// WARNING: This can quietly "over-load" src by 4 bytes.
 inline void ExpandFloat24x3ToFloat4(float dest[4], const uint32_t src[3]) {
 #ifdef _M_SSE
 	__m128i values = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8);

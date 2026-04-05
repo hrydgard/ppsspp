@@ -18,7 +18,6 @@
 #include "pch.h"
 #include <io.h>
 #include <fcntl.h>
-#include <collection.h>
 
 #include "Common/Log.h"
 #include "Core/Config.h"
@@ -30,11 +29,10 @@
 #include "StorageAsync.h"
 #include "StorageAccess.h"
 
-
-using namespace Platform;
-using namespace Windows::Storage;
-using namespace Windows::Foundation;
-using namespace Windows::ApplicationModel;
+using namespace winrt;
+using namespace winrt::Windows::Storage;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::ApplicationModel;
 
 
 #pragma region Locations
@@ -47,22 +45,22 @@ std::string GetPSPFolder() {
 	}
 }
 std::string GetInstallationFolder() {
-	return FromPlatformString(Package::Current->InstalledLocation->Path);
+	return FromHString(Package::Current().InstalledLocation().Path());
 }
-StorageFolder^ GetLocalStorageFolder() {
-	return ApplicationData::Current->LocalFolder;
+winrt::Windows::Storage::StorageFolder GetLocalStorageFolder() {
+	return ApplicationData::Current().LocalFolder();
 }
 std::string GetLocalFolder() {
-	return FromPlatformString(GetLocalStorageFolder()->Path);
+	return FromHString(GetLocalStorageFolder().Path());
 }
 std::string GetTempFolder() {
-	return FromPlatformString(ApplicationData::Current->TemporaryFolder->Path);
+	return FromHString(ApplicationData::Current().TemporaryFolder().Path());
 }
 std::string GetTempFile(std::string name) {
-	StorageFile^ tmpFile;
-	ExecuteTask(tmpFile, ApplicationData::Current->TemporaryFolder->CreateFileAsync(ToPlatformString(name), CreationCollisionOption::GenerateUniqueName));
+	StorageFile tmpFile = nullptr;
+	ExecuteTask(tmpFile, ApplicationData::Current().TemporaryFolder().CreateFileAsync(ToHString(name), CreationCollisionOption::GenerateUniqueName));
 	if (tmpFile != nullptr) {
-		return FromPlatformString(tmpFile->Path);
+		return FromHString(tmpFile.Path());
 	}
 	else {
 		return "";
@@ -70,19 +68,19 @@ std::string GetTempFile(std::string name) {
 }
 std::string GetPicturesFolder() {
 	// Requires 'picturesLibrary' capability
-	return FromPlatformString(KnownFolders::PicturesLibrary->Path);
+	return FromHString(KnownFolders::PicturesLibrary().Path());
 }
 std::string GetVideosFolder() {
 	// Requires 'videosLibrary' capability
-	return FromPlatformString(KnownFolders::VideosLibrary->Path);
+	return FromHString(KnownFolders::VideosLibrary().Path());
 }
 std::string GetDocumentsFolder() {
 	// Requires 'documentsLibrary' capability
-	return FromPlatformString(KnownFolders::DocumentsLibrary->Path);
+	return FromHString(KnownFolders::DocumentsLibrary().Path());
 }
 std::string GetMusicFolder() {
 	// Requires 'musicLibrary' capability
-	return FromPlatformString(KnownFolders::MusicLibrary->Path);
+	return FromHString(KnownFolders::MusicLibrary().Path());
 }
 std::string GetPreviewPath(std::string path) {
 	std::string pathView = path;
@@ -258,7 +256,7 @@ bool IsRootForAccessibleItems(Path path, std::list<std::string>& subRoot, bool b
 			// This check can be better, but that's how I can do it in C++
 			if (!endsWith(sub, ":")) {
 				bool alreadyAdded = false;
-				for each (auto sItem in subRoot) {
+				for (const auto& sItem : subRoot) {
 					if (sItem == sub) {
 						alreadyAdded = true;
 						break;
@@ -283,7 +281,7 @@ bool GetFakeFolders(Path path, std::vector<File::FileInfo>* files, const char* f
 	std::list<std::string> subRoot;
 	if (IsRootForAccessibleItems(path, subRoot)) {
 		if (!subRoot.empty()) {
-			for each (auto sItem in subRoot) {
+			for (const auto& sItem : subRoot) {
 				auto folderPath = Path(sItem);
 				File::FileInfo info;
 				info.name = folderPath.GetFilename();
@@ -310,16 +308,16 @@ bool GetFakeFolders(Path path, std::vector<File::FileInfo>* files, const char* f
 #pragma region Helpers
 bool OpenFile(std::string path) {
 	bool state = false;
-	Platform::String^ wString = ref new Platform::String(Path(path).ToWString().c_str());
+	winrt::hstring wString = winrt::hstring(Path(path).ToWString());
 
-	StorageFile^ storageItem;
+	StorageFile storageItem = nullptr;
 	ExecuteTask(storageItem, StorageFile::GetFileFromPathAsync(wString));
 	if (storageItem != nullptr) {
-		ExecuteTask(state, Windows::System::Launcher::LaunchFileAsync(storageItem), false);
+		ExecuteTask(state, winrt::Windows::System::Launcher::LaunchFileAsync(storageItem), false);
 	}
 	else {
-		auto uri = ref new Windows::Foundation::Uri(wString);
-		ExecuteTask(state, Windows::System::Launcher::LaunchUriAsync(uri), false);
+		auto uri = winrt::Windows::Foundation::Uri(wString);
+		ExecuteTask(state, winrt::Windows::System::Launcher::LaunchUriAsync(uri), false);
 	}
 	return state;
 }
@@ -327,20 +325,20 @@ bool OpenFile(std::string path) {
 bool OpenFolder(std::string path) {
 	bool state = false;
 	Path itemPath(path);
-	Platform::String^ wString = ref new Platform::String(itemPath.ToWString().c_str());
-	StorageFolder^ storageItem;
+	winrt::hstring wString = winrt::hstring(itemPath.ToWString());
+	StorageFolder storageItem = nullptr;
 	ExecuteTask(storageItem, StorageFolder::GetFolderFromPathAsync(wString));
 	if (storageItem != nullptr) {
-		ExecuteTask(state, Windows::System::Launcher::LaunchFolderAsync(storageItem), false);
+		ExecuteTask(state, winrt::Windows::System::Launcher::LaunchFolderAsync(storageItem), false);
 	}
 	else {
 		// Try as it's file
 		Path parent = Path(itemPath.GetDirectory());
-		Platform::String^ wParentString = ref new Platform::String(parent.ToWString().c_str());
+		winrt::hstring wParentString = winrt::hstring(parent.ToWString());
 
 		ExecuteTask(storageItem, StorageFolder::GetFolderFromPathAsync(wParentString));
 		if (storageItem != nullptr) {
-			ExecuteTask(state, Windows::System::Launcher::LaunchFolderAsync(storageItem), false);
+			ExecuteTask(state, winrt::Windows::System::Launcher::LaunchFolderAsync(storageItem), false);
 		}
 	}
 	return state;
@@ -356,24 +354,21 @@ bool GetDriveFreeSpace(Path path, int64_t& space) {
 			g_Config.memStickDirectory = path;
 		}
 	}
-	Platform::String^ wString = ref new Platform::String(path.ToWString().c_str());
-	StorageFolder^ storageItem;
+	winrt::hstring wString = winrt::hstring(path.ToWString());
+	StorageFolder storageItem = nullptr;
 	ExecuteTask(storageItem, StorageFolder::GetFolderFromPathAsync(wString));
 	if (storageItem != nullptr) {
-		Platform::String^ freeSpaceKey = ref new Platform::String(L"System.FreeSpace");
-		Platform::Collections::Vector<Platform::String^>^ propertiesToRetrieve = ref new Platform::Collections::Vector<Platform::String^>();
-		propertiesToRetrieve->Append(freeSpaceKey);
-		Windows::Foundation::Collections::IMap<Platform::String^, Platform::Object^>^ result;
-		ExecuteTask(result, storageItem->Properties->RetrievePropertiesAsync(propertiesToRetrieve));
-		if (result != nullptr && result->Size > 0) {
-			try {
-				auto value = result->Lookup(L"System.FreeSpace");
-				space = (uint64_t)value;
+		try {
+			auto props = winrt::single_threaded_vector<winrt::hstring>({ L"System.FreeSpace" });
+			auto result = storageItem.Properties().RetrievePropertiesAsync(props).get();
+			if (result.Size() > 0) {
+				auto value = result.Lookup(L"System.FreeSpace");
+				space = winrt::unbox_value<uint64_t>(value);
 				state = true;
 			}
-			catch (...) {
+		}
+		catch (...) {
 
-			}
 		}
 	}
 

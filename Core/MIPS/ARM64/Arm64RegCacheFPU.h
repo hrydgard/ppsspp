@@ -43,10 +43,6 @@ enum {
 
 }
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 struct FPURegARM64 {
 	int mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
@@ -85,7 +81,7 @@ public:
 
 	void Init(Arm64Gen::ARM64XEmitter *emitter, Arm64Gen::ARM64FloatEmitter *fp);
 
-	void Start(MIPSAnalyst::AnalysisResults &stats);
+	void Start();
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.

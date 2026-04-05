@@ -18,6 +18,7 @@
 #pragma once
 
 #include <deque>
+#include <string>
 #include "Core/HLE/proAdhoc.h"
 
 #ifdef _MSC_VER
@@ -42,6 +43,7 @@ struct AdhocSendTarget {
 	u32 ip;
 	u16 port; // original port
 	u16 portOffset; // port offset specific for this target IP
+	SceNetEtherAddr mac;
 };
 
 struct AdhocSendTargets {
@@ -96,6 +98,33 @@ enum AdhocDiscoverResult : int
 	NET_ADHOC_DISCOVER_RESULT_ABORTED = 3, // Internal Error occured?
 };
 
+enum class AdhocDataMode {
+	P2P = 0,
+	AemuPostoffice,
+};
+
+struct AdhocServerListEntry {
+	std::string name;
+	std::string host;
+	std::string web;
+	std::string ip;  // could be used as a fallback if DNS resolution fails. Currently unused.
+	std::string discord;
+	std::string location;
+	std::string description;
+	std::string dataJsonUrl;
+	std::string statusXmlUrl;
+	std::string statusWebUrl;
+	AdhocDataMode mode = AdhocDataMode::P2P;
+};
+
+enum class AdhocLoadListMode {
+	CacheOnlySync,
+	AllSourcesAsync,
+};
+
+void AdhocLoadServerList(AdhocLoadListMode loadMode);
+std::vector<AdhocServerListEntry> AdhocGetServerList(AdhocLoadListMode loadMode);
+bool AdhocGetServerByHost(std::string_view host, AdhocServerListEntry *dest);  // CacheOnlySync is enforced.
 
 class PointerWrap;
 

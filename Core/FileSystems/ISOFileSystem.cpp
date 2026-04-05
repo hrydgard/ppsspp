@@ -22,6 +22,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
@@ -33,11 +34,11 @@ bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize) {
 	// The format of this is: "/sce_lbn" "0x"? HEX* ANY* "_size" "0x"? HEX* ANY*
 	// That means that "/sce_lbn/_size1/" is perfectly valid.
 	// Most commonly, it looks like /sce_lbn0x10_size0x100 or /sce_lbn10_size100 (always hex.)
-
 	// If it doesn't starts with /sce_lbn or doesn't have _size, look for a file instead.
-	if (filename.compare(0, sizeof("/sce_lbn") - 1, "/sce_lbn") != 0)
+	if (!startsWith(filename, "/sce_lbn"))
 		return false;
-	size_t size_pos = filename.find("_size");
+
+	const size_t size_pos = filename.find("_size");
 	if (size_pos == filename.npos)
 		return false;
 
@@ -139,7 +140,7 @@ struct VolDescriptor {
 
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) {
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice) {
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 
@@ -172,7 +173,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 }
 
 ISOFileSystem::~ISOFileSystem() {
-	delete blockDevice;
 	delete treeroot;
 }
 
@@ -184,7 +184,7 @@ std::string ISOFileSystem::TreeEntry::BuildPath() {
 	}
 }
 
-void ISOFileSystem::ReadDirectory(TreeEntry *root) {
+void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 	for (u32 secnum = root->startsector, endsector = root->startsector + (root->dirsize + 2047) / 2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
@@ -255,7 +255,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 	root->valid = true;
 }
 
-ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError) {
+const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string_view path, bool catchError) {
 	const size_t pathLength = path.length();
 
 	if (pathLength == 0) {
@@ -288,9 +288,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 			if (nextSlashIndex == std::string::npos)
 				nextSlashIndex = pathLength;
 
-			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
+			const std::string_view firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
 			for (size_t i = 0; i < entry->children.size(); i++) {
-				const std::string &n = entry->children[i]->name;
+				const std::string_view n = entry->children[i]->name;
 				if (firstPathComponent == n) {
 					//yay we got it
 					nextEntry = entry->children[i];
@@ -302,8 +302,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 		
 		if (nextEntry) {
 			entry = nextEntry;
-			if (!entry->valid)
+			if (!entry->valid) {
 				ReadDirectory(entry);
+			}
 			pathIndex += name.length();
 			if (pathIndex < pathLength && path[pathIndex] == '/')
 				++pathIndex;
@@ -311,9 +312,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 			if (pathLength <= pathIndex)
 				return entry;
 		} else {
-			if (catchError)
-				ERROR_LOG(Log::FileSystem, "File '%s' not found", path.c_str());
-
+			if (catchError) {
+				ERROR_LOG(Log::FileSystem, "File '%.*s' not found", STR_VIEW(path));
+			}
 			return 0;
 		}
 	}
@@ -430,7 +431,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		} else {
 			int block = (u16)desc.firstLETableSector;
-			u32 size = Memory::ValidSize(outdataPtr, (u32)desc.pathTableLength);
+			u32 size = Memory::ClampValidSizeAt(outdataPtr, (u32)desc.pathTableLength);
 			u8 *out = Memory::GetPointerWriteRange(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();
@@ -529,6 +530,8 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		const int firstBlockSize = firstBlockOffset == 0 ? 0 : (int)std::min(size, 2048LL - firstBlockOffset);
 		const int lastBlockSize = (size - firstBlockSize) & 2047;
 		const s64 middleSize = size - firstBlockSize - lastBlockSize;
+		_dbg_assert_((middleSize & 2047) == 0);
+
 		u32 secNum = (u32)(positionOnIso / 2048);
 		u8 theSector[2048];
 
@@ -543,9 +546,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			pointer += firstBlockSize;
 		}
 		if (middleSize > 0) {
-			const u32 sectors = (u32)(middleSize / 2048);
-			blockDevice->ReadBlocks(secNum, sectors, pointer);
-			secNum += sectors;
+			const u32 middleSectors = (u32)(middleSize / 2048);
+			blockDevice->ReadBlocks(secNum, middleSectors, pointer);
+			secNum += middleSectors;
 			pointer += middleSize;
 		}
 		if (lastBlockSize > 0) {
@@ -623,7 +626,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 		return fileInfo;
 	}
 
-	TreeEntry *entry = GetFromPath(filename, false);
+	const TreeEntry *entry = GetFromPath(filename, false);
 	PSPFileInfo x; 
 	if (entry) {
 		x.name = entry->name;
@@ -655,9 +658,9 @@ PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
 	return x;
 }
 
-std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, bool *exists) {
+std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string_view path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
-	TreeEntry *entry = GetFromPath(path);
+	const TreeEntry *entry = GetFromPath(path);
 	if (!entry) {
 		if (exists)
 			*exists = false;
@@ -671,7 +674,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, b
 	const std::string dotdot("..");
 
 	for (size_t i = 0; i < entry->children.size(); i++) {
-		TreeEntry *e = entry->children[i];
+		const TreeEntry *e = entry->children[i];
 
 		// do not include the relative entries in the list
 		if (e->name == dot || e->name == dotdot)
@@ -695,12 +698,12 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, b
 	return myVector;
 }
 
-std::string ISOFileSystem::EntryFullPath(TreeEntry *e) {
+std::string ISOFileSystem::EntryFullPath(const TreeEntry *e) {
 	if (e == &entireISO)
 		return "";
 
 	size_t fullLen = 0;
-	TreeEntry *cur = e;
+	const TreeEntry *cur = e;
 	while (cur != NULL && cur != treeroot) {
 		// For the "/".
 		fullLen += 1 + cur->name.size();

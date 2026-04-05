@@ -143,9 +143,8 @@ inline void System_RecreateActivity() {
 	g_requestManager.MakeSystemRequest(SystemRequestType::RECREATE_ACTIVITY, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", 0);
 }
 
-// The design is a little weird, just a holdover from the old message. Can either toggle or set to on or off.
-inline void System_ToggleFullscreenState(std::string_view param) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, NO_REQUESTER_TOKEN, nullptr, nullptr, param, "", 0);
+inline void System_ApplyFullscreenState() {
+	g_requestManager.MakeSystemRequest(SystemRequestType::APPLY_FULLSCREEN_STATE, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", 0);
 }
 
 inline void System_GraphicsBackendFailedAlert(std::string_view param) {

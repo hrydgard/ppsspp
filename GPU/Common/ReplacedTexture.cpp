@@ -223,7 +223,8 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			break;
 		}
 
-		VFSFileReference *fileRef = vfs_->GetFile(desc_.filenames[i].c_str());
+		std::string path(desc_.filenames[i]);
+		VFSFileReference *fileRef = vfs_->GetFile(path.c_str());
 		if (!fileRef) {
 			if (i == 0) {
 				INFO_LOG(Log::TexReplacement, "Texture replacement file '%s' not found in %s", desc_.filenames[i].c_str(), vfs_->toString().c_str());

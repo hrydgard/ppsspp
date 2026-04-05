@@ -1091,7 +1091,7 @@ float vfpu_sin(float x) {
 		// There is weirdness for large exponents.
 		if(exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
 		else if((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
-		else significand <<= (exponent - 0x7Fu);
+		else significand <<= ((exponent - 0x7Fu) & 31);
 	}
 	sign ^= ((significand << 7) & 0x80000000u);
 	significand &= 0x00FFFFFFu;
@@ -1131,7 +1131,7 @@ float vfpu_cos(float x) {
 		// There is weirdness for large exponents.
 		if(exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
 		else if((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
-		else significand <<= (exponent - 0x7Fu);
+		else significand <<= ((exponent - 0x7Fu) & 31);
 	}
 	sign ^= ((significand << 7) & 0x80000000u);
 	significand &= 0x00FFFFFFu;

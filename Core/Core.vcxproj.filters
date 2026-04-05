@@ -13,9 +13,6 @@
     <Filter Include="MIPS\ARM">
       <UniqueIdentifier>{8a5bebeb-575f-483d-8bd2-4b7eac163a7d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="MIPS\MIPS">
-      <UniqueIdentifier>{aaaaaaaa-575f-483d-8bd2-4b7eac163a7d}</UniqueIdentifier>
-    </Filter>
     <Filter Include="MIPS\JitCommon">
       <UniqueIdentifier>{37896407-c373-44a3-b6ec-b57bceb2c4a3}</UniqueIdentifier>
     </Filter>
@@ -438,19 +435,10 @@
     <ClCompile Include="MIPS\ARM\ArmJit.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\MIPS\MipsJit.cpp">
-      <Filter>MIPS\MIPS</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompVFPUNEON.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompVFPUNEONUtil.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\disarm.cpp">
@@ -1393,6 +1381,15 @@
     <ClCompile Include="HW\GranularMixer.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="Util\PathUtil.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveStateRewind.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\VideoPlayer.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1722,9 +1719,6 @@
     <ClInclude Include="MIPS\ARM\ArmJit.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\MIPS\MipsJit.h">
-      <Filter>MIPS\MIPS</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
@@ -1817,9 +1811,6 @@
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitState.h">
       <Filter>MIPS\JitCommon</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmCompVFPUNEONUtil.h">
-      <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\DisassemblyManager.h">
       <Filter>Debugger</Filter>
@@ -2249,6 +2240,15 @@
     </ClInclude>
     <ClInclude Include="HW\GranularMixer.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\PathUtil.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveStateRewind.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\VideoPlayer.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

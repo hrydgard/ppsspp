@@ -215,6 +215,9 @@ static bool SafeStringEqual(NSString *a, NSString *b) {
 	}
 }
 
+
+#ifndef USE_IAP
+
 - (void)productsRequest:(nonnull SKProductsRequest *)request didReceiveResponse:(nonnull SKProductsResponse *)response { 
 	NSLog(@"Ignoring [productsRequest]");
 }
@@ -222,5 +225,7 @@ static bool SafeStringEqual(NSString *a, NSString *b) {
 - (void)paymentQueue:(nonnull SKPaymentQueue *)queue updatedTransactions:(nonnull NSArray<SKPaymentTransaction *> *)transactions { 
 	NSLog(@"Ignoring [paymentQueue]");
 }
+
+#endif
 
 @end

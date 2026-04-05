@@ -34,6 +34,8 @@
 
 #include "ppsspp_config.h"
 
+#include <typeinfo>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -81,12 +83,15 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
+#include "Common/Math/fast/fast_matrix.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Math3D.h"
 
 #include "Common/File/AndroidContentURI.h"
 
@@ -665,7 +670,7 @@ static bool TestMemMap() {
 	static const Range ranges[] = {
 		{ 0x08000000, Memory::RAM_DOUBLE_SIZE, Flags::ALLOW_KERNEL },
 		{ 0x00010000, Memory::SCRATCHPAD_SIZE, Flags::NO_KERNEL },
-		{ 0x04000000, 0x00800000, Flags::NO_KERNEL },
+		{ 0x04000000, 0x00800000, Flags::NO_KERNEL },  // VRAM (although we don't take wrapping into account here...)
 	};
 	static const uint32_t extraBits[] = {
 		0x00000000,
@@ -683,23 +688,23 @@ static bool TestMemMap() {
 			EXPECT_FALSE(Memory::IsValidAddress(base + range.size));
 			EXPECT_FALSE(Memory::IsValidAddress(base - 1));
 
-			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size + 1), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size - 1), range.size - 1);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0), 0);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x80000001), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x40000001), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x20000001), range.size);
-			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x10000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, range.size), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, range.size + 1), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, range.size - 1), range.size - 1);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0), 0);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x80000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x40000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x20000001), range.size);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base, 0x10000001), range.size);
 
-			EXPECT_EQ_HEX(Memory::ValidSize(base + range.size - 0x10, 0x20000001), 0x10);
+			EXPECT_EQ_HEX(Memory::ClampValidSizeAt(base + range.size - 0x10, 0x20000001), 0x10);
 		}
 	}
 
 	EXPECT_FALSE(Memory::IsValidAddress(0x00015000));
 	EXPECT_FALSE(Memory::IsValidAddress(0x04900000));
-	EXPECT_EQ_HEX(Memory::ValidSize(0x00015000, 4), 0);
-	EXPECT_EQ_HEX(Memory::ValidSize(0x04900000, 4), 0);
+	EXPECT_EQ_HEX(Memory::ClampValidSizeAt(0x00015000, 4), 0);
+	EXPECT_EQ_HEX(Memory::ClampValidSizeAt(0x04900000, 4), 0);
 
 	return true;
 }
@@ -1232,6 +1237,79 @@ bool TestVolumeFunc() {
 	return true;
 }
 
+bool TestLinAlg() {
+	static const float m1[16] = {
+		1, 2, 3, 4,
+		5, 6, 7, 8,
+		9, 10, 11, 12,
+		13, 14, 15, 16
+	};
+	static const float m2[16] = {
+		56, 0, 24, 2,
+		0.5f, 35, 2, 4,
+		1, 6, 1, 2,
+		4, 0, -1, -4
+	};
+	static const float correct[16] = {
+		298.f, 380.f, 462.f, 544.f,
+		245.5f, 287.f, 328.5f, 370.f,
+		66.f, 76.f, 86.f, 96.f,
+		-57.f, -58.f, -59.f, -60.f,
+	};
+
+	float d[16]{};
+
+	fast_matrix_mul_4x4(d, m1, m2);
+
+	for (int i = 0; i < 16; i += 4) {
+		// printf("%0.2f, %0.2f, %0.2f, %0.2f,\n", d[i], d[i + 1], d[i + 2], d[i + 3]);
+	}
+
+	for (int i = 0; i < 16; i++) {
+		EXPECT_EQ_FLOAT(d[i], correct[i]);
+	}
+
+
+	// OK, now test 4x3 multiplication.
+	float a4x4[16];
+	float b4x4[16];
+
+	ConvertMatrix4x3To4x4(a4x4, m1);
+	ConvertMatrix4x3To4x4(b4x4, m1);
+	Matrix4ByMatrix4(d, a4x4, b4x4);
+
+	for (int i = 0; i < 16; i += 4) {
+		// printf("%0.2f, %0.2f, %0.2f, %0.2f,\n", d[i], d[i + 1], d[i + 2], d[i + 3]);
+	}
+
+	static const float correct4x4[16] = {
+		30.00, 36.00, 42.00, 0.00,
+		66.00, 81.00, 96.00, 0.00,
+		102.00, 126.00, 150.00, 0.00,
+		148.00, 182.00, 216.00, 1.00,
+	};
+
+	for (int i = 0; i < 16; i++) {
+		EXPECT_EQ_FLOAT(d[i], correct4x4[i]);
+	}
+
+	ConvertMatrix4x3To4x4Transposed(b4x4, m1);
+	Matrix4ByMatrix4(d, a4x4, b4x4);
+
+	static const float correct4x4transposed[16] = {
+		14.00, 32.00, 50.00, 68.00,
+		32.00, 77.00, 122.00, 167.00,
+		50.00, 122.00, 194.00, 266.00,
+		68.00, 167.00, 266.00, 366.00,
+	};
+
+	for (int i = 0; i < 16; i++) {
+		EXPECT_EQ_FLOAT(d[i], correct4x4transposed[i]);
+	}
+	// TODO: Add direct 4x3 x 4x3 multiplication
+	return true;
+}
+
 bool TestSplitSearch() {
 	std::string part1 = "The quick brown fox jumps";
 	std::string part2 = " over the lazy dog.";
@@ -1246,6 +1324,25 @@ bool TestSplitSearch() {
 	EXPECT_EQ_INT(offset, 16);
 	offset = SplitSearch("dog.", part1, part2);
 	EXPECT_EQ_INT(offset, 40);
+	return true;
+}
+
+bool TestFriendlyPath() {
+	Path path("/home/user/PPSSPP/games/My Game (USA)/EBOOT.PBP");
+	Path baseDir("/home/user/PPSSPP/games/");
+	std::string friendlyPath = GetFriendlyPath(path, baseDir, "ms:/");
+	EXPECT_EQ_STR(friendlyPath, std::string("ms:/My Game (USA)/EBOOT.PBP"));
+	return true;
+}
+
+// Check that RTTI is working.
+bool TestLang() {
+	struct Base { virtual ~Base() = default; };
+	struct Derived : Base {};
+
+	Base* b = new Derived;
+	bool equals = typeid(*b) == typeid(Derived);
+	EXPECT_TRUE(equals);
 	return true;
 }
 
@@ -1319,6 +1416,9 @@ TestItem availableTests[] = {
 	TEST_ITEM(CrossSIMD),
 	TEST_ITEM(VolumeFunc),
 	TEST_ITEM(SplitSearch),
+	TEST_ITEM(FriendlyPath),
+	TEST_ITEM(LinAlg),
+	TEST_ITEM(Lang),
 };
 
 int main(int argc, const char *argv[]) {

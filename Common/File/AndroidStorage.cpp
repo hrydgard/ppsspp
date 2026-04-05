@@ -39,7 +39,7 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 
 	openContentUri = env->GetStaticMethodID(localClass, "openContentUri", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
-	listContentUriDir = env->GetStaticMethodID(localClass, "listContentUriDir", "(Landroid/app/Activity;Ljava/lang/String;)[Ljava/lang/String;");
+	listContentUriDir = env->GetStaticMethodID(localClass, "listContentUriDir", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
 	contentUriCreateDirectory = env->GetStaticMethodID(localClass, "contentUriCreateDirectory", "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
@@ -265,7 +265,8 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 	double start = time_now_d();
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	jobject retval = env->CallStaticObjectMethod(g_classContentUri, listContentUriDir, g_nativeActivity, param);
+	jstring filenamePrefix = prefix.empty() ? nullptr : env->NewStringUTF(prefix.c_str());
+	jobject retval = env->CallStaticObjectMethod(g_classContentUri, listContentUriDir, g_nativeActivity, param, filenamePrefix);
 
 	jobjectArray fileList = (jobjectArray)retval;
 	std::vector<File::FileInfo> items;

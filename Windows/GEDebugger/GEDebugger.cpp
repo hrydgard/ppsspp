@@ -314,6 +314,7 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
 				primaryWindow->Redraw();
+				break;
 			default:
 				break;
 			}
@@ -362,6 +363,7 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
 				secondWindow->Redraw();
+				break;
 			default:
 				break;
 			}
@@ -435,9 +437,9 @@ void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) 
 }
 
 void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
-	const TCHAR *filter = L"PNG Image (*.png)\0*.png\0JPEG Image (*.jpg)\0*.jpg\0All files\0*.*\0\0";
+	constexpr const wchar_t *filter = L"PNG Image (*.png)\0*.png\0JPEG Image (*.jpg)\0*.jpg\0All files\0*.*\0\0";
 	std::string fn;
-	if (W32Util::BrowseForFileName(false, GetDlgHandle(), L"Save Preview Image...", nullptr, filter, L"png", fn)) {
+	if (W32Util::BrowseForFileName(false, GetDlgHandle(), L"Save Preview Image...", nullptr, L"preview.png", filter, L"png", fn)) {
 		ScreenshotFormat fmt = fn.find(".jpg") != fn.npos ? ScreenshotFormat::JPG : ScreenshotFormat::PNG;
 
 		Path filename(fn);
@@ -576,9 +578,11 @@ void CGEDebugger::UpdatePreviews() {
 		UpdatePrimPreview(primOp, 3);
 	}
 
-	wchar_t primCounter[1024]{};
-	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
-	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
+	if (gpuDebug) {
+		wchar_t primCounter[1024]{};
+		swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
+		SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
+	}
 
 	for (GEDebuggerTab &tabState : tabStates_) {
 		UpdateTab(&tabState);

@@ -27,6 +27,7 @@
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
+#include "Core/Config.h"
 
 class Path;
 
@@ -35,8 +36,8 @@ class Path;
 class GameSettingsScreen : public UITabbedBaseDialogScreen {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
+	~GameSettingsScreen();
 
-	void onFinish(DialogResult result) override;
 	const char *tag() const override { return "GameSettings"; }
 
 protected:
@@ -59,12 +60,6 @@ private:
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
 
 	std::string gameID_;
-	UI::CheckBox *enableReportsCheckbox_ = nullptr;
-	UI::Choice *layoutEditorChoice_ = nullptr;
-	UI::Choice *displayEditor_ = nullptr;
-	UI::Choice *backgroundChoice_ = nullptr;
-	UI::PopupMultiChoice *resolutionChoice_ = nullptr;
-	UI::CheckBox *frameSkipAuto_ = nullptr;
 #ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice = nullptr;
 	UI::CheckBox *SavePathInOtherChoice = nullptr;
@@ -76,23 +71,11 @@ private:
 	std::string memstickDisplay_;
 
 	// Global settings handlers
-	void OnAutoFrameskip(UI::EventParams &e);
-	void OnTextureShader(UI::EventParams &e);
-	void OnTextureShaderChange(UI::EventParams &e);
-	void OnChangeQuickChat0(UI::EventParams &e);
-	void OnChangeQuickChat1(UI::EventParams &e);
-	void OnChangeQuickChat2(UI::EventParams &e);
-	void OnChangeQuickChat3(UI::EventParams &e);
-	void OnChangeQuickChat4(UI::EventParams &e);
 	void OnChangeBackground(UI::EventParams &e);
-	void OnFullscreenChange(UI::EventParams &e);
-	void OnFullscreenMultiChange(UI::EventParams &e);
 	void OnRestoreDefaultSettings(UI::EventParams &e);
 	void OnRenderingBackend(UI::EventParams &e);
 	void OnRenderingDevice(UI::EventParams &e);
 	void OnInflightFramesChoice(UI::EventParams &e);
-	void OnCameraDeviceChange(UI::EventParams& e);
-	void OnMicDeviceChange(UI::EventParams& e);
 	void OnAudioDevice(UI::EventParams &e);
 	void OnJitAffectingSetting(UI::EventParams &e);
 	void OnShowMemstickScreen(UI::EventParams &e);
@@ -100,11 +83,8 @@ private:
 	void OnMemoryStickMyDoc(UI::EventParams &e);
 	void OnMemoryStickOther(UI::EventParams &e);
 #endif
-	void OnScreenRotation(UI::EventParams &e);
 	void OnImmersiveModeChange(UI::EventParams &e);
 	void OnSustainedPerformanceModeChange(UI::EventParams &e);
-
-	void OnAdhocGuides(UI::EventParams &e);
 
 	void TriggerRestartOrDo(std::function<void()> callback);
 
@@ -118,71 +98,10 @@ private:
 	bool analogSpeedMapped_ = false;
 
 	// edit the game-specific settings and restore the global settings after exiting
-	bool editThenRestore_ = false;
+	bool editGameSpecificThenRestore_ = false;
 
 	// Android-only
 	std::string pendingMemstickFolder_;
-};
-
-class HostnameSelectScreen : public UI::PopupScreen {
-public:
-	HostnameSelectScreen(std::string *value, std::vector<std::string> *listItems, std::string_view title)
-		: UI::PopupScreen(title, "OK", "Cancel"), listItems_(listItems), value_(value) {
-		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
-			thiz->ResolverThread();
-		}, this);
-	}
-	~HostnameSelectScreen() {
-		{
-			std::unique_lock<std::mutex> guard(resolverLock_);
-			resolverState_ = ResolverState::QUIT;
-			resolverCond_.notify_one();
-		}
-		resolver_.join();
-	}
-
-	void CreatePopupContents(UI::ViewGroup *parent) override;
-
-	const char *tag() const override { return "HostnameSelect"; }
-
-protected:
-	void OnCompleted(DialogResult result) override;
-	bool CanComplete(DialogResult result) override;
-
-private:
-	void ResolverThread();
-	void SendEditKey(InputKeyCode keyCode, int flags = 0);
-
-	void OnNumberClick(UI::EventParams &e);
-	void OnPointClick(UI::EventParams &e);
-	void OnDeleteClick(UI::EventParams &e);
-	void OnDeleteAllClick(UI::EventParams &e);
-	void OnEditClick(UI::EventParams& e);
-	void OnShowIPListClick(UI::EventParams& e);
-	void OnIPClick(UI::EventParams& e);
-
-	enum class ResolverState {
-		WAITING,
-		QUEUED,
-		PROGRESS,
-		READY,
-		QUIT,
-	};
-
-	std::string *value_;
-	std::vector<std::string> *listItems_;
-	UI::TextEdit *addrView_ = nullptr;
-	UI::TextView *progressView_ = nullptr;
-	UI::LinearLayout *ipRows_ = nullptr;
-
-	std::thread resolver_;
-	ResolverState resolverState_ = ResolverState::WAITING;
-	std::mutex resolverLock_;
-	std::condition_variable resolverCond_;
-	std::string toResolve_ = "";
-	bool toResolveResult_ = false;
-	std::string lastResolved_ = "";
-	bool lastResolvedResult_ = false;
 };
 
 class GestureMappingScreen : public UITabbedBaseDialogScreen {
@@ -193,7 +112,7 @@ public:
 	const char *tag() const override { return "GestureMapping"; }
 	bool ShowSearchControls() const override { return false; }
 protected:
-	void CreateGestureTab(UI::LinearLayout *parent);
+	void CreateGestureTab(UI::LinearLayout *parent, int zoneIndex, bool portrait);
 };
 
 class RestoreSettingsScreen : public UI::PopupScreen {

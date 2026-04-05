@@ -24,6 +24,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -100,6 +101,7 @@ void GPU_Vulkan::FinishInitOnMainThread() {
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
+	_dbg_assert_(draw_);
 	if (!g_Config.bShaderCache) {
 		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		return;
@@ -384,10 +386,8 @@ void GPU_Vulkan::BuildReportingInfo() {
 		featureNames = featureNames.substr(2);
 	}
 
-	char temp[16384];
-	snprintf(temp, sizeof(temp), "v%08x driver v%08x (%s), vendorID=%d, deviceID=%d (features: %s)", props.apiVersion, props.driverVersion, props.deviceName, props.vendorID, props.deviceID, featureNames.c_str());
 	reportingPrimaryInfo_ = props.deviceName;
-	reportingFullInfo_ = temp;
+	reportingFullInfo_ = StringFromFormat("v%08x driver v%08x (%s), vendorID=%d, deviceID=%d (features: %s)", props.apiVersion, props.driverVersion, props.deviceName, props.vendorID, props.deviceID, featureNames.c_str());
 
 	Reporting::UpdateConfig();
 }

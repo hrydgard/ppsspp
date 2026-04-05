@@ -18,6 +18,7 @@ using KeyMap::MultiInputMapping;
 const float AXIS_BIND_THRESHOLD = 0.75f;
 const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
+ControlMapper g_controlMapper;
 
 // We reduce the threshold of some axes when another axis on the same stick is active.
 // This makes it easier to hit diagonals if you bind an analog stick to four face buttons or D-Pad.
@@ -27,12 +28,12 @@ static InputAxis GetCoAxis(InputAxis axis) {
 	case JOYSTICK_AXIS_Y: return JOYSTICK_AXIS_X;
 
 		// This looks weird, but it's simply how XInput axes are mapped.
-	case JOYSTICK_AXIS_Z: return JOYSTICK_AXIS_RZ;
-	case JOYSTICK_AXIS_RZ: return JOYSTICK_AXIS_Z;
+	case JOYSTICK_AXIS_Z: return JOYSTICK_AXIS_RX;
+	case JOYSTICK_AXIS_RX: return JOYSTICK_AXIS_Z;
 
 		// Not sure if these two are used.
-	case JOYSTICK_AXIS_RX: return JOYSTICK_AXIS_RY;
-	case JOYSTICK_AXIS_RY: return JOYSTICK_AXIS_RX;
+	case JOYSTICK_AXIS_RY: return JOYSTICK_AXIS_RZ;
+	case JOYSTICK_AXIS_RZ: return JOYSTICK_AXIS_RY;
 
 	default:
 		return JOYSTICK_AXIS_MAX; // invalid
@@ -50,18 +51,19 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 		case KeyMap::AxisType::STICK:
 		{
 			// Co-axis processing, see GetCoAxes comment.
-			InputAxis axis = (InputAxis)mapping.Axis(nullptr);
-			InputAxis coAxis = GetCoAxis(axis);
+			const InputAxis axis = (InputAxis)mapping.Axis(nullptr);
+			const InputAxis coAxis = GetCoAxis(axis);
 			if (coAxis != JOYSTICK_AXIS_MAX) {
-				float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
+				const float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
-					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.35f);
+					const float biasedThreshold = g_Config.fAnalogStickThreshold * (1.0f - absCoValue * 0.35f);
 					// INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
 			}
-			break;
+			// Non-adjusted threshold.
+			return g_Config.fAnalogStickThreshold;
 		}
 		default:
 			break;
@@ -146,19 +148,6 @@ void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
 	*outY = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
 }
 
-void ControlMapper::SetCallbacks(
-	std::function<void(VirtKey, bool)> onVKey,
-	std::function<void(VirtKey, float)> onVKeyAnalog,
-	std::function<void(uint32_t, uint32_t)> updatePSPButtons,
-	std::function<void(int, int, float, float)> setPSPAnalog,
-	std::function<void(int, float, float)> setRawAnalog) {
-	onVKey_ = onVKey;
-	onVKeyAnalog_ = onVKeyAnalog;
-	updatePSPButtons_ = updatePSPButtons;
-	setPSPAnalog_ = setPSPAnalog;
-	setRawAnalog_ = setRawAnalog;
-}
-
 void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 	const int axisId = axis == 'X' ? 0 : 1;
 	if (stick != 0 && stick != 1) {
@@ -171,11 +160,11 @@ void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {
 
 	position[axisId] = value;
 
-	float x = position[0];
-	float y = position[1];
+	const float x = position[0];
+	const float y = position[1];
 
-	if (setRawAnalog_) {
-		setRawAnalog_(stick, x, y);
+	for (auto listener : listeners_) {
+		listener->SetRawAnalog(stick, x, y);
 	}
 
 	// NOTE: We need to use single-axis checks, since the other axis might be from another device,
@@ -208,7 +197,9 @@ void ControlMapper::UpdateAnalogOutput(int stick) {
 	}
 	converted_[stick][0] = x;
 	converted_[stick][1] = y;
-	setPSPAnalog_(iInternalScreenRotationCached_, stick, x, y);
+	for (auto listener : listeners_) {
+		listener->SetPSPAnalog(iInternalScreenRotationCached_, stick, x, y);
+	}
 }
 
 void ControlMapper::ForceReleaseVKey(int vkey) {
@@ -250,7 +241,7 @@ void ControlMapper::ReleaseAll() {
 				if (input.second.value != 0.0) {
 					KeyInput key;
 					key.deviceId = input.first.deviceId;
-					key.flags = KEY_UP;
+					key.flags = KeyInputFlags::UP;
 					key.keyCode = (InputKeyCode)input.first.keyCode;
 					keys.push_back(key);
 				}
@@ -293,7 +284,7 @@ float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &map
 		// If a signed axis is mapped to an unsigned mapping,
 		// convert it. This happens when mapping DirectInput triggers to analog speed,
 		// for example.
-		int direction;
+		int direction = 0;
 		if (IsSignedAxis(mapping.Axis(&direction))) {
 			// The value has been split up into two curInput values, so we need to go fetch the other
 			// and put them back together again. Kind of awkward, but at least makes the regular case simple...
@@ -334,7 +325,7 @@ static bool IsSwappableVKey(uint32_t vkey) {
 }
 
 void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
-	if (swapAxes_) {
+	if (swapAxes_ || IsVirtKeyOn(VIRTKEY_AXIS_SWAP_HOLD)) {
 		switch (*vkey) {
 		case CTRL_UP: *vkey = VIRTKEY_AXIS_Y_MAX; break;
 		case VIRTKEY_AXIS_Y_MAX: *vkey = CTRL_UP; break;
@@ -392,7 +383,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			// Check if all inputs are "on".
 			bool all = true;
 			double curTime = 0.0;
-			for (auto mapping : multiMapping.mappings) {
+			for (const auto &mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
 				if (iter == curInput_.end()) {
 					all = false;
@@ -416,7 +407,9 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	}
 
 	// We only request changing the buttons where the mapped input was involved.
-	updatePSPButtons_(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
+	for (auto listener : listeners_) {
+		listener->UpdatePSPButtons(buttonMask & changedButtonMask, (~buttonMask) & changedButtonMask);
+	}
 
 	bool keyInputUsed = changedButtonMask != 0;
 	bool updateAnalogSticks = false;
@@ -516,6 +509,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
 				updateAnalogSticks = true;
+			} else if (vkId == VIRTKEY_AXIS_SWAP_HOLD) {
+				UpdateSwapAxes();
 			}
 		} else if (bPrevValue && !bValue) {
 			// INFO_LOG(Log::G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
@@ -524,6 +519,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 			if (vkId == VIRTKEY_ANALOG_LIGHTLY) {
 				updateAnalogSticks = true;
+			} else if (vkId == VIRTKEY_AXIS_SWAP_HOLD) {
+				UpdateSwapAxes();
 			}
 		}
 	}
@@ -538,11 +535,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 }
 
 bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
-	if (key.flags & KEY_IS_REPEAT) {
-		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
-		return true;
-	}
-
 	double now = time_now_d();
 	InputMapping mapping(key.deviceId, key.keyCode);
 
@@ -552,14 +544,14 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		deviceTimestamps_[(int)key.deviceId] = now;
 	}
 
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		curInput_[mapping] = { 1.0f, now };
-	} else if (key.flags & KEY_UP) {
+	} else if (key.flags & KeyInputFlags::UP) {
 		curInput_[mapping] = { 0.0f, now};
 	}
 
 	// TODO: See if this can be simplified further somehow.
-	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
+	if ((key.flags & KeyInputFlags::DOWN) && key.keyCode == NKCODE_BACK) {
 		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
 		DEBUG_LOG(Log::System, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 		if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
@@ -576,19 +568,28 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 
 void ControlMapper::ToggleSwapAxes() {
 	// Note: The lock is already locked here.
-
 	swapAxes_ = !swapAxes_;
 
-	updatePSPButtons_(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
+	UpdateSwapAxes();
+}
+
+void ControlMapper::UpdateSwapAxes() {
+	for (auto listener : listeners_) {
+		listener->UpdatePSPButtons(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
+	}
 
 	for (VirtKey vkey = VIRTKEY_FIRST; vkey < VIRTKEY_LAST; vkey = (VirtKey)(vkey + 1)) {
 		if (IsSwappableVKey(vkey)) {
 			if (virtKeyOn_[vkey - VIRTKEY_FIRST]) {
-				onVKey_(vkey, false);
+				for (auto listener : listeners_) {
+					listener->OnVKey(vkey, false);
+				}
 				virtKeyOn_[vkey - VIRTKEY_FIRST] = false;
 			}
 			if (virtKeys_[vkey - VIRTKEY_FIRST] > 0.0f) {
-				onVKeyAnalog_(vkey, 0.0f);
+				for (auto listener : listeners_) {
+					listener->OnVKeyAnalog(vkey, 0.0f);
+				}
 				virtKeys_[vkey - VIRTKEY_FIRST] = 0.0f;
 			}
 		}
@@ -650,42 +651,53 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 	KeyMap::UnlockMappings();
 }
 
-void ControlMapper::Update(const DisplayLayoutConfig &config, double now) {
-	iInternalScreenRotationCached_ = config.iInternalScreenRotation;
+void ControlMapper::UpdateConfig(const DisplayLayoutConfig &config) {
+	iInternalScreenRotationCached_ = config.bRotateControlsWithScreen ? config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+}
+
+void ControlMapper::UpdateAutoMovements(double now) {
 	if (autoRotatingAnalogCW_) {
 		// Clamp to a square
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * -g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * -g_Config.fAnalogAutoRotSpeed)));
 
-		setPSPAnalog_(iInternalScreenRotationCached_, 0, x, y);
+		for (auto listener : listeners_) {
+			listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, x, y);
+		}
 	} else if (autoRotatingAnalogCCW_) {
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * g_Config.fAnalogAutoRotSpeed)));
 
-		setPSPAnalog_(iInternalScreenRotationCached_, 0, x, y);
+		for (auto listener : listeners_) {
+			listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, x, y);
+		}
 	}
 }
 
-void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
+void ControlMapper::PSPKey(int deviceId, int pspKeyCode, KeyInputFlags flags) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (pspKeyCode >= VIRTKEY_FIRST) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
-		if (flags & KEY_DOWN) {
+		if (flags & KeyInputFlags::DOWN) {
 			virtKeys_[vk] = 1.0f;
 			onVKey((VirtKey)pspKeyCode, true);
 			onVKeyAnalog(deviceId, (VirtKey)pspKeyCode, 1.0f);
 		}
-		if (flags & KEY_UP) {
+		if (flags & KeyInputFlags::UP) {
 			virtKeys_[vk] = 0.0f;
 			onVKey((VirtKey)pspKeyCode, false);
 			onVKeyAnalog(deviceId, (VirtKey)pspKeyCode, 0.0f);
 		}
 	} else {
 		// INFO_LOG(Log::System, "pspKey %d %d", pspKeyCode, flags);
-		if (flags & KEY_DOWN)
-			updatePSPButtons_(pspKeyCode, 0);
-		if (flags & KEY_UP)
-			updatePSPButtons_(0, pspKeyCode);
+		if (flags & KeyInputFlags::DOWN)
+			for (auto listener : listeners_) {
+				listener->UpdatePSPButtons(pspKeyCode, 0);
+			}
+		if (flags & KeyInputFlags::UP)
+			for (auto listener : listeners_) {
+				listener->UpdatePSPButtons(0, pspKeyCode);
+			}
 	}
 }
 
@@ -706,8 +718,9 @@ void ControlMapper::onVKeyAnalog(int deviceId, VirtKey vkey, float value) {
 	case VIRTKEY_AXIS_RIGHT_Y_MIN: stick = CTRL_STICK_RIGHT; axis = 'Y'; sign = -1.0f; break;
 	case VIRTKEY_AXIS_RIGHT_Y_MAX: stick = CTRL_STICK_RIGHT; axis = 'Y'; break;
 	default:
-		if (onVKeyAnalog_)
-			onVKeyAnalog_(vkey, value);
+		for (auto listener : listeners_) {
+			listener->OnVKeyAnalog(vkey, value);
+		}
 		return;
 	}
 	if (oppositeVKey != 0) {
@@ -728,7 +741,9 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 			autoRotatingAnalogCCW_ = false;
 		} else {
 			autoRotatingAnalogCW_ = false;
-			setPSPAnalog_(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			for (auto listener : listeners_) {
+				listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			}
 		}
 		break;
 	case VIRTKEY_ANALOG_ROTATE_CCW:
@@ -737,12 +752,15 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 			autoRotatingAnalogCCW_ = true;
 		} else {
 			autoRotatingAnalogCCW_ = false;
-			setPSPAnalog_(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			for (auto listener : listeners_) {
+				listener->SetPSPAnalog(iInternalScreenRotationCached_, 0, 0.0f, 0.0f);
+			}
 		}
 		break;
 	default:
-		if (onVKey_)
-			onVKey_(vkey, down);
+		for (auto listener : listeners_) {
+			listener->OnVKey(vkey, down);
+		}
 		break;
 	}
 }
@@ -762,4 +780,12 @@ void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
 	}
 	str << "Lstick: " << converted_[0][0] << ", " << converted_[0][1] << std::endl;
 	truncate_cpy(buffer, bufSize, str.str().c_str());
+}
+
+void ControlMapper::RemoveListener(ControlListener *listener) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	auto it = std::find(listeners_.begin(), listeners_.end(), listener);
+	if (it != listeners_.end()) {
+		listeners_.erase(it);
+	}
 }

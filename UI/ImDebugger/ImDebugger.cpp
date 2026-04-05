@@ -824,6 +824,12 @@ static void DrawInternals(ImConfig &cfg) {
 	if (ImGui::CollapsingHeader("Memory")) {
 		ImGui::Text("Base pointer: %p", Memory::base);
 		ImGui::Text("Main memory size: %08x", Memory::g_MemorySize);
+		if (MIPSComp::jit) {
+			const JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
+			ImGui::Text("JIT block cache: %p", bc->GetBlock(0));
+			ImGui::Text("JIT code cache: %p", MIPSComp::jit->GetCodeBase());
+			ImGui::Text("MIPS state: %p", currentMIPS);
+		}
 		if (ImGui::Button("Copy to clipboard")) {
 			System_CopyStringToClipboard(StringFromFormat("0x%p", Memory::base));
 		}
@@ -1338,6 +1344,9 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 					if (ctx->BufferState() == ATRAC_STATUS_ALL_DATA_LOADED) {
 						if (ImGui::Button("Save to disk...")) {
 							System_BrowseForFileSave(cfg.requesterToken, "Save AT3 file", "song.at3", BrowseFileType::ATRAC3, [=](const std::string &filename, int) {
+								if (!Memory::IsValidRange(info.buffer, info.bufferByte)) {
+									return;
+								}
 								const u8 *data = Memory::GetPointerRange(info.buffer, info.bufferByte);
 								if (!data) {
 									return;
@@ -1472,7 +1481,7 @@ void DrawAudioOut(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
+	if (g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR) {
 		// Show granular stats
 		GranularStats stats;
 		g_granular.GetStats(&stats);
@@ -2118,7 +2127,7 @@ void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *
 					break;
 				case WatchFormat::STR:
 					if (Memory::IsValidAddress(value)) {
-						uint32_t len = Memory::ValidSize(value, 255);
+						uint32_t len = Memory::ClampValidSizeAt(value, 255);
 						ImGui::Text("%.*s", len, Memory::GetCharPointer(value));
 					} else {
 						ImGui::Text("%08x", value);

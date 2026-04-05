@@ -342,6 +342,12 @@ bool VR_InitFrame( engine_t* engine ) {
 	hmdorientation = XrQuaternionf_ToEulerAngles(invViewTransform[0].orientation);
 	IN_VRInputFrame(engine);
 
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
+		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[i];
+		frameBuffer->TextureSwapChainIndex++;
+		frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+	}
+
 	engine->appState.LayerCount = 0;
 	memset(engine->appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
 	return true;

@@ -9,8 +9,6 @@
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
 
-class SettingInfoMessage;
-
 namespace UI {
 class TabHolder;
 }
@@ -19,7 +17,7 @@ enum class TabDialogFlags {
 	Default = 0,
 	HorizontalOnlyIcons = 1,
 	VerticalShowIcons = 2,
-	AddTitles = 4,
+	AddAutoTitles = 4,
 	ContextMenuInPortrait = 8,
 };
 ENUM_CLASS_BITOPS(TabDialogFlags);
@@ -32,9 +30,7 @@ ENUM_CLASS_BITOPS(TabFlags);
 
 class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
-	UITabbedBaseDialogScreen(const Path &gamePath, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), flags_(flags) {
-		ignoreBottomInset_ = true;
-	}
+	UITabbedBaseDialogScreen(const Path &gamePath, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), flags_(flags) {}
 
 	void AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
 	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default) {
@@ -55,10 +51,7 @@ protected:
 	int GetCurrentTab() const;
 	void SetCurrentTab(int tab);
 
-	void RecreateViews() override;
 	void sendMessage(UIMessage message, const char *value) override;
-
-	SettingInfoMessage *settingInfo_ = nullptr;
 
 private:
 	void ApplySearchFilter();

@@ -96,7 +96,7 @@ enum class AfterLogoScreen {
 	MEMSTICK_SCREEN_INITIAL_SETUP,
 };
 
-class LogoScreen : public UIScreen {
+class LogoScreen : public UIBaseScreen {
 public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
@@ -109,6 +109,10 @@ public:
 
 	const char *tag() const override { return "Logo"; }
 
+protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
+	bool UseImmersiveMode() const override { return true; }
+
 private:
 	void Next();
 	int frames_ = 0;
@@ -119,13 +123,13 @@ private:
 
 class CreditsScreen : public UISimpleBaseDialogScreen {
 public:
-	CreditsScreen() : UISimpleBaseDialogScreen() {}
+	CreditsScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::Default) {}
 	void update() override;
 
 protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
 	std::string_view GetTitle() const override;
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;
-	bool CanScroll() const override { return false; }
 	const char *tag() const override { return "Credits"; }
 };

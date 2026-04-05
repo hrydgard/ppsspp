@@ -25,8 +25,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
 
-class CtrlDisAsmView
-{
+class CtrlDisAsmView {
 	HWND wnd;
 	HFONT font;
 	HFONT boldfont;
@@ -41,7 +40,6 @@ class CtrlDisAsmView
 	bool hasFocus;
 	bool showHex;
 	MIPSDebugInterface *debugger;
-	static TCHAR szClassName[];
 
 	u32 windowStart;
 	int visibleRows;
@@ -77,6 +75,7 @@ class CtrlDisAsmView
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, std::map<u32, int> &addressPositions, const BranchLine &line);
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
+	void CopyFunctionHash(u32 addr);
 	void NopInstructions(u32 startAddr, u32 endAddr);
 	std::set<std::string> getSelectedLineArguments();
 	void drawArguments(HDC hdc, const DisassemblyLineInfo &line, int x, int y, int textColor, const std::set<std::string> &currentArguments);

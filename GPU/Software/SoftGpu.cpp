@@ -37,6 +37,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 
+#include "GPU/GPUCommon.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
@@ -436,8 +437,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngineCommon_ = drawEngine_;
 
 	// Push the initial CLUT buffer in case it's all zero (we push only on change.)
-	if (drawEngine_->transformUnit.IsStarted())
-		drawEngine_->transformUnit.NotifyClutUpdate(clut);
+	drawEngine_->transformUnit.NotifyClutUpdate(clut);
 
 	// No need to flush for simple parameter changes.
 	flushOnParams_ = false;
@@ -623,7 +623,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "CopyToCurrentFboFromDisplayRam");
+		presentation_->SourceBlank();
 		presentation_->NotifyPresent();
 		return;
 	}
@@ -642,13 +642,17 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 	}
 
 	presentation_->SourceTexture(fbTex, desc.width, desc.height);
-	presentation_->CopyToOutput(config, outputFlags, config.iInternalScreenRotation, u0, v0, u1, v1);
+	presentation_->RunPostshaderPasses(config, outputFlags, config.iInternalScreenRotation, u0, v0, u1, v1);
 }
 
-void SoftGPU::CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
+void SoftGPU::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) {
 	drawEngine_->transformUnit.Flush(this, "output");
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(config, FB_WIDTH, FB_HEIGHT);
+}
+
+void SoftGPU::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
+	presentation_->CopyToOutput(config);
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
 }
 
@@ -788,10 +792,6 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 	downcount = 0;
 	dirtyFlags_ = dirty;
-}
-
-bool SoftGPU::IsStarted() {
-	return drawEngine_ && drawEngine_->transformUnit.IsStarted();
 }
 
 void SoftGPU::ExecuteOp(u32 op, u32 diff) {
@@ -1002,7 +1002,7 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 
 	bool changed = false;
 	if (Memory::IsValidAddress(clutAddr)) {
-		u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
+		u32 validSize = Memory::ClampValidSizeAt(clutAddr, clutTotalBytes);
 		changed = memcmp(clut, Memory::GetPointerUnchecked(clutAddr), validSize) != 0;
 		if (changed)
 			Memory::MemcpyUnchecked(clut, clutAddr, validSize);

@@ -36,9 +36,11 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/Net/Resolve.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
 #include "Core/Core.h"
+#include "Core/Config.h"
 #include "Core/HLE/proAdhocServer.h"
 
 #ifdef _WIN32
@@ -344,6 +346,8 @@ static const db_productid default_productids[] = {
 	{ "ULES01432", "Full Metal Alchemist - Brotherhood" },
 	{ "ULUS10490", "GTA Chinatown Wars" },
 	{ "ULUS10160", "GTA Vice City Stories" },
+	{ "ULUS10041", "GTA Liberty City Stories" },
+	{ "ULES00151", "GTA Liberty City Stories" },
 	{ "ULUS10210", "Ghost Rider" },
 	{ "ULJS00237", "God Eater" },
 	{ "NPJH50832", "God Eater 2" },
@@ -462,6 +466,7 @@ static const db_productid default_productids[] = {
 	{ "ULJM05151", "Yu-Gi-Oh! GX Tag Force" },
 	{ "ULJM05373", "Yu-Gi-Oh! GX Tag Force 3" },
 	{ "NPUG80086", "flOw" },
+	// TODO? GTA 10160,beta,10041,00151
 };
 
 // Function Prototypes
@@ -1660,7 +1665,13 @@ int proAdhocServerThread(int port) // (int argc, char * argv[])
 	// Result
 	int result = 0;
 
-	INFO_LOG(Log::sceNet, "AdhocServer: Begin of AdhocServer Thread");
+	if (net::HostPortExists(g_Config.sProAdhocServer, SERVER_PORT, 200)) {
+		INFO_LOG(Log::sceNet, "AdhocServer: Skipped starting because the server is already available");
+		return 0;
+	}
+	else {
+		INFO_LOG(Log::sceNet, "AdhocServer: Begin of AdhocServer Thread");
+	}
 
 	// Create Signal Receiver for CTRL + C
 	//signal(SIGINT, interrupt);
@@ -1815,11 +1826,6 @@ int create_listen_socket(uint16_t port)
 		local.sin_family = AF_INET;
 		local.sin_addr.s_addr = INADDR_ANY;
 		local.sin_port = htons(port);
-
-		// Should only bind to specific IP for the 2nd or more instance of PPSSPP to prevent communication interference issue when sharing the same port. (ie. Capcom Classics Collection Remixed)
-		if (PPSSPP_ID > 1) {
-			local.sin_addr = g_localhostIP.in.sin_addr;
-		}
 
 		// Bind Local Address to Socket
 		int bindresult = bind(fd, (struct sockaddr *)&local, sizeof(local));

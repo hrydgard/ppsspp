@@ -22,8 +22,31 @@ bool KeyDownAsync(int vkey) {
 
 namespace W32Util
 {
-	void CenterWindow(HWND hwnd)
-	{
+	static RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT &r) {
+		RECT wnd_coords = r;
+		// map to screen
+		MapWindowPoints(hwnd, NULL, reinterpret_cast<POINT *>(&wnd_coords), 2);
+		RECT scr_coords;
+		GetWindowRect(hwnd, &scr_coords);
+		// map to window coords by substracting the window coord origin in  screen coords.
+		OffsetRect(&wnd_coords, -scr_coords.left, -scr_coords.top);
+		return wnd_coords;
+	}
+
+	RECT GetNonclientMenuBorderRect(HWND hwnd) {
+		RECT r;
+		GetClientRect(hwnd, &r);
+		r = MapRectFromClientToWndCoords(hwnd, r);
+		const int y = r.top - 1;
+		return {
+			r.left,
+			y,
+			r.right,
+			y + 1
+		};
+	}
+
+	void CenterWindow(HWND hwnd) {
 		HWND hwndParent;
 		RECT rect, rectP;
 		int width, height;      
@@ -57,19 +80,17 @@ namespace W32Util
 		MoveWindow(hwnd, x, y, width, height, FALSE);
 	}
  
-	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {
+	bool CopyTextToClipboard(HWND hWnd, std::string_view text) {
 		std::wstring wtext = ConvertUTF8ToWString(text);
-		return CopyTextToClipboard(hwnd, wtext);
-	}
+		if (!OpenClipboard(hWnd)) {
+			return false;
+		}
 
-	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext) {
-		if (!OpenClipboard(hwnd))
-			return FALSE;
 		EmptyClipboard();
 		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t));
-		if (hglbCopy == NULL) {
+		if (!hglbCopy) {
 			CloseClipboard();
-			return FALSE;
+			return false;
 		}
 
 		// Lock the handle and copy the text to the buffer.
@@ -82,13 +103,11 @@ namespace W32Util
 			SetClipboardData(CF_UNICODETEXT, hglbCopy);
 		}
 		CloseClipboard();
-		return lptstrCopy ? TRUE : FALSE;
+		return lptstrCopy != nullptr;
 	}
 
 	void MakeTopMost(HWND hwnd, bool topMost) {
-		HWND style = HWND_NOTOPMOST;
-		if (topMost) style = HWND_TOPMOST;
-		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
+		SetWindowPos(hwnd, topMost ? HWND_TOPMOST : HWND_NOTOPMOST, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
 	void GetWindowRes(HWND hWnd, int *xres, int *yres) {
@@ -98,7 +117,7 @@ namespace W32Util
 		*yres = rc.bottom - rc.top;
 	}
 
-	void ShowFileInFolder(const std::string &path) {
+	void ShowFileInFolder(std::string_view path) {
 		// SHParseDisplayName can't handle relative paths, so normalize first.
 		std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
@@ -557,8 +576,7 @@ LRESULT CALLBACK GenericListControl::wndProc(HWND hwnd, UINT msg, WPARAM wParam,
 	return (LRESULT)CallWindowProc((WNDPROC)list->oldProc,hwnd,msg,wParam,lParam);
 }
 
-void GenericListControl::ProcessCopy()
-{
+void GenericListControl::ProcessCopy() {
 	int start = GetSelectedIndex();
 	int size;
 	if (start == -1)
@@ -569,15 +587,12 @@ void GenericListControl::ProcessCopy()
 	CopyRows(start, size);
 }
 
-void GenericListControl::CopyRows(int start, int size)
-{
+void GenericListControl::CopyRows(int start, int size) {
 	std::wstring data;
 
-	if (start == 0 && size == GetRowCount())
-	{
+	if (start == 0 && size == GetRowCount()) {
 		// Let's also copy the header if everything is selected.
-		for (int c = 0; c < columnCount; ++c)
-		{
+		for (int c = 0; c < columnCount; ++c) {
 			data.append(columns[c].name);
 			if (c < columnCount - 1)
 				data.append(L"\t");
@@ -586,10 +601,8 @@ void GenericListControl::CopyRows(int start, int size)
 		}
 	}
 
-	for (int r = start; r < start + size; ++r)
-	{
-		for (int c = 0; c < columnCount; ++c)
-		{
+	for (int r = start; r < start + size; ++r) {
+		for (int c = 0; c < columnCount; ++c) {
 			stringBuffer[0] = 0;
 			GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), r, c);
 			data.append(stringBuffer);
@@ -599,15 +612,14 @@ void GenericListControl::CopyRows(int start, int size)
 				data.append(L"\r\n");
 		}
 	}
-	W32Util::CopyTextToClipboard(handle, data);
+
+	W32Util::CopyTextToClipboard(handle, ConvertWStringToUTF8(data));
 }
 
-void GenericListControl::SelectAll()
-{
+void GenericListControl::SelectAll() {
 	ListView_SetItemState(handle, -1, LVIS_SELECTED, LVIS_SELECTED);
 }
 
-int GenericListControl::GetSelectedIndex()
-{
+int GenericListControl::GetSelectedIndex() {
 	return ListView_GetNextItem(handle, -1, LVNI_SELECTED);
 }

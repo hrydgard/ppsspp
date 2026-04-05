@@ -95,6 +95,7 @@
     <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h" />
     <ClInclude Include="..\..\Common\File\AndroidContentURI.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
+    <ClInclude Include="..\..\Common\File\VFS\SevenZipFileReader.h" />
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\CrossSIMD.h" />
@@ -196,7 +197,6 @@
     <ClInclude Include="..\..\Common\LogReporting.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
-    <ClInclude Include="..\..\Common\MipsEmitter.h" />
     <ClInclude Include="..\..\Common\RiscVEmitter.h" />
     <ClInclude Include="..\..\Common\OSVersion.h" />
     <ClInclude Include="..\..\Common\StringUtils.h" />
@@ -217,6 +217,7 @@
     <ClInclude Include="..\..\Common\UI\AsyncImageFileView.h" />
     <ClInclude Include="..\..\Common\UI\Context.h" />
     <ClInclude Include="..\..\Common\UI\IconCache.h" />
+    <ClInclude Include="..\..\Common\UI\Notice.h" />
     <ClInclude Include="..\..\Common\UI\PopupScreens.h" />
     <ClInclude Include="..\..\Common\UI\Root.h" />
     <ClInclude Include="..\..\Common\UI\Screen.h" />
@@ -236,6 +237,11 @@
     <ClInclude Include="..\..\Common\VR\VRRenderer.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\delay_impl.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\log_impl.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\postoffice_client.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\postoffice_mem.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\sock_impl.h" />
     <ClInclude Include="..\..\ext\at3_standalone\aac_defines.h" />
     <ClInclude Include="..\..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\..\ext\at3_standalone\atrac.h" />
@@ -270,6 +276,21 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7z.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zBuf.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zCrc.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zFile.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zTypes.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zWindows.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Bcj2.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Bra.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Compiler.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\CpuArch.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Delta.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Lzma2Dec.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\LzmaDec.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Precomp.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\RotateDefs.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
@@ -284,6 +305,7 @@
     <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\SevenZipFileReader.cpp" />
     <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />
@@ -325,7 +347,6 @@
     <ClCompile Include="..\..\Common\Input\InputState.cpp" />
     <ClCompile Include="..\..\Common\Math\curves.cpp" />
     <ClCompile Include="..\..\Common\Math\expression_parser.cpp" />
-    <ClCompile Include="..\..\Common\Math\fast\fast_matrix.c" />
     <ClCompile Include="..\..\Common\Math\lin\matrix4x4.cpp" />
     <ClCompile Include="..\..\Common\Math\lin\vec3.cpp" />
     <ClCompile Include="..\..\Common\Math\math_util.cpp" />
@@ -364,8 +385,6 @@
     <ClCompile Include="..\..\Common\MemArenaPosix.cpp" />
     <ClCompile Include="..\..\Common\MemArenaWin32.cpp" />
     <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
-    <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
-    <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
     <ClCompile Include="..\..\Common\RiscVEmitter.cpp" />
     <ClCompile Include="..\..\Common\SysError.cpp" />
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
@@ -381,6 +400,7 @@
     <ClCompile Include="..\..\Common\UI\AsyncImageFileView.cpp" />
     <ClCompile Include="..\..\Common\UI\Context.cpp" />
     <ClCompile Include="..\..\Common\UI\IconCache.cpp" />
+    <ClCompile Include="..\..\Common\UI\Notice.cpp" />
     <ClCompile Include="..\..\Common\UI\PopupScreens.cpp" />
     <ClCompile Include="..\..\Common\UI\Root.cpp" />
     <ClCompile Include="..\..\Common\UI\Screen.cpp" />
@@ -400,6 +420,12 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\delay_impl_cpp.cpp" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\log_impl_ppsspp.cpp" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\mutex_impl_cpp.cpp" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice.c" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_stdc.c" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac3.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac3plus.cpp" />
@@ -434,6 +460,18 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zArcIn.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zBuf.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrc.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrcOpt.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zDec.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zFile.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zStream.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Delta.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Lzma2Dec.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
   </ItemGroup>
@@ -449,10 +487,6 @@
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc" />
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc" />
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />
-    <None Include="..\..\Common\Math\lin\matrix_neon.s" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cpu_features_UWP\cpu_features_UWP.vcxproj">

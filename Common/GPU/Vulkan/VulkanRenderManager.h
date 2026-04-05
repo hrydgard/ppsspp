@@ -165,7 +165,7 @@ struct CompileQueueEntry {
 // Pending descriptor sets.
 // TODO: Sort these by VKRPipelineLayout to avoid storing it for each element.
 struct PendingDescSet {
-	int offset;  // probably enough with a u16.
+	int offset;  // This is in whole PackedDescriptors, not bytes. probably enough with a u16.
 	u8 count;
 	VkDescriptorSet set;
 };
@@ -189,6 +189,10 @@ struct PackedDescriptor {
 #endif
 	};
 };
+
+static_assert(sizeof(PackedDescriptor) == 16, "PackedDescriptor should be exactly 16 bytes");
+static_assert(sizeof(PackedDescriptor::image) == 16, "PackedDescriptor should be exactly 16 bytes");
+static_assert(sizeof(PackedDescriptor::buffer) == 16, "PackedDescriptor should be exactly 16 bytes");
 
 // Note that we only support a single descriptor set due to compatibility with some ancient devices.
 // We should probably eventually give that up eventually.
@@ -451,7 +455,7 @@ public:
 		PendingDescSet &descSet = data.descSets_.push_uninitialized();
 		descSet.offset = (uint32_t)offset;
 		descSet.count = count;
-		// descSet.set = VK_NULL_HANDLE;  // to be filled in
+		descSet.set = VK_NULL_HANDLE;  // to be filled in
 		*descSetIndex = setIndex;
 		return retval;
 	}

@@ -437,6 +437,10 @@ public:
 		return vulkanDeviceApiVersion_;
 	}
 
+	WindowSystem GetWindowSystem() const {
+		return winsys_;
+	}
+
 private:
 	bool ChooseQueue();
 

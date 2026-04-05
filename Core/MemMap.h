@@ -25,6 +25,7 @@
 #include <stddef.h>
 #endif
 
+#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "Core/Opcode.h"
@@ -71,8 +72,7 @@ extern u32 g_PSPModel;
 #define MASKED_PSP_MEMORY
 #endif
 
-enum
-{
+enum {
 	// This may be adjusted by remaster games.
 	RAM_NORMAL_SIZE = 0x02000000,
 	// Used if the PSP model is PSP-2000 (Slim).
@@ -93,26 +93,28 @@ enum {
 	MV_IS_PRIMARY_RAM = 0x100,
 	MV_IS_EXTRA1_RAM = 0x200,
 	MV_IS_EXTRA2_RAM = 0x400,
-	MV_KERNEL = 0x800  // Can be skipped on platforms where memory is tight.
+	MV_KERNEL = 0x800,  // Can be skipped on platforms where memory is tight.
+	MV_NULL_PAGE = 0x1000,
 };
 
-struct MemoryView
-{
+struct MemoryView {
 	u8 **out_ptr;
 	u32 virtual_address;
 	u32 size;
 	u32 flags;
 };
 
-// Uses a memory arena to set up an emulator-friendly memory map
-bool MemoryMap_Setup(u32 flags);
-void MemoryMap_Shutdown(u32 flags);
+enum class MemMapSetupFlags {
+	Default = 0,
+	AllocNullPage = 1,
+};
+ENUM_CLASS_BITOPS(MemMapSetupFlags);
 
 // Init and Shutdown
-bool Init();
+bool Init(MemMapSetupFlags flags);
 void Shutdown();
 void DoState(PointerWrap &p);
-void Clear();
+
 // False when shutdown has already been called.
 bool IsActive();
 
@@ -356,17 +358,17 @@ inline bool IsValidNullTerminatedString(const u32 address) {
 	return false;
 }
 
-inline u32 ValidSize(const u32 address, const u32 requested_size) {
+inline u32 ClampValidSizeAt(const u32 address, const u32 requestedSize) {
 	u32 max_size = MaxSizeAtAddress(address);
-	if (requested_size > max_size) {
+	if (requestedSize > max_size) {
 		return max_size;
 	}
-	return requested_size;
+	return requestedSize;
 }
 
 // NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
 inline bool IsValidRange(const u32 address, const u32 size) {
-	return ValidSize(address, size) == size;
+	return ClampValidSizeAt(address, size) == size;
 }
 
 // NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
@@ -375,7 +377,7 @@ inline bool IsValid4AlignedRange(const u32 address, const u32 size) {
 	if (address & 3) {
 		return false;
 	}
-	return ValidSize(address, size) == size;
+	return ClampValidSizeAt(address, size) == size;
 }
 
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -

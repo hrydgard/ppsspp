@@ -15,12 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-using namespace Platform;
-using namespace Windows::Storage;
-using namespace Windows::Foundation;
-using namespace Windows::UI::Core;
-using namespace Windows::ApplicationModel;
-using namespace Windows::ApplicationModel::Activation;
+#pragma once
+
+#include "pch.h"
 
 // LaunchItem can detect launch items in two cases
 // 1- StorageFile
@@ -28,13 +25,13 @@ using namespace Windows::ApplicationModel::Activation;
 
 // Detect if activate args has launch item
 // it will auto start the item unless 'onlyActivate' set to 'true'
-void DetectLaunchItem(IActivatedEventArgs^ activateArgs, bool onlyActivate = false);
+void DetectLaunchItem(const winrt::Windows::ApplicationModel::Activation::IActivatedEventArgs& activateArgs, bool onlyActivate = false);
 
 // Get current launch item path (same as 'DetectLaunchItem' but it doesn't start)
 // this function made to handle item on startup
 // it will mark the item as 'Handled' by default
 // consider to close it if you want to use it for other purposes
-std::string GetLaunchItemPath(IActivatedEventArgs^ activateArgs);
+std::string GetLaunchItemPath(const winrt::Windows::ApplicationModel::Activation::IActivatedEventArgs& activateArgs);
 
 // Close current launch item
 // it will launch back 'launchOnExit' if passed with URI 'cmd'

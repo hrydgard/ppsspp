@@ -10,7 +10,6 @@ CORE_DIR   := ../..
 FFMPEGDIR  := $(CORE_DIR)/ffmpeg
 FFMPEGLIBS += libavformat libavcodec libavutil libswresample libswscale
 WITH_DYNAREC := 1
-HAVE_LIBRETRO_VFS := 1
 
 ifeq ($(TARGET_ARCH),arm64)
   COREFLAGS += -D_ARCH_64

@@ -111,6 +111,7 @@
 #include "Core/Util/PortManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
 
@@ -154,9 +155,7 @@
 #include <mach-o/dyld.h>
 #endif
 
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-#include "UI/DarwinFileSystemServices.h"
-#endif
+#include "Core/Util/DarwinFileSystemServices.h"
 
 #if !defined(__LIBRETRO__)
 #include "Core/Util/GameDB.h"
@@ -241,30 +240,11 @@ void PostLoadConfig() {
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
-
-	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
-	// test new languages without recompiling the entire app, which is a hassle).
-	const Path langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) / "lang";
-
-	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
-	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
-		g_i18nrepo.LoadIni(g_Config.sLanguageIni);
-	else
-		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+	g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 
 #if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
 	CreateSysDirectories();
 #endif
-}
-
-static Path GetFailedBackendsDir() {
-	Path failedBackendsDir;
-	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-		failedBackendsDir = GetSysDirectory(DIRECTORY_APP_CACHE);
-	} else {
-		failedBackendsDir = GetSysDirectory(DIRECTORY_SYSTEM);
-	}
-	return failedBackendsDir;
 }
 
 static void CheckFailedGPUBackends() {
@@ -347,6 +327,8 @@ static void ClearFailedGPUBackends() {
 
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
+
+	g_Config.Init();
 
 	IncrementDebugCounter(DebugCounter::APP_BOOT);
 
@@ -537,6 +519,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		forceLogLevel = true;
 	};
 
+	// TODO: Need a much better command line argument parser.
+
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
 #if defined(__APPLE__)
@@ -585,12 +569,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.iForceFullScreen = 1;
-					System_ToggleFullscreenState("1");
+					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+					g_Config.bFullScreen = true;
+				}
+				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
+					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
 				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.iForceFullScreen = 0;
-					System_ToggleFullscreenState("0");
+					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
+					g_Config.bFullScreen = false;
 				}
 				if (!strcmp(argv[i], "--touchscreentest"))
 					gotoTouchScreenTest = true;
@@ -663,6 +650,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (fileToLog) {
+		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
 		g_logManager.SetFileLogPath(Path(fileToLog));
 	} else {
@@ -773,6 +761,7 @@ static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, v
 	static int16_t *buffer;
 	static int bufSize;
 	if (bufSize < framesToWrite * 2) {
+		// This one leaks on exit. Oh well.
 		buffer = new int16_t[framesToWrite * 2];
 		bufSize = framesToWrite * 2;
 	}
@@ -848,12 +837,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		// This is a warning, not an error.
 		auto g = GetI18NCategory(I18NCat::GRAPHICS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(g->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), 8.0f, "low_refresh");
-		g_OSD.SetClickCallback("low_refresh", [](bool clicked, void *) {
-			if (clicked) {
-				// Open the display settings.
-				System_OpenDisplaySettings();
-			}
-		}, nullptr);
+		g_OSD.SetClickCallback("low_refresh", []() {
+			// Open the display settings.
+			System_OpenDisplaySettings();
+		});
 	}
 #endif
 
@@ -945,6 +932,10 @@ void NativeShutdownGraphics() {
 	}
 #endif
 
+#if PPSSPP_PLATFORM(IOS)
+	DarwinFileSystemServices::terminate();
+#endif
+
 	if (g_audioBackend) {
 		delete g_audioBackend;
 		g_audioBackend = nullptr;
@@ -972,74 +963,8 @@ void NativeShutdownGraphics() {
 	INFO_LOG(Log::System, "NativeShutdownGraphics end");
 }
 
-static void TakeScreenshot(Draw::DrawContext *draw) {
-	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-	if (!File::Exists(path)) {
-		File::CreateDir(path);
-	}
-
-	// First, find a free filename.
-	//
-	// NOTE: On Android, the old approach of checking filenames one by one doesn't scale.
-	// So let's just grab the full file listing, and then find a name that's not in it.
-	//
-	// TODO: Also, we could do this on a thread too. Not sure if worth it.
-
-	const std::string gameId = g_paramSFO.GetDiscID();
-
-	// TODO: Make something like IterateFileInDir instead.
-	std::vector<File::FileInfo> files;
-	const std::string prefix = gameId + "_";
-	File::GetFilesInDir(path, &files, nullptr, 0, prefix);
-	std::set<std::string> existingNames;
-	for (auto &file : files) {
-		existingNames.insert(file.name);
-	}
-
-	Path filename;
-	int i = 0;
-	for (int i = 0; i < 20000; i++) {
-		const std::string pngName = prefix + StringFromFormat("%05d.png", i);
-		const std::string jpgName = prefix + StringFromFormat("%05d.jpg", i);
-		if (existingNames.find(pngName) == existingNames.end() && existingNames.find(jpgName) == existingNames.end()) {
-			filename = path / (g_Config.bScreenshotsAsPNG ? pngName : jpgName);
-			break;
-		}
-	}
-
-	if (filename.empty()) {
-		// Overwrite this one over and over.
-		filename = path / (prefix + (g_Config.bScreenshotsAsPNG ? "20000.png" : "20000.jpg"));
-	}
-
-	const ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? SCREENSHOT_DISPLAY : SCREENSHOT_OUTPUT;
-
-	const ScreenshotResult result = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](bool success) {
-		if (success) {
-			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
-			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-				g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
-					Path *path = reinterpret_cast<Path *>(data);
-					if (clicked) {
-						System_ShowFileInFolder(*path);
-					} else {
-						delete path;
-					}
-				}, new Path(filename));
-			}
-		} else {
-			auto err = GetI18NCategory(I18NCat::ERRORS);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
-			WARN_LOG(Log::System, "Failed to take screenshot.");
-		}
-	});
-}
-
 void CallbackPostRender(UIContext *dc, void *userdata) {
-	if (g_TakeScreenshot) {
-		TakeScreenshot(dc->GetDrawContext());
-		g_TakeScreenshot = false;
-	}
+	ScreenshotNotifyEndOfFrame(dc->GetDrawContext());
 }
 
 static void SendMouseDeltaAxis();
@@ -1095,11 +1020,19 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_iconCache.FrameUpdate();
 
-	g_screenManager->update();
-
 	if (g_audioBackend) {
-		g_audioBackend->FrameUpdate(g_Config.bAutoAudioDevice);
+		g_audioBackend->FrameUpdate(g_Config.bAutoSwitchAudioDevice);
 	}
+
+	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
+	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
+		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
+	if (g_Config.bGpuLogProfiler)
+		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
+	g_draw->BeginFrame(debugFlags);
+
+	g_screenManager->update();
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
@@ -1138,22 +1071,14 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
 
-	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
-		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
-	if (g_Config.bGpuLogProfiler)
-		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
-
 	// Can be overridden by sceDisplay which may pass true for the second argument.
 	g_frameTiming.ComputePresentMode(g_draw, false);
-
-	g_draw->BeginFrame(debugFlags);
 
 	ui_draw2d.PushDrawMatrix(ortho);
 
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-	// All actual rendering happen in here.
+	// All actual rendering (and also emulation) happens in here.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
@@ -1344,7 +1269,7 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_MOUSE;
 		key.keyCode = keyCode;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
 	}
 
@@ -1365,7 +1290,7 @@ bool NativeKey(const KeyInput &key) {
 #if PPSSPP_PLATFORM(UWP)
 	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
-	if (IgnoreInput(key.keyCode) && !(key.flags & KEY_CHAR)) {
+	if (IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
 		return false;
 	}
 #endif
@@ -1386,10 +1311,12 @@ bool NativeKey(const KeyInput &key) {
 
 #ifdef _DEBUG
 	// Debug hack: Randomize the language with F9!
-	if (false && (key.keyCode == NKCODE_F9 && (key.flags & KEY_DOWN))) {
+	if ((key.keyCode == NKCODE_F9 && (key.flags & KeyInputFlags::DOWN))) {
 		std::vector<File::FileInfo> tempLangs;
 		g_VFS.GetFileListing("lang", &tempLangs, "ini");
 		int x = rand() % tempLangs.size();
+
+		g_Config.DoNotSaveSetting(&g_Config.sLanguageIni);
 		std::string_view code, part2;
 		if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
 			g_Config.sLanguageIni = code;
@@ -1407,11 +1334,11 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	// Handle releases of mousewheel keys.
-	if ((key.flags & KEY_DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+	if ((key.flags & KeyInputFlags::DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
 		ProcessWheelRelease(key.keyCode, now, true);
 	}
 
-	HLEPlugins::SetKey(key.keyCode, (key.flags & KEY_DOWN) ? 1 : 0);
+	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
 	// Dispatch the key event.
 	bool retval = g_screenManager->key(key);
 

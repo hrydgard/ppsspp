@@ -26,13 +26,17 @@ extern JavaVM *gJvm;
 namespace net {
 
 static bool g_naettInitialized;
+static bool g_wsaInitialized;
 
-void Init()
-{
+void Init() {
 #ifdef _WIN32
 	// WSA does its own internal reference counting, no need to keep track of if we inited or not.
-	WSADATA wsaData = {0};
-	WSAStartup(MAKEWORD(2, 2), &wsaData);
+	WSADATA wsaData{};
+	if (FAILED(WSAStartup(MAKEWORD(2, 2), &wsaData))) {
+		ERROR_LOG(Log::sceNet, "WSAStartup failed");
+	} else {
+		g_wsaInitialized = true;
+	}
 #endif
 	if (!g_naettInitialized) {
 #ifndef HTTPS_NOT_AVAILABLE
@@ -47,11 +51,154 @@ void Init()
 	}
 }
 
-void Shutdown()
-{
+void Shutdown() {
 #ifdef _WIN32
-	WSACleanup();
+	if (g_wsaInitialized) {
+		WSACleanup();
+	}
 #endif
+}
+
+// This checks whether a TCP connection to host : port can be established within a given timeout.
+// It does this by attempting a new, non - blocking TCP connect() and waiting for it to succeed or time out.
+// The socket is closed immediately after the check.
+// It does not inspect or detect existing connections from other applications; it only tests reachability by making its own connection attempt.
+bool HostPortExists(const std::string &host, int port, int timeout_ms) {
+	if (host.empty() || (port <= 0 || port > 65535) || timeout_ms < 0) return false;
+
+	addrinfo hints;
+	addrinfo* res = nullptr;
+
+	std::memset(&hints, 0, sizeof(hints));
+	hints.ai_socktype = SOCK_STREAM; // TCP
+	hints.ai_family = AF_UNSPEC;     // IPv4 or IPv6
+
+	int gai = getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res);
+	if (gai != 0) {
+		// getaddrinfo failed (DNS resolve failed or bad port)
+		return false;
+	}
+
+	bool ok = false;
+
+	for (addrinfo* p = res; p != nullptr && !ok; p = p->ai_next) {
+		// create socket
+		int sockfd =
+#ifdef _WIN32
+		(int)socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+#else
+			socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+#endif
+		if (sockfd < 0) {
+			continue;
+		}
+
+		// make non-blocking
+#ifdef _WIN32
+		unsigned long mode = 1;
+		ioctlsocket((SOCKET)sockfd, FIONBIO, &mode);
+#else
+		// On non-Windows, check if fd is too large for select()
+		if (sockfd >= FD_SETSIZE) {
+			close(sockfd);
+			continue;
+		}
+		int flags = fcntl(sockfd, F_GETFL, 0);
+		if (flags == -1) flags = 0;
+		fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+#endif
+
+		// try connect
+		int conn = connect(sockfd, p->ai_addr, (int)p->ai_addrlen);
+#ifdef _WIN32
+		if (conn == 0) {
+			ok = true; // immediate success
+		}
+		else {
+			int err = WSAGetLastError();
+			if (err == WSAEWOULDBLOCK || err == WSAEINPROGRESS) {
+				// fall through to select
+			}
+			else {
+				// immediate failure
+			}
+		}
+#else
+		if (conn == 0) {
+			ok = true; // immediate success
+		}
+		else {
+			if (errno == EINPROGRESS) {
+				// fall through to select
+			}
+			else {
+				// immediate failure
+			}
+		}
+#endif
+
+		if (!ok) {
+			// wait for writable with timeout
+			fd_set writefds;
+			FD_ZERO(&writefds);
+#ifdef _WIN32
+			FD_SET((SOCKET)sockfd, &writefds);
+#else
+			FD_SET(sockfd, &writefds);
+#endif
+
+			fd_set exceptfds;
+			FD_ZERO(&exceptfds);
+#ifdef _WIN32
+			FD_SET((SOCKET)sockfd, &exceptfds);
+#else
+			FD_SET(sockfd, &exceptfds);
+#endif
+
+			timeval tv;
+			tv.tv_sec = timeout_ms / 1000;
+			tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+			int sel = select(
+#ifdef _WIN32
+				0,
+#else
+				sockfd + 1,
+#endif
+				nullptr, &writefds, &exceptfds, &tv);
+
+			if (sel > 0) {
+				// check for error on socket
+				int sock_err = 0;
+				socklen_t len = sizeof(sock_err);
+#ifdef _WIN32
+				int ret = getsockopt((SOCKET)sockfd, SOL_SOCKET, SO_ERROR, (char*)&sock_err, &len);
+#else
+				int ret = getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &sock_err, &len);
+#endif
+#ifdef _WIN32
+				bool writable = FD_ISSET(static_cast<SOCKET>(sockfd), &writefds) != 0;
+#else
+				bool writable = FD_ISSET(sockfd, &writefds) != 0;
+#endif
+
+				if (ret == 0 && sock_err == 0 && writable) {
+					ok = true;
+				}
+			}
+			// else timeout or error -> try next addr
+		}
+
+		// close socket
+#ifdef _WIN32
+		closesocket((SOCKET)sockfd);
+#else
+		close(sockfd);
+#endif
+	}
+
+	freeaddrinfo(res);
+	return ok;
 }
 
 // NOTE: Due to the nature of getaddrinfo, this can block indefinitely. Not good.
@@ -446,7 +593,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	// Create UDP socket
 	if (sockfd < 0) {
 		ERROR_LOG(Log::sceNet, "Socket creation for direct DNS failed");
-		return 1;
+		return false;
 	}
 
 	struct sockaddr_in server_addr{};
@@ -456,7 +603,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if (net::inet_pton(AF_INET, dns_server_ip, &server_addr.sin_addr) <= 0) {
 		ERROR_LOG(Log::sceNet,"Invalid DNS server IP address %s", dns_server_ip);
 		closesocket(sockfd);
-		return 1;
+		return false;
 	}
 
 	// Build DNS query
@@ -478,7 +625,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		ERROR_LOG(Log::sceNet, "Failed to send DNS query");
 		closesocket(sockfd);
-		return 1;
+		return false;
 	}
 
 	// Receive DNS response
@@ -487,7 +634,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	if ((response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len)) < 0) {
 		ERROR_LOG(Log::sceNet, "Failed to receive DNS response");
 		closesocket(sockfd);
-		return 1;
+		return false;
 	}
 
 	// Close socket

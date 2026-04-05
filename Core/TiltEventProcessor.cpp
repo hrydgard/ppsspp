@@ -111,7 +111,7 @@ inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, flo
 }
 
 void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
-	if (g_Config.iTiltInputType == TILT_NULL) {
+	if (g_Config.iTiltInputType == TILT_NULL || !g_Config.bTiltInputEnabled) {
 		// Turned off - nothing to do.
 		return;
 	}
@@ -123,6 +123,16 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 	}
 
 	Lin::Vec3 down = Lin::Vec3(x, y, z).normalized();
+
+	if (my_isnanorinf(down.x) || my_isnanorinf(down.y) || my_isnanorinf(down.z)) {
+		// Invalid data - ignore.
+		static int count = 0;
+		if (count < 20) {
+			WARN_LOG(Log::System, "Bad accelerometer data: %f %f %f (will stop logging after 20)", x, y, z);
+		}
+		count++;
+		return;
+	}
 
 	float angleAroundX = atan2(down.z, down.y);
 	g_currentYAngle = angleAroundX;  // TODO: Should smooth this out over time a bit.

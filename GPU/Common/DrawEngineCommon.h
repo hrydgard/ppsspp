@@ -24,6 +24,7 @@
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
+#include "GPU/GPUDefinitions.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -128,7 +129,7 @@ public:
 	bool CanUseHardwareTessellation(GEPatchPrimType prim) const;
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
-	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
+	std::string DebugGetVertexLoaderString(std::string_view id, DebugShaderStringType stringType);
 
 	virtual void NotifyConfigChanged();
 

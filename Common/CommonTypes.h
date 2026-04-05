@@ -41,9 +41,6 @@ typedef signed __int64 s64;
 #define NO_INLINE __attribute__((noinline))
 
 #ifdef __SWITCH__
-// Some HID conflicts
-#define KEY_UP PKEY_UP
-#define KEY_DOWN PKEY_DOWN
 // Other conflicts
 #define Event _Event
 #define Framebuffer _Framebuffer
@@ -51,8 +48,8 @@ typedef signed __int64 s64;
 #define ThreadContext _ThreadContext
 #include <switch.h>
 // Cleanup
-#undef KEY_UP
-#undef KEY_DOWN
+#undef KeyInputFlags::UP
+#undef KeyInputFlags::DOWN
 #undef Event
 #undef Framebuffer
 #undef Waitable

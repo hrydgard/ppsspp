@@ -587,6 +587,10 @@ bool IRNativeJit::CodeInRange(const u8 *ptr) const {
 	return backend_->CodeInRange(ptr);
 }
 
+const u8 *IRNativeJit::GetCodeBase() const {
+	return backend_->CodeBlock().GetBasePtr();
+}
+
 bool IRNativeJit::IsAtDispatchFetch(const u8 *ptr) const {
 	return ptr == backend_->GetNativeHooks().dispatchFetch;
 }
@@ -719,8 +723,8 @@ int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
 	return irBlocks_.GetNumBlocks();
 }
 
-int IRNativeBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
-	return irBlocks_.GetBlockNumberFromStartAddress(em_address, realBlocksOnly);
+int IRNativeBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_address) const {
+	return irBlocks_.GetBlockNumberFromStartAddress(em_address);
 }
 
 JitBlockProfileStats IRNativeBlockCacheDebugInterface::GetBlockProfileStats(int blockNum) const {

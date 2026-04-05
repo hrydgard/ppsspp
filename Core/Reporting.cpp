@@ -134,19 +134,29 @@ namespace Reporting
 
 		AndroidJNIThreadContext jniContext;
 
-		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
+		IdentifiedFileType type;
 
 		std::string errorString;
-		BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
+		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename), &type, &errorString);
+		if (!fileLoader) {
+			ERROR_LOG(Log::Loader, "Failed to construct file loader for CRC: %s", errorString.c_str());
+			std::lock_guard<std::mutex> guard(crcLock);
+			crcResults[crcFilename] = 0;
+			crcPending = false;
+			crcCond.notify_one();
+			return 0;
+		}
+
+		std::unique_ptr<BlockDevice> blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = CalculateCRC(blockDevice, &crcCancel);
+			crc = CalculateCRC(blockDevice.get(), &crcCancel);
 		} else {
 			ERROR_LOG(Log::Loader, "Failed to read from block device for CRC: %s", errorString.c_str());
 		}
 
-		delete blockDevice;
+		blockDevice.reset();
 		delete fileLoader;
 
 		std::lock_guard<std::mutex> guard(crcLock);
@@ -380,7 +390,11 @@ namespace Reporting
 			return;
 		}
 
+		bool reportingWasUnsupported = everUnsupported;
 		Do(p, everUnsupported);
+		if (!reportingWasUnsupported && everUnsupported) {
+			INFO_LOG(Log::System, "Reporting became unsupported due to loading an old savestate.");
+		}
 	}
 
 	void UpdateConfig() {

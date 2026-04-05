@@ -51,6 +51,10 @@ public:
 		return view;
 	}
 
+	// Note: This deletes the old view, if found. Returns whether the view was found.
+	// If it fails, the newView is deleted.
+	bool ReplaceSubview(View *view, View *newView);
+
 	bool SetFocus() override;
 	bool SubviewFocused(View *view) override;
 	virtual void RemoveSubview(View *view);
@@ -82,7 +86,7 @@ public:
 	std::string DescribeLog() const override { return "ViewGroup: " + View::DescribeLog(); }
 	std::string DescribeText() const override;
 
-	void Recurse(void (*func)(View *view)) override;
+	void Recurse(std::function<void(View *)> func) override;
 
 protected:
 	std::string DescribeListUnordered(std::string_view heading) const;
@@ -280,6 +284,7 @@ public:
 
 	void Update() override;
 
+	// If you call this at creation, call it AFTER adding the subviews!
 	void SetOpen(bool open) {
 		_dbg_assert_(open_);
 		*open_ = open;

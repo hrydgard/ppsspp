@@ -18,8 +18,7 @@
 
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-class CtrlRegisterList
-{
+class CtrlRegisterList {
 	HWND wnd;
 	HFONT font;
 	RECT rect;
@@ -33,7 +32,6 @@ class CtrlRegisterList
 	bool selecting = false;
 	bool hasFocus = false;
 	MIPSDebugInterface *cpu = nullptr;
-	static TCHAR szClassName[];
 
 	u32 lastPC = 0;
 	u32 *lastCat0Values = nullptr;

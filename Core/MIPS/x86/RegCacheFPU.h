@@ -55,10 +55,6 @@ enum {
 #define NUM_X_FPREGS 8
 #endif
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 struct X64CachedFPReg {
 	union {
 		int mipsReg;
@@ -102,7 +98,7 @@ public:
 	FPURegCache();
 	~FPURegCache() {}
 
-	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip);
+	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, bool useRip);
 	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
 	void StoreFromRegisterV(int preg) {

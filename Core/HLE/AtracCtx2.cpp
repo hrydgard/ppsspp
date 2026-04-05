@@ -221,7 +221,7 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 	}
 
-	const int numChunks = (endSample >> (0x100b - (ctx->info).codec & 0x1f));
+	const int numChunks = (endSample >> ((0x100b - (ctx->info).codec) & 0x1f));
 
 	if ((numChunks * (u32)(ctx->info).sampleSize < (wave->waveDataSize + dataOff) - dataOff)) {
 		int retval = ComputeAtracStateAndInitSecondBuffer(&ctx->info, readSize, bufferSize);

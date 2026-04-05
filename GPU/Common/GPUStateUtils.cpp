@@ -1154,6 +1154,19 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 
+	if (gstate_c.dstSquared && useFBRead != FBReadSetting::Forced) {
+		blendState.blendEnabled = true;
+		blendState.applyFramebufferRead = false;
+		blendState.dirtyShaderBlendFixValues = false;
+		blendState.useBlendColor = false;
+		blendState.replaceBlend = REPLACE_BLEND_NO;
+		blendState.simulateLogicOpType = SimulateLogicOpShaderTypeIfNeeded();
+		blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
+		blendState.setEquation(BlendEq::ADD, BlendEq::ADD);
+		blendState.setFactors(BlendFactor::ZERO, BlendFactor::DST_COLOR, BlendFactor::ZERO, BlendFactor::ONE);
+		return;
+	}
+
 	blendState.applyFramebufferRead = false;
 	blendState.dirtyShaderBlendFixValues = false;
 	blendState.useBlendColor = false;

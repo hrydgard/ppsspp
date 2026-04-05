@@ -836,8 +836,7 @@ static void IoStartAsyncThread(int id, FileNode *f) {
 	f->pendingAsyncResult = true;
 }
 
-static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize)
-{
+static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize) {
 	if (!Memory::IsValidNullTerminatedString(alias_addr) ||
 		!Memory::IsValidNullTerminatedString(physical_addr) ||
 		!Memory::IsValidNullTerminatedString(filesystem_addr)) {
@@ -906,18 +905,17 @@ u64 __IoCompleteAsyncIO(FileNode *f) {
 	return 0;
 }
 
-void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in)
-{
-	date_out.year = date_in.tm_year+1900;
-	date_out.month = date_in.tm_mon+1;
+void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int microSeconds) {
+	date_out.year = date_in.tm_year + 1900;
+	date_out.month = date_in.tm_mon + 1;
 	date_out.day = date_in.tm_mday;
 	date_out.hour = date_in.tm_hour;
 	date_out.minute = date_in.tm_min;
 	date_out.second = date_in.tm_sec;
-	date_out.microsecond = 0;
+	date_out.microsecond = microSeconds;
 }
 
-static void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
+static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info) {
 	memset(stat, 0xfe, sizeof(SceIoStat));
 
 	int type, attr;
@@ -932,9 +930,9 @@ static void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	stat->st_mode = type | info.access;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
-	__IoCopyDate(stat->st_a_time, info.atime);
-	__IoCopyDate(stat->st_c_time, info.ctime);
-	__IoCopyDate(stat->st_m_time, info.mtime);
+	ConvertTmToPspDateTime(stat->st_a_time, info.atime, info.atimeUs);
+	ConvertTmToPspDateTime(stat->st_c_time, info.ctime, info.ctimeUs);
+	ConvertTmToPspDateTime(stat->st_m_time, info.mtime, info.mtimeUs);
 	stat->st_private[0] = info.startSector;
 }
 
@@ -1082,7 +1080,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			const std::string tag = "IoRead/" + IODetermineFilename(f);
 			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
 			u8 *data = (u8 *)Memory::GetPointerUnchecked(data_addr);
-			u32 validSize = Memory::ValidSize(data_addr, size);
+			u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, validSize);
 				currentMIPS->InvalidateICache(data_addr, validSize);
@@ -1198,7 +1196,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	}
 
 	const void *data_ptr = Memory::GetPointer(data_addr);
-	const u32 validSize = Memory::ValidSize(data_addr, size);
+	const u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
@@ -1286,6 +1284,9 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 	int us;
 	bool complete = __IoWrite(result, id, data_addr, size, us);
 	if (!complete) {
+		if (!f) {
+			return hleLogError(Log::sceIo, error, "bad file descriptor");
+		}
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
@@ -2320,7 +2321,8 @@ static int sceIoWaitAsync(int id, u32 address) {
 
 			return hleLogDebug(Log::sceIo, 0, "complete");
 		} else {
-			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
+			// This is normal in some games.
+			return hleLogInfo(Log::sceIo, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 		return 0; //completed
 	} else {
@@ -2414,6 +2416,11 @@ public:
 };
 
 static u32 sceIoDopen(const char *path) {
+	if (!path) {
+		// Not tested on the PSP. Matches sceIoOpen.
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+	}
+
 	double startTime = time_now_d();
 
 	bool listingExists = false;
@@ -2590,7 +2597,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			key_ptr = nullptr;
 		}
 
-		DEBUG_LOG(Log::sceIo, "Decrypting PGD DRM files");
+		INFO_LOG(Log::sceIo, "ioctl: Decrypting PGD DRM files from '%s'", f->fullpath.c_str());
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		KirkState *kirk = __ChnnlsvKirkState();

@@ -25,7 +25,6 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/IR/IRRegCache.h"
-#include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
@@ -42,6 +41,8 @@
 #if defined(IR_PROFILING) && defined(GOLD)
 #error
 #endif
+
+struct IRInst;
 
 namespace MIPSComp {
 
@@ -185,7 +186,7 @@ public:
 #endif
 	}
 	void ComputeStats(BlockCacheStats &bcStats) const override;
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+	int GetBlockNumberFromStartAddress(u32 em_address) const override;
 
 	bool SupportsProfiling() const override {
 #ifdef IR_PROFILING
@@ -238,6 +239,9 @@ public:
 
 	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
+
+	// This gets overridden by the native-backed IR jits.
+	const u8 *GetCodeBase() const override { return nullptr; }
 
 protected:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);

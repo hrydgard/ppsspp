@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <map>
 #include <vector>
 #include <set>
@@ -31,7 +32,7 @@
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
 
 // Don't change any of these - it'll break backwards compatibility with configs.
-enum VirtKey {
+enum VirtKey : u32 {
 	VIRTKEY_FIRST = 0x40000001,
 	VIRTKEY_AXIS_X_MIN = 0x40000001,
 	VIRTKEY_AXIS_Y_MIN = 0x40000002,
@@ -51,7 +52,7 @@ enum VirtKey {
 	VIRTKEY_NEXT_SLOT = 0x40000010,
 	VIRTKEY_TOGGLE_FULLSCREEN = 0x40000011,
 	VIRTKEY_ANALOG_LIGHTLY = 0x40000012,
-	VIRTKEY_AXIS_SWAP = 0x40000013,
+	VIRTKEY_AXIS_SWAP_TOGGLE = 0x40000013,
 	VIRTKEY_DEVMENU = 0x40000014,
 	VIRTKEY_FRAME_ADVANCE = 0x40000015,
 	VIRTKEY_RECORD = 0x40000016,
@@ -79,6 +80,8 @@ enum VirtKey {
 	VIRTKEY_RESET_EMULATION = 0x40000032,
 	VIRTKEY_TOGGLE_DEBUGGER = 0x40000033,
 	VIRTKEY_PAUSE_NO_MENU = 0x40000034,
+	VIRTKEY_TOGGLE_TILT = 0x40000035,
+	VIRTKEY_AXIS_SWAP_HOLD = 0x40000036,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -170,7 +173,6 @@ namespace KeyMap {
 	std::string GetKeyOrAxisName(const InputMapping &mapping);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
-	const char *GetVirtKeyName(int vkey);
 	const char *GetPspButtonNameCharPointer(int btn);
 
 	const KeyMap_IntStrPair *GetMappableKeys(size_t *count);
@@ -209,17 +211,19 @@ namespace KeyMap {
 
 	void UpdateNativeMenuKeys();
 
-	void NotifyPadConnected(InputDeviceID deviceId, const std::string &name);
-	bool IsNvidiaShield(const std::string &name);
-	bool IsNvidiaShieldTV(const std::string &name);
-	bool IsXperiaPlay(const std::string &name);
-	bool IsMOQII7S(const std::string &name);
-	bool IsRetroid(const std::string &name);
-	bool HasBuiltinController(const std::string &name);
+	void NotifyPadConnected(InputDeviceID deviceId, std::string_view name);
+	void NotifyPadDisconnected(InputDeviceID deviceId);
+
+	bool IsNvidiaShield(std::string_view name);
+	bool IsNvidiaShieldTV(std::string_view name);
+	bool IsXperiaPlay(std::string_view name);
+	bool IsMOQII7S(std::string_view name);
+	bool IsRetroid(std::string_view name);
+	bool HasBuiltinController(std::string_view name);
 
 	const std::set<std::string> &GetSeenPads();
 	std::string PadName(InputDeviceID deviceId);
-	void AutoConfForPad(const std::string &name);
+	void AutoConfForPad(std::string_view name);
 
 	bool IsKeyMapped(InputDeviceID device, int key);
 

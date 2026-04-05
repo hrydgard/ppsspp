@@ -216,7 +216,7 @@ FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz,
 	// Allocate codec context
 	codecCtx_ = avcodec_alloc_context3(codec_);
 	if (!codecCtx_) {
-		ERROR_LOG(Log::ME, "Failed to allocate a codec context");
+		ERROR_LOG(Log::ME, "Found a decoder for audio codec ID %08x but failed to allocate a codec context. Strange.", audioCodecId);
 		return;
 	}
 #if LIBAVUTIL_VERSION_MAJOR >= 59
@@ -225,16 +225,19 @@ FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz,
 	else
 		codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_MONO;
 #else
-		codecCtx_->channels = channels_;
-		codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+	codecCtx_->channels = channels_;
+	codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
 #endif
 	codecCtx_->sample_rate = sample_rate_;
-	codecOpen_ = false;
 #endif  // USE_FFMPEG
 }
 
 bool FFmpegAudioDecoder::OpenCodec(int block_align) {
 #ifdef USE_FFMPEG
+	if (!codec_ || !codecCtx_) {
+		ERROR_LOG(Log::ME, "Codec context not allocated for some reason. This is bad.");
+		return false;
+	}
 	// Some versions of FFmpeg require this set.  May be set in SetExtraData(), but optional.
 	// When decoding, we decode by packet, so we know the size.
 	if (codecCtx_->block_align == 0) {
@@ -300,6 +303,10 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
 		OpenCodec(inbytes);
+		if (!codecOpen_) {
+			ERROR_LOG(Log::ME, "Codec not open, can't decode.");
+			return false;
+		}
 	}
 
 	AVPacket packet;

@@ -18,7 +18,6 @@
 #pragma once
 
 #include "Common/Data/Collections/Hashmaps.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Common/TextureCacheCommon.h"

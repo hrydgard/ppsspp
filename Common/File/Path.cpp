@@ -513,8 +513,7 @@ bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavio
 	if (len == 0)
 		return true;
 
-	if (path[len - 1] == '/')
-	{
+	if (path[len - 1] == '/') {
 		len--;
 
 		if (len == 0)
@@ -526,14 +525,12 @@ bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavio
 	fullPath.append(basePath);
 
 	size_t start = 0;
-	while (start < len)
-	{
+	while (start < len) {
 		size_t i = path.find('/', start);
 		if (i == std::string::npos)
 			i = len;
 
-		if (i > start)
-		{
+		if (i > start) {
 			std::string component = path.substr(start, i - start);
 
 			// Fix case and stop on nonexistant path component

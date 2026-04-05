@@ -528,7 +528,7 @@ void DrawBuffer::MeasureText(FontID font, std::string_view text, float *w, float
 	if (h) *h = atlasfont->height * fontscaley * lines;
 }
 
-void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bounds &bounds, float *w, float *h, int align) {
+void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, float maxWidth, float *w, float *h, int align) {
 	if (text.empty() || font_id.isInvalid()) {
 		*w = 0.0f;
 		*h = 0.0f;
@@ -546,7 +546,7 @@ void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bo
 			return;
 		}
 		std::string toMeasure = std::string(text);
-		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure, bounds.w, wrap);
+		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure, maxWidth, wrap);
 		toMeasure = wrapper.Wrapped();
 		MeasureText(font_id, toMeasure, w, h);
 	} else {
@@ -591,7 +591,7 @@ void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float
 	}
 
 	float totalWidth, totalHeight;
-	MeasureTextRect(font, toDraw, Bounds(x, y, w, h), &totalWidth, &totalHeight, align);
+	MeasureTextRect(font, toDraw, w, &totalWidth, &totalHeight, align);
 
 	std::vector<std::string_view> lines;
 	SplitString(toDraw, '\n', lines);

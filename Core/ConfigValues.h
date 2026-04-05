@@ -43,6 +43,8 @@ constexpr int VOLUME_FULL = 10;
 constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
 constexpr int AUDIOSAMPLES_MIN = 0;
 constexpr int AUDIOSAMPLES_MAX = 2048;
+constexpr float NO_DEFAULT_FLOAT = -1000000.0f;
+constexpr int NO_DEFAULT_INT = -1000000;
 
 // This matches exactly the old shift-based curve.
 float Volume10ToMultiplier(int volume);
@@ -79,13 +81,19 @@ enum class CPUCore {
 	JIT_IR = 3,
 };
 
+enum class AdhocServerRelayMode {
+	Auto = 0,
+	AlwaysOn = 1,
+	AlwaysOff = 2,
+};
+
 enum {
 	ROTATION_AUTO = 0,
 	ROTATION_LOCKED_HORIZONTAL = 1,
 	ROTATION_LOCKED_VERTICAL = 2,
 	ROTATION_LOCKED_HORIZONTAL180 = 3,
-	ROTATION_LOCKED_VERTICAL180 = 4,
-	ROTATION_AUTO_HORIZONTAL = 5,
+	ROTATION_LOCKED_VERTICAL180 = 4,  // Deprecated
+	ROTATION_AUTO_HORIZONTAL = 5,     // Un-deprecated again
 };
 
 enum TextureFiltering {
@@ -93,6 +101,13 @@ enum TextureFiltering {
 	TEX_FILTER_FORCE_NEAREST = 2,
 	TEX_FILTER_FORCE_LINEAR = 3,
 	TEX_FILTER_AUTO_MAX_QUALITY = 4,
+};
+
+// Can't be named WindowState due to collision with SDL.
+enum class WindowSizeState {
+	Normal = 0,
+	Minimized = 1,
+	Maximized = 2,
 };
 
 enum ReplacementTextureLoadSpeed {
@@ -209,6 +224,7 @@ enum class DumpFileType {
 	EBOOT = (1 << 0),
 	PRX = (1 << 1),
 	Atrac3 = (1 << 2),
+	PBP_ISO = (1 << 3),
 };
 ENUM_CLASS_BITOPS(DumpFileType);
 

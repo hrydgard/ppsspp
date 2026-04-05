@@ -1,5 +1,10 @@
-Most of the vectors in images.svg are custom drawn by hrydgard and NABN00B.
+Most of the vectors in images.svg are custom drawn by hrydgard and some by NABN00B.
 
 Some are derived from public domain SVGs from the following sites:
 
-www.svgrepo.com
+https://www.svgrepo.com
+https://uxwing.com
+
+"Flag of Europe" -- Copyright © Council of Europe
+See the Conditions of use here:
+https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:42012Y0908(01)&qid=1530786690534&from=EN

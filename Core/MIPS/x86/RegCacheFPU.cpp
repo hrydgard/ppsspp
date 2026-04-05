@@ -22,7 +22,6 @@
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Log.h"
 #include "Common/x64Emitter.h"
-#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
@@ -34,7 +33,7 @@ FPURegCache::FPURegCache() {
 	vregs = regs + 32;
 }
 
-void FPURegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip) {
+void FPURegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, bool useRip) {
 	mips_ = mipsState;
 	useRip_ = useRip;
 	if (!initialReady) {

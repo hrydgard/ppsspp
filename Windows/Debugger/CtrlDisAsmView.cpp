@@ -24,10 +24,9 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 
-#include <tchar.h>
 #include <set>
 
-TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
+constexpr const wchar_t *szClassName = L"CtrlDisAsmView";
 
 static constexpr UINT_PTR IDT_REDRAW = 0xC0DE0001;
 static constexpr UINT REDRAW_DELAY = 1000 / 60;
@@ -892,9 +891,25 @@ void CtrlDisAsmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructio
 		delete [] temp;
 	} else {
 		std::string disassembly = DisassembleRange(startAddr,endAddr-startAddr, displaySymbols, debugger);
-		W32Util::CopyTextToClipboard(wnd, disassembly.c_str());
+		W32Util::CopyTextToClipboard(wnd, disassembly);
 	}
 }
+
+void CtrlDisAsmView::CopyFunctionHash(u32 addr) {
+	MIPSAnalyst::AnalyzedFunction func;
+	if (MIPSAnalyst::GetAnalyzedFunctionAt(addr, &func)) {
+		if (func.hasHash) {
+			char temp[256];
+			snprintf(temp, sizeof(temp), "%016llx:%d = %s\n", func.hash, func.size, func.name);
+			W32Util::CopyTextToClipboard(wnd, temp);
+		} else {
+			MessageBox(wnd, L"No hash", L"", 0);
+		}
+	} else {
+		MessageBox(wnd, L"No function", L"", 0);
+	}
+}
+
 
 void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
@@ -945,6 +960,9 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
 			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::OPCODES);
+			break;
+		case ID_DISASM_COPYFUNCTIONHASH:
+			CopyFunctionHash(curAddress);
 			break;
 		case ID_DISASM_NOPINSTRUCTION:
 			NopInstructions(selectRangeStart, selectRangeEnd);
@@ -1297,7 +1315,7 @@ void CtrlDisAsmView::disassembleToFile() {
 	}
 
 	std::string filename;
-	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
+	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
 		std::wstring fileName = ConvertUTF8ToWString(filename);
 		FILE *output = _wfopen(fileName.c_str(), L"wb");
 		if (output == nullptr) {

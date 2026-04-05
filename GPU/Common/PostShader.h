@@ -24,6 +24,8 @@
 #include <string>
 #include <vector>
 
+#include "Common/GPU/thin3d.h"
+
 struct ShaderInfo {
 	Path iniFile;  // which ini file was this definition in? So we can write settings back later
 	std::string section;  // ini file section. This is saved.

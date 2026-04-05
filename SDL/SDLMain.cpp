@@ -76,7 +76,7 @@ SDLJoystick *joystick = NULL;
 #endif
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 #endif
 
 #if PPSSPP_PLATFORM(MAC)
@@ -113,8 +113,7 @@ double g_audioStartTime = 0.0;
 static std::mutex g_mutexWindow;
 struct WindowState {
 	std::string title;
-	bool toggleFullScreenNextFrame;
-	int toggleFullScreenType;
+	bool applyFullScreenNextFrame;
 	bool clipboardDataAvailable;
 	std::string clipboardString;
 	bool update;
@@ -429,19 +428,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #endif
-	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{
 		std::lock_guard<std::mutex> guard(g_mutexWindow);
 		g_windowState.update = true;
-		g_windowState.toggleFullScreenNextFrame = true;
-		if (param1 == "1") {
-			g_windowState.toggleFullScreenType = 1;
-		} else if (param1 == "0") {
-			g_windowState.toggleFullScreenType = 0;
-		} else {
-			// Just toggle.
-			g_windowState.toggleFullScreenType = -1;
-		}
+		g_windowState.applyFullScreenNextFrame = true;
 		return true;
 	}
 	case SystemRequestType::SET_WINDOW_TITLE:
@@ -557,6 +548,17 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 #endif
 		break;
 	}
+	case LaunchUrlType::LOCAL_FILE:
+	case LaunchUrlType::LOCAL_FOLDER:
+#if defined(__APPLE__)
+		// If it's a folder and we're on a mac, open it in finder.
+		OSXShowInFinder(std::string(url).c_str());
+#endif
+		// INFO_LOG(Log::System, "LaunchUrlType::LOCAL_FILE not implemented on this platform");
+		break;
+	default:
+		INFO_LOG(Log::System, "Unhandled LaunchUrlType %d", (int)urlType);
+		break;
 	}
 }
 
@@ -820,13 +822,11 @@ static float parseFloat(const char *str) {
 
 void UpdateWindowState(SDL_Window *window) {
 	SDL_SetWindowTitle(window, g_windowState.title.c_str());
-	if (g_windowState.toggleFullScreenNextFrame) {
-		g_windowState.toggleFullScreenNextFrame = false;
+	if (g_windowState.applyFullScreenNextFrame) {
+		g_windowState.applyFullScreenNextFrame = false;
 
 		Uint32 window_flags = SDL_GetWindowFlags(window);
-		if (g_windowState.toggleFullScreenType == -1) {
-			window_flags ^= SDL_WINDOW_FULLSCREEN_DESKTOP;
-		} else if (g_windowState.toggleFullScreenType == 1) {
+		if (g_Config.bFullScreen) {
 			window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		} else {
 			window_flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -959,15 +959,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			Native_NotifyWindowHidden(false);
 
 			Uint32 window_flags = SDL_GetWindowFlags(window);
-			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+			bool fullscreen = (window_flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP));
 
 			// This one calls NativeResized if the size changed.
 			Native_UpdateScreenScale(new_width_px, new_height_px, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 			// Set variable here in case fullscreen was toggled by hotkey
-			if (g_Config.UseFullScreen() != fullscreen) {
+			if (g_Config.bFullScreen != fullscreen) {
 				g_Config.bFullScreen = fullscreen;
-				g_Config.iForceFullScreen = -1;
 			} else {
 				// It is possible for the monitor to change DPI, so recalculate
 				// DPI on each resize event.
@@ -990,13 +989,29 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_WINDOWEVENT_MOVED:
 		{
 			Uint32 window_flags = SDL_GetWindowFlags(window);
-			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+			bool fullscreen = (window_flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP));
 			if (!fullscreen) {
 				g_Config.iWindowX = (int)event.window.data1;
 				g_Config.iWindowY = (int)event.window.data2;
 			}
 			break;
 		}
+
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+		{
+			if (g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
+				Core_Break(BreakReason::UIFocus, 0);
+			}
+		}
+		break;
+
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+		{
+			if (Core_BreakReason() == BreakReason::UIFocus) {
+				Core_Resume();
+			}
+		}
+		break;
 
 		case SDL_WINDOWEVENT_MINIMIZED:
 		case SDL_WINDOWEVENT_HIDDEN:
@@ -1016,7 +1031,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			if (event.key.repeat > 0) { break;}
 			int k = event.key.keysym.sym;
 			KeyInput key;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			auto mapped = KeyMapRawSDLtoNative.find(k);
 			if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
 				break;
@@ -1053,7 +1068,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				if (k == SDLK_F11) {
 #if !defined(MOBILE_DEVICE)
 					g_Config.bFullScreen = !g_Config.bFullScreen;
-					System_ToggleFullscreenState("");
+					System_applyFullscreenState("");
 #endif
 				}
 				*/
@@ -1065,7 +1080,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			if (event.key.repeat > 0) { break;}
 			int k = event.key.keysym.sym;
 			KeyInput key;
-			key.flags = KEY_UP;
+			key.flags = KeyInputFlags::UP;
 			auto mapped = KeyMapRawSDLtoNative.find(k);
 			if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
 				break;
@@ -1080,7 +1095,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			int pos = 0;
 			int c = u8_nextchar(event.text.text, &pos, strlen(event.text.text));
 			KeyInput key;
-			key.flags = KEY_CHAR;
+			key.flags = KeyInputFlags::CHAR;
 			key.unicodeChar = c;
 			key.deviceId = DEVICE_ID_KEYBOARD;
 			NativeKey(key);
@@ -1096,7 +1111,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_MOVE;
+			input.flags = TouchInputFlags::MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 			break;
@@ -1109,14 +1124,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_DOWN;
+			input.flags = TouchInputFlags::DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
 			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			NativeKey(key);
 			break;
 		}
@@ -1128,14 +1143,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = event.tfinger.fingerId;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
 			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-			input.flags = TOUCH_UP;
+			input.flags = TouchInputFlags::UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
 
 			KeyInput key;
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-			key.flags = KEY_UP;
+			key.flags = KeyInputFlags::UP;
 			NativeKey(key);
 			break;
 		}
@@ -1148,11 +1163,11 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				input.buttons = 1;
 				input.id = 0;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
@@ -1162,29 +1177,29 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
 				input.buttons = 2;
 				input.id = 0;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_MIDDLE:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X1:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X2:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KeyInputFlags::DOWN);
 				NativeKey(key);
 			}
 			break;
@@ -1194,18 +1209,18 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		{
 			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 #if SDL_VERSION_ATLEAST(2, 0, 18)
 			if (event.wheel.preciseY != 0.0f) {
 				// Should the scale be DPI-driven?
 				const float scale = 30.0f;
 				key.keyCode = event.wheel.preciseY > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
-				key.flags |= KEY_HASWHEELDELTA;
+				key.flags |= KeyInputFlags::HAS_WHEEL_DELTA;
 				int wheelDelta = event.wheel.preciseY * scale;
 				if (event.wheel.preciseY < 0) {
 						wheelDelta = -wheelDelta;
 				}
-				key.flags |= wheelDelta << 16;
+				key.flags = (KeyInputFlags)((u32)key.flags | (wheelDelta << 16));
 				NativeKey(key);
 				break;
 			}
@@ -1224,7 +1239,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
-			input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+			input.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
 			input.buttons = inputTracker->mouseDown;
 			input.id = 0;
 			NativeTouch(input);
@@ -1241,10 +1256,10 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				input.buttons = 1;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
@@ -1256,28 +1271,28 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
 				input.buttons = 2;
 				NativeTouch(input);
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_MIDDLE:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X1:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
 		case SDL_BUTTON_X2:
 			{
-				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KeyInputFlags::UP);
 				NativeKey(key);
 			}
 			break;
@@ -1294,7 +1309,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				break;
 			}
 			// Don't start auto switching for a couple of seconds, because some devices init on start.
-			bool doAutoSwitch = g_Config.bAutoAudioDevice;
+			bool doAutoSwitch = g_Config.bAutoSwitchAudioDevice;
 			if ((time_now_d() - g_audioStartTime) < 3.0) {
 				INFO_LOG(Log::Audio, "Ignoring new audio device: %s (current: %s)", name, g_Config.sAudioDevice.c_str());
 				doAutoSwitch = false;
@@ -1341,9 +1356,9 @@ void UpdateSDLCursor() {
 #if !defined(MOBILE_DEVICE)
 	if (lastUIState != GetUIState()) {
 		lastUIState = GetUIState();
-		if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !g_Config.bShowTouchControls)
+		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
 			SDL_ShowCursor(SDL_DISABLE);
-		if (lastUIState != UISTATE_INGAME || !g_Config.UseFullScreen())
+		if (lastUIState != UISTATE_INGAME || !g_Config.bFullScreen)
 			SDL_ShowCursor(SDL_ENABLE);
 	}
 #endif
@@ -1471,7 +1486,7 @@ int main(int argc, char *argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--fullscreen")) {
 			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-			g_Config.iForceFullScreen = 1;
+			g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
 		} else if (set_xres == -2)
 			set_xres = parseInt(argv[i]);
 		else if (set_yres == -2)
@@ -1578,8 +1593,7 @@ int main(int argc, char *argv[]) {
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
 		g_display.pixel_xres = g_DesktopWidth;
 		g_display.pixel_yres = g_DesktopHeight;
-		if (g_Config.iForceFullScreen == -1)
-			g_Config.bFullScreen = true;
+		g_Config.bFullScreen = true;
 	} else {
 		// set a sensible default resolution (2x)
 		g_display.pixel_xres = 480 * 2 * set_scale;
@@ -1587,8 +1601,7 @@ int main(int argc, char *argv[]) {
 		if (portrait) {
 			std::swap(g_display.pixel_xres, g_display.pixel_yres);
 		}
-		if (g_Config.iForceFullScreen == -1)
-			g_Config.bFullScreen = false;
+		g_Config.bFullScreen = false;
 	}
 
 	if (set_ipad) {
@@ -1639,8 +1652,11 @@ int main(int argc, char *argv[]) {
 	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
-	if (g_Config.UseFullScreen())
+	if (g_Config.bFullScreen) {
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		g_display.pixel_xres = g_DesktopWidth;
+		g_display.pixel_yres = g_DesktopHeight;
+	}
 
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
@@ -1755,7 +1771,7 @@ int main(int argc, char *argv[]) {
 
 	// Avoid the IME popup when holding keys. This doesn't affect all versions of SDL.
 	// Note: We re-enable it in text input fields! This is necessary otherwise we don't receive
-	// KEY_CHAR events.
+	// KeyInputFlags::CHAR events.
 	SDL_StopTextInput();
 
 	InitSDLAudioDevice();
@@ -1796,9 +1812,15 @@ int main(int argc, char *argv[]) {
 		// input events, and so on.
 		while (true) {
 			SDL_Event event;
-			while (SDL_WaitEventTimeout(&event, 100)) {
-				ProcessSDLEvent(window, event, &inputTracker);
+			if (SDL_WaitEventTimeout(&event, 100)) {
+				do {
+					ProcessSDLEvent(window, event, &inputTracker);
+
+					if (g_QuitRequested || g_RestartRequested)
+						break;
+				} while (SDL_PollEvent(&event));
 			}
+
 			if (g_QuitRequested || g_RestartRequested)
 				break;
 

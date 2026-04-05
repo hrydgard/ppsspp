@@ -61,7 +61,11 @@
 	url = https://github.com/hrydgard/ppsspp-lua.git
 [submodule "ext/freetype"]
 	path = ext/freetype
-	url = https://github.com/hrydgard/freetype.git 
+	url = https://github.com/hrydgard/freetype.git
 [submodule "ext/nanosvg"]
 	path = ext/nanosvg
 	url = https://github.com/hrydgard/nanosvg.git
+[submodule "ext/aemu_postoffice"]
+	path = ext/aemu_postoffice
+	url = https://github.com/Kethen/aemu_postoffice.git
+	branch = ppsspp

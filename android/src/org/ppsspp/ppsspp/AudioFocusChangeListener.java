@@ -3,6 +3,8 @@ package org.ppsspp.ppsspp;
 import android.media.AudioManager;
 import android.media.AudioManager.OnAudioFocusChangeListener;
 
+import androidx.annotation.Keep;
+
 public class AudioFocusChangeListener implements OnAudioFocusChangeListener {
 	// not used right now, but we may need to use it sometime. So just store it
 	// for now.
@@ -21,6 +23,7 @@ public class AudioFocusChangeListener implements OnAudioFocusChangeListener {
 		}
 	}
 
+	@Keep
 	public boolean hasAudioFocus() {
 		return hasAudioFocus;
 	}

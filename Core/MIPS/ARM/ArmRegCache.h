@@ -51,10 +51,6 @@ enum {
 
 }
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 // R1 to R6: mapped MIPS regs
 // R8 = flags (maybe we could do better here?)
 // R9 = code pointers
@@ -91,7 +87,7 @@ public:
 	~ArmRegCache() {}
 
 	void Init(ArmGen::ARMXEmitter *emitter);
-	void Start(MIPSAnalyst::AnalysisResults &stats);
+	void Start();
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.

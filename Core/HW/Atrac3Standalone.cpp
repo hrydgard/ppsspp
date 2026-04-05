@@ -31,7 +31,7 @@ public:
 			buffers_[i] = new float[4096];
 		}
 	}
-	~Atrac3Audio() {
+	~Atrac3Audio() override {
 		if (at3Ctx_) {
 			atrac3_free(at3Ctx_);
 		}

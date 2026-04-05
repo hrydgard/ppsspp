@@ -6,6 +6,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Root.h"
+#include "Common/UI/Notice.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
@@ -16,19 +17,38 @@
 
 namespace UI {
 
+static void TextToImage(std::string_view buttonText, ImageID *image) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	if (buttonText == di->T("Delete") || buttonText == di->T("Move to trash")) {
+		*image = ImageID("I_TRASHCAN");
+	} else if (buttonText == di->T("Back")) {
+		*image = ImageID("I_NAVIGATE_BACK");
+	} else if (buttonText == di->T("Add")) {
+		*image = ImageID("I_PLUS");
+	} else if (buttonText == di->T("OK")) {
+		*image = ImageID("I_CHECKMARK");
+	} else if (buttonText == di->T("Cancel")) {
+		*image = ImageID("I_NAVIGATE_BACK");
+	} else if (buttonText == di->T("Exit")) {
+		*image = ImageID("I_EXIT");
+	}
+}
+
 PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
 	: title_(title), button1_(button1), button2_(button2) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	// Auto-assign images. A bit hack to have this here.
-	if (button1 == di->T("Delete") || button1 == di->T("Move to trash")) {
-		button1Image_ = ImageID("I_TRASHCAN");
+	if (!button1.empty()) {
+		TextToImage(button1, &button1Image_);
+	}
+	if (!button2.empty()) {
+		TextToImage(button2, &button2Image_);
 	}
 
 	alpha_ = 0.0f;  // inherited
 }
 
 void PopupScreen::touch(const TouchInput &touch) {
-	if (!box_ || (touch.flags & TOUCH_DOWN) == 0) {
+	if (!box_ || (touch.flags & TouchInputFlags::DOWN) == 0) {
 		// Handle down-presses here.
 		UIDialogScreen::touch(touch);
 		return;
@@ -45,7 +65,7 @@ void PopupScreen::touch(const TouchInput &touch) {
 }
 
 bool PopupScreen::key(const KeyInput &key) {
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		if ((key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_NUMPAD_ENTER) && defaultButton_) {
 			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);
@@ -127,12 +147,18 @@ void PopupScreen::CreateViews() {
 	anchor->Overflow(false);
 	root_ = anchor;
 
-	const float ySize = FillVertical() ? dc.GetLayoutBounds().h - 30 : WRAP_CONTENT;
+	const Bounds layoutBounds = GetLayoutBounds(dc);
+	const float ySize = FillVertical() ? layoutBounds.h - 30 : WRAP_CONTENT;
 
-	int y = dc.GetBounds().centerY() + offsetY_;
+	int y = (layoutBounds.h - RootMargins().vert()) * 0.5f + offsetY_;
 	Centering vCentering = Centering::Vertical;
 	if (alignTop_) {
-		y = 0;
+		if (GetDeviceOrientation() == DeviceOrientation::Landscape) {
+			y = 0;
+		} else {
+			// In portrait, we need some space.
+			y = 200;
+		}
 		vCentering = Centering::None;
 	}
 
@@ -140,12 +166,12 @@ void PopupScreen::CreateViews() {
 
 	AnchorLayoutParams *anchorParams;
 	// NOTE: We purely use the popup width here to decide the type of layout, instead of the device orientation.
-	if (dc.GetLayoutBounds().w < popupWidth + 50) {
+	if (layoutBounds.w < popupWidth + 50) {
 		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
 			10, y, 10, NONE, vCentering);
 	} else {
 		anchorParams = new AnchorLayoutParams(popupWidth, ySize,
-			dc.GetBounds().centerX(), y, NONE, NONE, vCentering | Centering::Horizontal);
+			(layoutBounds.w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
 	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
@@ -160,6 +186,10 @@ void PopupScreen::CreateViews() {
 	if (!title_.empty()) {
 		View *title = new PopupHeader(title_);
 		box_->Add(title);
+	}
+
+	if (!notificationString_.empty()) {
+		box_->Add(new NoticeView(notificationLevel_, notificationString_, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))))->SetWrapText(true);
 	}
 
 	CreatePopupContents(box_);
@@ -180,11 +210,11 @@ void PopupScreen::CreateViews() {
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
 		} else {
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
@@ -215,6 +245,8 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
+ListPopupScreen::~ListPopupScreen() {}
+
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
@@ -231,8 +263,31 @@ void ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	OnChoice.Dispatch(e);
 }
 
+void AbstractContextMenuScreen::AlignPopup(UI::View *parent) {
+	if (!sourceView_) {
+		// No menu-like arrangement
+		return;
+	}
+
+	// Hacky: Override the position to look like a popup menu.
+
+	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
+	ap->centering = Centering::None;
+	// TODO: Some more robust check here...
+	if (sourceView_->GetBounds().x2() > g_display.dp_xres - 300) {
+		ap->left = NONE;
+		// NOTE: Right here is not distance from the left, but distance from the right. Doh.
+		ap->right = g_display.dp_xres - sourceView_->GetBounds().x2();
+	} else {
+		ap->left = sourceView_->GetBounds().x;
+		ap->right = NONE;
+	}
+	ap->top = sourceView_->GetBounds().y2();
+	ap->bottom = NONE;
+}
+
 PopupContextMenuScreen::PopupContextMenuScreen(const ContextMenuItem *items, size_t itemCount, I18NCat category, UI::View *sourceView)
-	: PopupScreen("", "", ""), items_(items), itemCount_(itemCount), category_(category), sourceView_(sourceView)
+	: AbstractContextMenuScreen(sourceView), items_(items), itemCount_(itemCount), category_(category)
 {
 	enabled_.resize(itemCount, true);
 	SetPopupOrigin(sourceView);
@@ -260,11 +315,13 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	}
 
-	// Hacky: Override the position to look like a popup menu.
-	AnchorLayoutParams *ap = (AnchorLayoutParams *)parent->GetLayoutParams();
-	ap->centering = Centering::None;
-	ap->left = sourceView_->GetBounds().x;
-	ap->top = sourceView_->GetBounds().y2();
+	AlignPopup(parent);
+}
+
+PopupCallbackScreen::PopupCallbackScreen(std::function<void(UI::ViewGroup *)> createViews, UI::View *sourceView) : AbstractContextMenuScreen(sourceView), createViews_(createViews) {
+	if (sourceView) {
+		SetPopupOrigin(sourceView);
+	}
 }
 
 void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
@@ -272,6 +329,7 @@ void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
 	for (int i = 0; i < parent->GetNumSubviews(); i++) {
 		parent->GetViewByIndex(i)->SetAutoResult(DialogResult::DR_OK);
 	}
+	AlignPopup(parent);
 }
 
 std::string ChopTitle(const std::string &title) {
@@ -280,6 +338,20 @@ std::string ChopTitle(const std::string &title) {
 		return title.substr(0, pos);
 	}
 	return title;
+}
+
+PopupMultiChoice::PopupMultiChoice(int *value, std::string_view text, const char **choices, int minVal, int numChoices,
+	I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), category_(category), screenManager_(screenManager) {
+	if (choices) {
+		// If choices is nullptr, we're being called from PopupMultiChoiceDynamic where value doesn't yet point to anything valid.
+		if (*value >= numChoices + minVal)
+			*value = numChoices + minVal - 1;
+		if (*value < minVal)
+			*value = minVal;
+		UpdateText();
+	}
+	OnClick.Handle(this, &PopupMultiChoice::HandleClick);
 }
 
 void PopupMultiChoice::HandleClick(UI::EventParams &e) {
@@ -297,10 +369,10 @@ void PopupMultiChoice::HandleClick(UI::EventParams &e) {
 		choices.push_back(category ? std::string(category->T(choices_[i])) : std::string(choices_[i]));
 	}
 
-	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
-		std::bind(&PopupMultiChoice::ChoiceCallback, this, std::placeholders::_1));
+	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_, [this](int num) {ChoiceCallback(num);});
 	popupScreen->SetHiddenChoices(hidden_);
 	popupScreen->SetChoiceIcons(icons_);
+	popupScreen->SetDefault(default_);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
@@ -318,7 +390,12 @@ void PopupMultiChoice::UpdateText() {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
 		if (choices_[index]) {
-			valueText_ = T(category_, choices_[index]);
+			std::string text(T(category_, choices_[index]));
+			if (default_ == index) {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				text = ApplySafeSubstitutions("%1 (%2)", text, di->T("Default"));
+			}
+			valueText_ = std::move(text);
 		} else {
 			valueText_ = "";
 		}
@@ -344,7 +421,8 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 	}
 }
 
-std::string PopupMultiChoice::ValueText() const {
+std::string PopupMultiChoice::ValueText(bool *shadow) const {
+	*shadow = false;
 	return valueText_;
 }
 
@@ -436,7 +514,8 @@ static bool IsValidNumberFormatString(std::string_view s) {
 	return percentCount == 1;
 }
 
-std::string PopupSliderChoice::ValueText() const {
+std::string PopupSliderChoice::ValueText(bool *shadow) const {
+	*shadow = false;
 	// Always good to have space for Unicode.
 	char temp[256];
 	temp[0] = '\0';
@@ -477,7 +556,8 @@ void PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 	}
 }
 
-std::string PopupSliderChoiceFloat::ValueText() const {
+std::string PopupSliderChoiceFloat::ValueText(bool *shadow) const {
+	*shadow = false;
 	char temp[256];
 	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0.0f) {
@@ -715,9 +795,10 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [=](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [this](const std::string &enteredValue, int) {
 			*value_ = SanitizeString(StripSpaces(enteredValue), restriction_, minLen_, maxLen_);
 			EventParams params{};
+			params.v = this;
 			OnChange.Trigger(params);
 		});
 		return;
@@ -728,24 +809,111 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);
 	}
-	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
+	popupScreen->OnChange.Add([this](EventParams &e) {
+		*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
+		EventParams params{};
+		params.v = this;
+		OnChange.Trigger(params);
+		if (restoreFocus_) {
+			SetFocusedView(this);
+		}
+	});
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 }
 
-std::string PopupTextInputChoice::ValueText() const {
-	return *value_;
+std::string PopupTextInputChoice::ValueText(bool *shadow) const {
+	if (value_->empty()) {
+		*shadow = true;
+		return shadowText_;
+	} else {
+		*shadow = false;
+		return *value_;
+	}
 }
 
-void PopupTextInputChoice::HandleChange(EventParams &e) {
-	*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
-	e.v = this;
-	OnChange.Trigger(e);
+ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
+	ScrollView *scrollView = new ScrollView(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	if (restoreFocus_) {
-		SetFocusedView(this);
+	LinearLayout *keyboard = scrollView->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+	// TODO: Make something a bit more international... Although we don't need that for domain names.
+	static struct {
+		std::string_view v; const char *tag;
+	} kbRows[] = {
+		{"1234567890-=", "A"},
+		{"qwertyuiop'[]", "L"},
+		{"asdfghjkl()", "L"},
+		{"zxcvbnm,.", "L"},
+		{"QWERTYUIOP'[]", "U"},
+		{"ASDFGHJKL()", "U"},
+		{"ZXCVBNM,.", "U"},
+		{"", "A"},
+	};
+	static const float space[] = {
+		0.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 30.0f,
+	};
+
+	static_assert(ARRAY_SIZE(kbRows) == ARRAY_SIZE(space));
+
+	keyboard->SetSpacing(5.0f);
+	for (int i = 0; i < ARRAY_SIZE(kbRows); i++) {
+		LinearLayout *row = keyboard->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		row->SetSpacing(5.0f);
+		row->Add(new Spacer(space[i]));
+		row->SetTag(kbRows[i].tag);
+		for (int j = 0; j < kbRows[i].v.length(); j++) {
+			char c = kbRows[i].v[j];
+			row->Add(new Button(StringFromFormat("%c", c), new LinearLayoutParams(40.0f, 50.0f)))->OnClick.Add([edit, c](EventParams &) {
+				edit->InsertAtCaret(StringFromFormat("%c", c).c_str());
+			});
+		}
+
+		bool visible = false;
+		switch (kbRows[i].tag[0]) {
+		case 'L': visible = !(*upperCase); break;
+		case 'U': visible = *upperCase; break;
+		case 'A': visible = true; break;
+		default: visible = false; break;
+		}
+		row->SetVisibility(visible ? V_VISIBLE : V_GONE);
+
+		switch (i) {
+		case 0:
+			// Add backspace button at the end of the first row.
+			row->Add(new Button("", ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->Backspace();
+			});
+			break;
+		case 7:
+			// Special keys.
+			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([keyboard, upperCase](EventParams &) {
+				*upperCase = !(*upperCase);
+				// Work through visibility.
+				for (int i = 0; i < keyboard->GetNumSubviews(); i++) {
+					LinearLayout *row = (LinearLayout *)keyboard->GetViewByIndex(i);
+					switch (row->Tag()[0]) {
+					case 'L': row->SetVisibility(*upperCase ? V_GONE : V_VISIBLE); break;
+					case 'U': row->SetVisibility(*upperCase ? V_VISIBLE : V_GONE); break;
+					case 'A': row->SetVisibility(V_VISIBLE); break;
+					default: row->SetVisibility(V_GONE); break;
+					}
+				}
+			});
+
+			row->Add(new Button("Space", new LinearLayoutParams(200.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->SetText(edit->GetText() + " ");
+			});
+			row->Add(new Button("", ImageID("I_ARROW_LEFT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->MoveLeft();
+			});
+			row->Add(new Button("", ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+				edit->MoveRight();
+			});
+			break;
+		}
 	}
+	return scrollView;
 }
 
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -753,12 +921,25 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	UIContext &dc = *screenManager()->getUIContext();
 
 	textEditValue_ = *value_;
-	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
-	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f));
+	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f, Gravity::G_VCENTER, Margins(8)));
 	edit_->SetMaxLen(maxLen_);
 	edit_->SetTextColor(dc.GetTheme().popupStyle.fgColor);
 	edit_->SetPasswordMasking(passwordMasking_);
 	lin->Add(edit_);
+
+	parent->Add(new Spacer(8.0f));
+
+	keyboard_ = parent->Add(CreateSoftKeyboard(edit_, &upperCase_));
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+		keyboard_->SetVisibility(V_GONE);
+		lin->Add(new Spacer(5.0f));
+		showKeyboardChoice_ = lin->Add(new Choice(ImageID("I_KEYBOARD"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		showKeyboardChoice_->OnClick.Add([this](EventParams &) {
+			keyboard_->SetVisibility(V_VISIBLE);
+			showKeyboardChoice_->SetEnabled(false);
+		});
+	}
 
 	UI::SetFocusedView(edit_);
 }
@@ -773,7 +954,8 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 }
 
 void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
-	const std::string valueText = ValueText();
+	bool shadow;
+	const std::string valueText = ValueText(&shadow);
 	int paddingX = 12;
 	// Assume we want at least 20% of the size for the label, at a minimum.
 	float availWidth = (horiz.size - paddingX * 2) * (text_.empty() ? 1.0f : 0.8f);
@@ -781,10 +963,9 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 		availWidth = 65535.0f;
 	}
 	float scale = CalculateValueScale(dc, valueText, availWidth);
-	Bounds availBounds(0, 0, availWidth, vert.size);
 
 	float valueW, valueH;
-	dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availBounds, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availWidth, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	valueW += paddingX;
 
 	// Give the choice itself less space to grow in, so it shrinks if needed.
@@ -814,7 +995,8 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	std::string valueText = ValueText();
+	bool shadow;
+	std::string valueText = ValueText(&shadow);
 
 	if (passwordMasking_) {
 		// Replace all characters with stars.
@@ -822,14 +1004,17 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	}
 
 	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
+	u32 color = style.fgColor;
+	if (shadow) {
+		color = alphaMul(color, 0.4f);
+	}
 
 	if (!text_.empty() && !hideTitle_) {
 		float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
 		float scale = CalculateValueScale(dc, valueText, availWidth);
 
 		float w, h;
-		Bounds availBounds(0, 0, availWidth, bounds_.h);
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availWidth, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		textPadding_.right = w + paddingX;
 
 		Choice::Draw(dc);
@@ -839,28 +1024,35 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		}
 		dc.SetFontScale(scale, scale);
 		Bounds valueBounds(bounds_.x2() - textPadding_.right - imagePadding, bounds_.y, w, bounds_.h);
-		dc.DrawTextRect(valueText, valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(valueText, valueBounds, color, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	} else {
 		Choice::Draw(dc);
+
+		if (iconOnly_) {
+			// In this case we only display the image of the choice. Useful for small buttons spawning a popup.
+			dc.Draw()->DrawImageRotated(ValueImage(), bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
+			return;
+		}
+
 		float scale = CalculateValueScale(dc, valueText, bounds_.w);
 		dc.SetFontScale(scale, scale);
-		dc.DrawTextRect(valueText, bounds_.Expand(-paddingX, 0.0f), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(valueText, bounds_.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 }
 
 float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const {
 	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, valueText, availBounds, &actualWidth, &actualHeight);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, valueText, availWidth, &actualWidth, &actualHeight);
 	if (actualWidth > availWidth) {
 		return std::max(0.8f, availWidth / actualWidth);
 	}
 	return 1.0f;
 }
 
-std::string ChoiceWithValueDisplay::ValueText() const {
+std::string ChoiceWithValueDisplay::ValueText(bool *shadow) const {
+	*shadow = false;
 	auto category = GetI18NCategory(category_);
 	std::ostringstream valueText;
 	if (translateCallback_ && sValue_) {
@@ -890,7 +1082,8 @@ FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, s
 	});
 }
 
-std::string FileChooserChoice::ValueText() const {
+std::string FileChooserChoice::ValueText(bool *shadow) const {
+	*shadow = false;
 	if (value_->empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		return std::string(di->T("Default"));
@@ -913,7 +1106,8 @@ FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *valu
 	});
 }
 
-std::string FolderChooserChoice::ValueText() const {
+std::string FolderChooserChoice::ValueText(bool *shadow) const {
+	*shadow = false;
 	if (value_->empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		return std::string(di->T("Default"));

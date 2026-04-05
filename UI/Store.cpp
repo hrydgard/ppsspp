@@ -64,7 +64,7 @@ public:
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownloadWithCallback(path_, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, [](http::Request &download) {
+			requestManager_->StartDownload(path_, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, acceptMime, "", [](http::Request &download) {
 				// Can't touch 'this' in this function! Don't use captures!
 				std::string path = download.url();
 				if (download.ResultCode() == 200) {
@@ -78,7 +78,7 @@ public:
 				} else {
 					g_iconCache.CancelPending(path);
 				}
-			}, acceptMime);
+			});
 		}
 	}
 
@@ -102,8 +102,6 @@ public:
 	const std::string &GetFilename() const { return path_; }
 
 private:
-	void DownloadCompletedCallback(http::Request &download);
-
 	bool canFocus_ = false;
 	bool useIconCache_ = false;
 	std::string path_;  // or cache key
@@ -161,26 +159,23 @@ void HttpImageFileView::SetFilename(const std::string &filename) {
 	}
 }
 
-void HttpImageFileView::DownloadCompletedCallback(http::Request &download) {
-	if (download.IsCancelled()) {
-		// We were probably destroyed. Can't touch "this" (heh).
-		return;
-	}
-	if (download.ResultCode() == 200) {
-		download.buffer().TakeAll(&textureData_);
-	} else {
-		textureFailed_ = true;
-	}
-}
-
 void HttpImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 
 	if (!useIconCache_) {
 		if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
-			auto cb = std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1);
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownloadWithCallback(path_, Path(), http::RequestFlags::Default, cb, acceptMime);
+			requestManager_->StartDownload(path_, Path(), http::RequestFlags::Default, acceptMime, "", [this](http::Request &download) {
+				if (download.IsCancelled()) {
+					// We were probably destroyed. Can't touch "this" (heh).
+					return;
+				}
+				if (download.ResultCode() == 200) {
+					download.buffer().TakeAll(&textureData_);
+				} else {
+					textureFailed_ = true;
+				}
+			});
 		}
 
 		if (!textureData_.empty()) {
@@ -422,7 +417,7 @@ void ProductView::OnLaunchClick(UI::EventParams &e) {
 	OnClickLaunch.Trigger(e2);
 }
 
-StoreScreen::StoreScreen() {
+StoreScreen::StoreScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::Default) {
 	lang_ = g_Config.sLanguageIni;
 	loading_ = true;
 

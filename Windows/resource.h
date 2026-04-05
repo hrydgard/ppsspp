@@ -136,6 +136,7 @@
 #define ID_MEMVIEW_COPYVALUE_8           40005
 #define ID_DISASM_COPYINSTRUCTIONDISASM  40006
 #define ID_DISASM_COPYINSTRUCTIONHEX     40007
+#define ID_DISASM_COPYFUNCTIONHASH       40031
 #define ID_EMULATION_SPEEDLIMIT          40008
 #define ID_TOGGLE_BREAK                  40009
 #define ID_EMULATION_STOP                40010
@@ -218,11 +219,6 @@
 #define ID_EMULATION_CHEATS              40096
 #define ID_HELP_CHINESE_FORUM            40097
 #define ID_OPTIONS_MORE_SETTINGS         40098
-#define ID_FILE_SAVESTATE_SLOT_1         40099
-#define ID_FILE_SAVESTATE_SLOT_2         40100
-#define ID_FILE_SAVESTATE_SLOT_3         40101
-#define ID_FILE_SAVESTATE_SLOT_4         40102
-#define ID_FILE_SAVESTATE_SLOT_5         40103
 #define ID_OPTIONS_WINDOW1X              40104
 #define ID_OPTIONS_WINDOW2X              40105
 #define ID_OPTIONS_WINDOW3X              40106
@@ -351,6 +347,8 @@
 #define IDC_DISASM_FMT_STR               40235
 #define ID_DISASM_EDITSYMBOLS            40236
 
+// Dynamic menus
+#define ID_FILE_SAVESTATE_SLOT_BASE      45000
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

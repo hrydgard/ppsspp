@@ -4,9 +4,6 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "CommonWindows.h"
-#include <shellapi.h>
-
 #include "resource.h"
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -15,31 +12,25 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
-#include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/Display.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
-#include "Common/OSVersion.h"
-#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/StringUtils.h"
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #endif
-#include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureScalerCommon.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/KeyMap.h"
-#include "UI/OnScreenDisplay.h"
+#include "Core/Screenshot.h"
 #include "Windows/MainWindowMenu.h"
 #include "Windows/MainWindow.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -59,10 +50,7 @@
 #include "ext/rcheevos/include/rc_client_raintegration.h"
 #endif
 
-extern bool g_TakeScreenshot;
-
 namespace MainWindow {
-	extern HINSTANCE hInst;
 	extern bool noFocusPause;
 	std::vector<HMENU> g_topLevelMenus;
 	HMENU g_hMenuBackend;
@@ -76,7 +64,7 @@ namespace MainWindow {
 	LRESULT CALLBACK AboutDlgProc(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
-		bool menuEnableBool = state == UISTATE_INGAME || state == UISTATE_EXCEPTION;
+		const bool menuEnableBool = state == UISTATE_INGAME || state == UISTATE_EXCEPTION;
 
 		bool loadStateEnableBool = menuEnableBool;
 		bool saveStateEnableBool = menuEnableBool;
@@ -135,10 +123,10 @@ namespace MainWindow {
 		return nullptr;
 	}
 
-	static void EmptySubMenu(HMENU menu) {
-		int c = GetMenuItemCount(menu);
-		for (int i = 0; i < c; ++i) {
-			RemoveMenu(menu, 0, MF_BYPOSITION);
+	static void ClearSubMenu(HMENU menu) {
+		const int count = GetMenuItemCount(menu);
+		for (int i = count - 1; i >= 0; --i) {
+			RemoveMenu(menu, i, MF_BYPOSITION);
 		}
 	}
 
@@ -146,11 +134,11 @@ namespace MainWindow {
 		MENUITEMINFO menuInfo{ sizeof(menuInfo), MIIM_STRING };
 		std::string retVal;
 		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
-			wchar_t *buffer = new wchar_t[++menuInfo.cch];
-			menuInfo.dwTypeData = buffer;
+			menuInfo.cch++;  // account for null terminator
+			std::vector<wchar_t> buffer(menuInfo.cch);
+			menuInfo.dwTypeData = buffer.data();
 			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);  // note, this is buffer.
-			delete[] buffer;
 		}
 
 		return retVal;
@@ -252,7 +240,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_LOADSYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE);
-		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, g_Config.bSystemControls ? L"\tF12" : L"");
+		TranslateMenuItem(menu, ID_DEBUG_TAKESCREENSHOT);  // TODO: Automatically show the bound key.
 		TranslateMenuItem(menu, ID_DEBUG_SAVEFRAMEDUMP);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
 		TranslateMenuItem(menu, ID_DEBUG_RESTARTGRAPHICS);
@@ -329,18 +317,39 @@ namespace MainWindow {
 	}
 
 	void TranslateMenus(HWND hWnd, HMENU menu) {
-		bool changed = false;
 
 		const std::string curLanguageID = g_i18nrepo.LanguageID();
 		if (curLanguageID != menuLanguageID || KeyMap::HasChanged(menuKeymapGeneration)) {
 			DoTranslateMenus(hWnd, menu);
 			menuLanguageID = curLanguageID;
-			changed = true;
 		}
 
-		if (changed) {
-			DrawMenuBar(hWnd);
+		// Dynamically create the save state slot selector menu.
+		// TODO: In the future, maybe change it to separate save and load submenus?
+		HMENU fileMenu = GetSubmenuById(menu, ID_FILE_MENU);
+		HMENU saveStateSlots = GetSubmenuById(fileMenu, ID_FILE_SAVESTATE_SLOT_MENU);
+		while (GetMenuItemCount(saveStateSlots) > 0) {
+			RemoveMenu(saveStateSlots, 0, MF_BYPOSITION);
 		}
+
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		// Add new items
+		for (int i = 0; i < g_Config.iSaveStateSlotCount; ++i) {
+			std::string number = StringFromFormat("%d", i + 1);
+			if (i < 10) {
+				// Add an accelerator for the first 10 slots.
+				number = "&" + number;
+			}
+			std::string label = ApplySafeSubstitutions(di->T("Slot %1"), number);
+			AppendMenu(
+				saveStateSlots,
+				MF_STRING,
+				ID_FILE_SAVESTATE_SLOT_BASE + i,
+				ConvertUTF8ToWString(label).c_str()
+			);
+		}
+
+		DrawMenuBar(hWnd);
 	}
 
 	void BrowseAndBootDone(std::string filename);
@@ -449,7 +458,7 @@ namespace MainWindow {
 
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-		int wmId = LOWORD(wParam);
+		const int wmId = LOWORD(wParam);
 		// Parse the menu selections:
 		switch (wmId) {
 		case ID_FILE_LOAD:
@@ -469,7 +478,7 @@ namespace MainWindow {
 			break;
 
 		case ID_FILE_MEMSTICK:
-			ShellExecute(NULL, L"open", g_Config.memStickDirectory.ToWString().c_str(), 0, 0, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::LOCAL_FILE, g_Config.memStickDirectory.ToString());
 			break;
 
 		case ID_TOGGLE_BREAK:
@@ -549,7 +558,7 @@ namespace MainWindow {
 
 		case ID_FILE_LOADSTATEFILE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
+				if (W32Util::BrowseForFileName(true, hWnd, L"Load state", nullptr, nullptr, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Load(Path(fn), -1, SaveStateActionFinished);
 				}
@@ -557,7 +566,7 @@ namespace MainWindow {
 			break;
 		case ID_FILE_SAVESTATEFILE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				if (W32Util::BrowseForFileName(false, hWnd, L"Save state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
+				if (W32Util::BrowseForFileName(false, hWnd, L"Save state", nullptr, L"state.ppst", L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Save(Path(fn), -1, SaveStateActionFinished);
 				}
@@ -585,20 +594,10 @@ namespace MainWindow {
 			break;
 		}
 
-		case ID_FILE_SAVESTATE_SLOT_1:
-		case ID_FILE_SAVESTATE_SLOT_2:
-		case ID_FILE_SAVESTATE_SLOT_3:
-		case ID_FILE_SAVESTATE_SLOT_4:
-		case ID_FILE_SAVESTATE_SLOT_5:
-			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_1;
-			}
-			break;
-
 		case ID_FILE_QUICKLOADSTATE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
 			break;
 
@@ -607,7 +606,7 @@ namespace MainWindow {
 			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_LOAD_STATE)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 				}
 			}
 			break;
@@ -616,7 +615,7 @@ namespace MainWindow {
 		{
 			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
 			break;
 		}
@@ -627,7 +626,7 @@ namespace MainWindow {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
 				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 				}
 			}
@@ -774,27 +773,29 @@ namespace MainWindow {
 		}
 
 		case ID_DEBUG_LOADMAPFILE:
-			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
+			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", nullptr, nullptr, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
 				g_symbolMap->LoadSymbolMap(Path(fn));
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVEMAPFILE:
-			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn))
+			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", nullptr, L"map.ppmap", L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
 				g_symbolMap->SaveSymbolMap(Path(fn));
+			}
 			break;
 
 		case ID_DEBUG_LOADSYMFILE:
-			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
+			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", nullptr, nullptr, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
 				g_symbolMap->LoadNocashSym(Path(fn));
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVESYMFILE:
-			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn))
+			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", nullptr, L"symbols.sym", L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
 				g_symbolMap->SaveNocashSym(Path(fn));
+			}
 			break;
 
 		case ID_DEBUG_RESETSYMBOLTABLE:
@@ -831,7 +832,7 @@ namespace MainWindow {
 		case ID_DEBUG_EXTRACTFILE:
 		{
 			std::string filename;
-			if (!InputBox_GetString(hInst, hWnd, L"Disc filename", filename, filename)) {
+			if (!InputBox_GetString(MainWindow::GetHInstance(), hWnd, L"Disc filename", filename, filename)) {
 				break;
 			}
 			const char *lastSlash = strrchr(filename.c_str(), '/');
@@ -846,11 +847,11 @@ namespace MainWindow {
 				MessageBox(hWnd, L"File does not exist.", L"Sorry", 0);
 			} else if (info.type == FILETYPE_DIRECTORY) {
 				MessageBox(hWnd, L"Cannot extract directories.", L"Sorry", 0);
-			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
-				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
+			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", nullptr, nullptr, L"All files\0*.*\0\0", L"", fn)) {
+				const u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				// Note: len may be in blocks.
 				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
-				bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
+				const bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
 
 				FILE *fp = File::OpenCFile(Path(fn), "wb");
 				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
@@ -858,11 +859,11 @@ namespace MainWindow {
 				size_t bufferSize = isBlockMode ? sizeof(buffer) / 2048 : sizeof(buffer);
 				while (len > 0) {
 					// This is all in blocks, not bytes, if isBlockMode.
-					size_t remain = std::min(len, bufferSize);
-					size_t readSize = pspFileSystem.ReadFile(handle, buffer, remain);
+					const size_t remain = std::min(len, bufferSize);
+					const size_t readSize = pspFileSystem.ReadFile(handle, buffer, remain);
 					if (readSize == 0)
 						break;
-					size_t bytes = isBlockMode ? readSize * 2048 : readSize;
+					const size_t bytes = isBlockMode ? readSize * 2048 : readSize;
 					fwrite(buffer, 1, bytes, fp);
 					len -= readSize;
 				}
@@ -882,7 +883,8 @@ namespace MainWindow {
 
 		case ID_OPTIONS_FULLSCREEN:
 			if (!g_Config.bShowImDebugger) {
-				SendToggleFullscreen(!g_Config.UseFullScreen());
+				g_Config.bFullScreen = !g_Config.bFullScreen;
+				SendApplyFullscreenState();
 			}
 			break;
 
@@ -928,33 +930,33 @@ namespace MainWindow {
 			break;
 
 		case ID_HELP_OPENWEBSITE:
-			ShellExecute(NULL, L"open", L"https://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/");
 			break;
 
 		case ID_HELP_BUYGOLD:
-			ShellExecute(NULL, L"open", L"https://www.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 			break;
 
 		case ID_HELP_OPENFORUM:
-			ShellExecute(NULL, L"open", L"https://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org/");
 			break;
 
 		case ID_HELP_GITHUB:
-			ShellExecute(NULL, L"open", L"https://github.com/hrydgard/ppsspp/", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://github.com/hrydgard/ppsspp/");
 			break;
 
 		case ID_HELP_DISCORD:
-			ShellExecute(NULL, L"open", L"https://discord.gg/5NJB6dD", NULL, NULL, SW_SHOWNORMAL);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 			break;
 
 		case ID_HELP_ABOUT:
 			DialogManager::EnableAll(FALSE);
-			DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
+			DialogBox(MainWindow::GetHInstance(), (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
 			DialogManager::EnableAll(TRUE);
 			break;
 
 		case ID_DEBUG_TAKESCREENSHOT:
-			g_TakeScreenshot = true;
+			TakeUserScreenshot();
 			break;
 
 		case ID_DEBUG_RESTARTGRAPHICS:
@@ -978,12 +980,21 @@ namespace MainWindow {
 			break;
 
 		default:
+			if (wmId >= ID_FILE_SAVESTATE_SLOT_BASE && wmId < ID_FILE_SAVESTATE_SLOT_BASE + g_Config.iSaveStateSlotCount) {
+				if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+					g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_BASE;
+				}
+				break;
+			}
+
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 			if (rc_client_raintegration_activate_menu_item(Achievements::GetClient(), LOWORD(wParam))) {
 				break;
 			}
+			MessageBox(hWnd, L"Unhandled menu item. Did you unload RAIntegration?", L"Sorry", 0);
+#else
+			MessageBox(hWnd, L"Unhandled menu item. Please report a bug.", L"Sorry", 0);
 #endif
-			MessageBox(hWnd, L"Unhandled menu item", L"Sorry", 0);
 			break;
 		}
 	}
@@ -1206,22 +1217,14 @@ namespace MainWindow {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ((i == g_Config.iFrameSkip) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		static const int savestateSlot[] = {
-			ID_FILE_SAVESTATE_SLOT_1,
-			ID_FILE_SAVESTATE_SLOT_2,
-			ID_FILE_SAVESTATE_SLOT_3,
-			ID_FILE_SAVESTATE_SLOT_4,
-			ID_FILE_SAVESTATE_SLOT_5,
-		};
-
 		if (g_Config.iCurrentStateSlot < 0)
 			g_Config.iCurrentStateSlot = 0;
 
-		else if (g_Config.iCurrentStateSlot >= SaveState::NUM_SLOTS)
-			g_Config.iCurrentStateSlot = SaveState::NUM_SLOTS - 1;
+		else if (g_Config.iCurrentStateSlot >= g_Config.iSaveStateSlotCount)
+			g_Config.iCurrentStateSlot = g_Config.iSaveStateSlotCount - 1;
 
-		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
-			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
+		for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
+			CheckMenuItem(menu, ID_FILE_SAVESTATE_SLOT_BASE + i, MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 #if !PPSSPP_API(ANY_GL)
@@ -1233,9 +1236,9 @@ namespace MainWindow {
 
 	// This one is pretty expensive so we handle it separately.
 	static void UpdateBackendSubMenu(HMENU menu) {
-		bool allowD3D11 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11);
-		bool allowOpenGL = g_Config.IsBackendEnabled(GPUBackend::OPENGL);
-		bool allowVulkan = g_Config.IsBackendEnabled(GPUBackend::VULKAN);
+		const bool allowD3D11 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11);
+		const bool allowOpenGL = g_Config.IsBackendEnabled(GPUBackend::OPENGL);
+		const bool allowVulkan = g_Config.IsBackendEnabled(GPUBackend::VULKAN);
 
 		switch (GetGPUBackend()) {
 		case GPUBackend::OPENGL:

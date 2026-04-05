@@ -22,11 +22,11 @@
 #include "SimpleDialogScreen.h"
 
 class JoystickHistoryView;
-class GamepadView;
+class GamepadComponent;
 
 class TiltAnalogSettingsScreen : public UITwoPaneBaseDialogScreen {
 public:
-	TiltAnalogSettingsScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::Default) {}
+	TiltAnalogSettingsScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsCanScroll) {}
 
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContentViews(UI::ViewGroup*parent) override;

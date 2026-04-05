@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUDefinitions.h"
 #include "Core/MemMap.h"
 
 #define SCE_GE_LIST_COMPLETED  0
@@ -28,7 +28,6 @@
 
 typedef int SceUID;
 typedef u32_le SceSize_le;
-// typedef void (*PspGeCallback)(int id, void *arg);
 
 struct PspGeCallbackData
 {

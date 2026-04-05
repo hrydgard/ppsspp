@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <list>
 #include <memory>
 #include <atomic>
+#include <vector>
 #include <thread>
 
 #include "Common/CommonTypes.h"
@@ -32,7 +32,7 @@ public:
 	virtual void Shutdown() {}
 	virtual bool HasAccelerometer() const { return false; }
 
-	enum { UPDATESTATE_SKIP_PAD = 0x1234, UPDATESTATE_NO_SLEEP = 0x2345};
+	enum { UPDATESTATE_NORMAL = 0, UPDATESTATE_SKIP_PAD = 0x1234, UPDATESTATE_NO_SLEEP = 0x2345};
 	virtual int UpdateState() = 0;
 };
 

@@ -11,7 +11,7 @@
 static void controllerButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	KeyInput key;
 	key.deviceId = DEVICE_ID_PAD_0;
-	key.flags = pressed ? KEY_DOWN : KEY_UP;
+	key.flags = pressed ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 	key.keyCode = keyCode;
 	NativeKey(key);
 }
@@ -35,6 +35,9 @@ bool InitController(GCController *controller) {
 			element.preferredSystemGestureState = GCSystemGestureStateDisabled;
 		}
 	}
+
+	const std::string controllerName = [controller.vendorName ?: @"Gamepad" UTF8String];
+	KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, controllerName);
 
 	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_2); // Cross
@@ -159,6 +162,47 @@ void ShutdownController(GCController *controller) {
 			element.preferredSystemGestureState = GCSystemGestureStateEnabled;
 		}
 	}
+	static const InputKeyCode keycodes[] = {
+		NKCODE_BUTTON_1,
+		NKCODE_BUTTON_2,
+		NKCODE_BUTTON_3,
+		NKCODE_BUTTON_4,
+		NKCODE_BUTTON_L1,
+		NKCODE_BUTTON_R1,
+		NKCODE_DPAD_UP,
+		NKCODE_DPAD_DOWN,
+		NKCODE_DPAD_LEFT,
+		NKCODE_DPAD_RIGHT,
+		NKCODE_BUTTON_THUMBL,
+		NKCODE_BUTTON_THUMBR,
+		NKCODE_BUTTON_SELECT,
+		NKCODE_BUTTON_START,
+		NKCODE_HOME
+	};
+	for (InputKeyCode keyCode : keycodes) {
+		KeyInput key;
+		key.deviceId = DEVICE_ID_PAD_0;
+		key.flags = KeyInputFlags::UP;
+		key.keyCode = keyCode;
+		NativeKey(key);
+	}
+
+	static const InputAxis axes[] = {
+		JOYSTICK_AXIS_X,
+		JOYSTICK_AXIS_Y,
+		JOYSTICK_AXIS_Z,
+		JOYSTICK_AXIS_RZ,
+		JOYSTICK_AXIS_LTRIGGER,
+		JOYSTICK_AXIS_RTRIGGER
+	};
+	AxisInput axisInput;
+	axisInput.deviceId = DEVICE_ID_PAD_0;
+	for (InputAxis axis : axes) {
+		axisInput.axisId = axis;
+		axisInput.value = 0.0f;
+		NativeAxis(&axisInput, 1);
+	}
+	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 }
 
 void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
@@ -177,9 +221,9 @@ void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
 	input.x = scaledX;
 	input.y = scaledY;
 	switch (code) {
-		case 1: input.flags = TOUCH_DOWN; break;
-		case 2: input.flags = TOUCH_UP; break;
-		default: input.flags = TOUCH_MOVE; break;
+		case 1: input.flags = TouchInputFlags::DOWN; break;
+		case 2: input.flags = TouchInputFlags::UP; break;
+		default: input.flags = TouchInputFlags::MOVE; break;
 	}
 	input.id = pointerId;
 	NativeTouch(input);
@@ -297,7 +341,7 @@ void ICadeTracker::ButtonDown(iCadeState button) {
 		NativeAxis(&axis, 1);
 	} else {
 		KeyInput key;
-		key.flags = KEY_DOWN;
+		key.flags = KeyInputFlags::DOWN;
 		key.keyCode = iCadeToKeyMap[button];
 		key.deviceId = DEVICE_ID_PAD_0;
 		NativeKey(key);
@@ -322,7 +366,7 @@ void ICadeTracker::ButtonUp(iCadeState button) {
 		// Pressing Start twice within 1 second will take to the Emu menu
 		if ((lastStartPress + 1.0f) > time_now_d()) {
 			KeyInput key;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			key.keyCode = NKCODE_ESCAPE;
 			key.deviceId = DEVICE_ID_KEYBOARD;
 			NativeKey(key);
@@ -365,7 +409,7 @@ void ICadeTracker::ButtonUp(iCadeState button) {
 		NativeAxis(&axis, 1);
 	} else {
 		KeyInput key;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		key.keyCode = iCadeToKeyMap[button];
 		key.deviceId = DEVICE_ID_PAD_0;
 		NativeKey(key);
@@ -386,7 +430,7 @@ void SendKeyboardChars(std::string_view str) {
 		uint32_t codePoint = chars.next();
 		KeyInput input{};
 		input.deviceId = DEVICE_ID_KEYBOARD;
-		input.flags = KEY_CHAR;
+		input.flags = KeyInputFlags::CHAR;
 		input.unicodeChar = codePoint;
 		NativeKey(input);
 	}
@@ -404,7 +448,7 @@ void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
 				KeyInput input{};
 				input.deviceId = DEVICE_ID_KEYBOARD;
 				input.keyCode = code;
-				input.flags = KEY_DOWN;
+				input.flags = KeyInputFlags::DOWN;
 				NativeKey(input);
 				INFO_LOG(Log::System, "pressesBegan %d", code);
 			}
@@ -428,7 +472,7 @@ void KeyboardPressesEnded(NSSet<UIPress *> *presses, UIPressesEvent *event) {
 				KeyInput input{};
 				input.deviceId = DEVICE_ID_KEYBOARD;
 				input.keyCode = code;
-				input.flags = KEY_UP;
+				input.flags = KeyInputFlags::UP;
 				NativeKey(input);
 				INFO_LOG(Log::System, "pressesEnded %d", code);
 			}

@@ -30,7 +30,7 @@ GranularMixer g_granular;
 // This is called from *outside* the emulator thread.
 void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userdata) {
 	// Mix UI sound effects on top.
-	if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
+	if (g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR) {
 		// We use the FPS estimate, because to maintain smooth audio even though our
 		// frame execution is very front (or back) heavy (as we can't count on "real time clock sync"
 		// to be enabled), we need at least one whole frame buffered, plus a bit of extra.
@@ -46,7 +46,7 @@ void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userda
 
 void System_AudioGetDebugStats(char *buf, size_t bufSize) {
 	if (buf) {
-		if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
+		if (g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR) {
 			snprintf(buf, bufSize, "(No stats available for granular yet)");
 		} else {
 			g_resampler.GetAudioDebugStats(buf, bufSize);
@@ -62,7 +62,7 @@ void System_AudioClear() {
 
 void System_AudioPushSamples(const int32_t *audio, int numSamples, float volume) {
 	if (audio) {
-		if (g_Config.iAudioSyncMode == (int)AudioSyncMode::GRANULAR) {
+		if (g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR) {
 			g_granular.PushSamples(audio, numSamples, volume);
 		} else {
 			g_resampler.PushSamples(audio, numSamples, volume);

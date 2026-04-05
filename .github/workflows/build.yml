@@ -34,12 +34,12 @@ jobs:
 
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: recursive
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
+      uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
 
     - name: Check Valid Version Tags
       id: valid-tags
@@ -97,7 +97,7 @@ jobs:
       run: cp Windows/Release/*.exe ppsspp/
 
     - name: Upload build
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
@@ -113,7 +113,7 @@ jobs:
         Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ github.ref_name }}-Windows-${{ matrix.platform }}.zip"
 
     - name: Upload release
-      uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+      uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
       if: github.ref_type == 'tag'
       with:
         files: releases/*.zip
@@ -121,12 +121,16 @@ jobs:
   build-uwp:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: recursive
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
+      uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
+
+    - name: Restore NuGet packages
+      working-directory: ${{ github.workspace }}/UWP
+      run: nuget restore PPSSPP_UWP.sln
 
     - name: Build UWP
       working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -137,7 +141,7 @@ jobs:
     needs: build-windows
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: false
 
@@ -147,7 +151,7 @@ jobs:
       run: git submodule update --init pspautotests assets/lang
 
     - name: Download build
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         name: Windows x64 build
         path: ppsspp/
@@ -249,7 +253,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: recursive
 
@@ -267,7 +271,7 @@ jobs:
         version: 5.15.2
 
     - name: Setup Android NDK
-      uses: nttld/setup-ndk@afb4c9964b521afb97c864b7d40b11e6911bd410 # v1.5.0
+      uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
@@ -305,7 +309,7 @@ jobs:
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
+      uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
       # Disable ccache on macos for now, it's become buggy for some reason.
       if: matrix.id != 'macos'
       with:
@@ -368,14 +372,14 @@ jobs:
         fi
 
     - name: Upload build
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       if: matrix.extra == 'test'
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
 
     - name: Upload iOS build
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       if: matrix.id == 'ios'
       with:
         name: ${{ matrix.id }} build
@@ -387,7 +391,7 @@ jobs:
       run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS & iOS release
-      uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+      uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
       if: github.ref_type == 'tag' && (matrix.id == 'macos' || matrix.id == 'ios')
       with:
         files: |
@@ -411,14 +415,14 @@ jobs:
     needs: build
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: false
 
     - name: Fetch tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests assets/lang
+      run: git submodule update --init pspautotests
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
@@ -433,7 +437,7 @@ jobs:
         git submodule update --init SDL/macOS
 
     - name: Download build
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
@@ -465,7 +469,7 @@ jobs:
       run: |
         apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
 
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: recursive
 
@@ -474,7 +478,7 @@ jobs:
         chown -R $(id -u):$(id -g) $PWD
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
+      uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
 
     - name: Compile ffmpeg
       run: |

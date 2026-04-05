@@ -506,10 +506,10 @@ struct VulkanCacheHeader {
 
 bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) {
 	VulkanCacheHeader header{};
-	long pos = ftell(f);
+	int64_t pos = File::Ftell(f);
 	bool success = fread(&header, sizeof(header), 1, f) == 1;
 	// We'll read it again later, this is just to check the flags.
-	success = success && fseek(f, pos, SEEK_SET) == 0;
+	success = success && File::Fseek(f, pos, SEEK_SET) == 0;
 	if (!success || header.magic != CACHE_HEADER_MAGIC) {
 		WARN_LOG(Log::G3D, "Shader cache magic mismatch");
 		return false;

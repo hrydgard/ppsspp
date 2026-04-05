@@ -67,6 +67,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 void TabHolder::AddBack(UIScreen *parent) {
 	if (tabContainer_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
+		tabContainer_->Add(new UI::Spacer(8.0f));
 		tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
 	}
 }
@@ -315,23 +316,24 @@ void ChoiceStrip::EnableChoice(int choice, bool enabled) {
 }
 
 bool ChoiceStrip::Key(const KeyInput &input) {
-	bool ret = false;
-	if (topTabs_ && (input.flags & KEY_DOWN)) {
+	if (topTabs_ && (input.flags & KeyInputFlags::DOWN)) {
+		// These keyboard shortcuts ignore focus - the assumption is that there's only
+		// one choice strip with topTabs_ enabled visible at a time.
 		if (IsTabLeftKey(input)) {
 			if (selected_ > 0) {
 				SetSelection(selected_ - 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_OFF);  // Maybe make specific sounds for this at some point?
 			}
-			ret = true;
+			return true;
 		} else if (IsTabRightKey(input)) {
 			if (selected_ < (int)choices_.size() - 1) {
 				SetSelection(selected_ + 1, true);
 				UI::PlayUISound(UI::UISound::TOGGLE_ON);
 			}
-			ret = true;
+			return true;
 		}
 	}
-	return ret || ViewGroup::Key(input);
+	return ViewGroup::Key(input);
 }
 
 std::string ChoiceStrip::DescribeText() const {

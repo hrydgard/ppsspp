@@ -47,8 +47,6 @@
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "../x86/Jit.h"
 #include "../x86/X64IRJit.h"
-#elif PPSSPP_ARCH(MIPS)
-#include "../MIPS/MipsJit.h"
 #elif PPSSPP_ARCH(RISCV64)
 #include "../RiscV/RiscVJit.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
@@ -113,13 +111,13 @@ namespace MIPSComp {
 #elif PPSSPP_ARCH(ARM64)
 		if (useIR)
 			return new MIPSComp::Arm64IRJit(mipsState);
-		return new MIPSComp::Arm64Jit(mipsState);
+		else
+			return new MIPSComp::Arm64Jit(mipsState);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		if (useIR)
 			return new MIPSComp::X64IRJit(mipsState);
-		return new MIPSComp::Jit(mipsState);
-#elif PPSSPP_ARCH(MIPS)
-		return new MIPSComp::MipsJit(mipsState);
+		else
+			return new MIPSComp::Jit(mipsState);
 #elif PPSSPP_ARCH(RISCV64)
 		return new MIPSComp::RiscVJit(mipsState);
 #elif PPSSPP_ARCH(LOONGARCH64)

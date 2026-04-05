@@ -19,6 +19,34 @@ bool focusForced;
 
 static std::function<void(UISound)> soundCallback;
 
+// Repeat key handling below.
+// TODO: Figure out where this should really live.
+// Simple simulation of key repeat on platforms and for gamepads where we don't
+// automatically get it.
+
+static int frameCount;
+
+// Ignore deviceId when checking for matches. Turns out that Ouya for example sends
+// completely broken input where the original keypresses have deviceId = 10 and the repeats
+// have deviceId = 0.
+struct HeldKey {
+	InputKeyCode key;
+	InputDeviceID deviceId;
+	double triggerTime;
+
+	// Ignores startTime
+	bool operator <(const HeldKey &other) const {
+		if (key < other.key) return true;
+		return false;
+	}
+	bool operator ==(const HeldKey &other) const { return key == other.key; }
+};
+
+static std::set<HeldKey> heldKeys;
+
+const double repeatDelay = 15 * (1.0 / 60.0f);  // 15 frames like before.
+const double repeatInterval = 5 * (1.0 / 60.0f);  // 5 frames like before.
+
 struct DispatchQueueItem {
 	Event *e;
 	EventParams params;
@@ -87,11 +115,14 @@ void SetFocusedView(View *view, bool force) {
 }
 
 void EnableFocusMovement(bool enable) {
+	// INFO_LOG(Log::UI, "EnableFocusMovement: %s", enable ? "true" : "false");
 	focusMovementEnabled = enable;
 	if (!enable) {
 		if (focusedView) {
 			focusedView->FocusChanged(FF_LOSTFOCUS);
 		}
+		focusMoves.clear();
+		heldKeys.clear();
 		focusedView = nullptr;
 	}
 }
@@ -100,19 +131,19 @@ bool IsFocusMovementEnabled() {
 	return focusMovementEnabled;
 }
 
-void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset) {
-	Bounds rootBounds = ignoreInsets ? dc.GetBounds() : dc.GetLayoutBounds(ignoreBottomInset);
+void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode) {
+	Bounds rootBounds = dc.GetLayoutBounds(layoutMode, immersiveMode);
 
-	MeasureSpec horiz(EXACTLY, rootBounds.w);
-	MeasureSpec vert(EXACTLY, rootBounds.h);
+	MeasureSpec horiz(EXACTLY, rootBounds.w - (rootMargins.left + rootMargins.right));
+	MeasureSpec vert(EXACTLY, rootBounds.h - (rootMargins.top + rootMargins.bottom));
 
 	// Two phases - measure contents, layout.
 	root->Measure(dc, horiz, vert);
 	// Root has a specified size. Set it, then let root layout all its children.
 	rootBounds.x += rootMargins.left;
 	rootBounds.y += rootMargins.top;
-	rootBounds.w -= rootMargins.right;
-	rootBounds.h -= rootMargins.bottom;
+	rootBounds.w -= rootMargins.left + rootMargins.right;
+	rootBounds.h -= rootMargins.top + rootMargins.bottom;
 	root->SetBounds(rootBounds);
 	root->Layout();
 }
@@ -125,10 +156,16 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 		return;
 	}
 
+	if (!focusedView->CanMoveFocus(direction)) {
+		return;
+	}
+
 	NeighborResult neigh = root->FindNeighbor(focusedView, direction, NeighborResult());
 	if (neigh.view) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);
+
+		// INFO_LOG(Log::UI, "Focus moved from %s to %s", focusedView->DescribeText().c_str(), neigh.view->DescribeText().c_str());
 
 		PlayUISound(UISound::SELECT);
 	}
@@ -143,33 +180,6 @@ void PlayUISound(UISound sound) {
 		soundCallback(sound);
 	}
 }
-
-// TODO: Figure out where this should really live.
-// Simple simulation of key repeat on platforms and for gamepads where we don't
-// automatically get it.
-
-static int frameCount;
-
-// Ignore deviceId when checking for matches. Turns out that Ouya for example sends
-// completely broken input where the original keypresses have deviceId = 10 and the repeats
-// have deviceId = 0.
-struct HeldKey {
-	InputKeyCode key;
-	InputDeviceID deviceId;
-	double triggerTime;
-
-	// Ignores startTime
-	bool operator <(const HeldKey &other) const {
-		if (key < other.key) return true;
-		return false;
-	}
-	bool operator ==(const HeldKey &other) const { return key == other.key; }
-};
-
-static std::set<HeldKey> heldKeys;
-
-const double repeatDelay = 15 * (1.0 / 60.0f);  // 15 frames like before.
-const double repeatInterval = 5 * (1.0 / 60.0f);  // 5 frames like before.
 
 bool IsScrollKey(const KeyInput &input) {
 	switch (input.keyCode) {
@@ -186,7 +196,7 @@ bool IsScrollKey(const KeyInput &input) {
 static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
 	// Ignore repeats for focus moves.
-	if ((key.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
+	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 		if (IsDPadKey(key) || IsScrollKey(key)) {
 			// Let's only repeat DPAD initially.
 			HeldKey hk;
@@ -205,7 +215,7 @@ static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 			retval = KeyEventResult::ACCEPT;
 		}
 	}
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		// We ignore the device ID here (in the comparator for HeldKey), due to the Ouya quirk mentioned above.
 		if (!heldKeys.empty()) {
 			HeldKey hk;
@@ -232,7 +242,7 @@ KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
 		retval = KeyEventResult::PASS_THROUGH;
 		break;
 	default:
-		if (!(key.flags & KEY_IS_REPEAT)) {
+		if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
 			// If a repeat, we follow what KeyEventToFocusMoves set it to.
 			// Otherwise we signal that we used the key, always.
 			retval = KeyEventResult::ACCEPT;
@@ -249,7 +259,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 void TouchEvent(const TouchInput &touch, ViewGroup *root) {
 	focusForced = false;
 	root->Touch(touch);
-	if ((touch.flags & TOUCH_DOWN) && !focusForced) {
+	if ((touch.flags & TouchInputFlags::DOWN) && !focusForced) {
 		EnableFocusMovement(false);
 	}
 }
@@ -289,14 +299,14 @@ void AxisEvent(const AxisInput &axis, ViewGroup *root) {
 		if (old == cur)
 			return;
 		if (old == DirState::POS) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_UP }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KeyInputFlags::UP }, root);
 		} else if (old == DirState::NEG) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_UP }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KeyInputFlags::UP }, root);
 		}
 		if (cur == DirState::POS) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_DOWN }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KeyInputFlags::DOWN }, root);
 		} else if (cur == DirState::NEG) {
-			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_DOWN }, root);
+			FakeKeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KeyInputFlags::DOWN }, root);
 		}
 	};
 
@@ -357,7 +367,7 @@ restart:
 			KeyInput key;
 			key.keyCode = iter->key;
 			key.deviceId = iter->deviceId;
-			key.flags = KEY_DOWN;
+			key.flags = KeyInputFlags::DOWN;
 			KeyEvent(key, root);
 
 			focusMoves.push_back(key.keyCode);
@@ -404,6 +414,7 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 				case NKCODE_PAGE_DOWN: MoveFocus(root, FOCUS_NEXT_PAGE); break;
 				case NKCODE_MOVE_HOME: MoveFocus(root, FOCUS_FIRST); break;
 				case NKCODE_MOVE_END: MoveFocus(root, FOCUS_LAST); break;
+				case NKCODE_TAB: MoveFocus(root, FOCUS_NEXT); break;
 				}
 			}
 		}

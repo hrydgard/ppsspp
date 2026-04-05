@@ -96,6 +96,7 @@ Source: "README.md"; DestName: "README.txt"; DestDir: "{app}"; Flags: isreadme
 ; configuration etc in the user's directory, not in our own subdirectory.
 Source: "notinstalled.txt"; DestName: "installed.txt"; DestDir: "{app}";
 Source: "assets\*.*"; DestDir: "{app}\assets"
+Source: "assets\ui_images\*.*"; DestDir: "{app}\assets\ui_images"
 Source: "assets\shaders\*.*"; DestDir: "{app}\assets\shaders"
 Source: "assets\themes\*.*"; DestDir: "{app}\assets\themes"
 Source: "assets\debugger\*"; DestDir: "{app}\assets\debugger"; Flags: recursesubdirs

@@ -28,11 +28,11 @@ bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize);
 
 class ISOFileSystem : public IFileSystem {
 public:
-	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
+	ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice);
 	~ISOFileSystem();
 
 	void DoState(PointerWrap &p) override;
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
@@ -57,6 +57,7 @@ public:
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "ISO"); }  // TODO: Ask the fileLoader about the origins
 
+	std::shared_ptr<BlockDevice> GetBlockDevice() override { return blockDevice; }
 private:
 	struct TreeEntry {
 		~TreeEntry();
@@ -80,7 +81,7 @@ private:
 	};
 
 	struct OpenFileEntry {
-		TreeEntry *file;
+		const TreeEntry *file;
 		unsigned int seekPos;  // TODO: Make 64-bit?
 		bool isRawSector;   // "/sce_lbn" mode
 		bool isBlockSectorMode;  // "umd:" mode: all sizes and offsets are in 2048 byte chunks
@@ -92,14 +93,14 @@ private:
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
-	BlockDevice *blockDevice;
-	u32 lastReadBlock_;
+	std::shared_ptr<BlockDevice> blockDevice;
+	mutable u32 lastReadBlock_;
 
 	TreeEntry entireISO;
 
-	void ReadDirectory(TreeEntry *root);
-	TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
-	std::string EntryFullPath(TreeEntry *e);
+	void ReadDirectory(TreeEntry *root) const;
+	const TreeEntry *GetFromPath(std::string_view path, bool catchError = true);
+	std::string EntryFullPath(const TreeEntry *e);
 };
 
 // On the "umd0:" device, any file you open is the entire ISO.
@@ -114,7 +115,7 @@ public:
 		isoFileSystem_->DoState(p);
 	}
 
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override {
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override {
 		if (exists)
 			*exists = true;
 		return std::vector<PSPFileInfo>();
@@ -166,6 +167,7 @@ public:
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "ISOBlock"); }
+	std::shared_ptr<BlockDevice> GetBlockDevice() override { return isoFileSystem_->GetBlockDevice(); }
 
 private:
 	std::shared_ptr<IFileSystem> isoFileSystem_;

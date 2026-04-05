@@ -43,6 +43,7 @@
 #include "Common/StringUtils.h"
 
 #if defined(_WIN32)
+
 #include "Common/CommonWindows.h"
 
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
@@ -64,9 +65,10 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 
 #define do_xgetbv _xgetbv
 
-#else  // _WIN32
+#else  // !_WIN32
 
 #ifdef _M_SSE
+
 #include <emmintrin.h>
 
 static uint64_t do_xgetbv(unsigned int index) {
@@ -75,8 +77,6 @@ static uint64_t do_xgetbv(unsigned int index) {
 	return ((uint64_t)edx << 32) | eax;
 }
 #endif  // _M_SSE
-
-#if !PPSSPP_ARCH(MIPS)
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #if defined(__i386__) && defined(__PIC__)
@@ -97,8 +97,6 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf)
 {
 	do_cpuidex(regs, cpuid_leaf, 0);
 }
-
-#endif // !PPSSPP_ARCH(MIPS)
 
 #endif  // !win32
 

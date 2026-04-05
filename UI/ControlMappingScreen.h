@@ -37,9 +37,9 @@
 
 class SingleControlMapper;
 
-class ControlMappingScreen : public UITabbedBaseDialogScreen {
+class ControlMappingScreen : public UITwoPaneBaseDialogScreen {
 public:
-	ControlMappingScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath, TabDialogFlags::ContextMenuInPortrait) {
+	ControlMappingScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::ContentsCanScroll | TwoPaneFlags::NoTopbarInLandscape) {
 		categoryToggles_[0] = true;
 		categoryToggles_[1] = true;
 		categoryToggles_[2] = true;
@@ -48,17 +48,17 @@ public:
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
-	void CreateTabs() override;
-	void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
+
+	std::string_view GetTitle() const override;
 
 private:
 	void OnAutoConfigure(UI::EventParams &params);
-	bool ShowSearchControls() const override { return false; }
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	UI::ScrollView *rightScroll_ = nullptr;
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
 
@@ -68,7 +68,7 @@ private:
 class KeyMappingNewKeyDialog : public UI::PopupScreen {
 public:
 	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
-		: PopupScreen(T(i18n, "Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
+		: PopupScreen(T(i18n, "Map Key"), T(I18NCat::DIALOG, "Cancel")), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
@@ -125,9 +125,10 @@ private:
 
 class JoystickHistoryView;
 
-class AnalogCalibrationScreen : public UITwoPaneBaseDialogScreen {
+class AnalogCalibrationScreen : public UITwoPaneBaseDialogScreen, protected ControlListener {
 public:
 	AnalogCalibrationScreen(const Path &gamePath);
+	~AnalogCalibrationScreen();
 
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;
@@ -140,11 +141,12 @@ protected:
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 
+	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
+	void SetRawAnalog(int stick, float x, float y) override;
+
 	std::string_view GetTitle() const override;
 private:
 	void OnResetToDefaults(UI::EventParams &e);
-
-	ControlMapper mapper_;
 
 	float analogX_[2]{};
 	float analogY_[2]{};

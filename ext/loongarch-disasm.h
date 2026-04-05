@@ -2755,6 +2755,14 @@ typedef struct Ins {
     struct Ins *next;
 } Ins;
 
+struct LoongArch64LSInstructionInfo {
+    int instructionSize = 4;
+    bool isIntegerLoadStore;
+    bool isFPLoadStore;
+    int size; // 0 = 8-bit, 1 = 16-bit, 2 = 32-bit, 3 = 64-bit
+    bool isMemoryWrite;
+};
+
 uint32_t la_assemble(Ins *ins);
 
 void la_disasm(uint32_t opcode, Ins *ins);
@@ -2773,5 +2781,7 @@ void sprint_disasm(uint32_t opcode, char *msg);
 void print_op(LA_OPCODE op);
 void print_ins(Ins *ins);
 void print_disasm(uint32_t opcode);
+
+bool LoongArch64AnalyzeLoadStore(uint64_t addr, uint32_t opcode, LoongArch64LSInstructionInfo *info);
 
 #endif

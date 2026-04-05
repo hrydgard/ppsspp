@@ -19,11 +19,28 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Common/MemoryUtil.h"
 
 namespace MIPSComp {
+
+void JitState::Begin(JitBlock *block) {
+	cancel = false;
+	blockStart = block->originalAddress;
+	compilerPC = block->originalAddress;
+	initialBlockSize = 0;
+	nextExit = 0;
+	downcountAmount = 0;
+	curBlock = block;
+	compiling = true;
+	inDelaySlot = false;
+	blockWrotePrefixes = false;
+	afterOp = JitState::AFTER_NONE;
+	PrefixStart();
+}
+
 	JitOptions::JitOptions() {
-		disableFlags = g_Config.uJitDisableFlags;
+		disableFlags = (JitDisable)g_Config.uJitDisableFlags;
 
 		// x86
 		enableVFPUSIMD = !Disabled(JitDisable::SIMD);
@@ -37,12 +54,6 @@ namespace MIPSComp {
 
 		// ARM only
 		downcountInRegister = true;
-		useNEONVFPU = false;  // true
-		if (Disabled(JitDisable::SIMD))
-			useNEONVFPU = false;
-
-		//ARM64
-		useASIMDVFPU = false;  // !Disabled(JitDisable::SIMD);
 
 		// Common
 
@@ -53,11 +64,6 @@ namespace MIPSComp {
 #else
 		enableBlocklink = !Disabled(JitDisable::BLOCKLINK);
 #endif
-		immBranches = false;
-		continueBranches = false;
-		continueJumps = false;
-		continueMaxInstructions = 300;
-
 		useStaticAlloc = false;
 		enablePointerify = false;
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
@@ -72,6 +78,6 @@ namespace MIPSComp {
 	}
 
 	bool JitOptions::Disabled(JitDisable bit) {
-		return (disableFlags & (uint32_t)bit) != 0;
+		return (disableFlags & bit) != 0;
 	}
 }

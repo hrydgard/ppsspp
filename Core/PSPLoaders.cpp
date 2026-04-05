@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <thread>
+
 #include "Core/Core.h"
 #include "Common/System/Request.h"
 
@@ -24,6 +26,7 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #endif
+#include "Common/System/OSD.h"
 
 #include "Core/ELF/ParamSFO.h"
 #include "Core/ELF/PBPReader.h"
@@ -38,7 +41,7 @@
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
-
+#include "Core/Util/PathUtil.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -60,6 +63,43 @@ static void UseLargeMem(int memsize) {
 	}
 }
 
+void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, Path destPath, std::string title) {
+	NPDRMDemoBlockDevice *npdrmDemoBD = dynamic_cast<NPDRMDemoBlockDevice *>(bd.get());
+	if (npdrmDemoBD) {
+		INFO_LOG(Log::System, "Dumping NPDRM demo ISO... (%s)", destPath.c_str());
+		std::thread dumpThread([bd, title, destPath]() {
+			File::CreateFullPath(destPath.NavigateUp());
+			if (File::Exists(destPath)) {
+				INFO_LOG(Log::System, "Dump file already exists, skipping: %s", destPath.c_str());
+				return;
+			}
+			FILE *dest = File::OpenCFile(destPath, "wb");
+			if (!dest) {
+				ERROR_LOG(Log::System, "Failed to open destination for NPDRM demo ISO dump: %s", destPath.c_str());
+				return;
+			}
+			g_OSD.SetProgressBar("npdrm_dump", title, 0.0f, 1.0f, 0.0f, 0.0f);
+			int blocks = bd->GetNumBlocks();
+			std::vector<u8> blockBuf(bd->GetBlockSize());
+			for (int i = 0; i < blocks; i++) {
+				bd->ReadBlock(i, blockBuf.data());
+				fwrite(blockBuf.data(), 1, blockBuf.size(), dest);
+				g_OSD.SetProgressBar("npdrm_dump", title, 0.0f, 1.0f, (float)(i + 1) / blocks, 0.0f);
+			}
+			fclose(dest);
+			g_OSD.RemoveProgressBar("npdrm_dump", true, 1.0f);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, title, GetFriendlyPath(destPath), 5.0f, "npdrm_finished");
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				g_OSD.SetClickCallback("npdrm_finished", [destPath]() {
+					System_ShowFileInFolder(destPath);
+				});
+			}
+			INFO_LOG(Log::System, "Finished dumping NPDRM demo ISO... (%s)", title.c_str());
+		});
+		dumpThread.detach();
+	}
+}
+
 bool MountGameISO(FileLoader *fileLoader, std::string *errorString) {
 	std::shared_ptr<IFileSystem> fileSystem;
 	std::shared_ptr<IFileSystem> blockSystem;
@@ -68,7 +108,7 @@ bool MountGameISO(FileLoader *fileLoader, std::string *errorString) {
 		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
-		auto bd = ConstructBlockDevice(fileLoader, errorString);
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, errorString));
 		if (!bd) {
 			// Can only fail if the ISO is bad.
 			return false;
@@ -299,10 +339,10 @@ static Path NormalizePath(const Path &path) {
 #endif
 }
 
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
-		auto bd = ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string);
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string));
 		if (bd) {
 			auto umd2 = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
 			auto blockSystem = std::make_shared<ISOBlockSystem>(umd2);
@@ -400,6 +440,8 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		else if (File::Exists(oldNamePrefix.WithExtraExtension(".jpg")))
 			File::Rename(oldNamePrefix.WithExtraExtension(".jpg"), newPrefix.WithExtraExtension(".jpg"));
 	}
+
+	g_Config.LoadGameConfig(discID);
 
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }

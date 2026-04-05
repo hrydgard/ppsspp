@@ -41,7 +41,7 @@ static Path GetGlobalCheatFilePath() {
 }
 
 CwCheatScreen::CwCheatScreen(const Path &gamePath)
-	: UIBaseDialogScreen(gamePath) {
+	: UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::Default) {
 }
 
 CwCheatScreen::~CwCheatScreen() {
@@ -81,18 +81,16 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 	return true;
 }
 
-void CwCheatScreen::CreateViews() {
+void CwCheatScreen::BeforeCreateViews() {
+	TryLoadCheatInfo();  // in case the info is already in cache.
+}
+
+void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	using namespace UI;
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-
-	TryLoadCheatInfo();  // in case the info is already in cache.
-	Margins actionMenuMargins(50, -15, 15, 0);
-
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new ItemHeader(cw->T("Import Cheats")));
 
@@ -113,27 +111,31 @@ void CwCheatScreen::CreateViews() {
 #endif
 	leftColumn->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnDisableAll);
 	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshIntervalMs, 1, 1000, 77, cw->T("Refresh interval"), 1, screenManager()))->SetFormat(di->T("%d ms"));
+}
 
+void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.5f));
-	rightScroll_->SetTag("CwCheats");
-	rightScroll_->RememberPosition(&g_Config.fCwCheatScrollPosition);
-	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
-	rightScroll_->Add(rightColumn);
+	UI::ScrollView *rightScroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.5f)));
+	rightScroll->SetTag("CwCheats");
+	rightScroll->RememberPosition(&g_Config.fCwCheatScrollPosition);
 
+	LinearLayout *rightColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
+	rightScroll->Add(rightColumn);
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
 		rightColumn->Add(new CheckBox(&fileInfo_[i].enabled, fileInfo_[i].name))->OnClick.Add([=](UI::EventParams &) {
 			OnCheckBox((int)i);
 		});
 	}
+}
 
-	LinearLayout *layout = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	layout->Add(leftColumn);
-	layout->Add(rightScroll_);
-	root_->Add(layout);
-
-	AddStandardBack(root_);
+std::string_view CwCheatScreen::GetTitle() const {
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	return cw->T("Cheats");
 }
 
 void CwCheatScreen::update() {

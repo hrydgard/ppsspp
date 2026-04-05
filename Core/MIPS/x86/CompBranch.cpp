@@ -202,112 +202,41 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, const Br
 
 	// We may want to try to continue along this branch a little while, to reduce reg flushing.
 	bool predictTakeBranch = PredictTakeBranch(targetAddr, branchInfo.likely);
-	if (!branchInfo.delaySlotIsBranch && CanContinueBranch(predictTakeBranch ? targetAddr : notTakenAddr))
-	{
-		if (predictTakeBranch)
-			cc = FlipCCFlag(cc);
 
-		Gen::FixupBranch ptr;
-		RegCacheState state;
-		if (!branchInfo.likely)
-		{
-			if (!branchInfo.delaySlotIsNice)
-				CompileDelaySlot(DELAYSLOT_SAFE);
-			ptr = J_CC(cc, true);
-			GetStateAndFlushAll(state);
-		}
+	Gen::FixupBranch ptr;
+	if (!branchInfo.likely) {
+		if (!branchInfo.delaySlotIsNice && !branchInfo.delaySlotIsBranch)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
-		{
-			ptr = J_CC(cc, true);
-			if (predictTakeBranch)
-				GetStateAndFlushAll(state);
-			else
-			{
-				// We need to get the state BEFORE the delay slot is compiled.
-				gpr.GetState(state.gpr);
-				fpr.GetState(state.fpr);
-				CompileDelaySlot(DELAYSLOT_FLUSH);
-			}
-		}
-
-		if (predictTakeBranch)
-		{
-			// We flipped the cc, the not taken case is first.
-			CONDITIONAL_LOG_EXIT(notTakenAddr);
-			WriteExit(notTakenAddr, js.nextExit++);
-
-			// Now our taken path.  Bring the regs back, we didn't flush 'em after all.
-			SetJumpTarget(ptr);
-			RestoreState(state);
-			CONDITIONAL_LOG_EXIT(targetAddr);
-
-			// Don't forget to run the delay slot if likely.
-			if (branchInfo.likely)
-				CompileDelaySlot(DELAYSLOT_NICE);
-
-			AddContinuedBlock(targetAddr);
-			// Account for the increment in the loop.
-			js.compilerPC = targetAddr - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-		}
-		else
-		{
-			// Take the branch
-			CONDITIONAL_LOG_EXIT(targetAddr);
-			WriteExit(targetAddr, js.nextExit++);
-
-			// Not taken
-			SetJumpTarget(ptr);
-			RestoreState(state);
-			CONDITIONAL_LOG_EXIT(notTakenAddr);
-
-			// Account for the delay slot.
-			js.compilerPC += 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-		}
-	}
-	else
-	{
-		Gen::FixupBranch ptr;
-		if (!branchInfo.likely)
-		{
-			if (!branchInfo.delaySlotIsNice && !branchInfo.delaySlotIsBranch)
-				CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-			else
-				FlushAll();
-			ptr = J_CC(cc, true);
-		}
-		else
-		{
 			FlushAll();
-			ptr = J_CC(cc, true);
-			if (!branchInfo.delaySlotIsBranch)
-				CompileDelaySlot(DELAYSLOT_FLUSH);
-		}
-
-		// Handle the linkage of a delay slot, even when we're taking the branch.
-		if (branchInfo.delaySlotIsBranch) {
-			// We still link when the branch is taken (targetAddr case.)
-			// Remember, it's from the perspective of the delay slot, so +12.
-			if ((branchInfo.delaySlotInfo & OUT_RA) != 0)
-				gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 12);
-			if ((branchInfo.delaySlotInfo & OUT_RD) != 0)
-				gpr.SetImm(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
-			FlushAll();
-		}
-
-		// Take the branch
-		CONDITIONAL_LOG_EXIT(targetAddr);
-		WriteExit(targetAddr, js.nextExit++);
-
-		// Not taken
-		SetJumpTarget(ptr);
-		CONDITIONAL_LOG_EXIT(notTakenAddr);
-		WriteExit(notTakenAddr, js.nextExit++);
-		js.compiling = false;
+		ptr = J_CC(cc, true);
+	} else {
+		FlushAll();
+		ptr = J_CC(cc, true);
+		if (!branchInfo.delaySlotIsBranch)
+			CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
+
+	// Handle the linkage of a delay slot, even when we're taking the branch.
+	if (branchInfo.delaySlotIsBranch) {
+		// We still link when the branch is taken (targetAddr case.)
+		// Remember, it's from the perspective of the delay slot, so +12.
+		if ((branchInfo.delaySlotInfo & OUT_RA) != 0)
+			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 12);
+		if ((branchInfo.delaySlotInfo & OUT_RD) != 0)
+			gpr.SetImm(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
+		FlushAll();
+	}
+
+	// Take the branch
+	CONDITIONAL_LOG_EXIT(targetAddr);
+	WriteExit(targetAddr, js.nextExit++);
+
+	// Not taken
+	SetJumpTarget(ptr);
+	CONDITIONAL_LOG_EXIT(notTakenAddr);
+	WriteExit(notTakenAddr, js.nextExit++);
+	js.compiling = false;
 }
 
 void Jit::CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, const BranchInfo &branchInfo) {
@@ -370,26 +299,6 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		immBranchTaken = !immBranchNotTaken;
 	}
 
-	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
-	{
-		if (!immBranchTaken)
-		{
-			// Skip the delay slot if likely, otherwise it'll be the next instruction.
-			if (likely)
-				js.compilerPC += 4;
-			return;
-		}
-
-		// Branch taken.  Always compile the delay slot, and then go to dest.
-		CompileDelaySlot(DELAYSLOT_NICE);
-		AddContinuedBlock(targetAddr);
-		// Account for the increment in the loop.
-		js.compilerPC = targetAddr - 4;
-		// In case the delay slot was a break or something.
-		js.compiling = true;
-		return;
-	}
-
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 
 	u32 notTakenTarget = ResolveNotTakenTarget(branchInfo);
@@ -448,31 +357,6 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		}
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
-	}
-
-	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
-	{
-		if (!immBranchTaken)
-		{
-			// Skip the delay slot if likely, otherwise it'll be the next instruction.
-			if (andLink)
-				gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
-			if (likely)
-				js.compilerPC += 4;
-			return;
-		}
-
-		// Branch taken.  Always compile the delay slot, and then go to dest.
-		if (andLink)
-			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
-		CompileDelaySlot(DELAYSLOT_NICE);
-
-		AddContinuedBlock(targetAddr);
-		// Account for the increment in the loop.
-		js.compilerPC = targetAddr - 4;
-		// In case the delay slot was a break or something.
-		js.compiling = true;
-		return;
 	}
 
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
@@ -657,40 +541,15 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (CanContinueJump(targetAddr))
-		{
-			AddContinuedBlock(targetAddr);
-			// Account for the increment in the loop.
-			js.compilerPC = targetAddr - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-			return;
-		}
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
 		break;
 
 	case 3: //jal
-		// Special case for branches to "replace functions":
-		if (ReplaceJalTo(targetAddr))
-			return;
-
-		// Check for small function inlining (future)
-		
-
 		// Save return address - might be overwritten by delay slot.
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (CanContinueJump(targetAddr))
-		{
-			AddContinuedBlock(targetAddr);
-			// Account for the increment in the loop.
-			js.compilerPC = targetAddr - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-			return;
-		}
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
@@ -751,16 +610,6 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 				gpr.DiscardRegContentsIfCached((MIPSGPReg)i);
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T8);
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
-		}
-
-		if (gpr.IsImm(rs) && CanContinueJump(gpr.GetImm(rs)))
-		{
-			AddContinuedBlock(gpr.GetImm(rs));
-			// Account for the increment in the loop.
-			js.compilerPC = gpr.GetImm(rs) - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-			return;
 		}
 
 		if (gpr.R(rs).IsSimpleReg()) {

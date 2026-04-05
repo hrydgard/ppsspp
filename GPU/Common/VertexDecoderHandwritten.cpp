@@ -12,6 +12,7 @@
 
 // Tekken 6:
 // (found using the vertex counter that's active in _DEBUG)
+
 // [04000111] P: s16 C: 565 T: u8  (10b) (736949)    // Also in Midnight Club
 
 // Wipeout Pure:
@@ -29,8 +30,10 @@
 // [04000122] P: s16 N: s8 T: u16  (14b) (1710813)
 // [04000116] P: s16 C: 5551 T: u16  (12b) (7688298)
 
-// This is the first GoW one.
+// This is the first GoW one. TODO: Do two verts at a time.
+// God of War.
 void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	// Input: 4 + 4 + 4 + 12 = 24 bytes
 	struct GOWVTX {
 		union {
 			struct {
@@ -46,6 +49,7 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		float z;
 	};
 	// NOTE: This might be different for different vertex formats.
+	// Output: 8 + 4 + 4 + 12 = 28 bytes.
 	struct OutVTX {
 		float u;
 		float v;
@@ -118,7 +122,7 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 	gstate_c.vertexFullAlpha = (alpha >> 24) == 0xFF;
 }
 
-void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale *uvScaleOffset) {
 	struct GTAVTX {
 		union {
 			struct {
@@ -149,6 +153,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 	float voff = uvScaleOffset->vOff;
 
 	uint64_t alpha = 0xFFFFFFFFFFFFFFFFULL;
+	int count = numVerts;
 
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
@@ -161,13 +166,12 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 	__m128i lowbits = _mm_set1_epi32(0x00070707);
 
 	// Two vertices at a time, we can share some calculations.
-	// It's OK to accidentally decode an extra vertex.
-	for (int i = 0; i < count; i += 2) {
-		__m128i pos0 = _mm_loadl_epi64((const __m128i *) & src[i].x);
-		__m128i pos1 = _mm_loadl_epi64((const __m128i *) & src[i + 1].x);
+	while (count >= 2) {
+		__m128i pos0 = _mm_loadl_epi64((const __m128i *) & src[0].x);
+		__m128i pos1 = _mm_loadl_epi64((const __m128i *) & src[1].x);
 		// Translate UV, combined. TODO: Can possibly shuffle UV and col together here
-		uint32_t uv0 = (uint32_t)src[i].uv | ((uint32_t)src[i + 1].uv << 16);
-		uint64_t col0 = (uint64_t)src[i].col | ((uint64_t)src[i + 1].col << 32);
+		uint32_t uv0 = (uint32_t)src[0].uv | ((uint32_t)src[1].uv << 16);
+		uint64_t col0 = (uint64_t)src[0].col | ((uint64_t)src[1].col << 32);
 		__m128i pos0_32 = _mm_srai_epi32(_mm_unpacklo_epi16(pos0, pos0), 16);
 		__m128i pos1_32 = _mm_srai_epi32(_mm_unpacklo_epi16(pos1, pos1), 16);
 		__m128 pos0_ext = _mm_mul_ps(_mm_cvtepi32_ps(pos0_32), posScale);
@@ -179,7 +183,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 		__m128d uvf = _mm_castps_pd(_mm_add_ps(_mm_mul_ps(_mm_cvtepi32_ps(uv32), uvScale), uvOff));
 		alpha &= col0;
 
-		// Combined RGBA
+		// Combined 5551 -> 8888 RGBA. Nasty.
 		__m128i col = _mm_set1_epi64x(col0);
 		__m128i r = _mm_slli_epi32(_mm_and_si128(col, rmask), 8 - 5);
 		__m128i g = _mm_slli_epi32(_mm_and_si128(col, gmask), 16 - 10);
@@ -190,12 +194,21 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 		col = _mm_or_si128(col, a);
 
 		// TODO: Mix into fewer stores.
-		_mm_storeu_ps(&dst[i].x, pos0_ext);
-		_mm_storeu_ps(&dst[i + 1].x, pos1_ext);
-		_mm_storel_pd((double *)&dst[i].u, uvf);
-		_mm_storeh_pd((double *)&dst[i + 1].u, uvf);
-		dst[i].col = _mm_cvtsi128_si32(col);
-		dst[i + 1].col = _mm_cvtsi128_si32(_mm_shuffle_epi32(col, _MM_SHUFFLE(1, 1, 1, 1)));
+		_mm_storeu_ps(&dst[0].x, pos0_ext);
+		_mm_storeu_ps(&dst[1].x, pos1_ext);
+		_mm_storel_pd((double *)&dst[0].u, uvf);
+		_mm_storeh_pd((double *)&dst[1].u, uvf);
+#if PPSSPP_ARCH(AMD64)
+		u64 colors = _mm_cvtsi128_si64(col);
+		dst[0].col = colors;
+		dst[1].col = colors >> 32;
+#else
+		dst[0].col = _mm_cvtsi128_si32(col);
+		dst[1].col = _mm_cvtsi128_si32(_mm_shuffle_epi32(col, _MM_SHUFFLE(1, 1, 1, 1)));
+#endif
+		src += 2;
+		dst += 2;
+		count -= 2;
 	}
 
 	alpha = alpha & (alpha >> 32);
@@ -213,14 +226,13 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 	uint32x2_t lowbits = vdup_n_u32(0x00070707);
 
 	// Two vertices at a time, we can share some calculations.
-	// It's OK to accidentally decode an extra vertex.
 	// Doing four vertices at a time might be even better, can share more of the pesky color format conversion.
-	for (int i = 0; i < count; i += 2) {
-		int16x4_t pos0 = vld1_s16(&src[i].x);
-		int16x4_t pos1 = vld1_s16(&src[i + 1].x);
+	while (count >= 2) {
+		int16x4_t pos0 = vld1_s16(&src[0].x);
+		int16x4_t pos1 = vld1_s16(&src[1].x);
 		// Translate UV, combined. TODO: Can possibly shuffle UV and col together here
-		uint32_t uv0 = (uint32_t)src[i].uv | ((uint32_t)src[i + 1].uv << 16);
-		uint64_t col0 = (uint64_t)src[i].col | ((uint64_t)src[i + 1].col << 32);
+		uint32_t uv0 = (uint32_t)src[0].uv | ((uint32_t)src[1].uv << 16);
+		uint64_t col0 = (uint64_t)src[0].col | ((uint64_t)src[1].col << 32);
 		int32x4_t pos0_32 = vmovl_s16(pos0);
 		int32x4_t pos1_32 = vmovl_s16(pos1);
 		float32x4_t pos0_ext = vmulq_f32(vcvtq_f32_s32(pos0_32), posScale);
@@ -246,35 +258,40 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 		col = vorr_u32(col, a);
 
 		// TODO: Mix into fewer stores.
-		vst1q_f32(&dst[i].x, pos0_ext);
-		vst1q_f32(&dst[i + 1].x, pos1_ext);
-		vst1_f32(&dst[i].u, vget_low_f32(uvf));
-		vst1_f32(&dst[i + 1].u, vget_high_f32(uvf));
-		dst[i].col = vget_lane_u32(col, 0);
-		dst[i + 1].col = vget_lane_u32(col, 1);
+		vst1q_f32(&dst[0].x, pos0_ext);
+		vst1q_f32(&dst[1].x, pos1_ext);
+		vst1_f32(&dst[0].u, vget_low_f32(uvf));
+		vst1_f32(&dst[1].u, vget_high_f32(uvf));
+		dst[0].col = vget_lane_u32(col, 0);
+		dst[1].col = vget_lane_u32(col, 1);
+
+		dst += 2;
+		src += 2;
+		count -= 2;
 	}
 
 	alpha = alpha & (alpha >> 32);
 
-#else
-
-	for (int i = 0; i < count; i++) {
-		float u = src[i].u * uscale + uoff;
-		float v = src[i].v * vscale + voff;
-		alpha &= src[i].col;
-		uint32_t color = RGBA5551ToRGBA8888(src[i].col);
-		float x = src[i].x * (1.0f / 32768.0f);
-		float y = src[i].y * (1.0f / 32768.0f);
-		float z = src[i].z * (1.0f / 32768.0f);
-		dst[i].col = color;
-		dst[i].u = u;
-		dst[i].v = v;
-		dst[i].x = x;
-		dst[i].y = y;
-		dst[i].z = z;
-	}
-
 #endif
+
+	while (count > 0) {
+		float u = src->u * uscale + uoff;
+		float v = src->v * vscale + voff;
+		alpha &= src->col;
+		uint32_t color = RGBA5551ToRGBA8888(src->col);
+		float x = src->x * (1.0f / 32768.0f);
+		float y = src->y * (1.0f / 32768.0f);
+		float z = src->z * (1.0f / 32768.0f);
+		dst->col = color;
+		dst->u = u;
+		dst->v = v;
+		dst->x = x;
+		dst->y = y;
+		dst->z = z;
+		src++;
+		dst++;
+		count--;
+	}
 
 	gstate_c.vertexFullAlpha = (alpha >> 15) & 1;
 }

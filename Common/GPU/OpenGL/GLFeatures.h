@@ -86,11 +86,12 @@ struct GLExtensions {
 	bool KHR_texture_compression_astc_ldr;
 
 	// EXT
+	bool EXT_disjoint_timer_query;
+	bool ARB_timer_query;
 	bool EXT_texture_compression_s3tc;
 	bool EXT_swap_control_tear;
 	bool EXT_discard_framebuffer;
 	bool EXT_unpack_subimage;  // always supported on desktop and ES3
-	bool EXT_bgra;
 	bool EXT_shader_framebuffer_fetch;
 	bool EXT_gpu_shader4;
 	bool EXT_blend_minmax;

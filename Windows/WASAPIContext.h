@@ -2,6 +2,8 @@
 
 #include "Audio/AudioBackend.h"
 #include <atomic>
+#include <mutex>
+#include <string>
 
 #include <windows.h>
 #include <mmdeviceapi.h>
@@ -9,6 +11,7 @@
 #include <thread>
 #include <string>
 #include <string_view>
+#include <memory>
 #include <wrl/client.h>
 
 class WASAPIContext : public AudioBackend {
@@ -16,6 +19,7 @@ public:
 	WASAPIContext();
 	~WASAPIContext();
 
+	// This is only called on init.
 	void SetRenderCallback(RenderCallback callback, void *userdata) override {
 		callback_ = callback;
 		userdata_ = userdata;
@@ -29,7 +33,7 @@ public:
 
 	int PeriodFrames() const override { return actualPeriodFrames_; }  // NOTE: This may have the wrong value (too large) until audio has started playing.
 	int BufferSize() const override { return reportedBufferSize_; }
-	int SampleRate() const override { return format_->nSamplesPerSec; }
+	int SampleRate() const override { return curSamplesPerSec_; }
 
 	// Implements device change notifications
 	class DeviceNotificationClient : public IMMNotificationClient {
@@ -46,25 +50,35 @@ public:
 			return E_NOINTERFACE;
 		}
 
-		HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR) override {
-			if (flow == eRender && role == eConsole) {
-				// PostMessage(hwnd, WM_APP + 1, 0, 0);
-				engine_->defaultDeviceChanged_ = true;
-			}
-			return S_OK;
-		}
-
-		HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR) override { return S_OK; }
-		HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR) override { return S_OK; }
-		HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR, DWORD) override { return S_OK; }
-		HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR, const PROPERTYKEY) override { return S_OK; }
+		HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR device) override;
+		HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR device) override;
+		HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR device) override;
+		HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR device, DWORD state) override;
+		HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR device, const PROPERTYKEY key) override;
 	private:
 		WASAPIContext *engine_;
 	};
 
 	void DescribeOutputFormat(char *buffer, size_t bufferSize) const override;
 
+	std::string GetCurrentDeviceName() const override {
+		std::lock_guard<std::mutex> guard(deviceLock_);
+		return curDeviceName_ + ":" + curDeviceId_;
+	}
+
+	std::string GetErrorString() const override {
+		std::string temp;
+		{
+			std::lock_guard<std::mutex> guard(errorLock_);
+			temp = errorString_;
+		}
+		return temp;
+	}
+
 private:
+	void SetErrorString(std::string_view str, HRESULT hr);
+	void ClearErrorString();
+
 	void Start();
 	void Stop();
 
@@ -72,7 +86,7 @@ private:
 
 	enum class AudioFormat {
 		Float,
-		S16,
+		PCM16,
 		Unhandled,
 	};
 	static AudioFormat Classify(const WAVEFORMATEX *format);
@@ -85,17 +99,31 @@ private:
 	WAVEFORMATEX *format_ = nullptr;
 	HANDLE audioEvent_ = nullptr;
 	std::thread audioThread_;
-	UINT32 defaultPeriodFrames = 0, fundamentalPeriodFrames = 0, minPeriodFrames = 0, maxPeriodFrames = 0;
+	int curSamplesPerSec_ = 0;
+	UINT32 defaultPeriodFrames_ = 0;
+	UINT32 fundamentalPeriodFrames_ = 0;
+	UINT32 minPeriodFrames_ = 0;
+	UINT32 maxPeriodFrames_ = 0;
 	std::atomic<bool> running_ = true;
+
+	// NOTE: these do not need to be atomic, due to usage.
 	UINT32 actualPeriodFrames_ = 0;  // may not be the requested.
 	UINT32 reportedBufferSize_ = 0;
+
 	Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_;
 	DeviceNotificationClient notificationClient_;
 	RenderCallback callback_{};
 	void *userdata_ = nullptr;
 	LatencyMode latencyMode_ = LatencyMode::Aggressive;
-	std::string deviceId_;
-	std::atomic<bool> defaultDeviceChanged_{};
 
-	float *tempBuf_ = nullptr;
+	mutable std::mutex deviceLock_;
+	std::string curDeviceName_;
+	std::string curDeviceId_;
+	std::string newDeviceId_;
+	bool defaultDeviceChanged_ = false;
+
+	mutable std::mutex errorLock_;
+	std::string errorString_;
+
+	std::unique_ptr<float[]> tempBuf_;
 };

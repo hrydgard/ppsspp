@@ -1,5 +1,4 @@
-#include "scePspNpDrm_user.h"
-
+#include "Core/HLE/scePspNpDrm_user.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -12,10 +11,6 @@ extern MetaFileSystem pspFileSystem;
 static const int PSP_NPDRM_LICENSEE_KEY_LENGTH = 0x10;
 static u8 licenseeKey[PSP_NPDRM_LICENSEE_KEY_LENGTH];
 static bool isLicenseeKeySet = false;
-
-// Error codes matching JPCSP
-static const int ERROR_NPDRM_NO_K_LICENSEE_SET = 0x80550901;
-static const int ERROR_NPDRM_INVALID_FILE = 0x80550902;
 
 // Check if the file is an encrypted EDAT file by reading the magic number
 static bool isEncrypted(u32 edataFd) {
@@ -67,7 +62,7 @@ static int sceNpDrmSetLicenseeKey(u32 npDrmKeyAddr) {
 		isLicenseeKeySet = true;
 		return hleLogInfo(Log::sceIo, 0);
 	}
-	return hleLogError(Log::sceIo, ERROR_NPDRM_INVALID_FILE, "Invalid address");
+	return hleLogError(Log::sceIo, SCE_NPDRM_ERROR_INVALID_FILE, "Invalid address");
 }
 
 static int sceNpDrmClearLicenseeKey() {
@@ -84,9 +79,6 @@ static int sceNpDrmRenameCheck(const char *filename) {
 static int sceNpDrmEdataSetupKey(u32 edataFd) {
 	// Return an error if the key has not been set.
 	// Note: An empty key is valid, as long as it was set with sceNpDrmSetLicenseeKey.
-	if (!isLicenseeKeySet) {
-		return hleLogError(Log::sceIo, ERROR_NPDRM_NO_K_LICENSEE_SET, "Licensee key not set");
-	}
 
 	// Get file info to validate the file descriptor
 	u32 error;
@@ -99,6 +91,14 @@ static int sceNpDrmEdataSetupKey(u32 edataFd) {
 
 	// Check if the file is encrypted
 	if (isEncrypted(edataFd)) {
+		// In Wipeout Pure, the licensee key is not set, but the game's DLC still works.
+		// The data isn't encrypted, so it's likely that the check for having set the licensee key
+		// doesn't happen unless the file is actually encrypted.
+		// So moved the check in here, previously it was outside the isEncrypted check, which caused Wipeout Pure's DLC to not work.
+		if (!isLicenseeKeySet) {
+			return hleLogError(Log::sceIo, SCE_NPDRM_ERROR_NO_K_LICENSEE_SET, "Licensee key not set");
+		}
+
 		// File is encrypted, set up PGD decryption
 		// In JPCSP, this wraps the file in an EDATVirtualFile (lines 215-218)
 		// In this C++ implementation, we use ioctl commands to achieve the same result
@@ -129,8 +129,7 @@ static int sceNpDrmEdataGetDataSize(u32 edataFd) {
 }
 
 static int sceNpDrmOpen() {
-	ERROR_LOG(Log::sceIo, "UNIMPL: sceNpDrmOpen()");
-	return 0;
+	return hleLogError(Log::sceIo, 0, "UNIMPL: sceNpDrmOpen()");
 }
 
 const HLEFunction sceNpDrm[] = {

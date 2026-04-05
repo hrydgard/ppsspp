@@ -45,6 +45,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
+#include "UI/MiscViews.h"
 
 class SavedataButton;
 
@@ -64,7 +65,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 	detail_ = nullptr;
 	if (type == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		if (showIcon) {
-			toprow->Add(new GameIconView(savePath, 2.0f, new LinearLayoutParams(Margins(5, 5))));
+			toprow->Add(new GameImageView(savePath, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(Margins(5, 5))));
 		}
 		// Contents to the right of the image:
 		LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
@@ -131,75 +132,63 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 	}
 }
 
-class SavedataPopupScreen : public UI::PopupScreen {
-public:
-	SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) { }
+SavedataPopupScreen::SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) {}
 
-	const char *tag() const override { return "SavedataPopup"; }
-	void update() override {
-		PopupScreen::update();
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
-		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
-			// Hm, this is no good. But hopefully the previous screen loaded it.
-			return;
-		}
-		if (savedataView_) {
-			savedataView_->UpdateGame(ginfo.get());
-		}
+void SavedataPopupScreen::update() {
+	PopupScreen::update();
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		// Hm, this is no good. But hopefully the previous screen loaded it.
+		return;
+	}
+	if (savedataView_) {
+		savedataView_->UpdateGame(ginfo.get());
+	}
+}
+
+void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		// This is OK, handled in Update. Though most likely, the previous screen loaded it.
 	}
 
-	void CreatePopupContents(UI::ViewGroup *parent) override {
-		using namespace UI;
-		UIContext &dc = *screenManager()->getUIContext();
+	ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(0, 3)));
+	parent->Add(contentScroll);
 
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
-		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
-			// This is OK, handled in Update. Though most likely, the previous screen loaded it.
-		}
+	// TODO: If the game info wasn't already loaded, we'll get a bogus fileType here.
+	savedataView_ = contentScroll->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
 
-		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(0, 3)));
-		parent->Add(contentScroll);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		// TODO: If the game info wasn't already loaded, we'll get a bogus fileType here.
-		savedataView_ = contentScroll->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
+	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	buttonRow->SetSpacing(0);
+	Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
 
+	buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 
-		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		buttonRow->SetSpacing(0);
-		Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
+		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 
-		buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
-
-			const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
-
-			std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
-			screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
-				if (result) {
-					ginfo->Delete();
-					TriggerFinish(DR_NO);
-				}
-			}));
+		std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
+		screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
+			if (result) {
+				ginfo->Delete();
+				TriggerFinish(DR_NO);
+			}
+		}));
+	});
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+			System_ShowFileInFolder(savePath_);
 		});
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
-				System_ShowFileInFolder(savePath_);
-			});
-		}
-		parent->Add(buttonRow);
 	}
-
-protected:
-	UI::Size PopupWidth() const override { return 600; }
-
-private:
-	SavedataView *savedataView_ = nullptr;
-	Path savePath_;
-	Path gamePath_;
-};
+	parent->Add(buttonRow);
+}
 
 class SortedLinearLayout : public UI::LinearLayoutList {
 public:
@@ -662,11 +651,11 @@ void SavedataScreen::CreateTabs() {
 	using namespace UI;
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
-	AddTab("SavedataBrowser", sa->T("Save Data"), [this](UI::LinearLayout *parent) {
+	AddTab("SavedataBrowser", sa->T("Save data"), [this](UI::LinearLayout *parent) {
 		CreateSavedataTab(parent);
 	});
 
-	AddTab("SavedataStatesBrowser", sa->T("Save States"), [this](UI::LinearLayout *parent) {
+	AddTab("SavedataStatesBrowser", sa->T("Save states"), [this](UI::LinearLayout *parent) {
 		CreateSavestateTab(parent);
 	});
 }
@@ -721,41 +710,4 @@ void SavedataScreen::sendMessage(UIMessage message, const char *value) {
 		dataBrowser_->SetSearchFilter(searchFilter_);
 		stateBrowser_->SetSearchFilter(searchFilter_);
 	}
-}
-
-void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = textureWidth_;
-	h = textureHeight_;
-}
-
-void GameIconView::Draw(UIContext &dc) {
-	using namespace UI;
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::ICON);
-	if (!info->Ready(GameInfoFlags::ICON) || !info->icon.texture) {
-		return;
-	}
-
-	Draw::Texture *texture = info->icon.texture;
-
-	textureWidth_ = texture->Width() * scale_;
-	textureHeight_ = texture->Height() * scale_;
-
-	// Fade icon with the backgrounds.
-	double loadTime = info->icon.timeLoaded;
-	auto pic = info->GetPIC1();
-	if (pic) {
-		loadTime = std::max(loadTime, pic->timeLoaded);
-	}
-	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
-
-	// Adjust size so we don't stretch the image vertically or horizontally.
-	// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
-	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
-	int x = bounds_.x + (bounds_.w - nw) / 2.0f;
-
-	dc.Flush();
-	dc.GetDrawContext()->BindTexture(0, texture);
-	dc.Draw()->Rect(x, bounds_.y, nw, bounds_.h, color);
-	dc.Flush();
-	dc.RebindTexture();
 }

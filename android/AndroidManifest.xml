@@ -54,9 +54,8 @@
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:theme="@style/ppsspp_style"
-			android:launchMode="singleTop"
+			android:launchMode="singleInstance"
             android:exported="true">
-            <!-- android:screenOrientation="landscape" -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -110,11 +109,9 @@
                 <action android:name="android.intent.action.CREATE_SHORTCUT" />
             </intent-filter>
         </activity>
-
-        <meta-data
-            android:name="xperiaplayoptimized_content"
-            android:resource="@mipmap/ic_launcher" />
-
+		<activity android:name=".ImageResultProxyActivity"
+			android:theme="@style/Theme.ProxyTransparent"
+			android:launchMode="standard" />
         <profileable android:shell="true" android:enabled="true" />
     </application>
 

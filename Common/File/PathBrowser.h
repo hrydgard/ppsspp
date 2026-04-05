@@ -36,14 +36,9 @@ public:
 	const Path &GetPath() const {
 		return path_;
 	}
-	std::string GetFriendlyPath() const;
 
 	void SetUserAgent(std::string_view s) {
 		userAgent_ = s;
-	}
-	void SetRootAlias(std::string_view alias, const Path &rootPath) {
-		aliasDisplay_ = alias;
-		aliasMatch_ = rootPath;
 	}
 	void RestrictToRoot(const Path &root);
 	bool empty() const {
@@ -62,8 +57,6 @@ private:
 	Path pendingPath_;
 	Path restrictedRoot_;
 	std::string userAgent_;
-	std::string aliasDisplay_;
-	Path aliasMatch_;
 	std::vector<File::FileInfo> pendingFiles_;
 	std::condition_variable pendingCond_;
 	std::mutex pendingLock_;

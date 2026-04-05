@@ -27,7 +27,7 @@
 
 #if !PPSSPP_PLATFORM(UWP)
 #include "Windows/DinputDevice.h"
-#include "Windows/HidInputDevice.h"
+#include "Windows/Hid/HidInputDevice.h"
 #include "Windows/XinputDevice.h"
 #endif
 
@@ -42,12 +42,12 @@ void InputManager::InputThread() {
 
 	// NOTE: The keyboard and mouse buttons are handled via raw input, not here.
 	// This is mainly for controllers which need to be polled, instead of generating events.
-	bool noSleep = false;
 	while (runThread_.load(std::memory_order_relaxed)) {
+		bool noSleep = false;
 		if (focused_.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused) {
 			System_Notify(SystemNotification::POLL_CONTROLLERS);
 			for (const auto &device : devices_) {
-				int state = device->UpdateState();
+				const int state = device->UpdateState();
 				if (state == InputDevice::UPDATESTATE_SKIP_PAD)
 					break;
 				if (state == InputDevice::UPDATESTATE_NO_SLEEP) {

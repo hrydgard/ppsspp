@@ -44,7 +44,7 @@ struct TempImage {
 // Managed (will auto-reload from file) and async. For use in UI.
 class ManagedTexture {
 public:
-	ManagedTexture(Draw::DrawContext *draw, std::string_view filename, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);
+	ManagedTexture(Draw::DrawContext *draw, std::string_view filename, ImageFileType type = ImageFileType::DETECT);
 	~ManagedTexture();
 	Draw::Texture *GetTexture();  // For immediate use, don't store.
 	int Width() const { return texture_->Width(); }

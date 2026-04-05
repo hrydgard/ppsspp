@@ -71,6 +71,10 @@ bool WordWrapper::IsShy(uint32_t c) {
 std::string WordWrapper::Wrapped() {
 	if (out_.empty()) {
 		Wrap();
+		// Hack: Remove trailing line breaks.
+		if (!out_.empty() && out_.back() == '\n') {
+			out_.pop_back();
+		}
 	}
 	return out_;
 }

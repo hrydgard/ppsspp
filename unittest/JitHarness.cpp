@@ -107,7 +107,7 @@ static void SetupJitHarness() {
 	PSP_CoreParameter().cpuCore = CPUCore::INTERPRETER;
 	PSP_CoreParameter().fastForward = true;
 
-	Memory::Init();
+	Memory::Init(Memory::MemMapSetupFlags::Default);
 	mipsr4k.Reset();
 	CoreTiming::Init();
 	InitVFPU();

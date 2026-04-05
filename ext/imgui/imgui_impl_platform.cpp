@@ -15,7 +15,7 @@ Bounds g_imguiCentralNodeBounds;
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 	ImGuiIO &io = ImGui::GetIO();
 
-	if (key.flags & KEY_DOWN) {
+	if (key.flags & KeyInputFlags::DOWN) {
 		// Specially handle scroll events and any other special keys.
 		switch (key.keyCode) {
 		case NKCODE_EXT_MOUSEWHEEL_UP:
@@ -34,13 +34,13 @@ void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 		}
 		}
 	}
-	if (key.flags & KEY_UP) {
+	if (key.flags & KeyInputFlags::UP) {
 		ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
 		if (keyCode != ImGuiKey_None) {
 			io.AddKeyEvent(keyCode, false);
 		}
 	}
-	if (key.flags & KEY_CHAR) {
+	if (key.flags & KeyInputFlags::CHAR) {
 		const int unichar = key.unicodeChar;
 
 		if (unichar >= 0x20) {
@@ -59,12 +59,12 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 	float x = touch.x / g_display.dpi_scale_x;
 	float y = touch.y / g_display.dpi_scale_y;
 
-	if (touch.flags & TOUCH_MOVE) {
+	if (touch.flags & TouchInputFlags::MOVE) {
 		io.AddMousePosEvent(x, y);
 	}
-	if (touch.flags & TOUCH_DOWN) {
+	if (touch.flags & TouchInputFlags::DOWN) {
 		io.AddMousePosEvent(x, y);
-		if (touch.flags & TOUCH_MOUSE) {
+		if (touch.flags & TouchInputFlags::MOUSE) {
 			if (touch.buttons & 1)
 				io.AddMouseButtonEvent(0, true);
 			if (touch.buttons & 2)
@@ -73,9 +73,9 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 			io.AddMouseButtonEvent(0, true);
 		}
 	}
-	if (touch.flags & TOUCH_UP) {
+	if (touch.flags & TouchInputFlags::UP) {
 		io.AddMousePosEvent(x, y);
-		if (touch.flags & TOUCH_MOUSE) {
+		if (touch.flags & TouchInputFlags::MOUSE) {
 			if (touch.buttons & 1)
 				io.AddMouseButtonEvent(0, false);
 			if (touch.buttons & 2)

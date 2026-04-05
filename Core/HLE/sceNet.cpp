@@ -409,7 +409,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
 		if (!jsonStr) {
 			jsonOutput->clear();
-			return true;  // A clear output but returning true means something vent very wrong.
+			return true;  // A clear output but returning true means something went very wrong.
 		}
 		*jsonOutput = std::string((const char *)jsonStr.get(), jsonSize);
 		// In case there's an old request, get rid of it.
@@ -521,7 +521,7 @@ void InitLocalhostIP() {
 	g_localhostIP.in.sin_addr.s_addr = htonl(localIP);
 	g_localhostIP.in.sin_port = 0;
 
-	std::string serverStr(StripSpaces(g_Config.proAdhocServer));
+	std::string serverStr(StripSpaces(g_Config.sProAdhocServer));
 	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 
@@ -653,7 +653,10 @@ void __NetShutdown() {
 	__UPnPShutdown();
 #endif
 
-	free(dummyPeekBuf64k);
+	if (dummyPeekBuf64k) {
+		free(dummyPeekBuf64k);
+		dummyPeekBuf64k = NULL;
+	}
 }
 
 static void __UpdateApctlHandlers(u32 oldState, u32 newState, u32 flag, u32 error) {

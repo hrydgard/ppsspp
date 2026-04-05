@@ -40,7 +40,7 @@ void Arm64RegCache::Init(ARM64XEmitter *emitter) {
 	emit_ = emitter;
 }
 
-void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
+void Arm64RegCache::Start() {
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		ar[i].mipsReg = MIPS_REG_INVALID;
 		ar[i].isDirty = false;
@@ -163,10 +163,11 @@ void Arm64RegCache::MarkDirty(ARM64Reg reg) {
 }
 
 void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
-	if (reg == INVALID_REG) {
+	if (reg == INVALID_REG || reg == W0 || reg == X0) {
 		ERROR_LOG(Log::JIT, "SetRegImm to invalid register: at %08x", js_->compilerPC);
 		return;
 	}
+	_dbg_assert_(!ar[reg].tempLocked);
 	// On ARM64, at least Cortex A57, good old MOVT/MOVW  (MOVK in 64-bit) is really fast.
 	emit_->MOVI2R(reg, imm);
 	// ar[reg].pointerified = false;
@@ -204,7 +205,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 				break;
 			}
 			case ML_IMM:
-				SetRegImm(reg, mr[mipsReg].imm);
+				emit_->MOVI2R(reg, mr[mipsReg].imm);
 				ar[reg].isDirty = true;  // IMM is always dirty.
 
 				// If we are mapping dirty, it means we're gonna overwrite.
@@ -637,13 +638,13 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		if (r == MIPS_REG_LO) {
-			SetRegImm(SCRATCH1_64, mr[r].imm);
+			emit_->MOVI2R(SCRATCH1_64, mr[r].imm);
 			emit_->STR(INDEX_UNSIGNED, SCRATCH1_64, CTXREG, GetMipsRegOffset(r));
 		} else if (r != MIPS_REG_ZERO) {
 			// Try to optimize using a different reg.
 			ARM64Reg storeReg = ARM64RegForFlush(r);
 			if (storeReg == INVALID_REG) {
-				SetRegImm(SCRATCH1, mr[r].imm);
+				emit_->MOVI2R(SCRATCH1, mr[r].imm);
 				storeReg = SCRATCH1;
 			}
 			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
@@ -747,7 +748,7 @@ void Arm64RegCache::FlushAll() {
 			// Cannot leave any IMMs in registers, not even ML_ARMREG_IMM, can confuse the regalloc later if this flush is mid-block
 			// due to an interpreter fallback that changes the register.
 			if (mr[i].loc == ML_IMM) {
-				SetRegImm(mr[i].reg, mr[i].imm);
+				emit_->MOVI2R(mr[i].reg, mr[i].imm);
 				mr[i].loc = ML_ARMREG;
 				ar[armReg].pointerified = false;
 			} else if (mr[i].loc == ML_ARMREG_IMM) {

@@ -8,13 +8,13 @@
 #include "Core/ConfigValues.h"
 #include "Core/Config.h"
 
-bool ConfigSetting::perGame(void *ptr) {
+bool ConfigSetting::PerGame(void *ptr) {
 	return g_Config.IsGameSpecific() && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr].second->PerGame();
 }
 
 bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {
 	char *owner = (char *)configBlock;
-	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
+	_dbg_assert_msg_(offset_ >= 0 && offset_ < configBlock->Size(), "offset: %d size: %d", (int)offset_, (int)configBlock->Size());
 
 	switch (type_) {
 	case Type::TYPE_BOOL:

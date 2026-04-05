@@ -17,10 +17,11 @@ bool RepeatButton(const char *title) {
 	return false;
 }
 
-bool RepeatButtonShift(const char* label, float repeatRate) {
+int RepeatButtonShift(const char* label, float repeatRate) {
 	bool clicked = ImGui::Button(label);
 
 	bool shiftHeld = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
+	bool ctrlHeld = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
 	bool held = ImGui::IsItemActive() && shiftHeld;
 
 	static float repeatDelay = 0.25f;  // seconds before repeating starts
@@ -39,8 +40,9 @@ bool RepeatButtonShift(const char* label, float repeatRate) {
 				int steps = static_cast<int>(t / repeatRate);
 				static int lastStep = -1;
 				if (steps != lastStep) {
+					int count = steps - lastStep;
 					lastStep = steps;
-					return true;
+					return count;
 				}
 			}
 		}
@@ -52,7 +54,7 @@ bool RepeatButtonShift(const char* label, float repeatRate) {
 		}
 	}
 
-	return clicked;
+	return clicked ? 1 : 0;
 }
 
 bool CollapsingHeaderWithCount(const char *title, int count, ImGuiTreeNodeFlags flags) {

@@ -34,9 +34,9 @@ std::string NiceSizeFormat(uint64_t size) {
 
 std::string NiceTimeFormat(int seconds) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	if (seconds < 60) {
+	if (seconds < 120) {
 		return StringFromFormat(di->T_cstr("%d seconds"), seconds);
-	} else if (seconds < 60 * 60) {
+	} else if (seconds < 120 * 60) {
 		int minutes = seconds / 60;
 		return StringFromFormat(di->T_cstr("%d minutes"), minutes);
 	} else {

@@ -21,8 +21,9 @@
 
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
-#include "UI/BaseScreens.h"
 #include "Common/File/Path.h"
+#include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 
 enum class ReportingOverallScore : int {
 	PERFECT = 0,
@@ -33,23 +34,22 @@ enum class ReportingOverallScore : int {
 	INVALID = -1,
 };
 
-class ReportScreen : public UIDialogScreen {
+class ReportScreen : public UITwoPaneBaseDialogScreen {
 public:
 	ReportScreen(const Path &gamePath);
 
 	const char *tag() const override { return "Report"; }
 
-	// For the screenshotting functionality to work.
-	ScreenRenderRole renderRole(bool isTop) const override { return ScreenRenderRole::MUST_BE_FIRST | ScreenRenderRole::CAN_BE_BACKGROUND; }
-
 protected:
-	ScreenRenderFlags render(ScreenRenderMode mode) override;
+	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
 	void update() override;
 	void resized() override;
-	void CreateViews() override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 	void UpdateSubmit();
 	void UpdateCRCInfo();
 	void UpdateOverallDescription();
+	std::string_view GetTitle() const override;
 
 	void HandleChoice(UI::EventParams &e);
 	void HandleSubmit(UI::EventParams &e);
@@ -61,7 +61,6 @@ protected:
 	UI::TextView *reportingNotice_ = nullptr;
 	UI::TextView *overallDescription_ = nullptr;
 	UI::TextView *crcInfo_ = nullptr;
-	Path gamePath_;
 	Path screenshotFilename_;
 
 	ReportingOverallScore overall_ = ReportingOverallScore::INVALID;
@@ -72,17 +71,20 @@ protected:
 	bool ratingEnabled_;
 	bool tookScreenshot_ = false;
 	bool includeScreenshot_ = true;
+	mutable std::string titleCache_;
 };
 
-class ReportFinishScreen : public UIDialogScreen {
+class ReportFinishScreen : public UISimpleBaseDialogScreen {
 public:
 	ReportFinishScreen(const Path &gamePath, ReportingOverallScore score);
 
 	const char *tag() const override { return "ReportFinish"; }
 
 protected:
+	std::string_view GetTitle() const override;
+
 	void update() override;
-	void CreateViews() override;
+	void CreateDialogViews(UI::ViewGroup *parent) override;
 	void ShowSuggestions();
 
 	void HandleViewFeedback(UI::EventParams &e);
@@ -90,6 +92,6 @@ protected:
 	UI::TextView *resultNotice_ = nullptr;
 	UI::LinearLayout *resultItems_ = nullptr;
 	Path gamePath_;
-	ReportingOverallScore score_;
+	ReportingOverallScore score_{};
 	bool setStatus_ = false;
 };

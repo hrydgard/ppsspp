@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "Common/GPU/thin3d.h"
@@ -128,7 +129,6 @@ public:
 	~SoftGPU();
 
 	u32 CheckGPUFeatures() const override { return 0; }
-	bool IsStarted() override;
 	void ExecuteOp(u32 op, u32 diff) override;
 	void FinishDeferred() override;
 	int ListSync(int listid, int mode) override;
@@ -136,7 +136,9 @@ public:
 	void UpdateCmdInfo() override {}
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) override;
+	void SetCurFramebufferDirty(bool dirty) override {}
+	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) override;
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;

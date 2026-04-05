@@ -930,7 +930,7 @@ ExpressionType GEExpressionFunctions::getFieldType(GECmdFormat fmt, GECmdField f
 bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t &dest, std::string *error) {
 	// We allow, but ignore, bad access.
 	// If we didn't, log/condition statements that reference registers couldn't be configured.
-	uint32_t valid = Memory::ValidSize(address, size);
+	uint32_t valid = Memory::ClampValidSizeAt(address, size);
 	uint8_t buf[4]{};
 	if (valid != 0)
 		memcpy(buf, Memory::GetPointerUnchecked(address), valid);

@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <tchar.h>
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
@@ -13,14 +12,14 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUState.h"
 
-LPCTSTR CtrlDisplayListView::windowClass = _T("CtrlDisplayListView");
+constexpr const wchar_t *szWindowClass = L"CtrlDisplayListView";
 
 void CtrlDisplayListView::registerClass()
 {
 	WNDCLASSEX wndClass;
 
 	wndClass.cbSize         = sizeof(wndClass);
-	wndClass.lpszClassName  = windowClass;
+	wndClass.lpszClassName  = szWindowClass;
 	wndClass.hInstance      = GetModuleHandle(0);
 	wndClass.lpfnWndProc    = wndProc;
 	wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);

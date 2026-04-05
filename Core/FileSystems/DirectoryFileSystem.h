@@ -24,7 +24,7 @@
 #include "Common/File/Path.h"
 #include "Core/FileSystems/FileSystem.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(HAVE_LIBRETRO_VFS)
 typedef void * HANDLE;
 #endif
 
@@ -34,7 +34,9 @@ struct DirectoryFileHandle {
 		SKIP_REPLAY,
 	};
 
-#ifdef _WIN32
+#ifdef HAVE_LIBRETRO_VFS
+	FILE *hFile = nullptr;
+#elif defined(_WIN32)
 	HANDLE hFile = (HANDLE)-1;
 #else
 	int hFile = -1;
@@ -49,7 +51,7 @@ struct DirectoryFileHandle {
 	DirectoryFileHandle(Flags flags, FileSystemFlags fileSystemFlags)
 		: replay_(flags != SKIP_REPLAY), fileSystemFlags_(fileSystemFlags) {}
 
-	Path GetLocalPath(const Path &basePath, std::string localpath) const;
+	Path GetLocalPath(const Path &basePath, std::string_view localPath) const;
 	bool Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
@@ -65,7 +67,7 @@ public:
 	void CloseAll();
 
 	void DoState(PointerWrap &p) override;
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
@@ -102,7 +104,7 @@ private:
 	IHandleAllocator *hAlloc;
 	FileSystemFlags flags;
 
-	Path GetLocalPath(std::string internalPath) const;
+	Path GetLocalPath(std::string_view internalPath) const;
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.
@@ -113,7 +115,7 @@ public:
 	~VFSFileSystem();
 
 	void DoState(PointerWrap &p) override;
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
@@ -149,5 +151,5 @@ private:
 	std::string basePath;
 	IHandleAllocator *hAlloc;
 
-	std::string GetLocalPath(const std::string &localpath) const;
+	std::string GetLocalPath(std::string_view localpath) const;
 };

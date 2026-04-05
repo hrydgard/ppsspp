@@ -626,7 +626,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.bufw = bufw;
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, 0, &bestCandidate)) {
+	if (GetBestFramebufferCandidate(def, 0, &bestCandidate, "texture")) {
 		// If we had a texture entry here, let's get rid of it.
 		if (entryIter != cache_.end()) {
 			DeleteTexture(entryIter);
@@ -709,7 +709,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	return entry;
 }
 
-bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate) const {
+bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) const {
 	gpuStats.numFramebufferEvaluations++;
 
 	TinySet<AttachCandidate, 6> candidates;
@@ -743,6 +743,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 	bool kzCompat = PSP_CoreParameter().compat.flags().SplitFramebufferMargin;
 
 	// We simply use the sequence counter as relevancy nowadays.
+
 	for (size_t i = 0; i < candidates.size(); i++) {
 		AttachCandidate &candidate = candidates[i];
 		int relevancy = candidate.channel == RASTER_COLOR ? candidate.fb->colorBindSeq : candidate.fb->depthBindSeq;
@@ -753,6 +754,11 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 			(candidate.match.yOffset != 0 || candidate.match.xOffset != 0) &&
 			candidate.fb->fb_address == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 			relevancy -= 2;
+		}
+
+		if (candidate.fb->fb_address == entry.addr && PSP_CoreParameter().compat.flags().BoostExactFramebufferMatch) {
+			// Perfect match, prefer this one heavily. Works around an overlapping framebuffer problem in Tales of Phantasia X: #21162
+			relevancy += 3;
 		}
 
 		if (candidate.match.xOffset != 0 && PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset) {
@@ -785,7 +791,8 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		}
 		cands += "\n";
 
-		WARN_LOG(Log::G3D, "GetFramebufferCandidates(tex): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+		WARN_LOG(Log::G3D, "GetBestFramebufferCandidate(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+			context,
 			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
 			cands.c_str()
@@ -795,7 +802,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	if (bestIndex != -1) {
 		if (logging) {
-			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s\n", (int)bestIndex, candidates[bestIndex].ToString().c_str());
+			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s", (int)bestIndex, candidates[bestIndex].ToString().c_str());
 		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
@@ -1083,6 +1090,10 @@ bool TextureCacheCommon::MatchFramebuffer(
 			matchInfo->xOffset = entry.bufw == 0 ? 0 : -(-texelOffset % (int)entry.bufw);
 		}
 
+		if (matchInfo->yOffset >= 512 && !PSP_CoreParameter().compat.flags().AllowLargeFBTextureOffsets) {
+			// Reject unreasonably large y offsets. 512 is the largest texture size.
+			return false;
+		}
 		if (matchInfo->yOffset > 0 && matchInfo->yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer.
 			return false;
@@ -1114,12 +1125,27 @@ bool TextureCacheCommon::MatchFramebuffer(
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		if (matchingClutFormat) {
-			if (!noOffset) {
-				WARN_LOG_ONCE(subareaClut, Log::G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", RasterChannelToString(channel), GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+			if (channel == RasterChannel::RASTER_DEPTH && framebuffer->last_frame_depth_updated < 0) {
+				// Reject depth textures that have not been rendered to. See #15828
+				// We're right before the final check here, so we can bail.
+				return false;
+			} else {
+				if (!noOffset) {
+					WARN_LOG_ONCE(subareaClut, Log::G3D, "Matching framebuffer (%s) using %s with offset at %08x +%dx%d", RasterChannelToString(channel), GeTextureFormatToString(entry.format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+				}
+				return true;
 			}
-			return true;
-		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, Log::G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+		} else if (IsClutFormat((GETextureFormat)(entry.format))) {
+			WARN_LOG_ONCE(nomatch_clut, Log::G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+			// Seen in Silent Hill: Shattered Memories (#6265).
+			if (entry.format == GE_TFMT_CLUT32 && fb_format != GE_FORMAT_8888) {
+				matchInfo->reinterpret = true;
+				matchInfo->reinterpretTo = GE_FORMAT_8888;
+				return true;
+			}
+			return false;
+		} else if (IsDXTFormat((GETextureFormat)(entry.format))) {
+			WARN_LOG_ONCE(nomatch_dxt, Log::G3D, "%s texture format (DXT!) not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
 			return false;
 		}
 
@@ -1249,7 +1275,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	def.dim = gstate.getTextureDimension(0);
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate)) {
+	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate, "offsetTexture")) {
 		SetTextureFramebuffer(bestCandidate);
 		return true;
 	} else {
@@ -1437,7 +1463,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 	}
 
 	// It's possible for a game to load CLUT outside valid memory without crashing, should result in zeroes.
-	u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+	u32 bytes = Memory::ClampValidSizeAt(clutAddr, loadBytes);
 	_assert_(bytes <= 2048);
 	bool performDownload = PSP_CoreParameter().compat.flags().AllowDownloadCLUT;
 	if (recorder->IsActive())
@@ -1683,9 +1709,9 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	int outPitch32 = outPitch / sizeof(uint32_t);
 	const DXTBlock *src = (const DXTBlock *)texptr;
 
-	if (!Memory::IsValidRange(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock))) {
+	if (!Memory::IsValidRange(texaddr, ((h + 3) / 4) * (bufw / 4) * sizeof(DXTBlock))) {
 		ERROR_LOG_REPORT(Log::G3D, "DXT%d texture extends beyond valid RAM: %08x + %d x %d", n, texaddr, bufw, h);
-		uint32_t limited = Memory::ValidSize(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock));
+		uint32_t limited = Memory::ClampValidSizeAt(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock));
 		// This might possibly be 0, but try to decode what we can (might even be how the PSP behaves.)
 		h = (((int)limited / sizeof(DXTBlock)) / (bufw / 4)) * 4;
 	}

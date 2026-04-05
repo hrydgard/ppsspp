@@ -3,6 +3,8 @@
 // Just understands section headings and
 // keys and values, split by ' = '.
 
+use regex::Regex;
+
 #[derive(Debug, Clone)]
 pub struct Section {
     pub name: String,
@@ -17,7 +19,7 @@ pub fn split_line(line: &str) -> Option<(&str, &str)> {
         if value.is_empty() {
             return None;
         }
-        return Some((&line[0..pos].trim(), value.trim()));
+        return Some((line[0..pos].trim(), value.trim()));
     }
     None
 }
@@ -27,6 +29,23 @@ pub fn line_value(line: &str) -> Option<&str> {
 }
 
 impl Section {
+	pub fn apply_regex(&mut self, key: &str, pattern: &str, replacement: &str) {
+		let re = Regex::new(pattern).unwrap();
+		for line in self.lines.iter_mut() {
+			let prefix = if let Some(pos) = line.find(" =") {
+				&line[0..pos]
+			} else {
+				continue;
+			};
+			if prefix.eq(key) {
+				if let Some((_, value)) = split_line(line) {
+					let new_value = re.replace_all(value, replacement);
+					*line = format!("{} = {}", key, new_value);
+				}
+			}
+		}
+	}
+
     pub fn remove_line(&mut self, key: &str) -> Option<String> {
         let mut remove_index = None;
         for (index, line) in self.lines.iter().enumerate() {
@@ -151,6 +170,59 @@ impl Section {
         }
     }
 
+    fn capitalize_first_letter(s: &str) -> String {
+        if let Some(first_char) = s.chars().next() {
+            if first_char.is_ascii_alphabetic() {
+                let mut c = first_char.to_ascii_uppercase().to_string();
+                c.push_str(&s[first_char.len_utf8()..]);
+                return c;
+            }
+        }
+        s.to_string()
+    }
+
+    // split_key should take a line like:
+    // KeyName (KeyDescription) = TranslatedKeyName (TranslatedKeyDescription)
+    //  and split it into:
+    // KeyName = TranslatedKeyName
+    // KeyDescription = TranslatedKeyDescription
+    // (Note: the first letter ONLY of description gets capitalized).
+    // Additional note, this must handle utf-8 unicode characters. Chinese characters for example
+    // can't be capitalized so we shouldn't do that to them. Also, parentheses around description shouldn't come
+    // along for the ride - get rid of them.
+    pub fn split_key(&mut self, key: &str) {
+        let prefix = key.to_owned() + " =";
+        let mut found_index = None;
+        for (index, line) in self.lines.iter().enumerate() {
+            if line.starts_with(&prefix) {
+                found_index = Some(index);
+            }
+        }
+        if let Some(index) = found_index {
+            let line = self.lines.remove(index);
+            let right_part = line.strip_prefix(&prefix).unwrap().to_string();
+            if let Some(pos) = key.find('(') {
+                let key_name = key[0..pos].trim();
+                let key_desc = key[pos+1..key.len()-1].trim();
+                if let Some(pos) = right_part.find('(') {
+                    let value_name = right_part[0..pos].trim();
+                    let value_desc = right_part[pos+1..right_part.len()-1].trim();
+                    self.insert_line_if_missing(&format!("{} = {}", key_name, value_name));
+                    self.insert_line_if_missing(&format!("{} = {}", Self::capitalize_first_letter(key_desc), Self::capitalize_first_letter(value_desc)));
+                } else {
+                    println!("split_key: didn't find '(' in the value part {right_part} for key {key}. Leaving description untranslated.");
+                    self.insert_line_if_missing(&format!("{} = {}", key_name, right_part.trim()));
+                    self.insert_line_if_missing(&format!("{} = {}", Self::capitalize_first_letter(key_desc), Self::capitalize_first_letter(key_desc)));
+                }
+            } else {
+                println!("split_key: didn't find '(' in the key {key}");
+            }
+        } else {
+            let name = &self.name;
+            println!("split_key: didn't find a line starting with {prefix} in section {name}");
+        }
+    }
+
     pub fn dupe_key(&mut self, old: &str, new: &str) {
         let prefix = old.to_owned() + " =";
         let mut found_index = None;
@@ -263,7 +335,7 @@ impl Section {
     }
 
     // Returns true if the key was found and updated.
-    pub fn set_value(&mut self, key: &str, value: &str) -> bool {
+    pub fn set_value(&mut self, key: &str, value: &str, comment: Option<&str>) -> bool {
         let mut found_index = None;
         for (index, line) in self.lines.iter().enumerate() {
             let prefix = if let Some(pos) = line.find(" =") {
@@ -279,7 +351,10 @@ impl Section {
         }
 
         if let Some(found_index) = found_index {
-            self.lines[found_index] = format!("{key} = {value}");
+            self.lines[found_index] = match comment {
+                Some(c) => format!("{} = {}  # {}", key, value, c),
+                None => format!("{} = {}", key, value),
+            };
             true
         } else {
             false
@@ -290,6 +365,9 @@ impl Section {
         for line in &self.lines {
             if let Some((ref_key, value)) = split_line(line) {
                 if key.eq(ref_key) {
+                    // Found it!
+                    // The value might have a comment starting with #, strip that before returning.
+                    let value = value.split('#').next().unwrap().trim();
                     return Some(value.to_string());
                 }
             }

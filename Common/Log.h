@@ -133,9 +133,9 @@ void GenericLog(Log type, LogLevel level, const char *file, int line, const char
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(t, LogLevel::LVERBOSE, __VA_ARGS__) } while (false)
 
 // Currently only actually shows a dialog box on Windows.
-bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...)
+bool HandleAssert(bool isDebugAssert, const char *function, const char *file, int line, const char *expression, const char* format, ...)
 #ifdef __GNUC__
-__attribute__((format(printf, 5, 6)))
+__attribute__((format(printf, 6, 7)))
 #endif
 ;
 
@@ -172,22 +172,22 @@ void SetAssertDialogParent(void *handle);  // HWND on windows. Ignored on other 
 
 #define _dbg_assert_(_a_) \
 	if (!(_a_)) {\
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
+		if (!HandleAssert(true, __FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
 	}
 
 #define _dbg_assert_or_log_(_a_) \
 	if (!(_a_)) {\
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
+		if (!HandleAssert(true, __FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
 	}
 
 #define _dbg_assert_msg_(_a_, ...) \
 	if (!(_a_)) { \
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
+		if (!HandleAssert(true, __FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
 
 #define _dbg_assert_msg_or_log_(_a_, log, ...) \
 	if (!(_a_)) { \
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
+		if (!HandleAssert(true, __FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
 
 #else // not debug
@@ -210,12 +210,12 @@ void SetAssertDialogParent(void *handle);  // HWND on windows. Ignored on other 
 
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
+		if (!HandleAssert(false, __FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
 	}
 
 #define _assert_msg_(_a_, ...) \
 	if (!(_a_)) { \
-		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
+		if (!HandleAssert(false, __FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
 
 // Just INFO_LOGs on nonWindows. On Windows it outputs to the VS output console.

@@ -69,6 +69,7 @@ struct ShaderInfo;
 class TextureCacheCommon;
 
 enum class OutputFlags {
+	DEFAULT = 0,
 	LINEAR = 0x0000,
 	NEAREST = 0x0001,
 	RB_SWIZZLE = 0x0002,
@@ -123,9 +124,14 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void UpdateUniforms(bool hasVideo);
+
+	// One of these must be called every frame.
+	void SourceBlank();
 	void SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight);
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
-	void CopyToOutput(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
+
+	void RunPostshaderPasses(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
+	void CopyToOutput(const DisplayLayoutConfig &config);
 
 	void CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
@@ -189,4 +195,9 @@ protected:
 		int h;
 	};
 	std::vector<PrevFBO> postShaderFBOUsage_;
+
+	// Carry over info between RunPostShaderPasses and CopyToOutput.
+	Draw::Framebuffer *postShaderOutput_ = nullptr;
+	FRect rc_;
+	OutputFlags outputFlags_ = OutputFlags::DEFAULT;
 };

@@ -404,8 +404,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 }
 
 
-int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
-{
+int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 	DEBUG_LOG(Log::Loader,"String section: %i", header->e_shstrndx);
 
 	if (size_ < sizeof(Elf32_Ehdr)) {
@@ -513,7 +512,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	DEBUG_LOG(Log::Loader,"%i segments:", header->e_phnum);
 
-	// First pass : Get the damn bits into RAM
+	// First pass: Get the bits into RAM
 	u32 baseAddress = bRelocate ? vaddr : 0;
 
 	for (int i = 0; i < header->e_phnum; i++)
@@ -524,19 +523,31 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 		if (p->p_type == PT_LOAD)
 		{
 			segmentVAddr[i] = baseAddress + p->p_vaddr;
-			u32 writeAddr = segmentVAddr[i];
+			const u32 writeAddr = segmentVAddr[i];
 
 			const u8 *src = GetSegmentPtr(i);
-			if (!src || p->p_offset + p->p_filesz > size_) {
-				ERROR_LOG(Log::Loader, "Segment %d pointer invalid - truncated?", i);
+			if (!src) {
+				ERROR_LOG(Log::Loader, "Segment %d pointer invalid?", i);
 				continue;
 			}
-			u32 srcSize = p->p_filesz;
-			u32 dstSize = p->p_memsz;
+			if (p->p_filesz > size_) {
+				ERROR_LOG(Log::Loader, "Segment %d size invalid", i);
+				continue;
+			}
+			if ((s64)p->p_filesz + (s64)p->p_offset > (s64)size_) {
+				ERROR_LOG(Log::Loader, "Segment %d size+offset invalid, reading outside the input", i);
+				continue;
+			}
+			if (p->p_filesz > p->p_memsz) {
+				ERROR_LOG(Log::Loader, "Segment %d filesz invalid - bigger than memsz", i);
+				continue;
+			}
+			const u32 srcSize = p->p_filesz;
+			const u32 dstSize = p->p_memsz;  // can be bigger than size-in-file (p_filesz), we'll zero the rest below. But cannot be smaller!
 			u8 *dst = Memory::GetPointerWriteRange(writeAddr, dstSize);
 			if (dst) {
 				if (srcSize < dstSize) {
-					memset(dst + srcSize, 0, dstSize - srcSize); //zero out bss
+					memset(dst + srcSize, 0, dstSize - srcSize); // zero out the rest of the segment, this also applies to bss (which is all-zero)
 					NotifyMemInfo(MemBlockFlags::WRITE, writeAddr + srcSize, dstSize - srcSize, "ELFZero");
 				}
 
@@ -551,7 +562,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	}
 	memblock.ListBlocks();
 
-	DEBUG_LOG(Log::Loader,"%i sections:", header->e_shnum);
+	DEBUG_LOG(Log::Loader, "%d sections:", header->e_shnum);
 
 	sectionOffsets = new u32[GetNumSections()];
 	sectionAddrs = new u32[GetNumSections()];
@@ -580,6 +591,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	DEBUG_LOG(Log::Loader, "Relocations:");
 
 	// Second pass: Do necessary relocations
+
 	for (int i = 0; i < GetNumSections(); i++)
 	{
 		const Elf32_Shdr *s = &sections[i];

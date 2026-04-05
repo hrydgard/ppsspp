@@ -528,6 +528,7 @@ namespace MIPSInt
 				}
 				break;
 			}
+			break;
 
 		case 4: //mtc1
 			FI(fs) = R(rt);

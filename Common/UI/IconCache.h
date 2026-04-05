@@ -2,9 +2,11 @@
 
 #include <map>
 #include <set>
-#include <string>
+#include <string_view>
 #include <mutex>
 #include <cstdint>
+
+#include "Common/File/Path.h"
 
 
 class UIContext;
@@ -30,14 +32,14 @@ class IconCache {
 public:
 	// NOTE: Don't store the returned texture. Only use it to look up dimensions or other properties,
 	// instead call BindIconTexture every time you want to use it.
-	Draw::Texture *BindIconTexture(UIContext *context, const std::string &key);
+	Draw::Texture *BindIconTexture(UIContext *context, std::string_view key);
 
 	// It's okay to call these from any thread.
-	bool MarkPending(const std::string &key);  // returns false if already pending or loaded
-	void CancelPending(const std::string &key);
-	bool InsertIcon(const std::string &key, IconFormat format, std::string &&pngData);
-	bool GetDimensions(const std::string &key, int *width, int *height);
-	bool Contains(const std::string &key);
+	bool MarkPending(std::string_view key);  // returns false if already pending or loaded
+	void CancelPending(std::string_view key);
+	bool InsertIcon(std::string_view key, IconFormat format, std::string &&pngData);
+	bool GetDimensions(std::string_view key, int *width, int *height);
+	bool Contains(std::string_view key);
 
 	void SaveToFile(FILE *file);
 	bool LoadFromFile(FILE *file);
@@ -61,8 +63,8 @@ private:
 		bool badData;
 	};
 
-	std::map<std::string, Entry> cache_;
-	std::set<std::string> pending_;
+	std::map<std::string, Entry, std::less<>> cache_;
+	std::set<std::string, std::less<>> pending_;
 
 	std::mutex lock_;
 

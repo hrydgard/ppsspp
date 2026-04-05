@@ -40,7 +40,7 @@
 #include "Core/Config.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
-#include "UI/DarwinFileSystemServices.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 
 // Compile out all the hackery in app store builds.
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
@@ -358,6 +358,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
+			return true;
 		case SYSPROP_HAS_FILE_BROWSER:
 			return true;
 		case SYSPROP_HAS_FOLDER_BROWSER:
@@ -533,6 +535,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		switch ((UIEventNotification)param3) {
 		case UIEventNotification::POPUP_CLOSED:
+		case UIEventNotification::DIALOG_CLOSED:
 			[sharedViewController hideKeyboard];
 			break;
 		case UIEventNotification::TEXT_GOTFOCUS:

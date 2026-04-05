@@ -802,6 +802,10 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 		return false;
 	}
 	_dbg_assert_(pushBuffer);
+	_dbg_assert_(desc.tag != nullptr);
+	_dbg_assert_(desc.mipLevels > 0);
+	_dbg_assert_(desc.format != DataFormat::UNDEFINED);
+	// _dbg_assert_(desc.type == TextureType::LINEAR2D);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;
@@ -1057,6 +1061,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			bugs_.Infest(Bugs::MALI_CONSTANT_LOAD_BUG);  // See issue #15661
 		}
 
+		if (deviceProps.driverVersion == 0xaa9c4b29) {
+			bugs_.Infest(Bugs::EMPTY_RENDERPASS_BROKEN_MALI);
+		}
+
 		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
 		// Also seen to cause weird issues on 18, so let's lump it in.
 		if (majorVersion <= 18 || isOldVersion) {
@@ -1225,6 +1233,11 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 
 	for (auto &iter : desc.shaders) {
 		VKShaderModule *vkshader = (VKShaderModule *)iter;
+		if (!iter) {
+			ERROR_LOG(Log::G3D, "Null shader in pipeline creation");
+			delete pipeline;
+			return nullptr;
+		}
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
@@ -1830,6 +1843,8 @@ DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+	_dbg_assert_(fbo != nullptr || equals(tag, "BackBuffer"))
+
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassLoadAction color = (VKRRenderPassLoadAction)rp.color;
 	VKRRenderPassLoadAction depth = (VKRRenderPassLoadAction)rp.depth;

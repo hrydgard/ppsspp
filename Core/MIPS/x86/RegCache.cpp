@@ -57,7 +57,7 @@ void GPRRegCache::FlushBeforeCall() {
 GPRRegCache::GPRRegCache() {
 }
 
-void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
+void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) {
 #if PPSSPP_ARCH(AMD64)
 	if (allocationOrderR15[0] == INVALID_REG) {
 		memcpy(allocationOrderR15, allocationOrder, sizeof(allocationOrder));
@@ -81,22 +81,6 @@ void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::
 		regs[i].location = GetDefaultLocation(MIPSGPReg(i));
 	}
 	SetImm(MIPS_REG_ZERO, 0);
-
-	// todo: sort to find the most popular regs
-	/*
-	int maxPreload = 2;
-	for (int i = 0; i < NUM_MIPS_GPRS; i++)
-	{
-		if (stats.numReads[i] > 2 || stats.numWrites[i] >= 2)
-		{
-			LoadToX64(i, true, false); //stats.firstRead[i] <= stats.firstWrite[i], false);
-			maxPreload--;
-			if (!maxPreload)
-				break;
-		}
-	}*/
-	//Find top regs - preload them (load bursts ain't bad)
-	//But only preload IF written OR reads >= 3
 
 	js_ = js;
 	jo_ = jo;

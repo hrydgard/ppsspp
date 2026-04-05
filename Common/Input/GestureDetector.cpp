@@ -6,6 +6,7 @@
 
 #include "Common/TimeUtil.h"
 #include "Common/Input/GestureDetector.h"
+#include "Common/System/Display.h"
 
 const float estimatedInertiaDamping = 0.75f;
 
@@ -19,7 +20,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 	}
 	// Mouse / 1-finger-touch control.
 	Pointer &p = pointers[touch.id];
-	if ((touch.flags & TOUCH_DOWN) && bounds.Contains(touch.x, touch.y)) {
+	if ((touch.flags & TouchInputFlags::DOWN) && bounds.Contains(touch.x, touch.y)) {
 		p.down = true;
 		p.downTime = time_now_d();
 		p.downX = touch.x;
@@ -30,7 +31,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		p.distanceY = 0.0f;
 		p.estimatedInertiaX = 0.0f;
 		p.estimatedInertiaY = 0.0f;
-	} else if (touch.flags & TOUCH_UP) {
+	} else if (touch.flags & TouchInputFlags::UP) {
 		p.down = false;
 	} else {
 		p.distanceX += fabsf(touch.x - p.lastX);
@@ -45,14 +46,16 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		p.lastY = touch.y;
 	}
 
+	const float dragThreshold = 5.0f / g_display.dpi_scale_y;
+
 	if (p.distanceY > p.distanceX) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
-			if (!p.active && p.distanceY * timeDown > 3) {
+			if (!p.active && p.distanceY > dragThreshold) {
 				p.active |= GESTURE_DRAG_VERTICAL;
 				// Kill the drag. TODO: Only cancel the drag in one direction.
 				TouchInput inp2 = touch;
-				inp2.flags = TOUCH_UP | TOUCH_CANCEL;
+				inp2.flags = TouchInputFlags::UP | TouchInputFlags::CANCEL;
 				return inp2;
 			}
 		} else {
@@ -63,11 +66,11 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 	if (p.distanceX > p.distanceY) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
-			if (!p.active && p.distanceX * timeDown > 3) {
+			if (!p.active && p.distanceX > dragThreshold) {
 				p.active |= GESTURE_DRAG_HORIZONTAL;
 				// Kill the drag. TODO: Only cancel the drag in one direction.
 				TouchInput inp2 = touch;
-				inp2.flags = TOUCH_UP | TOUCH_CANCEL;
+				inp2.flags = TouchInputFlags::UP | TouchInputFlags::CANCEL;
 				return inp2;
 			}
 		} else {

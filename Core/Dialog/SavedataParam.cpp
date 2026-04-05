@@ -63,7 +63,7 @@ namespace
 
 	bool ReadPSPFile(const std::string &filename, u8 **data, s64 dataSize, s64 *readSize)
 	{
-		int handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+		int handle = pspFileSystem.OpenFile(filename, (FileAccess)((int)FILEACCESS_READ | (int)FILEACCESS_PPSSPP_QUIET));
 		if (handle < 0)
 			return false;
 
@@ -96,7 +96,7 @@ namespace
 		return result == dataSize;
 	}
 
-	PSPFileInfo FileFromListing(const std::vector<PSPFileInfo> &listing, const std::string &filename) {
+	static PSPFileInfo FileFromListing(const std::vector<PSPFileInfo> &listing, std::string_view filename) {
 		for (const PSPFileInfo &sub : listing) {
 			if (sub.name == filename)
 				return sub;
@@ -266,31 +266,22 @@ std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param,
 	return GetSaveFilePath(param, GetSaveDir(param, saveId));
 }
 
-inline static std::string FixedToString(const char *str, size_t n)
-{
-	if (!str) {
-		return std::string();
-	} else {
-		return std::string(str, strnlen(str, n));
-	}
-}
-
 std::string SavedataParam::GetGameName(const SceUtilitySavedataParam *param) const
 {
-	return FixedToString(param->gameName, ARRAY_SIZE(param->gameName));
+	return std::string(StringViewFromFixedSizeField(param->gameName));
 }
 
 std::string SavedataParam::GetSaveName(const SceUtilitySavedataParam *param) const
 {
-	const std::string saveName = FixedToString(param->saveName, ARRAY_SIZE(param->saveName));
+	const std::string_view saveName = StringViewFromFixedSizeField(param->saveName);
 	if (saveName == "<>")
 		return "";
-	return saveName;
+	return std::string(saveName);
 }
 
 std::string SavedataParam::GetFileName(const SceUtilitySavedataParam *param) const
 {
-	return FixedToString(param->fileName, ARRAY_SIZE(param->fileName));
+	return std::string(StringViewFromFixedSizeField(param->fileName));
 }
 
 std::string SavedataParam::GetKey(const SceUtilitySavedataParam *param) const
@@ -444,7 +435,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
-		WARN_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
+		INFO_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
@@ -472,7 +463,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 		int aligned_len = align16(cryptedSize);
 		if (aligned_len != cryptedSize) {
-			WARN_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d)", cryptedSize, cryptedSize & 15);
+			INFO_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d) (should be ok)", cryptedSize, cryptedSize & 15);
 		}
 
 		cryptedData = new u8[aligned_len + 0x10]();
@@ -507,9 +498,9 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	// Update values. NOTE! #18430 made this conditional on !subWrite, but this is not correct, as it causes #18687.
 	// So now we do a hacky trick and just check for a valid title before we proceed with updating the sfoFile.
 	if (strnlen(param->sfoParam.title, sizeof(param->sfoParam.title)) > 0) {
-		sfoFile->SetValue("TITLE", param->sfoParam.title, 128);
-		sfoFile->SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
-		sfoFile->SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
+		sfoFile->SetValue("TITLE", StringViewFromFixedSizeField(param->sfoParam.title), 128);
+		sfoFile->SetValue("SAVEDATA_TITLE", StringViewFromFixedSizeField(param->sfoParam.savedataTitle), 128);
+		sfoFile->SetValue("SAVEDATA_DETAIL", StringViewFromFixedSizeField(param->sfoParam.detail), 1024);
 		sfoFile->SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
 		sfoFile->SetValue("CATEGORY", "MS", 4);
 		sfoFile->SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
@@ -598,28 +589,28 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	}
 
 	// SAVE ICON0
-	if (param->icon0FileData.buf.IsValid())
-	{
+	if (param->icon0FileData.buf.IsValid()) {
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
 		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.size);
 	}
 	// SAVE ICON1
-	if (param->icon1FileData.buf.IsValid())
-	{
+	if (param->icon1FileData.buf.IsValid()) {
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
-		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.size);
+		if (param->icon1FileData.size > 0) {
+			WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.size);
+		}
 	}
 	// SAVE PIC1
-	if (param->pic1FileData.buf.IsValid())
-	{
+	if (param->pic1FileData.buf.IsValid()) {
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
 		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.size);
 	}
 	// Save SND
-	if (param->snd0FileData.buf.IsValid())
-	{
+	if (param->snd0FileData.buf.IsValid()) {
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
-		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
+		if (param->snd0FileData.size > 0) {
+			WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
+		}
 	}
 	return 0;
 }
@@ -892,7 +883,7 @@ std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPa
 bool SavedataParam::GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]) {
 	auto entries = GetSFOEntries(dirPath);
 
-	for (auto entry : entries) {
+	for (const auto &entry : entries) {
 		if (strncmp(entry.filename, filename.c_str(), sizeof(entry.filename)) == 0) {
 			memcpy(hash, entry.hash, sizeof(entry.hash));
 			return true;
@@ -907,7 +898,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 		return;
 
 	u8 *buf = fileData->buf;
-	u32 size = Memory::ValidSize(fileData->buf.ptr, fileData->bufSize);
+	u32 size = Memory::ClampValidSizeAt(fileData->buf.ptr, fileData->bufSize);
 	s64 readSize = -1;
 	if (ReadPSPFile(filePath, &buf, size, &readSize)) {
 		fileData->size = readSize;
@@ -920,13 +911,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 }
 
 // Note: The work is done in-place, hence the memmove etc.
-int SavedataParam::EncryptData(unsigned int mode,
-		 unsigned char *data,
-		 int *dataLen,
-		 int *alignedLen,
-		 unsigned char *hash,
-		 unsigned char *cryptkey)
-{
+int SavedataParam::EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, const u8 *cryptkey) {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
@@ -975,7 +960,7 @@ int SavedataParam::EncryptData(unsigned int mode,
 }
 
 // Note: The work is done in-place, hence the memmove etc.
-int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash) {
+int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, const u8 *cryptkey, const u8 *expectedHash) {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
 
@@ -1015,8 +1000,7 @@ int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *data
 }
 
 // Requires sfoData to be padded with zeroes to the next 16-byte boundary (due to BuildHash)
-int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
-{
+int SavedataParam::UpdateHash(u8 *sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode) {
 	int alignedLen = align16(sfoSize);
 	memset(sfoData + sfoDataParamsOffset, 0, 128);
 	u8 filehash[16];
@@ -1252,14 +1236,20 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		{
 			entries[i].st_mode = 0x11FF;
 			if (sfoFiles[i].exists) {
-				__IoCopyDate(entries[i].st_ctime, sfoFiles[i].ctime);
-				__IoCopyDate(entries[i].st_atime, sfoFiles[i].atime);
-				__IoCopyDate(entries[i].st_mtime, sfoFiles[i].mtime);
+				tm ctime = sfoFiles[i].ctime;
+				if (PSP_CoreParameter().compat.flags().FileCreatedTimeHack) {
+					ctime = {};
+				}
+				ConvertTmToPspDateTime(entries[i].st_ctime, ctime, sfoFiles[i].ctimeUs);
+				ConvertTmToPspDateTime(entries[i].st_atime, sfoFiles[i].atime, sfoFiles[i].atimeUs);
+				ConvertTmToPspDateTime(entries[i].st_mtime, sfoFiles[i].mtime, sfoFiles[i].mtimeUs);
 			} else {
-				__IoCopyDate(entries[i].st_ctime, validDir[i].ctime);
-				__IoCopyDate(entries[i].st_atime, validDir[i].atime);
-				__IoCopyDate(entries[i].st_mtime, validDir[i].mtime);
+				// What?
+				ConvertTmToPspDateTime(entries[i].st_ctime, validDir[i].ctime, validDir[i].ctimeUs);
+				ConvertTmToPspDateTime(entries[i].st_atime, validDir[i].atime, validDir[i].atimeUs);
+				ConvertTmToPspDateTime(entries[i].st_mtime, validDir[i].mtime, validDir[i].mtimeUs);
 			}
+
 			// folder name without gamename (max 20 u8)
 			std::string outName = validDir[i].name.substr(GetGameName(param).size());
 			memset(entries[i].name, 0, sizeof(entries[i].name));
@@ -1271,7 +1261,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		if (GenericLogEnabled(Log::sceUtility, LogLevel::LINFO)) {
 			INFO_LOG(Log::sceUtility, "LIST (searchstring=%s): %d files (max: %d)", searchString.c_str(), param->idList->resultCount, maxFileCount);
 			for (int i = 0; i < validDir.size(); i++) {
-				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+				NOTICE_LOG(Log::sceUtility, "LIST %s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					entries[i].name, entries[i].st_mode, FmtPspTime(entries[i].st_ctime).c_str(), FmtPspTime(entries[i].st_atime).c_str(), FmtPspTime(entries[i].st_mtime).c_str());
 			}
 		}
@@ -1340,18 +1330,18 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
 	bool isCrypted = GetSaveCryptMode(param, GetSaveDirName(param, 0)) != 0;
-	for (auto file = files.begin(), end = files.end(); file != end; ++file) {
-		if (file->type == FILETYPE_DIRECTORY) {
+	for (const auto &file : files) {
+		if (file.type == FILETYPE_DIRECTORY) {
 			continue;
 		}
 		// TODO: What are the exact rules?  It definitely skips lowercase, and allows FILE or FILE.EXT.
-		if (file->name.find_first_of("abcdefghijklmnopqrstuvwxyz") != file->name.npos) {
-			DEBUG_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file->name.c_str());
+		if (file.name.find_first_of("abcdefghijklmnopqrstuvwxyz") != file.name.npos) {
+			DEBUG_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file.name.c_str());
 			continue;
 		}
 
-		bool isSystemFile = file->name == ICON0_FILENAME || file->name == ICON1_FILENAME || file->name == PIC1_FILENAME;
-		isSystemFile = isSystemFile || file->name == SND0_FILENAME || file->name == SFO_FILENAME;
+		bool isSystemFile = file.name == ICON0_FILENAME || file.name == ICON1_FILENAME || file.name == PIC1_FILENAME;
+		isSystemFile = isSystemFile || file.name == SND0_FILENAME || file.name == SFO_FILENAME;
 
 		SceUtilitySavedataFileListEntry *entry = NULL;
 		int sizeOffset = 0;
@@ -1359,7 +1349,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 			if (fileList->systemEntries.IsValid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries) {
 				entry = &fileList->systemEntries[fileList->resultNumSystemEntries++];
 			}
-		} else if (secureFilenames.find(file->name) != secureFilenames.end()) {
+		} else if (secureFilenames.find(file.name) != secureFilenames.end()) {
 			if (fileList->secureEntries.IsValid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries) {
 				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
 			}
@@ -1374,17 +1364,24 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		}
 
 		// Out of space for this file in the list.
-		if (entry == NULL) {
+		if (!entry) {
 			continue;
 		}
 
 		entry->st_mode = 0x21FF;
-		entry->st_size = file->size + sizeOffset;
-		__IoCopyDate(entry->st_ctime, file->ctime);
-		__IoCopyDate(entry->st_atime, file->atime);
-		__IoCopyDate(entry->st_mtime, file->mtime);
+		entry->st_size = file.size + sizeOffset;
+
+		tm ctime = file.ctime;
+		if (PSP_CoreParameter().compat.flags().FileCreatedTimeHack) {
+			ctime = {};
+		}
+
+		ConvertTmToPspDateTime(entry->st_ctime, ctime, file.ctimeUs);
+		ConvertTmToPspDateTime(entry->st_atime, file.atime, file.atimeUs);
+		ConvertTmToPspDateTime(entry->st_mtime, file.mtime, file.mtimeUs);
+
 		// TODO: Probably actually 13 + 3 pad...
-		strncpy(entry->name, file->name.c_str(), 16);
+		strncpy(entry->name, file.name.c_str(), 16);
 		entry->name[15] = '\0';
 	}
 
@@ -1393,7 +1390,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		if (fileList->normalEntries.IsValid()) {
 			for (int i = 0; i < (int)fileList->resultNumNormalEntries; i++) {
 				const SceUtilitySavedataFileListEntry &info = fileList->normalEntries[i];
-				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+				NOTICE_LOG(Log::sceUtility, "FILES: %s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					info.name, info.st_mode, FmtPspTime(info.st_ctime).c_str(), FmtPspTime(info.st_atime).c_str(), FmtPspTime(info.st_mtime).c_str());
 			}
 		} else if (fileList->resultNumNormalEntries > 0) {
@@ -1429,12 +1426,12 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 		s64 writeBytes = 0;
 		for (int i = 0; i < param->sizeInfo->numNormalEntries; ++i) {
 			const auto &entry = param->sizeInfo->normalEntries[i];
-			overwriteBytes += FileFromListing(listing, entry.name).size;
+			overwriteBytes += FileFromListing(listing, StringViewFromFixedSizeField(entry.name)).size;
 			writeBytes += entry.size;
 		}
 		for (int i = 0; i < param->sizeInfo->numSecureEntries; ++i) {
 			const auto &entry = param->sizeInfo->secureEntries[i];
-			overwriteBytes += FileFromListing(listing, entry.name).size;
+			overwriteBytes += FileFromListing(listing, StringViewFromFixedSizeField(entry.name)).size;
 			writeBytes += entry.size + 0x10;
 		}
 
@@ -1474,7 +1471,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 			}
 		}
 
-		INFO_LOG(Log::sceUtility, "SectorSize: %d FreeSectors: %d FreeKB: %d neededKb: %d overwriteKb: %d",
+		INFO_LOG(Log::sceUtility, "GETSIZE: SectorSize: %d FreeSectors: %d FreeKB: %d neededKb: %d overwriteKb: %d",
 			param->sizeInfo->sectorSize, param->sizeInfo->freeSectors, param->sizeInfo->freeKB, param->sizeInfo->neededKB, param->sizeInfo->overwriteKB);
 
 		NotifyMemInfo(MemBlockFlags::WRITE, param->sizeInfo.ptr, sizeof(PspUtilitySavedataSizeInfo), "SavedataGetSize");
@@ -1483,14 +1480,12 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 	return exists;
 }
 
-void SavedataParam::Clear()
-{
-	if (saveDataList)
-	{
-		for (int i = 0; i < saveNameListDataCount; i++)
-		{
-			if (saveDataList[i].texture != NULL && (!noSaveIcon || saveDataList[i].texture != noSaveIcon->texture))
+void SavedataParam::Clear() {
+	if (saveDataList) {
+		for (int i = 0; i < saveNameListDataCount; i++) {
+			if (saveDataList[i].texture && (!noSaveIcon || saveDataList[i].texture != noSaveIcon->texture)) {
 				delete saveDataList[i].texture;
+			}
 			saveDataList[i].texture = NULL;
 		}
 
@@ -1507,8 +1502,7 @@ void SavedataParam::Clear()
 	}
 }
 
-int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
-{
+int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 	pspParam = param;
 	if (!pspParam) {
 		Clear();
@@ -1595,7 +1589,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					continue;
 				}
 
-				const std::string thisSaveName = FixedToString(saveNameListData[i], ARRAY_SIZE(saveNameListData[i]));
+				const std::string thisSaveName(StringViewFromFixedSizeField(saveNameListData[i]));
 
 				const std::string folderName = gameName + thisSaveName;
 

@@ -76,7 +76,6 @@ protected:
 	void OnGameLaunch(UI::EventParams &e);
 
 	std::string_view GetTitle() const override;
-	bool CanScroll() const override { return false; } // does its own scrolling
 private:
 	void ParseListing(const std::string &json);
 	ProductItemView *GetSelectedItem();
@@ -105,6 +104,5 @@ private:
 
 	UI::ViewGroup *scrollItemView_ = nullptr;
 	UI::ViewGroup *productPanel_ = nullptr;
-	UI::TextView *titleText_ = nullptr;
 };
 

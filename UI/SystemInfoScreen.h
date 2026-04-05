@@ -18,7 +18,6 @@ public:
 	void resized() override { RecreateViews(); }
 
 protected:
-	void CopySummaryToClipboard(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
 
 private:
@@ -26,6 +25,7 @@ private:
 	void CreateStorageTab(UI::LinearLayout *storage);
 	void CreateBuildConfigTab(UI::LinearLayout *storage);
 	void CreateCPUExtensionsTab(UI::LinearLayout *storage);
+	void CreateAudioInfoTab(UI::LinearLayout *storage);
 	void CreateDriverBugsTab(UI::LinearLayout *storage);
 	void CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions);
 	void CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions);

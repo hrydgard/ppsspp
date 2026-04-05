@@ -48,7 +48,7 @@ ViewGroup::~ViewGroup() {
 	Clear();
 }
 
-void ViewGroup::Recurse(void (*func)(View *view)) {
+void ViewGroup::Recurse(std::function<void(View *)> func) {
 	for (View *view : views_) {
 		func(view);
 		view->Recurse(func);
@@ -109,7 +109,7 @@ bool ViewGroup::Touch(const TouchInput &input) {
 		if (view->GetVisibility() == V_VISIBLE) {
 			bool touch = view->Touch(input);
 			any = any || touch;
-			if (exclusiveTouch_ && touch && (input.flags & TOUCH_DOWN)) {
+			if (exclusiveTouch_ && touch && (input.flags & TouchInputFlags::DOWN)) {
 				break;
 			}
 		}
@@ -160,6 +160,18 @@ void ViewGroup::DeviceRestored(Draw::DrawContext *draw) {
 	}
 }
 
+bool ViewGroup::ReplaceSubview(View *view, View *newView) {
+	for (int i = 0; i < (int)views_.size(); i++) {
+		if (views_[i] == view) {
+			views_[i] = newView;
+			delete view;
+			return true;
+		}
+	}
+	delete newView;
+	return false;
+}
+
 void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.
@@ -203,7 +215,8 @@ std::string ViewGroup::DescribeText() const {
 		ss << s;
 		needNewline = s[s.length() - 1] != '\n';
 	}
-	return ss.str();
+	const std::string desc = ss.str();
+	return desc.empty() ? "empty viewgroup" : desc;
 }
 
 std::string ViewGroup::DescribeListUnordered(std::string_view heading) const {
@@ -320,17 +333,17 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		distance = 0.001f;
 	}
 	float overlap = 0.0f;
-	float dirX = dx / distance;
-	float dirY = dy / distance;
+	const float dirX = dx / distance;
+	const float dirY = dy / distance;
 
 	bool wrongDirection = false;
 	bool vertical = false;
-	float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
-	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
+	const float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
+	const float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
 		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
-			INFO_LOG(Log::UI, "Contain overlap");
-			return 0.0;
+			INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
+			return 0.0f;
 		}
 	}
 	float originSize = 0.0f;
@@ -910,7 +923,7 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
-	numColumns_ = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
+	numColumns_ = (measuredWidth_ + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
 	if (!numColumns_) numColumns_ = 1;
 	int numRows = (numItems + (numColumns_ - 1)) / numColumns_;
 

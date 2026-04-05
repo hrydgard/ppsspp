@@ -57,6 +57,8 @@
 
 #include "Core/HLE/NetAdhocCommon.h"
 
+#include "ext/aemu_postoffice/client/postoffice_client.h"
+
 #ifdef _WIN32
 #undef errno
 #define errno WSAGetLastError()
@@ -89,6 +91,7 @@ int adhocConnectionType               = ADHOC_CONNECT;
 int gameModeSocket                    = (int)INVALID_SOCKET; // UDP/PDP socket? on Master only?
 int gameModeBuffSize                  = 0;
 u8* gameModeBuffer                    = nullptr;
+extern bool serverHasRelay;
 GameModeArea masterGameModeArea;
 std::vector<GameModeArea> replicaGameModeAreas;
 std::vector<SceNetEtherAddr> requiredGameModeMacs;
@@ -418,17 +421,39 @@ void deleteAllAdhocSockets() {
 		// Active Socket
 		if (adhocSockets[i] != NULL) {
 			auto sock = adhocSockets[i];
-			int fd = -1;
 
-			if (sock->type == SOCK_PTP)
-				fd = sock->data.ptp.id;
-			else if (sock->type == SOCK_PDP)
-				fd = sock->data.pdp.id;
+			if (serverHasRelay) {
+				if (sock->type == SOCK_PTP) {
+					// sync
+					if (sock->connectThread != NULL) {
+						sock->connectThread->join();
+						delete sock->connectThread;
+					}
+					void *socket = sock->postofficeHandle;
+					if (socket != NULL) {
+						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
+							ptp_listen_close(socket);
+						} else {
+							ptp_close(socket);
+						}
+					}
+				} else {
+					if (sock->postofficeHandle != NULL) {
+						pdp_delete(sock->postofficeHandle);
+					}
+				}
+			} else {
+				int fd = -1;
+				if (sock->type == SOCK_PTP)
+					fd = sock->data.ptp.id;
+				else if (sock->type == SOCK_PDP)
+					fd = sock->data.pdp.id;
 
-			if (fd > 0) {
-				// Close Socket
-				shutdown(fd, SD_RECEIVE);
-				closesocket(fd);
+				if (fd > 0) {
+					// Close Socket
+					shutdown(fd, SD_RECEIVE);
+					closesocket(fd);
+				}
 			}
 			// Free Memory
 			free(adhocSockets[i]);
@@ -1305,6 +1330,7 @@ void sendChat(const std::string &chatString) {
 		std::lock_guard<std::mutex> guard(chatLogLock);
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		chatLog.push_back(std::string(n->T("You're in Offline Mode, go to lobby or online hall")));
+		INFO_LOG(Log::sceNet, "Offline. Would have sent: %s", chatString.c_str());
 		chatMessageGeneration++;
 	}
 }
@@ -1353,9 +1379,9 @@ int friendFinder() {
 	addrinfo* resolved = nullptr;
 	std::string err;
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
-	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.proAdhocServer, "", &resolved, err)) {
-		ERROR_LOG(Log::sceNet, "DNS Error Resolving %s\n", g_Config.proAdhocServer.c_str());
-		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error Resolving")) + g_Config.proAdhocServer);
+	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.sProAdhocServer, "", &resolved, err)) {
+		ERROR_LOG(Log::sceNet, "DNS Error Resolving %s\n", g_Config.sProAdhocServer.c_str());
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error Resolving")) + g_Config.sProAdhocServer);
 	}
 	if (resolved) {
 		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
@@ -2238,7 +2264,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			sleep_ms(10, "pro-adhoc-socket-poll");
 		}
 		if (!done) {
-			ERROR_LOG(Log::sceNet, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
+			ERROR_LOG(Log::sceNet, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.sProAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")");
 			return iResult;
 		}
@@ -2305,6 +2331,24 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 
 	// Peer not found
 	return false;
+}
+
+void fixGameMac(SceNetEtherAddr *mac) {
+	SceNetEtherAddr localMac;
+	getLocalMac(&localMac);
+	if (isMacMatch(&localMac, mac)) {
+		*mac = localMac;
+		return;
+	}
+
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+	SceNetAdhocctlPeerInfo * peer = friends;
+	for (; peer != NULL; peer = peer->next) {
+		if (isMacMatch(&peer->mac_addr, mac)) {
+			*mac = peer->mac_addr;
+			return;
+		}
+	}
 }
 
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset) {

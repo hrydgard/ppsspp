@@ -2,13 +2,11 @@
 
 #include <algorithm>
 #include "Common/CommonWindows.h"
-#include "GPU/GPUCommon.h"
+#include "GPU/GPUDefinitions.h"
 
-class CtrlDisplayListView
-{
+class CtrlDisplayListView {
 	HWND wnd;
 	RECT rect;
-	static LPCTSTR windowClass;
 	DisplayList list;
 	
 	HFONT font;

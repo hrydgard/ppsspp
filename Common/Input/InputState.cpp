@@ -35,12 +35,14 @@ const char *GetDeviceName(int deviceId) {
 
 bool g_IsMappingMouseInput;
 
+// TODO: Replace these with using the ControlMapper system.
 std::vector<InputMapping> dpadKeys;
 std::vector<InputMapping> confirmKeys;
 std::vector<InputMapping> cancelKeys;
 std::vector<InputMapping> infoKeys;
 std::vector<InputMapping> tabLeftKeys;
 std::vector<InputMapping> tabRightKeys;
+
 static std::unordered_map<InputDeviceID, int> uiFlipAnalogY;
 
 static void AppendKeys(std::vector<InputMapping> &keys, const std::vector<InputMapping> &newKeys) {

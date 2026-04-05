@@ -50,6 +50,7 @@ u8* base = nullptr;
 MemArena g_arena;
 // ==============
 
+u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
 // 64-bit: Pointers to high-mem mirrors
@@ -61,10 +62,14 @@ u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at a
 // This matches how we handle 32-bit masking.
 u8 *m_pUncachedKernelRAM[3];
 
-// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
-// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
-u8 *m_pPhysicalVRAM[4];
-u8 *m_pUncachedVRAM[4];
+// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled, so actually it's not correct
+// to mirror them like we do here unfortunately.
+// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer, and things mostly work out
+// since when we write to the depth buffer (like with the depth rasterizer or the software renderer)
+// we write unswizzled data anyway. There are some exceptions, Silent Hill abuses the swizzling in ways that break
+// our software renderer.
+static u8 *m_pPhysicalVRAM[4];
+static u8 *m_pUncachedVRAM[4];
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
@@ -73,11 +78,13 @@ u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 
+static MemMapSetupFlags g_setupFlags;
+
 std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
-static MemoryView views[] =
-{
+static MemoryView views[] = {
+	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
@@ -107,8 +114,6 @@ static MemoryView views[] =
 	// implement those.
 };
 
-static const int num_views = sizeof(views) / sizeof(MemoryView);
-
 inline static bool CanIgnoreView(const MemoryView &view) {
 #ifdef MASKED_PSP_MEMORY
 	// Basically, 32-bit platforms can ignore views that are masked out anyway.
@@ -118,16 +123,19 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 #endif
 }
 
+static bool SkipView(MemMapSetupFlags flags, u32 viewFlags) {
 #if PPSSPP_PLATFORM(IOS) && PPSSPP_ARCH(64BIT)
-#define SKIP(a_flags, b_flags) \
-	if ((b_flags) & MV_KERNEL) \
-		continue;
-#else
-#define SKIP(a_flags, b_flags) \
-	;
+	// We use a limited memory map on iOS with masking, we don't need to allocate the kernel space views.
+	if (viewFlags & MV_KERNEL) {
+		return true;
+	}
 #endif
+	if ((viewFlags & MV_NULL_PAGE) && !(flags & MemMapSetupFlags::AllocNullPage))
+		return true;
+	return false;
+}
 
-static bool Memory_TryBase(u32 flags) {
+static bool Memory_TryBase(MemMapSetupFlags flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
 
@@ -135,17 +143,19 @@ static bool Memory_TryBase(u32 flags) {
 	size_t last_position = 0;
 
 	// Zero all the pointers to be sure.
-	for (int i = 0; i < num_views; i++) {
-		if (views[i].out_ptr)
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].out_ptr) {
 			*views[i].out_ptr = 0;
+		}
 	}
 
-	int i;
-	for (i = 0; i < num_views; i++) {
+	int i;  // the final value of i is used in the next loop
+	for (i = 0; i < ARRAY_SIZE(views); i++) {
 		const MemoryView &view = views[i];
 		if (view.size == 0)
 			continue;
-		SKIP(flags, view.flags);
+		if (SkipView(flags, view.flags))
+			continue;
 		
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -180,7 +190,8 @@ bail:
 	for (int j = 0; j <= i; j++) {
 		if (views[i].size == 0)
 			continue;
-		SKIP(flags, views[i].flags);
+		if (SkipView(flags, views[i].flags))
+			continue;
 		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(0, *views[j].out_ptr, views[j].size);
@@ -191,7 +202,8 @@ bail:
 	return false;
 }
 
-bool MemoryMap_Setup(u32 flags) {
+bool MemoryMap_Setup(MemMapSetupFlags flags) {
+	g_setupFlags = flags;
 #if PPSSPP_PLATFORM(UWP)
 	// We reserve the memory, then simply commit in TryBase.
 	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
@@ -199,10 +211,11 @@ bool MemoryMap_Setup(u32 flags) {
 
 	// Figure out how much memory we need to allocate in total.
 	size_t total_mem = 0;
-	for (int i = 0; i < num_views; i++) {
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].size == 0)
 			continue;
-		SKIP(flags, views[i].flags);
+		if (SkipView(flags, views[i].flags))
+			continue;
 		if (!CanIgnoreView(views[i]))
 			total_mem += g_arena.roundup(views[i].size);
 	}
@@ -260,15 +273,18 @@ bool MemoryMap_Setup(u32 flags) {
 	return Memory_TryBase(flags);
 }
 
-void MemoryMap_Shutdown(u32 flags) {
+void MemoryMap_Shutdown() {
 	size_t position = 0;
 	size_t last_position = 0;
+	const MemMapSetupFlags flags = g_setupFlags;
+	g_setupFlags = MemMapSetupFlags::Default;
 
-	for (int i = 0; i < num_views; i++) {
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].size == 0)
 			continue;
-		SKIP(flags, views[i].flags);
-        
+		if (SkipView(flags, views[i].flags))
+			continue;
+
 		if (views[i].flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		}
@@ -287,7 +303,7 @@ void MemoryMap_Shutdown(u32 flags) {
 #endif
 }
 
-bool Init() {
+bool Init(MemMapSetupFlags flags) {
 	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
@@ -300,7 +316,6 @@ bool Init() {
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
 
-	int flags = 0;
 	if (!MemoryMap_Setup(flags)) {
 		return false;
 	}
@@ -315,8 +330,9 @@ bool Init() {
 void Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
-	Init();
+	Init(flags);
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
 }
 
@@ -394,7 +410,7 @@ void DoState(PointerWrap &p) {
 void Shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
 	u32 flags = 0;
-	MemoryMap_Shutdown(flags);
+	MemoryMap_Shutdown();
 	base = nullptr;
 	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }
@@ -491,22 +507,27 @@ void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
 	Memory::WriteUnchecked_U32(_Value.encoding, address);
 }
 
-void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char *tag) {
-	if (IsValidRange(_Address, _iLength)) {
-		uint8_t *ptr = GetPointerWriteUnchecked(_Address);
-		memset(ptr, _iValue, _iLength);
+void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {
+	if (size == 0) {
+		// We ignore invalid addresses etc if the length is zero.
+		return;
+	}
+
+	if (IsValidRange(addr, size)) {
+		uint8_t *ptr = GetPointerWriteUnchecked(addr);
+		memset(ptr, value, size);
 	} else {
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
 		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
-		for (size_t i = 0; i < _iLength; i++) {
-			if (Memory::IsValidAddress(_Address + (u32)i)) {
-				WriteUnchecked_U8(_iValue, (u32)(_Address + i));
+		for (size_t i = 0; i < size; i++) {
+			if (Memory::IsValidAddress(addr + (u32)i)) {
+				WriteUnchecked_U8(value, (u32)(addr + i));
 			}
 		}
 	}
 
 	if (tag) {
-		NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, size, tag, strlen(tag));
 	}
 }
 

@@ -43,7 +43,7 @@ public:
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;
-	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override;
 	FileSystemFlags Flags() const override { return FileSystemFlags::UMD; }
 	u64  FreeDiskSpace(const std::string &path) override { return 0; }
 
@@ -64,7 +64,7 @@ private:
 	// Warning: modifies input string.
 	int getFileListIndex(std::string &fileName);
 	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false) const;
-	Path GetLocalPath(std::string localpath) const;
+	Path GetLocalPath(std::string_view localpath) const;
 
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;

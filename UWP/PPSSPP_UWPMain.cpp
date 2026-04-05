@@ -4,6 +4,7 @@
 #include <mutex>
 #include <list>
 #include <memory>
+#include <thread>
 
 #include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPClient.h"
@@ -11,6 +12,7 @@
 #include "Common/GPU/thin3d_create.h"
 
 #include "Common/Common.h"
+#include "Common/OSVersion.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
@@ -44,20 +46,20 @@
 #include "Windows/InputDevice.h"
 
 using namespace UWP;
-using namespace Windows::Foundation;
-using namespace Windows::Storage;
-using namespace Windows::Storage::Streams;
-using namespace Windows::System::Threading;
-using namespace Windows::ApplicationModel::DataTransfer;
-using namespace Windows::Devices::Enumeration;
-using namespace Concurrency;
+using namespace winrt;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Storage;
+using namespace winrt::Windows::Storage::Streams;
+using namespace winrt::Windows::System::Threading;
+using namespace winrt::Windows::ApplicationModel::DataTransfer;
+using namespace winrt::Windows::Devices::Enumeration;
 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
 
 // Loads and initializes application assets when the application is loaded.
-PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResources>& deviceResources) :
+PPSSPP_UWPMain::PPSSPP_UWPMain(App *app, const std::shared_ptr<DX::DeviceResources>& deviceResources) :
 	app_(app),
 	m_deviceResources(deviceResources)
 {
@@ -131,7 +133,8 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 	case DXGI_MODE_ROTATION_ROTATE270: g_display.rotation = DisplayRotation::ROTATE_270; break;
 	}
 	// Not super elegant but hey.
-	memcpy(&g_display.rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
+	auto orientMatrix = m_deviceResources->GetOrientationTransform3D();
+	memcpy(&g_display.rot_matrix, &orientMatrix, sizeof(float) * 16);
 
 	// Reset the viewport to target the whole screen.
 	auto viewport = m_deviceResources->GetScreenViewport();
@@ -194,7 +197,7 @@ void PPSSPP_UWPMain::OnDeviceRestored() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_DEVICE, 0, 0, nullptr);
 }
 
-void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount) {
+void PPSSPP_UWPMain::OnKeyDown(int scanCode, winrt::Windows::System::VirtualKey virtualKey, int repeatCount) {
 	// TODO: Look like (Ctrl, Alt, Shift) don't trigger this event
 	bool isDPad = (int)virtualKey >= 195 && (int)virtualKey <= 218; // DPad buttons range
 	DPadInputState(isDPad);
@@ -204,18 +207,20 @@ void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtual
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = iter->second;
-		key.flags = KEY_DOWN | (repeatCount > 1 ? KEY_IS_REPEAT : 0);
+		key.flags = KeyInputFlags::DOWN;
+		if (repeatCount > 1)
+			key.flags |= KeyInputFlags::IS_REPEAT;
 		NativeKey(key);
 	}
 }
 
-void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKey) {
+void PPSSPP_UWPMain::OnKeyUp(int scanCode, winrt::Windows::System::VirtualKey virtualKey) {
 	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
 	if (iter != virtualKeyCodeToNKCode.end()) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = iter->second;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
 	}
 }
@@ -227,9 +232,9 @@ void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = (InputKeyCode)keyCode;
-		// After many tests turns out for char just add `KEY_CHAR` for the flags
-		// any other flag like `KEY_DOWN` will cause conflict and trigger something else
-		key.flags = KEY_CHAR;
+		// After many tests turns out for char just add `KeyInputFlags::CHAR` for the flags
+		// any other flag like `KeyInputFlags::DOWN` will cause conflict and trigger something else
+		key.flags = KeyInputFlags::CHAR;
 		NativeKey(key);
 	}
 }
@@ -245,16 +250,16 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	KeyInput keyInput{};
 	keyInput.keyCode = key;
 	keyInput.deviceId = DEVICE_ID_MOUSE;
-	keyInput.flags = KEY_DOWN;
+	keyInput.flags = KeyInputFlags::DOWN;
 	NativeKey(keyInput);
 
-	// KEY_UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
+	// KeyInputFlags::UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
 }
 
 bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
 	KeyInput keyInput{};
 	keyInput.deviceId = DEVICE_ID_KEYBOARD;
-	keyInput.flags = KEY_DOWN | KEY_UP;
+	keyInput.flags = KeyInputFlags::DOWN | KeyInputFlags::UP;
 	switch (button) {
 	case HardwareButton::BACK:
 		keyInput.keyCode = NKCODE_BACK;
@@ -264,7 +269,7 @@ bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
 	}
 }
 
-void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
+void PPSSPP_UWPMain::OnTouchEvent(TouchInputFlags flags, int touchId, float x, float y, double timestamp) {
 	// We get the coordinate in Windows' device independent pixels already. So let's undo that,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
@@ -276,20 +281,20 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	input.id = touchId;
 	input.x = x * dpiFactor_x;
 	input.y = y * dpiFactor_y;
-	input.flags = touchEvent;
+	input.flags = flags;
 	input.timestamp = timestamp;
 	NativeTouch(input);
 
 	KeyInput key{};
 	key.deviceId = DEVICE_ID_MOUSE;
-	if (touchEvent & TOUCH_DOWN) {
+	if (flags & TouchInputFlags::DOWN) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-		key.flags = KEY_DOWN;
+		key.flags = KeyInputFlags::DOWN;
 		NativeKey(key);
 	}
-	if (touchEvent & TOUCH_UP) {
+	if (flags & TouchInputFlags::UP) {
 		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-		key.flags = KEY_UP;
+		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
 	}
 }
@@ -312,6 +317,50 @@ void UWPGraphicsContext::Shutdown() {
 	delete draw_;
 }
 
+bool IsXBox() {
+	auto deviceInfo = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo();
+	return deviceInfo.DeviceFamily() == L"Windows.Xbox";
+}
+
+bool IsMobile() {
+	auto deviceInfo = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo();
+	return deviceInfo.DeviceFamily() == L"Windows.Mobile";
+}
+
+void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
+	winrt::hstring deviceFamilyVersion = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo().DeviceFamilyVersion();
+	uint64_t version = std::stoull(std::wstring(deviceFamilyVersion));
+
+	major = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
+	minor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
+	build = static_cast<uint32_t>((version & 0x00000000FFFF0000L) >> 16);
+	revision = static_cast<uint32_t>(version & 0x000000000000FFFFL);
+}
+
+std::string GetSystemName() {
+	std::string osName = "Microsoft Windows 10";
+
+	if (IsXBox()) {
+		osName = "Xbox OS";
+	} else {
+		uint32_t major = 0, minor = 0, build = 0, revision = 0;
+		GetVersionInfo(major, minor, build, revision);
+
+		if (build >= 22000) {
+			osName = "Microsoft Windows 11";
+		}
+	}
+	return osName + " " + GetWindowsSystemArchitecture();
+}
+
+std::string GetWindowsBuild() {
+	uint32_t major = 0, minor = 0, build = 0, revision = 0;
+	GetVersionInfo(major, minor, build, revision);
+
+	char buffer[50];
+	sprintf_s(buffer, sizeof(buffer), "%u.%u.%u (rev. %u)", major, minor, build, revision);
+	return std::string(buffer);
+}
 std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
@@ -323,9 +372,9 @@ std::string System_GetProperty(SystemProperty prop) {
 		return GetLangRegion();
 	case SYSPROP_CLIPBOARD_TEXT:
 		/* TODO: Need to either change this API or do this on a thread in an ugly fashion.
-		DataPackageView ^view = Clipboard::GetContent();
+		auto view = winrt::Windows::ApplicationModel::DataTransfer::Clipboard::GetContent();
 		if (view) {
-			string text = await view->GetTextAsync();
+			winrt::hstring text = co_await view.GetTextAsync();
 		}
 		*/
 		return "";
@@ -379,16 +428,16 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 	}
 	case SYSPROP_DISPLAY_XRES:
 	{
-		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
+		winrt::Windows::UI::Core::CoreWindow corewindow = winrt::Windows::UI::Core::CoreWindow::GetForCurrentThread();
 		if (corewindow) {
-			return  (int)corewindow->Bounds.Width;
+			return  (int)corewindow.Bounds().Width;
 		}
 	}
 	case SYSPROP_DISPLAY_YRES:
 	{
-		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
+		winrt::Windows::UI::Core::CoreWindow corewindow = winrt::Windows::UI::Core::CoreWindow::GetForCurrentThread();
 		if (corewindow) {
-			return (int)corewindow->Bounds.Height;
+			return (int)corewindow.Bounds().Height;
 		}
 	}
 	default:
@@ -461,7 +510,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::EXIT_APP:
 	{
 		bool state = false;
-		ExecuteTask(state, Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryConsolidateAsync());
+		ExecuteTask(state, winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().TryConsolidateAsync());
 		if (!state) {
 			// Notify the user?
 		}
@@ -469,9 +518,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::RESTART_APP:
 	{
-		Windows::ApplicationModel::Core::AppRestartFailureReason error;
-		ExecuteTask(error, Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(nullptr));
-		if (error != Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
+		winrt::Windows::ApplicationModel::Core::AppRestartFailureReason error;
+		ExecuteTask(error, winrt::Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(L""));
+		if (error != winrt::Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
 			// Shutdown
 			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3, param4);
 		}
@@ -482,14 +531,13 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::vector<std::string> supportedExtensions = { ".jpg", ".png" };
 
 		//Call file picker
-		ChooseFile(supportedExtensions).then([requestId](std::string filePath) {
-			if (filePath.size() > 1) {
-				g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
-			}
-			else {
-				g_requestManager.PostSystemFailure(requestId);
-			}
-			});
+		std::string filePath = ChooseFile(supportedExtensions);
+		if (filePath.size() > 1) {
+			g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
+		}
+		else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FILE:
@@ -529,27 +577,25 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 
 		//Call file picker
-		ChooseFile(supportedExtensions).then([requestId](std::string filePath) {
-			if (filePath.size() > 1) {
-				g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
-			}
-			else {
-				g_requestManager.PostSystemFailure(requestId);
-			}
-		});
+		std::string filePath = ChooseFile(supportedExtensions);
+		if (filePath.size() > 1) {
+			g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
+		}
+		else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
 
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
-		ChooseFolder().then([requestId](std::string folderPath) {
-			if (folderPath.size() > 1) {
-				g_requestManager.PostSystemSuccess(requestId, folderPath.c_str());
-			}
-			else {
-				g_requestManager.PostSystemFailure(requestId);
-			}
-			});
+		std::string folderPath = ChooseFolder();
+		if (folderPath.size() > 1) {
+			g_requestManager.PostSystemSuccess(requestId, folderPath.c_str());
+		}
+		else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
 		return true;
 	}
 	case SystemRequestType::NOTIFY_UI_EVENT:
@@ -574,25 +620,25 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 	{
-		auto dataPackage = ref new DataPackage();
-		dataPackage->RequestedOperation = DataPackageOperation::Copy;
-		dataPackage->SetText(ToPlatformString(param1));
-		Clipboard::SetContent(dataPackage);
+		winrt::Windows::ApplicationModel::DataTransfer::DataPackage dataPackage;
+		dataPackage.RequestedOperation(winrt::Windows::ApplicationModel::DataTransfer::DataPackageOperation::Copy);
+		dataPackage.SetText(ToHString(param1));
+		winrt::Windows::ApplicationModel::DataTransfer::Clipboard::SetContent(dataPackage);
 		return true;
 	}
-	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{
-		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
-		bool flag = !view->IsFullScreenMode;
+		auto view = winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+		bool flag = !view.IsFullScreenMode();
 		if (param1 == "0") {
 			flag = false;
 		} else if (param1 == "1"){
 			flag = true;
 		}
-		if (flag) {
-			view->TryEnterFullScreenMode();
-		} else {
-			view->ExitFullScreenMode();
+		if (flag && g_Config.bFullScreen) {
+			view.TryEnterFullScreenMode();
+		} else if (!g_Config.bFullScreen){
+			view.ExitFullScreenMode();
 		}
 		return true;
 	}
@@ -605,9 +651,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
-	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
-
-	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
+	auto uri = winrt::Windows::Foundation::Uri(ToHString(url));
+	winrt::Windows::System::Launcher::LaunchUriAsync(uri);
 }
 
 void System_Vibrate(int length_ms) {
@@ -619,15 +664,14 @@ void System_Vibrate(int length_ms) {
 	else
 		return;
 
-	auto timeSpan = Windows::Foundation::TimeSpan();
-	timeSpan.Duration = length_ms * 10000;
+	winrt::Windows::Foundation::TimeSpan timeSpan;
+	timeSpan.count = length_ms * 10000;
 	// TODO: Can't use this?
-	// Windows::Phone::Devices::Notification::VibrationDevice::GetDefault()->Vibrate(timeSpan);
+	// winrt::Windows::Phone::Devices::Notification::VibrationDevice::GetDefault().Vibrate(timeSpan);
 #endif
 }
 
 void System_AskForPermission(SystemPermission permission) {
-	// Do nothing
 }
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
@@ -635,55 +679,45 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 }
 
 std::string GetCPUBrandString() {
-	Platform::String^ cpu_id = nullptr;
-	Platform::String^ cpu_name = nullptr;
+	winrt::hstring cpu_id;
+	winrt::hstring cpu_name;
 
 	// GUID_DEVICE_PROCESSOR: {97FADB10-4E33-40AE-359C-8BEF029DBDD0}
-	Platform::String^ if_filter = L"System.Devices.InterfaceClassGuid:=\"{97FADB10-4E33-40AE-359C-8BEF029DBDD0}\"";
+	winrt::hstring if_filter = L"System.Devices.InterfaceClassGuid:=\"{97FADB10-4E33-40AE-359C-8BEF029DBDD0}\"";
 
 	// Enumerate all CPU DeviceInterfaces, and get DeviceInstanceID of the first one.
-	auto if_task = create_task(
-		DeviceInformation::FindAllAsync(if_filter)).then([&](DeviceInformationCollection ^ collection) {
-			if (collection->Size > 0) {
-				auto cpu = collection->GetAt(0);
-				auto id = cpu->Properties->Lookup(L"System.Devices.DeviceInstanceID");
-				cpu_id = dynamic_cast<Platform::String^>(id);
-			}
-	});
-
 	try {
-		if_task.wait();
+		auto collection = winrt::Windows::Devices::Enumeration::DeviceInformation::FindAllAsync(if_filter).get();
+		if (collection.Size() > 0) {
+			auto cpu = collection.GetAt(0);
+			auto id = cpu.Properties().Lookup(L"System.Devices.DeviceInstanceID");
+			cpu_id = winrt::unbox_value<winrt::hstring>(id);
+		}
 	}
-	catch (const std::exception & e) {
-		const char* what = e.what();
-		INFO_LOG(Log::System, "%s", what);
+	catch (const winrt::hresult_error& e) {
+		INFO_LOG(Log::System, "%s", winrt::to_string(e.message()).c_str());
 	}
 
-	if (cpu_id != nullptr) {
+	if (!cpu_id.empty()) {
 		// Get the Device with the same ID as the DeviceInterface
 		// Then get the name (description) of that Device
 		// We have to do this because the DeviceInterface we get doesn't have a proper description.
-		Platform::String^ dev_filter = L"System.Devices.DeviceInstanceID:=\"" + cpu_id + L"\"";
-
-		auto dev_task = create_task(
-			DeviceInformation::FindAllAsync(dev_filter, {}, DeviceInformationKind::Device)).then(
-				[&](DeviceInformationCollection ^ collection) {
-					if (collection->Size > 0) {
-						cpu_name = collection->GetAt(0)->Name;
-					}
-		});
+		winrt::hstring dev_filter = L"System.Devices.DeviceInstanceID:=\"" + cpu_id + L"\"";
 
 		try {
-			dev_task.wait();
+			auto collection = winrt::Windows::Devices::Enumeration::DeviceInformation::FindAllAsync(dev_filter, {}, 
+				winrt::Windows::Devices::Enumeration::DeviceInformationKind::Device).get();
+			if (collection.Size() > 0) {
+				cpu_name = collection.GetAt(0).Name();
+			}
 		}
-		catch (const std::exception & e) {
-			const char* what = e.what();
-			INFO_LOG(Log::System, "%s", what);
+		catch (const winrt::hresult_error& e) {
+			INFO_LOG(Log::System, "%s", winrt::to_string(e.message()).c_str());
 		}
 	}
 
-	if (cpu_name != nullptr) {
-		return FromPlatformString(cpu_name);
+	if (!cpu_name.empty()) {
+		return FromHString(cpu_name);
 	} else {
 		return "Unknown";
 	}

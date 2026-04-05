@@ -90,3 +90,12 @@
 
 // Easy way to printf string_views (note: The formatting specifier is "%.*s", not "%s")
 #define STR_VIEW(sv) (int)(sv).size(), (sv).data()
+
+// Restrict qualifier
+#if defined(_MSC_VER)
+#define RESTRICT __restrict
+#elif defined(__GNUC__) || defined(__clang__)
+#define RESTRICT __restrict__
+#else
+#define RESTRICT
+#endif

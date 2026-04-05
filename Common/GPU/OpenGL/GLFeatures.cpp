@@ -192,6 +192,8 @@ bool CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_VIVANTE;
 		} else if (vendor == "Apple Inc." || vendor == "Apple") {
 			gl_extensions.gpuVendor = GPU_VENDOR_APPLE;
+		} else if (vendor == "Mesa") {
+			gl_extensions.gpuVendor = GPU_VENDOR_MESA;
 		} else {
 			WARN_LOG(Log::G3D, "Unknown GL vendor: '%s'", vendor.c_str());
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
@@ -213,9 +215,9 @@ bool CheckGLExtensions() {
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
 	{ // Grab the version and attempt to parse.		
-		char buffer[128] = { 0 };
-		strncpy(buffer, versionStr, sizeof(buffer) - 1);
-	
+		char buffer[128]{};
+		truncate_cpy(buffer, versionStr);
+
 		const int len = (int)strlen(buffer);
 		bool beforeDot = true;
 		int lastDigit = 0;
@@ -291,9 +293,13 @@ bool CheckGLExtensions() {
 				}
 				gl_extensions.GLES3 = true;
 				// Though, let's ban Mali from the GLES 3 path for now, see #4078
-				if (strstr(renderer, "Mali") != 0) {
-					INFO_LOG(Log::G3D, "Forcing GLES3 off for Mali driver version: %s\n", versionStr ? versionStr : "N/A");
+				// Only apply to ARM's proprietary driver (GL_VENDOR="ARM"), not Mesa/Panfrost (GL_VENDOR="Mesa")
+				if (cvendor && strcmp(cvendor, "ARM") == 0 && strstr(renderer, "Mali") != 0) {
+					INFO_LOG(Log::G3D, "Forcing GLES3 off for ARM Mali proprietary driver version: %s\n", versionStr ? versionStr : "N/A");
 					gl_extensions.GLES3 = false;
+				} else if (strstr(renderer, "Mali") != 0) {
+					// Mali detected but not ARM vendor (likely Mesa/Panfrost) - allow GLES3
+					INFO_LOG(Log::G3D, "Mali GPU with non-ARM vendor '%s' detected, allowing GLES3\n", cvendor ? cvendor : "N/A");
 				}
 			} else {
 				// Just to be safe.
@@ -360,7 +366,6 @@ bool CheckGLExtensions() {
 	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
 	gl_extensions.ARB_shading_language_420pack = (g_set_gl_extensions.count("GL_ARB_shading_language_420pack") != 0);
-	gl_extensions.EXT_bgra = g_set_gl_extensions.count("GL_EXT_bgra") != 0;
 	gl_extensions.EXT_gpu_shader4 = g_set_gl_extensions.count("GL_EXT_gpu_shader4") != 0;
 	gl_extensions.NV_framebuffer_blit = g_set_gl_extensions.count("GL_NV_framebuffer_blit") != 0;
 	gl_extensions.NV_copy_image = g_set_gl_extensions.count("GL_NV_copy_image") != 0;
@@ -379,6 +384,7 @@ bool CheckGLExtensions() {
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
 	gl_extensions.ARB_shader_stencil_export = g_set_gl_extensions.count("GL_ARB_shader_stencil_export") != 0;
+	gl_extensions.ARB_timer_query = g_set_gl_extensions.count("GL_ARB_timer_query") != 0;
 	gl_extensions.ARB_texture_compression_bptc = g_set_gl_extensions.count("GL_ARB_texture_compression_bptc") != 0;
 	gl_extensions.ARB_texture_compression_rgtc = g_set_gl_extensions.count("GL_ARB_texture_compression_rgtc") != 0;
 	gl_extensions.KHR_texture_compression_astc_ldr = g_set_gl_extensions.count("GL_KHR_texture_compression_astc_ldr") != 0;
@@ -401,6 +407,7 @@ bool CheckGLExtensions() {
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
 		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 		gl_extensions.EXT_depth_clamp = g_set_gl_extensions.count("GL_EXT_depth_clamp") != 0;
+		gl_extensions.EXT_disjoint_timer_query = g_set_gl_extensions.count("GL_EXT_disjoint_timer_query") != 0;
 		gl_extensions.APPLE_clip_distance = g_set_gl_extensions.count("GL_APPLE_clip_distance") != 0;
 
 #if defined(__ANDROID__)

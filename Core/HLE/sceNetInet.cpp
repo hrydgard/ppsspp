@@ -252,6 +252,10 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		if (readfds && (NetInetFD_ISSET(i, readfds))) {
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
+			if (sock < 0) {
+				ERROR_LOG(Log::sceNet, "Bad socket #%d in readfds", i);
+				continue;
+			}
 			hostSockets[i] = sock;
 			if (sock > maxHostSocket)
 				maxHostSocket = sock;
@@ -266,6 +270,10 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		if (writefds && (NetInetFD_ISSET(i, writefds))) {
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
+			if (sock < 0) {
+				ERROR_LOG(Log::sceNet, "Bad socket #%d in writefds", i);
+				continue;
+			}
 			hostSockets[i] = sock;
 			if (sock > maxHostSocket)
 				maxHostSocket = sock;
@@ -280,6 +288,10 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
+			if (sock < 0) {
+				ERROR_LOG(Log::sceNet, "Bad socket #%d in exceptfds", i);
+				continue;
+			}
 			hostSockets[i] = sock;
 			if (sock > maxHostSocket)
 				maxHostSocket = sock;

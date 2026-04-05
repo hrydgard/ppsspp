@@ -6,7 +6,7 @@
 
 class DeveloperToolsScreen : public UITabbedBaseDialogScreen {
 public:
-	DeveloperToolsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
+	DeveloperToolsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath, TabDialogFlags::AddAutoTitles) {}
 
 	void CreateTabs() override;
 	void update() override;
@@ -25,6 +25,7 @@ private:
 	void CreateGraphicsTab(UI::LinearLayout *list);
 	void CreateNetworkTab(UI::LinearLayout *list);
 	void CreateUITab(UI::LinearLayout *list);
+	void CreateCrashHistoryTab(UI::LinearLayout *list);
 
 	void OnLoggingChanged(UI::EventParams &e);
 	void OnOpenTexturesIniFile(UI::EventParams &e);

@@ -590,6 +590,7 @@ std::string DescribeSamplerID(const SamplerID &id) {
 		break;
 	case GE_TEXFUNC_ADD:
 		name += ":ADD";
+		break;
 	default:
 		break;
 	}

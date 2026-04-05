@@ -202,11 +202,20 @@ struct ConfigSetting {
 	void ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const;
 
 	// Easy flag accessors.
+	CfgFlag Flags() const { return flags_; }
 	bool PerGame() const { return flags_ & CfgFlag::PER_GAME; }
 	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
 	bool Report() const { return flags_ & CfgFlag::REPORT; }
 
-	std::string_view iniKey_;
+	int GetDefaultInt() const {
+		_dbg_assert_(type_ == Type::TYPE_INT);
+		return defaultCallback_.i ? defaultCallback_.i() : default_.i;
+	}
+
+	std::string_view IniKey() const {
+		return iniKey_;
+	}
+
 	const char *ini2_ = nullptr;
 	const char *ini3_ = nullptr;
 	const char *ini4_ = nullptr;
@@ -215,15 +224,15 @@ struct ConfigSetting {
 	const Type type_;
 
 	// Returns false if per-game settings are not currently used
-	static bool perGame(void *ptr);
+	static bool PerGame(void *ptr);
 
 	const void *GetVoidPtr(ConfigBlock *configBlock) const {
 		char *configBlockBase = (char *)configBlock;
-		// undefined behavior but in reality will work.
 		return (const void *)(configBlockBase + offset_);
 	}
 
 private:
+	std::string_view iniKey_;
 	CfgFlag flags_;
 	DefaultValue default_{};
 	DefaultCallback defaultCallback_{};

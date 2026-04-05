@@ -308,6 +308,12 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	// Log the list of devices.
+	INFO_LOG(Log::G3D, "%d Vulkan devices found:", (int)physicalDeviceProperties_.size());
+	for (const auto &props : physicalDeviceProperties_) {
+		INFO_LOG(Log::G3D, "%s (vendor: %08x)", props.properties.deviceName, props.properties.vendorID);
+	}
+
 	if (extensionsLookup_.EXT_debug_utils) {
 		_assert_(vkCreateDebugUtilsMessengerEXT != nullptr);
 		InitDebugUtilsCallback();
@@ -608,6 +614,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		WARN_LOG(Log::G3D, "CheckLayers for device %d failed", physical_device);
 	}
 
+	queue_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	_dbg_assert_(queue_count >= 1);
 
@@ -932,7 +939,6 @@ bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info) {
 		DestroyInstance();
 		return false;
 	}
-
 	return true;
 }
 
@@ -1245,13 +1251,14 @@ VkResult VulkanContext::ReinitSurface() {
 
 	// Query presentation modes. We need to know which ones are available for InitSwapchain().
 	availablePresentModes_.clear();
-	uint32_t presentModeCount;
+	uint32_t presentModeCount = 0;
 	VkResult res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
-	availablePresentModes_.resize(presentModeCount);
 	_dbg_assert_(res == VK_SUCCESS);
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
-	_dbg_assert_(res == VK_SUCCESS);
-
+	if (res == VK_SUCCESS) {
+		availablePresentModes_.resize(presentModeCount);
+		res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
+		_dbg_assert_(res == VK_SUCCESS);
+	}
 	return VK_SUCCESS;
 }
 
@@ -1550,7 +1557,7 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
 	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vkCreateSwapchainKHR failed!");
+		ERROR_LOG(Log::G3D, "vkCreateSwapchainKHR failed! %s", VulkanResultToString(res));
 		return false;
 	}
 	INFO_LOG(Log::G3D, "Created swapchain: %dx%d %s", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height, (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ? "(TRANSFER_SRC_BIT supported)" : "");

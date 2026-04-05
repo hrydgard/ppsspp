@@ -179,7 +179,7 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 			auto code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
 			if (code != NKCODE_UNKNOWN) {
 				KeyInput key;
-				key.flags = KEY_DOWN;
+				key.flags = KeyInputFlags::DOWN;
 				key.keyCode = code;
 				key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
 				NativeKey(key);
@@ -191,7 +191,7 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 			auto code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
 			if (code != NKCODE_UNKNOWN) {
 				KeyInput key;
-				key.flags = KEY_UP;
+				key.flags = KeyInputFlags::UP;
 				key.keyCode = code;
 				key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
 				NativeKey(key);

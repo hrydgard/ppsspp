@@ -1,6 +1,5 @@
 #import "AppDelegate.h"
 #import "ViewControllerMetal.h"
-#import "DisplayManager.h"
 #import "iOSCoreAudio.h"
 
 #include "Common/Log.h"
@@ -295,8 +294,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
+	[self updateResolutionWithView:self.view];
 	[self runVulkanRenderLoop];
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 }
 
 - (void)willResignActive {
@@ -327,20 +326,14 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)loadView {
 	INFO_LOG(Log::G3D, "Creating metal view");
-
-	CGRect screenRect = [[UIScreen mainScreen] bounds];
-	CGFloat screenWidth = screenRect.size.width;
-	CGFloat screenHeight = screenRect.size.height;
-
-	PPSSPPMetalView *metalView = [[PPSSPPMetalView alloc] initWithFrame:CGRectMake(0, 0, screenWidth,screenHeight)];
+	// The view gets auto-resized later.
+	PPSSPPMetalView *metalView = [[PPSSPPMetalView alloc] initWithFrame:CGRectMake(0, 0, 0, 0)];
 	self.view = metalView;
 }
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
 	[self hideKeyboard];
-
-	[[DisplayManager shared] setupDisplayListener];
 
 	INFO_LOG(Log::System, "Metal viewDidLoad");
 
@@ -352,7 +345,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	graphicsContext = new IOSVulkanContext();
 
-	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
+	[self updateResolutionWithView:self.view];
 
 	if (!graphicsContext->InitAPI()) {
 		_assert_msg_(false, "Failed to init Vulkan");
@@ -372,7 +365,14 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
 	INFO_LOG(Log::G3D, "viewWillAppear");
-	self.view.contentScaleFactor = UIScreen.mainScreen.nativeScale;
+	// This is to make sure we get 1:1 pixels.
+	UIWindowScene *scene = self.view.window.windowScene;
+	if (scene) {
+		self.view.contentScaleFactor = scene.screen.nativeScale;
+	}
+	if (@available(iOS 16.0, *)) {
+        [self setNeedsUpdateOfSupportedInterfaceOrientations];
+    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -382,12 +382,24 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
-	INFO_LOG(Log::G3D, "viewWillDisappear");
+	INFO_LOG(Log::G3D, "viewDidDisappear");
 }
 
-- (void)bindDefaultFBO
-{
+- (void)bindDefaultFBO {
 	// Do nothing
+}
+
+- (void)viewWillLayoutSubviews {
+	[super viewWillLayoutSubviews];
+
+	// This is the first reliable place where self.view.bounds
+	// matches the forced orientation.
+	CGRect bounds = self.view.bounds;
+
+	INFO_LOG(Log::G3D, "Correcting metal view layout: %dx%d",
+			 (int)bounds.size.width, (int)bounds.size.height);
+
+	// Update your Metal layer/viewport here if necessary
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size
@@ -402,8 +414,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 		NSLog(@"Rotation finished");
 		// Reinitialize graphics context to match new size
 		[self requestExitVulkanRenderLoop];
+		[self updateResolutionWithView:self.view];
 		[self runVulkanRenderLoop];
-		[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 	}];
 }
 

@@ -2,7 +2,6 @@ package org.ppsspp.ppsspp;
 
 // Note that the display* methods are in NativeRenderer.java
 
-import android.annotation.SuppressLint;
 import android.os.Build;
 import android.util.Log;
 import android.view.InputDevice;
@@ -24,7 +23,7 @@ public class NativeApp {
 	public static final int DEVICE_TYPE_DESKTOP = 2;
 	public static final int DEVICE_TYPE_VR = 3;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, int androidVersion, String board);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, String installerName, int androidVersion, String board);
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
@@ -51,6 +50,7 @@ public class NativeApp {
 
 	public static native boolean keyDown(int deviceId, int key, boolean isRepeat);
 	public static native boolean keyUp(int deviceId, int key);
+	public static native boolean keyChar(int deviceId, int unicodeChar);
 
 	public static native void joystickAxis(int deviceId, int []axis, float []value, int count);
 
@@ -169,6 +169,13 @@ public class NativeApp {
 					// Log.i(TAG, "ACTION_UP");
 					if (ev.getActionIndex() == i)
 						code = 4;
+					break;
+				case MotionEvent.ACTION_CANCEL:
+					Log.i(TAG, "ACTION_CANCEL");
+					if (ev.getActionIndex() == i) {
+						// Handle like ACTION_UP for now.
+						code = 4;
+					}
 					break;
 				case MotionEvent.ACTION_MOVE: {
 					code = 1;

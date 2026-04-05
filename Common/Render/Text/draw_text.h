@@ -50,7 +50,7 @@ public:
 
 	void SetFontScale(float xscale, float yscale);
 	void MeasureString(std::string_view str, float *w, float *h);
-	void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT);
+	void MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align = ALIGN_TOPLEFT);
 
 	void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
 	void DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align);
@@ -77,6 +77,7 @@ public:
 protected:
 	TextDrawer(Draw::DrawContext *draw);
 
+	// Implementations of this must handle multi-line strings.
 	virtual void MeasureStringInternal(std::string_view str, float *w, float *h) = 0;
 
 	void ClearCache();
@@ -123,6 +124,9 @@ protected:
 	float dpiScale_ = 1.0f;
 	bool ignoreGlobalDpi_ = false;
 	FontStyle fontStyle_{};
+
+	// We will clamp strings to this length to avoid various degenenerate behaviors.k
+	static constexpr size_t MAX_TEXT_LENGTH = 16384;
 
 	std::map<CacheKeyType, std::unique_ptr<TextStringEntry>> cache_;
 	std::map<CacheKeyType, std::unique_ptr<TextMeasureEntry>> sizeCache_;

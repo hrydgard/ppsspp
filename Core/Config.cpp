@@ -32,8 +32,8 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/JSONReader.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/CPUDetect.h"
@@ -47,16 +47,15 @@
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
-#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
 #include "Core/KeyMap.h"
-#include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PathUtil.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
 
@@ -72,12 +71,6 @@ static const std::string_view logSectionName = "LogDebug";
 #else
 static const std::string_view logSectionName = "Log";
 #endif
-
-bool TryUpdateSavedPath(Path *path);
-
-static const std::vector<std::string_view> defaultProAdhocServerList = {
-	"socom.cc", "psp.gameplayer.club", // TODO: Add some saved recent history too?
-};
 
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
@@ -132,7 +125,7 @@ std::string DefaultLangRegion() {
 	return defaultLangRegion;
 }
 
-static int DefaultDepthRaster() {
+int DefaultDepthRaster() {
 #ifdef CROSSSIMD_SLOW
 	// No SIMD acceleration for the depth rasterizer.
 	// Default to off.
@@ -202,6 +195,14 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
+static float DefaultGameGridScale() {
+#if PPSSPP_PLATFORM(IOS)
+	return 1.25f;
+#else
+	return 1.0f;
+#endif
+}
+
 static float DefaultUISaturation() {
 	return IsVREnabled() ? 1.5f : 1.0f;
 }
@@ -269,10 +270,11 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("StateUndoLastSaveGame", SETTING(g_Config, sStateUndoLastSaveGame), "NA", CfgFlag::DEFAULT),
 	ConfigSetting("StateUndoLastSaveSlot", SETTING(g_Config, iStateUndoLastSaveSlot), -5, CfgFlag::DEFAULT), // Start with an "invalid" value
 	ConfigSetting("RewindSnapshotInterval", SETTING(g_Config, iRewindSnapshotInterval), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SaveStateSlotCount", SETTING(g_Config, iSaveStateSlotCount), 5, CfgFlag::DEFAULT),
 
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
-	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), 1.0, CfgFlag::DEFAULT),
+	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
 	ConfigSetting("GridView1", SETTING(g_Config, bGridView1), true, CfgFlag::DEFAULT),
 	ConfigSetting("GridView2", SETTING(g_Config, bGridView2), true, CfgFlag::DEFAULT),
 	ConfigSetting("GridView3", SETTING(g_Config, bGridView3), false, CfgFlag::DEFAULT),
@@ -284,14 +286,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RightAnalogPress", SETTING(g_Config, iRightAnalogPress), 0, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogCustom", SETTING(g_Config, bRightAnalogCustom), false, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogDisableDiagonal", SETTING(g_Config, bRightAnalogDisableDiagonal), false, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeUp", SETTING(g_Config, iSwipeUp), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeDown", SETTING(g_Config, iSwipeDown), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeLeft", SETTING(g_Config, iSwipeLeft), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeRight", SETTING(g_Config, iSwipeRight), 0, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeSensitivity", SETTING(g_Config, fSwipeSensitivity), 1.0f, CfgFlag::PER_GAME),
-	ConfigSetting("SwipeSmoothing", SETTING(g_Config, fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
-	ConfigSetting("DoubleTapGesture", SETTING(g_Config, iDoubleTapGesture), 0, CfgFlag::PER_GAME),
-	ConfigSetting("GestureControlEnabled", SETTING(g_Config, bGestureControlEnabled), false, CfgFlag::PER_GAME),
+
 	ConfigSetting("TouchGliding", SETTING(g_Config, bTouchGliding), false, CfgFlag::PER_GAME),
 
 	// "default" means let emulator decide, "" means disable.
@@ -310,7 +305,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteTab", SETTING(g_Config, bRemoteTab), false, CfgFlag::DEFAULT),
 	ConfigSetting("RemoteISOSharedDir", SETTING(g_Config, sRemoteISOSharedDir), "", CfgFlag::DEFAULT),
 	ConfigSetting("RemoteISOShareType", SETTING(g_Config, iRemoteISOShareType), (int)RemoteISOShareType::RECENT, CfgFlag::DEFAULT),
-	ConfigSetting("AskForExitConfirmationAfterSeconds", SETTING(g_Config, iAskForExitConfirmationAfterSeconds), 60, CfgFlag::PER_GAME),
+	ConfigSetting("AskForExitConfirmationAfterSeconds", SETTING(g_Config, iAskForExitConfirmationAfterSeconds), 300, CfgFlag::PER_GAME),
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), &DefaultScreenRotation, CfgFlag::DEFAULT),
@@ -323,6 +318,9 @@ static const ConfigSetting generalSettings[] = {
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", SETTING(g_Config, bTopMost), false, CfgFlag::DEFAULT),
+#endif
+
+#if defined(USING_WIN_UI) || (defined (SDL) && !defined(MOBILE_DEVICE))
 	ConfigSetting("PauseOnLostFocus", SETTING(g_Config, bPauseOnLostFocus), false, CfgFlag::PER_GAME),
 #endif
 
@@ -331,6 +329,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("WindowY", SETTING(g_Config, iWindowY), -1, CfgFlag::DEFAULT),
 	ConfigSetting("WindowWidth", SETTING(g_Config, iWindowWidth), 0, CfgFlag::DEFAULT),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
 	ConfigSetting("WindowHeight", SETTING(g_Config, iWindowHeight), 0, CfgFlag::DEFAULT),
+	ConfigSetting("WindowSizeState", SETTING(g_Config, iWindowSizeState), (int)WindowSizeState::Normal, CfgFlag::DEFAULT),
 	ConfigSetting("ShrinkIfWindowSmall", SETTING(g_Config, bShrinkIfWindowSmall), false, CfgFlag::DEFAULT),
 #endif
 
@@ -377,6 +376,7 @@ static const ConfigSetting achievementSettings[] = {
 	// from the ini if manually entered (useful when testing various builds on Android).
 	ConfigSetting("AchievementsToken", SETTING(g_Config, sAchievementsToken), "", CfgFlag::DONT_SAVE),
 	ConfigSetting("AchievementsUserName", SETTING(g_Config, sAchievementsUserName), "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsHost", SETTING(g_Config, sAchievementsHost), "", CfgFlag::DEFAULT),
 
 	// Customizations
 	ConfigSetting("AchievementsSoundEffects", SETTING(g_Config, bAchievementsSoundEffects), true, CfgFlag::DEFAULT),
@@ -466,7 +466,9 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::OPENGL;
 	}
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(UWP)
+	return (int)GPUBackend::DIRECT3D11;
+#elif PPSSPP_PLATFORM(WINDOWS)
 	// On Win10, there's a good chance Vulkan will work by default.
 	if (IsWin10OrHigher()) {
 		return (int)GPUBackend::VULKAN;
@@ -663,11 +665,33 @@ static const ConfigSetting displayLayoutSettings[] = {
 	ConfigSetting("DisplayAspectRatio", SETTING(g_Config.displayLayoutLandscape, fDisplayAspectRatio), CfgFlag::PER_GAME),
 	ConfigSetting("IgnoreScreenInsets", SETTING(g_Config.displayLayoutLandscape, bIgnoreScreenInsets), CfgFlag::PER_GAME),
 	ConfigSetting("InternalScreenRotation", SETTING(g_Config.displayLayoutLandscape, iInternalScreenRotation), CfgFlag::PER_GAME),
+	ConfigSetting("RotateControlsWithScreen", SETTING(g_Config.displayLayoutLandscape, bRotateControlsWithScreen), CfgFlag::PER_GAME),
 	ConfigSetting("EnableCardboardVR", SETTING(g_Config.displayLayoutLandscape, bEnableCardboardVR), CfgFlag::PER_GAME),
 	ConfigSetting("CardboardScreenSize", SETTING(g_Config.displayLayoutLandscape, iCardboardScreenSize), CfgFlag::PER_GAME),
 	ConfigSetting("CardboardXShift", SETTING(g_Config.displayLayoutLandscape, iCardboardXShift), CfgFlag::PER_GAME),
 	ConfigSetting("CardboardYShift", SETTING(g_Config.displayLayoutLandscape, iCardboardYShift), CfgFlag::PER_GAME),
 	ConfigSetting("ImmersiveMode", SETTING(g_Config.displayLayoutLandscape, bImmersiveMode), CfgFlag::PER_GAME),
+};
+
+bool GestureControlConfig::ResetToDefault(std::string_view blockName) {
+	static const GestureControlConfig defaultLayout;
+	*this = defaultLayout;
+	// TODO: Check blockname to set defaults differently for secondary zone(s).
+	return true;
+}
+
+// These were previously mostly part of General (which was wrong).
+static const ConfigSetting gestureControlSettings[] = {
+	ConfigSetting("SwipeUp", SETTING(g_Config.gestureControls[0], iSwipeUp), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeDown", SETTING(g_Config.gestureControls[0], iSwipeDown), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeLeft", SETTING(g_Config.gestureControls[0], iSwipeLeft), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeRight", SETTING(g_Config.gestureControls[0], iSwipeRight), 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSensitivity", SETTING(g_Config.gestureControls[0], fSwipeSensitivity), 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSmoothing", SETTING(g_Config.gestureControls[0], fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
+	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControls[0], iDoubleTapGesture), 0, CfgFlag::PER_GAME),
+	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControls[0], bGestureControlEnabled), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], bAnalogGesture), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensitivity), 1.0f, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting graphicsSettings[] = {
@@ -791,16 +815,21 @@ static int DefaultGamePreviewVolume() {
 	return g_Config.iUIVolume;
 }
 
+std::string DefaultProAdhocServer() {
+	return "socom.cc";
+}
+
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", SETTING(g_Config, bEnableSound), true, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", SETTING(g_Config, bExtraAudioBuffering), false, CfgFlag::DEFAULT),
 	ConfigSetting("AudioBufferSize", SETTING(g_Config, iSDLAudioBufferSize), 256, CfgFlag::DEFAULT),
 
 	ConfigSetting("FillAudioGaps", SETTING(g_Config, bFillAudioGaps), true, CfgFlag::DEFAULT),
-	ConfigSetting("AudioSyncMode", SETTING(g_Config, iAudioSyncMode), (int)AudioSyncMode::CLASSIC_PITCH, CfgFlag::DEFAULT),
+	ConfigSetting("AudioSyncMode", SETTING(g_Config, iAudioPlaybackMode), (int)AudioSyncMode::CLASSIC_PITCH, CfgFlag::DEFAULT),
 
 	// Legacy volume settings, these get auto upgraded through default handlers on the new settings. NOTE: Must be before the new ones in the order here.
 	// The default settings here are still relevant, they will get propagated into the new ones.
+	// In 1.21 or so, let's get rid of these.
 	ConfigSetting("GlobalVolume", SETTING(g_Config, iLegacyGameVolume), VOLUME_FULL, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
 	ConfigSetting("ReverbVolume", SETTING(g_Config, iLegacyReverbVolume), VOLUME_FULL, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
 	ConfigSetting("AchievementSoundVolume", SETTING(g_Config, iLegacyAchievementVolume), 6, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
@@ -814,7 +843,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("GamePreviewVolume", SETTING(g_Config, iGamePreviewVolume), &DefaultGamePreviewVolume, CfgFlag::DEFAULT),
 
 	ConfigSetting("AudioDevice", SETTING(g_Config, sAudioDevice), "", CfgFlag::DEFAULT),
-	ConfigSetting("AutoAudioDevice", SETTING(g_Config, bAutoAudioDevice), true, CfgFlag::DEFAULT),
+	ConfigSetting("AutoAudioDevice", SETTING(g_Config, bAutoSwitchAudioDevice), true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioMixWithOthers", SETTING(g_Config, bAudioMixWithOthers), true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioRespectSilentMode", SETTING(g_Config, bAudioRespectSilentMode), false, CfgFlag::DEFAULT),
 	ConfigSetting("UseOldAtrac", SETTING(g_Config, bUseOldAtrac), false, CfgFlag::DEFAULT),
@@ -829,51 +858,54 @@ static bool DefaultShowTouchControls() {
 	}
 }
 
-static bool DefaultShowPauseButton() {
-	switch (System_GetPropertyInt(SYSPROP_DEVICE_TYPE)) {
-	case DEVICE_TYPE_MOBILE:
-	case DEVICE_TYPE_DESKTOP:
-		return true;
-	case DEVICE_TYPE_VR:
-	case DEVICE_TYPE_TV:
-		return false;
-	default:
-		return false;
-	}
-}
-
 static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
 void TouchControlConfig::ResetLayout() {
 	// reset puts the settings in a state so they'll then get properly reinitialized in InitPadLayout.
-	auto reset = [](ConfigTouchPos &pos) {
-		pos.x = defaultTouchPosShow.x;
-		pos.y = defaultTouchPosShow.y;
-		pos.scale = defaultTouchPosShow.scale;
+	// Intentionally don't modify 'show' here, this is only done in ResetToDefault.
+	auto reset = [](ConfigTouchPos *pos) {
+		pos->x = defaultTouchPosShow.x;
+		pos->y = defaultTouchPosShow.y;
+		pos->scale = defaultTouchPosShow.scale;
 	};
-	reset(touchActionButtonCenter);
+	reset(&touchActionButtonCenter);
 	fActionButtonSpacing = 1.0f;
-	reset(touchDpad);
+	reset(&touchDpad);
 	fDpadSpacing = 1.0f;
-	reset(touchStartKey);
-	reset(touchSelectKey);
-	reset(touchFastForwardKey);
-	reset(touchLKey);
-	reset(touchRKey);
-	reset(touchAnalogStick);
-	reset(touchRightAnalogStick);
+	reset(&touchStartKey);
+	reset(&touchSelectKey);
+	reset(&touchFastForwardKey);
+	reset(&touchLKey);
+	reset(&touchRKey);
+	reset(&touchAnalogStick);
+	reset(&touchRightAnalogStick);
+	reset(&touchPauseKey);
+
 	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
-		reset(touchCustom[i]);
+		reset(&touchCustom[i]);
 	}
 	fLeftStickHeadScale = 1.0f;
 	fRightStickHeadScale = 1.0f;
 }
 
 bool TouchControlConfig::ResetToDefault(std::string_view blockName) {
-	// We do this traditionally for now.
-	return false;
+	static const TouchControlConfig defaults = TouchControlConfig();
+	*this = defaults;
+
+	switch (System_GetPropertyInt(SYSPROP_DEVICE_TYPE)) {
+	case DEVICE_TYPE_MOBILE:
+	case DEVICE_TYPE_DESKTOP:
+		touchPauseKey.show = true;
+		break;
+	case DEVICE_TYPE_VR:
+	case DEVICE_TYPE_TV:
+		touchPauseKey.show = false;
+		break;
+	}
+
+	return true;
 }
 
 static const ConfigSetting touchControlSettings[] = {
@@ -916,6 +948,7 @@ static const ConfigSetting touchControlSettings[] = {
 	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config.touchControlsLandscape, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config.touchControlsLandscape, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config.touchControlsLandscape, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("PauseKeyX", "PauseKeyY", "PauseKeyScale", "ShowTouchPause", SETTING(g_Config.touchControlsLandscape, touchPauseKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", SETTING(g_Config.touchControlsLandscape, touchAnalogStick), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogStickX", "RightAnalogStickY", "RightAnalogStickScale", "ShowRightAnalogStick", SETTING(g_Config.touchControlsLandscape, touchRightAnalogStick), defaultTouchPosHide, CfgFlag::PER_GAME),
 
@@ -927,9 +960,6 @@ static const ConfigSetting touchControlSettings[] = {
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
 	
-	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
-	// sense to default this to on.
-	ConfigSetting("ShowTouchPause", SETTING(g_Config, bShowTouchPause), &DefaultShowPauseButton, CfgFlag::DEFAULT),
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),
 #endif
@@ -966,13 +996,14 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TiltAnalogDeadzoneRadius", SETTING(g_Config, fTiltAnalogDeadzoneRadius), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInverseDeadzone", SETTING(g_Config, fTiltInverseDeadzone), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("TiltCircularDeadzone", SETTING(g_Config, bTiltCircularDeadzone), true, CfgFlag::PER_GAME),
-	ConfigSetting("TiltInputType", SETTING(g_Config, iTiltInputType), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TiltInputType", SETTING(g_Config, iTiltInputType), 1, CfgFlag::PER_GAME),
+	ConfigSetting("TiltInputEnabled", SETTING(g_Config, bTiltInputEnabled), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("DisableDpadDiagonals", SETTING(g_Config, bDisableDpadDiagonals), false, CfgFlag::PER_GAME),
 	ConfigSetting("GamepadOnlyFocused", SETTING(g_Config, bGamepadOnlyFocused), false, CfgFlag::PER_GAME),
 	ConfigSetting("TouchButtonStyle", SETTING(g_Config, iTouchButtonStyle), 1, CfgFlag::PER_GAME),
 	ConfigSetting("TouchButtonOpacity", SETTING(g_Config, iTouchButtonOpacity), 65, CfgFlag::PER_GAME),
-	ConfigSetting("TouchButtonHideSeconds", SETTING(g_Config, iTouchButtonHideSeconds), 20, CfgFlag::PER_GAME),
+	ConfigSetting("TouchButtonHideSeconds", SETTING(g_Config, iTouchButtonHideSeconds), 8, CfgFlag::PER_GAME),
 	ConfigSetting("AutoCenterTouchAnalog", SETTING(g_Config, bAutoCenterTouchAnalog), false, CfgFlag::PER_GAME),
 	ConfigSetting("StickyTouchDPad", SETTING(g_Config, bStickyTouchDPad), false, CfgFlag::PER_GAME),
 
@@ -988,6 +1019,7 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("AnalogLimiterDeadzone", SETTING(g_Config, fAnalogLimiterDeadzone), 0.6f, CfgFlag::DEFAULT),
 	ConfigSetting("AnalogTriggerThreshold", SETTING(g_Config, fAnalogTriggerThreshold), 0.75f, CfgFlag::DEFAULT),
+	ConfigSetting("AnalogStickThreshold", SETTING(g_Config, fAnalogStickThreshold), 0.75f, CfgFlag::DEFAULT),
 
 	ConfigSetting("AllowMappingCombos", SETTING(g_Config, bAllowMappingCombos), false, CfgFlag::DEFAULT),
 	ConfigSetting("StrictComboOrder", SETTING(g_Config, bStrictComboOrder), false, CfgFlag::DEFAULT),
@@ -1000,16 +1032,15 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("SystemControls", SETTING(g_Config, bSystemControls), true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
-
-	ConfigSetting("AnalogGesture", SETTING(g_Config, bAnalogGesture), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config, fAnalogGestureSensibility), 1.0f, CfgFlag::PER_GAME),
 };
+
+static const std::vector<std::string_view> emptyList;
 
 static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", SETTING(g_Config, bEnableWlan), false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
-	ConfigSetting("proAdhocServer", SETTING(g_Config, proAdhocServer), "socom.cc", CfgFlag::PER_GAME),
-	ConfigSetting("proAdhocServerList", SETTING(g_Config, proAdhocServerList), &defaultProAdhocServerList, CfgFlag::DEFAULT),
+	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), &DefaultProAdhocServer, CfgFlag::PER_GAME),
+	ConfigSetting("AdhocServerRelayMode", SETTING(g_Config, iAdhocServerRelayMode), (int)AdhocServerRelayMode::Auto, CfgFlag::PER_GAME),
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
 	ConfigSetting("MinTimeout", SETTING(g_Config, iMinTimeout), 0, CfgFlag::PER_GAME),
@@ -1021,16 +1052,18 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("AllowSavestateWhileConnected", SETTING(g_Config, bAllowSavestateWhileConnected), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AllowSpeedControlWhileConnected", SETTING(g_Config, bAllowSpeedControlWhileConnected), false, CfgFlag::PER_GAME),
 	ConfigSetting("DontDownloadInfraJson", SETTING(g_Config, bDontDownloadInfraJson), false, CfgFlag::DONT_SAVE),
-
+	ConfigSetting("proAdhocServerList", SETTING(g_Config, vCustomAdhocServerList), &emptyList, CfgFlag::DEFAULT),  // Customizable server list.
+	ConfigSetting("RelayAdhocServerList", SETTING(g_Config, vCustomAdhocServerListWithRelay), &emptyList, CfgFlag::DEFAULT),  // Customizable server list.
+	ConfigSetting("AdhocServerListUrl", SETTING(g_Config, sAdhocServerListUrl), "http://metadata.ppsspp.org/adhoc-servers.json", CfgFlag::DEFAULT),  // URL for the server list. Can be set to a local path too.
 	ConfigSetting("EnableNetworkChat", SETTING(g_Config, bEnableNetworkChat), false, CfgFlag::PER_GAME),
 	ConfigSetting("ChatButtonPosition", SETTING(g_Config, iChatButtonPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("ChatScreenPosition", SETTING(g_Config, iChatScreenPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("EnableQuickChat", SETTING(g_Config, bEnableQuickChat), true, CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat1", SETTING(g_Config, sQuickChat0), "Quick Chat 1", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat2", SETTING(g_Config, sQuickChat1), "Quick Chat 2", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat3", SETTING(g_Config, sQuickChat2), "Quick Chat 3", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat4", SETTING(g_Config, sQuickChat3), "Quick Chat 4", CfgFlag::PER_GAME),
-	ConfigSetting("QuickChat5", SETTING(g_Config, sQuickChat4), "Quick Chat 5", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat1", SETTING(g_Config, sQuickChat[0]), "Quick Chat 1", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat2", SETTING(g_Config, sQuickChat[1]), "Quick Chat 2", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat3", SETTING(g_Config, sQuickChat[2]), "Quick Chat 3", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat4", SETTING(g_Config, sQuickChat[3]), "Quick Chat 4", CfgFlag::PER_GAME),
+	ConfigSetting("QuickChat5", SETTING(g_Config, sQuickChat[4]), "Quick Chat 5", CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting systemParamSettings[] = {
@@ -1070,7 +1103,6 @@ static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("ConsoleWindowY", SETTING(g_Config, iConsoleWindowY), -1, CfgFlag::DEFAULT),
 	ConfigSetting("FontWidth", SETTING(g_Config, iFontWidth), 8, CfgFlag::DEFAULT),
 	ConfigSetting("FontHeight", SETTING(g_Config, iFontHeight), 12, CfgFlag::DEFAULT),
-	ConfigSetting("DisplayStatusBar", SETTING(g_Config, bDisplayStatusBar), true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowBottomTabTitles",SETTING(g_Config, bShowBottomTabTitles), true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowDeveloperMenu", SETTING(g_Config, bShowDeveloperMenu), false, CfgFlag::DEFAULT),
 	ConfigSetting("SkipDeadbeefFilling", SETTING(g_Config, bSkipDeadbeefFilling), false, CfgFlag::DEFAULT),
@@ -1083,10 +1115,15 @@ static const ConfigSetting jitSettings[] = {
 	ConfigSetting("DiscardRegsOnJRRA", SETTING(g_Config, bDiscardRegsOnJRRA), false, CfgFlag::DONT_SAVE | CfgFlag::REPORT),
 };
 
+static const ConfigSetting upgradeSettings[] = {
+	ConfigSetting("UpgradeMessage", SETTING(g_Config, sUpgradeMessage), "", CfgFlag::DEFAULT),
+	ConfigSetting("UpgradeVersion", SETTING(g_Config, sUpgradeVersion), "", CfgFlag::DEFAULT),
+	ConfigSetting("DismissedVersion", SETTING(g_Config, sDismissedVersion), "", CfgFlag::DEFAULT),
+};
+
 static const ConfigSetting themeSettings[] = {
 	ConfigSetting("ThemeName", SETTING(g_Config, sThemeName), "Default", CfgFlag::DEFAULT),
 };
-
 
 static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", SETTING(g_Config, bEnableVR), true, CfgFlag::PER_GAME),
@@ -1122,10 +1159,13 @@ static const ConfigSectionMeta g_sectionMeta[] = {
 	{ &g_Config, themeSettings, ARRAY_SIZE(themeSettings), "Theme" },
 	{ &g_Config, vrSettings, ARRAY_SIZE(vrSettings), "VR" },
 	{ &g_Config, achievementSettings, ARRAY_SIZE(achievementSettings), "Achievements" },
+	{ &g_Config, upgradeSettings, ARRAY_SIZE(upgradeSettings), "Upgrade" },
 	{ &g_Config.displayLayoutLandscape, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Landscape", "Graphics" },  // We read the old settings from [Graphics], since most people played in landscape before.
 	{ &g_Config.displayLayoutPortrait, displayLayoutSettings, ARRAY_SIZE(displayLayoutSettings), "DisplayLayout.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
 	{ &g_Config.touchControlsLandscape, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Landscape", "Control" },  // We read the old settings from [Control], since most people played in landscape before.
 	{ &g_Config.touchControlsPortrait, touchControlSettings, ARRAY_SIZE(touchControlSettings), "TouchControls.Portrait"},  // These we don't want to read from the old settings, since for most people, those settings will be bad.
+	{ &g_Config.gestureControls[0], gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Left", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
+	{ &g_Config.gestureControls[1], gestureControlSettings, ARRAY_SIZE(gestureControlSettings), "GestureControls.Right", "General"},  // We read the old settings from [General], since most of them used to be there (except the analog stuff).
 };
 
 ConfigBlock *GetConfigBlockForSection(std::string_view sectionName) {
@@ -1144,9 +1184,25 @@ std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> &C
 	return lut;
 }
 
-Config::Config() {
+int Config::GetDefaultValueInt(int *configSetting) {
+	const auto &lut = getPtrLUT();
+	auto it = lut.find(configSetting);
+	if (it != lut.end()) {
+		const ConfigBlock *block = it->second.first;
+		if (block->CanResetToDefault()) {
+			// TODO: Support this.
+			_dbg_assert_(false);
+			return NO_DEFAULT_INT;
+		}
+		const ConfigSetting *setting = it->second.second;
+		return setting->GetDefaultInt();
+	}
+	return NO_DEFAULT_INT;
+}
+
+void Config::Init() {
 	// Initialize the pointer->setting lookup map.
-	auto ref = getPtrLUT();
+	auto &ref = getPtrLUT();
 	for (size_t i = 0; i < numSections; ++i) {
 		ConfigBlock *configBlock = g_sectionMeta[i].configBlock;
 		for (size_t j = 0; j < g_sectionMeta[i].settingsCount; j++) {
@@ -1154,6 +1210,7 @@ Config::Config() {
 			ref[ptr] = std::make_pair(configBlock, &g_sectionMeta[i].settings[j]);
 		}
 	}
+	_dbg_assert_(ref.size() > 1);
 }
 
 Config::~Config() {
@@ -1163,9 +1220,9 @@ Config::~Config() {
 }
 
 void Config::Reload() {
-	reload_ = true;
+	inReload_ = true;
 	Load();
-	reload_ = false;
+	inReload_ = false;
 }
 
 // Call this if you change the search path (such as when changing memstick directory. can't
@@ -1174,10 +1231,10 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
 	const char *ppssppIniFilename = IsVREnabled() ? "ppssppvr.ini" : "ppsspp.ini";
 	bool exists;
-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : ppssppIniFilename, &exists);
+	iniFilename_ = FindConfigFile(searchPath_, useIniFilename ? iniFileName : ppssppIniFilename, &exists);
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
 	const char *controlsIniFilename = IsVREnabled() ? "controlsvr.ini" : "controls.ini";
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
+	controllerIniFilename_ = FindConfigFile(searchPath_, useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
 }
 
 bool Config::LoadAppendedConfig() {
@@ -1204,10 +1261,6 @@ bool Config::LoadAppendedConfig() {
 }
 
 void Config::UpdateAfterSettingAutoFrameSkip() {
-	if (bAutoFrameSkip && iFrameSkip == 0) {
-		iFrameSkip = 1;
-	}
-	
 	if (bAutoFrameSkip && bSkipBufferEffects) {
 		bSkipBufferEffects = false;
 	}
@@ -1231,9 +1284,19 @@ void Config::ReadAllSettings(const IniFile &iniFile) {
 			applyDefaultPerSetting = false;
 		}
 		for (size_t j = 0; j < meta.settingsCount; j++) {
-			meta.settings[j].ReadFromIniSection(configBlock, section, applyDefaultPerSetting);
+			const ConfigSetting &setting = meta.settings[j];
+			setting.ReadFromIniSection(configBlock, section, applyDefaultPerSetting);
 		}
 	}
+}
+
+std::string Config::GetConfigAsString() {
+	Config::Save("beforecopy");
+	std::string temp;
+	if (File::ReadTextFileToString(iniFilename_, &temp)) {
+		return temp;
+	}
+	return "";
 }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
@@ -1253,7 +1316,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {
-		ERROR_LOG(Log::Loader, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
+		WARN_LOG(Log::Loader, "Failed to read '%s'. Setting main config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
 
@@ -1340,6 +1403,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
+	CheckForUpdate();
+
 	INFO_LOG(Log::Loader, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
@@ -1348,15 +1413,20 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// So this is all the way down here to overwrite the controller settings
 	// sadly it won't benefit from all the "version conversion" going on up-above
 	// but these configs shouldn't contain older versions anyhow
-	if (gameSpecific_) {
-		LoadGameConfig(gameId_);
-	}
+	_dbg_assert_(!IsGameSpecific());
 
 	PostLoadCleanup();
 
 	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
 
+bool Config::ShouldSaveSetting(const void *ptr) const {
+	return std::find(settingsNotToSave_.begin(), settingsNotToSave_.end(), ptr) == settingsNotToSave_.end();
+}
+
+// If we're in game specific mode, we need to:
+// * Save the game-specific settings to the game-specific ini file.
+// * Then, save the NON-game-specific settings ONLY to the regular ini file!
 bool Config::Save(const char *saveReason) {
 	double startTime = time_now_d();
 	if (!IsFirstInstance()) {
@@ -1368,7 +1438,10 @@ bool Config::Save(const char *saveReason) {
 	}
 
 	if (!iniFilename_.empty() && g_Config.bSaveSettings) {
-		SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
+		if (IsGameSpecific()) {
+			// Save just the game-specific settings to the game-specific ini.
+			SaveGameConfig(gameId_, "");  // we don't pass a title, it was stored in the ini the first time.
+		}
 
 		PreSaveCleanup();
 
@@ -1386,6 +1459,15 @@ bool Config::Save(const char *saveReason) {
 			Section *section = iniFile.GetOrCreateSection(meta.section);
 			ConfigBlock *configBlock = meta.configBlock;
 			for (size_t j = 0; j < meta.settingsCount; j++) {
+				if (IsGameSpecific() && (meta.settings[j].Flags() & CfgFlag::PER_GAME)) {
+					// Skip per-game settings in non-game-specific ini.
+					continue;
+				}
+				if (!ShouldSaveSetting(meta.settings[j].GetVoidPtr(configBlock))) {
+					// Skip settings marked as "don't save".
+					INFO_LOG(Log::System, "Not saving setting '%.*s' as marked as don't save.", STR_VIEW(meta.settings[j].IniKey()));
+					continue;
+				}
 				meta.settings[j].WriteToIniSection(configBlock, section);
 			}
 		}
@@ -1402,7 +1484,9 @@ bool Config::Save(const char *saveReason) {
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
 
-		if (!gameSpecific_) {
+		if (!IsGameSpecific()) {
+			// These settings can be game specific, and so are handled in SaveGameConfig().
+
 			Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
@@ -1440,8 +1524,8 @@ bool Config::Save(const char *saveReason) {
 		}
 		INFO_LOG(Log::Loader, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 
-		if (!gameSpecific_) //otherwise we already did this in SaveGameConfig()
-		{
+		if (!IsGameSpecific()) {
+			// These settings can be game specific, and so are handled in SaveGameConfig().
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_)) {
 				ERROR_LOG(Log::Loader, "Error saving controller config - can't read ini first '%s'", controllerIniFilename_.c_str());
@@ -1470,12 +1554,19 @@ void Config::PostLoadCleanup() {
 		g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 
-	// This caps the exponent 4 (so 16x.). No hardware supports more anyway.
+	// This caps the aniso level exponent to 4 (so 16x.). No hardware supports more anyway.
 	iAnisotropyLevel = std::clamp(iAnisotropyLevel, 0, 4);
 
-	if (iGPUBackend == 1) {  // d3d9, no longer supported
-		iGPUBackend = 2;  // d3d11
+	if (iGPUBackend == 1) {  // d3d9, no longer supported. Fall back to D3D11.
+		iGPUBackend = (int)GPUBackend::DIRECT3D11;
+	} else if (iGPUBackend < 0 || iGPUBackend > 3) {
+		iGPUBackend = (int)DefaultGPUBackend();
 	}
+
+#if PPSSPP_PLATFORM(UWP)
+	// Enforce D3D11.
+	iGPUBackend = (int)GPUBackend::DIRECT3D11;
+#endif
 
 	// Set a default MAC, and correct if it's an old format.
 	if (sMACAddress.length() != 17)
@@ -1500,6 +1591,14 @@ void Config::PostLoadCleanup() {
 	if (g_Config.sCustomDriver == "Default") {
 		g_Config.sCustomDriver = "";
 	}
+
+	// Squash unsupported screen rotations.
+	if (g_Config.iScreenRotation == ROTATION_LOCKED_VERTICAL180) {
+		g_Config.iScreenRotation = ROTATION_LOCKED_VERTICAL;
+	}
+
+	// Clamp save state slot count to somewhat sane limits.
+	g_Config.iSaveStateSlotCount = std::clamp(g_Config.iSaveStateSlotCount, 1, 100);
 }
 
 void Config::PreSaveCleanup() {
@@ -1525,73 +1624,124 @@ void Config::NotifyUpdatedCpuCore() {
 	}
 }
 
-// On iOS, the path to the app documents directory changes on each launch.
-// Example path:
-// /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
-// The GUID part changes on each launch.
-bool TryUpdateSavedPath(Path *path) {
-#if PPSSPP_PLATFORM(IOS)
-	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
-	std::string pathStr = path->ToString();
-
-	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";
-	if (startsWith(pathStr, applicationRoot)) {
-		size_t documentsPos = pathStr.find("/Documents/");
-		if (documentsPos == std::string::npos) {
-			return false;
-		}
-		std::string memstick = g_Config.memStickDirectory.ToString();
-		size_t memstickDocumentsPos = memstick.find("/Documents");  // Note: No trailing slash, or we won't find it.
-		*path = Path(memstick.substr(0, memstickDocumentsPos) + pathStr.substr(documentsPos));
-		return true;
-	} else {
-		// Path can't be auto-updated.
-		return false;
-	}
+bool Config::SupportsUpgradeCheck() const {
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MACOS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS_APP_STORE)
+	return true;
 #else
 	return false;
 #endif
+}
+
+#if 0
+// Use for debugging the version check without messing with the server
+#define NEW_VERSION_OVERRIDE "v1.100.3-gaaaaaaaaa"
+constexpr int UPDATE_CHECK_FREQ = 1;
+#else
+constexpr int UPDATE_CHECK_FREQ = 5;
+#endif
+
+void Config::CheckForUpdate() {
+	if (!bCheckForNewVersion || !SupportsUpgradeCheck()) {
+		return;
+	}
+
+	const char *gitVer = PPSSPP_GIT_VERSION;
+	Version installed(gitVer);
+	Version upgrade(sUpgradeVersion);
+	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
+
+	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
+	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
+	// even if said newer version is >= the upgrade found online.
+	if ((sDismissedVersion == sUpgradeVersion) || (versionsValid && (installed >= upgrade))) {
+		sUpgradeMessage.clear();
+	}
+
+	// Check for new version on every 10 runs.
+	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
+	// splash screen quickly), but then we'll just show the notification next time instead, we store the
+	// upgrade number in the ini.
+
+	const bool checkThisTime = iRunCount % UPDATE_CHECK_FREQ == 0;
+	if (checkThisTime) {
+		const char *versionUrl = "http://www.ppsspp.org/version.json";
+		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		g_DownloadManager.StartDownload(versionUrl, Path(), http::RequestFlags::Default, acceptMime, "version", [this](http::Request &download) { VersionJsonDownloadCompleted(download); });
+	}
+}
+
+void Config::VersionJsonDownloadCompleted(http::Request &download) {
+	if (download.ResultCode() != 200) {
+		ERROR_LOG(Log::Loader, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
+		return;
+	}
+	std::string data;
+	download.buffer().TakeAll(&data);
+	if (data.empty()) {
+		ERROR_LOG(Log::Loader, "Version check: Empty data from server!");
+		return;
+	}
+
+	json::JsonReader reader(data.c_str(), data.size());
+	const json::JsonGet root = reader.root();
+	if (!root) {
+		ERROR_LOG(Log::Loader, "Failed to parse json");
+		return;
+	}
+
+	std::string version;
+	root.getString("version", &version);
+
+	#ifdef NEW_VERSION_OVERRIDE
+	version = NEW_VERSION_OVERRIDE;
+	#endif
+
+	const char *gitVer = PPSSPP_GIT_VERSION;
+	Version installed(gitVer);
+	Version upgrade(version);
+	Version dismissed(g_Config.sDismissedVersion);
+
+	if (!installed.IsValid()) {
+		ERROR_LOG(Log::Loader, "Version check: Local version string invalid. Build problems? %s", PPSSPP_GIT_VERSION);
+		return;
+	}
+	if (!upgrade.IsValid()) {
+		ERROR_LOG(Log::Loader, "Version check: Invalid server version: %s", version.c_str());
+		return;
+	}
+
+	if (installed >= upgrade) {
+		INFO_LOG(Log::Loader, "Version check: Already up to date, erasing any upgrade message");
+		g_Config.sUpgradeMessage.clear();
+		g_Config.sUpgradeVersion = upgrade.ToString();
+		g_Config.sDismissedVersion.clear();
+		return;
+	}
+
+	if (installed < upgrade && dismissed != upgrade) {
+		g_Config.sUpgradeMessage = "New version of PPSSPP available!";
+		g_Config.sUpgradeVersion = upgrade.ToString();
+		g_Config.sDismissedVersion.clear();
+	}
+}
+
+bool Config::ShowUpgradeReminder() {
+	return !sUpgradeMessage.empty() && !sUpgradeVersion.empty() && sUpgradeVersion != sDismissedVersion;
+}
+
+void Config::DismissUpgrade() {
+	INFO_LOG(Log::Loader, "Upgrade dismissed for version %s", sUpgradeVersion.c_str());
+	sDismissedVersion = sUpgradeVersion;
+	sUpgradeMessage.clear();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {
 	searchPath_ = searchPath;
 }
 
-Path Config::FindConfigFile(std::string_view baseFilename, bool *exists) const {
-	// Don't search for an absolute path.
-	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
-		Path path(baseFilename);
-		*exists = File::Exists(path);
-		return path;
-	}
-#ifdef _WIN32
-	// Handle paths starting with a drive letter.
-	if (baseFilename.size() > 3 && baseFilename[1] == ':' && (baseFilename[2] == '/' || baseFilename[2] == '\\')) {
-		Path path(baseFilename);
-		*exists = File::Exists(path);
-		return path;
-	}
-#endif
-
-	Path filename = searchPath_ / baseFilename;
-	if (File::Exists(filename)) {
-		*exists = true;
-		return filename;
-	}
-	*exists = false;
-	// Make sure at least the directory it's supposed to be in exists.
-	Path parent = filename.NavigateUp();
-
-	// We try to create the path and ignore if it fails (already exists).
-	if (parent != GetSysDirectory(DIRECTORY_SYSTEM)) {
-		File::CreateFullPath(parent);
-	}
-	return filename;
-}
-
 void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
-	if (gameSpecific_) {
-		// TODO: This should be possible to do in a cleaner way.
+	if (IsGameSpecific()) {
+		// TODO: This could be done in a cleaner way.
 		DeleteGameConfig(gameId_);
 		CreateGameConfig(gameId_);
 		Load();
@@ -1622,23 +1772,20 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 }
 
 bool Config::HasGameConfig(std::string_view gameId) {
+	if (gameId.empty()) {
+		return false;
+	}
 	bool exists = false;
-	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 	return exists;
 }
 
-void Config::ChangeGameSpecific(const std::string &pGameId, std::string_view title) {
-	if (!reload_) {
-		Save("changeGameSpecific");
-	}
-
-	gameId_ = pGameId;
-	gameSpecific_ = !pGameId.empty();
-}
-
 bool Config::CreateGameConfig(std::string_view gameId) {
+	if (gameId.empty()) {
+		return false;
+	}
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 
 	if (exists) {
 		INFO_LOG(Log::System, "Game config already exists");
@@ -1651,7 +1798,7 @@ bool Config::CreateGameConfig(std::string_view gameId) {
 
 bool Config::DeleteGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = Path(GetGameConfigFilePath(gameId, &exists));
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 
 	if (exists) {
 		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
@@ -1663,20 +1810,18 @@ bool Config::DeleteGameConfig(std::string_view gameId) {
 	return true;
 }
 
-Path Config::GetGameConfigFilePath(std::string_view gameId, bool *exists) {
-	std::string_view ppssppIniFilename = IsVREnabled() ? "_ppssppvr.ini" : "_ppsspp.ini";
-	std::string iniFileName = join(gameId, ppssppIniFilename);
-	Path iniFileNameFull = FindConfigFile(iniFileName, exists);
-	return iniFileNameFull;
-}
-
 bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleForComment) {
 	if (gameId.empty()) {
 		return false;
 	}
 
+	if (gameId_.empty()) {
+		INFO_LOG(Log::G3D, "Switching to game-specific mode for saving config: %s", gameId.c_str());
+		gameId_ = gameId;
+	}
+
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFilePath(gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
 
 	IniFile iniFile;
 
@@ -1690,6 +1835,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 	PreSaveCleanup();
 
+	// Do all the actual saving.
 	for (const ConfigSectionMeta &meta : g_sectionMeta) {
 		Section *section = iniFile.GetOrCreateSection(meta.section);
 		ConfigBlock *configBlock = meta.configBlock;
@@ -1725,15 +1871,18 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 bool Config::LoadGameConfig(const std::string &gameId) {
 	bool exists;
-	Path iniFileNameFull = GetGameConfigFilePath(gameId, &exists);
+	Path iniFileNameFull = GetGameConfigFilePath(searchPath_, gameId, &exists);
 	if (!exists) {
+		// Bail if there's no game-specific config.
 		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 
-	_dbg_assert_(!gameId.empty());
-
-	ChangeGameSpecific(gameId);
+	// Switch to game specific mode, if we're not in it.
+	if (gameId_.empty()) {
+		INFO_LOG(Log::Loader, "Switching to game specific mode before load: %s", gameId.c_str());
+		gameId_ = gameId;
+	}
 
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
@@ -1781,16 +1930,16 @@ bool Config::LoadGameConfig(const std::string &gameId) {
 	}
 
 	PostLoadCleanup();
+
+	DEBUG_LOG(Log::Loader, "Game-specific config loaded: %s", gameId_.c_str());
 	return true;
 }
 
 void Config::UnloadGameConfig() {
-	if (!gameSpecific_) {
-		return;
-	}
+	_dbg_assert_(IsGameSpecific());
 
+	// Leave game-specific mode.
 	gameId_.clear();
-	gameSpecific_ = false;
 
 	// Reload all settings from the main ini file.
 	IniFile iniFile;
@@ -1818,7 +1967,7 @@ void Config::UnloadGameConfig() {
 void Config::LoadStandardControllerIni() {
 	IniFile controllerIniFile;
 	if (!controllerIniFile.Load(controllerIniFilename_)) {
-		ERROR_LOG(Log::Loader, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
+		WARN_LOG(Log::Loader, "Failed to read '%s'. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
@@ -1836,13 +1985,13 @@ void Config::GetReportingInfo(UrlEncoder &data) const {
 	}
 }
 
-void PlayTimeTracker::Start(const std::string &gameId) {
+void PlayTimeTracker::Start(std::string_view gameId) {
 	if (gameId.empty()) {
 		return;
 	}
-	VERBOSE_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Start(%.*s)", STR_VIEW(gameId));
 
-	auto iter = tracker_.find(std::string(gameId));
+	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime == 0.0) {
 			iter->second.lastTimePlayed = time_now_unix_utc();
@@ -1855,17 +2004,17 @@ void PlayTimeTracker::Start(const std::string &gameId) {
 	playTime.lastTimePlayed = time_now_unix_utc();
 	playTime.totalTimePlayed = 0.0;
 	playTime.startTime = time_now_d();
-	tracker_[gameId] = playTime;
+	tracker_[std::string(gameId)] = playTime;
 }
 
-void PlayTimeTracker::Stop(const std::string &gameId) {
+void PlayTimeTracker::Stop(std::string_view gameId) {
 	if (gameId.empty()) {
 		return;
 	}
 
-	VERBOSE_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Stop(%.*s)", STR_VIEW(gameId));
 
-	auto iter = tracker_.find(std::string(gameId));
+	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime != 0.0) {
 			iter->second.totalTimePlayed += time_now_d() - iter->second.startTime;
@@ -1875,8 +2024,17 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 		return;
 	}
 
-	// Shouldn't happen, ignore this case.
-	WARN_LOG(Log::System, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
+	// Can happen if boot gets cancelled. Not worth warn-logging.
+	DEBUG_LOG(Log::System, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
+}
+
+void PlayTimeTracker::Reset(std::string_view gameId) {
+	auto iter = tracker_.find(gameId);
+	if (iter != tracker_.end()) {
+		iter->second.lastTimePlayed = 0;
+		iter->second.totalTimePlayed = 0;
+		iter->second.startTime = 0.0;
+	}
 }
 
 void PlayTimeTracker::Load(const Section *section) {
@@ -1901,7 +2059,7 @@ void PlayTimeTracker::Save(Section *section) {
 	}
 }
 
-bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string *str) const {
+bool PlayTimeTracker::GetPlayedTimeString(std::string_view gameId, std::string *str) const {
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
 	auto iter = tracker_.find(gameId);

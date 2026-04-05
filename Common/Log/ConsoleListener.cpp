@@ -124,7 +124,7 @@ void ConsoleListener::Open() {
 	}
 
 	if (useThread_ && hTriggerEvent != NULL && !thread_.joinable()) {
-		thread_ = std::thread([&] {
+		thread_ = std::thread([this] {
 			SetCurrentThreadName("Console");
 			LogWriterThread();
 		});

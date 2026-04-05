@@ -28,15 +28,17 @@
 #include "Common/UI/Tween.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
-
-#include "UI/ImDebugger/ImDebugger.h"
+#include "UI/ImDebugger/ImCommand.h"
 
 struct AxisInput;
 
 class AsyncImageFileView;
 class ChatMenu;
+class ImDebugger;
+struct ImCommand;
+struct ImGuiContext;
 
-class EmuScreen : public UIScreen {
+class EmuScreen : public UIScreen, protected ControlListener {
 public:
 	EmuScreen(const Path &filename);
 	~EmuScreen();
@@ -70,11 +72,20 @@ public:
 protected:
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
+	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
+
+	// ControlListener implementations
+	void OnVKey(VirtKey virtualKeyCode, bool down) override;
+	void OnVKeyAnalog(VirtKey virtualKeyCode, float value) override;
+	void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) override;
+	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
+	ViewLayoutMode LayoutMode() const override;
 
 private:
 	void CreateViews() override;
+	ScreenRenderFlags RunEmulation(bool skipBufferEffects);
 	void OnDevTools(UI::EventParams &params);
-	void OnChat(UI::EventParams &params);
+	void OpenChat(bool focus);
 
 	void HandleFlip();
 	void ProcessGameBoot(const Path &filename);
@@ -85,8 +96,6 @@ private:
 	void runImDebugger();
 	void renderImDebugger();
 
-	void onVKey(VirtKey virtualKeyCode, bool down);
-	void onVKeyAnalog(VirtKey virtualKeyCode, float value);
 
 	void AutoLoadSaveState();
 	bool checkPowerDown();
@@ -94,9 +103,11 @@ private:
 	void ProcessQueuedVKeys();
 	void ProcessVKey(VirtKey vkey);
 
+	bool ShouldRunEmulation(ScreenRenderMode mode) const;
+
 	UI::Event OnDevMenu;
-	UI::Event OnChatMenu;
 	bool bootPending_ = true;
+	bool bootIsReset_ = false;
 	Path gamePath_;
 
 	bool quit_ = false;
@@ -124,16 +135,14 @@ private:
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;
-	UI::View *chatButton_ = nullptr;
+	UI::Clickable *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 
 	std::string extraAssertInfoStr_;
 
-	ControlMapper controlMapper_;
-
-	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
+	std::unique_ptr<ImDebugger> imDebugger_;
 	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 
 	bool imguiInited_ = false;
@@ -156,6 +165,10 @@ private:
 	bool startDumping_ = false;
 #endif
 	bool autoLoadFailed_ = false;  // to prevent repeat reloads
+	bool readyToFinishBoot_ = false;
+	bool skipBufferEffects_ = false;  // cached state, fetched once per frame.
+
+	uint32_t clearColor_ = 0;
 };
 
 bool MustRunBehind();

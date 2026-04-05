@@ -7,10 +7,12 @@
 class GPUCommonHW : public GPUCommon {
 public:
 	GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-	~GPUCommonHW();
+	~GPUCommonHW() override;
 
 	// This can fail, and if so no render pass is active.
-	void CopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) override;
+	void SetCurFramebufferDirty(bool dirty) override { curFramebufferDirty_ = dirty; }
+	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) override;
+	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
@@ -105,4 +107,5 @@ protected:
 	int msaaLevel_ = 0;
 	bool sawExactEqualDepth_ = false;
 	ShaderManagerCommon *shaderManager_ = nullptr;
+	bool curFramebufferDirty_ = false;
 };

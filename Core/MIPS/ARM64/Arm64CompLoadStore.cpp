@@ -146,7 +146,7 @@ namespace MIPSComp {
 			// Need to initialize since this only loads part of the register.
 			// But rs no longer matters (even if rs == rt) since we have the address.
 			gpr.MapReg(rt, load ? MAP_DIRTY : 0);
-			gpr.SetRegImm(SCRATCH1, addr & ~3);
+			MOVI2R(SCRATCH1, addr & ~3);
 
 			u8 shift = (addr & 3) * 8;
 
@@ -376,7 +376,7 @@ namespace MIPSComp {
 						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 						targetReg = gpr.R(rt);
 					}
-					gpr.SetRegImm(SCRATCH1, addr);
+					MOVI2R(SCRATCH1, addr);
 					addrReg = SCRATCH1;
 				}
 			} else {
