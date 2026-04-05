@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <limits>
 #include "ppsspp_config.h"
 
 #undef new
@@ -11,6 +12,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Common/Net/HTTPClient.h"
 #include "Core/HLE/sceNetAdhoc.h"
@@ -26,39 +28,79 @@ static void UpgradeGameName(std::string *str) {
 	}
 }
 
+static int ParseUserCountValue(const rapidjson::Value &v) {
+	if (v.IsInt())
+		return v.GetInt();
+	else if (v.IsString()) {
+		int value = 0;
+		if (TryParse(v.GetString(), &value))
+			return value;
+	}
+	return 0;
+}
+
+static int ParsePortValue(const rapidjson::Value &v) {
+	if (v.IsInt())
+		return v.GetInt();
+	return -1;
+}
+
 std::vector<AdhocGame> ParseDataJson(std::string_view json) {
 	rapidjson::Document d;
 	d.Parse(json.data(), json.size());
 
 	std::vector<AdhocGame> gameList;
 
-	if (d.HasParseError() || !d.HasMember("games")) return gameList;
+	if (d.HasParseError() || !d.IsObject() || !d.HasMember("games") || !d["games"].IsArray())
+		return gameList;
 
 	const auto& gamesArray = d["games"];
 	for (auto& g : gamesArray.GetArray()) {
+		if (!g.IsObject())
+			continue;
+
 		AdhocGame game;
+		if (!g.HasMember("name") || !g["name"].IsString())
+			continue;
 		game.name = g["name"].GetString();
 		UpgradeGameName(&game.name);
 
-		// Handle string-to-int conversion for usercount
-		game.usercount = std::stoi(g["usercount"].GetString());
+		game.usercount = g.HasMember("usercount") ? ParseUserCountValue(g["usercount"]) : 0;
 
-		if (g.HasMember("groups")) {
+		if (g.HasMember("groups") && g["groups"].IsArray()) {
 			for (auto& grp : g["groups"].GetArray()) {
-				AdhocGroup group;
-				group.name = grp["name"].GetString();
-				group.usercount = std::stoi(grp["usercount"].GetString());
+				if (!grp.IsObject())
+					continue;
 
-				if (grp.HasMember("users")) {
+				AdhocGroup group;
+				if (!grp.HasMember("name") || !grp["name"].IsString())
+					continue;
+				group.name = grp["name"].GetString();
+				group.usercount = grp.HasMember("usercount") ? ParseUserCountValue(grp["usercount"]) : 0;
+
+				if (grp.HasMember("users") && grp["users"].IsArray()) {
 					for (auto& u : grp["users"].GetArray()) {
+						if (!u.IsObject() || !u.HasMember("name") || !u["name"].IsString())
+							continue;
+
 						AdhocUser user;
 						user.name = u["name"].GetString();
 
-						for (auto& p : u["pdp_ports"].GetArray())
-							user.pdp_ports.push_back(p.GetInt());
+						if (u.HasMember("pdp_ports") && u["pdp_ports"].IsArray()) {
+							for (auto& p : u["pdp_ports"].GetArray()) {
+								int port = ParsePortValue(p);
+								if (port >= 0)
+									user.pdp_ports.push_back(port);
+							}
+						}
 
-						for (auto& p : u["ptp_ports"].GetArray())
-							user.ptp_ports.push_back(p.GetInt());
+						if (u.HasMember("ptp_ports") && u["ptp_ports"].IsArray()) {
+							for (auto& p : u["ptp_ports"].GetArray()) {
+								int port = ParsePortValue(p);
+								if (port >= 0)
+									user.ptp_ports.push_back(port);
+							}
+						}
 
 						group.users.push_back(user);
 					}

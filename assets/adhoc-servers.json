@@ -48,7 +48,7 @@
 			"location": "São Paulo Brazil",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
-			"status_xml": "https://jpa36a7.glddns.com/",
+			"status_data_json_2": "http://jpa36a7.glddns.com/data.json",
 			"icon": "/favicon.ico"
 		},
 		{
