@@ -306,7 +306,7 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 				std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
 				CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
 				for (const AdhocGroup &group : game.groups) {
-					if (group.usercount == 1 && group.name == "Groupless") {
+					if (group.usercount >= 1 && group.name == "Groupless") {
 						gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
 						continue;
 					}

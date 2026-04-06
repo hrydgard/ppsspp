@@ -198,6 +198,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
 
+	list->Add(new CheckBox(&g_Config.bShowSaveLoadIndicator, dev->T("Show indicator when saving/loading")));
+
 #if PPSSPP_PLATFORM(ANDROID)
 	static const char *framerateModes[] = { "Default", "Request 60 Hz", "Force 60Hz" };
 	PopupMultiChoice *framerateMode = list->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));

@@ -263,6 +263,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("DumpFrames", SETTING(g_Config, bDumpFrames), false, CfgFlag::DEFAULT),
 	ConfigSetting("DumpVideoOutput", SETTING(g_Config, bDumpVideoOutput), false, CfgFlag::DEFAULT),
 	ConfigSetting("DumpAudio", SETTING(g_Config, bDumpAudio), false, CfgFlag::DEFAULT),
+	ConfigSetting("ShowSaveLoadIndicator", SETTING(g_Config, bShowSaveLoadIndicator), false, CfgFlag::DEFAULT),
 	ConfigSetting("SaveLoadResetsAVdumping", SETTING(g_Config, bSaveLoadResetsAVdumping), false, CfgFlag::DEFAULT),
 	ConfigSetting("StateSlot", SETTING(g_Config, iCurrentStateSlot), 0, CfgFlag::PER_GAME),
 	ConfigSetting("EnableStateUndo", SETTING(g_Config, bEnableStateUndo), &DefaultEnableStateUndo, CfgFlag::PER_GAME),

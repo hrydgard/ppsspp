@@ -190,6 +190,7 @@ public:
 	bool bDumpVideoOutput;
 	bool bDumpAudio;
 	bool bSaveLoadResetsAVdumping;
+	bool bShowSaveLoadIndicator;
 	bool bEnableLogging;
 	bool bEnableFileLogging;
 	int iLogOutputTypes;  // enum class LogOutput
