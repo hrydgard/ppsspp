@@ -297,6 +297,9 @@ public:
 		open_ = open;
 		UpdateVisibility();
 	}
+	CollapsibleHeader *Header() {
+		return header_;
+	}
 
 private:
 	void UpdateVisibility();

@@ -101,6 +101,10 @@ void UITabbedBaseDialogScreen::CreateViews() {
 
 	// Let the subclass create its tabs.
 	CreateTabs();
+	if (currentTabSetting_) {
+		tabHolder_->SetInitialTab(*currentTabSetting_);
+	}
+	tabHolder_->EnsureTab(tabHolder_->GetCurrentTab());
 
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD) || System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		// Hide search if screen is too small.
@@ -130,6 +134,12 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	// Need to handle recreates, both important and accidental ones.
 	if (!searchFilter_.empty()) {
 		ApplySearchFilter();
+	}
+}
+
+UITabbedBaseDialogScreen::~UITabbedBaseDialogScreen() {
+	if (currentTabSetting_) {
+		*currentTabSetting_ = GetCurrentTab();
 	}
 }
 

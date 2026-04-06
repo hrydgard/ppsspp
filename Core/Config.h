@@ -190,6 +190,7 @@ public:
 	bool bDumpVideoOutput;
 	bool bDumpAudio;
 	bool bSaveLoadResetsAVdumping;
+	bool bShowSaveLoadIndicator;
 	bool bEnableLogging;
 	bool bEnableFileLogging;
 	int iLogOutputTypes;  // enum class LogOutput
@@ -425,6 +426,8 @@ public:
 	float fGameGridScale;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
+	int iSettingsCurrentTab;
+	int iDeveloperSettingsCurrentTab;
 
 	std::string sThemeName;
 

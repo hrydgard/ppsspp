@@ -950,8 +950,12 @@ public:
 	void SetOpenPtr(bool *open) {
 		toggle_ = open;
 	}
+	void SetUnderline(bool underline) {
+		underline_ = underline;
+	}
 private:
 	bool hasSubItems_ = true;
+	bool underline_ = true;
 };
 
 class BitCheckBox : public CheckBox {
