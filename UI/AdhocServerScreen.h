@@ -30,6 +30,17 @@ struct AdhocGame {
 	std::vector<std::string> game_ids;
 };
 
+class AdhocServerCompactInfo : public UI::LinearLayout {
+public:
+	AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams = nullptr);
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 500; h = 100;
+	}
+private:
+	AdhocServerListEntry entry_;
+};
+
 // Later, this might also show games-in-progress.
 // For now, it's just a simple metadata viewer.
 class AdhocServerInfoScreen : public UI::PopupScreen {
@@ -103,3 +114,4 @@ private:
 
 void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager);
 bool AdhocServerNameIsCustom();
+void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGame> &games, bool requestInProgress);

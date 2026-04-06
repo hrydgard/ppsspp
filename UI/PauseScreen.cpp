@@ -69,6 +69,7 @@
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/MiscViews.h"
+#include "UI/AdhocServerScreen.h"
 
 static void AfterSaveStateAction(SaveState::Status status, std::string_view message) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
@@ -337,7 +338,7 @@ void GamePauseScreen::update() {
 
 	if (playButton_) {
 		const bool mustRunBehind = MustRunBehind();
-		playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
+		playButton_->SetEnabled(!mustRunBehind);
 	}
 
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
@@ -511,42 +512,52 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (IsNetworkConnected()) {
-		saveDataScrollItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
-
 		const InfraDNSConfig &dnsConfig = GetInfraDNSConfig();
+		LinearLayout *networkInfo = saveDataScrollItems->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 		if (dnsConfig.loaded && __NetApctlConnected()) {
-			saveDataScrollItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Infrastructure"), ""));
+			networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2", nw->T("Network connected"), nw->T("Infrastructure")), ""));
 
 			if (dnsConfig.state == InfraGameState::NotWorking) {
-				saveDataScrollItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
+				networkInfo->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
 				if (!dnsConfig.workingIDs.empty()) {
 					std::string str(nw->T("Other versions of this game that should work:"));
 					for (auto &id : dnsConfig.workingIDs) {
 						str.append("\n - ");
 						str += id;
 					}
-					saveDataScrollItems->Add(new TextView(str));
+					networkInfo->Add(new TextView(str));
 				}
 			} else if (dnsConfig.state == InfraGameState::Unknown) {
-				saveDataScrollItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
+				networkInfo->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
 			}
 			if (!dnsConfig.revivalTeam.empty()) {
-				saveDataScrollItems->Add(new TextView(std::string(nw->T("Infrastructure server provided by:"))));
-				saveDataScrollItems->Add(new TextView(dnsConfig.revivalTeam));
+				networkInfo->Add(new TextView(std::string(nw->T("Infrastructure server provided by:"))));
+				networkInfo->Add(new TextView(dnsConfig.revivalTeam));
 				if (!dnsConfig.revivalTeamURL.empty()) {
-					saveDataScrollItems->Add(new Button(dnsConfig.revivalTeamURL))->OnClick.Add([&dnsConfig](UI::EventParams &e) {
+					networkInfo->Add(new Button(dnsConfig.revivalTeamURL))->OnClick.Add([&dnsConfig](UI::EventParams &e) {
 						if (!dnsConfig.revivalTeamURL.empty()) {
 							System_LaunchUrl(LaunchUrlType::BROWSER_URL, dnsConfig.revivalTeamURL.c_str());
 						}
 					});
 				}
 			}
-		}
-
-		if (NetAdhocctl_GetState() >= ADHOCCTL_STATE_CONNECTED) {
-			// Awkwardly re-using a string here
-			saveDataScrollItems->Add(new TextView(ApplySafeSubstitutions("%1: %2 (%3)", nw->T("AdHoc server"), nw->T("Connected"), g_Config.sProAdhocServer)));
-			// TODO: Add more metadata about the connected ad-hoc server here.
+		} else if (NetAdhocctl_GetState() >= ADHOCCTL_STATE_CONNECTED) {
+			// If we have it (thanks to the server list), add more metadata about the connected ad-hoc server here.
+			AdhocServerListEntry entry{};
+			if (AdhocGetServerByHost(g_Config.sProAdhocServer, &entry)) {
+				networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2", nw->T("AdHoc server"), nw->T("Connected")), ""));
+				Choice *status = networkInfo->Add(new Choice(ApplySafeSubstitutions(nw->T("Server status: %1"), entry.name), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
+				status->SetIconLeft(ImageID("I_INFO"));
+				status->OnClick.Add([this, entry](UI::EventParams &) {
+					screenManager()->push(new AdhocServerInfoScreen(entry));
+				});
+			} else {
+				// Awkwardly re-using a string here
+				networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2 (%3)", nw->T("AdHoc server"), nw->T("Connected"), g_Config.sProAdhocServer), ""));
+			}
+		} else {
+			// Hm, other kind of network connection, maybe plain sockets.
+			networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, nw->T("Network connected"), ""));
 		}
 	}
 
@@ -701,7 +712,7 @@ void GamePauseScreen::CreateViews() {
 		});
 
 		bool mustRunBehind = MustRunBehind();
-		playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
+		playButton_->SetEnabled(!mustRunBehind);
 
 		if (!portrait) {
 			middleColumn->Add(new Spacer(20.0f));
