@@ -164,21 +164,6 @@ private:
 	bool hasRelay_ = false;
 };
 
-class AdhocServerCompactInfo : public UI::LinearLayout {
-public:
-	AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams = nullptr);
-	void Draw(UIContext &dc) override {
-		UI::LinearLayout::Draw(dc);
-		// Underline
-		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
-	}
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		w = 500; h = 100;
-	}
-private:
-	AdhocServerListEntry entry_;
-};
-
 AdhocServerCompactInfo::AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams)
 	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), entry_(entry) {
 	using namespace UI;
@@ -206,6 +191,12 @@ AdhocServerCompactInfo::AdhocServerCompactInfo(const AdhocServerListEntry &entry
 	Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
 		System_CopyStringToClipboard(host);
 	});
+}
+
+void AdhocServerCompactInfo::Draw(UIContext &dc) {
+	UI::LinearLayout::Draw(dc);
+	// Underline
+	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
 }
 
 static UI::View *CreateInfoItemWithButton(std::string_view text, ImageID buttonImage, std::function<void(UI::EventParams &)> onClick) {
@@ -252,6 +243,49 @@ AdhocServerInfoScreen::AdhocServerInfoScreen(const AdhocServerListEntry &entry)
 	}
 }
 
+void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGame> &games, bool requestInProgress) {
+	using namespace UI;
+	auto ni = GetI18NCategory(I18NCat::NETWORKING);
+	if (games.empty()) {
+		if (requestInProgress) {
+			// Still loading. Show a spinner.
+			content->Add(new Spinner(nullptr, 0, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, Gravity::G_CENTER)));
+		} else {
+			content->Add(new TextView(ni->T("No games in progress on this server")));
+		}
+		return;
+	}
+	for (const AdhocGame &game : games) {
+		std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
+		CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
+		gameSection->Header()->SetUnderline(false);
+		for (const AdhocGroup &group : game.groups) {
+			if (group.usercount >= 1 && group.name == "Groupless") {
+				gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+				continue;
+			}
+			gameSection->Add(new TextView("  " + group.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+			for (const AdhocUser &user : group.users) {
+				std::string portInfo;
+				if (!user.pdp_ports.empty()) {
+					portInfo += "PDP: ";
+					for (int port : user.pdp_ports) {
+						portInfo += std::to_string(port) + " ";
+					}
+				}
+				if (!user.ptp_ports.empty()) {
+					portInfo += "PTP: ";
+					for (int port : user.ptp_ports) {
+						portInfo += std::to_string(port) + " ";
+					}
+				}
+				gameSection->Add(new TextView("    " + user.name + " " + portInfo))->SetTextSize(TextSize::Tiny);
+			}
+		}
+		gameSection->SetOpen(false);  // NOTE: Must be last!
+	}
+}
+
 void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
@@ -295,44 +329,7 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			buttonStrip->Add(CreateLinkButton(entry_.statusXmlUrl, ni->T("Status")));
 		}
 	} else {
-		if (games_.empty()) {
-			if (statusRequest_) {
-				// Still loading. TODO: Show a spinner or something.
-			} else {
-				content->Add(new TextView(ni->T("No games in progress on this server")));
-			}
-		} else {
-			// content->Add(new InfoItem(ni->T("Games being played"), StringFromFormat("%zu", games_.size())));
-			for (const AdhocGame &game : games_) {
-				std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
-				CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
-				gameSection->Header()->SetUnderline(false);
-				for (const AdhocGroup &group : game.groups) {
-					if (group.usercount >= 1 && group.name == "Groupless") {
-						gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
-						continue;
-					}
-					gameSection->Add(new TextView("  " + group.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
-					for (const AdhocUser &user : group.users) {
-						std::string portInfo;
-						if (!user.pdp_ports.empty()) {
-							portInfo += "PDP: ";
-							for (int port : user.pdp_ports) {
-								portInfo += std::to_string(port) + " ";
-							}
-						}
-						if (!user.ptp_ports.empty()) {
-							portInfo += "PTP: ";
-							for (int port : user.ptp_ports) {
-								portInfo += std::to_string(port) + " ";
-							}
-						}
-						gameSection->Add(new TextView("    " + user.name + " " + portInfo))->SetTextSize(TextSize::Tiny);
-					}
-				}
-				gameSection->SetOpen(false);  // NOTE: Must be last!
-			}
-		}
+		CreateAdhocServerGameList(content, games_, statusRequest_.get() ? true : false);
 	}
 
 	scroll->Add(content);
