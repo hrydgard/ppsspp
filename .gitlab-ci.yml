@@ -174,3 +174,4 @@ libretro-build-webos-armv7a:
   extends:
     - .libretro-webos-armv7a-cmake
     - .core-defs
+    - .cmake-defs
