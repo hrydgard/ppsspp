@@ -302,9 +302,11 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 				content->Add(new TextView(ni->T("No games in progress on this server")));
 			}
 		} else {
+			// content->Add(new InfoItem(ni->T("Games being played"), StringFromFormat("%zu", games_.size())));
 			for (const AdhocGame &game : games_) {
 				std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
 				CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
+				gameSection->Header()->SetUnderline(false);
 				for (const AdhocGroup &group : game.groups) {
 					if (group.usercount >= 1 && group.name == "Groupless") {
 						gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);

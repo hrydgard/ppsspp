@@ -459,7 +459,7 @@ static int sceGeBreak(u32 mode, u32 unknownPtr) {
 		WARN_LOG_REPORT(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
 		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	} else if (unknownPtr != 0) {
-		WARN_LOG_REPORT(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
+		WARN_LOG_REPORT_ONCE(gebreak_unkptr, Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
 	}
 
 	//mode => 0 : current dlist 1: all drawing

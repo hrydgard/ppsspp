@@ -317,6 +317,10 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT),
 	ConfigSetting("UISaturation", SETTING(g_Config, fUISaturation), &DefaultUISaturation, CfgFlag::DEFAULT),
 
+	// Current tabs
+	ConfigSetting("SettingsCurrentTab", SETTING(g_Config, iSettingsCurrentTab), 0, CfgFlag::DEFAULT),
+	ConfigSetting("DeveloperSettingsCurrentTab", SETTING(g_Config, iDeveloperSettingsCurrentTab), 0, CfgFlag::DEFAULT),
+
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", SETTING(g_Config, bTopMost), false, CfgFlag::DEFAULT),
 #endif

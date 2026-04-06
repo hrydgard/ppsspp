@@ -426,6 +426,8 @@ public:
 	float fGameGridScale;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
+	int iSettingsCurrentTab;
+	int iDeveloperSettingsCurrentTab;
 
 	std::string sThemeName;
 

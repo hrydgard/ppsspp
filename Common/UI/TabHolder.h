@@ -35,6 +35,7 @@ public:
 
 	// Returns true if the tab wasn't created before (but is now).
 	bool SetCurrentTab(int tab, bool skipTween = false);
+	void SetInitialTab(int tab);
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string DescribeLog() const override { return "TabHolder: " + View::DescribeLog(); }
@@ -48,11 +49,11 @@ public:
 	const std::vector<ViewGroup *> &GetTabContentViews() const {
 		return tabs_;
 	}
+	bool EnsureTab(int index);  // return true if it actually created a tab.
 
 private:
 	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
 	void OnTabClick(EventParams &e);
-	bool EnsureTab(int index);  // return true if it actually created a tab.
 
 	View *bannerView_ = nullptr;
 	LinearLayout *tabContainer_ = nullptr;

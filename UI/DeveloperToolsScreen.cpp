@@ -81,6 +81,9 @@ static std::string PostShaderTranslateName(std::string_view value) {
 	}
 }
 
+DeveloperToolsScreen::DeveloperToolsScreen(const Path &gamePath)
+	: UITabbedBaseDialogScreen(gamePath, &g_Config.iDeveloperSettingsCurrentTab, TabDialogFlags::AddAutoTitles) {}
+
 void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);

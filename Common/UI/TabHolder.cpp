@@ -103,10 +103,6 @@ void TabHolder::AddTabDeferred(std::string_view title, ImageID imageId, std::fun
 	}
 	tabTweens_.push_back(nullptr);
 	createFuncs_.push_back(createCb);
-
-	if (tabs_.size() == 1) {
-		EnsureTab(0);
-	}
 }
 
 void TabHolder::EnsureAllCreated() {
@@ -136,6 +132,11 @@ bool TabHolder::EnsureTab(int index) {
 	} else {
 		return false;
 	}
+}
+
+void TabHolder::SetInitialTab(int tab) {
+	currentTab_ = tab;
+	tabStrip_->SetSelection(tab, false);
 }
 
 bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
