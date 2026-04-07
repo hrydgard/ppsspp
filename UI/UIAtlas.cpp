@@ -1,4 +1,5 @@
 #include <string>
+
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
@@ -13,6 +14,8 @@
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/Util/PathUtil.h"
+
 #include "UI/UIAtlas.h"
 
 #define NANOSVG_IMPLEMENTATION
@@ -373,8 +376,15 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	if (!RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 		return false;
 	}
-	if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
-		return false;
+	Path customButtons = GetSysDirectory(DIRECTORY_SYSTEM) / "buttons.svg";
+	if (File::Exists(customButtons)) {
+		if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+			return false;
+		}
+	} else {
+		if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+			return false;
+		}
 	}
 	Instant shadowStart = Instant::Now();
 
