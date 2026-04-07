@@ -215,19 +215,7 @@ static bool IsImageID(const ImageMeta *imageIDs, size_t imageCount, std::string_
 	return GetImageIndex(imageIDs, imageCount, id) != -1;
 }
 
-static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
-	Bucket bucket;
-
-#ifdef _DEBUG
-	for (int i = 0; i < imageCount; i++) {
-		_dbg_assert_(imageIDs[i].id.size() < 32);
-	}
-#endif
-
-	// Script fully read, now read images and rasterize the fonts.
-	std::vector<Image> images(imageCount);
-	std::vector<int> resultIds(imageCount);
-
+static void RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
 	Instant svgStart = Instant::Now();
 
 	// Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
@@ -309,7 +297,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 					continue;
 				}
 
-				Image &img = images[index];
+				Image &img = (*images)[index];
 				int minX = std::max(0, (int)floorf(bounds.minX * scale));
 				int minY = std::max(0, (int)floorf(bounds.minY * scale));
 				int maxX = std::min(svgWidth, (int)ceilf(bounds.maxX * scale));
@@ -357,6 +345,24 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	}
 
 	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
+}
+
+static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
+	Bucket bucket;
+
+#ifdef _DEBUG
+	for (int i = 0; i < imageCount; i++) {
+		_dbg_assert_(imageIDs[i].id.size() < 32);
+	}
+#endif
+
+	Instant svgStart = Instant::Now();
+
+	// Script fully read, now read images and rasterize the fonts.
+	std::vector<Image> images(imageCount);
+	std::vector<int> resultIds(imageCount);
+
+	RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images);
 
 	Instant shadowStart = Instant::Now();
 
