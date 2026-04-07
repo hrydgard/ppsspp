@@ -223,7 +223,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 	int shapeCount = 0;
 	{
 		size_t sz;
-		const uint8_t *file_data = g_VFS.ReadFile("ui_images/images.svg", &sz);  // ReadFile null-terminates
+		const uint8_t *file_data = g_VFS.ReadFile(filename, &sz);  // ReadFile null-terminates
 		if (!file_data) {
 			return false;
 		}
@@ -303,7 +303,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 			Image &img = (*images)[index];
 			if (!img.IsEmpty()) {
-				WARN_LOG(Log::G3D, "Skipping image - already loaded from SVG");
+				WARN_LOG(Log::G3D, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
 				continue;
 			}
 
@@ -373,6 +373,9 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	if (!RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 		return false;
 	}
+	if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+		return false;
+	}
 	Instant shadowStart = Instant::Now();
 
 	// We can trivially parallelize shadowing/extension of the images.
@@ -405,7 +408,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 		if (!img.IsEmpty()) {
 			// Was already loaded from SVG.
-			DEBUG_LOG(Log::G3D, "Skipping image %.*s, already loaded from SVG", STR_VIEW(imageIDs[i].id));
+			DEBUG_LOG(Log::G3D, "Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(imageIDs[i].id), i);
 			continue;
 		}
 
