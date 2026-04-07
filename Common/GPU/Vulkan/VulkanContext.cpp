@@ -883,9 +883,13 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	case VULKAN_VENDOR_QUALCOMM:
 		devicePerfClass_ = PerfClass::SLOW;
 #if PPSSPP_PLATFORM(ANDROID)
+		// The roughest heuristic ever, this needs improvement.
 		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
 			devicePerfClass_ = PerfClass::FAST;
 		}
+#elif PPSSPP_PLATFORM(WINDOWS)
+		// All the modern Qualcomm PC laptops are fast enough to be called FAST.
+		devicePerfClass_ = PerfClass::FAST;
 #endif
 		break;
 
