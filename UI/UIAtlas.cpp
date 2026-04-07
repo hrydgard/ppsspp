@@ -42,7 +42,7 @@ struct ImageMeta {
 // We add shadows to all line-art images that are used for buttons, to improve visibility.
 // However, some images are dual-used as general UI elemnts and also as custom button images. This is a problem. (I_ROTATE_LEFT, I_ROTATE_RIGHT, I_THREE_DOTS).
 // I've added shadows to most of those for now. See customKeyImages in GamepadEmu.h.
-static const ImageMeta imageIDs[] = {
+static const ImageMeta g_uiImageIDs[] = {
 	{"I_SOLIDWHITE", false},
 	{"I_CROSS", true},
 	{"I_CIRCLE", true},
@@ -202,8 +202,8 @@ static std::string PNGNameFromID(std::string_view id) {
 	return output;
 }
 
-static int GetImageIndex(std::string_view id) {
-	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+static int GetImageIndex(const ImageMeta *imageIDs, size_t imageCount, std::string_view id) {
+	for (int i = 0; i < imageCount; i++) {
 		if (equals(id, imageIDs[i].id)) {
 			return i;
 		}
@@ -211,22 +211,22 @@ static int GetImageIndex(std::string_view id) {
 	return -1;
 }
 
-static bool IsImageID(std::string_view id) {
-	return GetImageIndex(id) != -1;
+static bool IsImageID(const ImageMeta *imageIDs, size_t imageCount, std::string_view id) {
+	return GetImageIndex(imageIDs, imageCount, id) != -1;
 }
 
-static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize) {
+static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
 	Bucket bucket;
 
 #ifdef _DEBUG
-	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+	for (int i = 0; i < imageCount; i++) {
 		_dbg_assert_(imageIDs[i].id.size() < 32);
 	}
 #endif
 
 	// Script fully read, now read images and rasterize the fonts.
-	std::vector<Image> images(ARRAY_SIZE(imageIDs));
-	int resultIds[ARRAY_SIZE(imageIDs)]{};
+	std::vector<Image> images(imageCount);
+	std::vector<int> resultIds(imageCount);
 
 	Instant svgStart = Instant::Now();
 
@@ -262,7 +262,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 				// Loop through the shapes to list them, and to hide them if irrelevant.
 				NSVGshape *shape = image->shapes;
 				while (shape) {
-					if (!IsImageID(shape->id)) {
+					if (!IsImageID(imageIDs, imageCount, shape->id)) {
 						// Not an image we care about, hide it.
 						DEBUG_LOG(Log::G3D, "Ignoring shape %s", shape->id);
 						shape->flags &= ~NSVG_FLAGS_VISIBLE;
@@ -303,7 +303,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 			// Now, loop through the shapes again and copy out the ones we care about.
 			for (const auto &[shapeId, bounds] : usedShapes) {
-				int index = GetImageIndex(shapeId);
+				int index = GetImageIndex(imageIDs, imageCount, shapeId);
 				_dbg_assert_(index != -1);
 				if (index == -1) {
 					continue;
@@ -361,7 +361,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	Instant shadowStart = Instant::Now();
 
 	// We can trivially parallelize shadowing/extension of the images.
-	ParallelRangeLoop(&g_threadManager, [&](int start, int end) {
+	ParallelRangeLoop(&g_threadManager, [&images, imageIDs, imageCount](int start, int end) {
 		for (int i = start; i < end; i++) {
 			// Here we could exclude some images from the drop shadow, if desired.
 			if (!images[i].IsEmpty()) {
@@ -437,8 +437,8 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	_dbg_assert_(!results.empty());
 	// Fill out the atlas structure.
 	std::vector<AtlasImage> genAtlasImages;
-	genAtlasImages.reserve(ARRAY_SIZE(imageIDs));
-	for (int i = 0; i < ARRAY_SIZE(imageIDs); i++) {
+	genAtlasImages.reserve(imageCount);
+	for (int i = 0; i < imageCount; i++) {
 		genAtlasImages.push_back(ToAtlasImage(resultIds[i], imageIDs[i].id, (float)dest->width(), (float)dest->height(), results));
 	}
 
@@ -466,7 +466,7 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 			g_cachedUIAtlasImage.IsEmpty() ? "true" : "false", dpiScale != g_cachedDpiScale ? "true" : "false", dpiScale, invalidate);
 
 		g_cachedUIAtlasImage.clear();
-		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize)) {
+		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize, g_uiImageIDs, ARRAY_SIZE(g_uiImageIDs))) {
 			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
 			return nullptr;
 		}
