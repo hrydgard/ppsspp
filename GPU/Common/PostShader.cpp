@@ -214,6 +214,13 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					section.Get("Scale", &info.scaleFactor);
 					if (section.Get("Compute", &temp)) {
 						info.computeShaderFile = path / temp;
+						info.computeShaderFiles.push_back(info.computeShaderFile);
+						for (int computeIndex = 2; computeIndex <= 4; ++computeIndex) {
+							temp.clear();
+							if (section.Get(StringFromFormat("Compute%d", computeIndex).c_str(), &temp)) {
+								info.computeShaderFiles.push_back(path / temp);
+							}
+						}
 						if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
 							appendTextureShader(info);
 						}

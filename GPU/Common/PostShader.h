@@ -85,6 +85,7 @@ struct TextureShaderInfo {
 	std::string name;
 
 	Path computeShaderFile;
+	std::vector<Path> computeShaderFiles;
 
 	// Upscaling shaders have a fixed scale factor.
 	int scaleFactor;
