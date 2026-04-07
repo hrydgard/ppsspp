@@ -1106,6 +1106,7 @@ static void check_variables(CoreParameter &coreParam)
 
    bool updateAvInfo = false;
    bool updateGeometry = false;
+   bool resetHWContext = false;
 
    if (!detectVsyncSwapInterval && (vsyncSwapInterval != 1))
    {
@@ -1125,6 +1126,8 @@ static void check_variables(CoreParameter &coreParam)
          environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
          updateAvInfo = false;
          gpu->NotifyDisplayResized();
+         if (ctx && ctx->GetGPUCore() != GPUCORE_VULKAN)
+            resetHWContext = true;
       }
    }
 
@@ -1133,6 +1136,8 @@ static void check_variables(CoreParameter &coreParam)
       updateGeometry = true;
       if (gpu)
          gpu->NotifyDisplayResized();
+      if (ctx && backend != RETRO_HW_CONTEXT_NONE && ctx->GetGPUCore() != GPUCORE_VULKAN)
+         resetHWContext = true;
    }
 
    if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
@@ -1156,6 +1161,11 @@ static void check_variables(CoreParameter &coreParam)
       retro_get_system_av_info(&avInfo);
       environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &avInfo);
    }
+
+   /* Must reset context to resize render area properly while running,
+    * but not necessary with software, and not working with Vulkan.. (TODO) */
+   if (resetHWContext)
+      ((LibretroHWRenderContext *)ctx)->ContextReset();
 
    set_variable_visibility();
 }
@@ -1338,11 +1348,6 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
    PSP_CoreParameter().pixelWidth  = PSP_CoreParameter().renderWidth  = info->geometry.base_width;
    PSP_CoreParameter().pixelHeight = PSP_CoreParameter().renderHeight = info->geometry.base_height;
-
-   /* Must reset context to resize render area properly while running,
-    * but not necessary with software, and not working with Vulkan.. (TODO) */
-   if (PSP_IsInited() && ctx && backend != RETRO_HW_CONTEXT_NONE && ctx->GetGPUCore() != GPUCORE_VULKAN)
-      ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset();
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
