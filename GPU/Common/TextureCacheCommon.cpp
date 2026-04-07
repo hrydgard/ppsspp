@@ -544,7 +544,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
@@ -3101,4 +3101,59 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
+}
+
+std::string TexStatusToString(TexCacheEntry::TexStatus status) {
+	std::string result;
+	switch (status & TexCacheEntry::STATUS_MASK) {
+	case TexCacheEntry::STATUS_HASHING:
+		result += "HASHING ";
+		break;
+	case TexCacheEntry::STATUS_RELIABLE:
+		result += "RELIABLE ";
+		break;
+	case TexCacheEntry::STATUS_UNRELIABLE:
+		result += "UNRELIABLE ";
+		break;
+	}
+	if (status & TexCacheEntry::STATUS_ALPHA_MASK) {
+		result += "ALPHA";
+	}
+	if (status & TexCacheEntry::STATUS_CLUT_VARIANTS) {
+		result += "CLUTVARIANTS ";
+	}
+	if (status & TexCacheEntry::STATUS_CLUT_RECHECK) {
+		result += "CLUT_RECHECK ";
+	}
+	if (status & TexCacheEntry::STATUS_CHANGE_FREQUENT) {
+		result += "FREQ ";
+	}
+	if (status & TexCacheEntry::STATUS_UNRELIABLE) {
+		result += "UNREL ";
+	}
+	if (status & TexCacheEntry::STATUS_TO_SCALE) {
+		result += "TOSCALE ";
+	}
+	if (status & TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED) {
+		result += "SCALED/REPL ";
+	}
+	if (status & TexCacheEntry::STATUS_NO_MIPS) {
+		result += "NO_MIPS ";
+	}
+	if (status & TexCacheEntry::STATUS_CLUT_GPU) {
+		result += "CLUT_GPU ";
+	}
+	if (status & TexCacheEntry::STATUS_FORCE_REBUILD) {
+		result += "FORCE_REBUILD ";
+	}
+	if (status & TexCacheEntry::STATUS_3D) {
+		result += "3D ";
+	}
+	if (status & TexCacheEntry::STATUS_VIDEO) {
+		result += "VIDEO ";
+	}
+	if (status & TexCacheEntry::STATUS_BGRA) {
+		result += "BGRA ";
+	}
+	return result.empty() ? "None" : result;
 }
