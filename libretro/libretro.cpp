@@ -1356,8 +1356,9 @@ namespace Libretro
    static void EmuFrame()
    {
       ctx->SetRenderTarget();
-      if (ctx->GetDrawContext()) {
-         ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
+      Draw::DrawContext *draw = ctx->GetDrawContext();
+      if (draw) {
+         draw->BeginFrame(Draw::DebugFlags::NONE);
       }
 
       const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
@@ -1379,21 +1380,24 @@ namespace Libretro
 
       if (gpu) {
          gpu->EndHostFrame();
-
-         gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
+         if (draw) {
+            gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
+         }
       }
 
       // gotta do the backbuffer bind somewhere.
       using namespace Draw;
-      ctx->GetDrawContext()->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+      if (draw) {
+         draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+      }
 
-      if (gpu) {
+      if (gpu && draw) {
          gpu->CopyDisplayToOutput(displayLayoutConfig);
       }
 
-      if (ctx->GetDrawContext()) {
-         ctx->GetDrawContext()->EndFrame();
-         ctx->GetDrawContext()->Present(Draw::PresentMode::FIFO);
+      if (draw) {
+         draw->EndFrame();
+         draw->Present(Draw::PresentMode::FIFO);
       }
    }
 
@@ -1427,7 +1431,11 @@ namespace Libretro
 
    void EmuThreadStart()
    {
-      bool wasPaused = emuThreadState == EmuThreadState::PAUSED;
+      EmuThreadState state = emuThreadState;
+      if (state == EmuThreadState::RUNNING || state == EmuThreadState::START_REQUESTED || emuThread.joinable())
+         return;
+
+      bool wasPaused = state == EmuThreadState::PAUSED;
       emuThreadState = EmuThreadState::START_REQUESTED;
 
       if (!wasPaused)
