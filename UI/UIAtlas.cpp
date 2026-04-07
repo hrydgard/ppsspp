@@ -215,7 +215,7 @@ static bool IsImageID(const ImageMeta *imageIDs, size_t imageCount, std::string_
 	return GetImageIndex(imageIDs, imageCount, id) != -1;
 }
 
-static void RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
 	Instant svgStart = Instant::Now();
 
 	// Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
@@ -224,127 +224,136 @@ static void RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 	{
 		size_t sz;
 		const uint8_t *file_data = g_VFS.ReadFile("ui_images/images.svg", &sz);  // ReadFile null-terminates
-		if (file_data) {
-			NSVGimage *image = nsvgParse((char *)file_data, "px", 96.0f);
-			delete[] file_data;
-
-			// There's a couple of approaches here, either we can pick apart the SVG and render each piece separately,
-			// or we just rasterize the whole thing in one go and use the bounding boxes to pick out the sub-images.
-			// We'll start with the latter, although the momentary memory requirements are higher.
-			struct UsedShape {
-				float minX = 1000000.0f;
-				float maxX = -1000000.0f;
-				float minY = 1000000.0f;
-				float maxY = -1000000.0f;
-
-				void Merge(NSVGshape *shape) {
-					if (shape->bounds[0] < minX) minX = shape->bounds[0];
-					if (shape->bounds[1] < minY) minY = shape->bounds[1];
-					if (shape->bounds[2] > maxX) maxX = shape->bounds[2];
-					if (shape->bounds[3] > maxY) maxY = shape->bounds[3];
-				}
-			};
-
-			std::map<std::string, UsedShape> usedShapes;
-			if (image) {
-				// Loop through the shapes to list them, and to hide them if irrelevant.
-				NSVGshape *shape = image->shapes;
-				while (shape) {
-					if (!IsImageID(imageIDs, imageCount, shape->id)) {
-						// Not an image we care about, hide it.
-						DEBUG_LOG(Log::G3D, "Ignoring shape %s", shape->id);
-						shape->flags &= ~NSVG_FLAGS_VISIBLE;
-					} else {
-						if (usedShapes.find(shape->id) != usedShapes.end()) {
-							DEBUG_LOG(Log::G3D, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
-						} else {
-							DEBUG_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
-						}
-						usedShapes[shape->id].Merge(shape);
-					}
-					shape = shape->next;
-				}
-			}
-
-			NSVGrasterizer *rast = NULL;
-			// Rasterize here, and add into image list.
-			rast = nsvgCreateRasterizer();
-
-			// If we can tell that the scale won't fit in a supported texture size, reduce it.
-			// This is a conservative check because the SVG has some empty space around the sub-images.
-			float scale = dpiScale;
-			int maxSide = (int)(std::max(image->width, image->height) * scale);
-			if (maxTextureSize > 0 && maxSide > maxTextureSize) {
-				float newScale = (float)maxTextureSize / (float)maxSide;
-				INFO_LOG(Log::G3D, "Reducing SVG scale from %0.2f to %0.2f to fit in max texture size", scale, newScale);
-				scale = newScale;
-			}
-
-			int svgWidth = image->width * scale;
-			int svgHeight = image->height * scale;
-
-			INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
-
-			char *svgImg = new char[svgWidth * svgHeight * 4];
-			memset(svgImg, 0, svgWidth * svgHeight * 4);
-			nsvgRasterize(rast, image, 0, 0, scale, (unsigned char *)svgImg, svgWidth, svgHeight, svgWidth * 4);
-
-			// Now, loop through the shapes again and copy out the ones we care about.
-			for (const auto &[shapeId, bounds] : usedShapes) {
-				int index = GetImageIndex(imageIDs, imageCount, shapeId);
-				_dbg_assert_(index != -1);
-				if (index == -1) {
-					continue;
-				}
-
-				Image &img = (*images)[index];
-				int minX = std::max(0, (int)floorf(bounds.minX * scale));
-				int minY = std::max(0, (int)floorf(bounds.minY * scale));
-				int maxX = std::min(svgWidth, (int)ceilf(bounds.maxX * scale));
-				int maxY = std::min(svgHeight, (int)ceilf(bounds.maxY * scale));
-				int w = maxX - minX;
-				int h = maxY - minY;
-				if (w <= 0 || h <= 0) {
-					ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
-					continue;
-				}
-				img.resize(w, h);
-
-				for (int y = 0; y < h; y++) {
-					for (int x = 0; x < w; x++) {
-						int sx = minX + x;
-						int sy = minY + y;
-						const u32 *src = (u32 *)svgImg + (sy * svgWidth + sx);
-						u32 col = *src;
-						img.set1(x, y, col);
-					}
-				}
-
-				img.scale = scale;
-
-				if (SAVE_DEBUG_IMAGES) {
-					std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
-					WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
-					pngSave(Path(name), img.data(), img.width(), img.height(), 4);
-				}
-
-				img.ConvertToPremultipliedAlpha();
-			}
-
-			shapeCount = (int)usedShapes.size();
-
-			if (SAVE_DEBUG_ATLAS) {
-				WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
-				pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
-			}
-			delete[] svgImg;
-
-			nsvgDeleteRasterizer(rast);
-			nsvgDelete(image);
+		if (!file_data) {
+			return false;
 		}
+		NSVGimage *image = nsvgParse((char *)file_data, "px", 96.0f);
+		if (!image) {
+			return false;
+		}
+		delete[] file_data;
+
+		// There's a couple of approaches here, either we can pick apart the SVG and render each piece separately,
+		// or we just rasterize the whole thing in one go and use the bounding boxes to pick out the sub-images.
+		// We'll start with the latter, although the momentary memory requirements are higher.
+		struct UsedShape {
+			float minX = 1000000.0f;
+			float maxX = -1000000.0f;
+			float minY = 1000000.0f;
+			float maxY = -1000000.0f;
+
+			void Merge(NSVGshape *shape) {
+				if (shape->bounds[0] < minX) minX = shape->bounds[0];
+				if (shape->bounds[1] < minY) minY = shape->bounds[1];
+				if (shape->bounds[2] > maxX) maxX = shape->bounds[2];
+				if (shape->bounds[3] > maxY) maxY = shape->bounds[3];
+			}
+		};
+
+		std::map<std::string, UsedShape> usedShapes;
+		// Loop through the shapes to list them, and to hide them if irrelevant.
+		NSVGshape *shape = image->shapes;
+		while (shape) {
+			if (!IsImageID(imageIDs, imageCount, shape->id)) {
+				// Not an image we care about, hide it.
+				DEBUG_LOG(Log::G3D, "Ignoring shape %s", shape->id);
+				shape->flags &= ~NSVG_FLAGS_VISIBLE;
+			} else {
+				if (usedShapes.find(shape->id) != usedShapes.end()) {
+					DEBUG_LOG(Log::G3D, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
+				} else {
+					DEBUG_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
+				}
+				usedShapes[shape->id].Merge(shape);
+			}
+			shape = shape->next;
+		}
+
+		NSVGrasterizer *rast = NULL;
+		// Rasterize here, and add into image list.
+		rast = nsvgCreateRasterizer();
+
+		// If we can tell that the scale won't fit in a supported texture size, reduce it.
+		// This is a conservative check because the SVG has some empty space around the sub-images.
+		// TODO: Also, if we use multiple SVGs, this check isn't really right.
+		float scale = dpiScale;
+		int maxSide = (int)(std::max(image->width, image->height) * scale);
+		if (maxTextureSize > 0 && maxSide > maxTextureSize) {
+			float newScale = (float)maxTextureSize / (float)maxSide;
+			INFO_LOG(Log::G3D, "Reducing SVG scale from %0.2f to %0.2f to fit in max texture size", scale, newScale);
+			scale = newScale;
+		}
+
+		int svgWidth = image->width * scale;
+		int svgHeight = image->height * scale;
+
+		INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
+
+		char *svgImg = new char[svgWidth * svgHeight * 4];
+		memset(svgImg, 0, svgWidth * svgHeight * 4);
+		nsvgRasterize(rast, image, 0, 0, scale, (unsigned char *)svgImg, svgWidth, svgHeight, svgWidth * 4);
+
+		// Now, loop through the shapes again and copy out the ones we care about.
+		for (const auto &[shapeId, bounds] : usedShapes) {
+			int index = GetImageIndex(imageIDs, imageCount, shapeId);
+			_dbg_assert_(index != -1);
+			if (index == -1) {
+				continue;
+			}
+
+			Image &img = (*images)[index];
+			if (!img.IsEmpty()) {
+				WARN_LOG(Log::G3D, "Skipping image - already loaded from SVG");
+				continue;
+			}
+
+			int minX = std::max(0, (int)floorf(bounds.minX * scale));
+			int minY = std::max(0, (int)floorf(bounds.minY * scale));
+			int maxX = std::min(svgWidth, (int)ceilf(bounds.maxX * scale));
+			int maxY = std::min(svgHeight, (int)ceilf(bounds.maxY * scale));
+			int w = maxX - minX;
+			int h = maxY - minY;
+			if (w <= 0 || h <= 0) {
+				ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
+				continue;
+			}
+			img.resize(w, h);
+
+			for (int y = 0; y < h; y++) {
+				for (int x = 0; x < w; x++) {
+					int sx = minX + x;
+					int sy = minY + y;
+					const u32 *src = (u32 *)svgImg + (sy * svgWidth + sx);
+					u32 col = *src;
+					img.set1(x, y, col);
+				}
+			}
+
+			img.scale = scale;
+
+			if (SAVE_DEBUG_IMAGES) {
+				std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
+				WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
+				pngSave(Path(name), img.data(), img.width(), img.height(), 4);
+			}
+
+			img.ConvertToPremultipliedAlpha();
+		}
+
+		shapeCount = (int)usedShapes.size();
+
+		if (SAVE_DEBUG_ATLAS) {
+			WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
+			pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
+		}
+		delete[] svgImg;
+
+		nsvgDeleteRasterizer(rast);
+		nsvgDelete(image);
 	}
 
 	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
+	return true;
 }
 
 static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
@@ -360,10 +369,10 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 	// Script fully read, now read images and rasterize the fonts.
 	std::vector<Image> images(imageCount);
-	std::vector<int> resultIds(imageCount);
 
-	RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images);
-
+	if (!RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+		return false;
+	}
 	Instant shadowStart = Instant::Now();
 
 	// We can trivially parallelize shadowing/extension of the images.
@@ -387,6 +396,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	Instant pngStart = Instant::Now();
 
 	// TODO: This can be parallelized if needed.
+	std::vector<int> resultIds(imageCount);
 	int pngsLoaded = 0;
 	for (int i = 0; i < (int)images.size(); i++) {
 		resultIds[i] = i;
@@ -412,7 +422,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			name.append(pngName);
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
-				ERROR_LOG(Log::G3D, "Failed to load %s", name.c_str());
+				ERROR_LOG(Log::G3D, "%.*s is missing. Not present in SVG files and no suitable PNG found (%s)", STR_VIEW(imageIDs[i].id), name.c_str());
 			} else {
 				pngsLoaded++;
 				img.ConvertToPremultipliedAlpha();
