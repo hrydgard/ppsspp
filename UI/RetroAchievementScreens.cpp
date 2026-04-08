@@ -100,9 +100,6 @@ void CreateAchievementsTab(UI::ViewGroup *achievements, const SubsetInfo &subset
 
 	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
 
-	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
-		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
-
 	if (!subset.isDefault) {
 		achievements->Add(new Spacer(8.0f));
 		achievements->Add(new TextView(subset.title))->SetTextSize(UI::TextSize::Big);
@@ -128,8 +125,18 @@ void CreateAchievementsTab(UI::ViewGroup *achievements, const SubsetInfo &subset
 			section->Add(new AchievementView(bucket.achievements[j]));
 		}
 	}
+}
 
-	rc_client_destroy_achievement_list(list);
+RetroAchievementsListScreen::RetroAchievementsListScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {
+	list_ = rc_client_create_achievement_list(Achievements::GetClient(),
+		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
+}
+
+RetroAchievementsListScreen::~RetroAchievementsListScreen() {
+	if (list_) {
+		rc_client_destroy_achievement_list(list_);
+		list_ = nullptr;
+	}
 }
 
 void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup) {
@@ -158,6 +165,7 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 			screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));
 		});
 	}
+	rc_client_destroy_leaderboard_list(list);
 }
 
 void RetroAchievementsListScreen::CreateStatisticsTab(UI::ViewGroup *viewGroup) {
@@ -173,14 +181,11 @@ void RetroAchievementsListScreen::CreateStatisticsTab(UI::ViewGroup *viewGroup) 
 void RetroAchievementsListScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
-		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
-
 	std::map<uint32_t, SubsetInfo> bucketsBySubset;
 	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
 
-	for (uint32_t i = 0; i < list->num_buckets; i++) {
-		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+	for (uint32_t i = 0; i < list_->num_buckets; i++) {
+		const rc_client_achievement_bucket_t &bucket = list_->buckets[i];
 		if (!bucket.num_achievements) {
 			continue;
 		}
