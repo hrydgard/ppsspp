@@ -63,28 +63,7 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 	});
 }
 
-void RetroAchievementsListScreen::CreateTabs() {
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-
-	AddTab("Achievements", ac->T("Achievements"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(5.0f);
-		CreateAchievementsTab(parent);
-	});
-
-	AddTab("Leaderboards", ac->T("Leaderboards"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(5.0f);
-		CreateLeaderboardsTab(parent);
-	});
-
-#ifdef _DEBUG
-	AddTab("AchievementsStatistics", ac->T("Statistics"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(5.0f);
-		CreateStatisticsTab(parent);
-	});
-#endif
-}
-
-inline const char *AchievementBucketTitle(int bucketType) {
+static const char *AchievementBucketTitle(int bucketType) {
 	switch (bucketType) {
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked";
@@ -97,41 +76,51 @@ inline const char *AchievementBucketTitle(int bucketType) {
 	}
 }
 
-void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achievements) {
+static uint32_t GetListFilter() {
+	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
+	if (Achievements::UnofficialEnabled()) {
+		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
+	}
+	return filter;
+}
+
+// Temporary.
+struct SubsetInfo {
+	u32 id;
+	bool isDefault;
+	std::string title;
+	std::vector<const rc_client_achievement_bucket_t *> buckets;
+};
+
+void CreateAchievementsTab(UI::ViewGroup *achievements, const SubsetInfo &subset) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	using namespace UI;
 
-	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
-	if (Achievements::UnofficialEnabled()) {
-		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
-	}
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
 
-	achievements->Add(new GameAchievementSummaryView());
+	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
+		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
+
+	if (!subset.isDefault) {
+		achievements->Add(new Spacer(8.0f));
+		achievements->Add(new TextView(subset.title))->SetTextSize(UI::TextSize::Big);
+	}
+	achievements->Add(new GameAchievementSummaryView(subset.id));
 
 	if (Achievements::EncoreModeActive()) {
 		achievements->Add(new NoticeView(NoticeLevel::WARN, ac->T("In Encore mode - unlock state may not be accurate"), ""));
 	}
 
-	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
-		filter, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
-
-	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
-
-	for (uint32_t i = 0; i < list->num_buckets; i++) {
-		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+	for (uint32_t i = 0; i < subset.buckets.size(); i++) {
+		const rc_client_achievement_bucket_t &bucket = *subset.buckets[i];
 		if (!bucket.num_achievements) {
 			continue;
 		}
 		// Populate the subset list as we go.
 		const rc_client_subset_t *subset = rc_client_get_subset_info(Achievements::GetClient(), bucket.subset_id);
-		std::string title;
-		if (!subset || equals(subset->title, client_game->title)) {
-			title = StringFromFormat("%s (%d)", ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
-		} else {
-			title = StringFromFormat("%s - %s (%d)", subset->title, ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
-		}
+		std::string title = StringFromFormat("%s (%d)", ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
 
 		CollapsibleSection *section = achievements->Add(new CollapsibleSection(title));
 		section->SetSpacing(2.0f);
@@ -139,6 +128,8 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 			section->Add(new AchievementView(bucket.achievements[j]));
 		}
 	}
+
+	rc_client_destroy_achievement_list(list);
 }
 
 void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup) {
@@ -147,7 +138,8 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 
 	using namespace UI;
 
-	viewGroup->Add(new GameAchievementSummaryView());
+	// TODO: subset?
+	viewGroup->Add(new GameAchievementSummaryView(0));
 
 	viewGroup->Add(new ItemHeader(ac->T("Leaderboards")));
 
@@ -176,6 +168,61 @@ void RetroAchievementsListScreen::CreateStatisticsTab(UI::ViewGroup *viewGroup) 
 	Achievements::Statistics stats = Achievements::GetStatistics();
 	viewGroup->Add(new ItemHeader(ac->T("Statistics")));
 	viewGroup->Add(new InfoItem(ac->T("Bad memory accesses"), StringFromFormat("%d", stats.badMemoryAccessCount)));
+}
+
+void RetroAchievementsListScreen::CreateTabs() {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
+		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
+
+	std::map<uint32_t, SubsetInfo> bucketsBySubset;
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+
+	for (uint32_t i = 0; i < list->num_buckets; i++) {
+		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+		if (!bucket.num_achievements) {
+			continue;
+		}
+
+		const rc_client_subset_t *subset = rc_client_get_subset_info(Achievements::GetClient(), bucket.subset_id);
+
+		if (bucketsBySubset.find(bucket.subset_id) == bucketsBySubset.end()) {
+			bucketsBySubset[bucket.subset_id] = SubsetInfo();
+			bucketsBySubset[bucket.subset_id].id = bucket.subset_id;
+		}
+
+		// Populate the subset list as we go.
+		bucketsBySubset[bucket.subset_id].buckets.push_back(&bucket);
+		if (bucketsBySubset[bucket.subset_id].title.empty()) {
+			if (!subset || equals(subset->title, client_game->title)) {
+				bucketsBySubset[bucket.subset_id].title = ac->T("Achievements");
+				bucketsBySubset[bucket.subset_id].isDefault = true;
+			} else {
+				bucketsBySubset[bucket.subset_id].title = subset->title;
+				bucketsBySubset[bucket.subset_id].isDefault = false;
+			}
+		}
+	}
+
+	for (auto &[subsetID, subsetInfo] : bucketsBySubset) {
+		AddTab("Achievements", subsetInfo.title, ImageID::invalid(), [subsetInfo = subsetInfo](UI::LinearLayout *parent) {
+			parent->SetSpacing(5.0f);
+			CreateAchievementsTab(parent, subsetInfo);
+		});
+	}
+
+	AddTab("Leaderboards", ac->T("Leaderboards"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
+		parent->SetSpacing(5.0f);
+		CreateLeaderboardsTab(parent);
+	});
+
+#ifdef _DEBUG
+	AddTab("AchievementsStatistics", ac->T("Statistics"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
+		parent->SetSpacing(5.0f);
+		CreateStatisticsTab(parent);
+	});
+#endif
 }
 
 RetroAchievementsLeaderboardScreen::~RetroAchievementsLeaderboardScreen() {
@@ -577,8 +624,8 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.PopScissor();
 }
 
-static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view title, float maxWidth, float *w, float *h) {
-	std::string description = Achievements::GetGameAchievementSummary();
+static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view title, float maxWidth, float *w, float *h, uint32_t subsetId) {
+	std::string description = Achievements::GetGameAchievementSummary(subsetId);
 
 	float iconSpace = 64.0f;
 	float availableWidth = maxWidth - iconSpace - 5.0f - 5.0f - 8.0f;
@@ -590,7 +637,7 @@ static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view 
 	*w += 8.0f;
 }
 
-static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha, const rc_client_game_t *gameInfo) {
+static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha, const rc_client_game_t *gameInfo, uint32_t subsetId) {
 	using namespace UI;
 	UI::Drawable background = dc.GetTheme().itemStyle.background;
 
@@ -608,7 +655,7 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 
 	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_ELLIPSIZE_TEXT);
 
-	std::string description = Achievements::GetGameAchievementSummary();
+	std::string description = Achievements::GetGameAchievementSummary(subsetId);
 
 	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
 	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
@@ -759,7 +806,7 @@ void AchievementView::ClickInternal() {
 void GameAchievementSummaryView::Draw(UIContext &dc) {
 	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
 	if (client_game) {
-		RenderGameAchievementSummary(dc, bounds_, 1.0f, client_game);
+		RenderGameAchievementSummary(dc, bounds_, 1.0f, client_game, subsetId_);
 	}
 }
 
@@ -776,7 +823,7 @@ void GameAchievementSummaryView::GetContentDimensionsBySpec(const UIContext &dc,
 		layoutWidth = horiz.size;
 	}
 	ApplyBoundBySpec(layoutWidth, horiz);
-	MeasureGameAchievementSummary(dc, client_game->title, layoutWidth, &w, &h);
+	MeasureGameAchievementSummary(dc, client_game->title, layoutWidth, &w, &h, subsetId_);
 }
 
 void LeaderboardSummaryView::Draw(UIContext &dc) {

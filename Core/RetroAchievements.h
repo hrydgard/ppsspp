@@ -102,7 +102,7 @@ void UnloadGame();  // Call when leaving a game.
 
 Statistics GetStatistics();
 
-std::string GetGameAchievementSummary();
+std::string GetGameAchievementSummary(uint32_t subsetId);
 
 std::set<uint32_t> GetActiveChallengeIDs();
 

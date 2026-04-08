@@ -934,11 +934,16 @@ Statistics GetStatistics() {
 	return g_stats;
 }
 
-std::string GetGameAchievementSummary() {
+std::string GetGameAchievementSummary(uint32_t subsetId) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	rc_client_user_game_summary_t summary;
-	rc_client_get_user_game_summary(g_rcClient, &summary);
+
+	if (subsetId) {
+		rc_client_get_user_subset_summary(g_rcClient, subsetId, &summary);
+	} else {
+		rc_client_get_user_game_summary(g_rcClient, &summary);
+	}
 
 	std::string summaryString;
 	if (summary.num_core_achievements + summary.num_unofficial_achievements == 0) {
@@ -991,7 +996,8 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 			title += regionStr;
 			title += ")";
 		}
-		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(), gameInfo->badge_url, 5.0f);
+		// TODO: Detect current subset.
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(0), gameInfo->badge_url, 5.0f);
 		break;
 	}
 	case RC_NO_GAME_LOADED:
