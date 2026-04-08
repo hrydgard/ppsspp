@@ -63,28 +63,7 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 	});
 }
 
-void RetroAchievementsListScreen::CreateTabs() {
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-
-	AddTab("Achievements", ac->T("Achievements"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(5.0f);
-		CreateAchievementsTab(parent);
-	});
-
-	AddTab("Leaderboards", ac->T("Leaderboards"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(5.0f);
-		CreateLeaderboardsTab(parent);
-	});
-
-#ifdef _DEBUG
-	AddTab("AchievementsStatistics", ac->T("Statistics"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-		parent->SetSpacing(5.0f);
-		CreateStatisticsTab(parent);
-	});
-#endif
-}
-
-inline const char *AchievementBucketTitle(int bucketType) {
+static const char *AchievementBucketTitle(int bucketType) {
 	switch (bucketType) {
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked";
@@ -97,16 +76,30 @@ inline const char *AchievementBucketTitle(int bucketType) {
 	}
 }
 
-void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achievements) {
+static uint32_t GetListFilter() {
+	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
+	if (Achievements::UnofficialEnabled()) {
+		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
+	}
+	return filter;
+}
+
+// Temporary.
+struct SubsetInfo {
+	std::string title;
+	std::vector<const rc_client_achievement_bucket_t *> buckets;
+};
+
+void CreateAchievementsTab(UI::ViewGroup *achievements, const SubsetInfo &subset) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	using namespace UI;
 
-	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
-	if (Achievements::UnofficialEnabled()) {
-		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
-	}
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+
+	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
+		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
 
 	achievements->Add(new GameAchievementSummaryView());
 
@@ -114,13 +107,8 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		achievements->Add(new NoticeView(NoticeLevel::WARN, ac->T("In Encore mode - unlock state may not be accurate"), ""));
 	}
 
-	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
-		filter, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
-
-	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
-
-	for (uint32_t i = 0; i < list->num_buckets; i++) {
-		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+	for (uint32_t i = 0; i < subset.buckets.size(); i++) {
+		const rc_client_achievement_bucket_t &bucket = *subset.buckets[i];
 		if (!bucket.num_achievements) {
 			continue;
 		}
@@ -139,6 +127,8 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 			section->Add(new AchievementView(bucket.achievements[j]));
 		}
 	}
+
+	rc_client_destroy_achievement_list(list);
 }
 
 void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup) {
@@ -176,6 +166,59 @@ void RetroAchievementsListScreen::CreateStatisticsTab(UI::ViewGroup *viewGroup) 
 	Achievements::Statistics stats = Achievements::GetStatistics();
 	viewGroup->Add(new ItemHeader(ac->T("Statistics")));
 	viewGroup->Add(new InfoItem(ac->T("Bad memory accesses"), StringFromFormat("%d", stats.badMemoryAccessCount)));
+}
+
+
+void RetroAchievementsListScreen::CreateTabs() {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
+		GetListFilter(), RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
+
+	std::map<uint32_t, SubsetInfo> bucketsBySubset;
+	const rc_client_game_t *client_game = rc_client_get_game_info(Achievements::GetClient());
+
+	for (uint32_t i = 0; i < list->num_buckets; i++) {
+		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+		if (!bucket.num_achievements) {
+			continue;
+		}
+
+		const rc_client_subset_t *subset = rc_client_get_subset_info(Achievements::GetClient(), bucket.subset_id);
+
+		if (bucketsBySubset.find(bucket.subset_id) == bucketsBySubset.end()) {
+			bucketsBySubset[bucket.subset_id] = SubsetInfo();
+		}
+
+		// Populate the subset list as we go.
+		bucketsBySubset[bucket.subset_id].buckets.push_back(&bucket);
+		if (bucketsBySubset[bucket.subset_id].title.empty()) {
+			if (!subset || equals(subset->title, client_game->title)) {
+				bucketsBySubset[bucket.subset_id].title = ac->T("Achievements");
+			} else {
+				bucketsBySubset[bucket.subset_id].title = subset->title;
+			}
+		}
+	}
+
+	for (auto &[subsetID, subsetInfo] : bucketsBySubset) {
+		AddTab("Achievements", subsetInfo.title, ImageID::invalid(), [this, subsetInfo](UI::LinearLayout *parent) {
+			parent->SetSpacing(5.0f);
+			CreateAchievementsTab(parent, subsetInfo);
+		});
+	}
+
+	AddTab("Leaderboards", ac->T("Leaderboards"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
+		parent->SetSpacing(5.0f);
+		CreateLeaderboardsTab(parent);
+	});
+
+#ifdef _DEBUG
+	AddTab("AchievementsStatistics", ac->T("Statistics"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
+		parent->SetSpacing(5.0f);
+		CreateStatisticsTab(parent);
+	});
+#endif
 }
 
 RetroAchievementsLeaderboardScreen::~RetroAchievementsLeaderboardScreen() {

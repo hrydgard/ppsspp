@@ -24,7 +24,6 @@ protected:
 	bool ShowSearchControls() const override { return false; }
 
 private:
-	void CreateAchievementsTab(UI::ViewGroup *viewGroup);
 	void CreateLeaderboardsTab(UI::ViewGroup *viewGroup);
 	void CreateStatisticsTab(UI::ViewGroup *viewGroup);
 };
