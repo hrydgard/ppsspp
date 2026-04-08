@@ -106,12 +106,14 @@ private:
 
 class GameAchievementSummaryView : public UI::Item {
 public:
-	GameAchievementSummaryView(UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams) {
+	GameAchievementSummaryView(u32 subsetId, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), subsetId_(subsetId) {
 		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
 	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
+private:
+	uint32_t subsetId_;
 };
 
 class LeaderboardSummaryView : public UI::ClickableItem {

@@ -502,7 +502,8 @@ void GamePauseScreen::CreateViews() {
 
 	saveDataScrollItems->SetSpacing(5.0f);
 	if (Achievements::IsActive()) {
-		saveDataScrollItems->Add(new GameAchievementSummaryView());
+		// TODO: active subset?
+		saveDataScrollItems->Add(new GameAchievementSummaryView(0));
 
 		char buf[512];
 		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
