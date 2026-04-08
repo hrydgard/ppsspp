@@ -206,7 +206,7 @@ void RetroAchievementsListScreen::CreateTabs() {
 	}
 
 	for (auto &[subsetID, subsetInfo] : bucketsBySubset) {
-		AddTab("Achievements", subsetInfo.title, ImageID::invalid(), [this, subsetInfo](UI::LinearLayout *parent) {
+		AddTab("Achievements", subsetInfo.title, ImageID::invalid(), [subsetInfo = subsetInfo](UI::LinearLayout *parent) {
 			parent->SetSpacing(5.0f);
 			CreateAchievementsTab(parent, subsetInfo);
 		});

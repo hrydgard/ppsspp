@@ -389,7 +389,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	Instant shadowStart = Instant::Now();
 
 	// We can trivially parallelize shadowing/extension of the images.
-	ParallelRangeLoop(&g_threadManager, [&images, imageIDs, imageCount](int start, int end) {
+	ParallelRangeLoop(&g_threadManager, [&images, imageIDs](int start, int end) {
 		for (int i = start; i < end; i++) {
 			// Here we could exclude some images from the drop shadow, if desired.
 			if (!images[i].IsEmpty()) {
