@@ -39,7 +39,8 @@ extern const VkComponentMapping VULKAN_8888_SWIZZLE;
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 #define VULKAN_CLUT8_FORMAT VK_FORMAT_R8_UNORM
 
-// Manager for compute shaders that upload things (and those have two bindings: a storage buffer to read from and an image to write to).
+// Manager for compute shaders that upload things. These shaders always write one storage image
+// and can optionally read one or two storage buffers plus one storage image.
 class VulkanComputeShaderManager {
 public:
 	VulkanComputeShaderManager(VulkanContext *vulkan);
@@ -54,11 +55,12 @@ public:
 	}
 
 	// Note: This doesn't cache. The descriptor is for immediate use only.
-	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2 = VK_NULL_HANDLE, VkDeviceSize offset2 = 0, VkDeviceSize range2 = 0);
+	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2 = VK_NULL_HANDLE, VkDeviceSize offset2 = 0, VkDeviceSize range2 = 0, VkImageView image2 = VK_NULL_HANDLE);
 
 	// This of course caches though.
 	VkPipeline GetPipeline(VkShaderModule cs);
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
+	void ClearPipelines();
 
 	void BeginFrame();
 

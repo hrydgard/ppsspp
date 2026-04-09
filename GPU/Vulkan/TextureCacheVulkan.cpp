@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 #include "ext/xxhash.h"
 
@@ -30,6 +31,7 @@
 #include "Common/System/OSD.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
@@ -108,6 +110,7 @@ void main() {
 static int VkFormatBytesPerPixel(VkFormat format) {
 	switch (format) {
 	case VULKAN_8888_FORMAT: return 4;
+	case VK_FORMAT_R16G16B16A16_SFLOAT: return 8;
 	case VULKAN_CLUT8_FORMAT: return 1;
 	default: break;
 	}
@@ -211,7 +214,7 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 
 void TextureCacheVulkan::DeviceLost() {
 	textureShaderCache_->DeviceLost();
-
+	
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
 	Clear(true);
@@ -220,8 +223,7 @@ void TextureCacheVulkan::DeviceLost() {
 	if (samplerNearest_)
 		vulkan->Delete().QueueDeleteSampler(samplerNearest_);
 
-	if (uploadCS_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeleteShaderModule(uploadCS_);
+	ClearScalingShaders(vulkan);
 
 	computeShaderManager_.DeviceLost();
 
@@ -270,6 +272,90 @@ static std::string ReadShaderSrc(const Path &filename) {
 	return src;
 }
 
+bool TextureCacheVulkan::HasScalingShader() const {
+	return singlePassCS_ != VK_NULL_HANDLE || !multipassCS_.empty();
+}
+
+void TextureCacheVulkan::ClearScalingShaders(VulkanContext *vulkan) {
+	auto deleteShader = [&](VkShaderModule &shader) {
+		if (shader != VK_NULL_HANDLE) {
+			if (vulkan) {
+				vulkan->Delete().QueueDeleteShaderModule(shader);
+			}
+			shader = VK_NULL_HANDLE;
+		}
+	};
+
+	deleteShader(singlePassCS_);
+	for (VkShaderModule &shader : multipassCS_) {
+		deleteShader(shader);
+	}
+	multipassCS_.clear();
+	multipassScratchDescs_.clear();
+	multipassStageDescs_.clear();
+	textureScalePipeline_ = TextureScalePipelineType::NONE;
+}
+
+bool TextureCacheVulkan::CompileMultipassShader(VulkanContext *vulkan, const TextureShaderInfo &shaderInfo, std::string *error) {
+	std::vector<Path> shaderFiles;
+	if (!shaderInfo.computeShaderFiles.empty()) {
+		shaderFiles = shaderInfo.computeShaderFiles;
+	}
+	if (shaderInfo.scaleFactor == 2) {
+		multipassScratchDescs_ = {
+			{ "nnedi3_vertical", 1, 2 },
+			{ "nnedi3_horizontal", 2, 2 },
+		};
+		multipassStageDescs_ = {
+			{ 0, -1, 0, 1, 1, 1, 2, false },
+			{ 1, 0, 1, 1, 2, 2, 2, false },
+			{ 2, 1, -1, 2, 2, 2, 2, false },
+		};
+	} else if (shaderInfo.scaleFactor == 4) {
+		multipassScratchDescs_ = {
+			{ "nnedi3_vertical", 1, 2 },
+			{ "nnedi3_horizontal", 2, 2 },
+			{ "nnedi3_vertical2", 2, 4 },
+			{ "nnedi3_horizontal2", 4, 4 },
+		};
+		multipassStageDescs_ = {
+			{ 0, -1, 0, 1, 1, 1, 2, false },
+			{ 2, 0, 1, 1, 2, 2, 2, false },
+			{ 1, 1, 2, 2, 2, 2, 4, false },
+			{ 2, 2, 3, 2, 4, 4, 4, false },
+			{ 3, 3, -1, 4, 4, 4, 4, true },
+		};
+	} else {
+		ERROR_LOG(Log::G3D, "Unsupported multipass scale factor %d in section '%s'", shaderInfo.scaleFactor, shaderInfo.section.c_str());
+		return false;
+	}
+
+	const size_t expectedShaderCount = shaderInfo.scaleFactor == 2 ? 3 : 4;
+	if (shaderFiles.size() != expectedShaderCount) {
+		ERROR_LOG(Log::G3D, "Expected %d compute shader stages in section '%s', got %d", (int)expectedShaderCount, shaderInfo.section.c_str(), (int)shaderFiles.size());
+		return false;
+	}
+
+	multipassCS_.reserve(shaderFiles.size());
+	for (const Path &shaderFile : shaderFiles) {
+		std::string shaderSource = ReadShaderSrc(shaderFile);
+		if (shaderSource.empty()) {
+			ClearScalingShaders(vulkan);
+			return false;
+		}
+
+		VkShaderModule shader = CompileShaderModule(vulkan, VK_SHADER_STAGE_COMPUTE_BIT, shaderSource.c_str(), error);
+		if (shader == VK_NULL_HANDLE) {
+			ClearScalingShaders(vulkan);
+			return false;
+		}
+		multipassCS_.push_back(shader);
+	}
+
+	textureScalePipeline_ = TextureScalePipelineType::MULTIPASS;
+	return true;
+}
+
 void TextureCacheVulkan::CompileScalingShader() {
 	if (!draw_) {
 		// Something is very wrong.
@@ -279,11 +365,16 @@ void TextureCacheVulkan::CompileScalingShader() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {
-		if (uploadCS_ != VK_NULL_HANDLE)
-			vulkan->Delete().QueueDeleteShaderModule(uploadCS_);
+		const bool hadScalingShaders = HasScalingShader();
+		ClearScalingShaders(vulkan);
+		if (hadScalingShaders) {
+			// Texture shader hot-swaps rebuild shader modules in place. Drop cached compute
+			// pipelines here too so we can't accidentally reuse one built for the old modules.
+			computeShaderManager_.ClearPipelines();
+		}
 		textureShader_.clear();
 		shaderScaleFactor_ = 0;  // no texture scaling shader
-	} else if (uploadCS_) {
+	} else if (HasScalingShader()) {
 		// No need to recreate.
 		return;
 	}
@@ -293,18 +384,142 @@ void TextureCacheVulkan::CompileScalingShader() {
 
 	ReloadAllPostShaderInfo(draw_);
 	const TextureShaderInfo *shaderInfo = GetTextureShaderInfo(g_Config.sTextureShaderName);
-	if (!shaderInfo || shaderInfo->computeShaderFile.empty())
+	if (!shaderInfo || shaderInfo->computeShaderFiles.empty())
 		return;
 
-	std::string shaderSource = ReadShaderSrc(shaderInfo->computeShaderFile);
-	std::string fullUploadShader = StringFromFormat(uploadShader, shaderSource.c_str());
-
 	std::string error;
-	uploadCS_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
-	_dbg_assert_msg_(uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
+	if (shaderInfo->computeShaderFiles.size() > 1) {
+		if (!CompileMultipassShader(vulkan, *shaderInfo, &error)) {
+			return;
+		}
+	} else {
+		std::string shaderSource = ReadShaderSrc(shaderInfo->computeShaderFiles[0]);
+		std::string fullUploadShader = StringFromFormat(uploadShader, shaderSource.c_str());
+		singlePassCS_ = CompileShaderModule(vulkan, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
+		_dbg_assert_msg_(singlePassCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
+		if (singlePassCS_ == VK_NULL_HANDLE)
+			return;
+		textureScalePipeline_ = TextureScalePipelineType::SINGLE_PASS;
+	}
 
 	textureShader_ = g_Config.sTextureShaderName;
 	shaderScaleFactor_ = shaderInfo->scaleFactor;
+}
+
+static void BarrierComputeImage(VkCommandBuffer cmd, VkImage image) {
+	VulkanBarrierBatch batch;
+	VkImageMemoryBarrier *barrier = batch.Add(image, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0);
+	barrier->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	barrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier->subresourceRange.baseMipLevel = 0;
+	barrier->subresourceRange.levelCount = 1;
+	barrier->subresourceRange.baseArrayLayer = 0;
+	barrier->subresourceRange.layerCount = 1;
+	batch.Flush(cmd);
+}
+
+bool TextureCacheVulkan::RunMultipassCompute(VulkanContext *vulkan, VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight) {
+	const bool fourX = dstWidth > srcWidth * 2 || dstHeight > srcHeight * 2;
+	VulkanBarrierBatch barrier;
+	const VkImageUsageFlags scratchUsage = VK_IMAGE_USAGE_STORAGE_BIT;
+	std::vector<std::unique_ptr<VulkanTexture>> scratchTextures;
+	scratchTextures.reserve(multipassScratchDescs_.size());
+
+	for (const MultipassScratchDesc &scratchDesc : multipassScratchDescs_) {
+		auto scratch = std::make_unique<VulkanTexture>(vulkan, scratchDesc.tag);
+		if (!scratch->CreateDirect(srcWidth * scratchDesc.widthScale, srcHeight * scratchDesc.heightScale, 1, 1, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_GENERAL, scratchUsage, &barrier)) {
+			ERROR_LOG(Log::G3D, "Failed to allocate multipass scratch images");
+			return false;
+		}
+		scratchTextures.push_back(std::move(scratch));
+	}
+	barrier.Flush(cmdInit);
+
+	struct Params {
+		int srcWidth;
+		int srcHeight;
+		int dstWidth;
+		int dstHeight;
+	};
+
+	for (const MultipassStageDesc &stage : multipassStageDescs_) {
+		if (stage.shaderIndex >= multipassCS_.size()) {
+			return false;
+		}
+
+		VkImageView inputImage = VK_NULL_HANDLE;
+		VkBuffer inputBuffer = VK_NULL_HANDLE;
+		VkDeviceSize inputOffset = 0;
+		VkDeviceSize inputRange = 0;
+		if (stage.inputScratch < 0) {
+			inputBuffer = texBuf;
+			inputOffset = bufferOffset;
+			inputRange = srcSize;
+		} else {
+			if ((size_t)stage.inputScratch >= scratchTextures.size() || !scratchTextures[stage.inputScratch]) {
+				return false;
+			}
+			inputImage = scratchTextures[stage.inputScratch]->GetImageView();
+		}
+
+		VkImageView outputView = dstView;
+		if (stage.outputScratch >= 0) {
+			if ((size_t)stage.outputScratch >= scratchTextures.size() || !scratchTextures[stage.outputScratch]) {
+				return false;
+			}
+			outputView = scratchTextures[stage.outputScratch]->GetImageView();
+		}
+
+		Params params{
+			srcWidth * stage.srcWidthScale,
+			srcHeight * stage.srcHeightScale,
+			stage.useFinalOutputSize ? dstWidth : srcWidth * stage.dstWidthScale,
+			stage.useFinalOutputSize ? dstHeight : srcHeight * stage.dstHeightScale,
+		};
+		VkDescriptorSet stageSet = computeShaderManager_.GetDescriptorSet(outputView, inputBuffer, inputOffset, inputRange, VK_NULL_HANDLE, 0, 0, inputImage);
+		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(multipassCS_[stage.shaderIndex]));
+		vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &stageSet, 0, nullptr);
+		vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
+		vkCmdDispatch(cmdInit, (params.dstWidth + 7) / 8, (params.dstHeight + 7) / 8, 1);
+
+		if (stage.outputScratch >= 0) {
+			BarrierComputeImage(cmdInit, scratchTextures[stage.outputScratch]->GetImage());
+		}
+	}
+	return true;
+}
+
+bool TextureCacheVulkan::ScaleBufferToImage(VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight) {
+	if (!draw_ || cmdInit == VK_NULL_HANDLE || dstView == VK_NULL_HANDLE) {
+		return false;
+	}
+
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	switch (textureScalePipeline_) {
+	case TextureScalePipelineType::SINGLE_PASS: {
+		if (singlePassCS_ == VK_NULL_HANDLE) {
+			return false;
+		}
+		VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(dstView, texBuf, bufferOffset, srcSize);
+		struct Params { int x; int y; } params{ srcWidth, srcHeight };
+		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(singlePassCS_));
+		vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
+		vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
+		vkCmdDispatch(cmdInit, (srcWidth + 7) / 8, (srcHeight + 7) / 8, 1);
+		return true;
+	}
+	case TextureScalePipelineType::MULTIPASS:
+		if (multipassCS_.empty()) {
+			return false;
+		}
+		return RunMultipassCompute(vulkan, cmdInit, dstView, texBuf, bufferOffset, srcSize, srcWidth, srcHeight, dstWidth, dstHeight);
+	case TextureScalePipelineType::NONE:
+	default:
+		return false;
+	}
 }
 
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
@@ -430,7 +645,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	BuildTexturePlan plan;
-	plan.hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
+	plan.hardwareScaling = g_Config.bTexHardwareScaling && HasScalingShader();
 	plan.slowScaler = !plan.hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;
 	if (!PrepareBuildTexture(plan, entry)) {
 		// We're screwed (invalid size or something, corrupt display list), let's just zap it.
@@ -486,7 +701,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 	if (actualFmt == VULKAN_8888_FORMAT && plan.scaleFactor > 1 && plan.hardwareScaling) {
-		if (uploadCS_ != VK_NULL_HANDLE) {
+		if (HasScalingShader()) {
 			computeUpload = true;
 		} else {
 			WARN_LOG(Log::G3D, "Falling back to software scaling, hardware shader didn't compile");
@@ -639,16 +854,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				loadLevel(srcSize, i == 0 ? plan.baseLevelSrc : i, srcStride, 1);
 				dataScaled = false;
 
-				// This format can be used with storage images.
 				VkImageView view = entry->vkTex->CreateViewForMip(i);
-				VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(view, texBuf, bufferOffset, srcSize);
-				struct Params { int x; int y; } params{ mipUnscaledWidth, mipUnscaledHeight };
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					"Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
-				vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
-				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
-				vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
-				vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
+				ScaleBufferToImage(cmdInit, view, texBuf, bufferOffset, srcSize, mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 				vulkan->Delete().QueueDeleteImageView(view);
 			} else {
