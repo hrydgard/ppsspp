@@ -3,7 +3,7 @@
 #include "ppsspp_config.h"
 
 #undef new
-#include "ext/rapidjson/include/rapidjson/document.h"
+#include <rapidjson/document.h>
 #include "Common/DbgNew.h"
 
 #include "AdhocServerScreen.h"
