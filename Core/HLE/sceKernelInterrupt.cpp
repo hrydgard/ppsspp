@@ -677,20 +677,19 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 }
 
 static u32 sysclib_strcat(u32 dst, u32 src) {
-	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcat((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
-	return dst;
+	return hleLogVerbose(Log::sceKernel, dst);
 }
 
 static int sysclib_strcmp(u32 dst, u32 src) {
-	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
-		return strcmp((const char *)Memory::GetPointerUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
+		const int retval = strcmp((const char *)Memory::GetPointerUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
+		return hleLogVerbose(Log::sceKernel, retval);
 	} else {
 		// What to do? Crash, probably.
-		return 0;
+		return hleLogError(Log::sceKernel, 0);
 	}
 }
 
@@ -699,47 +698,47 @@ static u32 sysclib_strcpy(u32 dst, u32 src) {
 	if (Memory::IsValidAddress(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcpy((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
-	return dst;
+	return hleLogVerbose(Log::sceKernel, dst);
 }
 
 static u32 sysclib_strlen(u32 src) {
-	ERROR_LOG(Log::sceKernel, "Untested sysclib_strlen(src=%08x)", src);
 	if (Memory::IsValidNullTerminatedString(src)) {  // TODO: This computes the length, could reuse it maybe.
-		return (u32)strlen(Memory::GetCharPointerUnchecked(src));
+		const u32 retval = (u32)strlen(Memory::GetCharPointerUnchecked(src));
+		return hleLogVerbose(Log::sceKernel, retval);
 	} else {
 		// What to do? Crash, probably.
-		return 0;
+		return hleLogError(Log::sceKernel, 0);
 	}
 }
 
 static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(Log::sceKernel, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
-		return memcmp(Memory::GetCharPointerUnchecked(dst), Memory::GetCharPointerUnchecked(src), size);
+		const int retval = memcmp(Memory::GetCharPointerUnchecked(dst), Memory::GetCharPointerUnchecked(src), size);
+		return hleLogVerbose(Log::sceKernel, retval);
 	} else {
 		// What to do? Crash, probably.
-		return 0;
+		return hleLogError(Log::sceKernel, 0);
 	}
 }
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
-	ERROR_LOG(Log::sceKernel, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
+	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
 
 	if (!Memory::IsValidNullTerminatedString(fmt)) {
 		ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad fmt");
 		return 0;
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
-	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
-	currentMIPS->r[MIPS_REG_A0],
-	currentMIPS->r[MIPS_REG_A1],
-	currentMIPS->r[MIPS_REG_A2],
-	currentMIPS->r[MIPS_REG_A3],
-	currentMIPS->r[MIPS_REG_T0],
-	currentMIPS->r[MIPS_REG_T1],
-	currentMIPS->r[MIPS_REG_T2],
-	currentMIPS->r[MIPS_REG_T3]
+	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
+	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+		currentMIPS->r[MIPS_REG_A0],
+		currentMIPS->r[MIPS_REG_A1],
+		currentMIPS->r[MIPS_REG_A2],
+		currentMIPS->r[MIPS_REG_A3],
+		currentMIPS->r[MIPS_REG_T0],
+		currentMIPS->r[MIPS_REG_T1],
+		currentMIPS->r[MIPS_REG_T2],
+		currentMIPS->r[MIPS_REG_T3]
 	);
 
 	bool processing_specifier = false;
@@ -785,7 +784,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 						return 0;
 					}
 					val = Memory::Read_U32(stack_cur);
-					DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
+					VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
 				}
 				arg_idx++;
 
@@ -863,8 +862,8 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 		}
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d, content:", (int)result.length());
-	DEBUG_LOG(Log::sceKernel, "%s", result.c_str());
+	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d, content:", (int)result.length());
+	VERBOSE_LOG(Log::sceKernel, "%s", result.c_str());
 	if (!Memory::IsValidRange(dst, (u32)result.length() + 1)) {
 		ERROR_LOG(Log::sceKernel, "sysclib_sprintf result string is too long or dst is invalid");
 		return 0;
@@ -874,16 +873,14 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {
-	DEBUG_LOG(Log::sceKernel, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
 	if (Memory::IsValidRange(destAddr, size)) {
 		memset(Memory::GetPointerWriteUnchecked(destAddr), data, size);
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, destAddr, size, "KernelMemset");
-	return 0;
+	return hleLogVerbose(Log::sceKernel, 0);
 }
 
 static int sysclib_strstr(u32 s1, u32 s2) {
-	DEBUG_LOG(Log::sceKernel, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
 	if (Memory::IsValidNullTerminatedString(s1) && Memory::IsValidNullTerminatedString(s2)) {
 		std::string str1 = Memory::GetCharPointerUnchecked(s1);
 		std::string str2 = Memory::GetCharPointerUnchecked(s2);
@@ -893,28 +890,27 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 		}
 		return s1 + (uint32_t)index;
 	}
-	return 0;
+	return hleLogVerbose(Log::sceKernel, 0);
 }
 
 static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
-	DEBUG_LOG(Log::sceKernel, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
 	if (Memory::IsValidRange(s1, size) && Memory::IsValidRange(s2, size)) {
 		const char * str1 = Memory::GetCharPointerUnchecked(s1);
 		const char * str2 = Memory::GetCharPointerUnchecked(s2);
-		return strncmp(str1, str2, size);
+		const int retval = strncmp(str1, str2, size);
+		return hleLogVerbose(Log::sceKernel, retval);
 	}
-	return 0;
+	return hleLogError(Log::sceKernel, 0, "Bad addresses");
 }
 
 static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
-	DEBUG_LOG(Log::sceKernel, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
 		NotifyMemInfoCopy(dst, src, size, "KernelMemmove/");
 	}
-	return 0;
+	return hleLogVerbose(Log::sceKernel, 0);
 }
 
 static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
@@ -939,7 +935,7 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 		*destp++ = 0;
 	}
 
-	return hleLogDebug(Log::sceKernel, dest);
+	return hleLogVerbose(Log::sceKernel, dest);
 }
 
 static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
@@ -951,7 +947,7 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 	int result = (int)strtol(str, &end, base);
 	if (Memory::IsValidRange(endPtrPtr, 4))
 		Memory::WriteUnchecked_U32(strPtr + (end - str), endPtrPtr);
-	return result;
+	return hleLogVerbose(Log::sceKernel, result);
 }
 
 static u32 sysclib_strchr(u32 src, int c) {
@@ -961,9 +957,9 @@ static u32 sysclib_strchr(u32 src, int c) {
 	const std::string str = Memory::GetCharPointer(src);
 	size_t cpos = str.find(str, c);
 	if (cpos == std::string::npos) {
-		return 0;
+		return hleLogVerbose(Log::sceKernel, 0);
 	}
-	return src + (int)cpos;
+	return hleLogVerbose(Log::sceKernel, src + (int)cpos);
 }
 
 static u32 sysclib_strrchr(u32 src, int c) {
@@ -973,15 +969,14 @@ static u32 sysclib_strrchr(u32 src, int c) {
 	const std::string str = Memory::GetCharPointer(src);
 	size_t cpos = str.rfind(str, c);
 	if (cpos == std::string::npos) {
-		return 0;
+		return hleLogVerbose(Log::sceKernel, 0);
 	}
-	return src + (int)cpos;
+	return hleLogVerbose(Log::sceKernel, src + (int)cpos);
 }
 
 static u32 sysclib_toupper(u32 c) {
-	return toupper(c);
+	return hleLogVerbose(Log::sceKernel, toupper(c));
 }
-
 
 const HLEFunction SysclibForKernel[] =
 {

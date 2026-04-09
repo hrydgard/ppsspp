@@ -15,7 +15,8 @@
 // Lists the achievements and leaderboards for one game.
 class RetroAchievementsListScreen : public UITabbedBaseDialogScreen {
 public:
-	RetroAchievementsListScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
+	RetroAchievementsListScreen(const Path &gamePath);
+	~RetroAchievementsListScreen();
 	const char *tag() const override { return "RetroAchievementsListScreen"; }
 
 	void CreateTabs() override;
@@ -26,6 +27,8 @@ protected:
 private:
 	void CreateLeaderboardsTab(UI::ViewGroup *viewGroup);
 	void CreateStatisticsTab(UI::ViewGroup *viewGroup);
+
+	rc_client_achievement_list_t *list_ = nullptr;
 };
 
 // Lets you manage your account, and shows some achievement stats and stuff.
