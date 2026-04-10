@@ -658,14 +658,6 @@ add_library(Common STATIC
 	${CommonLOONGARCH64}
 	${CommonD3D}
 	${CommonVR}
-	ext/lzma-sdk/7zArcIn.c  # TODO: Move.
-	ext/lzma-sdk/7zBuf.c
-	ext/lzma-sdk/7zCrc.c
-	ext/lzma-sdk/7zDec.c
-	ext/lzma-sdk/7zFile.c
-	ext/lzma-sdk/7zStream.c
-	ext/lzma-sdk/Bcj2.c
-	ext/lzma-sdk/Lzma2Dec.c
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -1274,6 +1266,25 @@ else()
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
+add_library(7zip STATIC
+	ext/lzma-sdk/7zArcIn.c
+	ext/lzma-sdk/7zBuf.c
+	ext/lzma-sdk/7zCrc.c
+	ext/lzma-sdk/7zCrcOpt.c
+	ext/lzma-sdk/7zDec.c
+	ext/lzma-sdk/7zFile.c
+	ext/lzma-sdk/7zStream.c
+	ext/lzma-sdk/Bcj2.c
+	ext/lzma-sdk/Bra.c
+	ext/lzma-sdk/Bra86.c
+	ext/lzma-sdk/Delta.c
+	ext/lzma-sdk/Lzma2Dec.c
+	ext/lzma-sdk/LzmaDec.c
+)
+target_link_libraries(7zip)
+include_directories(ext/lzma-sdk)
+set(LIB7ZIP_LIBRARY 7zip)
+
 # Arm platforms require at least libpng17.
 if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
 	set(PNG_REQUIRED_VERSION 1.7)
@@ -1715,7 +1726,7 @@ if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64) OR (LINUX AND LOONGA
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${LIB7ZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
