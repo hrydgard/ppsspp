@@ -1626,22 +1626,22 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 	}
 }
 
-// this is an unnamed hle function
-static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
+
+static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
-		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
 	}
 	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
-		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): unsupported type %d", pname, type);
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported type %d", pname, type);
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE);
 	}
 	if (size == 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): invalid size %x", pname, size);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
 		return hleNoLog(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED);
 	}
 	if (!pname) {
-		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(): NULL name");
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(): NULL name");
 		return hleNoLog(SCE_KERNEL_ERROR_ERROR);
 	}
 
@@ -1651,16 +1651,16 @@ static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAdd
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "allocation failed");
 	}
 	SceUID uid = kernelObjects.Create(block);
-	return hleLogDebugOrError(Log::sceKernel, uid, "SysMemUserForUser_FE707FDF");
+	return hleLogDebugOrError(Log::sceKernel, uid, "sceKernelAllocMemoryBlock");
 }
 
-// this is an unnamed hle function
-static u32 FreeMemoryBlock(u32 uid) {
+
+static u32 sceKernelFreeMemoryBlock(u32 uid) {
 	return hleLogDebugOrError(Log::sceKernel, kernelObjects.Destroy<PartitionMemoryBlock>(uid));
 }
 
-// this is an unnamed hle function
-static u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
+
+static u32 sceKernelGetMemoryBlockAddr(u32 uid, u32 addr) {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
 	if (block) {
@@ -2122,9 +2122,9 @@ const HLEFunction SysMemUserForUser[] = {
 	{0X6231A71D, nullptr,                                         "sceKernelSetPTRIG",                     '?', ""     },
 	{0X39F49610, nullptr,                                         "sceKernelGetPTRIG",                     '?', ""     },
 	// Obscure raw block API
-	{0XDB83A952, &WrapU_UU<GetMemoryBlockPtr>,                    "SysMemUserForUser_DB83A952",            'x', "xx"   },  // GetMemoryBlockAddr
-	{0X50F61D8A, &WrapU_U<FreeMemoryBlock>,                       "SysMemUserForUser_50F61D8A",            'x', "x"    },  // FreeMemoryBlock
-	{0XFE707FDF, &WrapU_CUUU<AllocMemoryBlock>,                   "SysMemUserForUser_FE707FDF",            'x', "sxxx" },  // AllocMemoryBlock
+	{0XDB83A952, &WrapU_UU<sceKernelGetMemoryBlockAddr>,          "sceKernelGetMemoryBlockAddr",           'x', "xx"   },
+	{0X50F61D8A, &WrapU_U<sceKernelFreeMemoryBlock>,              "sceKernelFreeMemoryBlock",              'x', "x"    },
+	{0XFE707FDF, &WrapU_CUUU<sceKernelAllocMemoryBlock>,          "sceKernelAllocMemoryBlock",             'x', "sxxx" },
 	{0XD8DE5C1E, &WrapU_V<SysMemUserForUser_D8DE5C1E>,            "SysMemUserForUser_D8DE5C1E",            'x', ""     },
 };
 
