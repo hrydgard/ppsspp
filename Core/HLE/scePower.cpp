@@ -546,7 +546,8 @@ static int scePowerTick() {
 	return hleLogDebug(Log::sceMisc, 0);
 }
 
-static u32 IsPSPNonFat() {
+static u32 scePowerCheckWlanCoexistenceClock() {
+	// PSP-1000 vs PSP-2000/3000
 	return hleLogDebug(Log::sceMisc, g_Config.iPSPModel);
 }
 
@@ -603,7 +604,7 @@ static const HLEFunction scePower[] = {
 	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_469989ad",                 'x', "xxx"}, // This is also the same as SetClockFrequency
 	{0X545A7F3C, nullptr,                                     "scePower_545A7F3C",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
 	{0XA4E93389, nullptr,                                     "scePower_A4E93389",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
-	{0XA85880D0, &WrapU_V<IsPSPNonFat>,                       "scePower_a85880d0_IsPSPNonFat",     'x', ""   },
+	{0XA85880D0, &WrapU_V<scePowerCheckWlanCoexistenceClock>, "scePowerCheckWlanCoexistenceClock", 'x', ""   },
 	{0X3951AF53, nullptr,                                     "scePowerWaitRequestCompletion",     '?', ""   },
 	{0X0442D852, nullptr,                                     "scePowerRequestColdReset",          '?', ""   },
 	{0XBAFA3DF0, nullptr,                                     "scePowerGetCallbackMode",           '?', ""   },
