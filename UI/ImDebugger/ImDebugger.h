@@ -122,6 +122,14 @@ struct ImConfig {
 
 	bool sasShowAllVoices = false;
 
+	// CPU selector for debugger: 0 = Main CPU (SC), 1 = Media Engine (ME)
+	int selectedCpu = 0;
+
+	// Media Engine debug windows (separate from main CPU windows)
+	bool meDisasmOpen = false;
+	bool meGprOpen = false;
+	bool meFprOpen = false;
+
 	float fbViewerZoom = 1.0f;
 
 
@@ -190,6 +198,7 @@ private:
 	RequesterToken reqToken_;
 
 	ImDisasmWindow disasm_;
+	ImDisasmWindow meDisasm_;  // Media Engine disassembly
 	ImGeDebuggerWindow geDebugger_;
 	ImGeStateWindow geStateWindow_;
 	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
@@ -204,6 +213,9 @@ private:
 
 	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;
+
+	ImSnapshotState meNewSnapshot_;
+	ImSnapshotState meSnapshot_;
 
 	int lastCpuStepCount_ = -1;
 	int lastGpuStepCount_ = -1;
