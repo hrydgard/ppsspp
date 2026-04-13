@@ -721,6 +721,10 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 	}
 }
 
+static int sysclib_snprintf(u32 dst, int size, u32 fmt) {
+	return hleLogError(Log::sceKernel, 0, "UNIMPL");
+}
+
 static int sysclib_sprintf(u32 dst, u32 fmt) {
 	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
 
@@ -996,6 +1000,7 @@ const HLEFunction SysclibForKernel[] =
 	{0xB1DC2AE8, &WrapU_UI<sysclib_strchr>,                    "strchr",                              'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0x4C0E0274, &WrapU_UI<sysclib_strrchr>,                   "strrchr",                             'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
+	{0XC2145E80, &WrapI_UIU<sysclib_snprintf>,                 "snprintf",                            'i', "xx",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()

@@ -71,6 +71,14 @@ std::vector<AdhocGame> ParseDataJson(std::string_view json) {
 
 		game.usercount = g.HasMember("usercount") ? ParseUserCountValue(g["usercount"]) : 0;
 
+		if (g.HasMember("game_ids") && g["game_ids"].IsArray()) {
+			for (auto& id : g["game_ids"].GetArray()) {
+				if (!id.IsString())
+					continue;
+				game.game_ids.push_back(id.GetString());
+			}
+		}
+
 		if (g.HasMember("groups") && g["groups"].IsArray()) {
 			for (auto& grp : g["groups"].GetArray()) {
 				if (!grp.IsObject())

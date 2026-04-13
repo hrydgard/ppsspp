@@ -136,6 +136,16 @@
 			"location": "Brazil",
 			"description": "Relay for the Brazilian Dissidia 012 community, access managed through Discord, focused on organized lobbies",
 			"data_mode": "AemuPostoffice"
+		},
+		{
+			"name": "Lason Club Manila Server",
+			"discord": "https://discord.gg/gAdMvVAasS",
+			"host": "38.54.80.95",
+			"ip": "38.54.80.95",
+			"location": "Manila, Philippines",
+			"description": "For players looking to play any games mainly TEKKEN",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://38.54.80.95:27315/data.json"
 		}
 	]
 }
