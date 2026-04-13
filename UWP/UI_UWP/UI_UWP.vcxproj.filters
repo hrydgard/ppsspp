@@ -138,6 +138,7 @@
     <ClCompile Include="..\..\UI\AdhocServerScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\GameBrowser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -274,6 +275,7 @@
     <ClInclude Include="..\..\UI\AdhocServerScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\GameBrowser.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">
