@@ -558,6 +558,18 @@ private:
 	std::string(*translateCallback_)(std::string_view value) = nullptr;
 };
 
+class ChoiceWithFixedValueDisplay : public AbstractChoiceWithValueDisplay {
+public:
+	ChoiceWithFixedValueDisplay(std::string_view value, std::string_view text, LayoutParams *layoutParams = 0)
+		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value) {}
+private:
+	std::string ValueText(bool *shadow) const override {
+		*shadow = false;
+		return sValue_;
+	}
+	std::string sValue_ = nullptr;
+};
+
 enum class FileChooserFileType {
 	WAVE_FILE,
 };

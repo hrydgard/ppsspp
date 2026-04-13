@@ -1023,24 +1023,32 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
 
-	LinearLayout *serverRow = networkingSettings->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	serverRow->SetSpacing(0.0f);
-	serverRow->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Ad hoc server address"), I18NCat::NONE, new LinearLayoutParams(1.0f)))->OnClick.Add([=](UI::EventParams &) {
+	auto launchAdhocServerScreen = [this](UI::EventParams &) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		screenManager()->push(new AdhocServerScreen(&g_Config.sProAdhocServer, n->T("Ad hoc server address")));
-	});
+	};
+
 	if (AdhocServerNameIsCustom()) {
+		LinearLayout *serverRow = networkingSettings->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		serverRow->SetSpacing(0.0f);
+		serverRow->Add(new ChoiceWithValueDisplay(&g_Config.sProAdhocServer, n->T("Ad hoc server address"), I18NCat::NONE, new LinearLayoutParams(1.0f)))->OnClick.Add(launchAdhocServerScreen);
 		serverRow->Add(new Choice(ImageID("I_EDIT_TEXT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([this](UI::EventParams &) {
 			AskToEditCurrentServer(GetRequesterToken(), screenManager());
 		});
 	} else if (!g_Config.sProAdhocServer.empty()) {
 		AdhocServerListEntry entry;
 		if (AdhocGetServerByHost(g_Config.sProAdhocServer, &entry)) {
-			Choice *status = networkingSettings->Add(new Choice(ApplySafeSubstitutions(n->T("Server status: %1"), g_Config.sProAdhocServer)));
+			networkingSettings->Add(new ChoiceWithFixedValueDisplay(ApplySafeSubstitutions("%1 (%2)", entry.name, entry.host), n->T("Ad hoc server address")))->OnClick.Add(launchAdhocServerScreen);
+			Choice *status = networkingSettings->Add(new Choice(ApplySafeSubstitutions(n->T("Server status: %1"), entry.name)));
 			status->SetIconLeft(ImageID("I_INFO"));
 			status->OnClick.Add([this, entry](UI::EventParams &) {
 				screenManager()->push(new AdhocServerInfoScreen(entry));
 			});
+		} else {
+			networkingSettings->Add(new Choice(n->T("Ad hoc server address"), new LinearLayoutParams(1.0f)))->OnClick.Add(launchAdhocServerScreen);
 		}
+	} else {
+		networkingSettings->Add(new Choice(n->T("Ad hoc server address"), new LinearLayoutParams(1.0f)))->OnClick.Add(launchAdhocServerScreen);
 	}
 
 	static const char *relayModes[] = {"Auto", "Yes", "No"};
