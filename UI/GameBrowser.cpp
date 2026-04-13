@@ -31,6 +31,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Core/System.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/HLE/sceCtrl.h"
@@ -532,26 +533,65 @@ void GameBrowser::SetPath(const Path &path) {
 	Refresh();
 }
 
-void GameBrowser::ApplySearchFilter(const std::string &filter) {
-	searchFilter_ = filter;
-	std::transform(searchFilter_.begin(), searchFilter_.end(), searchFilter_.begin(), tolower);
+bool GameBrowser::Key(const KeyInput &input) {
+	bool retval = LinearLayout::Key(input);
+	if (retval) {
+		return true;
+	}
 
+	// Only one is visible at a time, so we can just grab all Char input.
+	if (input.flags & KeyInputFlags::CHAR) {
+		const int unichar = input.keyCode;
+		if (unichar >= 0x20) {
+			// Insert it! (todo: do it with a string insert)
+			char buf[8];
+			buf[u8_wc_toutf8(buf, unichar)] = '\0';
+			searchFilter_ += buf;
+			ApplySearchFilter();
+			retval = true;
+		}
+	} else if (input.flags & KeyInputFlags::DOWN) {
+		if (input.keyCode == NKCODE_DEL) {
+			if (!searchFilter_.empty()) {
+				searchFilter_.pop_back();
+				ApplySearchFilter();
+				retval = true;
+			}
+		} else if (!searchFilter_.empty() && input.keyCode == NKCODE_ESCAPE) {
+			searchFilter_.clear();
+			ApplySearchFilter();
+			retval = true;
+		}
+	}
+	return retval;
+}
+
+void GameBrowser::SetSearchFilter(const std::string &filter) {
+	searchFilter_ = filter;
 	// We don't refresh because game info loads asynchronously anyway.
 	ApplySearchFilter();
 }
 
 void GameBrowser::ApplySearchFilter() {
+	if (searchBar_) {
+		searchBar_->SetSearchFilter(searchFilter_);
+		searchBar_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
+	}
+
 	if (searchFilter_.empty() && searchStates_.empty()) {
 		// We haven't hidden anything, and we're not searching, so do nothing.
 		searchPending_ = false;
 		return;
 	}
 
+	std::string filter = searchFilter_;
+	std::transform(filter.begin(), filter.end(), filter.begin(), tolower);
+
 	searchPending_ = false;
 	// By default, everything is matching.
 	searchStates_.resize(gameList_->GetNumSubviews(), SearchState::MATCH);
 
-	if (searchFilter_.empty()) {
+	if (filter.empty()) {
 		// Just quickly mark anything we hid as visible again.
 		for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
 			UI::View *v = gameList_->GetViewByIndex(i);
@@ -581,7 +621,7 @@ void GameBrowser::ApplySearchFilter() {
 		}
 
 		std::transform(label.begin(), label.end(), label.begin(), tolower);
-		bool match = v->CanBeFocused() && label.find(searchFilter_) != label.npos;
+		bool match = v->CanBeFocused() && label.find(filter) != label.npos;
 		if (match && searchStates_[i] != SearchState::MATCH) {
 			// It was previously visible and force hidden, so show it again.
 			v->SetVisibility(UI::V_VISIBLE);
@@ -721,9 +761,25 @@ void GameBrowser::Draw(UIContext &dc) {
 				view->Draw(dc);
 		}
 	}
+
 	if (clip_) {
 		dc.PopScissor();
 	}
+}
+
+void SearchBar::Draw(UIContext &dc) {
+	using namespace UI;
+	Bounds overlayBounds = bounds_.Inset(12, 0, 12, 0);
+	dc.FillRect(dc.GetTheme().itemStyle.background, overlayBounds);
+	dc.DrawText(searchFilter_, overlayBounds.x + 10, overlayBounds.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+}
+
+void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0;
+	h = 0;
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, searchFilter_, &w, &h);
+	w += 20;  // Padding
+	h += 10;
 }
 
 static bool IsValidPBP(const Path &path, bool allowHomebrew) {

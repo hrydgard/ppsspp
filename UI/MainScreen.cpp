@@ -138,7 +138,10 @@ void MainScreen::CreateRecentTab() {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *recentContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	SearchBar *search = recentContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	ScrollView *scrollRecentGames = recentContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	scrollRecentGames->SetTag("MainScreenRecentGames");
 
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
@@ -146,11 +149,12 @@ void MainScreen::CreateRecentTab() {
 	GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
 		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	tabRecentGames->SetSearchBar(search);
 
 	scrollRecentGames->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
 
-	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
+	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), recentContainer);
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
@@ -572,8 +576,11 @@ void MainScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 
 	if (searchChanged_) {
-		for (auto browser : gameBrowsers_)
-			browser->ApplySearchFilter(searchFilter_);
+		for (auto browser : gameBrowsers_) {
+			if (browser->GetVisibility() == UI::V_VISIBLE) {
+				browser->SetSearchFilter(searchFilter_);
+			}
+		}
 		searchChanged_ = false;
 	}
 }
