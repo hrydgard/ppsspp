@@ -147,6 +147,9 @@
     <ClCompile Include="AdhocServerScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="GameBrowser.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -293,6 +296,9 @@
     </ClInclude>
     <ClInclude Include="ImDebugger\ImCommand.h">
       <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="GameBrowser.h">
+      <Filter>Views</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
