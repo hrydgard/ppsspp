@@ -525,6 +525,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	InstallExceptionHandler(&Memory::HandleFault);
 
+	// ME LLE: Write the PSP fat witness word after __KernelLoadExec has finished zeroing kernel memory.
+	Memory::Write_U32(0x279c1d44, 0x08300018);
+
 	return true;
 }
 
