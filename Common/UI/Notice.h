@@ -30,6 +30,10 @@ public:
 	void SetLevel(NoticeLevel level) {
 		level_ = level;
 	}
+	void SetLevelAndText(NoticeLevel level, std::string_view text) {
+		level_ = level;
+		text_ = text;
+	}
 	void SetSquishy(bool squishy) {
 		squishy_ = squishy;
 	}
