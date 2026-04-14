@@ -770,16 +770,48 @@ void GameBrowser::Draw(UIContext &dc) {
 void SearchBar::Draw(UIContext &dc) {
 	using namespace UI;
 	Bounds overlayBounds = bounds_.Inset(12, 0, 12, 0);
+
 	dc.FillRect(dc.GetTheme().itemStyle.background, overlayBounds);
-	dc.DrawText(searchFilter_, overlayBounds.x + 10, overlayBounds.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+
+	const ImageID searchIcon = ImageID("I_SEARCH");
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
+	int leftMargin = 10;
+	if (image) {
+		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
+		leftMargin += image->w + 10;
+	}
+	dc.DrawText(searchFilter_, overlayBounds.x + leftMargin, overlayBounds.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 }
 
 void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 0;
 	h = 0;
+	const ImageID searchIcon = ImageID("I_SEARCH");
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, searchFilter_, &w, &h);
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
+	if (image) {
+		w += image->w + 10;
+		h = std::max(h, (float)image->h);
+	}
 	w += 20;  // Padding
 	h += 10;
+}
+
+bool SearchBar::Touch(const TouchInput &input) {
+	// Search bar has a simple touch-to-cancel functionality,
+	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
+	if (input.flags & TouchInputFlags::DOWN) {
+		OnCancel.Trigger(UI::EventParams{this});
+		return false;
+	}
+	return true;
+}
+
+void GameBrowser::SetSearchBar(SearchBar *searchBar) {
+	searchBar_ = searchBar;
+	searchBar_->OnCancel.Add([this](UI::EventParams &) {
+		SetSearchFilter("");
+	});
 }
 
 static bool IsValidPBP(const Path &path, bool allowHomebrew) {
