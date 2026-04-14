@@ -398,7 +398,7 @@ static const ConfigSetting achievementSettings[] = {
 
 static const ConfigSetting cpuSettings[] = {
 	ConfigSetting("CPUCore", SETTING(g_Config, iCpuCore), &DefaultCpuCore, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("MECpuCore", SETTING(g_Config, iMECpuCore), (int)CPUCore::IR_INTERPRETER, CfgFlag::PER_GAME),
+	ConfigSetting("MECpuCore", SETTING(g_Config, iMECpuCore), (int)CPUCore::JIT_IR, CfgFlag::PER_GAME),
 	ConfigSetting("SeparateSASThread", SETTING(g_Config, bSeparateSASThread), &DefaultSasThread, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("IOTimingMethod", SETTING(g_Config, iIOTimingMethod), IOTIMING_FAST, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("FastMemoryAccess", SETTING(g_Config, bFastMemory), true, CfgFlag::PER_GAME),
