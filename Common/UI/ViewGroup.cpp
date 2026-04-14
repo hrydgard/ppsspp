@@ -314,7 +314,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / minH);
 }
 
-float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
+float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusMove direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -328,10 +328,7 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	float dx = destPos.x - originPos.x;
 	float dy = destPos.y - originPos.y;
 
-	float distance = sqrtf(dx*dx + dy*dy);
-	if (distance == 0.0f) {
-		distance = 0.001f;
-	}
+	const float distance = std::max(sqrtf(dx*dx + dy*dy), 0.001f);
 	float overlap = 0.0f;
 	const float dirX = dx / distance;
 	const float dirY = dy / distance;
@@ -341,21 +338,21 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	const float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
 	const float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
-		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
+		if (direction != FocusMove::PREV_PAGE && direction != FocusMove::NEXT_PAGE) {
 			INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
 			return 0.0f;
 		}
 	}
 	float originSize = 0.0f;
 	switch (direction) {
-	case FOCUS_LEFT:
+	case FocusMove::LEFT:
 		overlap = vertOverlap;
 		originSize = origin->GetBounds().w;
 		if (dirX > 0.0f) {
 			wrongDirection = true;
 		}
 		break;
-	case FOCUS_UP:
+	case FocusMove::UP:
 		overlap = horizOverlap;
 		originSize = origin->GetBounds().h;
 		if (dirY > 0.0f) {
@@ -363,14 +360,14 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		}
 		vertical = true;
 		break;
-	case FOCUS_RIGHT:
+	case FocusMove::RIGHT:
 		overlap = vertOverlap;
 		originSize = origin->GetBounds().w;
 		if (dirX < 0.0f) {
 			wrongDirection = true;
 		}
 		break;
-	case FOCUS_DOWN:
+	case FocusMove::DOWN:
 		overlap = horizOverlap;
 		originSize = origin->GetBounds().h;
 		if (dirY < 0.0f) {
@@ -378,27 +375,27 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		}
 		vertical = true;
 		break;
-	case FOCUS_FIRST:
+	case FocusMove::FIRST:
 		if (originIndex == -1)
 			return 0.0f;
 		if (dirX > 0.0f || dirY > 0.0f)
 			return 0.0f;
 		// More distance is good.
 		return distance;
-	case FOCUS_LAST:
+	case FocusMove::LAST:
 		if (originIndex == -1)
 			return 0.0f;
 		if (dirX < 0.0f || dirY < 0.0f)
 			return 0.0f;
 		// More distance is good.
 		return distance;
-	case FOCUS_PREV_PAGE:
-	case FOCUS_NEXT_PAGE:
+	case FocusMove::PREV_PAGE:
+	case FocusMove::NEXT_PAGE:
 		// Not always, but let's go with the bonus on height.
 		vertical = true;
 		break;
-	case FOCUS_PREV:
-	case FOCUS_NEXT:
+	case FocusMove::PREV:
+	case FocusMove::NEXT:
 		ERROR_LOG(Log::UI, "Invalid focus direction");
 		break;
 	}
@@ -414,12 +411,12 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	}
 }
 
-static float GetDirectionScore(int originIndex, const View *origin, View *destination, FocusDirection direction) {
+static float GetDirectionScore(int originIndex, const View *origin, View *destination, FocusMove direction) {
 	Point2D originPos = origin->GetFocusPosition(direction);
 	return GetTargetScore(originPos, originIndex, origin, destination, direction);
 }
 
-NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
+NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, NeighborResult result) {
 	if (!IsEnabled()) {
 		INFO_LOG(Log::UI, "Not enabled");
 		return result;
@@ -438,12 +435,12 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 	}
 
 	switch (direction) {
-	case FOCUS_UP:
-	case FOCUS_LEFT:
-	case FOCUS_RIGHT:
-	case FOCUS_DOWN:
-	case FOCUS_FIRST:
-	case FOCUS_LAST:
+	case FocusMove::UP:
+	case FocusMove::LEFT:
+	case FocusMove::RIGHT:
+	case FocusMove::DOWN:
+	case FocusMove::FIRST:
+	case FocusMove::LAST:
 		{
 			// First, try the child views themselves as candidates
 			for (size_t i = 0; i < views_.size(); i++) {
@@ -472,15 +469,15 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 			}
 			return result;
 		}
-	case FOCUS_PREV_PAGE:
-	case FOCUS_NEXT_PAGE:
+	case FocusMove::PREV_PAGE:
+	case FocusMove::NEXT_PAGE:
 		return FindScrollNeighbor(view, Point2D(INFINITY, INFINITY), direction, result);
-	case FOCUS_PREV:
+	case FocusMove::PREV:
 		// If view not found, no neighbor to find.
 		if (num == -1)
 			return NeighborResult(nullptr, 0.0f);
 		return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
-	case FOCUS_NEXT:
+	case FocusMove::NEXT:
 		// If view not found, no neighbor to find.
 		if (num == -1)
 			return NeighborResult(0, 0.0f);
@@ -492,7 +489,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 	}
 }
 
-NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) {
+NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) {
 	if (!IsEnabled())
 		return best;
 	if (GetVisibility() != V_VISIBLE)

@@ -19,7 +19,7 @@ struct Point2D {
 	}
 
 	/*
-	FocusDirection directionTo(const Point &other) const {
+	FocusMove directionTo(const Point &other) const {
 		int angle = atan2f(other.y - y, other.x - x) / (2 * M_PI) - 0.125;
 
 	}*/

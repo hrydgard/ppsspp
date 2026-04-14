@@ -118,17 +118,17 @@ struct Theme {
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
-enum FocusDirection {
-	FOCUS_UP,
-	FOCUS_DOWN,
-	FOCUS_LEFT,
-	FOCUS_RIGHT,
-	FOCUS_NEXT,
-	FOCUS_PREV,
-	FOCUS_FIRST,
-	FOCUS_LAST,
-	FOCUS_PREV_PAGE,
-	FOCUS_NEXT_PAGE,
+enum class FocusMove {
+	UP,
+	DOWN,
+	LEFT,
+	RIGHT,
+	NEXT,
+	PREV,
+	FIRST,
+	LAST,
+	PREV_PAGE,
+	NEXT_PAGE,
 };
 
 typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
@@ -181,18 +181,18 @@ enum class BorderStyle {
 	ITEM_DOWN_BG,
 };
 
-inline FocusDirection Opposite(FocusDirection d) {
+inline FocusMove Opposite(FocusMove d) {
 	switch (d) {
-	case FOCUS_UP: return FOCUS_DOWN;
-	case FOCUS_DOWN: return FOCUS_UP;
-	case FOCUS_LEFT: return FOCUS_RIGHT;
-	case FOCUS_RIGHT: return FOCUS_LEFT;
-	case FOCUS_PREV: return FOCUS_NEXT;
-	case FOCUS_NEXT: return FOCUS_PREV;
-	case FOCUS_FIRST: return FOCUS_LAST;
-	case FOCUS_LAST: return FOCUS_FIRST;
-	case FOCUS_PREV_PAGE: return FOCUS_NEXT_PAGE;
-	case FOCUS_NEXT_PAGE: return FOCUS_PREV_PAGE;
+	case FocusMove::UP: return FocusMove::DOWN;
+	case FocusMove::DOWN: return FocusMove::UP;
+	case FocusMove::LEFT: return FocusMove::RIGHT;
+	case FocusMove::RIGHT: return FocusMove::LEFT;
+	case FocusMove::PREV: return FocusMove::NEXT;
+	case FocusMove::NEXT: return FocusMove::PREV;
+	case FocusMove::FIRST: return FocusMove::LAST;
+	case FocusMove::LAST: return FocusMove::FIRST;
+	case FocusMove::PREV_PAGE: return FocusMove::NEXT_PAGE;
+	case FocusMove::NEXT_PAGE: return FocusMove::PREV_PAGE;
 	}
 	return d;
 }
@@ -414,7 +414,7 @@ public:
 
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }
-	virtual bool CanMoveFocus(FocusDirection dir) const { return true; }
+	virtual bool CanMoveFocus(FocusMove dir) const { return true; }
 
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
@@ -461,7 +461,7 @@ public:
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	virtual Point2D GetFocusPosition(FocusDirection dir) const;
+	virtual Point2D GetFocusPosition(FocusMove dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -944,7 +944,7 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
-	Point2D GetFocusPosition(FocusDirection dir) const override;
+	Point2D GetFocusPosition(FocusMove dir) const override;
 
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
 	void SetOpenPtr(bool *open) {
@@ -1117,7 +1117,7 @@ public:
 
 	void FocusChanged(int focusFlags) override;
 
-	bool CanMoveFocus(FocusDirection dir) const override { return dir != FocusDirection::FOCUS_LEFT && dir != FocusDirection::FOCUS_RIGHT; }
+	bool CanMoveFocus(FocusMove dir) const override { return dir != FocusMove::LEFT && dir != FocusMove::RIGHT; }
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;

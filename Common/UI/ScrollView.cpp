@@ -365,7 +365,7 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
-NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) {
+NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) {
 	if (ContainsSubview(view) && views_[0]->IsViewGroup()) {
 		ViewGroup *vg = static_cast<ViewGroup *>(views_[0]);
 		int found = -1;
@@ -381,10 +381,10 @@ NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target,
 		if (found != -1) {
 			float mult = 0.0f;
 			switch (direction) {
-			case FOCUS_PREV_PAGE:
+			case FocusMove::PREV_PAGE:
 				mult = -1.0f;
 				break;
-			case FOCUS_NEXT_PAGE:
+			case FocusMove::NEXT_PAGE:
 				mult = 1.0f;
 				break;
 			default:
