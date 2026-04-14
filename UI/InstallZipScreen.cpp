@@ -165,8 +165,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 			leftColumn->Add(new TextView(zipFileInfo_.contentName));
 		}
 
-		doneView_ = leftColumn->Add(new TextView(""));
-
 		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
 			const bool isInDownloads = File::IsProbablyInDownloadsFolder(zipPath_);
 			Path parent;
@@ -205,7 +203,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(GetFriendlyPath(zipPath_)));
 		Path pluginsDir = GetSysDirectory(DIRECTORY_PLUGINS);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, pluginsDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, pluginsDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 		std::stringstream sstream(zipFileInfo_.iniContents);
 		IniFile ini;
@@ -236,7 +234,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savestateDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savestateDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savestateDir);
@@ -253,7 +251,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savedataDir);
@@ -307,7 +305,8 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		break;
 	}
 
-	doneView_ = leftColumn->Add(new TextView(""));
+	doneView_ = leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, "", ""));
+	doneView_->SetVisibility(Visibility::V_GONE);
 
 	if (destFolders_.size() > 1) {
 		leftColumn->Add(new TextView(iz->T("Install into folder")));
@@ -374,11 +373,14 @@ void InstallZipScreen::update() {
 		}
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
-			if (doneView_)
-				doneView_->SetText(iz->T(err));
+			if (doneView_) {
+				doneView_->SetLevelAndText(NoticeLevel::ERROR, iz->T(err));
+				doneView_->SetVisibility(Visibility::V_VISIBLE);
+			}
 		} else if (installStarted_) {
 			if (doneView_) {
-				doneView_->SetText(iz->T("Installed!"));
+				doneView_->SetLevelAndText(NoticeLevel::SUCCESS, iz->T("Installed!"));
+				doneView_->SetVisibility(Visibility::V_VISIBLE);
 			}
 			if (playChoice_) {
 				// Encourage the user to back out and play directly from the main screen,

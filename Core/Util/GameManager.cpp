@@ -175,7 +175,7 @@ void GameManager::Update() {
 	}
 }
 
-bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
+bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int stripChars, int maxOkFiles) {
 	int numFiles = zip_get_num_files(z);
 	if (numFiles > maxOkFiles && maxOkFiles >= 0) {
 		// Ignore the check, just assume we can't.
@@ -260,7 +260,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	}
 
 	// Check for 7z. We don't support very many scenarios here yet, but we do support ISO install.
-	if (task.zipFileInfo->archiveType == ArchiveType::SevenZ) {
+	if (task.zipFileInfo && task.zipFileInfo->archiveType == ArchiveType::SevenZ) {
 		Path destPath = task.destination;
 		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
 		Path fn(task.zipFileInfo->isoFilename);
@@ -662,7 +662,7 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 
 		bool isDir = zippedName.empty() || zippedName.back() == '/';
 		if (!isDir && zippedName.find('/') != std::string::npos) {
-			outFilename = dest / zippedName.substr(0, zippedName.rfind('/'));
+			outFilename = dest / zippedName.substr(info.stripChars, zippedName.rfind('/') - info.stripChars);
 		} else if (!isDir) {
 			outFilename = dest;
 		}

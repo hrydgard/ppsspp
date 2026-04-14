@@ -24,6 +24,7 @@
 
 #include "UI/BaseScreens.h"
 #include "UI/SimpleDialogScreen.h"
+#include "Common/UI/Notice.h"
 
 class SavedataView;
 
@@ -49,7 +50,7 @@ private:
 	UI::Choice *installChoice_ = nullptr;
 	UI::Choice *playChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
-	UI::TextView *doneView_ = nullptr;
+	NoticeView *doneView_ = nullptr;
 	SavedataView *existingSaveView_ = nullptr;
 	Path savedataToOverwrite_;
 	Path zipPath_;

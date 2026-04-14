@@ -509,21 +509,22 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		totalFileSize += stat.size;
 
 		std::string fileName(fn);
-		std::string zippedName = fileName;  // actually, lowercase-name
-		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
-			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
-		// Ignore macos metadata stuff
-		if (startsWith(zippedName, "__macosx/")) {
-			continue;
-		}
-		if (endsWith(zippedName, "/")) {
+		if (endsWith(fileName, "/")) {
 			// A directory. Not all zips bother including these.
 			continue;
 		}
 
+		std::string lowerCaseName = fileName;  // actually, lowercase-name
+		std::transform(lowerCaseName.begin(), lowerCaseName.end(), lowerCaseName.begin(),
+			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
+		// Ignore macos metadata stuff
+		if (startsWith(lowerCaseName, "__macosx/")) {
+			continue;
+		}
+
 		int prevSlashLocation = -1;
-		int slashCount = countSlashes(zippedName, &prevSlashLocation);
-		if (zippedName.find("eboot.pbp") != std::string::npos) {
+		int slashCount = countSlashes(lowerCaseName, &prevSlashLocation);
+		if (lowerCaseName.find("eboot.pbp") != std::string::npos) {
 			if (slashCount >= 1 && (!isPSPMemstickGame || prevSlashLocation < stripChars + 1)) {
 				stripChars = prevSlashLocation + 1;
 				isPSPMemstickGame = true;
@@ -531,11 +532,11 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 				INFO_LOG(Log::HLE, "Wrong number of slashes (%i) in '%s'", slashCount, fn);
 			}
 			// TODO: Extract icon and param.sfo from the pbp to be able to display it on the install screen.
-		} else if (endsWith(zippedName, ".iso") || endsWith(zippedName, ".cso") || endsWith(zippedName, ".chd")) {
+		} else if (endsWith(lowerCaseName, ".iso") || endsWith(lowerCaseName, ".cso") || endsWith(lowerCaseName, ".chd")) {
 			if (slashCount <= 1) {
 				// We only do this if the ISO file is in the root or one level down.
 				isZippedISO = true;
-				INFO_LOG(Log::HLE, "ISO found in zip: %s", zippedName.c_str());
+				INFO_LOG(Log::HLE, "ISO found in zip: %s", lowerCaseName.c_str());
 				if (info->isoFileIndex != -1) {
 					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
 				} else {
@@ -543,27 +544,27 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 					info->contentName = fn;
 				}
 			}
-		} else if (zippedName.find("textures.ini") != std::string::npos) {
-			int slashLocation = (int)zippedName.find_last_of('/');
+		} else if (lowerCaseName.find("textures.ini") != std::string::npos) {
+			int slashLocation = (int)lowerCaseName.find_last_of('/');
 			if (stripCharsTexturePack == -1 || slashLocation < stripCharsTexturePack + 1) {
 				stripCharsTexturePack = slashLocation + 1;
 				isTexturePack = true;
 				info->textureIniIndex = i;
 			}
-		} else if (endsWith(zippedName, ".ppdmp")) {
+		} else if (endsWith(lowerCaseName, ".ppdmp")) {
 			isFrameDump = true;
 			info->isoFileIndex = i;
 			info->contentName = fn;
-		} else if (endsWith(zippedName, ".ppst")) {
-			int slashLocation = (int)zippedName.find_last_of('/');
+		} else if (endsWith(lowerCaseName, ".ppst")) {
+			int slashLocation = (int)lowerCaseName.find_last_of('/');
 			if (stripChars == 0 || slashLocation < stripChars + 1) {
 				stripChars = slashLocation + 1;
 			}
 			isSaveStates = true;
 			info->gameTitle = fn;
-		} else if (endsWith(zippedName, "psp_game/sysdir/eboot.bin") || endsWith(zippedName, "psp_game/sysdir/boot.bin")) {
+		} else if (endsWith(lowerCaseName, "psp_game/sysdir/eboot.bin") || endsWith(lowerCaseName, "psp_game/sysdir/boot.bin")) {
 			isExtractedISO = true;
-		} else if (endsWith(zippedName, "/param.sfo")) {
+		} else if (endsWith(lowerCaseName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
 			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
@@ -581,13 +582,18 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 					}
 				}
 			}
-		} else if (endsWith(zippedName, "/icon0.png")) {
+		} else if (endsWith(lowerCaseName, "/icon0.png")) {
 			hasIcon0PNG = true;
-		} else if (endsWith(zippedName, "/plugin.ini") && slashCount == 1) {
+		} else if (endsWith(lowerCaseName, "/plugin.ini") && slashCount >= 1) {
+			int slashLocation = (int)lowerCaseName.find_last_of('/');
+			// Find previous slash to determine the root of the plugin, so we can display it properly.
+			int prevSlashLocation = (int)lowerCaseName.find_last_of('/', slashLocation - 1);
+			_dbg_assert_(prevSlashLocation != std::string::npos);
+			stripChars = prevSlashLocation + 1;
 			hasPluginIni = true;
 			ZipExtractFileToMemory(z, i, &info->iniContents);
 			info->contentName = fileName.substr(0, fileName.find_last_of('/'));
-		} else if (endsWith(zippedName, ".prx") && slashCount == 1) {
+		} else if (endsWith(lowerCaseName, ".prx")) {
 			hasPRX = true;
 		}
 		if (slashCount == 0) {
