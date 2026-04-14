@@ -861,7 +861,14 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 		}
 	}
 
-	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d, content:", (int)result.length());
+	const size_t retval = result.size();
+
+	// Implement the snprintf length check.
+	if (limit != 0 && result.length() >= limit) {
+		result.resize(limit - 1);
+	}
+
+	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d (retval: %d), content:", (int)result.length(), (int)retval);
 	VERBOSE_LOG(Log::sceKernel, "%s", result.c_str());
 	// Since this is a sprintf function and not an actual printf, we don't log to the Sprintf log.
 	// INFO_LOG(Log::Printf, "%s", result.c_str());
@@ -870,7 +877,7 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 		return 0;
 	}
 	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
-	return (int)result.length();
+	return (int)retval;
 }
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
