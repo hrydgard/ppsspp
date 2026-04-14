@@ -438,10 +438,11 @@ void X64MEJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	LoadStaticRegisters();
 
 	TEST(PTRBITS, R(RAX), R(RAX));
-	J_CC(CC_Z, bail, true);
+	FixupBranch bail2 = J_CC(CC_Z, true);
 	JMPptr(R(RAX));
 
 	SetJumpTarget(bail);
+	SetJumpTarget(bail2);
 	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
