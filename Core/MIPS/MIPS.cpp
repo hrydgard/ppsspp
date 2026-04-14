@@ -978,6 +978,8 @@ static void ME_InitNative() {
 		return;
 #if PPSSPP_ARCH(ARM64)
 	meJit_ = new MIPSComp::Arm64MEIRJit(&mipsMe);
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	meJit_ = new MIPSComp::X64MEIRJit(&mipsMe);
 #else
 	// Fallback: other architectures not yet supported for ME native JIT.
 	return;
@@ -1016,6 +1018,26 @@ const u8 *MECompileAndLookup() {
 	auto *meNativeJit = static_cast<MIPSComp::Arm64MEIRJit *>(meJit_);
 	const u8 *result = meNativeJit->CompileAndLookup(pc);
 	return result;
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	u32 pc = currentMIPS->pc;
+	u32 phys = pc & 0x1FFFFFFF;
+
+	if (phys >= 0x08300000 && phys < 0x08400000) {
+		currentMIPS->downcount = -1;
+		return nullptr;
+	}
+
+	if (Memory::IsValidAddress(pc)) {
+		u32 opWord = Memory::Read_Instruction(pc, true).encoding;
+		if (opWord == 0x70000000) {
+			g_meHaltDetected = true;
+			currentMIPS->downcount = -1;
+			return nullptr;
+		}
+	}
+
+	auto *meNativeJit = static_cast<MIPSComp::X64MEIRJit *>(meJit_);
+	return meNativeJit->CompileAndLookup(pc);
 #else
 	return nullptr;
 #endif
@@ -1079,6 +1101,64 @@ static int ME_NativeRunSlice(int budget) {
 	}
 
 	// Check if HALT was detected during block lookup.
+	if (g_meHaltDetected) {
+		g_meHaltDetected = false;
+		meEnabled = false;
+	}
+
+	currentMIPS = saved;
+	return consumed;
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	ME_InitNative();
+	if (!meJit_)
+		return ME_IRRunSlice(budget);
+
+	MIPSState *saved = currentMIPS;
+	currentMIPS = &mipsMe;
+
+	int startBudget = budget;
+
+	ME_CheckAndDeliverInterrupt();
+
+	if (!meEnabled) {
+		currentMIPS = saved;
+		return 0;
+	}
+
+	if (Memory::IsValidAddress(mipsMe.pc)) {
+		u32 opWord = Memory::Read_Instruction(mipsMe.pc, true).encoding;
+		if (opWord == 0x70000000) {
+			meEnabled = false;
+			currentMIPS = saved;
+			return 0;
+		}
+		if (ME_DetectSpinwait(mipsMe.pc, opWord) || ME_DetectSpinwaitScan(mipsMe.pc)) {
+			currentMIPS = saved;
+			return 0;
+		}
+	} else {
+		meEnabled = false;
+		currentMIPS = saved;
+		return 0;
+	}
+
+	mipsMe.downcount = budget;
+	auto *meNativeJit = static_cast<MIPSComp::X64MEIRJit *>(meJit_);
+	meNativeJit->EnterDispatcher();
+
+	int consumed = startBudget - mipsMe.downcount;
+	if (consumed < 1)
+		consumed = 1;
+
+	{
+		meCountAccum_ += (s64)consumed * 333;
+		int clockMHz = CoreTiming::GetClockFrequencyHz() / 1000000;
+		if (clockMHz < 100) clockMHz = 333;
+		u32 inc = (u32)(meCountAccum_ / (2 * clockMHz));
+		meCountAccum_ %= (2 * clockMHz);
+		mipsMe.cp0regs[9] += inc;
+	}
+
 	if (g_meHaltDetected) {
 		g_meHaltDetected = false;
 		meEnabled = false;
