@@ -721,13 +721,8 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 	}
 }
 
-static int sysclib_snprintf(u32 dst, int size, u32 fmt) {
-	return hleLogError(Log::sceKernel, 0, "UNIMPL");
-}
-
-static int sysclib_sprintf(u32 dst, u32 fmt) {
-	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
-
+// NOTE: This doesn't yet obey the limit parameter, needed for correct snprintf behavior.
+static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 	if (!Memory::IsValidNullTerminatedString(fmt)) {
 		ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad fmt");
 		return 0;
@@ -748,7 +743,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 	bool processing_specifier = false;
 	std::string specifier = "";
 	int bytes_to_read = 0;
-	int arg_idx = 0;
+	int arg_idx = paramOffset;
 	std::string result = "";
 	for (const char *c = Memory::GetCharPointerUnchecked(fmt); *c != '\0'; c++) {
 		if (!processing_specifier) {
@@ -866,14 +861,33 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 		}
 	}
 
-	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d, content:", (int)result.length());
+	const size_t retval = result.size();
+
+	// Implement the snprintf length check.
+	if (limit != 0 && result.length() >= limit) {
+		result.resize(limit - 1);
+	}
+
+	VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d (retval: %d), content:", (int)result.length(), (int)retval);
 	VERBOSE_LOG(Log::sceKernel, "%s", result.c_str());
+	// Since this is a sprintf function and not an actual printf, we don't log to the Sprintf log.
+	// INFO_LOG(Log::Printf, "%s", result.c_str());
 	if (!Memory::IsValidRange(dst, (u32)result.length() + 1)) {
 		ERROR_LOG(Log::sceKernel, "sysclib_sprintf result string is too long or dst is invalid");
 		return 0;
 	}
 	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
-	return (int)result.length();
+	return (int)retval;
+}
+
+static int sysclib_sprintf(u32 dst, u32 fmt) {
+	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
+	return hleLogDebug(Log::sceKernel, sysclib_sprintf_impl(dst, 0, fmt, 0));
+}
+
+static int sysclib_snprintf(u32 dst, int size, u32 fmt) {
+	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_snprintf(dst=%08x, fmt=%08x)", dst, fmt);
+	return hleLogDebug(Log::sceKernel, sysclib_sprintf_impl(dst, size, fmt, 1));
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {

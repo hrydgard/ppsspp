@@ -70,6 +70,8 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	info.memory = 0;
 	options->Get("version", &info.version);
 	options->Get("memory", &info.memory);
+
+	// TODO: Why this specific limit?
 	if (info.memory > 93) {
 		ERROR_LOG(Log::System, "Plugin memory too high, using 93 MB");
 		info.memory = 93;
@@ -184,23 +186,23 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 
 	for (const std::string &filename : prxPlugins) {
 		if (!g_Config.bEnablePlugins) {
-			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled plugin %s", filename.c_str());
+			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled plugin '%s'", filename.c_str());
 			continue;
 		}
 
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
 		if (!error_string.empty() || module < 0) {
-			ERROR_LOG(Log::System, "Unable to load plugin %s (module %d): '%s'", filename.c_str(), module, error_string.c_str());
+			ERROR_LOG(Log::System, "Unable to load plugin '%s' (module %d): '%s'", filename.c_str(), module, error_string.c_str());
 			continue;
 		}
 
 		int ret = __KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
 		if (ret < 0) {
-			ERROR_LOG(Log::System, "Unable to start plugin %s: %08x", filename.c_str(), ret);
+			ERROR_LOG(Log::System, "Unable to start plugin '%s': %08x", filename.c_str(), ret);
 		} else {
 			std::string shortName = Path(filename).GetFilename();
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName), 6.0f);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: '%1'"), shortName), 6.0f);
 			started = true;
 			pluginWaitingModule->startingPlugins.push_back(module);
 			u32 error;
@@ -208,7 +210,7 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 			plugin_module->pluginWaitingThread = threadID;
 		}
 
-		INFO_LOG(Log::System, "Loaded plugin: %s", filename.c_str());
+		INFO_LOG(Log::System, "Loaded plugin: '%s'", filename.c_str());
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);
