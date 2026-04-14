@@ -166,17 +166,22 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
 
 	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, bGridView, screenManager(),
 		mm->T(howToTitle), howToUri,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
+	gameBrowser->SetSearchBar(search);
+
 	scrollView->Add(gameBrowser);
 	gameBrowsers_.push_back(gameBrowser);
 
-	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), scrollView);
+	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), tabContainer);
 	if (scrollPos) {
 		scrollView->RememberPosition(scrollPos);
 	}

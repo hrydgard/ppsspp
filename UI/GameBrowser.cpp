@@ -778,7 +778,7 @@ void SearchBar::Draw(UIContext &dc) {
 	int leftMargin = 10;
 	if (image) {
 		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
-		leftMargin += image->w + 10;
+		leftMargin += image->w;
 	}
 	dc.DrawText(searchFilter_, overlayBounds.x + leftMargin, overlayBounds.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 }
