@@ -141,8 +141,8 @@ void MainScreen::CreateRecentTab() {
 	LinearLayout *recentContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	SearchBar *search = recentContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	ScrollView *scrollRecentGames = recentContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	scrollRecentGames->SetTag("MainScreenRecentGames");
+	ScrollView *scrollView = recentContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	scrollView->SetTag("MainScreenRecentGames");
 
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
@@ -151,7 +151,7 @@ void MainScreen::CreateRecentTab() {
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabRecentGames->SetSearchBar(search);
 
-	scrollRecentGames->Add(tabRecentGames);
+	scrollView->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
 
 	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), recentContainer);
@@ -169,7 +169,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
 
 	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, bGridView, screenManager(),
