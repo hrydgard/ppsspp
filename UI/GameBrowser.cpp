@@ -825,7 +825,8 @@ bool SearchBar::Touch(const TouchInput &input) {
 	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
-			OnCancel.Trigger(UI::EventParams{this});
+			UI::EventParams params{this};
+			OnCancel.Trigger(params);
 			return true;
 		}
 	}

@@ -115,6 +115,19 @@ bool HasMainButtonMapping(const std::vector<InputMapping> &mappings) {
 	return false;
 }
 
+static void RemoveKeyboardLetterKeys(std::vector<InputMapping> &mappings) {
+	std::vector<InputMapping> result;
+	for (auto &mapping : mappings) {
+		if (mapping.deviceId == DEVICE_ID_KEYBOARD) {
+			if (mapping.keyCode >= NKCODE_A && mapping.keyCode <= NKCODE_Z) {
+				continue;
+			}
+		}
+		result.push_back(mapping);
+	}
+	mappings = result;
+}
+
 // TODO: This is such a mess...
 void UpdateNativeMenuKeys() {
 	std::vector<InputMapping> confirmKeys, cancelKeys;
@@ -193,6 +206,12 @@ void UpdateNativeMenuKeys() {
 		INFO_LOG(Log::System, "Cancel key: %s", MultiInputMapping(cancelKeys[i]).ToVisualString().c_str());
 	}
 	*/
+
+	// Remove keyboard letter keys from some arrays, as they will collide with text input for instant search.
+	RemoveKeyboardLetterKeys(tabLeft);
+	RemoveKeyboardLetterKeys(tabRight);
+	RemoveKeyboardLetterKeys(confirmKeys);
+	RemoveKeyboardLetterKeys(cancelKeys);
 
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
