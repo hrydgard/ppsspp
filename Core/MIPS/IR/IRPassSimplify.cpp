@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
@@ -1808,12 +1809,6 @@ static IRMemoryOpInfo IROpMemoryAccessSize(IROp op) {
 	}
 }
 
-// Matches IsMeSensitiveHwPage() in Arm64IRCompLoadStore.cpp.
-static bool IsMeHwPageForValidation(u32 address) {
-	u32 phys = address & 0x1FFFFFFF;
-	return (phys >= 0x1C000000 && phys < 0x1D100000);
-}
-
 bool ApplyMeMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
 	if (g_Config.bFastMemory)
@@ -1833,7 +1828,7 @@ bool ApplyMeMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions 
 			} else {
 				// src1 == ZERO, address is fully constant.
 				u32 addr = inst.constant;
-				if (IsMeHwPageForValidation(addr)) {
+				if (Memory::IsMeSensitiveHwPage(addr)) {
 					// The backend handles ME HW registers.
 					skipValidation = true;
 				}

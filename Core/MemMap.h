@@ -336,6 +336,11 @@ inline bool IsValid4AlignedAddress(const u32 address) {
 	}
 }
 
+// Returns true if address is in an ME-sensitive hardware register page
+// (system controller, ME interrupts, VME, DMACplus, etc.).
+// Implementation in MemMapFunctions.cpp.
+bool IsMeSensitiveHwPage(u32 address);
+
 inline u32 MaxSizeAtAddress(const u32 address){
 	if ((address & 0x3E000000) == 0x08000000) {
 		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);

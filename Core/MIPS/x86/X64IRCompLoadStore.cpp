@@ -37,17 +37,6 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
-// See Arm64IRCompLoadStore.cpp for detailed documentation of these ranges.
-static bool IsMeSensitiveHwPage(u32 address) {
-	u32 phys = address & 0x1FFFFFFF;
-	return (phys >= 0x1C000000 && phys < 0x1C001000) ||
-		(phys >= 0x1C100000 && phys < 0x1C101000) ||
-		(phys >= 0x1C200000 && phys < 0x1C201000) ||
-		(phys >= 0x1C300000 && phys < 0x1C301000) ||
-		(phys >= 0x1CC00000 && phys < 0x1CC01000) ||
-		(phys >= 0x1D000000 && phys < 0x1D001000);
-}
-
 static u32 ComputeConstantAddress(const IRInst &inst, X64IRRegCache &regs) {
 	uint64_t base = 0;
 	if (inst.src1 != MIPS_REG_ZERO) {
@@ -68,7 +57,7 @@ static bool NeedsGenericMeHwAccess(const IRInst &inst, X64IRRegCache &regs, cons
 		return false;
 	if (inst.src1 != MIPS_REG_ZERO && !regs.IsGPRImm(inst.src1))
 		return false;
-	return IsMeSensitiveHwPage(ComputeConstantAddress(inst, regs));
+	return Memory::IsMeSensitiveHwPage(ComputeConstantAddress(inst, regs));
 }
 
 Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {

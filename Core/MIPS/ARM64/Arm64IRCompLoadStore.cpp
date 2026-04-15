@@ -38,27 +38,6 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
-// Returns true if the given address falls within an ME-sensitive hardware register page.
-// These are pages where ME code reads/writes MMIO registers that need to go through
-// ReadFromHardware/WriteToHardware rather than direct memory access.
-//
-// Physical ranges (after masking with 0x1FFFFFFF):
-//   0x1C000000 - System Controller (power, clock, reset control)
-//   0x1C100000 - ME interrupt / soft-interrupt registers (0xBC100044, 0xBC100048, etc.)
-//   0x1C200000 - ME/SC communication registers
-//   0x1C300000 - Additional system control
-//   0x1CC00000 - VME (Video ME) registers (CSC, etc.)
-//   0x1D000000 - DMACplus registers
-static bool IsMeSensitiveHwPage(u32 address) {
-	u32 phys = address & 0x1FFFFFFF;
-	return (phys >= 0x1C000000 && phys < 0x1C001000) ||
-		(phys >= 0x1C100000 && phys < 0x1C101000) ||
-		(phys >= 0x1C200000 && phys < 0x1C201000) ||
-		(phys >= 0x1C300000 && phys < 0x1C301000) ||
-		(phys >= 0x1CC00000 && phys < 0x1CC01000) ||
-		(phys >= 0x1D000000 && phys < 0x1D001000);
-}
-
 static u32 ComputeConstantAddress(const IRInst &inst, Arm64IRRegCache &regs) {
 	uint64_t base = 0;
 	if (inst.src1 != MIPS_REG_ZERO) {
@@ -83,7 +62,7 @@ static bool NeedsGenericMeHwAccess(const IRInst &inst, Arm64IRRegCache &regs, co
 		return false;
 	}
 	u32 addr = ComputeConstantAddress(inst, regs);
-	bool sensitive = IsMeSensitiveHwPage(addr);
+	bool sensitive = Memory::IsMeSensitiveHwPage(addr);
 	if (sensitive) {
 		DEBUG_LOG(Log::JIT, "ME HW access detected: addr=%08x src1=%d constant=%08x -> GENERIC", addr, inst.src1, inst.constant);
 	}
