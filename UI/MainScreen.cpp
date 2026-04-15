@@ -583,7 +583,7 @@ void MainScreen::update() {
 	if (searchChanged_) {
 		for (auto browser : gameBrowsers_) {
 			if (browser->GetVisibility() == UI::V_VISIBLE) {
-				browser->SetSearchFilter(searchFilter_);
+				browser->SetSearchFilter(searchFilter_, false);
 			}
 		}
 		searchChanged_ = false;

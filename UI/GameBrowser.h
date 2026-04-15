@@ -51,7 +51,7 @@ public:
 	void SetPath(const Path &path);
 	void SetSearchBar(SearchBar *searchBar);
 	bool Key(const KeyInput &key) override;
-	void SetSearchFilter(const std::string &filter);
+	void SetSearchFilter(const std::string &filter, bool setKeyboardFocus);
 	void Draw(UIContext &dc) override;
 	void Update() override;
 	void RequestRefresh() {
@@ -66,7 +66,7 @@ protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 	virtual Path HomePath();
-	void ApplySearchFilter();
+	void ApplySearchFilter(bool setKeyboardFocus);
 
 	void Refresh();
 

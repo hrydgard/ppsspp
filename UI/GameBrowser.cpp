@@ -24,6 +24,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/Root.h"
 
 #include "Common/Math/curves.h"
 #include "Common/Net/URL.h"
@@ -543,36 +544,45 @@ bool GameBrowser::Key(const KeyInput &input) {
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
 		if (unichar >= 0x20) {
+			// TODO: Save focus state here.
+
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
 			searchFilter_ += buf;
-			ApplySearchFilter();
+			ApplySearchFilter(true);
 			retval = true;
 		}
 	} else if (input.flags & KeyInputFlags::DOWN) {
 		if (input.keyCode == NKCODE_DEL) {
 			if (!searchFilter_.empty()) {
 				searchFilter_.pop_back();
-				ApplySearchFilter();
+				ApplySearchFilter(true);
 				retval = true;
+				if (searchFilter_.empty()) {
+					// TODO: Restore focus state here.
+					UI::EnableFocusMovement(false);
+				}
 			}
 		} else if (!searchFilter_.empty() && input.keyCode == NKCODE_ESCAPE) {
 			searchFilter_.clear();
-			ApplySearchFilter();
+			ApplySearchFilter(false);
 			retval = true;
+
+			// TODO: Restore focus state here.
+			UI::EnableFocusMovement(false);
 		}
 	}
 	return retval;
 }
 
-void GameBrowser::SetSearchFilter(const std::string &filter) {
+void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFocus) {
 	searchFilter_ = filter;
 	// We don't refresh because game info loads asynchronously anyway.
-	ApplySearchFilter();
+	ApplySearchFilter(setKeyboardFocus);
 }
 
-void GameBrowser::ApplySearchFilter() {
+void GameBrowser::ApplySearchFilter(bool setKeyboardFocus) {
 	if (searchBar_) {
 		searchBar_->SetSearchFilter(searchFilter_);
 		searchBar_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
@@ -603,6 +613,8 @@ void GameBrowser::ApplySearchFilter() {
 		return;
 	}
 
+	View *firstMatch = nullptr;
+
 	for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
 		UI::View *v = gameList_->GetViewByIndex(i);
 		std::string label = v->DescribeText();
@@ -622,6 +634,9 @@ void GameBrowser::ApplySearchFilter() {
 
 		std::transform(label.begin(), label.end(), label.begin(), tolower);
 		bool match = v->CanBeFocused() && label.find(filter) != label.npos;
+		if (match && !firstMatch) {
+			firstMatch = v;
+		}
 		if (match && searchStates_[i] != SearchState::MATCH) {
 			// It was previously visible and force hidden, so show it again.
 			v->SetVisibility(UI::V_VISIBLE);
@@ -630,6 +645,13 @@ void GameBrowser::ApplySearchFilter() {
 			v->SetVisibility(UI::V_GONE);
 			searchStates_[i] = SearchState::MISMATCH;
 		}
+	}
+
+	if (firstMatch) {
+		if (setKeyboardFocus) {
+			UI::EnableFocusMovement(true);
+		}
+		UI::SetFocusedView(firstMatch);
 	}
 }
 
@@ -729,7 +751,7 @@ void GameBrowser::Update() {
 		refreshPending_ = false;
 	}
 	if (searchPending_) {
-		ApplySearchFilter();
+		ApplySearchFilter(false);
 	}
 }
 
@@ -798,19 +820,22 @@ void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) co
 }
 
 bool SearchBar::Touch(const TouchInput &input) {
+	bool retval = UI::InertView::Touch(input);
 	// Search bar has a simple touch-to-cancel functionality,
 	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
 	if (input.flags & TouchInputFlags::DOWN) {
-		OnCancel.Trigger(UI::EventParams{this});
-		return false;
+		if (bounds_.Contains(input.x, input.y)) {
+			OnCancel.Trigger(UI::EventParams{this});
+			return true;
+		}
 	}
-	return true;
+	return retval;
 }
 
 void GameBrowser::SetSearchBar(SearchBar *searchBar) {
 	searchBar_ = searchBar;
 	searchBar_->OnCancel.Add([this](UI::EventParams &) {
-		SetSearchFilter("");
+		SetSearchFilter("", false);
 	});
 }
 
