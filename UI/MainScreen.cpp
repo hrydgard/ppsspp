@@ -678,6 +678,7 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 			}
 		}
 		highlightedGamePath_.clear();
+		g_BackgroundAudio.SetGame(Path());
 		return;
 	}
 
@@ -871,6 +872,7 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
+	items->SetSpacing(0.0f);
 
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
