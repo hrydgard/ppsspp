@@ -15,9 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <atomic>
 #include <climits>
 #include <thread>
+#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(ARM64)
+#include <pthread.h>
+#endif
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -521,6 +526,10 @@ void IRNativeJit::RunLoopUntil(u64 globalticks) {
 	}
 
 	PROFILE_THIS_SCOPE("jit");
+#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(ARM64)
+	// Ensure W^X is in execute mode on this thread (MAP_JIT pages default to writable).
+	pthread_jit_write_protect_np(true);
+#endif
 	hooks_.enterDispatcher();
 }
 

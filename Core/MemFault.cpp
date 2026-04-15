@@ -44,6 +44,10 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Debugger/SymbolMap.h"
 
+// ME JIT code range check for fault handling.
+namespace MIPSComp { class JitInterface; }
+MIPSComp::JitInterface *ME_GetJit();
+
 // Stack walking stuff
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -125,6 +129,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	// TODO: Check that codePtr is within the current JIT space.
 	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
+	if (!inJitSpace) {
+		// Also check ME JIT code range.
+		MIPSComp::JitInterface *meJit = ME_GetJit();
+		inJitSpace = meJit && meJit->CodeInRange(codePtr);
+	}
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
 		// Actually, we could handle crashes from the IR interpreter here, although recovering the call stack
@@ -286,17 +295,53 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	g_lastMemoryExceptionType = type;
 
+	// ---------- ME HW register page fault (back-patching) ----------
+	// The page at 0xBC100000 is initially read-only when the ME is configured.
+	// A JIT write to 0xBC10004C (reset) or 0xBC100048 (mutex) faults here.
+	// HandleMeHwFault makes the page RW; we then emulate the write and resume.
+	bool meHwHandled = false;
+	if (success && info.isMemoryWrite) {
+		meHwHandled = Memory::HandleMeHwFault(guestAddress, true);
+	}
+
 	bool handled = true;
-	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
-		if (!info.isMemoryWrite) {
-			// It was a read. Fill the destination register with 0.
-			// TODO
+	if (success && (meHwHandled || g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
+
+		if (info.isMemoryWrite) {
+			// Emulate the write through checked path (handles MMIO / HW registers).
+#if PPSSPP_ARCH(ARM64)
+			uint32_t val = (uint32_t)context->CTX_REG(info.Rt);
+			if (info.size == 2) {
+				Memory::Write_U32(val, guestAddress);
+			} else if (info.size == 1) {
+				Memory::Write_U16((uint16_t)val, guestAddress);
+			} else if (info.size == 0) {
+				Memory::Write_U8((uint8_t)val, guestAddress);
+			}
+#endif
+		} else {
+			// It was a read. Emulate through checked path.
+#if PPSSPP_ARCH(ARM64)
+			uint32_t val = 0;
+			if (info.size == 2) {
+				val = Memory::Read_U32(guestAddress);
+			} else if (info.size == 1) {
+				val = Memory::Read_U16(guestAddress);
+			} else if (info.size == 0) {
+				val = Memory::Read_U8(guestAddress);
+			}
+			context->CTX_REG(info.Rt) = val;
+#endif
 		}
 		// Move on to the next instruction. Note that handling bad accesses like this is pretty slow.
 		context->CTX_PC += info.instructionSize;
-		g_numReportedBadAccesses++;
-		if (g_numReportedBadAccesses < 100) {
-			ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+		if (meHwHandled) {
+			Memory::HandleMeHwFaultPost();
+		} else {
+			g_numReportedBadAccesses++;
+			if (g_numReportedBadAccesses < 100) {
+				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			}
 		}
 	} else {
 		std::string infoString = "";

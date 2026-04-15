@@ -383,7 +383,7 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 		regs_.Map(inst);
 		ADDI2R(SCRATCH1, regs_.R(inst.src1), inst.constant, SCRATCH2);
 	}
-	ANDI2R(SCRATCH1, SCRATCH1, 0x3FFFFFFF, SCRATCH2);
+	ANDI2R(SCRATCH1, SCRATCH1, jo.isMeJit ? 0x1FFFFFFFU : 0x3FFFFFFFU, SCRATCH2);
 
 	std::vector<FixupBranch> validJumps;
 

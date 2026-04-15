@@ -114,6 +114,17 @@ ENUM_CLASS_BITOPS(MemMapSetupFlags);
 bool Init(MemMapSetupFlags flags);
 void Shutdown();
 void DoState(PointerWrap &p);
+void InitMeEdram();
+void ShutdownMeEdram();
+void ME_ProtectHwPage(bool readOnly);
+bool HandleMeHwFault(u32 guestAddress, bool isWrite);
+void HandleMeHwFaultPost();
+bool ME_HasPendingInterrupt();
+u32 ME_PeekSoftInterruptRaw();
+bool ME_ConsumeCpuInterruptRequest();
+void ME_ClearSoftInterrupt();   // Consume the pending SC→ME interrupt (called on delivery).
+void ME_RaiseSoftInterrupt();
+void ME_ResetInterruptState();
 
 // False when shutdown has already been called.
 bool IsActive();
@@ -302,6 +313,8 @@ inline bool IsValidAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return true;
+	} else if ((address & 0x1FFFF000) == 0x1FC00000) {
+		return true;  // ME SRAM (0xBFC00000 / 0x9FC00000 / 0x1FC00000)
 	} else {
 		return false;
 	}
@@ -316,6 +329,8 @@ inline bool IsValid4AlignedAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return (address & 3) == 0;
+	} else if ((address & 0x1FFFF003) == 0x1FC00000) {
+		return true;  // ME SRAM
 	} else {
 		return false;
 	}
@@ -334,6 +349,8 @@ inline u32 MaxSizeAtAddress(const u32 address){
 		return 0x00014000 - (address & 0x3FFFFFFF);
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else if ((address & 0x1FFFF000) == 0x1FC00000) {
+		return 0x1FC01000 - (address & 0x1FFFFFFF);  // ME SRAM 4KB
 	} else {
 		return 0;
 	}

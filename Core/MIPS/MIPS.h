@@ -269,6 +269,9 @@ public:
 	// Doesn't need save stating.
 	volatile bool insideJit = false;
 	volatile bool hasPendingClears = false;
+
+	// ME CP0 registers (added at end to preserve JIT offsets)
+	u32 cp0regs[32];
 };
 
 class MIPSDebugInterface;
@@ -276,6 +279,15 @@ class MIPSDebugInterface;
 //The one we are compiling or running currently
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
+extern MIPSDebugInterface debugMe;
 extern MIPSState mipsr4k;
+extern MIPSState mipsMe;
+
+// Media Engine LLE
+void Core_EnableME();
+void ME_InitPolling();
+
+// Used by the ME native JIT dispatcher to compile and look up blocks.
+const u8 *MECompileAndLookup();
 
 extern const float cst_constants[32];

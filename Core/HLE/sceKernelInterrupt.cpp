@@ -131,6 +131,16 @@ static void sceKernelCpuResumeIntrWithSync(u32 enable)
 
 bool IntrHandler::run(PendingInterrupt& pend)
 {
+	if (pend.subintr == PSP_INTR_SUB_NONE) {
+		if (baseHandlerAddress_ == 0 || !baseEnabled_) {
+			WARN_LOG(Log::sceIntc, "Ignoring base interrupt %d without enabled handler.", pend.intr);
+			return false;
+		}
+
+		copyArgsToCPU(pend);
+		return true;
+	}
+
 	SubIntrHandler *handler = get(pend.subintr);
 	if (!handler) {
 		WARN_LOG(Log::sceIntc, "Ignoring interrupt, already been released.");
@@ -144,6 +154,14 @@ bool IntrHandler::run(PendingInterrupt& pend)
 
 void IntrHandler::copyArgsToCPU(PendingInterrupt& pend)
 {
+	if (pend.subintr == PSP_INTR_SUB_NONE) {
+		DEBUG_LOG(Log::CPU, "Entering base interrupt handler %08x", baseHandlerAddress_);
+		currentMIPS->pc = baseHandlerAddress_;
+		currentMIPS->r[MIPS_REG_A0] = pend.intr;
+		currentMIPS->r[MIPS_REG_A1] = baseHandlerArg_;
+		return;
+	}
+
 	SubIntrHandler* handler = get(pend.subintr);
 	DEBUG_LOG(Log::CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 	currentMIPS->pc = handler->handlerAddress;
@@ -189,11 +207,35 @@ SubIntrHandler* IntrHandler::get(int subIntrNum)
 }
 void IntrHandler::clear()
 {
+	baseEnabled_ = false;
+	baseHandlerAddress_ = 0;
+	baseHandlerArg_ = 0;
 	subIntrHandlers.clear();
+}
+
+void IntrHandler::setBase(u32 handlerAddress, u32 handlerArg) {
+	baseHandlerAddress_ = handlerAddress;
+	baseHandlerArg_ = handlerArg;
+}
+
+void IntrHandler::clearBase() {
+	baseEnabled_ = false;
+	baseHandlerAddress_ = 0;
+	baseHandlerArg_ = 0;
+}
+
+void IntrHandler::enableBase() {
+	baseEnabled_ = true;
+}
+
+void IntrHandler::disableBase() {
+	baseEnabled_ = false;
 }
 
 void IntrHandler::queueUp(int subintr) {
 	if (subintr == PSP_INTR_SUB_NONE) {
+		// Always queue here. Derived handlers may override run(), and the base
+		// handler check belongs in IntrHandler::run().
 		pendingInterrupts.push_back(PendingInterrupt(intrNumber, subintr));
 	} else {
 		// Just call execute on all the subintr handlers for this interrupt.
@@ -588,6 +630,50 @@ static int QueryIntrHandlerInfo()
 {
 	ERROR_LOG_REPORT(Log::sceIntc, "QueryIntrHandlerInfo()");
 	return 0;
+}
+
+static u32 sceKernelRegisterIntrHandler(u32 intrNumber, u32 unknown, u32 handler, u32 handlerArg, u32 subCount) {
+	(void)unknown;
+	(void)subCount;
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
+	}
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (handler == 0) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "NULL handler");
+	}
+	if (intr == nullptr) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "missing interrupt");
+	}
+	if (intrNumber == PSP_MECODEC_INTR) {
+		DEBUG_LOG(Log::sceIntc, "Registering base handler for MECODEC intr at %08x", handler);
+	}
+	intr->setBase(handler, handlerArg);
+	return hleLogDebug(Log::sceIntc, 0);
+}
+
+static u32 sceKernelReleaseIntrHandler(u32 intrNumber) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
+	}
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (intr == nullptr) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "missing interrupt");
+	}
+	intr->clearBase();
+	return hleLogDebug(Log::sceIntc, 0);
+}
+
+static u32 sceKernelEnableIntr(u32 intrNumber) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
+	}
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (intr == nullptr) {
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "missing interrupt");
+	}
+	intr->enableBase();
+	return hleLogDebug(Log::sceIntc, 0);
 }
 
 static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n) {
@@ -1051,6 +1137,9 @@ const HLEFunction InterruptManagerForKernel[] =
 	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""    ,HLE_KERNEL_SYSCALL },
 	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx" ,HLE_KERNEL_SYSCALL },
 	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0XF987B1F0, &WrapU_U<sceKernelReleaseIntrHandler>,        "sceKernelReleaseIntrHandler",         'x', "x"   ,HLE_KERNEL_SYSCALL },
+	{0X58DD8978, &WrapU_UUUUU<sceKernelRegisterIntrHandler>,   "sceKernelRegisterIntrHandler",        'x', "xxxxx",HLE_KERNEL_SYSCALL },
+	{0X4D6E7305, &WrapU_U<sceKernelEnableIntr>,                "sceKernelEnableIntr",                 'x', "x"   ,HLE_KERNEL_SYSCALL },
 	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""    ,HLE_KERNEL_SYSCALL },
 	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"   ,HLE_KERNEL_SYSCALL },
 };

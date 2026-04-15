@@ -185,6 +185,11 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		compilerEnabled_ = false;
 #endif
 		while (mips->downcount >= 0) {
+			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+				mips->downcount = -1;
+				mips->pc = 0;
+				break;
+			}
 			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
@@ -257,7 +262,7 @@ void IRBlockCache::Clear() {
 	arena_.shrink_to_fit();
 }
 
-IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {}
+IRBlockCache::IRBlockCache(bool compileToNative, bool patchMemory) : compileToNative_(compileToNative), patchMemory_(patchMemory) {}
 
 int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
 	// We have 24 bits to represent offsets with.
@@ -333,10 +338,14 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 }
 
 void IRBlockCache::FinalizeBlock(int blockIndex) {
-	// TODO: What's different about preload blocks?
 	IRBlock &block = blocks_[blockIndex];
 	int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
-	block.Finalize(cookie);
+	if (patchMemory_) {
+		block.Finalize(cookie);
+	} else {
+		// Update hash for validation without patching memory.
+		block.UpdateHash();
+	}
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);

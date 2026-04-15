@@ -188,6 +188,18 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	ir.Write(IROp::Interpret, 0, ir.AddConstant(op.encoding));
+
+	// ERET (0x42000018) and HALT (0x70000000) change control flow or stop
+	// execution entirely.  They must terminate the IR block so the caller
+	// can react (e.g., redirect PC or stop the ME).
+	if (op.encoding == 0x42000018 || op.encoding == 0x70000000) {
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(js.downcountAmount));
+		js.downcountAmount = 0;
+		ir.Write(IROp::ExitToPC);
+		js.compiling = false;
+		return;
+	}
+
 	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
@@ -275,19 +287,24 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 
 	IRWriter simplified;
 	IRWriter *code = &ir;
+	bool isME = (em_address >= 0x80000000 || (currentMIPS != nullptr && currentMIPS != &mipsr4k));
 	if (!js.hadBreakpoints) {
-		std::vector<IRPassFunc> passes{
-			&ApplyMemoryValidation,
-			&RemoveLoadStoreLeftRight,
-			&OptimizeFPMoves,
-			&PropagateConstants,
-			&PurgeTemps,
-			&ReduceVec4Flush,
-			&OptimizeLoadsAfterStores,
-			// &ReorderLoadStore,
-			// &MergeLoadStore,
-			// &ThreeOpToTwoOp,
-		};
+		std::vector<IRPassFunc> passes;
+		// ME blocks use a custom validation pass that skips HW register
+		// addresses (handled by the backend's NeedsGenericMeHwAccess).
+		if (!isME)
+			passes.push_back(&ApplyMemoryValidation);
+		passes.push_back(&RemoveLoadStoreLeftRight);
+		passes.push_back(&OptimizeFPMoves);
+		passes.push_back(&PropagateConstants);
+		if (isME)
+			passes.push_back(&ApplyMeMemoryValidation);
+		passes.push_back(&PurgeTemps);
+		passes.push_back(&ReduceVec4Flush);
+		passes.push_back(&OptimizeLoadsAfterStores);
+		// &ReorderLoadStore,
+		// &MergeLoadStore,
+		// &ThreeOpToTwoOp,
 
 		if (opts.optimizeForInterpreter) {
 			// Add special passes here.
