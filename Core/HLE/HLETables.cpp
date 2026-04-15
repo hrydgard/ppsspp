@@ -18,8 +18,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Core/MemMap.h"
-#include "Core/MIPS/MIPS.h"
 
 #include "sceAtrac.h"
 #include "sceAudio.h"
@@ -89,6 +87,9 @@
 #include "sceNetResolver.h"
 // #include "sceNp2.h"
 #include "sceNet_lib.h"
+#include "sceSysEvent.h"
+#include "sceSysreg.h"
+#include "sceMeCore.h"
 
 #define N(s) s
 
@@ -200,88 +201,15 @@ const HLEFunction KDebugForKernel[] =
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
 
-// Provide a minimal PspSysEventHandler for ME startup code.
-// It uses a fixed kernel address and the name "SceMeRpc".
-static u32 sceKernelReferSysEventHandler() {
-	const u32 handlerAddr = 0x88000100;
-	const u32 nameAddr = handlerAddr + 0x40; // name string after struct
-
-	// Write name string "SceMeRpc\0"
-	Memory::Write_U32(0x4D656353, nameAddr);     // "SceM" (little-endian: 'S','c','e','M')
-	Memory::Write_U32(0x63705265, nameAddr + 4); // "eRpc" (little-endian: 'e','R','p','c')
-	Memory::Write_U8(0, nameAddr + 8);           // null terminator
-
-	// Write the fixed handler record.
-	Memory::Write_U32(64, handlerAddr);          // size
-	Memory::Write_U32(nameAddr, handlerAddr + 4); // name pointer
-	Memory::Write_U32(0xFFFF00, handlerAddr + 8); // type_mask
-	Memory::Write_U32(0, handlerAddr + 12);       // handler (will be patched by kinit)
-	Memory::Write_U32(0, handlerAddr + 16);       // r28
-	Memory::Write_U32(0, handlerAddr + 20);       // busy
-	Memory::Write_U32(0, handlerAddr + 24);       // next = NULL (end of list)
-
-	return handlerAddr;
-}
-
-static u32 sceKernelRegisterSysEventHandler(u32 handler) { return 0; }
-static u32 sceKernelUnregisterSysEventHandler(u32 handler) { return 0; }
-
-const HLEFunction sceSysEventForKernel[] = {
-	{0X68D55505, &WrapU_V<sceKernelReferSysEventHandler>,           "sceKernelReferSysEventHandler",           'x', ""   },
-	{0XCD9E4BB5, &WrapU_U<sceKernelRegisterSysEventHandler>,        "sceKernelRegisterSysEventHandler",        'x', "x"  },
-	{0XD7D3FDCD, &WrapU_U<sceKernelUnregisterSysEventHandler>,      "sceKernelUnregisterSysEventHandler",      'x', "x"  },
-};
-
 const HLEFunction pspeDebug[] = 
 {
 	{0XDEADBEAF, nullptr,                                            "pspeDebugWrite",                          '?', ""   },
 };
 
-// ========== Media Engine sceSysreg_driver HLE ==========
-static u32 sceSysregMeResetEnable371() { return 0; }
-static u32 sceSysregMeBusClockEnable371() { return 0; }
-static u32 sceSysregMeResetDisable371() { Core_EnableME(); return 0; }
-static u32 sceSysregVmeResetEnable371() { return 0; }
-static u32 sceSysregAvcResetEnable371() { return 0; }
-static u32 sceSysregMeBusClockDisable371() { return 0; }
-
-const HLEFunction sceSysreg_driver[] = {
-	// FW 3.71+ NIDs:
-	{0XA9997109, &WrapU_V<sceSysregMeResetEnable371>,      "sceSysregMeResetEnable371",      'x', "" },
-	{0X3199CF1C, &WrapU_V<sceSysregMeBusClockEnable371>,   "sceSysregMeBusClockEnable371",   'x', "" },
-	{0X76220E94, &WrapU_V<sceSysregMeResetDisable371>,     "sceSysregMeResetDisable371",     'x', "" },
-	{0X17A22D51, &WrapU_V<sceSysregVmeResetEnable371>,     "sceSysregVmeResetEnable371",     'x', "" },
-	{0XE5B3D348, &WrapU_V<sceSysregAvcResetEnable371>,     "sceSysregAvcResetEnable371",     'x', "" },
-	{0X07881A0B, &WrapU_V<sceSysregMeBusClockDisable371>,  "sceSysregMeBusClockDisable371",  'x', "" },
-	// Pre-3.71 NIDs (same functions, different NID hashes):
-	{0XDE59DACB, &WrapU_V<sceSysregMeResetEnable371>,      "sceSysregMeResetEnable",         'x', "" },
-	{0X2DB0EB28, &WrapU_V<sceSysregMeResetDisable371>,     "sceSysregMeResetDisable",        'x', "" },
-	{0XD20581EA, &WrapU_V<sceSysregVmeResetEnable371>,     "sceSysregVmeResetEnable",        'x', "" },
-	{0X9BB70D34, &WrapU_V<sceSysregAvcResetEnable371>,     "sceSysregAvcResetEnable",        'x', "" },
-	{0X44F6CDA7, &WrapU_V<sceSysregMeBusClockEnable371>,   "sceSysregMeBusClockEnable",      'x', "" },
-	{0X158AD4FC, &WrapU_V<sceSysregMeBusClockDisable371>,  "sceSysregMeBusClockDisable",     'x', "" },
-};
-
-// ========== Media Engine sceMeCore_driver HLE ==========
-static u32 sceMeBootStartStub(u32 arg) { return 0; }
-
-const HLEFunction sceMeCore_driver[] = {
-	{0X47DB48C2, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart",    'x', "x" },
-	{0XC287AD90, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart371", 'x', "x" },
-	{0XD857CF93, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart380", 'x', "x" },
-	{0X8988AD49, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart395", 'x', "x" },
-	{0X051C1601, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart500", 'x', "x" },
-	{0X3A2E60BB, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart620", 'x', "x" },
-	{0X99E4DBFA, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart635", 'x', "x" },
-	{0X5DFF5C50, &WrapU_U<sceMeBootStartStub>, "sceMeBootStart660", 'x', "x" },
-};
-
-
 const HLEModule moduleList[] = 
 {
 	{"FakeSysCalls", ARRAY_SIZE(FakeSysCalls), FakeSysCalls},
 	{"UtilsForUser", ARRAY_SIZE(UtilsForUser), UtilsForUser},
-	{"sceSysEventForKernel", ARRAY_SIZE(sceSysEventForKernel), sceSysEventForKernel},
 	{"KDebugForKernel", ARRAY_SIZE(KDebugForKernel), KDebugForKernel},
 	{"sceSAScore"},
 	{"SceBase64_Library"},
@@ -292,8 +220,6 @@ const HLEModule moduleList[] =
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
 	{"pspeDebug", ARRAY_SIZE(pspeDebug), pspeDebug},
-	{"sceSysreg_driver", ARRAY_SIZE(sceSysreg_driver), sceSysreg_driver},
-	{"sceMeCore_driver", ARRAY_SIZE(sceMeCore_driver), sceMeCore_driver},
 };
 
 static const int numModules = ARRAY_SIZE(moduleList);
@@ -404,6 +330,10 @@ void RegisterAllModules() {
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 
+	// Media Engine HLE modules.
+	Register_sceSysEventForKernel();
+	Register_sceSysreg_driver();
+	Register_sceMeCore_driver();
+
 	// add new modules here.
 }
-

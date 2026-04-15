@@ -758,6 +758,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceNp.cpp \
   $(SRC)/Core/HLE/sceNp2.cpp \
   $(SRC)/Core/HLE/scePauth.cpp \
+  $(SRC)/Core/HLE/sceMeCore.cpp \
+  $(SRC)/Core/HLE/sceSysEvent.cpp \
+  $(SRC)/Core/HLE/sceSysreg.cpp \
   $(SRC)/Core/FileSystems/BlobFileSystem.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \

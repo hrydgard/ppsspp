@@ -2444,6 +2444,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp2.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
+	Core/HLE/sceSysEvent.cpp
+	Core/HLE/sceSysEvent.h
+	Core/HLE/sceSysreg.cpp
+	Core/HLE/sceSysreg.h
+	Core/HLE/sceMeCore.cpp
+	Core/HLE/sceMeCore.h
 	Core/HW/SimpleAudioDec.cpp
 	Core/HW/SimpleAudioDec.h
 	Core/HW/Atrac3Standalone.cpp
