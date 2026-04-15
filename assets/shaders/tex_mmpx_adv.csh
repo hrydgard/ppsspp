@@ -62,45 +62,56 @@ bool simb(vec4 col1, vec4 col2) {
 	float maxdiff = max(diff.r, max(diff.g, diff.b));
 	float mindiff = min(diff.r, min(diff.g, diff.b));
 
-	// Luminance base weight: both colors must be > 0.078 (0.234÷3)
+	// col1 and col2 > 0.078 (0.234÷3)
 	float weight = step(0.234, min(col1.r+col1.g+col1.b, col2.r+col2.g+col2.b));
-	// Transparency base weight: both colors must be fully opaque
+	// both must trans
 	float weight2 = step(0.998, min(col1.a, col2.a));
 
-	// Find the most opposite channel: if one positive and one negative, take the smallest absolute value; 0 if same sign
-	// Use max(0.0, ...) to filter same-sign cases
-	// Skip team_rebel if either pixel has insufficient brightness (<0.078) or is not fully opaque
 	float team_rebel = min(max(0.0, maxdiff), max(0.0, -mindiff)) * weight * weight2;
 	float finaldist = (maxdiff - mindiff) + team_rebel;
 
 	highp float dot_diff = dot(diff.rgb, diff.rgb);
 
-	// Equivalent to (finaldist ÷ 0.145898 )²
+	// (finaldist ÷ 0.145898 )²
 	highp float factor = (finaldist * finaldist) * 46.9787;
 
-	return abs(diff.a) < 0.145898 && dot_diff < mix(0.0638587, 0.0, factor);
+	float alpha_match_mask = step(0.145898, abs(diff.a));
+
+	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0;
 }
 
 bool sim(vec4 col1, vec4 col2) {
 
-	if ( col1.a < 0.381966 && col2.a < 0.381966 ) return true;
+	highp vec4 diff = col1 - col2;
 
-	return simb(col1,col2);
+	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
+
+	highp float dot_diff = dot(diff.rgb, diff.rgb);	//xxx.alpha 
+
+	// (delta_range ÷ 0.382 )²
+	highp float factor = (delta_range * delta_range) * 6.8541;
+
+	float both_near_trans = step(max(col1.a, col2.a), 0.381966);
+
+	float alpha_match_mask = step(0.381966, abs(diff.a));
+
+	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0 + both_near_trans*10.0; // xxx.alpha
 }
 
 bool mixcheck(vec4 col1, vec4 col2) {
 
 	highp vec4 diff = col1 - col2;
 
-	// Three-channel color difference (max_diff - min_diff)
 	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
 
-	highp float dot_diff = dot(diff.rgb, diff.rgb);
+	highp float dot_diff = dot(diff.rgb, diff.rgb);	//xxx.alpha
 
-	// Equivalent to (delta_range ÷ 0.618 )²
+	//  (delta_range ÷ 0.618 )²
 	highp float factor = (delta_range * delta_range) * 2.618034;
 
-	return abs(diff.a) < 0.5 && dot_diff < mix(0.75, 0.0, factor);
+	float alpha_match_mask = step(0.5, abs(diff.a));
+
+	return dot_diff < mix(0.75, 0.0, factor) - alpha_match_mask*5.0;// xxx.alpha
 }
 
 bool fastcheck(vec4 col1, vec4 col2) {
@@ -665,13 +676,14 @@ vec4 admixS( vec4 A, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec
 
     if ( eq(R, RC) || eq(G,SG) ) return vE;
 	// Necessary condition for opposite trend judgment
-	if ( none_eq2(I,H,S) && (SI!=RI || I==II) ) return vE;
-
-	if ( eq(E,C) && (eq(E,D)||eq(B,D)) ) return vF;
-
-	if ( eq(E,D) && eq(B,C) && sim(vE,vC) ) return vF;
+	if ( none_eq2(I,H,S) && (neq(SI,RI) || eq(I,II)) ) return vE;
 
 	bool mixok = vE.a>0.002 && mixcheck(vF,vE);
+
+	if ( eq(E,C) && (eq(E,D)||eq(B,D)) ) return mixok ? mix(vF,vE,0.381966) : vF;
+
+	if ( eq(E,D) && eq(B,C) && sim(vE,vC) ) return mixok ? mix(vF,vE,0.381966) : vF;
+
 	if ( all_eq2(B,C,D) && fastcheck(vE, vC) ) return mixok ? mix(vF,vE,0.381966) : vF;
 
     return vE;
