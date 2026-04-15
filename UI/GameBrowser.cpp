@@ -791,18 +791,17 @@ void GameBrowser::Draw(UIContext &dc) {
 
 void SearchBar::Draw(UIContext &dc) {
 	using namespace UI;
-	Bounds overlayBounds = bounds_.Inset(12, 0, 12, 0);
 
-	dc.FillRect(dc.GetTheme().itemStyle.background, overlayBounds);
+	dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
 
 	const ImageID searchIcon = ImageID("I_SEARCH");
 	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
 	int leftMargin = 10;
 	if (image) {
 		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
-		leftMargin += image->w;
+		leftMargin += image->w + 10;
 	}
-	dc.DrawText(searchFilter_, overlayBounds.x + leftMargin, overlayBounds.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 }
 
 void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -816,7 +815,7 @@ void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) co
 		h = std::max(h, (float)image->h);
 	}
 	w += 20;  // Padding
-	h += 10;
+	h += 24;
 }
 
 bool SearchBar::Touch(const TouchInput &input) {
