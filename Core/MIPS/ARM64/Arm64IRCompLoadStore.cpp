@@ -38,6 +38,17 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
+// Returns true if the given address falls within an ME-sensitive hardware register page.
+// These are pages where ME code reads/writes MMIO registers that need to go through
+// ReadFromHardware/WriteToHardware rather than direct memory access.
+//
+// Physical ranges (after masking with 0x1FFFFFFF):
+//   0x1C000000 - System Controller (power, clock, reset control)
+//   0x1C100000 - ME interrupt / soft-interrupt registers (0xBC100044, 0xBC100048, etc.)
+//   0x1C200000 - ME/SC communication registers
+//   0x1C300000 - Additional system control
+//   0x1CC00000 - VME (Video ME) registers (CSC, etc.)
+//   0x1D000000 - DMACplus registers
 static bool IsMeSensitiveHwPage(u32 address) {
 	u32 phys = address & 0x1FFFFFFF;
 	return (phys >= 0x1C000000 && phys < 0x1C001000) ||

@@ -37,6 +37,7 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
+// See Arm64IRCompLoadStore.cpp for detailed documentation of these ranges.
 static bool IsMeSensitiveHwPage(u32 address) {
 	u32 phys = address & 0x1FFFFFFF;
 	return (phys >= 0x1C000000 && phys < 0x1C001000) ||
