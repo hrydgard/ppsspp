@@ -1544,13 +1544,13 @@ void Spinner::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 void Spinner::Draw(UIContext &dc) {
 	if (!(color_ & 0xFF000000))
 		return;
-	double t = time_now_d() * 1.3f;
-	double angle = fmod(t, M_PI * 2.0);
+	double t = time_now_d() * 1.3;
+	float angle = (float)fmod(t, M_PI * 2.0);
 
 	if (!images_) {
 		// Simple.
 		dc.BeginNoTex();
-		dc.Draw()->CircleSegment(bounds_.centerX(), bounds_.centerY(), bounds_.radius(), 3.0f, 20.0f, angle, angle + PI * 3.0 / 2.0, dc.GetTheme().itemStyle.fgColor, 0.0f);
+		dc.Draw()->CircleSegment(bounds_.centerX(), bounds_.centerY(), bounds_.radius(), 3.0f, 20.0f, angle, angle + PI * 3.0f / 2.0f, dc.GetTheme().itemStyle.fgColor, 0.0f);
 		dc.Flush();
 		dc.Begin();
 		dc.RebindTexture();
@@ -1558,11 +1558,11 @@ void Spinner::Draw(UIContext &dc) {
 	}
 
 	float r = bounds_.w * 0.5f;
-	double da = M_PI * 2.0 / numImages_;
+	float da = (M_PI * 2.0f) / numImages_;
 	for (int i = 0; i < numImages_; i++) {
-		double a = angle + i * da;
-		float x = (float)cos(a) * r;
-		float y = (float)sin(a) * r;
+		float a = angle + i * da;
+		float x = cosf(a) * r;
+		float y = sinf(a) * r;
 		dc.Draw()->DrawImage(images_[i], bounds_.centerX() + x, bounds_.centerY() + y, 1.0f, color_, ALIGN_CENTER);
 	}
 }
